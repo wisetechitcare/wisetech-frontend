@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@utils/apiError';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -18,16 +19,12 @@ import {
   ConfigChipGrid,
 } from '@app/modules/configuration';
 import {
-  createCompanyAgendaCategory,
   createCompanyAgendaStatus,
   createCompanyMeetingPurpose,
-  deleteCompanyAgendaCategory,
   deleteCompanyAgendaStatus,
   deleteCompanyMeetingPurpose,
-  getCompanyAgendaCategories,
   getCompanyAgendaStatuses,
   getCompanyMeetingPurposes,
-  updateCompanyAgendaCategory,
   updateCompanyAgendaStatus,
   updateCompanyMeetingPurpose,
 } from '@services/meetingAgendaMom';
@@ -45,22 +42,20 @@ const CHIP_COLORS = [
 ];
 
 type EditTarget =
-  | { kind: 'category'; id: string; name: string; isActive: boolean }
   | { kind: 'status'; id: string; name: string; color: string; isActive: boolean }
   | { kind: 'purpose'; id: string; name: string; isActive: boolean; requiresOther?: boolean }
   | null;
 
-type CreateKind = 'category' | 'status' | 'purpose';
+type CreateKind = 'status' | 'purpose';
 
 function byNameAz<T extends { name: string }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 }
 
 /**
- * Meetings → Configure: calendar appearance, agenda categories, statuses, purposes.
+ * Meetings → Configure: calendar appearance, agenda statuses, purposes.
  */
 export default function MeetingsConfigureTab() {
-  const [categories, setCategories] = useState<any[]>([]);
   const [statuses, setStatuses] = useState<any[]>([]);
   const [purposes, setPurposes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,17 +69,14 @@ export default function MeetingsConfigureTab() {
   const [createName, setCreateName] = useState('');
   const [createColor, setCreateColor] = useState('#3B82F6');
 
-  const sortedCategories = useMemo(() => byNameAz(categories), [categories]);
   const sortedStatuses = useMemo(() => byNameAz(statuses), [statuses]);
   const sortedPurposes = useMemo(() => byNameAz(purposes), [purposes]);
 
   const load = async () => {
-    const [cats, sts, purps] = await Promise.all([
-      getCompanyAgendaCategories(),
+    const [sts, purps] = await Promise.all([
       getCompanyAgendaStatuses(),
       getCompanyMeetingPurposes(),
     ]);
-    setCategories(cats.categories || []);
     setStatuses(sts.statuses || []);
     setPurposes(purps.purposes || []);
   };
@@ -94,7 +86,7 @@ export default function MeetingsConfigureTab() {
       try {
         await load();
       } catch (e: any) {
-        setError(e?.response?.data?.message || 'Could not load configuration');
+        setError(apiErrorMessage(e, 'Could not load configuration'));
       } finally {
         setLoading(false);
       }
@@ -112,12 +104,7 @@ export default function MeetingsConfigureTab() {
     if (!edit || !editName.trim()) return;
     setBusy(true);
     try {
-      if (edit.kind === 'category') {
-        await updateCompanyAgendaCategory(edit.id, {
-          name: editName.trim(),
-          isActive: editActive,
-        });
-      } else if (edit.kind === 'status') {
+      if (edit.kind === 'status') {
         await updateCompanyAgendaStatus(edit.id, {
           name: editName.trim(),
           color: editColor.trim() || '#64748B',
@@ -132,7 +119,7 @@ export default function MeetingsConfigureTab() {
       setEdit(null);
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not save');
+      setError(apiErrorMessage(e, 'Could not save'));
     } finally {
       setBusy(false);
     }
@@ -142,9 +129,7 @@ export default function MeetingsConfigureTab() {
     if (!createKind || !createName.trim()) return;
     setBusy(true);
     try {
-      if (createKind === 'category') {
-        await createCompanyAgendaCategory({ name: createName.trim() });
-      } else if (createKind === 'status') {
+      if (createKind === 'status') {
         await createCompanyAgendaStatus({
           name: createName.trim(),
           color: createColor.trim() || CHIP_COLORS[statuses.length % CHIP_COLORS.length],
@@ -156,22 +141,7 @@ export default function MeetingsConfigureTab() {
       setCreateName('');
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not create');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const removeCategory = async (cat: any) => {
-    if (!window.confirm(`Delete category “${cat.name}”? Agenda items using it will keep their text.`)) {
-      return;
-    }
-    setBusy(true);
-    try {
-      await deleteCompanyAgendaCategory(cat.id);
-      await load();
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not delete category');
+      setError(apiErrorMessage(e, 'Could not create'));
     } finally {
       setBusy(false);
     }
@@ -186,7 +156,7 @@ export default function MeetingsConfigureTab() {
       await deleteCompanyAgendaStatus(status.id);
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not delete status');
+      setError(apiErrorMessage(e, 'Could not delete status'));
     } finally {
       setBusy(false);
     }
@@ -199,21 +169,15 @@ export default function MeetingsConfigureTab() {
       await deleteCompanyMeetingPurpose(purpose.id);
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not delete purpose');
+      setError(apiErrorMessage(e, 'Could not delete purpose'));
     } finally {
       setBusy(false);
     }
   };
 
-  const createTitle =
-    createKind === 'purpose' ? 'New purpose'
-      : createKind === 'status' ? 'New status'
-        : 'New category';
+  const createTitle = createKind === 'purpose' ? 'New purpose' : 'New status';
 
-  const editTitle =
-    edit?.kind === 'purpose' ? 'Edit purpose'
-      : edit?.kind === 'status' ? 'Edit status'
-        : 'Edit category';
+  const editTitle = edit?.kind === 'purpose' ? 'Edit purpose' : 'Edit status';
 
   return (
     <Box className="px-lg-0 px-2 pt-4" sx={{ pb: 4, maxWidth: 1100 }}>
@@ -237,55 +201,6 @@ export default function MeetingsConfigureTab() {
         <CircularProgress size={24} />
       ) : (
         <Stack spacing={2.5}>
-          <ConfigSectionCard
-            title="Agenda categories"
-            description="Company-specific headings used on agenda items and Minutes of Meeting."
-            icon="bi-list-ul"
-            iconColor="blue"
-            primaryAction={{
-              label: 'New category',
-              icon: 'bi-plus-lg',
-              onClick: () => {
-                setCreateName('');
-                setCreateKind('category');
-              },
-              variant: 'primary',
-              disabled: busy,
-            }}
-          >
-            {sortedCategories.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                No categories yet — add one to use on agenda items.
-              </Typography>
-            ) : (
-              <ConfigChipGrid>
-                {sortedCategories.map((cat, i) => (
-                  <ConfigColorChip
-                    key={cat.id}
-                    name={cat.name}
-                    color={CHIP_COLORS[i % CHIP_COLORS.length]}
-                    badge={cat.isActive ? undefined : 'Inactive'}
-                    disabled={busy}
-                    onEdit={() =>
-                      openEdit({
-                        kind: 'category',
-                        id: cat.id,
-                        name: cat.name,
-                        isActive: !!cat.isActive,
-                      })
-                    }
-                    action={{
-                      icon: 'bi-trash',
-                      title: `Delete ${cat.name}`,
-                      danger: true,
-                      onClick: () => removeCategory(cat),
-                    }}
-                  />
-                ))}
-              </ConfigChipGrid>
-            )}
-          </ConfigSectionCard>
-
           <ConfigSectionCard
             title="Agenda statuses"
             description="Labels and colours for agenda item status chips (Open, Closed, Information, or your own)."

@@ -77,6 +77,8 @@ interface ClientContactsFormProps {
   key?: string
   clearContactId?: () => void;
   selectedCompanyId?: string;
+  /** Fires with the new contact after a successful create (not on edit). */
+  onCreated?: (contact: any) => void;
 }
 
 
@@ -87,6 +89,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   initialData,
   clearContactId,
   selectedCompanyId,
+  onCreated,
   key
 }) => {
   // X / Esc / footer Cancel ask before throwing away unsaved edits (the ONE kit prompt).
@@ -634,8 +637,9 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         await updateClientContact(contactId, contactData);
         successConfirmation("Contact updated.");
       } else {
-        await createClientContact(contactData);
+        const created = await createClientContact(contactData);
         successConfirmation("Contact created.");
+        onCreated?.(created?.data?.contact);
       }
 
       eventBus.emit("clientContactUpdated");

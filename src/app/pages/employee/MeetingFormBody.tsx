@@ -23,8 +23,7 @@ import {
     type MeetingMode,
 } from './meetingModes';
 import { SegmentedControl, ToneChip, WtDateField, WtSwitch } from '@app/modules/common/components/ui';
-import { ContactPicker } from '@app/modules/common/components/ui/ContactPicker';
-import { contactLabel } from '@app/modules/common/components/ui/contactLabel';
+import { ContactPicker, projectContactOptions } from '@app/modules/common/components/ui/ContactPicker';
 import { useDropdownBoundary } from '@app/modules/common/components/ui/dropdownBoundary';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { KTIcon } from '@metronic/helpers';
@@ -599,44 +598,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 ? [{ value: defaultExternalParticipant.id, label: defaultExternalParticipant.name, avatar: defaultExternalParticipant.avatar ?? null }]
                 : [];
             if (!projectDetail) return fromCaller;
-            /*
-             * Labelled "Name (Company)", exactly as the CRM search labels the same person.
-             *
-             * `contactLabel` is the shared rule, so a stakeholder who is also in the address
-             * book reads identically whichever source named them — and the picker's local
-             * filter, which matches on the label, narrows the roster by company for the same
-             * "manish a2o" a server search would.
-             *
-             * The team row's own company is offered as a fallback: a roster entry carries it
-             * directly, where the contact record may not have been filled in.
-             */
-            const contactOption = (t: any) => ({
-                value: t.contact.id,
-                label: contactLabel({
-                    fullName: t.contact.fullName,
-                    company: t.contact.company ?? t.company,
-                    subCompany: t.contact.subCompany,
-                }),
-                name: t.contact.fullName || undefined,
-                // `getLeadById` includes the WHOLE contact row, so an absent email here is an
-                // absence on the record. A source that did not select the column must leave
-                // this undefined instead — see `ContactOption.hasEmail`.
-                hasEmail: 'email' in (t.contact ?? {}) ? !!t.contact.email : undefined,
-                avatar: t.contact.profilePhoto || t.contact.avatar || null,
-            });
-            const fromTeams = (projectDetail.leadTeams || [])
-                .filter((t: any) => t.contact?.id)
-                .map(contactOption);
-            const fromProjectTeams = (projectDetail.projectExternalTeams || [])
-                .filter((t: any) => t.contact?.id && t.isActive !== false)
-                .map(contactOption);
-            const fromMembers = (projectDetail.externalMembers || [])
-                .filter((m: any) => m.contactId)
-                // `externalMembers` carries a name and an id and nothing else, so whether this
-                // person has an email is NOT KNOWN here — left undefined rather than guessed.
-                .map((m: any) => ({ value: m.contactId, label: m.name || 'Unknown', name: m.name || undefined, avatar: null }));
+            // The roster rule is shared with the MoM attendees picker — see `projectContactOptions`.
             const seen = new Set<string>();
-            return [...fromTeams, ...fromProjectTeams, ...fromMembers, ...fromCaller]
+            return [...projectContactOptions(projectDetail), ...fromCaller]
                 .filter((o: Option) => !seen.has(o.value) && seen.add(o.value))
                 .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
         }, [projectDetail, defaultExternalParticipant]);

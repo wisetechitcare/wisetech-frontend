@@ -4,7 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -19,7 +18,6 @@ import {
   Fab,
   IconButton,
   InputAdornment,
-  MenuItem,
   Stack,
   TextField,
   Tooltip,
@@ -29,19 +27,14 @@ import {
 } from '@mui/material';
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import PlaceOutlined from '@mui/icons-material/PlaceOutlined';
+import FlagRounded from '@mui/icons-material/FlagRounded';
 import AccessTimeRounded from '@mui/icons-material/AccessTimeRounded';
 import VideocamOutlined from '@mui/icons-material/VideocamOutlined';
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
-import FormatListBulleted from '@mui/icons-material/FormatListBulleted';
-import FormatListNumbered from '@mui/icons-material/FormatListNumbered';
-import FormatIndentIncrease from '@mui/icons-material/FormatIndentIncrease';
-import FormatIndentDecrease from '@mui/icons-material/FormatIndentDecrease';
-import FormatAlignLeft from '@mui/icons-material/FormatAlignLeft';
-import FormatAlignCenter from '@mui/icons-material/FormatAlignCenter';
-import FormatAlignRight from '@mui/icons-material/FormatAlignRight';
 import dayjs from 'dayjs';
 import { hasPermission } from '@utils/authAbac';
+import { apiErrorMessage } from '@utils/apiError';
 import {
   permissionConstToUseWithHasPermission,
   resourceNameMapWithCamelCase,
@@ -49,6 +42,7 @@ import {
 import {
   AppIcon,
   WtButton,
+  WtCheckbox,
   WtDateField,
   WtIconButton,
   WtSelect,
@@ -56,6 +50,7 @@ import {
 } from '@app/modules/common/components/ui';
 import { useEmployeeDirectory } from '@app/modules/common/components/EmployeePickerField';
 import MeetingDialog from '../../MeetingDialog';
+import MomAttendees from '../MomAttendees';
 import TaskPathSelect, { buildTaskPathOptions } from '../../tasks/components/TaskPathSelect';
 import { usePresetTasks } from '../../tasks/useTaskQueries';
 import { useProjectDeliverables } from '../../tasks/useProjectDeliverables';
@@ -63,20 +58,18 @@ import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
 import type { PresetTask } from '../../tasks/taskDomain';
 import { getProjectTeam } from '@services/tasks';
 import {
-  amendMeetingMinutes,
+  convertAgendaToMom,
   createAgendaItem,
   createAgendaItemsBulk,
   createMeetingMinutesDraft,
   deleteAgendaItem,
   downloadMeetingMinutesPdf,
   getAgendaItems,
-  getCompanyAgendaCategories,
   getCompanyAgendaStatuses,
   getMeetingDetail,
   getMeetingMinutes,
   getMeetingsAgendaHub,
   updateAgendaItem,
-  updateMeetingMinutesDraft,
   updateMeetingPurpose,
 } from '@services/meetingAgendaMom';
 
@@ -90,7 +83,8 @@ type HubMeeting = {
   meetingMode?: string | null;
   isOnline?: boolean;
   purposeLabel?: string | null;
-  purposeCode?: string | null;
+  purposeCodes?: string[];
+  purposeLabels?: string[];
   projectId?: string | null;
   description?: string | null;
   agendaCount: number;
@@ -148,10 +142,7 @@ const assigneeSelectSx = {
 
 const fmtDate = (v?: string | Date | null) => (v ? dayjs(v).format('DD MMM YYYY') : '—');
 const fmtTime = (v?: string | Date | null) => (v ? dayjs(v).format('HH:mm') : '—');
-const errMsg = (e: unknown) => {
-  const any = e as any;
-  return any?.response?.data?.message || any?.message || 'Something went wrong';
-};
+const errMsg = (e: unknown) => apiErrorMessage(e);
 
 /** Every word in the query must appear somewhere in the haystack. */
 const matchesQuery = (haystack: string, query: string) => {
@@ -169,19 +160,31 @@ const placeLabel = (m: HubMeeting | any) => {
   return '—';
 };
 
-/** Soft chip wash from a configure colour hex. */
-const statusTone = (label?: string | null, color?: string | null) => {
-  const fg = color || '#475569';
-  const bg = (() => {
-    const hex = fg.replace('#', '');
-    if (hex.length !== 6) return '#F1F5F9';
-    const r = parseInt(hex.slice(0, 2), 16);
-    const g = parseInt(hex.slice(2, 4), 16);
-    const b = parseInt(hex.slice(4, 6), 16);
-    return `rgba(${r},${g},${b},0.14)`;
-  })();
-  return { bg, fg, label: label || '—' };
-};
+/** Shared by the Agenda and Minutes of Meeting tables. */
+const agendaTableSx = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  fontSize: 13,
+  '& th': {
+    textAlign: 'left',
+    px: 1.5,
+    py: 1.1,
+    color: C.mute,
+    fontWeight: 700,
+    fontSize: 11.5,
+    bgcolor: C.slate,
+    borderBottom: `1px solid ${C.line}`,
+    whiteSpace: 'nowrap',
+  },
+  '& td': {
+    px: 1.5,
+    py: 1.25,
+    borderBottom: `1px solid ${C.line}`,
+    verticalAlign: 'middle',
+    color: C.ink,
+  },
+  '& tbody tr:last-of-type td': { borderBottom: 0 },
+} as const;
 
 /**
  * Meetings → Agenda: master–detail hub.
@@ -245,7 +248,7 @@ export default function MeetingsAgendaHubTab() {
       return list;
     } catch (e: any) {
       if (!opts?.silent) {
-        setError(e?.response?.data?.message || 'Could not load meetings');
+        setError(apiErrorMessage(e, 'Could not load meetings'));
       }
       return [] as HubMeeting[];
     } finally {
@@ -323,17 +326,22 @@ export default function MeetingsAgendaHubTab() {
       if (!opts?.silent) setDetailLoading(false);
       return cacheRef.current[meetingId];
     }
-    abortRef.current?.abort();
+    // Only a foreground load (the meeting on screen) supersedes the previous foreground load.
+    // A background prefetch must never cancel it — that left the spinner on forever, because
+    // the cancelled load skipped clearing it and a silent prefetch never clears it.
     const ac = new AbortController();
-    abortRef.current = ac;
-    if (!opts?.silent) setDetailLoading(true);
+    if (!opts?.silent) {
+      abortRef.current?.abort();
+      abortRef.current = ac;
+      setDetailLoading(true);
+    }
     try {
       const [d, agenda, mom] = await Promise.all([
         getMeetingDetail(meetingId),
         getAgendaItems(meetingId),
         getMeetingMinutes(meetingId).catch(() => ({ minutes: null })),
       ]);
-      if (ac.signal.aborted) return null;
+      // A superseded load still fetched good data — keep it, it is this meeting's detail.
       const next: DetailCache = {
         meeting: d.data?.meeting,
         permissions: d.data?.permissions,
@@ -344,12 +352,14 @@ export default function MeetingsAgendaHubTab() {
       setCache((prev) => ({ ...prev, [meetingId]: next }));
       return next;
     } catch (e: any) {
-      if (!ac.signal.aborted) {
-        setError(e?.response?.data?.message || 'Could not load meeting detail');
+      // Prefetch failures stay quiet; the meeting will load (and report) when opened.
+      if (!opts?.silent && !ac.signal.aborted) {
+        setError(apiErrorMessage(e, 'Could not load meeting detail'));
       }
       return null;
     } finally {
-      if (!ac.signal.aborted && !opts?.silent) setDetailLoading(false);
+      // The newest foreground load owns the spinner.
+      if (!opts?.silent && abortRef.current === ac) setDetailLoading(false);
     }
   }, []);
 
@@ -789,30 +799,22 @@ function DetailPane({
 }) {
   const meeting = cached?.meeting || listMeeting;
   const items = cached?.items || [];
+  // Topics written straight into the MoM were never on the agenda.
+  const agendaItems = items.filter((it: any) => !it.addedInMom);
   const minutes = cached?.minutes;
   const perms = cached?.permissions;
   const purposeOptions = cached?.purposeOptions || [];
-  const agendaCount = cached ? items.length : listMeeting.agendaCount;
+  const purposeLabels: string[] = meeting.purposeLabels || listMeeting.purposeLabels || [];
+  const agendaCount = cached ? agendaItems.length : listMeeting.agendaCount;
   const permsLoaded = perms != null;
   const canEditMom = !!perms?.canEditMom;
   const canEditAgenda = !!perms?.canEditAgenda;
-  const minutesFinal = minutes?.status === 'FINAL';
   const accessBadge = (() => {
     if (!permsLoaded) return null;
-    if (minutesFinal) {
-      return {
-        label: 'Finalized',
-        tip: canEditMom
-          ? 'Minutes are finalized. Notes are locked — open Minutes of Meeting and create an amendment draft to edit them.'
-          : 'Minutes are finalized and read-only. Only the organizer or a project manager can create an amendment.',
-        bg: '#DCFCE7',
-        fg: '#166534',
-      };
-    }
     if (!canEditMom && !canEditAgenda) {
       return {
         label: 'View only',
-        tip: 'Only the meeting organizer or a project manager can edit the agenda and discussion notes.',
+        tip: 'Only the meeting organizer or a project manager can edit the agenda and minutes.',
         bg: C.slate,
         fg: C.mute,
       };
@@ -820,7 +822,7 @@ function DetailPane({
     if (!canEditMom) {
       return {
         label: 'View only',
-        tip: 'Only the organizer or a project manager can edit discussion notes and decisions.',
+        tip: 'Only the organizer or a project manager can edit the minutes.',
         bg: C.slate,
         fg: C.mute,
       };
@@ -872,11 +874,35 @@ function DetailPane({
                 <PlaceOutlined sx={{ fontSize: 15 }} />
                 {placeLabel(meeting)}
               </Stack>
-              {(meeting.purposeLabel || listMeeting.purposeLabel) && (
-                <span>{meeting.purposeLabel || listMeeting.purposeLabel}</span>
-              )}
             </Stack>
             <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.75} sx={{ mt: 1.25 }}>
+              {purposeLabels.length ? (
+                purposeLabels.map((label: string) => (
+                  <Chip
+                    key={label}
+                    size="small"
+                    icon={<FlagRounded sx={{ fontSize: 15 }} />}
+                    label={label}
+                    title="Purpose"
+                    sx={{
+                      fontWeight: 700,
+                      bgcolor: C.blueSoft,
+                      color: C.blue,
+                      border: `1px solid #BFDBFE`,
+                      '& .MuiChip-icon': { color: C.blue },
+                    }}
+                  />
+                ))
+              ) : perms?.canManage ? (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  icon={<FlagRounded sx={{ fontSize: 15 }} />}
+                  label="Set purpose"
+                  onClick={() => setDetailTab('overview')}
+                  sx={{ borderStyle: 'dashed', color: C.mute }}
+                />
+              ) : null}
               {meeting.projectName && (
                 <Chip
                   size="small"
@@ -961,7 +987,7 @@ function DetailPane({
           meetingId={listMeeting.id}
           meeting={meeting}
           listMeeting={listMeeting}
-          items={items}
+          items={agendaItems}
           purposeOptions={purposeOptions}
           canEdit={!!perms?.canManage}
           onRefresh={onRefresh}
@@ -970,11 +996,13 @@ function DetailPane({
       ) : detailTab === 'mom' ? (
         <MomPanel
           meetingId={listMeeting.id}
+          meeting={meeting}
+          items={items}
           minutes={minutes}
           canEdit={!!perms?.canEditMom}
-          canFinalize={!!perms?.canFinalizeMom}
           canExport={!!perms?.canExportPdf}
           onRefresh={onRefresh}
+          onPatchItem={onPatchItem}
           onError={onError}
         />
       ) : (
@@ -982,11 +1010,11 @@ function DetailPane({
           key={listMeeting.id}
           meetingId={listMeeting.id}
           meeting={meeting}
-          items={items}
+          items={agendaItems}
           canEdit={!!perms?.canEditAgenda}
           permsLoaded={perms != null}
           onRefresh={onRefresh}
-          onPatchItem={onPatchItem}
+          onConverted={() => setDetailTab('mom')}
           onError={onError}
         />
       )}
@@ -1040,32 +1068,54 @@ function OverviewPanel({
   onRefresh: () => Promise<void>;
   onError: (m: string) => void;
 }) {
-  const [purposeCode, setPurposeCode] = useState(meeting?.purposeCode || listMeeting.purposeCode || '');
+  const savedCodes: string[] = meeting?.purposeCodes || listMeeting.purposeCodes || [];
+  const savedKey = savedCodes.join(',');
+  const [codes, setCodes] = useState<string[]>(savedCodes);
   const [other, setOther] = useState(meeting?.purposeOtherText || '');
-  const [busy, setBusy] = useState(false);
-  const needsOther = !!(
-    purposeOptions.find((o) => o.code === purposeCode)?.requiresOther
-    || purposeCode === 'OTHER'
+  const saveTimer = useRef<number | undefined>(undefined);
+  const requiresOther = (list: string[]) =>
+    list.some((code) => purposeOptions.find((o) => o.code === code)?.requiresOther || code === 'OTHER');
+  const needsOther = requiresOther(codes);
+
+  const purposeSelectOptions: WtSelectOption[] = useMemo(
+    () =>
+      purposeOptions
+        .map((o) => ({ value: o.code, label: o.label }))
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })),
+    [purposeOptions],
   );
 
   useEffect(() => {
-    setPurposeCode(meeting?.purposeCode || listMeeting.purposeCode || '');
+    setCodes(savedKey ? savedKey.split(',') : []);
     setOther(meeting?.purposeOtherText || '');
-  }, [meeting?.purposeCode, meeting?.purposeOtherText, listMeeting.purposeCode]);
+  }, [savedKey, meeting?.purposeOtherText]);
 
-  const savePurpose = async () => {
-    setBusy(true);
+  useEffect(() => () => window.clearTimeout(saveTimer.current), []);
+
+  const savePurpose = async (list: string[], otherText: string | null) => {
     try {
-      await updateMeetingPurpose(meetingId, {
-        purposeCode: purposeCode || null,
-        purposeOtherText: needsOther ? other : null,
-      });
+      await updateMeetingPurpose(meetingId, { purposeCodes: list, purposeOtherText: otherText });
       await onRefresh();
     } catch (e) {
       onError(errMsg(e));
-    } finally {
-      setBusy(false);
     }
+  };
+
+  // Picks save together once you pause, so three quick picks are one request, in order.
+  // A purpose that needs details ("Other") waits for them instead.
+  const pickPurposes = (list: string[]) => {
+    setCodes(list);
+    window.clearTimeout(saveTimer.current);
+    if (requiresOther(list) && !other.trim()) return;
+    saveTimer.current = window.setTimeout(
+      () => void savePurpose(list, requiresOther(list) ? other.trim() : null),
+      600,
+    );
+  };
+
+  const saveOther = () => {
+    const text = other.trim();
+    if (text && text !== (meeting?.purposeOtherText || '')) void savePurpose(codes, text);
   };
 
   return (
@@ -1074,35 +1124,36 @@ function OverviewPanel({
         <Typography sx={{ fontWeight: 800, mb: 1, color: C.ink }}>Purpose</Typography>
         {canEdit ? (
           <Stack spacing={1.25}>
-            <TextField
-              select
-              size="small"
-              label="Purpose"
-              value={purposeCode}
-              onChange={(e) => setPurposeCode(e.target.value)}
-              fullWidth
-            >
-              <MenuItem value="">Not set</MenuItem>
-              {purposeOptions.map((o) => (
-                <MenuItem key={o.code} value={o.code}>{o.label}</MenuItem>
-              ))}
-            </TextField>
+            <WtSelect
+              isMulti
+              options={purposeSelectOptions}
+              value={purposeSelectOptions.filter((o) => codes.includes(o.value))}
+              isSearchable
+              isClearable
+              placeholder="Search or pick one or more purposes…"
+              ariaLabel="Meeting purposes"
+              onChange={(next) =>
+                pickPurposes(((next as WtSelectOption[] | null) || []).map((o) => o.value))
+              }
+            />
             {needsOther && (
               <TextField
                 size="small"
                 label="Please specify"
                 value={other}
                 onChange={(e) => setOther(e.target.value)}
+                onBlur={saveOther}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveOther();
+                }}
+                helperText="Saved when you press Enter or leave this field."
                 fullWidth
               />
             )}
-            <WtButton size="small" disabled={busy} onClick={savePurpose} sx={{ alignSelf: 'flex-start' }}>
-              Save purpose
-            </WtButton>
           </Stack>
         ) : (
           <Typography fontWeight={700}>
-            {meeting.purposeLabel || listMeeting.purposeLabel || 'Not set'}
+            {(meeting.purposeLabels || listMeeting.purposeLabels || []).join(', ') || 'Not set'}
           </Typography>
         )}
       </Box>
@@ -1138,58 +1189,153 @@ function InfoCard({ title, body }: { title: string; body: string }) {
 
 function MomPanel({
   meetingId,
+  meeting,
+  items,
   minutes,
   canEdit,
-  canFinalize,
   canExport,
   onRefresh,
+  onPatchItem,
   onError,
 }: {
   meetingId: string;
+  meeting: any;
+  items: any[];
   minutes: any;
   canEdit: boolean;
-  canFinalize: boolean;
   canExport: boolean;
   onRefresh: () => Promise<void>;
+  onPatchItem: (meetingId: string, itemId: string, patch: Record<string, unknown>) => void;
   onError: (m: string) => void;
 }) {
-  const [discussionNotes, setDiscussionNotes] = useState(minutes?.discussionNotes || '');
-  const [decisions, setDecisions] = useState(minutes?.decisions || '');
   const [busy, setBusy] = useState(false);
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+  const [topicPickerKey, setTopicPickerKey] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const [teamIds, setTeamIds] = useState<Set<string> | null>(null);
+  // Company statuses from Configure → Agenda statuses, A–Z.
+  const [statusOptions, setStatusOptions] = useState<WtSelectOption[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    getCompanyAgendaStatuses()
+      .then((res) => {
+        if (cancelled) return;
+        setStatusOptions(
+          (res?.statuses || [])
+            .filter((st: any) => st.isActive !== false && st.code)
+            .map((st: any) => ({ value: st.code, label: st.name || st.code, color: st.color || '#64748B' }))
+            .sort((a: WtSelectOption, b: WtSelectOption) =>
+              a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
+            ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setStatusOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const { data: directory = [], isLoading: directoryLoading } = useEmployeeDirectory();
+  const momItems = useMemo(() => items.filter((it: any) => it.inMom), [items]);
+  const { options: taskOptions, loading: topicOptionsLoading } = useAgendaTaskOptions(
+    meeting?.projectId || null,
+  );
+  // Same source as the agenda; anything already on the agenda or in the MoM is left out.
+  const topicOptions = useMemo(() => {
+    const taken = new Set(items.map((i: any) => String(i.description || '')));
+    return taskOptions.filter((o) => !taken.has(o.name));
+  }, [taskOptions, items]);
+  const projectId = meeting?.projectId || null;
+  const rowsEditable = canEdit && !!minutes;
 
   useEffect(() => {
-    setDiscussionNotes(minutes?.discussionNotes || '');
-    setDecisions(minutes?.decisions || '');
-  }, [minutes?.id, minutes?.discussionNotes, minutes?.decisions, minutes?.revision]);
+    if (!projectId || !rowsEditable) {
+      setTeamIds(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getProjectTeam(projectId);
+        const list = res?.members || [];
+        const ids = new Set(
+          (Array.isArray(list) ? list : [])
+            .map((m: any) => String(m.id || m.employeeId || ''))
+            .filter(Boolean),
+        );
+        if (!cancelled) setTeamIds(ids);
+      } catch {
+        if (!cancelled) setTeamIds(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, rowsEditable]);
+
+  const assigneeOptions: WtSelectOption[] = useMemo(() => {
+    const list = projectId && teamIds
+      ? directory.filter((e) => teamIds.has(e.id))
+      : directory;
+    return list
+      .map((e) => ({
+        value: e.id,
+        label: e.name,
+        avatar: e.avatar,
+        description: e.designation,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  }, [directory, projectId, teamIds]);
+
+  /** Optimistic row update — avoid full hub reload (that spun the whole page). */
+  const patchItem = async (
+    itemId: string,
+    payload: Record<string, unknown>,
+    displayPatch?: Record<string, unknown>,
+  ) => {
+    setRowBusyId(itemId);
+    onPatchItem(meetingId, itemId, { ...payload, ...displayPatch });
+    try {
+      await updateAgendaItem(meetingId, itemId, payload);
+    } catch (e) {
+      onError(errMsg(e));
+      await onRefresh();
+    } finally {
+      setRowBusyId(null);
+    }
+  };
+
+  /** A topic discussed in the meeting that was never on the agenda. */
+  const addTopic = async (description: string) => {
+    setAdding(true);
+    try {
+      await createAgendaItem(meetingId, { description, itemMode: 'DISCUSSION', addedInMom: true });
+      setTopicPickerKey((n) => n + 1);
+      await onRefresh();
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const removeTopic = async (itemId: string) => {
+    setRowBusyId(itemId);
+    try {
+      await deleteAgendaItem(meetingId, itemId);
+      await onRefresh();
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setRowBusyId(null);
+    }
+  };
 
   const generate = async () => {
     setBusy(true);
     try {
       await createMeetingMinutesDraft(meetingId);
-      await onRefresh();
-    } catch (e) {
-      onError(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const saveNotes = async () => {
-    setBusy(true);
-    try {
-      await updateMeetingMinutesDraft(meetingId, { discussionNotes, decisions });
-      await onRefresh();
-    } catch (e) {
-      onError(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const amend = async () => {
-    setBusy(true);
-    try {
-      await amendMeetingMinutes(meetingId);
       await onRefresh();
     } catch (e) {
       onError(errMsg(e));
@@ -1222,28 +1368,25 @@ function MomPanel({
     return (
       <Stack spacing={1.5} alignItems="flex-start">
         <Alert severity="info" sx={{ width: '100%' }}>
-          No Minutes of Meeting yet. Generate a draft to record discussion notes and decisions.
+          No Minutes of Meeting yet. Tick agenda items on the Agenda tab and choose Convert to MoM,
+          or start the minutes here and add the topics discussed.
         </Alert>
         {canEdit && (
           <WtButton size="small" disabled={busy} onClick={generate}>
-            Generate MoM draft
+            Start minutes
           </WtButton>
         )}
       </Stack>
     );
   }
 
-  const isFinal = minutes.status === 'FINAL';
-  const isDraft = minutes.status === 'DRAFT';
-
   return (
     <Stack spacing={1.5}>
       <Box sx={{ p: 2, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap gap={1}>
           <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-            <Chip size="small" label={isFinal ? 'Finalized' : 'Draft'} color={isFinal ? 'success' : 'default'} />
             <Typography sx={{ fontSize: 13, color: C.mute }}>
-              Document No. {minutes.documentNo || '—'} · Rev. {String(minutes.revision ?? 0).padStart(2, '0')}
+              Document No. {minutes.documentNo || '—'}
             </Typography>
           </Stack>
           <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1}>
@@ -1252,337 +1395,229 @@ function MomPanel({
                 Download PDF
               </WtButton>
             )}
-            {canFinalize && isFinal && (
-              <WtButton size="small" inverted disabled={busy} onClick={amend}>
-                Create amendment draft
-              </WtButton>
-            )}
-            {canEdit && isDraft && (
-              <WtButton size="small" inverted disabled={busy} onClick={saveNotes}>
-                Save notes
-              </WtButton>
-            )}
           </Stack>
         </Stack>
       </Box>
 
-      <Typography sx={{ fontWeight: 800, fontSize: 14, color: C.ink, pt: 0.5 }}>
-        Discussion notes & decisions
-      </Typography>
-      <NotesDecisionsEditors
-        discussionNotes={discussionNotes}
-        decisions={decisions}
-        setDiscussionNotes={setDiscussionNotes}
-        setDecisions={setDecisions}
-        readOnly={!isDraft || !canEdit}
-        seed={`${minutes?.id || 'none'}-${minutes?.revision ?? 0}`}
+      <MomAttendees
+        meetingId={meetingId}
+        projectId={projectId}
+        attendees={minutes.attendees || []}
+        editable={rowsEditable}
+        teamIds={teamIds}
+        onError={onError}
       />
+
+      <Box sx={{ bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5, overflow: 'hidden' }}>
+        {momItems.length === 0 ? (
+          <Alert severity="info" sx={{ m: 1.5 }}>
+            Nothing in these minutes yet. Convert items from the Agenda tab
+            {rowsEditable ? ', or add a topic discussed below.' : '.'}
+          </Alert>
+        ) : (
+          <Box sx={{ overflowX: 'auto' }}>
+            <Box component="table" sx={agendaTableSx}>
+              <Box component="thead">
+                <Box component="tr">
+                  {['#', 'Agenda item', 'Assignee', 'Due date', 'Status', 'Note'].map((h) => (
+                    <Box component="th" key={h}>
+                      {h}
+                    </Box>
+                  ))}
+                  {rowsEditable && <Box component="th" sx={{ width: 44 }} />}
+                </Box>
+              </Box>
+              <Box component="tbody">
+                {momItems.map((item: any, idx: number) => {
+                  const rowBusy = rowBusyId === item.id;
+                  const dueVal = item.targetCompletionDate
+                    ? dayjs(item.targetCompletionDate).format('YYYY-MM-DD')
+                    : '';
+                  return (
+                    <Box component="tr" key={item.id}>
+                      <Box component="td" sx={{ color: C.mute, width: 36 }}>
+                        {idx + 1}
+                      </Box>
+                      <Box component="td" sx={{ minWidth: 180, fontWeight: 600 }}>
+                        <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+                          <span>{item.description}</span>
+                          {item.addedInMom && (
+                            <Chip
+                              size="small"
+                              label="Not on agenda"
+                              sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: C.slate, color: C.mute }}
+                            />
+                          )}
+                        </Stack>
+                      </Box>
+                      <Box component="td" sx={{ minWidth: 200 }}>
+                        {rowsEditable ? (
+                          <Box sx={assigneeSelectSx}>
+                            <WtSelect
+                              size="sm"
+                              options={assigneeOptions}
+                              value={assigneeOptions.find((a) => a.value === item.responsibleUserId) || null}
+                              isDisabled={rowBusy}
+                              isLoading={directoryLoading}
+                              isClearable
+                              isSearchable
+                              optionVariant="avatar"
+                              placeholder="Assignee"
+                              ariaLabel="Assignee"
+                              onChange={(next) => {
+                                const opt = next as WtSelectOption | null;
+                                void patchItem(
+                                  item.id,
+                                  { responsibleUserId: opt?.value || null },
+                                  { responsibleName: opt?.label || null },
+                                );
+                              }}
+                            />
+                          </Box>
+                        ) : (
+                          item.responsibleName || '—'
+                        )}
+                      </Box>
+                      <Box component="td" sx={{ whiteSpace: 'nowrap', minWidth: 150 }}>
+                        {rowsEditable ? (
+                          <WtDateField
+                            label=""
+                            value={dueVal}
+                            disabled={rowBusy}
+                            onChange={(v) => {
+                              void patchItem(item.id, { targetCompletionDate: v || null });
+                            }}
+                          />
+                        ) : (
+                          fmtDate(item.targetCompletionDate)
+                        )}
+                      </Box>
+                      <Box component="td" sx={{ minWidth: 160 }}>
+                        {rowsEditable && statusOptions.length ? (
+                          <WtSelect
+                            size="sm"
+                            options={statusOptions}
+                            value={statusOptions.find((o) => o.value === item.status) || null}
+                            isDisabled={rowBusy}
+                            optionVariant="colour"
+                            accentColor={statusOptions.find((o) => o.value === item.status)?.color}
+                            placeholder="Status"
+                            ariaLabel={`Status of ${item.description}`}
+                            onChange={(next) => {
+                              const opt = next as WtSelectOption | null;
+                              if (!opt) return;
+                              void patchItem(
+                                item.id,
+                                { status: opt.value },
+                                { statusLabel: opt.label, statusColor: opt.color },
+                              );
+                            }}
+                          />
+                        ) : (
+                          <Stack direction="row" alignItems="center" gap={0.75}>
+                            <Box
+                              aria-hidden
+                              sx={{
+                                width: 9,
+                                height: 9,
+                                borderRadius: '50%',
+                                flexShrink: 0,
+                                bgcolor: item.statusColor || C.mute,
+                              }}
+                            />
+                            <span>{item.statusLabel || item.status || '—'}</span>
+                          </Stack>
+                        )}
+                      </Box>
+                      <Box component="td" sx={{ minWidth: 220 }}>
+                        {rowsEditable ? (
+                          <TextField
+                            // Re-seed when the saved note changes (refresh / another tab).
+                            key={`${item.id}:${item.remarks ?? ''}`}
+                            size="small"
+                            fullWidth
+                            multiline
+                            maxRows={4}
+                            placeholder="Note"
+                            defaultValue={item.remarks || ''}
+                            disabled={rowBusy}
+                            inputProps={{ 'aria-label': `Note for ${item.description}` }}
+                            onBlur={(e) => {
+                              const remarks = e.target.value.trim() || null;
+                              if (remarks === (item.remarks || null)) return;
+                              void patchItem(item.id, { remarks });
+                            }}
+                            sx={{ '& .MuiInputBase-root': { fontSize: 13 } }}
+                          />
+                        ) : (
+                          <Box sx={{ whiteSpace: 'pre-wrap', color: item.remarks ? C.ink : C.mute }}>
+                            {item.remarks || '—'}
+                          </Box>
+                        )}
+                      </Box>
+                      {rowsEditable && (
+                        <Box component="td" sx={{ textAlign: 'center' }}>
+                          {/* Agenda items leave the MoM by unticking them on the Agenda tab. */}
+                          {item.addedInMom && (
+                            <WtIconButton
+                              title="Remove topic"
+                              color="#DC2626"
+                              disabled={rowBusy}
+                              onClick={() => removeTopic(item.id)}
+                              sx={{ width: 32, height: 32, borderRadius: '10px' }}
+                            >
+                              <AppIcon name="bi-trash" fallbackSize={14} />
+                            </WtIconButton>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+          </Box>
+        )}
+        {rowsEditable && (
+          <Box sx={{ p: 1.5, borderTop: `1px solid ${C.line}`, bgcolor: C.page }}>
+            <TaskPathSelect
+              key={topicPickerKey}
+              value=""
+              options={topicOptions}
+              disabled={adding}
+              onChange={(opt) => {
+                if (opt) void addTopic(opt.name);
+              }}
+              label="Add a topic discussed"
+              placeholder={projectId
+                ? 'Search this project’s deliverable tasks…'
+                : 'Search, e.g. electrical load sheet'}
+              loading={topicOptionsLoading}
+              helperText={adding ? 'Adding…' : 'Discussed but not on the agenda? Pick it here.'}
+            />
+          </Box>
+        )}
+      </Box>
     </Stack>
   );
 }
-
-type RichCmd =
-  | 'bold'
-  | 'italic'
-  | 'underline'
-  | 'insertUnorderedList'
-  | 'insertOrderedList'
-  | 'indent'
-  | 'outdent'
-  | 'justifyLeft'
-  | 'justifyCenter'
-  | 'justifyRight'
-  | 'justifyFull';
 
 /**
- * Uncontrolled rich field: React never rewrites the DOM while you type
- * (controlled contentEditable + setState was wiping bold/lists).
- * Seeds only when `seed` changes (minutes id / revision).
+ * What an agenda item (or a MoM topic) can be: the project's deliverable tasks, or every
+ * preset task when the meeting has no project / the project has no deliverables yet.
  */
-const RICH_STATE_CMDS: RichCmd[] = [
-  'bold',
-  'italic',
-  'underline',
-  'insertUnorderedList',
-  'insertOrderedList',
-  'justifyLeft',
-  'justifyCenter',
-  'justifyRight',
-];
-
-function MomRichField({
-  label,
-  value,
-  onChange,
-  readOnly,
-  placeholder,
-  seed,
-}: {
-  label: string;
-  value: string;
-  onChange: (html: string) => void;
-  readOnly: boolean;
-  placeholder: string;
-  seed: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const lastSeed = useRef('');
-  const [active, setActive] = useState<Partial<Record<RichCmd, boolean>>>({});
-
-  useEffect(() => {
-    if (!ref.current) return;
-    if (lastSeed.current === seed) return;
-    lastSeed.current = seed;
-    ref.current.innerHTML = value || '';
-  }, [seed, value]);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    ref.current.contentEditable = readOnly ? 'false' : 'true';
-  }, [readOnly]);
-
-  const syncActive = useCallback(() => {
-    if (readOnly || !ref.current) {
-      setActive({});
-      return;
-    }
-    const sel = window.getSelection();
-    if (!sel || !sel.anchorNode || !ref.current.contains(sel.anchorNode)) {
-      setActive({});
-      return;
-    }
-    const next: Partial<Record<RichCmd, boolean>> = {};
-    for (const cmd of RICH_STATE_CMDS) {
-      try {
-        next[cmd] = document.queryCommandState(cmd);
-      } catch {
-        next[cmd] = false;
-      }
-    }
-    // Default align-left when no explicit alignment is set
-    if (!next.justifyCenter && !next.justifyRight && !next.justifyFull) {
-      next.justifyLeft = true;
-    }
-    setActive(next);
-  }, [readOnly]);
-
-  useEffect(() => {
-    if (readOnly) return undefined;
-    const onSel = () => syncActive();
-    document.addEventListener('selectionchange', onSel);
-    return () => document.removeEventListener('selectionchange', onSel);
-  }, [readOnly, syncActive]);
-
-  const emit = () => {
-    if (!ref.current) return;
-    onChange(ref.current.innerHTML);
-    syncActive();
-  };
-
-  const ensureCaret = () => {
-    if (!ref.current) return;
-    ref.current.focus();
-    const sel = window.getSelection();
-    if (!sel) return;
-    if (sel.rangeCount === 0 || !ref.current.contains(sel.anchorNode)) {
-      const range = document.createRange();
-      range.selectNodeContents(ref.current);
-      range.collapse(false);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-  };
-
-  const run = (cmd: RichCmd) => {
-    if (readOnly || !ref.current) return;
-    ensureCaret();
-    try {
-      document.execCommand('styleWithCSS', false, 'false');
-      document.execCommand('defaultParagraphSeparator', false, 'p');
-    } catch {
-      /* older browsers */
-    }
-    document.execCommand(cmd, false);
-    emit();
-    syncActive();
-  };
-
-  const toolBtn = (
-    cmd: RichCmd,
-    title: string,
-    content: ReactNode,
-    sxExtra?: Record<string, unknown>,
-  ) => {
-    const isOn = !!active[cmd];
-    return (
-      <Tooltip key={cmd + title} title={title} enterDelay={400}>
-        <Box
-          component="button"
-          type="button"
-          aria-label={title}
-          aria-pressed={isOn}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            run(cmd);
-          }}
-          sx={{
-            border: `1px solid ${isOn ? C.blue : C.line}`,
-            bgcolor: isOn ? C.blueSoft : C.slate,
-            borderRadius: 1,
-            minWidth: 30,
-            height: 28,
-            px: 0.85,
-            flexShrink: 0,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 12,
-            fontWeight: isOn ? 800 : 600,
-            color: isOn ? C.blue : C.ink,
-            cursor: 'pointer',
-            lineHeight: 1,
-            boxShadow: isOn ? 'inset 0 0 0 1px rgba(29,78,216,0.25)' : 'none',
-            '&:hover': {
-              bgcolor: isOn ? '#DBEAFE' : '#E8EEF8',
-              borderColor: isOn ? C.blue : '#BFDBFE',
-            },
-            '& .MuiSvgIcon-root': { fontSize: 16, color: 'inherit' },
-            ...sxExtra,
-          }}
-        >
-          {content}
-        </Box>
-      </Tooltip>
-    );
-  };
-
-  return (
-    <Box sx={{ p: 1.75, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
-      <Typography sx={{ fontWeight: 800, fontSize: 13.5, mb: 1, color: C.ink }}>{label}</Typography>
-      {!readOnly && (
-        <Stack
-          direction="row"
-          spacing={0.5}
-          sx={{
-            mb: 1,
-            flexWrap: 'nowrap',
-            alignItems: 'center',
-            overflowX: 'auto',
-            pb: 0.25,
-            '&::-webkit-scrollbar': { height: 4 },
-          }}
-        >
-          {toolBtn('bold', 'Bold', 'B', { fontWeight: 800 })}
-          {toolBtn('italic', 'Italic', 'I', { fontStyle: 'italic' })}
-          {toolBtn('underline', 'Underline', 'U', { textDecoration: 'underline' })}
-          {toolBtn('insertUnorderedList', 'Bulleted list', <FormatListBulleted />)}
-          {toolBtn('insertOrderedList', 'Numbered list', <FormatListNumbered />)}
-          {toolBtn('outdent', 'Decrease indent', <FormatIndentDecrease />)}
-          {toolBtn('indent', 'Increase indent', <FormatIndentIncrease />)}
-          {toolBtn('justifyLeft', 'Align left', <FormatAlignLeft />)}
-          {toolBtn('justifyCenter', 'Align center', <FormatAlignCenter />)}
-          {toolBtn('justifyRight', 'Align right', <FormatAlignRight />)}
-        </Stack>
-      )}
-      <Box
-        ref={ref}
-        contentEditable={!readOnly}
-        suppressContentEditableWarning
-        role="textbox"
-        aria-label={label}
-        aria-multiline
-        aria-readonly={readOnly}
-        data-placeholder={placeholder}
-        onInput={emit}
-        onBlur={emit}
-        onKeyUp={syncActive}
-        onMouseUp={syncActive}
-        onFocus={syncActive}
-        onKeyDown={(e) => {
-          if (readOnly) return;
-          // Tab indents list items like Word
-          if (e.key === 'Tab') {
-            e.preventDefault();
-            run(e.shiftKey ? 'outdent' : 'indent');
-          }
-        }}
-        sx={{
-          minHeight: 160,
-          px: 1.5,
-          py: 1.15,
-          borderRadius: 1.5,
-          border: `1px solid ${C.line}`,
-          bgcolor: readOnly ? C.slate : '#fff',
-          outline: 'none',
-          fontSize: 13.5,
-          lineHeight: 1.6,
-          color: C.ink,
-          cursor: readOnly ? 'default' : 'text',
-          '&:focus': { borderColor: C.blue, boxShadow: '0 0 0 2px rgba(29,78,216,0.12)' },
-          '&:empty:before': {
-            content: 'attr(data-placeholder)',
-            color: C.mute,
-            pointerEvents: 'none',
-          },
-          '& b, & strong': { fontWeight: 700 },
-          '& i, & em': { fontStyle: 'italic' },
-          '& u': { textDecoration: 'underline' },
-          '& p': { m: 0, mb: 0.35 },
-          '& ul, & ol': {
-            margin: '0.35em 0',
-            paddingLeft: '1.6em',
-            listStylePosition: 'outside',
-          },
-          '& ul': { listStyleType: 'disc' },
-          '& ul ul': { listStyleType: 'circle' },
-          '& ul ul ul': { listStyleType: 'square' },
-          '& ol': { listStyleType: 'decimal' },
-          '& ol ol': { listStyleType: 'lower-alpha' },
-          '& ol ol ol': { listStyleType: 'lower-roman' },
-          '& li': { margin: '0.15em 0', display: 'list-item' },
-          '& li > p': { margin: 0 },
-          '& li + li': { marginTop: '0.2em' },
-        }}
-      />
-    </Box>
-  );
-}
-
-function NotesDecisionsEditors({
-  discussionNotes,
-  decisions,
-  setDiscussionNotes,
-  setDecisions,
-  readOnly,
-  seed,
-}: {
-  discussionNotes: string;
-  decisions: string;
-  setDiscussionNotes: (v: string) => void;
-  setDecisions: (v: string) => void;
-  readOnly: boolean;
-  seed: string;
-}) {
-  return (
-    <Stack spacing={1.5}>
-      <MomRichField
-        label="Discussion notes"
-        value={discussionNotes}
-        onChange={setDiscussionNotes}
-        readOnly={readOnly}
-        placeholder="Key discussion points from the meeting."
-        seed={`${seed}:d`}
-      />
-      <MomRichField
-        label="Decisions"
-        value={decisions}
-        onChange={setDecisions}
-        readOnly={readOnly}
-        placeholder="Key decisions taken in this meeting."
-        seed={`${seed}:c`}
-      />
-    </Stack>
-  );
+function useAgendaTaskOptions(projectId: string | null) {
+  const presetsQuery = usePresetTasks('PROJECT');
+  const deliverables = useProjectDeliverables(projectId);
+  const { deliverableTaskIds } = deliverables;
+  const options = useMemo(() => {
+    const presets = (presetsQuery.data?.presetTaskStatuses ?? []) as PresetTask[];
+    if (!projectId || deliverableTaskIds.length === 0) return buildTaskPathOptions(presets);
+    const only = new Set<string>();
+    deliverableTaskIds.forEach((id) => getPresetSubtreeIds(presets, id).forEach((n) => only.add(n)));
+    return buildTaskPathOptions(presets, only);
+  }, [presetsQuery.data, projectId, deliverableTaskIds]);
+  return { options, loading: presetsQuery.isLoading || (!!projectId && deliverables.isFetching) };
 }
 
 function AgendaPanel({
@@ -1592,7 +1627,7 @@ function AgendaPanel({
   canEdit,
   permsLoaded,
   onRefresh,
-  onPatchItem,
+  onConverted,
   onError,
 }: {
   meetingId: string;
@@ -1601,70 +1636,51 @@ function AgendaPanel({
   canEdit: boolean;
   permsLoaded: boolean;
   onRefresh: () => Promise<void>;
-  onPatchItem: (meetingId: string, itemId: string, patch: Record<string, unknown>) => void;
+  onConverted: () => void;
   onError: (m: string) => void;
 }) {
   const [agendaSearch, setAgendaSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+  const [converting, setConverting] = useState(false);
   const [selectedAgenda, setSelectedAgenda] = useState<Array<{ id: string; label: string }>>([]);
-  const [assignToId, setAssignToId] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [addCategoryId, setAddCategoryId] = useState('');
-  const [teamIds, setTeamIds] = useState<Set<string> | null>(null);
-  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
-  const [statusOptions, setStatusOptions] = useState<
-    Array<{ code: string; name: string; color: string }>
-  >([]);
-  const [addStatusCode, setAddStatusCode] = useState('');
-  const { data: directory = [], isLoading: directoryLoading } = useEmployeeDirectory();
 
-  const patchItem = async (
-    itemId: string,
-    payload: Record<string, unknown>,
-    displayPatch?: Record<string, unknown>,
-  ) => {
-    setRowBusyId(itemId);
-    // Optimistic row update — avoid full hub reload (that spun the whole page).
-    onPatchItem(meetingId, itemId, { ...payload, ...displayPatch });
-    try {
-      await updateAgendaItem(meetingId, itemId, payload);
-    } catch (e) {
-      onError(errMsg(e));
-      await onRefresh();
-    } finally {
-      setRowBusyId(null);
-    }
-  };
+  // Ticks start from what is already in the MoM, so converting again never drops items silently.
+  const savedKey = items.filter((it: any) => it.inMom).map((it: any) => it.id).join('|');
+  const [checked, setChecked] = useState<Set<string>>(
+    () => new Set(savedKey ? savedKey.split('|') : []),
+  );
+  useEffect(() => {
+    setChecked(new Set(savedKey ? savedKey.split('|') : []));
+  }, [savedKey]);
 
   const visibleItems = useMemo(() => {
     if (!agendaSearch.trim()) return items;
-    return items.filter((it: any) => {
-      const hay = [
-        it.description,
-        it.responsibleName,
-        it.category?.name,
-        it.statusLabel || it.status,
-        it.targetCompletionDate ? dayjs(it.targetCompletionDate).format('DD MMM YYYY') : '',
-      ].filter(Boolean).join(' ');
-      return matchesQuery(hay, agendaSearch);
-    });
+    return items.filter((it: any) => matchesQuery(String(it.description || ''), agendaSearch));
   }, [items, agendaSearch]);
 
-  const projectId = meeting?.projectId || null;
-  const presetsQuery = usePresetTasks('PROJECT');
-  const deliverables = useProjectDeliverables(projectId);
-  const presets = (presetsQuery.data?.presetTaskStatuses ?? []) as PresetTask[];
-  const { deliverableTaskIds } = deliverables;
-  const fromDeliverables = !!projectId && deliverableTaskIds.length > 0;
+  const visibleChecked = visibleItems.filter((it: any) => checked.has(it.id)).length;
+  const allVisibleChecked = visibleItems.length > 0 && visibleChecked === visibleItems.length;
 
-  const agendaOptions = useMemo(() => {
-    if (!fromDeliverables) return buildTaskPathOptions(presets);
-    const only = new Set<string>();
-    deliverableTaskIds.forEach((id) => getPresetSubtreeIds(presets, id).forEach((n) => only.add(n)));
-    return buildTaskPathOptions(presets, only);
-  }, [presets, fromDeliverables, deliverableTaskIds]);
+  const toggleAll = () => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      visibleItems.forEach((it: any) => (allVisibleChecked ? next.delete(it.id) : next.add(it.id)));
+      return next;
+    });
+  };
+
+  const toggleOne = (id: string) => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const projectId = meeting?.projectId || null;
+  const { options: agendaOptions, loading: agendaOptionsLoading } = useAgendaTaskOptions(projectId);
 
   const agendaPickerOptions = useMemo(() => {
     const takenIds = new Set(selectedAgenda.map((a) => a.id));
@@ -1677,132 +1693,13 @@ function AgendaPanel({
 
   const agendaPickerKey = selectedAgenda.map((a) => a.id).join('|') || 'empty';
 
-  useEffect(() => {
-    if (!projectId) {
-      setTeamIds(null);
-      return;
-    }
-    if (!canEdit && !open) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await getProjectTeam(projectId);
-        const list = res?.members || [];
-        const ids = new Set(
-          (Array.isArray(list) ? list : [])
-            .map((m: any) => String(m.id || m.employeeId || ''))
-            .filter(Boolean),
-        );
-        if (!cancelled) setTeamIds(ids);
-      } catch {
-        if (!cancelled) setTeamIds(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [canEdit, open, projectId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [catRes, stRes] = await Promise.all([
-          getCompanyAgendaCategories(),
-          getCompanyAgendaStatuses(),
-        ]);
-        const rows = (catRes?.categories || [])
-          .filter((c: any) => c.isActive !== false)
-          .map((c: any) => ({ id: String(c.id), name: String(c.name || '') }))
-          .filter((c: { id: string; name: string }) => c.id && c.name)
-          .sort((a: { name: string }, b: { name: string }) =>
-            a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-          );
-        const sts = (stRes?.statuses || [])
-          .filter((s: any) => s.isActive !== false)
-          .map((s: any) => ({
-            code: String(s.code || ''),
-            name: String(s.name || ''),
-            color: String(s.color || '#64748B'),
-          }))
-          .filter((s: { code: string; name: string }) => s.code && s.name)
-          .sort((a: { name: string }, b: { name: string }) =>
-            a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-          );
-        if (!cancelled) {
-          setCategories(rows);
-          setStatusOptions(sts);
-        }
-      } catch {
-        if (!cancelled) {
-          setCategories([]);
-          setStatusOptions([]);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const defaultOpenCode = useMemo(
-    () =>
-      statusOptions.find((s) => s.code === 'OPEN')?.code
-      || statusOptions.find((s) => /open/i.test(s.name))?.code
-      || statusOptions[0]?.code
-      || 'OPEN',
-    [statusOptions],
-  );
-  const defaultInfoCode = useMemo(
-    () =>
-      statusOptions.find((s) => s.code === 'INFORMATION')?.code
-      || statusOptions.find((s) => /info/i.test(s.name))?.code
-      || statusOptions.find((s) => s.code !== defaultOpenCode)?.code
-      || defaultOpenCode,
-    [statusOptions, defaultOpenCode],
-  );
-
-  const assigneeOptions: WtSelectOption[] = useMemo(() => {
-    const list = projectId && teamIds
-      ? directory.filter((e) => teamIds.has(e.id))
-      : directory;
-    return list
-      .map((e) => ({
-        value: e.id,
-        label: e.name,
-        avatar: e.avatar,
-        description: e.designation,
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
-  }, [directory, projectId, teamIds]);
-
-  const assigneeSelected = useMemo(
-    () => assigneeOptions.find((a) => a.value === assignToId) ?? null,
-    [assigneeOptions, assignToId],
-  );
-
-  const resetForm = () => {
-    setSelectedAgenda([]);
-    setAssignToId('');
-    setDueDate('');
-    setAddCategoryId('');
-    setAddStatusCode('');
-  };
-
   const submit = async () => {
     if (!selectedAgenda.length) return;
     setSaving(true);
     try {
-      const status =
-        addStatusCode
-        || (assignToId || dueDate ? defaultOpenCode : defaultInfoCode);
       const payloads = selectedAgenda.map((item) => ({
         description: item.label,
         itemMode: 'DISCUSSION',
-        status,
-        categoryId: addCategoryId || null,
-        responsibleUserId: assignToId || null,
-        targetCompletionDate: dueDate || null,
       }));
       if (payloads.length === 1) {
         await createAgendaItem(meetingId, payloads[0]);
@@ -1810,12 +1707,28 @@ function AgendaPanel({
         await createAgendaItemsBulk(meetingId, payloads);
       }
       setOpen(false);
-      resetForm();
+      setSelectedAgenda([]);
       await onRefresh();
     } catch (e) {
       onError(errMsg(e));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const convert = async () => {
+    setConverting(true);
+    try {
+      await convertAgendaToMom(
+        meetingId,
+        items.filter((it: any) => checked.has(it.id)).map((it: any) => it.id),
+      );
+      await onRefresh();
+      onConverted();
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setConverting(false);
     }
   };
 
@@ -1852,9 +1765,21 @@ function AgendaPanel({
           sx={{ maxWidth: { sm: 320 }, bgcolor: C.paper, borderRadius: 2 }}
         />
         {canEdit ? (
-          <WtButton size="small" onClick={() => setOpen(true)}>
-            + Add agenda items
-          </WtButton>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            {items.length > 0 && (
+              <>
+                <Typography sx={{ fontSize: 12.5, color: C.mute, whiteSpace: 'nowrap' }}>
+                  {checked.size} of {items.length} selected
+                </Typography>
+                <WtButton size="small" inverted disabled={converting} onClick={convert}>
+                  {converting ? 'Converting…' : 'Convert to MoM'}
+                </WtButton>
+              </>
+            )}
+            <WtButton size="small" onClick={() => setOpen(true)}>
+              + Add agenda items
+            </WtButton>
+          </Stack>
         ) : permsLoaded ? (
           <Typography sx={{ fontSize: 12, color: C.mute, maxWidth: 280, textAlign: { sm: 'right' } }}>
             Only the organizer or a project manager can add agenda items.
@@ -1882,231 +1807,77 @@ function AgendaPanel({
           </Alert>
         ) : (
           <Box sx={{ overflowX: 'auto' }}>
-            <Box
-              component="table"
-              sx={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: 13,
-                '& th': {
-                  textAlign: 'left',
-                  px: 1.5,
-                  py: 1.1,
-                  color: C.mute,
-                  fontWeight: 700,
-                  fontSize: 11.5,
-                  bgcolor: C.slate,
-                  borderBottom: `1px solid ${C.line}`,
-                  whiteSpace: 'nowrap',
-                },
-                '& td': {
-                  px: 1.5,
-                  py: 1.25,
-                  borderBottom: `1px solid ${C.line}`,
-                  verticalAlign: 'middle',
-                  color: C.ink,
-                },
-              }}
-            >
+            <Box component="table" sx={agendaTableSx}>
               <Box component="thead">
                 <Box component="tr">
-                  {['#', 'Agenda item', 'Category', 'Assignee', 'Due date', 'Status', ''].map((h) => (
-                    <Box component="th" key={h || 'actions'}>
-                      {h}
+                  {canEdit && (
+                    <Box component="th" sx={{ width: 44 }}>
+                      <WtCheckbox
+                        size="sm"
+                        checked={allVisibleChecked}
+                        indeterminate={visibleChecked > 0 && !allVisibleChecked}
+                        onChange={toggleAll}
+                        inputProps={{ 'aria-label': 'Select all agenda items' }}
+                      />
                     </Box>
-                  ))}
+                  )}
+                  <Box component="th" sx={{ width: 36 }}>#</Box>
+                  <Box component="th">Agenda item</Box>
+                  {canEdit && <Box component="th" sx={{ width: 44 }} />}
                 </Box>
               </Box>
               <Box component="tbody">
-                {visibleItems.map((item: any, idx: number) => {
-                  const statusMeta =
-                    statusOptions.find((s) => s.code === item.status)
-                    || null;
-                  const tone = statusTone(
-                    item.statusLabel || statusMeta?.name || item.status,
-                    item.statusColor || statusMeta?.color,
-                  );
-                  const rowBusy = rowBusyId === item.id;
-                  const assigneeVal =
-                    assigneeOptions.find((a) => a.value === item.responsibleUserId) || null;
-                  const dueVal = item.targetCompletionDate
-                    ? dayjs(item.targetCompletionDate).format('YYYY-MM-DD')
-                    : '';
-                  return (
-                    <Box component="tr" key={item.id}>
-                      <Box component="td" sx={{ color: C.mute, width: 36 }}>
-                        {idx + 1}
+                {visibleItems.map((item: any, idx: number) => (
+                  <Box
+                    component="tr"
+                    key={item.id}
+                    sx={{ bgcolor: canEdit && checked.has(item.id) ? C.blueSoft : undefined }}
+                  >
+                    {canEdit && (
+                      <Box component="td">
+                        <WtCheckbox
+                          size="sm"
+                          checked={checked.has(item.id)}
+                          onChange={() => toggleOne(item.id)}
+                          inputProps={{ 'aria-label': `Select ${item.description}` }}
+                        />
                       </Box>
-                      <Box component="td" sx={{ minWidth: 180, fontWeight: 600 }}>
-                        {item.description}
-                      </Box>
-                      <Box component="td" sx={{ minWidth: 140 }}>
-                        {canEdit ? (
-                          <TextField
-                            select
-                            size="small"
-                            fullWidth
-                            disabled={rowBusy}
-                            value={item.categoryId || ''}
-                            onChange={(e) => {
-                              const categoryId = e.target.value || null;
-                              const cat = categories.find((c) => c.id === categoryId);
-                              void patchItem(
-                                item.id,
-                                { categoryId },
-                                {
-                                  categoryId,
-                                  category: categoryId
-                                    ? { id: categoryId, name: cat?.name || '' }
-                                    : null,
-                                },
-                              );
-                            }}
-                            sx={{ '& .MuiInputBase-root': { fontSize: 13 } }}
-                          >
-                            <MenuItem value="">
-                              <em>—</em>
-                            </MenuItem>
-                            {categories.map((c) => (
-                              <MenuItem key={c.id} value={c.id}>
-                                {c.name}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        ) : (
-                          item.category?.name || '—'
-                        )}
-                      </Box>
-                      <Box component="td" sx={{ minWidth: 200 }}>
-                        {canEdit ? (
-                          <Box sx={assigneeSelectSx}>
-                            <WtSelect
-                              size="sm"
-                              options={assigneeOptions}
-                              value={assigneeVal}
-                              isDisabled={rowBusy}
-                              isLoading={directoryLoading}
-                              isClearable
-                              isSearchable
-                              optionVariant="avatar"
-                              placeholder="Assignee"
-                              ariaLabel="Assignee"
-                              onChange={(next) => {
-                                const opt = next as WtSelectOption | null;
-                                const status = opt || dueVal ? defaultOpenCode : item.status;
-                                const meta = statusOptions.find((s) => s.code === status);
-                                void patchItem(
-                                  item.id,
-                                  {
-                                    responsibleUserId: opt?.value || null,
-                                    status,
-                                  },
-                                  {
-                                    responsibleUserId: opt?.value || null,
-                                    responsibleName: opt?.label || null,
-                                    status,
-                                    statusLabel: meta?.name || item.statusLabel,
-                                    statusColor: meta?.color || item.statusColor,
-                                  },
-                                );
-                              }}
-                            />
-                          </Box>
-                        ) : (
-                          item.responsibleName || '—'
-                        )}
-                      </Box>
-                      <Box component="td" sx={{ whiteSpace: 'nowrap', minWidth: 150 }}>
-                        {canEdit ? (
-                          <WtDateField
-                            label=""
-                            value={dueVal}
-                            disabled={rowBusy}
-                            onChange={(v) => {
-                              const status = v || item.responsibleUserId ? defaultOpenCode : item.status;
-                              const meta = statusOptions.find((s) => s.code === status);
-                              void patchItem(
-                                item.id,
-                                {
-                                  targetCompletionDate: v || null,
-                                  status,
-                                },
-                                {
-                                  targetCompletionDate: v || null,
-                                  status,
-                                  statusLabel: meta?.name || item.statusLabel,
-                                  statusColor: meta?.color || item.statusColor,
-                                },
-                              );
-                            }}
-                          />
-                        ) : (
-                          fmtDate(item.targetCompletionDate)
-                        )}
-                      </Box>
-                      <Box component="td" sx={{ minWidth: 130 }}>
-                        {canEdit && statusOptions.length > 0 ? (
-                          <TextField
-                            select
-                            size="small"
-                            fullWidth
-                            disabled={rowBusy}
-                            value={
-                              statusOptions.some((s) => s.code === item.status)
-                                ? item.status
-                                : (statusOptions[0]?.code || '')
-                            }
-                            onChange={(e) => {
-                              const status = e.target.value;
-                              const meta = statusOptions.find((s) => s.code === status);
-                              void patchItem(
-                                item.id,
-                                { status },
-                                {
-                                  status,
-                                  statusLabel: meta?.name || status,
-                                  statusColor: meta?.color || null,
-                                },
-                              );
-                            }}
-                            sx={{ '& .MuiInputBase-root': { fontSize: 13 } }}
-                          >
-                            {statusOptions.map((s) => (
-                              <MenuItem key={s.code} value={s.code}>
-                                {s.name}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        ) : (
+                    )}
+                    <Box component="td" sx={{ color: C.mute }}>
+                      {idx + 1}
+                    </Box>
+                    <Box component="td" sx={{ fontWeight: 600 }}>
+                      <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+                        <span>{item.description}</span>
+                        {item.inMom && (
                           <Chip
                             size="small"
-                            label={String(tone.label || '—')}
+                            label="In MoM"
                             sx={{
-                              height: 22,
-                              fontSize: 11,
+                              height: 20,
+                              fontSize: 10.5,
                               fontWeight: 700,
-                              bgcolor: tone.bg,
-                              color: tone.fg,
+                              bgcolor: C.greenWash,
+                              color: C.green,
                             }}
                           />
                         )}
-                      </Box>
-                      <Box component="td" sx={{ width: 44, textAlign: 'center' }}>
-                        {canEdit && (
-                          <WtIconButton
-                            title="Remove agenda item"
-                            color="#DC2626"
-                            disabled={rowBusy}
-                            onClick={() => onDelete(item.id)}
-                            sx={{ width: 32, height: 32, borderRadius: '10px' }}
-                          >
-                            <AppIcon name="bi-trash" fallbackSize={14} />
-                          </WtIconButton>
-                        )}
-                      </Box>
+                      </Stack>
                     </Box>
-                  );
-                })}
+                    {canEdit && (
+                      <Box component="td" sx={{ textAlign: 'center' }}>
+                        <WtIconButton
+                          title="Remove agenda item"
+                          color="#DC2626"
+                          onClick={() => onDelete(item.id)}
+                          sx={{ width: 32, height: 32, borderRadius: '10px' }}
+                        >
+                          <AppIcon name="bi-trash" fallbackSize={14} />
+                        </WtIconButton>
+                      </Box>
+                    )}
+                  </Box>
+                ))}
               </Box>
             </Box>
           </Box>
@@ -2155,64 +1926,13 @@ function AgendaPanel({
               placeholder={projectId
                 ? 'Search this project’s deliverable tasks…'
                 : 'Search, e.g. electrical load sheet'}
-              loading={presetsQuery.isLoading || (!!projectId && deliverables.isFetching)}
+              loading={agendaOptionsLoading}
               helperText={
                 selectedAgenda.length
                   ? `${selectedAgenda.length} selected — pick more from the list`
                   : 'Pick one or more agenda items.'
               }
             />
-            <TextField
-              select
-              size="small"
-              fullWidth
-              label="Category"
-              value={addCategoryId}
-              onChange={(e) => setAddCategoryId(e.target.value)}
-            >
-              <MenuItem value="">
-                <em>None</em>
-              </MenuItem>
-              {categories.map((c) => (
-                <MenuItem key={c.id} value={c.id}>
-                  {c.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <Box>
-              <Typography sx={{ fontSize: 12, fontWeight: 600, color: C.mute, mb: 0.5 }}>
-                Assign to
-              </Typography>
-              <Box sx={assigneeSelectSx}>
-                <WtSelect
-                  size="sm"
-                  options={assigneeOptions}
-                  value={assigneeSelected}
-                  isLoading={directoryLoading}
-                  isClearable
-                  isSearchable
-                  optionVariant="avatar"
-                  placeholder={projectId ? 'Search project team…' : 'Search active employees…'}
-                  ariaLabel="Assign to"
-                  onChange={(next) => setAssignToId((next as WtSelectOption | null)?.value || '')}
-                />
-              </Box>
-            </Box>
-            <WtDateField label="Due date" value={dueDate} onChange={setDueDate} />
-            <TextField
-              select
-              size="small"
-              fullWidth
-              label="Status"
-              value={addStatusCode || (assignToId || dueDate ? defaultOpenCode : defaultInfoCode)}
-              onChange={(e) => setAddStatusCode(e.target.value)}
-            >
-              {statusOptions.map((s) => (
-                <MenuItem key={s.code} value={s.code}>
-                  {s.name}
-                </MenuItem>
-              ))}
-            </TextField>
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -2222,7 +1942,7 @@ function AgendaPanel({
             onClick={() => {
               if (saving) return;
               setOpen(false);
-              resetForm();
+              setSelectedAgenda([]);
             }}
           >
             Cancel
@@ -2243,4 +1963,3 @@ function AgendaPanel({
     </Stack>
   );
 }
-

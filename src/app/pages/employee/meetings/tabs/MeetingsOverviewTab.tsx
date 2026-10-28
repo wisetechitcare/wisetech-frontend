@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '@utils/apiError';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -15,7 +16,6 @@ import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import AccessTimeRounded from '@mui/icons-material/AccessTimeRounded';
 import PlaceOutlined from '@mui/icons-material/PlaceOutlined';
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
-import EventAvailableOutlined from '@mui/icons-material/EventAvailableOutlined';
 import ScheduleOutlined from '@mui/icons-material/ScheduleOutlined';
 import AssignmentLateOutlined from '@mui/icons-material/AssignmentLateOutlined';
 import HourglassEmptyRounded from '@mui/icons-material/HourglassEmptyRounded';
@@ -92,7 +92,7 @@ export default function MeetingsOverviewTab() {
         const list = mine?.data || [];
         setMyMeetings(Array.isArray(list) ? list : []);
       } catch (e: any) {
-        if (!cancelled) setError(e?.response?.data?.message || e?.message || 'Could not load overview');
+        if (!cancelled) setError(apiErrorMessage(e, 'Could not load overview'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -122,14 +122,13 @@ export default function MeetingsOverviewTab() {
 
   const pendingTimesheets: MeetingSlim[] = summary?.pendingTimesheets || [];
   const withoutAgendaList: MeetingSlim[] = summary?.withoutAgenda || [];
-  const momDrafts: Array<{
+  const minutesList: Array<{
     meetingId: string;
     title: string;
     documentNo?: string | null;
-    revision?: number;
     startDate?: string | Date | null;
     endDate?: string | Date | null;
-  }> = summary?.momDrafts || [];
+  }> = summary?.minutes || [];
   const c = summary?.counts || {};
 
   if (loading) {
@@ -182,26 +181,17 @@ export default function MeetingsOverviewTab() {
           display: 'grid',
           gap: 1.5,
           mb: 2,
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
         }}
       >
         <SummaryCard
-          value={c.momDrafts ?? 0}
-          title="MoM drafts"
-          subtitle="Meeting notes to be finalized."
+          value={c.minutes ?? 0}
+          title="Minutes of Meeting"
+          subtitle="Meetings with minutes recorded."
           wash={C.blueWash}
           accent={C.blue}
           icon={<DescriptionOutlined sx={{ fontSize: 22, color: C.blue }} />}
-          onClick={() => navigate('/employees/meetings/minutes-of-meeting')}
-        />
-        <SummaryCard
-          value={c.momFinalized ?? 0}
-          title="Finalized MoMs"
-          subtitle="Completed this month."
-          wash={C.purpleWash}
-          accent={C.purple}
-          icon={<EventAvailableOutlined sx={{ fontSize: 22, color: C.purple }} />}
-          onClick={() => navigate('/employees/meetings/minutes-of-meeting')}
+          onClick={() => navigate('/employees/meetings/agenda')}
         />
         <SummaryCard
           value={c.thisMonth ?? c.upcoming ?? 0}
@@ -214,23 +204,23 @@ export default function MeetingsOverviewTab() {
         />
       </Box>
 
-      {/* MoM drafts — named list matching the summary count */}
+      {/* Minutes of Meeting — named list matching the summary count */}
       <Box sx={{ mb: 1.5 }}>
         <Panel
-          title="MoM Drafts"
-          subtitle="Open a draft to continue notes and finalize"
+          title="Minutes of Meeting"
+          subtitle="Open a meeting's minutes to continue"
           icon={<DescriptionOutlined sx={{ fontSize: 18, color: C.blue }} />}
           iconWash={C.blueWash}
-          viewAll={() => navigate('/employees/meetings/minutes-of-meeting')}
+          viewAll={() => navigate('/employees/meetings/agenda')}
         >
-          {!momDrafts.length ? (
-            <Empty>No MoM drafts yet.</Empty>
+          {!minutesList.length ? (
+            <Empty>No minutes recorded yet.</Empty>
           ) : (
             <Stack spacing={0.75} sx={{ overflowY: 'auto', minHeight: 0, flex: 1, maxHeight: 220 }}>
-              {momDrafts.map((d) => (
+              {minutesList.map((d) => (
                 <Row
                   key={d.meetingId}
-                  onClick={() => navigate(`/employees/meetings/${d.meetingId}?tab=mom`)}
+                  onClick={() => openDetail(d.meetingId, 'mom')}
                   leading={<DateBlock date={d.endDate || d.startDate} />}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
@@ -239,12 +229,9 @@ export default function MeetingsOverviewTab() {
                         {d.title}
                       </Typography>
                       <Typography noWrap sx={{ fontSize: 12, color: C.mute }}>
-                        {d.documentNo || 'Draft'}
-                        {' · '}
-                        Rev. {String(d.revision ?? 0).padStart(2, '0')}
+                        {d.documentNo || 'Minutes of Meeting'}
                       </Typography>
                     </Box>
-                    <Pill label="Draft" bg={C.blueWash} fg={C.blue} />
                   </Box>
                 </Row>
               ))}

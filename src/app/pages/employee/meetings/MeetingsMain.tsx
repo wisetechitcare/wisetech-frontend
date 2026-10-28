@@ -1,6 +1,6 @@
 /**
  * Dedicated Meetings workspace (sidebar). Same MaterialHeaderTab / useTabRoute pattern as Calendar.
- * Reuses MeetingDialog + MeetingsList for scheduling; detail route for agenda/MoM.
+ * Reuses MeetingDialog + MeetingsList for scheduling; minutes live on the Agenda tab.
  */
 import { useMemo } from 'react';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
@@ -11,7 +11,6 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import CalendarMeetingsTab from '../calendar/views/Meetings';
 import MeetingsOverviewTab from './tabs/MeetingsOverviewTab';
 import MeetingsAgendaHubTab from './tabs/MeetingsAgendaHubTab';
-import MeetingsMomHubTab from './tabs/MeetingsMomHubTab';
 import MeetingsConfigureTab from './tabs/MeetingsConfigureTab';
 
 function MeetingsMain() {
@@ -29,7 +28,6 @@ function MeetingsMain() {
             { title: 'Overview', component: <MeetingsOverviewTab />, icon: 'bi-speedometer2' },
             { title: 'All Meetings', component: <CalendarMeetingsTab />, icon: 'bi-people' },
             { title: 'Agenda', component: <MeetingsAgendaHubTab />, icon: 'bi-list-check' },
-            { title: 'Minutes of Meeting', component: <MeetingsMomHubTab />, icon: 'bi-journal-text' },
             { title: 'Configure', component: <MeetingsConfigureTab />, icon: 'bi-gear' },
           ]
         : [],

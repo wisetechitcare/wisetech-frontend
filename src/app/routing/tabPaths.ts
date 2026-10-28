@@ -35,7 +35,6 @@ export const TAB_PATHS = {
         'overview',
         'all-meetings',
         'agenda',
-        'minutes-of-meeting',
         'configure',
     ],
 } as const satisfies Record<string, readonly string[]>;

@@ -14,29 +14,6 @@ export const getMeetingsAgendaHub = async () => {
   return data;
 };
 
-export const getCompanyAgendaCategories = async () => {
-  const { data } = await axios.get(`${meetingsRoot}/agenda-categories`);
-  return data;
-};
-
-export const createCompanyAgendaCategory = async (payload: { name: string; sortOrder?: number }) => {
-  const { data } = await axios.post(`${meetingsRoot}/agenda-categories`, payload);
-  return data;
-};
-
-export const updateCompanyAgendaCategory = async (
-  categoryId: string,
-  payload: { name?: string; sortOrder?: number; isActive?: boolean },
-) => {
-  const { data } = await axios.patch(`${meetingsRoot}/agenda-categories/${categoryId}`, payload);
-  return data;
-};
-
-export const deleteCompanyAgendaCategory = async (categoryId: string) => {
-  const { data } = await axios.delete(`${meetingsRoot}/agenda-categories/${categoryId}`);
-  return data;
-};
-
 export const getCompanyAgendaStatuses = async () => {
   const { data } = await axios.get(`${meetingsRoot}/agenda-statuses`);
   return data;
@@ -98,14 +75,9 @@ export const getMeetingDetail = async (meetingId: string) => {
 
 export const updateMeetingPurpose = async (
   meetingId: string,
-  payload: { purposeCode?: string | null; purposeOtherText?: string | null },
+  payload: { purposeCodes?: string[]; purposeOtherText?: string | null },
 ) => {
   const { data } = await axios.patch(`${base(meetingId)}/purpose`, payload);
-  return data;
-};
-
-export const getAgendaCategories = async (meetingId: string) => {
-  const { data } = await axios.get(`${base(meetingId)}/agenda-categories`);
   return data;
 };
 
@@ -141,6 +113,12 @@ export const deleteAgendaItem = async (meetingId: string, itemId: string) => {
   return data;
 };
 
+/** Exactly these items end up in the MoM; every other agenda item is taken out. */
+export const convertAgendaToMom = async (meetingId: string, itemIds: string[]) => {
+  const { data } = await axios.post(`${base(meetingId)}/agenda-items/convert-to-mom`, { itemIds });
+  return data;
+};
+
 export const getMeetingMinutes = async (meetingId: string) => {
   const { data } = await axios.get(`${base(meetingId)}/minutes`);
   return data;
@@ -151,26 +129,11 @@ export const createMeetingMinutesDraft = async (meetingId: string) => {
   return data;
 };
 
-export const refreshMeetingMinutesDraft = async (meetingId: string) => {
-  const { data } = await axios.post(`${base(meetingId)}/minutes/refresh`);
-  return data;
-};
-
 export const updateMeetingMinutesDraft = async (
   meetingId: string,
   payload: Record<string, unknown>,
 ) => {
   const { data } = await axios.patch(`${base(meetingId)}/minutes`, payload);
-  return data;
-};
-
-export const finalizeMeetingMinutes = async (meetingId: string) => {
-  const { data } = await axios.post(`${base(meetingId)}/minutes/finalize`);
-  return data;
-};
-
-export const amendMeetingMinutes = async (meetingId: string) => {
-  const { data } = await axios.post(`${base(meetingId)}/minutes/amend`);
   return data;
 };
 
