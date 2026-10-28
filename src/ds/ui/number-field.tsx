@@ -11,13 +11,9 @@ import {
   type NumberFieldProps,
 } from "react-aria-components"
 
+import { AriaInputGroup, FieldChrome, type FieldChromeProps } from "@/ds/ui/aria-field"
 import { buttonVariants } from "@/ds/ui/button"
-import {
-  FieldChrome,
-  fieldClassName,
-  fieldGroupClassName,
-  type FieldChromeProps,
-} from "@/ds/ui/date-field"
+import { fieldVariants } from "@/ds/ui/field"
 
 const stepperClassName = buttonVariants({
   variant: "ghost",
@@ -41,7 +37,7 @@ function NumberField({
     <AriaNumberField
       data-slot="number-field"
       className={composeRenderProps(className, (className) =>
-        cn(fieldClassName, className)
+        cn(fieldVariants(), className)
       )}
       {...props}
     >
@@ -50,27 +46,30 @@ function NumberField({
         description={description}
         errorMessage={errorMessage}
       >
-        <Group data-slot="number-field-group" className={fieldGroupClassName}>
-          <Input
-            data-slot="number-field-input"
-            placeholder={placeholder}
-            className="h-full min-w-0 flex-1 bg-transparent px-3 text-base tabular-nums outline-none placeholder:text-muted-foreground md:text-sm"
-          />
-          <Button
-            slot="decrement"
-            data-slot="number-field-decrement"
-            className={stepperClassName}
-          >
-            <MinusIcon />
-          </Button>
-          <Button
-            slot="increment"
-            data-slot="number-field-increment"
-            className={cn(stepperClassName, "me-0.5")}
-          >
-            <PlusIcon />
-          </Button>
-        </Group>
+        <AriaInputGroup>
+          <Group data-slot="number-field-group" className="flex h-full w-full min-w-0 items-center">
+            {/* React Aria's own Input (shadcn's Input is Base UI); the slot gives InputGroup its focus ring. */}
+            <Input
+              data-slot="input-group-control"
+              placeholder={placeholder}
+              className="h-full min-w-0 flex-1 bg-transparent px-3 text-base tabular-nums outline-none placeholder:text-muted-foreground md:text-sm"
+            />
+            <Button
+              slot="decrement"
+              data-slot="number-field-decrement"
+              className={stepperClassName}
+            >
+              <MinusIcon />
+            </Button>
+            <Button
+              slot="increment"
+              data-slot="number-field-increment"
+              className={cn(stepperClassName, "me-0.5")}
+            >
+              <PlusIcon />
+            </Button>
+          </Group>
+        </AriaInputGroup>
       </FieldChrome>
     </AriaNumberField>
   )

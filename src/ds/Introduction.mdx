@@ -33,6 +33,10 @@ changes, each marked in the file:
 - **Calendar, DateField, TimeField, DatePicker, NumberField** — React Aria (locale-aware: day-first dates,
   1,00,000 grouping). The Calendar is shadcn's own React Aria calendar, adapted by hand: the CLI would replace
   our Base UI Button and Select with React Aria ones. `KitProvider` (`src/ds/provider.tsx`) supplies the locale.
+  They wear shadcn's own parts through React Aria's contexts (`src/ds/ui/aria-field.tsx`): FieldLabel,
+  FieldDescription, FieldError and the InputGroup pill — no copied class strings.
+- **field.tsx / popover.tsx** — export `fieldVariants` and `popoverSurfaceClassName` so those React Aria fields
+  share them (rendered classes unchanged).
 
 Screens and patterns are composed only from these components; `src/ds/consistency.test.ts` fails the
 build if one hand-builds a button, input, textarea, kbd or card.

@@ -16,15 +16,12 @@ import {
   type DateValue,
 } from "react-aria-components"
 
+import { AriaInputGroup, FieldChrome, type FieldChromeProps } from "@/ds/ui/aria-field"
 import { buttonVariants } from "@/ds/ui/button"
 import { Calendar, RangeCalendar } from "@/ds/ui/calendar"
-import {
-  DateInput,
-  FieldChrome,
-  fieldClassName,
-  fieldGroupClassName,
-  type FieldChromeProps,
-} from "@/ds/ui/date-field"
+import { DateInput } from "@/ds/ui/date-field"
+import { fieldVariants } from "@/ds/ui/field"
+import { popoverSurfaceClassName } from "@/ds/ui/popover"
 
 function PickerTrigger() {
   return (
@@ -41,14 +38,15 @@ function PickerTrigger() {
   )
 }
 
-// The popover.tsx surface (radius, shadow, ring, motion) on React Aria's Popover.
+// popover.tsx's surface on React Aria's Popover; only the motion classes are React Aria's own.
 function PickerPopover({ children }: { children: React.ReactNode }) {
   return (
     <Popover
       data-slot="popover-content"
       placement="bottom start"
-      offset={4}
-      className="z-50 origin-(--trigger-anchor-point) rounded-2xl bg-popover text-sm text-popover-foreground shadow-2xl ring-1 ring-foreground/5 outline-hidden duration-100 data-entering:animate-in data-entering:fade-in-0 data-entering:zoom-in-95 data-exiting:animate-out data-exiting:fade-out-0 data-exiting:zoom-out-95 data-[placement=bottom]:slide-in-from-top-2 data-[placement=left]:slide-in-from-right-2 data-[placement=right]:slide-in-from-left-2 data-[placement=top]:slide-in-from-bottom-2"
+      // 4px below the pill, like popover.tsx: it anchors to the Group, 1px inside the pill's border.
+      offset={5}
+      className={cn(popoverSurfaceClassName, "z-50 origin-(--trigger-anchor-point) duration-100 data-entering:animate-in data-entering:fade-in-0 data-entering:zoom-in-95 data-exiting:animate-out data-exiting:fade-out-0 data-exiting:zoom-out-95 data-[placement=bottom]:slide-in-from-top-2 data-[placement=left]:slide-in-from-right-2 data-[placement=right]:slide-in-from-left-2 data-[placement=top]:slide-in-from-bottom-2")}
     >
       <Dialog className="outline-none">{children}</Dialog>
     </Popover>
@@ -71,7 +69,7 @@ function DatePicker<T extends DateValue>({
     <AriaDatePicker
       data-slot="date-picker"
       className={composeRenderProps(className, (className) =>
-        cn(fieldClassName, className)
+        cn(fieldVariants(), className)
       )}
       {...props}
     >
@@ -80,10 +78,12 @@ function DatePicker<T extends DateValue>({
         description={description}
         errorMessage={errorMessage}
       >
-        <Group data-slot="date-picker-group" className={fieldGroupClassName}>
-          <DateInput className="flex-1" />
-          <PickerTrigger />
-        </Group>
+        <AriaInputGroup>
+          <Group data-slot="date-picker-group" className="flex h-full w-full min-w-0 items-center">
+            <DateInput className="flex-1" />
+            <PickerTrigger />
+          </Group>
+        </AriaInputGroup>
       </FieldChrome>
       <PickerPopover>
         <Calendar />
@@ -103,7 +103,7 @@ function DateRangePicker<T extends DateValue>({
     <AriaDateRangePicker
       data-slot="date-range-picker"
       className={composeRenderProps(className, (className) =>
-        cn(fieldClassName, className)
+        cn(fieldVariants(), className)
       )}
       {...props}
     >
@@ -112,17 +112,19 @@ function DateRangePicker<T extends DateValue>({
         description={description}
         errorMessage={errorMessage}
       >
-        <Group
-          data-slot="date-range-picker-group"
-          className={fieldGroupClassName}
-        >
-          <DateInput slot="start" className="pe-1" />
-          <span aria-hidden="true" className="text-muted-foreground">
-            –
-          </span>
-          <DateInput slot="end" className="flex-1 ps-1" />
-          <PickerTrigger />
-        </Group>
+        <AriaInputGroup>
+          <Group
+            data-slot="date-range-picker-group"
+            className="flex h-full w-full min-w-0 items-center"
+          >
+            <DateInput slot="start" className="pe-1" />
+            <span aria-hidden="true" className="text-muted-foreground">
+              –
+            </span>
+            <DateInput slot="end" className="flex-1 ps-1" />
+            <PickerTrigger />
+          </Group>
+        </AriaInputGroup>
       </FieldChrome>
       <PickerPopover>
         <RangeCalendar />
