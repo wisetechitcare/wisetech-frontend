@@ -17,8 +17,28 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 @import "./tokens.css";
+@import "./typeset.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* shadcn/typeset (./typeset.css, https://ui.shadcn.com/docs/typeset): styles rendered markdown inside a
+   `typeset` container and nothing outside it. Kept verbatim so it can be re-downloaded over; local
+   choices live below. Its defaults sit in @layer components, so these unlayered presets win on any
+   import order. Opt an embedded element out with `not-typeset` or `data-not-typeset`; kit components
+   (data-slot) are skipped already. */
+:root {
+  --font-inter: 'Inter Variable', sans-serif;
+}
+
+/* Long-form reading surface. Other typeset-* presets are separate surfaces. */
+.typeset-article {
+  --typeset-font-body: var(--font-inter);
+  --typeset-font-heading: var(--font-inter);
+  --typeset-font-mono: var(--font-inter);
+  --typeset-size: 15px;
+  --typeset-leading: 1.75;
+  --typeset-flow: 1.25em;
+}
 
 @layer base {
   * {

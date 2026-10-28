@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { ColourRoles, Foundations, RadiusElevation, SpacingDensity, StatusColours, TypeScale } from './Foundations'
+import { ColourRoles, Foundations, RadiusElevation, SpacingDensity, StatusColours, TypeScale, TypesetArticle } from './Foundations'
 
 /** Design tokens of Visual Language v2 — every value lives in `src/ds/styles/globals.css`. */
 const meta = {
@@ -22,6 +22,9 @@ export const StatusStory: Story = { name: 'Status colours', render: () => <Statu
 
 /** Inter, five roles; numbers use tabular figures. */
 export const TypeScaleStory: Story = { name: 'Type scale', render: () => <TypeScale /> }
+
+/** Rendered markdown in the typeset-article preset: headings, lists, table, code, quote — no classes on the content. */
+export const TypesetStory: Story = { name: 'Typeset (article)', render: () => <TypesetArticle /> }
 
 /** shadcn's radius scale and shadows. */
 export const RadiusElevationStory: Story = { name: 'Radius & shadow', render: () => <RadiusElevation /> }

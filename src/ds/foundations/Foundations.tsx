@@ -99,6 +99,74 @@ export function TypeScale() {
   )
 }
 
+export function TypesetArticle() {
+  return (
+    <Section
+      title="Reading typography"
+      description="shadcn/typeset styles rendered markdown inside a typeset container; the content itself carries no classes. typeset-article is the long-form preset. Kit components (data-slot) and anything marked not-typeset keep their own styles."
+    >
+      <div className="rounded-xl border bg-card p-6 shadow-xs">
+        <article className="typeset typeset-article max-w-[42em]">
+          <h1>Leave carry-forward and encashment</h1>
+          <p>
+            Unused <strong>Annual</strong> leave moves into the next leave year, up to the carry-forward limit set on the leave
+            type. Anything above that limit is <a href="#worked-example">encashed at year end</a>, never mid-year.
+          </p>
+          <h2>How the balance is worked out</h2>
+          <ol>
+            <li>Take the closing balance on <code>2026.12.31</code>.</li>
+            <li>Carry forward up to the leave type's limit.</li>
+            <li>
+              Encash the excess:
+              <ul>
+                <li>full days at the daily rate;</li>
+                <li>a half day counts as <code>0.5</code>.</li>
+              </ul>
+            </li>
+          </ol>
+          <blockquote>
+            <p>Probation does not pause accrual. The balance keeps growing; it is only hidden from the employee until confirmation.</p>
+          </blockquote>
+          <h3 id="worked-example">Worked example</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th align="right">Closing</th>
+                <th align="right">Carried</th>
+                <th align="right">Encashed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Asha Rao</td>
+                <td align="right">14.5</td>
+                <td align="right">10</td>
+                <td align="right">4.5</td>
+              </tr>
+              <tr>
+                <td>Vikram Shah</td>
+                <td align="right">6</td>
+                <td align="right">6</td>
+                <td align="right">0</td>
+              </tr>
+            </tbody>
+          </table>
+          <h4>Formula</h4>
+          <pre>
+            <code>{`carried  = min(closing, carryForwardLimit)
+encashed = closing - carried`}</code>
+          </pre>
+          <hr />
+          <p>
+            Open the command palette with <kbd>Ctrl</kbd> <kbd>K</kbd> and search <mark>leave policy</mark> to find this page.
+          </p>
+        </article>
+      </div>
+    </Section>
+  )
+}
+
 export function RadiusElevation() {
   return (
     <Section title="Radius & shadow" description="shadcn's radius scale from one --radius base; base-maia uses the large radii for pills and cards.">
@@ -142,6 +210,7 @@ export function Foundations() {
       <ColourRoles />
       <StatusColours />
       <TypeScale />
+      <TypesetArticle />
       <RadiusElevation />
       <SpacingDensity />
     </div>
