@@ -1,3 +1,5 @@
+import { BRAND_PRESETS as APP_BRAND_PRESETS } from "@/app/theme/appearance"
+
 /**
  * Appearance axes for the v2 design system. Everything is an attribute/class/variable on <html>,
  * so every component (and plain CSS) follows without React context.
@@ -5,7 +7,7 @@
  *   mode     light | dark                  -> .dark
  *   surface  material | glass              -> data-surface
  *   density  comfortable | compact         -> data-density
- *   brand    any CSS colour (tenant brand) -> --brand (+ derived foreground)
+ *   brand    tenant brand colour           -> --brand, --brand-bright
  */
 export type Mode = "light" | "dark"
 export type Surface = "material" | "glass"
@@ -15,16 +17,20 @@ export interface Appearance {
   mode: Mode
   surface: Surface
   density: Density
-  /** CSS colour; `null` keeps the WiseTech navy from the token sheet. */
+  /** A tenant brand colour; `null` keeps the app's default navy from the token sheet. */
   brand: string | null
 }
 
-export const BRAND_PRESETS: ReadonlyArray<{ id: string; label: string; light: string; dark: string }> = [
-  { id: "navy", label: "WiseTech Navy", light: "oklch(0.45 0.17 265)", dark: "oklch(0.7 0.14 265)" },
-  { id: "teal", label: "Deep Teal", light: "oklch(0.5 0.1 190)", dark: "oklch(0.74 0.11 190)" },
-  { id: "violet", label: "Violet", light: "oklch(0.5 0.2 295)", dark: "oklch(0.74 0.15 295)" },
-  { id: "graphite", label: "Graphite", light: "oklch(0.35 0.02 265)", dark: "oklch(0.82 0.02 265)" },
-]
+/** The app's own presets (src/app/theme/appearance.ts) — one source, never a copy. */
+export const BRAND_PRESETS = APP_BRAND_PRESETS.map(({ id, label, brand }) => ({ id, label, primary: brand.primary }))
+
+/**
+ * The CTA gradient's brighter start, derived from any tenant brand. Lightness is capped so white
+ * text keeps >= 4.5:1 on every preset (teal is the tightest at 4.65); chroma is capped so a vivid
+ * brand doesn't go neon. The default navy uses the live app's exact pair from the token sheet.
+ */
+export const brightOf = (brand: string) =>
+  `oklch(from ${brand} min(calc(l + 0.167), 0.53) min(calc(c * 1.56), 0.22) calc(h - 2.6))`
 
 export function applyAppearance(a: Appearance, root: HTMLElement = document.documentElement) {
   root.classList.toggle("dark", a.mode === "dark")
@@ -33,13 +39,9 @@ export function applyAppearance(a: Appearance, root: HTMLElement = document.docu
   root.dataset.density = a.density
   if (a.brand) {
     root.style.setProperty("--brand", a.brand)
-    // Readable text on the brand fill: dark text on light brands, light text otherwise.
-    root.style.setProperty(
-      "--brand-foreground",
-      `oklch(from ${a.brand} calc(l > 0.68 ? 0.18 : 0.985) 0.02 h)`,
-    )
+    root.style.setProperty("--brand-bright", brightOf(a.brand))
   } else {
     root.style.removeProperty("--brand")
-    root.style.removeProperty("--brand-foreground")
+    root.style.removeProperty("--brand-bright")
   }
 }

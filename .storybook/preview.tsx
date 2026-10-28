@@ -18,7 +18,7 @@ function Appearance({ mode, surface, density, brand, children }: Globals & { chi
       mode,
       surface,
       density,
-      brand: preset.id === 'navy' ? null : mode === 'dark' ? preset.dark : preset.light,
+      brand: preset.id === 'wisetech' ? null : preset.primary,
     })
   }, [mode, surface, density, preset])
   return (
@@ -48,7 +48,7 @@ const preview: Preview = {
     density: { description: 'Comfortable or compact spacing', ...toolbar('Density', 'grow', [{ value: 'comfortable', title: 'Comfortable' }, { value: 'compact', title: 'Compact' }]) },
     brand: { description: 'Tenant brand colour', ...toolbar('Brand', 'paintbrush', BRAND_PRESETS.map((b) => ({ value: b.id, title: b.label }))) },
   },
-  initialGlobals: { mode: 'light', surface: 'material', density: 'comfortable', brand: 'navy' },
+  initialGlobals: { mode: 'light', surface: 'material', density: 'comfortable', brand: 'wisetech' },
   parameters: {
     layout: 'padded',
     controls: {

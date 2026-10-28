@@ -12,7 +12,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary bg-linear-135 from-[oklch(from_var(--primary)_calc(l_+_0.1)_calc(c_+_0.04)_h)] to-primary dark:from-primary dark:to-[color-mix(in_oklch,var(--primary),white_12%)] font-bold text-primary-foreground shadow-glow hover:shadow-glow-lg hover:brightness-105 motion-safe:hover:-translate-y-px",
+          "bg-(--brand) bg-linear-135 from-(--brand-bright) to-(--brand) font-bold text-(--brand-foreground) shadow-glow [--glow:var(--brand)] hover:shadow-glow-lg hover:brightness-105 motion-safe:hover:-translate-y-px",
         outline:
           "border-border bg-background font-semibold shadow-xs hover:border-foreground/25 hover:bg-muted hover:text-foreground hover:shadow-md motion-safe:hover:-translate-y-px aria-expanded:bg-muted aria-expanded:text-foreground",
         // WtButton's "inverted": brand text on white, brand-tinted border, the brand glow on hover.
