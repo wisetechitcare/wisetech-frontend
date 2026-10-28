@@ -41,7 +41,7 @@ import {
   unarchiveGroupToApi,
 } from "../store/courtesyDeskStore";
 import type { PeopleGroup } from "../types";
-import { groupStatusColor, parseGroupStatus } from "../types";
+import { driveGroupIds, groupStatusColor, parseGroupStatus } from "../types";
 
 type GroupStatusScope = "ACTIVE" | "ARCHIVED" | "ALL";
 
@@ -66,7 +66,7 @@ export default function PeopleGroupsList() {
   const runCountByGroup = useMemo(() => {
     const map = new Map<string, number>();
     for (const d of drives) {
-      map.set(d.sourceGroupId, (map.get(d.sourceGroupId) || 0) + 1);
+      for (const gid of driveGroupIds(d)) map.set(gid, (map.get(gid) || 0) + 1);
     }
     return map;
   }, [drives]);

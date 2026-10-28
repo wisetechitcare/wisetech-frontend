@@ -98,6 +98,9 @@ export interface MaterialTableProps {
   hideExportCenter?: boolean;
   hidePagination?: boolean;
   tableName: string;
+  /** Export file / title / sheet name (e.g. a record's title). `tableName` stays the
+   *  preferences key, so a per-record name never resets saved columns. */
+  exportName?: string;
   employeeId?: string;
   muiTableProps?: {
     sx?: object;
@@ -373,6 +376,7 @@ function MaterialTable({
   hideExportCenter,
   hidePagination,
   tableName,
+  exportName,
   muiTableProps,
   enableBottomToolbar = true,
   muiTableHeadCellStyle = {},
@@ -1032,17 +1036,23 @@ function MaterialTable({
         // accessorFn columns have no raw row[key] to read (id-only ones) or hold a
         // raw id the cell never shows (e.g. projectManagerId → manager names), so
         // export through the same accessor the table renders from.
-        ...(col.accessorFn
-          ? { format: (_v: any, row: any) => String(col.accessorFn(row) ?? '') }
-          : {}),
+        // `meta.exportValue(row)` wins when the cell decorates a value the column
+        // must still sort on numerically (e.g. a count shown as "16 Box").
+        ...(typeof col.meta?.exportValue === 'function'
+          ? { format: (_v: any, row: any) => String(col.meta.exportValue(row) ?? '') }
+          : col.accessorFn
+            ? { format: (_v: any, row: any) => String(col.accessorFn(row) ?? '') }
+            : {}),
       }));
   }, [columns, preferences.columnVisibility]);
 
   // Human-readable title from tableName (e.g. "MonthlySalary" → "Monthly Salary")
   const autoExportTitle = useMemo(
-    () => tableName.replace(/([A-Z])/g, ' $1').trim(),
-    [tableName],
+    () => exportName || tableName.replace(/([A-Z])/g, ' $1').trim(),
+    [exportName, tableName],
   );
+  // File and Excel sheet names can't hold  / : * ? [ ] — swap them out.
+  const exportFileName = (exportName || tableName).replace(/[\\/:*?[\]]+/g, ' ').trim();
 
   const tableTheme = useMemo(
     () =>
@@ -2380,9 +2390,9 @@ function MaterialTable({
                           data={selectedRows.length > 0 ? selectedRows : tableData}
                           getData={selectedRows.length === 0 ? fetchAllRows : undefined}
                           columns={autoExportCols}
-                          filename={tableName}
+                          filename={exportFileName}
                           title={autoExportTitle}
-                          sheetName={tableName.slice(0, 31)}
+                          sheetName={exportFileName.slice(0, 31)}
                           disabled={tableData.length === 0}
                         />
                       ) : null}

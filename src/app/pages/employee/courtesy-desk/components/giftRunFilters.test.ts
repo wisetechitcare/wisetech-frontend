@@ -44,4 +44,15 @@ describe("giftRunFilters", () => {
       ),
     ).toBe(false);
   });
+
+  it("filters by the group a person came from, or individuals in no linked group", () => {
+    const viaIt = { ...EMPTY_GIFT_RUN_FILTERS, via: "it-team" };
+    const individual = { ...EMPTY_GIFT_RUN_FILTERS, via: "INDIVIDUAL" };
+    const inBoth = { gender: "", designation: "", groupIds: ["it-team", "wisetech"] };
+    const inNone = { gender: "", designation: "", groupIds: [] };
+    expect(matchesGiftRunFilters(recipient, viaIt, inBoth)).toBe(true);
+    expect(matchesGiftRunFilters(recipient, { ...viaIt, via: "hr" }, inBoth)).toBe(false);
+    expect(matchesGiftRunFilters(recipient, individual, inNone)).toBe(true);
+    expect(matchesGiftRunFilters(recipient, individual, inBoth)).toBe(false);
+  });
 });
