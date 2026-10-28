@@ -1,21 +1,6 @@
 import * as React from "react"
+import { cn } from "cn"
 import { useCountUp } from "@/ds/hooks/use-count-up"
-
-// Inline styles, not classes: CountUp also renders in the live app, where the v2 token CSS is not loaded.
-const visuallyHidden: React.CSSProperties = {
-  position: "absolute",
-  width: 1,
-  height: 1,
-  padding: 0,
-  margin: -1,
-  overflow: "hidden",
-  clip: "rect(0, 0, 0, 0)",
-  whiteSpace: "nowrap",
-  border: 0,
-  // Unselectable, so copying the number (or the tile around it) gives it once, not twice.
-  userSelect: "none",
-  WebkitUserSelect: "none",
-}
 
 /** A KPI number that counts up to `value` on mount and whenever it changes. Assistive tech reads only the final value. */
 function CountUp({
@@ -24,7 +9,7 @@ function CountUp({
   duration,
   locale = "en-IN",
   format,
-  style,
+  className,
   ...props
 }: Omit<React.ComponentProps<"span">, "children"> & {
   value: number
@@ -44,8 +29,9 @@ function CountUp({
   }, [format, locale, decimals])
 
   return (
-    <span data-slot="count-up" style={{ fontVariantNumeric: "tabular-nums", ...style }} {...props}>
-      <span style={visuallyHidden}>{toText(value)}</span>
+    <span data-slot="count-up" className={cn("tabular-nums", className)} {...props}>
+      {/* Unselectable, so copying the number (or the tile around it) gives it once, not twice. */}
+      <span className="sr-only select-none">{toText(value)}</span>
       <span aria-hidden="true">{toText(shown)}</span>
     </span>
   )
