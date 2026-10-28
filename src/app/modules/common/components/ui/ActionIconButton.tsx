@@ -1,10 +1,10 @@
-import type { ReactNode } from 'react';
-import { Button, IconButton } from '@mui/material';
+import type { CSSProperties, ReactNode } from 'react';
 import { KTIcon } from '@metronic/helpers';
+import { cn } from 'cn';
+import { Button } from '@/ds/ui/button';
 import { T } from './tokens';
 import { TRIO, type Trio } from './patterns';
-import { tintedIconSurfaceSx } from './buttons';
-import { useIsDark } from './tw/useIsDark';
+import { KT_ICON_FULL } from './buttons';
 import WtTooltip from './WtTooltip';
 
 export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success' | 'onBrand';
@@ -81,10 +81,8 @@ const SIZE_PX: Record<'sm' | 'md', number> = { sm: 30, md: 40 };
 const SIZE_ICON_CLASS: Record<'sm' | 'md', string> = { sm: 'fs-6', md: 'fs-4' };
 
 /**
- * Row/card action button: tinted square + KTIcon (optional `label`).
- *
- * Surface / hover come from kit SSOT `tintedIconSurfaceSx` in `buttons.tsx`
- * (aside-menu darken-to-icon-colour) — same recipe as `WtIconButton`.
+ * Row/card action button: the kit Button's `tinted` variant (one look with WtIconButton) + KTIcon,
+ * optionally labelled. `onBrand` (white on a coloured header) also sets white ink.
  */
 export default function ActionIconButton({
   iconName,
@@ -97,32 +95,22 @@ export default function ActionIconButton({
   label,
   fullWidth = false,
 }: ActionIconButtonProps) {
-  const dark = useIsDark();
   const color = TONE_COLOR[tone];
   const px = SIZE_PX[size];
-  const radius = size === 'sm' ? '8px' : '12px';
   const glyph = icon ?? <KTIcon iconName={iconName ?? ''} className={SIZE_ICON_CLASS[size]} />;
-  const surface = tintedIconSurfaceSx(color, { dark, radius });
+  const tint = { '--tint': color, ...(tone === 'onBrand' ? { '--tint-ink': color } : null) } as CSSProperties;
 
   if (label) {
     return (
       <Button
+        variant="tinted"
+        size={size === 'sm' ? 'sm' : 'default'}
         onClick={onClick}
         disabled={disabled}
-        startIcon={glyph}
-        fullWidth={fullWidth}
-        sx={{
-          ...surface,
-          height: px,
-          minWidth: 0,
-          px: 1.25,
-          textTransform: 'none',
-          fontSize: 12.5,
-          fontWeight: 600,
-          whiteSpace: 'nowrap',
-          '& .MuiButton-startIcon': { mr: 0.625, ml: 0 },
-        }}
+        className={cn(KT_ICON_FULL, 'whitespace-nowrap', fullWidth && 'w-full')}
+        style={tint}
       >
+        <span data-icon="inline-start" className="inline-flex">{glyph}</span>
         {label}
       </Button>
     );
@@ -130,14 +118,17 @@ export default function ActionIconButton({
 
   return (
     <WtTooltip title={title} wrap>
-      <IconButton
+      <Button
+        variant="tinted"
+        size="icon"
         onClick={onClick}
         disabled={disabled}
         aria-label={title}
-        sx={{ ...surface, width: px, height: px }}
+        className={KT_ICON_FULL}
+        style={{ ...tint, width: px, height: px }}
       >
         {glyph}
-      </IconButton>
+      </Button>
     </WtTooltip>
   );
 }

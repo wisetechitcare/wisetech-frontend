@@ -31,6 +31,11 @@ Format: **what** — evidence (file / screen) — suggested fix.
   each other's columns and sorting (`[useTablePreferences]` console error on `/employee/report/kpis`).
 - **My Profile `Overview` list is missing `key`s** (React warning on `/employee/profile/overview`).
 
+- **Two load-sensitive unit tests** — `DepartmentDesignationFields` ("a configured department offers only its
+  designations") and `InterviewsPanel` ("a booked interview can be opened for edit") pass alone but time out in the
+  full parallel run on a busy machine: both wait with the default 1s `waitFor` / `findBy*`. — Give those waits an
+  explicit timeout, or mock the slow fetch they wait on.
+
 ## Design system (ADR-001)
 
 - **One calendar for the whole app** — today: MUI X pickers (`WtDateField`, 20 files), `FiscalYearRangeField`,

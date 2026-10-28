@@ -1,10 +1,9 @@
-import { createElement, forwardRef, type ElementType } from 'react';
-import { Box, ButtonProps, IconButton, IconButtonProps, Tooltip } from '@mui/material';
+import { createElement, forwardRef, type CSSProperties, type ElementType } from 'react';
+import { Box, ButtonProps, IconButtonProps, Tooltip } from '@mui/material';
 import { cn } from 'cn';
 import { Button as KitButton } from '@/ds/ui/button';
-import { alpha, type SxProps, type Theme } from '@mui/material/styles';
+import { type SxProps, type Theme } from '@mui/material/styles';
 import { titleCaseNode } from './text';
-import { useIsDark } from './tw/useIsDark';
 
 /**
  * Reusable button primitives for the premium UI kit.
@@ -202,8 +201,8 @@ const KIT_TONE: Record<WtCtaTone, 'default' | 'destructive' | 'success'> = {
 };
 
 // Keenicons draw a duotone glyph as stacked <span class="pathN">, dimmed to ~30% by the stylesheet;
-// on a filled CTA every path goes to full strength in the button's colour (ctaSx states the same).
-const CTA_ICON_CLASS =
+// on a filled CTA or a tinted icon button every path goes to full strength in the button's colour.
+export const KT_ICON_FULL =
   '[&_.ki-duotone]:text-inherit [&_.ki-solid]:text-inherit [&_.ki-outline]:text-inherit [&_.ki-duotone_[class*=path]]:opacity-100 [&_.ki-duotone_[class*=path]]:text-inherit';
 
 /**
@@ -252,7 +251,7 @@ export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function Wt
     size: spacious ? 'lg' : 'default',
     glow: cta && spacious && !flat,
     // Mui-disabled is kept so existing `&.Mui-disabled` sx overrides still match.
-    className: cn(cta && CTA_ICON_CLASS, fullWidth && 'w-full', disabled && 'Mui-disabled', className),
+    className: cn(cta && KT_ICON_FULL, fullWidth && 'w-full', disabled && 'Mui-disabled', className),
     ...(as ? { render: as, nativeButton: false } : null),
     children: (
       <>
@@ -268,79 +267,37 @@ export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function Wt
   return sx ? <Box component={KitButton} sx={raiseSx(sx)} {...props} /> : <KitButton {...props} />;
 });
 
-/**
- * Aside-menu icon-tile surface — **kit SSOT** for tinted icon buttons.
- *
- * Soft pastel of `color` at rest → richer pastel of the *same* colour on hover
- * (never grey/slate, never solid). Glyph stays full-strength ink so contrast holds.
- * Used by `WtIconButton` and `ActionIconButton` — do not re-implement per screen.
- */
-export function tintedIconSurfaceSx(
-  color: string,
-  opts: { dark?: boolean; radius?: string | number } = {},
-): SxProps<Theme> {
-  const dark = Boolean(opts.dark);
-  const radius = opts.radius ?? '12px';
-  const restBg = alpha(color, dark ? 0.22 : 0.12);
-  const hoverBg = alpha(color, dark ? 0.40 : 0.28);
-  const restBd = alpha(color, dark ? 0.40 : 0.28);
-  const hoverBd = alpha(color, dark ? 0.62 : 0.45);
-  return {
-    color,
-    bgcolor: restBg,
-    border: `1px solid ${restBd}`,
-    borderRadius: radius,
-    '& .ki-duotone, & .ki-solid, & .ki-outline': {
-      color: 'inherit',
-      '& [class*="path"]': { opacity: 1, color: 'inherit' },
-    },
-    transition: [
-      'background-color .2s cubic-bezier(0.4, 0, 0.2, 1)',
-      'border-color .2s cubic-bezier(0.4, 0, 0.2, 1)',
-      `transform .16s ${MRD_EASE}`,
-      'box-shadow .15s',
-    ].join(', '),
-    '&:hover': {
-      bgcolor: hoverBg,
-      borderColor: hoverBd,
-      transform: 'translateY(-1px)',
-      boxShadow: `0 5px 12px ${alpha(color, 0.28)}`,
-    },
-    '&:active': { transform: 'translateY(0) scale(.93)' },
-    '&:focus-visible': { outline: `2px solid ${color}`, outlineOffset: 2 },
-    '&.Mui-disabled': {
-      opacity: 0.5,
-      boxShadow: 'none',
-      transform: 'none',
-    },
-  };
-}
-
 export interface WtIconButtonProps extends Omit<IconButtonProps, 'color'> {
-  /** Tone hex — tint derives from `tintedIconSurfaceSx` (aside-menu darken-to-icon-colour). */
+  /** Tone hex (or CSS colour) — the kit's `tinted` variant is toned from it. */
   color?: string;
   /** Tooltip label (also used as aria-label). */
   title?: string;
 }
 
-/** Tinted icon button — same surface recipe as ActionIconButton (`tintedIconSurfaceSx`). */
+/**
+ * Tinted icon button: the kit Button's `tinted` variant at 44px (one look with ActionIconButton),
+ * toned by `color`. Same API as before; MUI-only props are dropped, a caller's sx still wins.
+ */
 export const WtIconButton = forwardRef<HTMLButtonElement, WtIconButtonProps>(function WtIconButton(
-  { color = '#64748b', title, sx, children, ...rest }, ref,
+  {
+    color = '#64748b', title, sx, className, style, children,
+    size: _size, edge: _edge, disableRipple: _dr, disableFocusRipple: _dfr, disableTouchRipple: _dtr,
+    centerRipple: _cr, focusRipple: _fr, focusVisibleClassName: _fvc, TouchRippleProps: _trp,
+    touchRippleRef: _trr, LinkComponent: _lc, action: _a, classes: _c,
+    ...rest
+  },
+  ref,
 ) {
-  const dark = useIsDark();
-  const btn = (
-    <IconButton
-      ref={ref}
-      aria-label={title}
-      sx={[
-        tintedIconSurfaceSx(color, { dark, radius: '12px' }),
-        { width: 44, height: 44, '& .fs-2, & .fs-3': { fontSize: '1.2rem' } },
-        ...(Array.isArray(sx) ? sx : [sx]),
-      ] as SxProps<Theme>}
-      {...rest}
-    >
-      {children}
-    </IconButton>
-  );
+  const props = {
+    ...rest,
+    ref,
+    variant: 'tinted',
+    size: 'icon-lg',
+    'aria-label': title ?? rest['aria-label'],
+    className: cn(KT_ICON_FULL, className),
+    style: { '--tint': color, ...style } as CSSProperties,
+    children,
+  } as const;
+  const btn = sx ? <Box component={KitButton} sx={raiseSx(sx)} {...props} /> : <KitButton {...props} />;
   return title ? <Tooltip title={title}>{btn}</Tooltip> : btn;
 });

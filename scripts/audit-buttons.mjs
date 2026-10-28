@@ -8,8 +8,8 @@
  *   node scripts/audit-buttons.mjs --update   rewrite the baseline (only ever after a migration
  *                                             lowered counts; review the diff: numbers may only fall)
  *
- * Canonical = the kit Button (src/ds/ui/button.tsx) and the WtButton / icon-button adapters that
- * render it. Everything else is a legacy kind below. Native <button>s carrying tab / switch / menu /
+ * Canonical = the kit Button (src/ds/ui/button.tsx) and the app-level wrappers that render it:
+ * WtButton, WtIconButton, ActionIconButton, WtCloseButton and the Tailwind twin (ui/tw/Buttons). Everything else is a legacy kind below. Native <button>s carrying tab / switch / menu /
  * option semantics are reported as "native-specialized" (allowed: they are not ordinary buttons).
  * Read with the TypeScript AST, so imports are resolved (an MUI Button is not a kit Button) and
  * className strings inside templates and clsx/cn calls are seen.
@@ -33,7 +33,7 @@ const SPECIALIZED_ARIA = new Set(['aria-selected', 'aria-checked']);
 /** Legacy kinds, in report order. */
 export const KINDS = [
   'native-button', 'bootstrap-btn-class', 'mui-button', 'mui-icon-button', 'react-bootstrap-button',
-  'legacy-icon-button', 'tw-twin-button', 'role-button', 'clickable-div',
+  'role-button', 'clickable-div',
 ];
 const INFO_KINDS = ['native-specialized', 'canonical'];
 
@@ -99,10 +99,11 @@ function classify(node, imports) {
     if (imp.imported === 'Button' || (imp.imported === 'default' && from.endsWith('/Button'))) return 'react-bootstrap-button';
   }
   if (from.includes('tw/Buttons') || from.endsWith('/tw')) {
-    if (/Button$/.test(imp.imported)) return 'tw-twin-button';
+    if (/Button$/.test(imp.imported)) return 'canonical';
   }
   if (tag === 'WtButton' || from.includes('/ds/ui/button')) return 'canonical';
-  if (tag === 'WtIconButton' || tag === 'ActionIconButton' || tag === 'WtCloseButton') return 'legacy-icon-button';
+  // App-level wrappers that render the kit Button (docs/BUTTONS.md).
+  if (tag === 'WtIconButton' || tag === 'ActionIconButton' || tag === 'WtCloseButton') return 'canonical';
   if (btnClass && (tag === 'a' || tag === 'div' || tag === 'span' || tag === 'label')) return 'bootstrap-btn-class';
   if ((tag === 'div' || tag === 'span') && role === 'button') return 'role-button';
   if ((tag === 'div' || tag === 'span') && attr(node, 'onClick') && !role) return 'clickable-div';
