@@ -42,3 +42,7 @@ package-lock.json
 
 *storybook.log
 storybook-static
+
+# Local visual safety net (pnpm visual:*): screenshots of REAL data and a live session cookie.
+e2e/.auth/
+e2e/.visual/

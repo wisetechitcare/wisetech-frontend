@@ -37,6 +37,8 @@ export default mergeConfig(viteConfig, defineConfig({
          */
         testTimeout: 35_000,
         exclude: [...defaultExclude, '**/dist/**', '**/.task-tests/**',
+        // Playwright's visual suite (pnpm visual:*), not vitest.
+        'e2e/**',
         // Written against node:test, not vitest. Vitest imports it, the node:test
         // registrations run and print their own reporter output, then vitest finds
         // no suite it recognises and fails the file — while the assertions inside
