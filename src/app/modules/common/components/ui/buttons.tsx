@@ -1,11 +1,18 @@
-import { forwardRef } from 'react';
-import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip } from '@mui/material';
+import { createElement, forwardRef, type ElementType } from 'react';
+import { Box, ButtonProps, IconButton, IconButtonProps, Tooltip } from '@mui/material';
+import { cn } from 'cn';
+import { Button as KitButton } from '@/ds/ui/button';
 import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import { titleCaseNode } from './text';
 import { useIsDark } from './tw/useIsDark';
 
 /**
- * Reusable button primitives for the premium UI kit — single source of truth for CTA physics.
+ * Reusable button primitives for the premium UI kit.
+ *
+ * Since ADR-001 Phase 3a (2026-10-28) WtButton renders the v2 kit Button (src/ds/ui/button.tsx,
+ * the one in Storybook): the recipe below now lives there as Tailwind classes, and this file only
+ * maps the WtButton API onto it. ctaSx / ghostSx / invertedSx stay for the rare plain MUI Button
+ * that has to keep its own element; the kit is the source of truth for how a button looks.
  *
  * **Global default:** compact, flat accent CTA. Opt into the navy primary
  * (`tone="primary"`) for a high-emphasis action; Cancel stays white (`ghost`).
@@ -88,14 +95,6 @@ export const controlHeightSxFor = (density: 'sm' | 'md' = 'sm') => {
 
 /** Default (40px) — alias kept so existing imports keep working. */
 export const controlHeightSx = controlHeightSxFor('sm');
-
-const buttonHeightSx = (h: number, compact: boolean): SxProps<Theme> => ({
-  minHeight: h,
-  fontSize: compact ? 13.5 : 14,
-  px: compact ? 2 : 2.5,
-  py: compact ? 0.75 : 0.9,
-  borderRadius: compact ? '11px' : '12px',
-});
 
 export type WtCtaTone = 'primary' | 'accent' | 'danger' | 'success';
 
@@ -186,22 +185,6 @@ export const invertedSx: SxProps<Theme> = {
   '&.Mui-disabled': { bgcolor: '#f1f5f9', color: '#94a3b8', borderColor: '#e2e8f0', boxShadow: 'none' },
 };
 
-// Dark-mode overrides layered on top of the light recipes above. Only the light-hardcoded
-// surfaces (ghost/inverted/disabled) need overriding — the CTA gradients read fine on dark.
-const ghostDarkSx: SxProps<Theme> = {
-  color: 'rgba(255,255,255,0.78)', bgcolor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.16)',
-  '&:hover': { bgcolor: 'rgba(255,255,255,0.11)', borderColor: 'rgba(255,255,255,0.26)', color: '#fff', boxShadow: '0 4px 10px rgba(0,0,0,0.35)' },
-  '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.30)', borderColor: 'rgba(255,255,255,0.10)' },
-};
-const invertedDarkSx: SxProps<Theme> = {
-  bgcolor: 'rgba(255,255,255,0.10)', color: '#93c5fd', border: '1px solid rgba(147,197,253,0.30)',
-  '&:hover': { bgcolor: 'rgba(255,255,255,0.16)', borderColor: 'rgba(147,197,253,0.5)' },
-  '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.30)', borderColor: 'rgba(255,255,255,0.10)' },
-};
-const ctaDarkSx: SxProps<Theme> = {
-  '&.Mui-disabled': { background: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.40)', boxShadow: 'none' },
-};
-
 export interface WtButtonProps extends ButtonProps {
   /** CTA gradient tone. Ignored when `ghost` or `inverted` is set. Default 'accent'. */
   tone?: WtCtaTone;
@@ -213,36 +196,78 @@ export interface WtButtonProps extends ButtonProps {
   flat?: boolean;
 }
 
+const KIT_TONE: Record<WtCtaTone, 'default' | 'primary' | 'destructive' | 'success'> = {
+  accent: 'default',
+  primary: 'primary',
+  danger: 'destructive',
+  success: 'success',
+};
+
+// Keenicons draw a duotone glyph as stacked <span class="pathN">, dimmed to ~30% by the stylesheet;
+// on a filled CTA every path goes to full strength in the button's colour (ctaSx states the same).
+const CTA_ICON_CLASS =
+  '[&_.ki-duotone]:text-inherit [&_.ki-solid]:text-inherit [&_.ki-outline]:text-inherit [&_.ki-duotone_[class*=path]]:opacity-100 [&_.ki-duotone_[class*=path]]:text-inherit';
+
+/**
+ * A caller's sx is raised to (0,2,0) with '&&' so it still beats the kit's Reboot opt-out in
+ * main.css, exactly as it used to beat the MUI recipe. The old recipe sized buttons with minHeight;
+ * the kit uses a fixed height, so a caller's minHeight (e.g. 30 or 36 for dense rows) becomes the
+ * height too, or the button would silently grow to 40px.
+ */
+type SxEntry = Exclude<SxProps<Theme>, ReadonlyArray<unknown>>;
+const raiseSx = (sx: SxProps<Theme>): SxProps<Theme> =>
+  (Array.isArray(sx) ? sx : [sx]).map((entry: SxEntry | boolean | null | undefined) => {
+    if (!entry || typeof entry === 'boolean') return entry;
+    if (typeof entry === 'function') return (theme: Theme) => ({ '&&': entry(theme) });
+    const style = entry as Record<string, unknown>;
+    const sized = style.minHeight != null && style.height == null ? { ...style, height: style.minHeight } : style;
+    return { '&&': sized };
+  }) as SxProps<Theme>;
+
+/**
+ * The app's button. Same API as before; it renders the v2 kit Button (src/ds/ui/button.tsx, the one
+ * shown in Storybook), so colours, depth, motion and shape come from the kit. Mapping:
+ * tone accent/primary/danger/success → default/primary/destructive/success, ghost → outline,
+ * inverted → inverted, size small → default (40px), medium/large → lg (44px),
+ * flat={false} at medium/large → glow.
+ */
 export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function WtButton(
-  { tone = 'accent', ghost = false, inverted = false, flat = true, size = 'small', sx, variant, children, ...rest }, ref,
+  {
+    tone = 'accent', ghost = false, inverted = false, flat = true, size = 'small',
+    sx, className, fullWidth, startIcon, endIcon, component, href, disabled, children,
+    // MUI-only props with no meaning on the kit Button; taken out so they never reach the DOM.
+    variant: _variant, color: _color, disableElevation: _de, disableRipple: _dr, disableFocusRipple: _dfr,
+    disableTouchRipple: _dtr, centerRipple: _cr, focusRipple: _fr, focusVisibleClassName: _fvc,
+    TouchRippleProps: _trp, touchRippleRef: _trr, LinkComponent: _lc, action: _a, classes: _c,
+    ...rest
+  },
+  ref,
 ) {
-  // Read dark from the html class ColorModeProvider stamps — not MUI useTheme —
-  // so CTAs stay mode-aware even when a subtree's ThemeContext is briefly unavailable (HMR).
-  const dark = useIsDark();
-  // Default = compact accent CTA (40px + neutral elevation); opt into medium/primary
-  // when a spacious, high-emphasis action needs the full colored glow.
-  const compact = size === 'small';
   const spacious = size === 'medium' || size === 'large';
-  const h = spacious ? WT_CONTROL_HEIGHT_MD : WT_CONTROL_HEIGHT;
-  const useFlat = flat || compact;
-  const base = ghost ? ghostSx : inverted ? invertedSx : ctaSx(tone, useFlat);
-  const darkOverride = dark ? (ghost ? ghostDarkSx : inverted ? invertedDarkSx : ctaDarkSx) : null;
-  return (
-    <Button
-      ref={ref}
-      size={size}
-      variant={ghost ? 'text' : (variant ?? 'contained')}
-      // recipe → height → dark override → caller sx, so per-use tweaks always win
-      sx={[base, buttonHeightSx(h, compact), darkOverride, ...(Array.isArray(sx) ? sx : [sx])].filter(Boolean) as SxProps<Theme>}
-      {...rest}
-    >
-      {/* Labels are title-cased here so every button reads the same without
-          each call site remembering. Only a plain string is touched — a caller
-          passing nodes has already decided how it looks. WtIconButton is NOT
-          wrapped: its children are a glyph, not a label. */}
-      {titleCaseNode(children)}
-    </Button>
-  );
+  const cta = !ghost && !inverted;
+  const as = href ? <a href={href} /> : component && component !== 'button' ? createElement(component as ElementType) : undefined;
+  const props = {
+    ...rest,
+    ref,
+    disabled,
+    variant: ghost ? 'outline' : inverted ? 'inverted' : KIT_TONE[tone],
+    size: spacious ? 'lg' : 'default',
+    glow: cta && spacious && !flat,
+    // Mui-disabled is kept so existing `&.Mui-disabled` sx overrides still match.
+    className: cn(cta && CTA_ICON_CLASS, fullWidth && 'w-full', disabled && 'Mui-disabled', className),
+    ...(as ? { render: as, nativeButton: false } : null),
+    children: (
+      <>
+        {startIcon && <span data-icon="inline-start" className="inline-flex">{startIcon}</span>}
+        {/* Labels are title-cased here so every button reads the same without each call site
+            remembering. Only a plain string is touched — a caller passing nodes has already decided
+            how it looks. WtIconButton is NOT wrapped: its children are a glyph, not a label. */}
+        {titleCaseNode(children)}
+        {endIcon && <span data-icon="inline-end" className="inline-flex">{endIcon}</span>}
+      </>
+    ),
+  } as const;
+  return sx ? <Box component={KitButton} sx={raiseSx(sx)} {...props} /> : <KitButton {...props} />;
 });
 
 /**

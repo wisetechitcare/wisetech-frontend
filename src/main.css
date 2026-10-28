@@ -4,6 +4,10 @@
    ties on the existing admin UI. Utilities apply on new/unstyled elements. */
 @import "tailwindcss";
 
+/* v2 design-system tokens and utilities (ADR-001 Phase 1b): variables only, no Preflight, no base
+   styles; see the file's header. */
+@import "./ds/styles/tokens.css";
+
 /* Drive `dark:` utilities off the app-wide `.dark` class that ColorModeProvider stamps on <html>
    (Tailwind v4 defaults `dark:` to prefers-color-scheme; we want it tied to the in-app toggle). */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -15,6 +19,38 @@
    its full height but rendered blank. Unlayered, so it outranks Tailwind's @layer utilities. */
 .collapse.show {
   visibility: visible;
+}
+
+/* v2 kit buttons opt out of Bootstrap Reboot. Reboot's unlayered `button { border-radius: 0;
+   font-size: inherit; line-height: inherit; ... }` outranks every layered Tailwind utility, so a kit
+   Button would render square, at the parent's font size. `revert-layer` hands every property back
+   to the layered styles (Preflight + the button's own utilities). Scoped to data-slot="button", which
+   only kit buttons carry, so no unmigrated button changes (the objection in the note below). A
+   caller's MUI `sx` still wins: WtButton raises it to (0,2,0) with '&&'. */
+:is(button, a)[data-slot="button"] {
+  all: revert-layer;
+}
+
+/* socicon (style.react.scss) prints any [data-icon] attribute as an icon-font glyph; the kit uses
+   data-icon="inline-start|inline-end" to mark icon slots, which must not render as text. */
+[data-slot] [data-icon]::before {
+  content: none;
+}
+
+/* The kit is designed (and shown in Storybook) at a 16px root; Metronic sets the app's root to
+   13px, which would shrink every rem-based size ~19% (a 40px button renders 33px, text-sm 11.4px).
+   Kit elements (only they carry data-slot) get px versions of the rem-based scales, so a kit
+   component renders at the same size as in Storybook. Custom properties inherit, so a kit
+   component's whole subtree follows. */
+[data-slot] {
+  --spacing: 4px;
+  --radius: 10px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
 }
 
 /* NOTE for anyone hitting square Tailwind buttons:

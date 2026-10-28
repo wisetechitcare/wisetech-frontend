@@ -4,6 +4,7 @@ import tsconfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
+import { kitExemption } from './scripts/postcss-kit-exemption'
 
 function muiIconDeepImportPlugin() {
   return {
@@ -102,6 +103,8 @@ export default defineConfig({
     ],
   },
   css: {
+    // Bootstrap/Metronic utilities skip v2 kit elements (see the plugin file).
+    postcss: { plugins: [kitExemption()] },
     preprocessorOptions: {
       scss: {
         quietDeps: true,

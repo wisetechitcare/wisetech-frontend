@@ -49,3 +49,10 @@ Format: **what** — evidence (file / screen) — suggested fix.
   wrapped primitives on every upgrade (Storybook a11y runs at error level); keep it pinned.
 - **One field family** — `WtField` (162), raw MUI `TextField` (76 files), Bootstrap `form-control`
   (87 files), raw MUI `Checkbox` (11 files): move behind the kit Field/Input/Checkbox with the same API.
+- **Buttons not yet on the kit (Phase 3b)** — WtButton renders the kit Button since 2026-10-28; the tw twin
+  (`ui/tw/Buttons.tsx`, e.g. "New Gift Run", "New People Group"), raw MUI `Button` and Bootstrap `.btn`
+  still draw their own. — Point each at the kit Button the same way (adapter, API unchanged).
+- **WtButton call sites that restyle the button through `sx`** — Approvals `InboxItem.tsx` (approve/reject:
+  own border, 8px corners, 11px text), `CsvUploadStep` / `MatchReviewTable` (danger text colour),
+  `AddAnotherBtn` (dashed). They win over the kit by design, so they are not pills. — Replace each with a
+  kit variant (`outline` / `destructive`, or a new tinted variant if approve/reject needs one) and drop the sx.
