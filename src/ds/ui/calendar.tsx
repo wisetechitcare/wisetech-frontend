@@ -103,7 +103,7 @@ function RangeCalendar<T extends DateValue>({
   )
 }
 
-// cn, not buttonVariants({ className }): the default size's h-9 px-3 must be merged away.
+// cn, not buttonVariants({ className }): the default size's h-10 px-4 must be merged away.
 const navButtonClassName = cn(
   buttonVariants({ variant: "ghost" }),
   "size-(--cell-size) p-0 select-none"

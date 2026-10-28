@@ -1,16 +1,23 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent } from 'storybook/test'
-import { CloudUpload, Download, Plus, Send, Settings, Trash2 } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, CloudUpload, Download, Plus, Send, Settings, Trash2 } from 'lucide-react'
 import { Button, buttonVariants } from './button'
 
-/** The one button. Variants carry meaning: one primary action per view, destructive only for irreversible actions. */
+/**
+ * The one button: the live app's WtButton recipe (colours, gradients, depth, motion, 40px
+ * height) in shadcn's pill shape. Variants carry meaning: one strong action per view, destructive only for irreversible
+ * actions. WtButton mapping: default tone (accent) → `default`, `tone="primary"` → `primary`,
+ * `tone="danger"` → `destructive`, `tone="success"` → `success`, `ghost` → `outline`,
+ * `inverted` → `inverted`, `size="medium"` → `lg`, `flat={false}` → `glow`.
+ */
 const meta = {
   title: 'Components/Button',
   component: Button,
   args: { children: 'Add employee', onClick: fn() },
   argTypes: {
-    variant: { control: 'select', options: ['default', 'inverted', 'secondary', 'outline', 'ghost', 'destructive', 'link'] },
+    variant: { control: 'select', options: ['default', 'primary', 'success', 'inverted', 'secondary', 'outline', 'ghost', 'destructive', 'link'] },
     size: { control: 'select', options: ['xs', 'sm', 'default', 'lg', 'icon'] },
+    glow: { control: 'boolean' },
   },
 } satisfies Meta<typeof Button>
 
@@ -31,6 +38,12 @@ export const Variants: Story = {
     <div className="flex flex-wrap items-center gap-2">
       <Button {...args}>
         <Plus /> Add employee
+      </Button>
+      <Button {...args} variant="primary">
+        Save &amp; Continue
+      </Button>
+      <Button {...args} variant="success">
+        <Check /> Approve
       </Button>
       <Button {...args} variant="inverted">
         <CloudUpload /> Choose image
@@ -54,6 +67,18 @@ export const Variants: Story = {
 /** Irreversible actions only. */
 export const Destructive: Story = {
   args: { variant: 'destructive', children: <><Trash2 /> Delete</> },
+}
+
+/** One hero action may glow in its own colour (WtButton `flat={false}`); never two side by side. */
+export const Glow: Story = {
+  render: (args) => (
+    <div className="flex flex-wrap items-center gap-3">
+      <Button {...args} size="lg" glow>Create Event</Button>
+      <Button {...args} size="lg" variant="primary" glow>Save &amp; Continue</Button>
+      <Button {...args} size="lg" variant="destructive" glow>Delete</Button>
+      <Button {...args} size="lg" variant="success" glow>Approve</Button>
+    </div>
+  ),
 }
 
 /** Sizes for dense toolbars through to prominent CTAs. */
@@ -126,7 +151,41 @@ export const DialogFooter: Story = {
   },
 }
 
-const STATE_VARIANTS = ['default', 'inverted', 'outline', 'secondary', 'ghost', 'destructive'] as const
+/** The live discard confirmation: Keep Editing (WtButton `ghost`) beside Discard (`tone="danger"`). */
+export const ConfirmDiscard: Story = {
+  render: () => (
+    <div className="grid w-[26rem] grid-cols-2 gap-4 rounded-2xl border bg-card p-5">
+      <Button variant="outline">Keep Editing</Button>
+      <Button variant="destructive">Discard</Button>
+    </div>
+  ),
+}
+
+/** The live wizard footer (Lead edit): Cancel, Save Changes, Back (disabled on the first step), Save &amp; Continue. */
+export const WizardFooter: Story = {
+  render: () => (
+    <div className="flex w-[48rem] items-center justify-between gap-2 rounded-2xl border bg-card p-3">
+      <div className="flex gap-2">
+        <Button variant="outline">Cancel</Button>
+        <Button variant="inverted">Save Changes</Button>
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" disabled>
+          <ChevronLeft data-icon="inline-start" /> Back
+        </Button>
+        <Button variant="primary">
+          Save &amp; Continue <ChevronRight data-icon="inline-end" />
+        </Button>
+      </div>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('button', { name: 'Back' })).toBeDisabled()
+    await expect(canvas.getByRole('button', { name: 'Save & Continue' })).toBeEnabled()
+  },
+}
+
+const STATE_VARIANTS = ['default', 'primary', 'success', 'destructive', 'inverted', 'outline', 'secondary', 'ghost'] as const
 const STATES = ['rest', 'hover', 'focus', 'pressed', 'disabled'] as const
 
 /** Every variant in every state, forced with real CSS states (storybook-addon-pseudo-states), not simulated events. */
@@ -151,7 +210,7 @@ export const States: Story = {
             {STATES.map((state) => (
               <td key={state}>
                 <Button variant={variant} data-state-demo={state} disabled={state === 'disabled'}>
-                  {variant === 'destructive' ? 'Delete' : 'Save'}
+                  {variant === 'destructive' ? 'Delete' : variant === 'success' ? 'Approve' : 'Save'}
                 </Button>
               </td>
             ))}

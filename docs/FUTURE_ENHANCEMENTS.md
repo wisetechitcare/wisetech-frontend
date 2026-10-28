@@ -47,7 +47,5 @@ Format: **what** — evidence (file / screen) — suggested fix.
   Animate UI, adopted 2026-10-28). — Move the 43 files to `motion/react` 14 and drop `framer-motion`.
 - **Animate UI is young** (package created 2026-10-18; MIT + Commons Clause) — re-check accessibility of the
   wrapped primitives on every upgrade (Storybook a11y runs at error level); keep it pinned.
-- **Button shape and height not yet decided** — live WtButton is a 11–12px rounded rectangle at 40px (44 spacious);
-  the kit is a base-maia pill at 36px (40 large). Decide before the WtButton internals swap (Phase 3a).
 - **One field family** — `WtField` (162), raw MUI `TextField` (76 files), Bootstrap `form-control`
   (87 files), raw MUI `Checkbox` (11 files): move behind the kit Field/Input/Checkbox with the same API.
