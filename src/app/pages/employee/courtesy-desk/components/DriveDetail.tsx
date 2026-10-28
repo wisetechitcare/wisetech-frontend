@@ -47,6 +47,7 @@ import {
   useConfirmDialog,
   usePromptDialog,
   WtButton,
+  WtDateField,
   FilterSheetButton,
 } from "@app/modules/common/components/ui";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
@@ -960,6 +961,23 @@ export default function DriveDetail() {
               })
             }
           />
+        ),
+      },
+      {
+        accessorKey: "deliveredOn",
+        header: "Delivery date",
+        size: 150,
+        Cell: ({ row }) => (
+          <Box onClick={(e) => e.stopPropagation()}>
+            <WtDateField
+              disabled={!runEditable}
+              value={row.original.deliveredOn}
+              onChange={(v) =>
+                patchRecipient(row.original.id, { deliveredOn: v || null })
+              }
+              sx={{ minWidth: 140 }}
+            />
+          </Box>
         ),
       },
       {
