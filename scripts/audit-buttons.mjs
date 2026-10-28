@@ -28,7 +28,7 @@ const SKIP_DIRS = new Set(['node_modules', 'ds']);
 const isSkippedFile = (f) => f.endsWith('.test.tsx') || f.endsWith('.stories.tsx') || f.endsWith('.d.ts');
 
 const SPECIALIZED_ROLES = new Set(['tab', 'switch', 'checkbox', 'radio', 'menuitem', 'menuitemradio', 'menuitemcheckbox', 'option', 'treeitem', 'gridcell', 'link']);
-const SPECIALIZED_ARIA = new Set(['aria-selected', 'aria-checked']);
+const SPECIALIZED_ARIA = new Set(['aria-selected', 'aria-checked', 'aria-pressed']);
 
 /** Legacy kinds, in report order. */
 export const KINDS = [
@@ -79,6 +79,13 @@ function stringsIn(node) {
 }
 const attrString = (node, name) => { const a = attr(node, name); return a?.initializer ? stringsIn(a.initializer) : ''; };
 
+/** The element a kit component renders through its render prop: <Item render={<button type="button" />}>. */
+function isRenderTarget(node) {
+  const el = ts.isJsxOpeningElement(node) ? node.parent : node;
+  const expr = el.parent;
+  return !!expr && ts.isJsxExpression(expr) && !!expr.parent && ts.isJsxAttribute(expr.parent) && expr.parent.name.getText() === 'render';
+}
+
 function classify(node, imports) {
   const tag = node.tagName.getText();
   const imp = imports.get(tag.split('.')[0]);
@@ -86,6 +93,7 @@ function classify(node, imports) {
   const role = attrString(node, 'role');
   const btnClass = hasBtnClass(attrString(node, 'className'));
 
+  if (tag === 'button' && isRenderTarget(node)) return 'canonical';
   if (tag === 'button') {
     const specialized = SPECIALIZED_ROLES.has(role) || [...SPECIALIZED_ARIA].some((a) => attr(node, a));
     if (specialized) return 'native-specialized';
