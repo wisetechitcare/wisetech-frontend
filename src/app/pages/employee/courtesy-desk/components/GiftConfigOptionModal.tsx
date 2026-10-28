@@ -5,6 +5,7 @@ import {
   GlassDialog,
   GlassHeader,
   KIT_HEX_SWATCHES,
+  SegmentedControl,
   WtButton,
   WtColorPicker,
   WtField,
@@ -12,6 +13,8 @@ import {
 import type { ConfigOption } from "../types";
 
 const DEFAULT_COLOR = "#1E3A8A";
+
+type UnitKind = "countable" | "measurable";
 
 type Props = {
   show: boolean;
@@ -22,6 +25,8 @@ type Props = {
   /** Other options in this section — used to block duplicate name / id. */
   existing?: ConfigOption[];
   onSave: (option: ConfigOption) => void;
+  /** Units: symbol + countable/measurable instead of a colour. */
+  unit?: boolean;
 };
 
 function optionSlug(name: string, fallbackId?: string) {
@@ -44,16 +49,23 @@ export default function GiftConfigOptionModal({
   initial,
   existing = [],
   onSave,
+  unit = false,
 }: Props) {
   const isEditing = Boolean(initial?.id);
   const [name, setName] = useState(initial?.name ?? "");
   const [color, setColor] = useState(initial?.color ?? DEFAULT_COLOR);
+  const [symbol, setSymbol] = useState(initial?.symbol ?? "");
+  const [unitKind, setUnitKind] = useState<UnitKind>("countable");
   const [error, setError] = useState("");
+  // A used unit's symbol/type are frozen server-side so history keeps its meaning.
+  const unitLocked = unit && !!initial?.inUse;
 
   useEffect(() => {
     if (!show) return;
     setName(initial?.name ?? "");
     setColor(initial?.color ?? DEFAULT_COLOR);
+    setSymbol(initial?.symbol ?? "");
+    setUnitKind(initial?.isCountable === false ? "measurable" : "countable");
     setError("");
   }, [show, initial]);
 
@@ -75,7 +87,24 @@ export default function GiftConfigOptionModal({
       setError(`${nameLabel} already exists`);
       return;
     }
-    onSave({ id, name: trimmed, color });
+    if (!unit) {
+      onSave({ id, name: trimmed, color });
+      onClose();
+      return;
+    }
+    const sym = symbol.trim() || trimmed;
+    if (rivals.some((o) => (o.symbol ?? "").trim().toLowerCase() === sym.toLowerCase())) {
+      setError("Symbol already exists");
+      return;
+    }
+    onSave({
+      ...initial,
+      id,
+      name: trimmed,
+      color: initial?.color ?? "",
+      symbol: sym,
+      isCountable: unitKind === "countable",
+    });
     onClose();
   };
 
@@ -103,13 +132,42 @@ export default function GiftConfigOptionModal({
             onChange={setName}
             placeholder={`Enter ${nameLabel.toLowerCase()}`}
           />
-          <WtColorPicker
-            label="Colour"
-            variant="row"
-            palette={KIT_HEX_SWATCHES}
-            value={color}
-            onChange={setColor}
-          />
+          {unit ? (
+            <>
+              <WtField
+                label="Symbol"
+                fullWidth
+                value={symbol}
+                onChange={setSymbol}
+                disabled={unitLocked}
+                placeholder={name.trim() || "e.g. kg, Box, Office Kit"}
+                maxLength={40}
+                hint={
+                  unitLocked
+                    ? "Used by gift runs — symbol and type are locked."
+                    : "Shown next to quantities. Leave empty to use the name."
+                }
+              />
+              <SegmentedControl<UnitKind>
+                ariaLabel="Unit type"
+                fullWidth
+                options={[
+                  { value: "countable", label: "Countable", disabled: unitLocked },
+                  { value: "measurable", label: "Measurable", disabled: unitLocked },
+                ]}
+                value={unitKind}
+                onChange={setUnitKind}
+              />
+            </>
+          ) : (
+            <WtColorPicker
+              label="Colour"
+              variant="row"
+              palette={KIT_HEX_SWATCHES}
+              value={color}
+              onChange={setColor}
+            />
+          )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
