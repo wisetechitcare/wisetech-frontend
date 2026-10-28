@@ -4,8 +4,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { getAvatar } from "@utils/avatar";
 import ScoreBar from "./ScoreBar";
-
-type Gender = 0 | 1 | 2;
+import { ToneChip } from "@app/modules/common/components/ui";
 
 // Helper to add ordinal suffix to rank number
 function getOrdinalSuffix(rank: number): string {
@@ -46,10 +45,7 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
     fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee
   );
 
-  const avatar = getAvatar(
-    employee.avatar || "",
-    employee.gender as unknown as Gender
-  );
+  const avatar = getAvatar(employee.avatar || "", employee.gender);
 
   const percentage = Math.max(0, Math.min((yourPoints / (maxTotal || 1)) * 100, 100));
 
@@ -224,17 +220,15 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
                   {employee?.users?.firstName} {employee?.users?.lastName}
                 </h5>
                 <div className="d-flex align-items-center gap-2 flex-wrap">
-                  <span className="badge badge-light-secondary fw-bold fs-9 px-2 py-1">{employee?.employeeCode}</span>
+                  {employee?.employeeCode ? (
+                    <ToneChip dense tone="neutral" label={employee.employeeCode} />
+                  ) : null}
                   <span className="text-muted fs-9 fw-bold">Active</span>
                   {policyFlag === "custom-deadline" && (
-                    <span className="badge badge-light-primary fw-bold fs-9 px-2 py-1" title="Has a personal on-time cutoff">
-                      Custom Deadline
-                    </span>
+                    <ToneChip dense tone="brand" label="Custom Deadline" title="Has a personal on-time cutoff" />
                   )}
                   {policyFlag === "late-exempt" && (
-                    <span className="badge badge-light-warning fw-bold fs-9 px-2 py-1" title="Exempt from late-attendance deduction">
-                      Late-Exempt
-                    </span>
+                    <ToneChip dense tone="warning" label="Late-Exempt" title="Exempt from late-attendance deduction" />
                   )}
                 </div>
               </div>

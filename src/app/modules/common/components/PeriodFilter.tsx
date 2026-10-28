@@ -212,6 +212,11 @@ const PeriodFilter: React.FC<Props> = ({
           onNext={() => step(1)}
           onPickDate={(v) => setAnchor(dayjs(v))}
           pickValue={anchor.format("YYYY-MM-DD")}
+          pickGranularity={
+            mode === "yearly" ? "year"
+              : mode === "monthly" ? "month"
+                : "day"
+          }
           minWidth={resolvedNavWidth}
         />
       )}

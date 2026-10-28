@@ -1,9 +1,17 @@
-import { safeJsonParse } from '@utils/safeJson';
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import {
+  safeJsonParse } from '@utils/safeJson';
 import { KTIcon } from '@metronic/helpers';
-import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
-import { useEffect, useState } from 'react';
+import { fetchConfiguration,
+  updateConfigurationById,
+  createNewConfiguration } from '@services/company';
+import { useEffect,
+  useState } from 'react';
 import * as Yup from 'yup';
-import { Button, Card, ListGroup, Modal } from 'react-bootstrap';
+import { Button,
+  Card,
+  ListGroup
+} from 'react-bootstrap';
 import { Form, Formik, FormikValues } from 'formik';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { successConfirmation } from '@utils/modal';
@@ -54,7 +62,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
         };
 
         await updateConfigurationById(ruleId, payload);
-        successConfirmation('Loan rule deleted successfully');
+        successConfirmation('Loan rule deleted.');
         fetchLoanConfiguration();
     };
 
@@ -92,7 +100,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                 await createNewConfiguration(payload);
             }
             setLoading(false);
-            successConfirmation(editMode ? 'Loan rule updated successfully' : 'Loan rule created successfully');
+            successConfirmation(editMode ? 'Loan rule updated.' : 'Loan rule created.');
             fetchLoanConfiguration();
             setShow(false);
             setEditMode(false);

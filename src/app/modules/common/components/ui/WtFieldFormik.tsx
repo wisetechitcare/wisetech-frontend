@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { useField } from 'formik';
+import { useField, useFormikContext, type FormikValues } from 'formik';
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
 import { WtField, type WtFieldOption, type WtFieldProps } from './WtField';
+import { useUnsavedChangesRegistration } from './UnsavedChangesProvider';
 
 export type WtFieldFormikProps = Omit<WtFieldProps, 'value' | 'onChange' | 'error' | 'name' | 'options'> & {
     /** Formik field name. */
@@ -32,7 +33,9 @@ export function WtFieldFormik({
     disableAlphabeticalSort = false,
     ...rest
 }: WtFieldFormikProps) {
+    const { dirty } = useFormikContext<FormikValues>();
     const [field, meta, helpers] = useField(name);
+    useUnsavedChangesRegistration(dirty);
     const error = meta.touched && meta.error ? String(meta.error) : undefined;
 
     const sortedOptions = useMemo(() => {

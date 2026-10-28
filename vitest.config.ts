@@ -10,15 +10,21 @@ export default mergeConfig(
   defineConfig({
     test: {
       /**
-       * 15s, not vitest's 5s.
+       * 35s, not vitest's 5s.
        *
        * A render test that mounts the shared MaterialTable or a GlassDialog pays a one-off
        * jsdom layout cost of several seconds — the same components that make the app's tables
        * and dialogs consistent are heavy to mount without a browser. At 5s those tests passed
        * alone and timed out when the suite ran them in parallel, which is a flake, not a
-       * finding. A genuinely hung test still fails; it just takes 15s to say so.
+       * finding. A genuinely hung test still fails; it just takes 35s to say so.
+       *
+       * Raised from 15s once the suite reached 65 files: more parallel workers contending for CPU
+       * make the same mount take longer. Measured before accepting it (see PipelineList.test.tsx):
+       * the weight is ~9.7s of per-file import and jsdom setup plus a ~2.5s first render, none of
+       * which a test rewrite would meaningfully recover. This ceiling is the right answer, not a
+       * stopgap — a genuinely hung test still fails, it just takes 35s to say so.
        */
-      testTimeout: 15_000,
+      testTimeout: 35_000,
       exclude: [
         ...defaultExclude,
         '**/dist/**',

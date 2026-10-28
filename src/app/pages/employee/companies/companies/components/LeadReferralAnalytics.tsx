@@ -254,6 +254,18 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
     return ([1, 2, 4, 6, 8, 10].find((m) => m * pow >= raw) as number) * pow;
   }, [byAmount, bucketValues]);
 
+  // Apex does not clip a bar at `yaxis.max` — it draws it straight through the top of the
+  // plot. So a capped bucket is SHRUNK to the cap here, every segment in proportion so the
+  // stack still reads right; the tooltip and the ▲ label keep reporting the real figures.
+  const plotted = useMemo(() => {
+    if (axisMax === undefined) return series;
+    const totals = categories.map((_, i) => series.reduce((sum, x) => sum + (x.data[i] as number), 0));
+    return series.map((x) => ({
+      ...x,
+      data: x.data.map((v, i) => (totals[i] > axisMax ? ((v as number) * axisMax) / totals[i] : v)),
+    }));
+  }, [series, categories, axisMax]);
+
   const options: ApexCharts.ApexOptions = {
     chart: {
       type: "bar",
@@ -352,7 +364,13 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       intersect: false,
       theme: "light",
       style: { fontSize: "12px" },
-      y: { formatter: (val: number) => (byAmount ? formatCurrencyCompact(val) : `${val} ${plural(noun, val)}`) },
+      y: {
+        // The real segment value, not the shrunk one drawn for a capped bar.
+        formatter: (val: number, opts?: any) => {
+          const real = (series[opts?.seriesIndex]?.data[opts?.dataPointIndex] as number | undefined) ?? val;
+          return byAmount ? formatCurrencyCompact(real) : `${real} ${plural(noun, real)}`;
+        },
+      },
     },
   };
 
@@ -427,7 +445,7 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
             className="lra-fade"
             style={{ cursor: "pointer" }}
           >
-            <ReactApexChart options={options} series={series} type="bar" height={300} />
+            <ReactApexChart options={options} series={plotted} type="bar" height={300} />
           </div>
         ) : (
           <div className="text-center text-muted py-10" style={{ fontSize: 13 }}>

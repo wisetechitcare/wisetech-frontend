@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
+import { DmsViewSwitch } from '@app/modules/common/components/ui';
 import { useDMS } from '../store/DmsContext';
 import { canSection } from '@utils/can';
-import type { ViewMode, SortField, SortOrder } from '../types/dms.types';
+import type { SortField, SortOrder } from '../types/dms.types';
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal';
 import * as dmsService from '../services/dmsService';
 
@@ -16,13 +17,6 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
   const canWrite = canSection('crm.leads', 'write');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-
-  const views: { mode: ViewMode; icon: string; label: string }[] = [
-    { mode: 'grid', icon: 'element-11', label: 'Grid' },
-    { mode: 'list', icon: 'row-horizontal', label: 'List' },
-    { mode: 'compact', icon: 'burger-menu', label: 'Compact' },
-    { mode: 'table', icon: 'grid', label: 'Table' },
-  ];
 
   const sortOptions: { field: SortField; label: string }[] = [
     { field: 'name', label: 'Name' },
@@ -51,7 +45,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
       
       if (confirmed) {
         await deleteFiles(state.selectedFiles);
-        successConfirmation(`${state.selectedFiles.length} file(s) deleted successfully!`);
+        successConfirmation(`${state.selectedFiles.length} file(s) deleted.`);
       }
     } catch (error) {
       errorConfirmation('Failed to delete files. Please try again.');
@@ -262,31 +256,12 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
           </AnimatePresence>
         </div>
 
-        <div style={{
-          display: 'flex', gap: '2px',
-          background: '#f1f5f9', borderRadius: '10px', padding: '3px',
-        }}>
-          {views.map(view => (
-            <button
-              key={view.mode}
-              title={view.label}
-              onClick={() => dispatch({ type: 'SET_VIEW_MODE', payload: view.mode })}
-              style={{
-                background: state.viewMode === view.mode ? 'white' : 'none',
-                border: 'none', borderRadius: '8px',
-                padding: '5px 10px', cursor: 'pointer',
-                fontSize: '14px', color: state.viewMode === view.mode ? '#1E3A8A' : '#64748b',
-                boxShadow: state.viewMode === view.mode ? '0 2px 5px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <KTIcon 
-                iconName={view.icon} 
-                className={`fs-3 ${state.viewMode === view.mode ? 'text-primary' : 'text-muted'}`} 
-              />
-            </button>
-          ))}
-        </div>
+        {/* Same kit glyphs as the rest of the app — grid=cards, list=list-ul, etc. */}
+        <DmsViewSwitch
+          ariaLabel="File layout"
+          value={state.viewMode}
+          onChange={(mode) => dispatch({ type: 'SET_VIEW_MODE', payload: mode })}
+        />
       </div>
     </div>
   );

@@ -6,7 +6,7 @@
  * “+ Add” → CommonModal. The Add control is kit `WtAddOptionButton` (same look as
  * `WtField addOption` with `placement: 'label'`). See docs/bootstrap-to-kit-migration.md §3.
  */
-import { useField } from "formik";
+import { useField, useFormikContext, type FormikValues } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import { components as RSComponents } from "react-select";
 import React, { useState, useMemo } from "react";
@@ -17,6 +17,8 @@ import { ColourOption, SingleValue, AvatarOption, AvatarSingleValue } from "./Co
 import DropdownChevron from "./DropdownChevron";
 import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
 import { WtAddOptionButton } from "@app/modules/common/components/ui/WtAddOption";
+import { FloatingLabelFrame, useFloatingLabels } from "@app/modules/common/components/ui/FloatingLabel";
+import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
 
 const VIRTUALIZE_THRESHOLD = 80;
 
@@ -94,6 +96,8 @@ function DropDownInput({
     // and the key cannot leak into a submitted payload.
     const isFilterOnly = !formikField;
     const [field, meta, helpers] = useField(formikField || '__filterOnly');
+    const { dirty } = useFormikContext<FormikValues>();
+    useUnsavedChangesRegistration(dirty && !isFilterOnly);
     const [show, setShow] = useState(false);
     const hasError = !!(meta.touched && meta.error);
     const [inputValue, setInputValue] = useState('');
@@ -168,6 +172,32 @@ function DropDownInput({
         <DropdownChevron {...indicatorProps} color={showColor ? selectedValue?.color : undefined} />
     );
 
+    const floating = useFloatingLabels();
+    const select = (
+        <WtSelect
+            name={formikField}
+            ariaLabel={typeof inputLabel === "string" ? inputLabel : undefined}
+            options={sortedOptions}
+            value={selectedValue ?? null}
+            onChange={handleChange}
+            onInputChange={(v: string) => { if (enableSmartSort) setInputValue(v); }}
+            defaultInputValue={defaultValue}
+            placeholder={placeholder}
+            isClearable
+            isDisabled={disabled}
+            error={hasError}
+            accentColor={showColor ? selectedValue?.color : undefined}
+            virtualizeThreshold={VIRTUALIZE_THRESHOLD}
+            filterOption={enableSmartSort ? null : filterOption}
+            components={{
+                DropdownIndicator,
+                ...(!showColor && !showAvatar ? { Option: TitledOption } : {}),
+                ...(showColor ? { Option: ColourOption, SingleValue } : {}),
+                ...(showAvatar ? { Option: AvatarOption, SingleValue: AvatarSingleValue } : {}),
+            }}
+        />
+    );
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             {/* The label row's height must NOT depend on whether the add button is
@@ -175,6 +205,14 @@ function DropDownInput({
                 dropdown offering "+ Add" pushed its own field below the one beside it
                 and the two columns no longer lined up. Sized to the label's own line
                 box instead, it costs the row no extra height. */}
+            {floating ? (
+                // Floating mode: the label lives in the box; "+ Add" keeps its own slim row.
+                showAddBtn && (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+                        <WtAddOptionButton label="Add" onAdd={handleShow} disabled={disabled} />
+                    </Box>
+                )
+            ) : (
             <Box sx={{
                 display: 'flex', flexDirection: 'row',
                 justifyContent: 'space-between', alignItems: 'center',
@@ -194,31 +232,22 @@ function DropDownInput({
                     <WtAddOptionButton label="Add" onAdd={handleShow} disabled={disabled} />
                 )}
             </Box>
+            )}
             {/* Delegates to the kit engine: portal, auto-flip, bounded + windowed menu,
                 theme tokens and ARIA live there. This wrapper keeps only what is genuinely
                 its own — the Formik binding, the label row, "+ Add", and the option
                 renderers this app already uses (colour dot / avatar / titled row). */}
-            <WtSelect
-                name={formikField}
-                options={sortedOptions}
-                value={selectedValue ?? null}
-                onChange={handleChange}
-                onInputChange={(v: string) => { if (enableSmartSort) setInputValue(v); }}
-                defaultInputValue={defaultValue}
-                placeholder={placeholder}
-                isClearable
-                isDisabled={disabled}
-                error={hasError}
-                accentColor={showColor ? selectedValue?.color : undefined}
-                virtualizeThreshold={VIRTUALIZE_THRESHOLD}
-                filterOption={enableSmartSort ? null : filterOption}
-                components={{
-                    DropdownIndicator,
-                    ...(!showColor && !showAvatar ? { Option: TitledOption } : {}),
-                    ...(showColor ? { Option: ColourOption, SingleValue } : {}),
-                    ...(showAvatar ? { Option: AvatarOption, SingleValue: AvatarSingleValue } : {}),
-                }}
-            />
+            {floating ? (
+                <FloatingLabelFrame
+                    label={inputLabel}
+                    required={isRequired}
+                    filled={Array.isArray(selectedValue) ? selectedValue.length > 0 : !!selectedValue}
+                    error={hasError}
+                    disabled={disabled}
+                >
+                    {select}
+                </FloatingLabelFrame>
+            ) : select}
 
             {!isFilterOnly && <HighlightErrors isRequired={isRequired} formikField={formikField} />}
             <CommonModal functionToCallOnModalSubmit={functionToCallOnModalSubmit} show={show} setShow={setShow} fieldName={fieldName} functionToSetFieldOptions={functionToSetFieldOptions}/>

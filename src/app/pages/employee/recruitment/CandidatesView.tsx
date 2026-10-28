@@ -1,45 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { Box, Stack, Typography, CircularProgress, DialogContent, DialogActions, LinearProgress } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { Box, Stack, Typography, CircularProgress, LinearProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
-    AutoGrid, ListHeader, GlassCard, GlassDialog, GlassHeader, WtButton, ActionIconButton, ToneChip,
-    WtSwitchField, toast, confirmDialog, WtEmptyState, WtField,
+    AutoGrid, ListHeader, GlassCard, WtButton, ActionIconButton, ToneChip,
+    toast, confirmDialog, TableSelectionBar, WtEmptyState, WtField, InlineNotice,
+    CardsListViewSwitch, type CardsListView,
 } from "@app/modules/common/components/ui";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { queryKeys } from "@/lib/queryKeys";
+import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import { COPY } from "./terms";
 import { formatDate } from "@utils/dateFormats";
 import { formatCurrencyCompact } from "@utils/currency";
 import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
+import { useOrgScope } from "@/hooks/useOrgScope";
 import {
-    getApplicants, getApplicantById, updateApplicant, getApplicantSources, uploadApplicantResume,
-    type Applicant, type ApplicantPayload, type ApplicantSource, type OrgScoped,
+    getApplicants, getApplicantById, updateApplicant, archiveApplicant, getApplicantSources, uploadApplicantResume,
+    type Applicant, type ApplicantSource, type OrgScoped,
 } from "@services/recruitment";
-import { CandidateFormFields, emptyCandidate, isCandidateFormValid } from "./CandidateFormFields";
-import { cleanCandidatePayload } from "./candidatePayload";
-import { AddCandidateDialog } from "./AddCandidateDialog";
 import { AddToRoleDialog } from "./AddToRoleDialog";
-
-/** Compact, muted meta chip — packs identity/metrics into the card without stretched gaps. */
-const MetaPill = ({ text }: { text: string }) => (
-    <Box sx={{
-        px: 0.9, py: 0.3, borderRadius: "8px", bgcolor: "action.hover",
-        fontSize: 11.5, fontWeight: 600, color: "text.secondary", whiteSpace: "nowrap", lineHeight: 1.5,
-    }}>
-        {text}
-    </Box>
-);
-
-/** Months → "3 yr 4 mo" / "7 mo". Raw month counts are unreadable on a card. */
-const experienceLabel = (months?: number | null): string | null => {
-    if (months == null || months <= 0) return null;
-    const y = Math.floor(months / 12);
-    const m = months % 12;
-    return [y ? `${y} yr` : null, m ? `${m} mo` : null].filter(Boolean).join(" ") + " experience";
-};
-
-const fullName = (a: Applicant) => [a.firstName, a.lastName].filter(Boolean).join(" ").trim() || a.email || a.phone || "Candidate";
+import { candidateColumns, experienceLabel, fullName } from "./candidateColumns";
 
 /** Wait this long after the last keystroke before searching — one request per pause, not per letter. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -47,13 +30,18 @@ const SEARCH_DEBOUNCE_MS = 300;
 /**
  * Candidates — the applicant directory (Recruitment › Candidates).
  *
- * Adding uses the shared Add candidate window (also the Pipeline's); editing uses the same form body.
- * Candidates are never hard-deleted: data retention and the audit trail both require the row to
- * survive, so the destructive action is "blacklist" (an update), not a delete.
+ * Soft archive moves them to the Archive tab (restore / hard delete there). Blacklist stays a
+ * separate flag for future applications. DPDP erase remains manage-only on the API.
  */
 const CandidatesView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
+    const navigate = useNavigate();
     const qc = useQueryClient();
+    // Labels only — shell already owns the filter; we resolve write-company names for R3 badges.
+    const { selectOptions: orgOptions } = useOrgScope({ allLabel: "All organizations" });
+    const orgName = (id?: string | null) =>
+        (id && orgOptions.find((o) => o.value === id)?.label) || null;
+
     const [searchInput, setSearchInput] = useState("");
     const [search, setSearch] = useState("");
     useEffect(() => {
@@ -61,21 +49,50 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         return () => clearTimeout(t);
     }, [searchInput]);
 
-    const [adding, setAdding] = useState(false);
     const [addToRole, setAddToRole] = useState<Applicant | null>(null);
-    const [editing, setEditing] = useState<Applicant | null>(null);
-    const [form, setForm] = useState<ApplicantPayload>(emptyCandidate());
-    const [formFile, setFormFile] = useState<File | null>(null);
-    const [blacklisted, setBlacklisted] = useState(false);
-    const [attempted, setAttempted] = useState(false);
+    /** Cards or list — remembered like Pipeline / Roles / Adverts. */
+    const [mode, setMode] = useRememberedChoice<CardsListView>(
+        "recruitment:candidates-view", ["cards", "list"], "cards",
+    );
 
-    // The server does the searching, so the key includes the term. The previous results stay on screen
-    // while the next load — the grid used to blank to a spinner on every keystroke.
-    const { data: applicants = [], isLoading, isFetching, isError, error, refetch } = useQuery({
-        queryKey: queryKeys.recruitment.applicants(search, companyId),
-        queryFn: () => getApplicants(search || undefined, companyId),
+    // The server does the searching, so the key includes the term. Cursor pages append via Load more.
+    const {
+        data: pages,
+        isLoading,
+        isFetching,
+        isError,
+        error,
+        refetch,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteQuery({
+        queryKey: queryKeys.recruitment.applicants(search, companyId ?? ""),
+        queryFn: ({ pageParam }) => getApplicants(search || undefined, companyId, pageParam),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (last) => last.nextCursor ?? undefined,
         placeholderData: keepPreviousData,
     });
+    const applicants = useMemo(() => pages?.pages.flatMap((p) => p.items) ?? [], [pages]);
+    /**
+     * Family-wide board + per-org unique keys → same email can appear twice under sister orgs.
+     * Surface the count when viewing All so recruiters know (360 R3). Full merge is a later tool.
+     */
+    const duplicateIdentityCount = useMemo(() => {
+        if (companyId) return 0;
+        const emails = new Map<string, number>();
+        const phones = new Map<string, number>();
+        for (const a of applicants) {
+            const em = a.email?.trim().toLowerCase();
+            if (em) emails.set(em, (emails.get(em) ?? 0) + 1);
+            const ph = a.phone?.replace(/\D/g, "");
+            if (ph && ph.length >= 8) phones.set(ph, (phones.get(ph) ?? 0) + 1);
+        }
+        let n = 0;
+        for (const c of emails.values()) if (c > 1) n += 1;
+        for (const c of phones.values()) if (c > 1) n += 1;
+        return n;
+    }, [applicants, companyId]);
     const { data: sources = [] } = useQuery({
         queryKey: queryKeys.recruitment.applicantSources(),
         queryFn: getApplicantSources,
@@ -136,50 +153,31 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         }
     };
 
-    const updateMut = useMutation({
-        mutationFn: async () => {
-            // expectedRevisionCount: two people editing the same candidate no longer overwrite each other silently.
-            await updateApplicant(editing!.id, { ...cleanCandidatePayload(form), isBlacklisted: blacklisted, expectedRevisionCount: editing!.revisionCount });
-            // The resume goes up after the save; its failure joins the SAME toast rather than a second one
-            // that a success toast would immediately replace.
-            if (!formFile) return null;
-            try { await uploadApplicantResume(editing!.id, formFile); return null; } catch (err) { return apiErrorMessage(err, "the file was refused"); }
-        },
-        onSuccess: (resumeError) => {
-            toast(resumeError
-                ? { icon: "warning", title: `Candidate updated, but the resume did not upload: ${resumeError}` }
-                : { icon: "success", title: "Candidate updated" });
-            closeEdit();
-            invalidate();
-        },
-        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not update the candidate") }),
-    });
     const blacklistMut = useMutation({
         mutationFn: (vars: { id: string; isBlacklisted: boolean }) => updateApplicant(vars.id, { isBlacklisted: vars.isBlacklisted }),
-        onSuccess: (_d, vars) => { toast({ icon: "success", title: vars.isBlacklisted ? "Candidate blacklisted" : "Candidate restored" }); invalidate(); },
+        onSuccess: (_d, vars) => { toast({ icon: "success", title: vars.isBlacklisted ? "Candidate blacklisted" : "Removed from blacklist" }); invalidate(); },
         onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not update the candidate") }),
     });
 
-    const openEdit = (a: Applicant) => {
-        setEditing(a);
-        setForm({
-            firstName: a.firstName ?? "", lastName: a.lastName ?? "", email: a.email ?? "", phone: a.phone ?? "",
-            currentEmployer: a.currentEmployer ?? "", currentTitle: a.currentTitle ?? "",
-            // Every field the form edits must be repopulated here. A field left out renders blank on
-            // edit even though the record holds a value, which reads as data loss.
-            currentLocation: a.currentLocation ?? "", qualification: a.qualification ?? "",
-            employeeLevelId: a.employeeLevelId ?? null,
-            totalExperienceMonths: a.totalExperienceMonths ?? null,
-            currentCtc: a.currentCtc == null ? null : Number(a.currentCtc),
-            expectedCtc: a.expectedCtc == null ? null : Number(a.expectedCtc),
-            noticePeriodDays: a.noticePeriodDays ?? null,
-            sourceId: a.sourceId ?? null,
-        });
-        setBlacklisted(a.isBlacklisted);
-        setFormFile(null);
-        setAttempted(false);
+    const archiveMut = useMutation({
+        mutationFn: (id: string) => archiveApplicant(id),
+        onSuccess: () => { toast({ icon: "success", title: "Candidate archived" }); invalidate(); },
+        onError: (err) => toast({ icon: "error", title: apiErrorMessage(err, "Could not archive the candidate") }),
+    });
+
+    const withShellOrg = (path: string) => {
+        if (!companyId) return path;
+        const sep = path.includes("?") ? "&" : "?";
+        return `${path}${sep}companyId=${encodeURIComponent(companyId)}`;
     };
-    const closeEdit = () => { setEditing(null); setFormFile(null); setAttempted(false); };
+
+    const openEdit = (a: Applicant) => {
+        navigate(withShellOrg(`/recruitment/candidates/${a.id}/edit`));
+    };
+
+    const startAdd = () => {
+        navigate(withShellOrg("/recruitment/candidates/new"));
+    };
 
     const toggleBlacklist = async (a: Applicant) => {
         if (a.isBlacklisted) { blacklistMut.mutate({ id: a.id, isBlacklisted: false }); return; }
@@ -192,14 +190,183 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
         if (ok) blacklistMut.mutate({ id: a.id, isBlacklisted: true });
     };
 
-    const saveEdit = () => {
-        setAttempted(true);
-        if (isCandidateFormValid(form) && !updateMut.isPending) updateMut.mutate();
+    const archive = async (a: Applicant) => {
+        const ok = await confirmDialog({
+            icon: "warning",
+            title: `Archive ${fullName(a)}?`,
+            text: "They move to Archive with their active applications. Restore or permanently delete from the Archive tab.",
+            confirmText: "Archive",
+        });
+        if (ok) archiveMut.mutate(a.id);
     };
 
     const sourceName = useMemo(
         () => (id?: string | null) => sources.find((s: ApplicantSource) => s.id === id)?.name ?? null,
         [sources],
+    );
+
+    /**
+     * List actions stay a single non-wrapping icon row. "Added" lives in its own column;
+     * Edit is the row click (same as Pipeline list) so it is not repeated here.
+     */
+    const listActions = (a: Applicant) => (
+        <Stack
+            direction="row"
+            alignItems="center"
+            spacing={0.5}
+            flexWrap="nowrap"
+            onClick={(e) => e.stopPropagation()}
+            sx={{ whiteSpace: "nowrap" }}
+        >
+            {canWrite && (
+                <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a Role" onClick={() => setAddToRole(a)} />
+            )}
+            {canWrite && (
+                <ActionIconButton
+                    iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"}
+                    icon={uploadingId === a.id ? <CircularProgress size={14} color="inherit" /> : undefined}
+                    size="sm"
+                    tone="indigo"
+                    title={uploadingId === a.id ? "Uploading…" : a.resumeS3Url ? "Replace resume" : "Attach resume"}
+                    disabled={uploadingId === a.id}
+                    onClick={() => pickResume(a)}
+                />
+            )}
+            {a.resumeS3Url ? (
+                <ActionIconButton
+                    iconName="document"
+                    size="sm"
+                    tone="indigo"
+                    title={a.resumeFileName ? `Open resume — ${a.resumeFileName}` : "Open resume"}
+                    onClick={() => openResume(a)}
+                />
+            ) : null}
+            {canWrite && (
+                <ActionIconButton
+                    iconName={a.isBlacklisted ? "check" : "shield-cross"}
+                    size="sm"
+                    tone={a.isBlacklisted ? "success" : "danger"}
+                    title={a.isBlacklisted ? "Remove from blacklist" : "Blacklist"}
+                    disabled={blacklistMut.isPending}
+                    onClick={() => toggleBlacklist(a)}
+                />
+            )}
+            {canWrite && (
+                <ActionIconButton
+                    iconName="trash"
+                    size="sm"
+                    tone="danger"
+                    title="Archive"
+                    disabled={archiveMut.isPending}
+                    onClick={() => archive(a)}
+                />
+            )}
+        </Stack>
+    );
+
+    /** Card footer: date + full action set (Edit stays visible — cards have no row-click). */
+    const cardActions = (a: Applicant) => (
+        <Stack
+            direction="row"
+            alignItems="center"
+            spacing={0.5}
+            flexWrap="wrap"
+            useFlexGap
+            sx={{ width: "100%" }}
+        >
+            <Typography sx={{ fontSize: 11.5, color: "text.disabled", fontWeight: 600 }}>
+                Added {formatDate(a.createdAt)}
+            </Typography>
+            <Box sx={{ flex: 1 }} />
+            {canWrite && (
+                <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a Role" onClick={() => setAddToRole(a)} />
+            )}
+            {canWrite && (
+                <ActionIconButton
+                    iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"}
+                    icon={uploadingId === a.id ? <CircularProgress size={14} color="inherit" /> : undefined}
+                    size="sm"
+                    tone="indigo"
+                    title={uploadingId === a.id ? "Uploading…" : a.resumeS3Url ? "Replace resume" : "Attach resume"}
+                    disabled={uploadingId === a.id}
+                    onClick={() => pickResume(a)}
+                />
+            )}
+            {a.resumeS3Url ? (
+                <ActionIconButton
+                    iconName="document"
+                    size="sm"
+                    tone="indigo"
+                    title={a.resumeFileName ? `Open resume — ${a.resumeFileName}` : "Open resume"}
+                    onClick={() => openResume(a)}
+                />
+            ) : null}
+            {canWrite && (
+                <ActionIconButton iconName="pencil" size="sm" tone="indigo" title="Edit" onClick={() => openEdit(a)} />
+            )}
+            {canWrite && (
+                <ActionIconButton
+                    iconName={a.isBlacklisted ? "check" : "shield-cross"}
+                    size="sm"
+                    tone={a.isBlacklisted ? "success" : "danger"}
+                    title={a.isBlacklisted ? "Remove from blacklist" : "Blacklist"}
+                    disabled={blacklistMut.isPending}
+                    onClick={() => toggleBlacklist(a)}
+                />
+            )}
+            {canWrite && (
+                <ActionIconButton
+                    iconName="trash"
+                    size="sm"
+                    tone="danger"
+                    title="Archive"
+                    disabled={archiveMut.isPending}
+                    onClick={() => archive(a)}
+                />
+            )}
+        </Stack>
+    );
+
+    const listColumns = useMemo(
+        () => candidateColumns({
+            orgName,
+            sourceName,
+            actions: listActions,
+            omit: companyId ? ["org"] : undefined,
+        }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- actions use live mutators / upload state
+        [companyId, sources, orgOptions, canWrite, uploadingId, blacklistMut.isPending, archiveMut.isPending],
+    );
+
+    const listChrome = (
+        <>
+            {duplicateIdentityCount > 0 && (
+                <Box sx={{ mb: 1.5 }}>
+                    <InlineNotice icon="information-5">
+                        {duplicateIdentityCount === 1
+                            ? "One email or phone appears on more than one candidate card — usually the same person entered under two organizations. Filter by organization to tell them apart."
+                            : `${duplicateIdentityCount} emails or phones appear on more than one candidate card — usually the same people entered under two organizations. Filter by organization to tell them apart.`}
+                    </InlineNotice>
+                </Box>
+            )}
+            {hasNextPage && (
+                <Box sx={{ mb: 1.5 }}>
+                    <InlineNotice icon="information-5">
+                        Showing {applicants.length} candidates. More remain — load the next page,
+                        or search by name, email, job title or employer.
+                    </InlineNotice>
+                    <Box sx={{ mt: 1 }}>
+                        <WtButton
+                            size="small"
+                            disabled={isFetchingNextPage}
+                            onClick={() => fetchNextPage()}
+                        >
+                            {isFetchingNextPage ? "Loading…" : "Load more"}
+                        </WtButton>
+                    </Box>
+                </Box>
+            )}
+        </>
     );
 
     return (
@@ -211,7 +378,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 title="Candidates"
                 subtitle="Everyone on record — search by name, email, job title or employer."
                 actions={
-                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }}>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }} alignItems={{ sm: "center" }}>
                         <WtField
                             label="Search Candidates" icon="magnifier" clearable
                             value={searchInput} onChange={setSearchInput}
@@ -219,8 +386,13 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                             fullWidth={false}
                             sx={{ width: { xs: "100%", sm: 280 } }}
                         />
+                        <CardsListViewSwitch
+                            ariaLabel="Candidates view"
+                            value={mode}
+                            onChange={setMode}
+                        />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={() => setAdding(true)}>
+                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
                                 Add Candidate
                             </WtButton>
                         )}
@@ -240,13 +412,52 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 search ? (
                     <WtEmptyState variant="no-match" {...COPY.noSearchMatch(search)} />
                 ) : (
-                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel={canWrite ? "Add Candidate" : undefined} onAction={() => setAdding(true)} />
+                    <WtEmptyState icon="people" title={COPY.noCandidates.title} hint={COPY.noCandidates.hint} actionLabel={canWrite ? "Add Candidate" : undefined} onAction={startAdd} />
                 )
             ) : (
+                <>
+                {listChrome}
+                {mode === "list" ? (
+                    <MaterialTable
+                        columns={listColumns}
+                        data={applicants}
+                        isLoading={isLoading}
+                        tableName="RecruitmentCandidatesList"
+                        enableRowSelection={canWrite}
+                        renderSelectionActions={(selected: Applicant[]) => (
+                            <TableSelectionBar count={selected.length}>
+                                <WtButton
+                                    size="small"
+                                    tone="danger"
+                                    disabled={archiveMut.isPending}
+                                    onClick={async () => {
+                                        const ok = await confirmDialog({
+                                            icon: "warning",
+                                            title: `Archive ${selected.length} candidates?`,
+                                            text: "They move to Archive with their active applications. Restore or permanently delete from the Archive tab.",
+                                            confirmText: "Archive",
+                                        });
+                                        if (!ok) return;
+                                        await Promise.allSettled(selected.map((a) => archiveMut.mutateAsync(a.id)));
+                                    }}
+                                >
+                                    Archive selected
+                                </WtButton>
+                            </TableSelectionBar>
+                        )}
+                        muiTableProps={canWrite ? {
+                            muiTableBodyRowProps: ({ row }: { row: { original: Applicant } }) => ({
+                                onClick: () => openEdit(row.original),
+                                sx: { cursor: "pointer" },
+                            }),
+                        } : undefined}
+                    />
+                ) : (
                 <AutoGrid min={320}>
                     {applicants.map((a: Applicant) => {
                         const exp = experienceLabel(a.totalExperienceMonths);
                         const src = sourceName(a.sourceId);
+                        const org = orgName(a.companyId);
                         // Phone-only candidates are the intake this form was built for; show whichever they have.
                         const contact = [a.email, a.phone].filter(Boolean).join(" · ");
                         return (
@@ -256,6 +467,11 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                         <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3, overflowWrap: "anywhere" }}>
                                             {fullName(a)}
                                         </Typography>
+                                        {org && !companyId && (
+                                            <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.25 }}>
+                                                {org}
+                                            </Typography>
+                                        )}
                                         {contact && (
                                             <Typography sx={{ fontSize: 12, color: "text.secondary", overflowWrap: "anywhere", mt: 0.15 }}>
                                                 {contact}
@@ -272,50 +488,33 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                 )}
 
                                 <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.25 }}>
-                                    {exp && <MetaPill text={exp} />}
-                                    {a.expectedCtc != null && <MetaPill text={`${formatCurrencyCompact(Number(a.expectedCtc))} expected`} />}
-                                    {a.noticePeriodDays != null && <MetaPill text={a.noticePeriodDays === 0 ? "Immediate joiner" : `${a.noticePeriodDays} days notice`} />}
-                                    {src && <MetaPill text={src} />}
+                                    {exp && <ToneChip dense tone="neutral" label={exp} />}
+                                    {a.expectedCtc != null && (
+                                        <ToneChip dense tone="brand" label={`${formatCurrencyCompact(Number(a.expectedCtc))} expected`} />
+                                    )}
+                                    {a.noticePeriodDays != null && (
+                                        <ToneChip
+                                            dense
+                                            tone={a.noticePeriodDays === 0 ? "success" : "neutral"}
+                                            label={a.noticePeriodDays === 0 ? "Immediate joiner" : `${a.noticePeriodDays} days notice`}
+                                        />
+                                    )}
+                                    {src && <ToneChip dense tone="indigo" label={src} />}
                                 </Stack>
 
-                                {/* Spacer keeps the action row pinned to the bottom so tiles align in the grid. */}
                                 <Box sx={{ flex: 1 }} />
 
-                                <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
-                                    <Typography sx={{ fontSize: 11.5, color: "text.disabled", fontWeight: 600 }}>
-                                        Added {formatDate(a.createdAt)}
-                                    </Typography>
-                                    <Box sx={{ flex: 1 }} />
-                                    {canWrite && <ActionIconButton iconName="briefcase" size="sm" tone="brand" title="Add to a Role" onClick={() => setAddToRole(a)} />}
-                                    {canWrite && <ActionIconButton
-                                        iconName={a.resumeS3Url ? "arrows-circle" : "cloud-add"}
-                                        icon={uploadingId === a.id ? <CircularProgress size={14} color="inherit" /> : undefined}
-                                        size="sm" tone="indigo"
-                                        title={uploadingId === a.id ? "Uploading…" : a.resumeS3Url ? "Replace resume" : "Attach resume"}
-                                        disabled={uploadingId === a.id}
-                                        onClick={() => pickResume(a)}
-                                    />}
-                                    {a.resumeS3Url && (
-                                        <ActionIconButton iconName="document" size="sm" tone="indigo"
-                                            title={a.resumeFileName ? `Open resume — ${a.resumeFileName}` : "Open resume"}
-                                            onClick={() => openResume(a)} />
-                                    )}
-                                    {canWrite && <ActionIconButton iconName="pencil" size="sm" tone="indigo" title="Edit" onClick={() => openEdit(a)} />}
-                                    {canWrite && <ActionIconButton
-                                        iconName={a.isBlacklisted ? "check" : "shield-cross"} size="sm"
-                                        tone={a.isBlacklisted ? "success" : "danger"}
-                                        title={a.isBlacklisted ? "Remove from blacklist" : "Blacklist"}
-                                        disabled={blacklistMut.isPending}
-                                        onClick={() => toggleBlacklist(a)}
-                                    />}
-                                </Stack>
+                                <Box sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+                                    {cardActions(a)}
+                                </Box>
                             </GlassCard>
                         );
                     })}
                 </AutoGrid>
+                )}
+                </>
             )}
 
-            <AddCandidateDialog open={adding} onClose={() => setAdding(false)} companyId={companyId} />
             {addToRole && (
                 <AddToRoleDialog
                     open
@@ -325,45 +524,6 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                     companyId={companyId}
                 />
             )}
-
-            <GlassDialog
-                open={!!editing}
-                onClose={updateMut.isPending ? undefined : closeEdit}
-                maxWidth="sm"
-                header={
-                    <GlassHeader
-                        title={editing ? `Edit ${fullName(editing)}` : "Edit candidate"}
-                        icon={<KTIcon iconName="user-tick" className="fs-2" />}
-                        onClose={updateMut.isPending ? undefined : closeEdit}
-                    />
-                }
-            >
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <CandidateFormFields
-                            form={form}
-                            onChange={setForm}
-                            showErrors={attempted}
-                            resumeFile={formFile}
-                            onResumeFile={setFormFile}
-                            existingResumeName={editing?.resumeFileName ?? (editing?.resumeS3Url ? "Resume on file" : null)}
-                            disabled={updateMut.isPending}
-                        />
-                        <WtSwitchField
-                            title="Blacklisted"
-                            description="Keeps the record (and its audit trail) but flags them on future applications."
-                            checked={blacklisted}
-                            onChange={(e) => setBlacklisted(e.target.checked)}
-                        />
-                    </Stack>
-                </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <WtButton ghost onClick={closeEdit} disabled={updateMut.isPending}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={updateMut.isPending || (attempted && !isCandidateFormValid(form))} onClick={saveEdit}>
-                        {updateMut.isPending ? "Saving…" : "Save Changes"}
-                    </WtButton>
-                </DialogActions>
-            </GlassDialog>
         </Box>
     );
 };

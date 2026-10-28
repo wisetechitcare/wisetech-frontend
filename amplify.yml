@@ -62,3 +62,10 @@ frontend:
       # pnpm's content-addressable store, not node_modules: pnpm links from the store, so
       # caching node_modules alone rebuilds the links every time and saves little.
       - .pnpm-store/**/*
+
+# Vite emits one index.html for the whole client-side app. Let browser refreshes
+# on nested routes reach that entry point instead of asking S3 for a missing file.
+rewrites:
+  - source: '/<*>'
+    target: '/index.html'
+    status: '200'

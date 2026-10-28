@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { useField } from 'formik';
+import { useField, useFormikContext, type FormikValues } from 'formik';
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
 import CommonModal from '../components/CommonModal';
 import DropdownChevron from './DropdownChevron';
 import { WtField, WtSelect } from '@app/modules/common/components/ui';
+import { useUnsavedChangesRegistration } from '../components/ui/UnsavedChangesProvider';
 
 interface LocationDropdownProps {
     isRequired: boolean;
@@ -41,6 +42,8 @@ const LocationDropdown = ({
     value,
 }: LocationDropdownProps) => {
     const [, meta] = useField(formikField);
+    const { dirty } = useFormikContext<FormikValues>();
+    useUnsavedChangesRegistration(dirty);
     const [show, setShow] = useState(false);
     const hasError = !!(meta.touched && meta.error);
     const errorMessage = hasError ? String(meta.error) : undefined;

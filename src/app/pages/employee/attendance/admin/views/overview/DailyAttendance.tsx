@@ -32,6 +32,7 @@ import { fetchAddressDetails } from "@services/location";
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from "@services/company";
 import { DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { getScopedGraceThresholds } from "@utils/getGraceBasedThresholds";
+import { serverIsNonWorkingDay } from "@utils/attendanceVerdicts";
 import { decimalHoursToHHMM } from "@utils/date";
 import { convertMinutesIntoHrMinFormat, convertMinutesIntoHrMinFormats, customLeaves, filterLeavesPublicHolidays, getTimeDifference, markWeekendOrHoliday } from "@utils/statistics";
 import { saveFilteredLeaves, saveLeaves, savePublicHolidays } from "@redux/slices/attendanceStats";
@@ -145,8 +146,11 @@ export const transformAttendance = (attendance: IEmployeesAttendanceResponse[], 
         const checkInBusinessTz = checkIn ? convertToTimeZone(checkIn, employeeTimezone) : null;
         const weekDay = checkInBusinessTz ? checkInBusinessTz.format('dddd') : getWeekDay(checkIn, employeeTimezone);
 
-        // Check if the day is a weekend based on the weekDay
-        const isWeekend = weekends && typeof weekends === 'object' && weekends[weekDay.toLowerCase()] === "0";
+        // Off day per the SERVER's `dayKind` (this employee's OWN branch calendar,
+        // holidays included). The `weekends` map is the VIEWING admin's branch, so it is
+        // only the fallback for responses that predate the verdict annotator.
+        const isWeekend = serverIsNonWorkingDay(empAttendance)
+            ?? (weekends && typeof weekends === 'object' && weekends[weekDay.toLowerCase()] === "0");
 
         // Format times for display (respects 12/24 hour setting)
         const formattedCheckIn = checkIn ? formatTime(convertToTimeZone(checkIn, employeeTimezone)) : '-NA-';
@@ -467,7 +471,14 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
         }
 
         // Apply weekend/holiday marking logic
-        const isWeekendOrHolidayData = markWeekendOrHoliday(dataToProcess, getAllWeekends, allHolidays);
+        // A punch row carries the server's `dayKind` (the employee's OWN branch calendar)
+        // and that decides; the admin-branch marking stays for rows without one (leave
+        // placeholders, older responses). Feeds the check-in colour and duration pill.
+        const isWeekendOrHolidayData = markWeekendOrHoliday(dataToProcess, getAllWeekends, allHolidays)
+            .map((row: any) => {
+                const serverOffDay = serverIsNonWorkingDay(row);
+                return serverOffDay === undefined ? row : { ...row, isWeekendOrHoliday: serverOffDay };
+            });
 
         // Attendance and leave rows carry no isActive of their own, so inactive staff are
         // excluded by employee id against the roster — otherwise a leaver keeps appearing

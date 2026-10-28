@@ -1,0 +1,3 @@
+#!/bin/sh
+# Pretty commit summary (message, hash, files). Runs after a successful commit.
+node scripts/hooks/run.mjs post-commit

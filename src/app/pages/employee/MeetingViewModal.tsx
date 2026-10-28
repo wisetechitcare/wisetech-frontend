@@ -1,8 +1,9 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { RootState } from "@redux/store";
 import { fetchAllEmployees, getMeetings } from "@services/employee";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useState } from "react";
-import { Modal, Button } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import CopyToClipboard from "react-copy-to-clipboard";
 import { useSelector } from "react-redux";
 import MeetingDialog from "./MeetingDialog";

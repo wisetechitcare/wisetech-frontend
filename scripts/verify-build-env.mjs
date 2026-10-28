@@ -60,6 +60,7 @@ const OPTIONAL = [
     'VITE_APP_I18N_CONFIG_KEY',
     'VITE_APP_IDLE_TIMEOUT_MINUTES',
     'VITE_NEW_MY_TEAM_IA',
+    'VITE_ATTENDANCE_COGNITO_IDENTITY_POOL_ID',
 ];
 
 /** Never print a key in a build log; confirming it is present is the whole job. */

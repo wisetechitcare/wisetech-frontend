@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Pagination, Stack, Typography } from "@mui/material";
-import { TRIO } from "@app/modules/common/components/ui";
+import { AutoGrid, TRIO } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import { getRevenueReport, type RevenueTableRow } from "@services/billingReports";
@@ -124,14 +124,14 @@ const RevenueReportPage: React.FC = () => {
         description="Invoiced revenue by period, project and client."
       />
 
-      <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+      <AutoGrid min={180} stretch sx={{ mb: 2, gap: 1.25 }}>
         <BillingStatsCard label="Total Revenue" icon="wallet" trio={TRIO.green} value={formatCurrencyDecimal(stats?.totalRevenue ?? 0)} />
         <BillingStatsCard label="This Month" icon="calendar" trio={TRIO.blue} value={formatCurrencyDecimal(stats?.revenueThisMonth ?? 0)} />
         <BillingStatsCard label="This Year" icon="calendar-tick" trio={TRIO.purple} value={formatCurrencyDecimal(stats?.revenueThisYear ?? 0)} />
         <BillingStatsCard label="Avg Invoice" icon="chart-pie-simple" trio={TRIO.amber} value={formatCurrencyDecimal(stats?.averageInvoiceValue ?? 0)} />
         <BillingStatsCard label="Highest Invoice" icon="arrow-up" trio={TRIO.cyan} value={formatCurrencyDecimal(stats?.highestInvoice ?? 0)} />
         <BillingStatsCard label="Lowest Invoice" icon="arrow-down" trio={TRIO.slate} value={formatCurrencyDecimal(stats?.lowestInvoice ?? 0)} />
-      </Box>
+      </AutoGrid>
 
       <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" } }}>
         <ReportChart title="Monthly Revenue Trend" type="area" data={data?.charts.monthlyTrend ?? []} height={280} />

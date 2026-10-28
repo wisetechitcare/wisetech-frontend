@@ -6,7 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 
-// The one Add candidate window (Candidates and Pipeline) and "Add to a role" for someone on file.
+// Add Candidate is wizard-only. These tests cover Add-to-role (existing applicant)
+// and the shared open-role / identity helpers the wizard relies on.
 
 vi.mock('@redux/store', () => ({ store: { getState: () => ({ appSettings: {}, authz: { tier: 'SUPER_ADMIN' } }) } }));
 
@@ -36,8 +37,13 @@ vi.mock('@app/modules/common/components/ui/feedback', async (importOriginal) => 
     ...feedback,
 }));
 
-import { AddCandidateDialog } from '../AddCandidateDialog';
 import { AddToRoleDialog } from '../AddToRoleDialog';
+import { isRoleOpenForCandidates } from '@utils/requisitions';
+import {
+    candidateHasContact,
+    emptyCandidateFormValues,
+    formikToApplicantPayload,
+} from '../candidateProfile';
 
 beforeAll(() => {
     Object.defineProperty(window, 'matchMedia', {
@@ -52,6 +58,7 @@ const roles = [
     { ...base, id: 'r-other', title: 'MEP Supervisor', status: 1, isActive: true },
     { ...base, id: 'r-draft', title: 'Draft Role', status: 0, isActive: true },
     { ...base, id: 'r-archived', title: 'Archived Role', status: 1, isActive: false },
+    { ...base, id: 'r-full', title: 'Full Role', status: 1, isActive: true, headcount: 1, filledCount: 1 },
 ];
 
 const wrap = (ui: React.ReactNode) => {
@@ -63,97 +70,42 @@ const lastToast = () => feedback.toast.mock.calls.at(-1)![0] as { icon: string; 
 
 beforeEach(() => {
     api.getRequisitions.mockResolvedValue(roles);
-    api.getApplications.mockResolvedValue([]);
+    api.getApplications.mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
     api.createApplication.mockResolvedValue({ application: { id: 'app-9', applicantId: 'cand-9', applicantExisted: false } });
     api.createApplicant.mockResolvedValue({ applicant: { id: 'cand-9' } });
     api.uploadApplicantResume.mockResolvedValue({});
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-const typeIdentity = async () => {
-    await userEvent.type(screen.getByLabelText(/first name/i), 'Suhel');
-    await userEvent.type(screen.getByLabelText(/^phone/i), '9920652771');
-};
-const chooseRole = async (title: string) => {
-    await userEvent.click(screen.getByRole('combobox', { name: /^role/i }));
-    await userEvent.click(await screen.findByRole('option', { name: title }));
-};
+describe('isRoleOpenForCandidates', () => {
+    test('keeps only approved, active roles with a seat left', () => {
+        const open = roles.filter(isRoleOpenForCandidates);
+        expect(open.map((r) => r.id)).toEqual(['r-open', 'r-other']);
+    });
+});
 
-describe('AddCandidateDialog', () => {
-    test('lists only approved, open roles', async () => {
-        wrap(<AddCandidateDialog open onClose={() => {}} roleRequired />);
-        await waitFor(() => expect(api.getRequisitions).toHaveBeenCalled());
-        await userEvent.click(screen.getByRole('combobox', { name: /^role/i }));
-        const names = (await screen.findAllByRole('option')).map((o) => o.textContent);
-        expect(names).toEqual(['Site Engineer', 'MEP Supervisor']);
+describe('candidate identity helpers (wizard)', () => {
+    test('contact requires email or phone', () => {
+        const blank = emptyCandidateFormValues();
+        expect(candidateHasContact(blank)).toBe(false);
+        expect(candidateHasContact({ ...blank, personalEmailId: 'a@b.com' })).toBe(true);
+        expect(candidateHasContact({ ...blank, personalPhoneNumber: '9920652771' })).toBe(true);
     });
 
-    test('from the pipeline, a role is required before anything is sent', async () => {
-        wrap(<AddCandidateDialog open onClose={() => {}} roleRequired />);
-        await typeIdentity();
-        await userEvent.click(screen.getByRole('button', { name: /add candidate/i }));
-        expect(await screen.findByText('Choose the role they are applying for')).toBeTruthy();
-        expect(api.createApplication).not.toHaveBeenCalled();
-    });
-
-    test('with a role, the person goes onto that role\'s pipeline — blanks sent as null, not ""', async () => {
-        wrap(<AddCandidateDialog open onClose={() => {}} roleRequired />);
-        await waitFor(() => expect(api.getRequisitions).toHaveBeenCalled());
-        await typeIdentity();
-        await chooseRole('Site Engineer');
-        await userEvent.click(screen.getByRole('button', { name: /add to role/i }));
-        await waitFor(() => expect(api.createApplication).toHaveBeenCalledTimes(1));
-        const payload = api.createApplication.mock.calls[0][0];
-        expect(payload.requisitionId).toBe('r-open');
-        expect(payload.applicant).toMatchObject({ firstName: 'Suhel', phone: '9920652771', email: null, lastName: null });
-        expect(api.createApplicant).not.toHaveBeenCalled();
-        expect(lastToast()).toEqual({ icon: 'success', title: 'Suhel added to "Site Engineer"' });
-    });
-
-    test('someone already on file is attached, and the message says so', async () => {
-        api.createApplication.mockResolvedValue({ application: { id: 'app-9', applicantId: 'cand-1', applicantExisted: true } });
-        wrap(<AddCandidateDialog open onClose={() => {}} roleRequired />);
-        await waitFor(() => expect(api.getRequisitions).toHaveBeenCalled());
-        await typeIdentity();
-        await chooseRole('Site Engineer');
-        await userEvent.click(screen.getByRole('button', { name: /add to role/i }));
-        await waitFor(() => expect(feedback.toast).toHaveBeenCalled());
-        expect(lastToast().title).toBe('Suhel was already on file — added their existing record to "Site Engineer"');
-    });
-
-    test('from the directory, no role adds them to the candidate pool', async () => {
-        wrap(<AddCandidateDialog open onClose={() => {}} />);
-        await typeIdentity();
-        await userEvent.click(screen.getByRole('button', { name: /add candidate/i }));
-        await waitFor(() => expect(api.createApplicant).toHaveBeenCalledTimes(1));
-        expect(api.createApplication).not.toHaveBeenCalled();
-    });
-
-    test('a duplicate is refused with the server\'s sentence naming who has it', async () => {
-        api.createApplicant.mockRejectedValue({ response: { status: 409, data: { detail: 'Suhel Pathan is already on file with this email or phone. Open their record instead of adding them again.' } } });
-        wrap(<AddCandidateDialog open onClose={() => {}} />);
-        await typeIdentity();
-        await userEvent.click(screen.getByRole('button', { name: /add candidate/i }));
-        await waitFor(() => expect(feedback.toast).toHaveBeenCalled());
-        expect(lastToast()).toEqual({ icon: 'error', title: 'Suhel Pathan is already on file with this email or phone. Open their record instead of adding them again.' });
-    });
-
-    test('a failed resume is reported in the same message as the save, not hidden behind it', async () => {
-        api.uploadApplicantResume.mockRejectedValue({ response: { data: { detail: 'Only PDF, DOC or DOCX files are accepted.' } } });
-        const { container } = wrap(<AddCandidateDialog open onClose={() => {}} />);
-        await typeIdentity();
-        const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-        await userEvent.upload(input, new File(['x'], 'cv.pdf', { type: 'application/pdf' }));
-        await userEvent.click(screen.getByRole('button', { name: /add candidate/i }));
-        await waitFor(() => expect(feedback.toast).toHaveBeenCalledTimes(1));
-        expect(lastToast()).toEqual({ icon: 'warning', title: 'Suhel added, but the resume did not upload: Only PDF, DOC or DOCX files are accepted.' });
-        void container;
+    test('formik payload sends empty optional text as null', () => {
+        const values = emptyCandidateFormValues();
+        values.firstName = 'Suhel';
+        values.personalPhoneNumber = '9920652771';
+        values.personalEmailId = '  ';
+        values.lastName = '';
+        const payload = formikToApplicantPayload(values);
+        expect(payload).toMatchObject({ firstName: 'Suhel', phone: '9920652771', email: null, lastName: null });
     });
 });
 
 describe('AddToRoleDialog', () => {
     test('offers only roles they are not already in, and adds them by id', async () => {
-        api.getApplications.mockResolvedValue([{ id: 'app-1', requisitionId: 'r-open' }]);
+        api.getApplications.mockResolvedValue({ items: [{ id: 'app-1', requisitionId: 'r-open' }], hasMore: false, nextCursor: null });
         wrap(<AddToRoleDialog open onClose={() => {}} applicantId="cand-1" applicantName="Suhel Pathan" />);
         await waitFor(() => expect(api.getApplications).toHaveBeenCalledWith({ applicantId: 'cand-1' }));
         await waitFor(() => expect(screen.getByRole('combobox', { name: /^role/i }).getAttribute('aria-disabled')).not.toBe('true'));
@@ -162,7 +114,7 @@ describe('AddToRoleDialog', () => {
         expect(names).toEqual(['MEP Supervisor']);
         await userEvent.click(screen.getByRole('option', { name: 'MEP Supervisor' }));
         await userEvent.click(screen.getByRole('button', { name: /add to role/i }));
-        await waitFor(() => expect(api.createApplication).toHaveBeenCalledWith({ applicantId: 'cand-1', requisitionId: 'r-other' }));
+        await waitFor(() => expect(api.createApplication).toHaveBeenCalledWith({ applicantId: 'cand-1', requisitionId: 'r-other' }, undefined));
         expect(lastToast()).toEqual({ icon: 'success', title: 'Suhel Pathan added to "MEP Supervisor"' });
     });
 });

@@ -1,98 +1,67 @@
-import * as React from "react";
-import { get } from "lodash";
-import HighlightErrors from "../../errors/components/HighlightErrors";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { DatePicker } from "@mui/x-date-pickers";
-import dayjs, { Dayjs } from "dayjs";
+import dayjs from "dayjs";
+import { getIn, useField, useFormikContext, type FormikValues } from "formik";
+import { useState } from "react";
+import { WtDateField } from "../components/ui";
+import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
 
 interface MonthYearInputProps {
-    isRequired: boolean;
-    inputLabel: string;
-    formikProps?: any;
-    formikField: string;
-    placeHolder: string;
-    minDateField?: string; // Field name to compare against for minimum month validation
+  isRequired: boolean;
+  inputLabel: string;
+  formikProps?: unknown;
+  formikField: string;
+  placeHolder: string;
+  minDateField?: string;
 }
 
-/**
- * Month + year picker (no day selection). Stores the FIRST day of the picked
- * month as 'YYYY-MM-01' so downstream ISO-date logic keeps working unchanged.
- */
-function MonthYearInput({ formikProps, formikField, inputLabel, isRequired, placeHolder, minDateField }: MonthYearInputProps) {
-    const { values, setFieldValue, setFieldTouched, errors, touched } = formikProps;
-    const [validationError, setValidationError] = React.useState<string>('');
+/** Month + year picker. Stores the first day of the selected month as YYYY-MM-DD. */
+function MonthYearInput({ inputLabel, isRequired, placeHolder, formikField, minDateField }: MonthYearInputProps) {
+  const { dirty, values } = useFormikContext<FormikValues>();
+  const [field, meta, helpers] = useField(formikField);
+  const [validationError, setValidationError] = useState<string>();
+  useUnsavedChangesRegistration(dirty);
 
-    const stored = get(values, formikField);
-    const parsed = stored ? dayjs(stored) : null;
-    const currentValue: Dayjs | null = parsed && parsed.isValid() ? parsed : null;
+  const handleChange = (value: string) => {
+    if (!value) {
+      setValidationError(undefined);
+      void helpers.setValue("");
+      void helpers.setTouched(false, false);
+      return;
+    }
 
-    const handleChange = (newValue: Dayjs | null) => {
-        if (newValue && newValue.isValid()) {
-            const monthStart = newValue.startOf('month');
-            const iso = monthStart.format('YYYY-MM-DD');
+    const monthStart = dayjs(value).startOf("month");
+    if (!monthStart.isValid()) return;
+    const iso = monthStart.format("YYYY-MM-DD");
+    const minimum = minDateField ? getIn(values, minDateField) : undefined;
+    if (minimum && monthStart.isBefore(dayjs(minimum).startOf("month"))) {
+      setValidationError("Month cannot be before the start month");
+      void helpers.setValue(iso, false);
+      void helpers.setTouched(true, false);
+      return;
+    }
 
-            if (minDateField && get(values, minDateField)) {
-                const min = dayjs(get(values, minDateField)).startOf('month');
-                if (monthStart.isBefore(min)) {
-                    setValidationError('Month cannot be before the start month');
-                    setFieldValue(formikField, iso, false);
-                    setFieldTouched(formikField, true, false);
-                    return;
-                }
-            }
+    setValidationError(undefined);
+    void helpers.setValue(iso, true);
+    void helpers.setTouched(false, false);
+  };
 
-            setValidationError('');
-            setFieldValue(formikField, iso, true);
-        } else {
-            setFieldValue(formikField, '', true);
-        }
-        setFieldTouched(formikField, false);
-    };
-
-    const hasError = !!(get(touched, formikField) && get(errors, formikField)) || !!validationError;
-
-    return (
-        <>
-            <label className={`fs-6 form-label ${isRequired ? "required" : ""}`}>{inputLabel}</label>
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
-                    value={currentValue}
-                    onChange={handleChange}
-                    onOpen={() => setFieldTouched(formikField, true)}
-                    views={['year', 'month']}
-                    openTo="month"
-                    format="MM/YYYY"
-                    reduceAnimations
-                    slotProps={{
-                        textField: {
-                            fullWidth: true,
-                            placeholder: placeHolder,
-                            error: hasError,
-                            sx: {
-                                "& .MuiInputBase-input": { fontSize: "1.2rem" },
-                                "& .MuiInputLabel-root": { fontSize: "1rem" },
-                                "& .MuiOutlinedInput-root": { height: "44px" },
-                            },
-                        },
-                        desktopPaper: {
-                            sx: {
-                                "& .MuiPickersCalendarHeader-label": { fontSize: "1.2rem" },
-                                "& .MuiPickersMonth-monthButton": { fontSize: "1rem" },
-                                "& .MuiPickersYear-yearButton": { fontSize: "1rem" },
-                            },
-                        },
-                    }}
-                />
-            </LocalizationProvider>
-            <HighlightErrors isRequired={isRequired} formikField={formikField} />
-            {validationError && (
-                <div className='text-danger mt-2'>
-                    {validationError}
-                </div>
-            )}
-        </>
-    );
+  const hasError = Boolean((meta.touched && meta.error) || validationError);
+  return (
+    <WtDateField
+      label={inputLabel}
+      value={field.value || ""}
+      onChange={handleChange}
+      onOpen={() => void helpers.setTouched(true, false)}
+      required={isRequired}
+      error={hasError}
+      helperText={validationError || (meta.touched && meta.error ? String(meta.error) : undefined)}
+      views={["year", "month"]}
+      openTo="month"
+      format="MM/YYYY"
+      fullWidth
+      sx={{ width: "100%" }}
+      placeholder={placeHolder}
+    />
+  );
 }
 
 export default MonthYearInput;

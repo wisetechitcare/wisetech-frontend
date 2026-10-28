@@ -309,6 +309,23 @@ const BillingOperationsPage: React.FC = () => {
         Cell: ({ cell }: any) => <DateCell value={cell.getValue()} />,
       },
       {
+        id: "billedStage",
+        accessorFn: (row: ProjectOverviewRow) => row.bill?.stageName ?? null,
+        header: "Billed Stage",
+        size: 190,
+        enableSorting: false,
+        Cell: ({ cell }: any) => {
+          const name: string | null = cell.getValue();
+          return name ? (
+            <Typography title={name} sx={{ fontSize: "inherit", fontWeight: 600, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              {name}
+            </Typography>
+          ) : (
+            DASH
+          );
+        },
+      },
+      {
         id: "billNo",
         accessorFn: (row: ProjectOverviewRow) => row.bill?.documentNumber ?? null,
         header: "Bill No",

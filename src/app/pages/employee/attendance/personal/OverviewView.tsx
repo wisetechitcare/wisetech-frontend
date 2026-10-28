@@ -386,20 +386,20 @@ function OverviewView() {
             {/* No "Overview" heading: the tab bar directly above already names
                 this view, and repeating it cost a full heading's worth of
                 vertical space before any content. */}
-            <div className="row mt-7 align-items-start">
-                <div className="col-lg-7">
+            <div className="mt-4 grid min-w-0 grid-cols-1 items-start gap-3 lg:grid-cols-12">
+                <div className="min-w-0 lg:col-span-5 lg:col-start-8 lg:row-start-1">
+                    <GlassCard preset="section" className="p-2 sm:p-3">
+                        <MarkAttendance />
+                    </GlassCard>
+                </div>
+
+                <div className="min-w-0 lg:col-span-7 lg:col-start-1 lg:row-start-1">
                     <Suspense fallback={<div className="d-flex justify-content-center py-10"><Spinner size={32} /></div>}>
                         <AttendanceCalendar
                             activeStartDate={activeStartDate}
                             setActiveStartDate={setActiveStartDate}
                         />
                     </Suspense>
-                </div>
-                
-                <div className="col-lg-5">
-                    <GlassCard preset="section" className="h-full p-3 sm:p-4">
-                        <MarkAttendance />
-                    </GlassCard>
                 </div>
             </div>
             <Suspense fallback={

@@ -33,6 +33,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import { DATE_FORMATS } from '@utils/dateFormats';
 import { getTimeTokens } from '@utils/timeFormat';
 import { useDropdownBoundary } from './dropdownBoundary';
+import { controlHeightSxFor } from './buttons';
 
 export interface WtDateFieldBaseProps {
   label?: string;
@@ -50,6 +51,12 @@ export interface WtDateFieldBaseProps {
   minDate?: string;
   maxDate?: string;
   fullWidth?: boolean;
+  /**
+   * Same contract as `WtField`: `'sm'` (default, 40px) for most forms/toolbars;
+   * `'md'` (44px) for spacious dialog forms. Maps to MUI TextField size so the
+   * floating label and input stay in lockstep.
+   */
+  size?: 'sm' | 'md';
   /** Applied to the underlying TextField (sizing/flex from the parent layout). */
   sx?: SxProps<Theme>;
   /** Escape hatch for a form library that needs the blur event. */
@@ -63,6 +70,12 @@ export interface WtDateFieldBaseProps {
   open?: boolean;
   onOpen?: () => void;
   onClose?: () => void;
+  placeholder?: string;
+  /** Restrict the picker to a calendar granularity such as month/year. */
+  views?: readonly ('year' | 'month' | 'day')[];
+  openTo?: 'year' | 'month' | 'day';
+  /** Display format for specialised views; the wire value remains ISO. */
+  format?: string;
 }
 
 /** Parse a wire string into a Dayjs, or null when absent/invalid. */
@@ -94,16 +107,23 @@ const datePopperSlot = (boundaryPopper: BoundaryPopper) => ({
   },
 });
 
-/** Shared slotProps so both variants present identically. */
+/**
+ * Density / theme only — layout (`flex`, `minWidth`, …) belongs on the outer shell.
+ * Putting `sx={{ flex: 1 }}` on the TextField left the shell at `width: 100%` with no flex,
+ * so a date beside Branch/CTC claimed the whole row and crushed its neighbours to 0px
+ * (OfferPanel geometry: date ~780px, siblings 0).
+ */
 const textFieldSlot = (p: WtDateFieldBaseProps, boundaryPopper: BoundaryPopper) => ({
   textField: {
-    size: 'small' as const,
+    // Match WtField: default sm (40px); pass size="md" for spacious dialogs.
+    size: (p.size === 'md' ? 'medium' : 'small') as 'small' | 'medium',
     fullWidth: p.fullWidth ?? true,
     required: p.required,
     error: p.error,
     helperText: p.helperText,
+    placeholder: p.placeholder,
     onBlur: p.onBlur,
-    sx: p.sx,
+    sx: controlHeightSxFor(p.size === 'md' ? 'md' : 'sm'),
   },
   // A visible Clear action — the native input had one and losing it is a regression.
   actionBar: { actions: ['clear', 'today', 'accept'] as ('clear' | 'today' | 'accept')[] },
@@ -115,6 +135,12 @@ const textFieldSlot = (p: WtDateFieldBaseProps, boundaryPopper: BoundaryPopper) 
   dialog: { sx: { zIndex: 1350 } },
 });
 
+/** Outer shell carries the caller's layout `sx` — same contract as WtField's frame. */
+const shellSx = (p: WtDateFieldBaseProps): SxProps<Theme> => [
+  { width: p.fullWidth === false ? 'auto' : '100%', minWidth: 0 },
+  ...(Array.isArray(p.sx) ? p.sx : p.sx ? [p.sx] : []),
+];
+
 /**
  * Date-only field. Value/onChange speak `YYYY-MM-DD`.
  * Drop-in replacement for `<TextField type="date">`.
@@ -123,7 +149,7 @@ const textFieldSlot = (p: WtDateFieldBaseProps, boundaryPopper: BoundaryPopper) 
  * (one M3 range dialog). Do not reach for Flatpickr or a native date input.
  */
 export function WtDateField(props: WtDateFieldBaseProps) {
-  const { label, value, onChange, disabled, minDate, maxDate, open, onOpen, onClose, fullWidth } = props;
+  const { label, value, onChange, disabled, minDate, maxDate, open, onOpen, onClose, views, openTo, format } = props;
   // `noSsr` avoids the light-then-dark double render this would otherwise cause on first paint.
   const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'), { noSsr: true });
   const Picker = isPhone ? MobileDatePicker : DatePicker;
@@ -131,8 +157,8 @@ export function WtDateField(props: WtDateFieldBaseProps) {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      {/* Ref on a full-width shell so the scroll-port walk finds the dialog body. */}
-      <Box ref={boundaryRef} sx={{ width: fullWidth === false ? 'auto' : '100%', minWidth: 0 }}>
+      {/* Ref on the layout shell so the scroll-port walk finds the dialog body. */}
+      <Box ref={boundaryRef} sx={shellSx(props)}>
         <Picker
           label={label}
           value={parse(value)}
@@ -140,8 +166,9 @@ export function WtDateField(props: WtDateFieldBaseProps) {
           disabled={disabled}
           minDate={parse(minDate) ?? undefined}
           maxDate={parse(maxDate) ?? undefined}
-          format={DATE_FORMATS.DISPLAY}
-          reduceAnimations
+          format={format ?? DATE_FORMATS.DISPLAY}
+          views={views}
+          openTo={openTo}
           {...(open !== undefined ? { open, onOpen, onClose } : {})}
           slotProps={textFieldSlot(props, boundarySlots.popper)}
         />
@@ -161,14 +188,14 @@ export interface WtDateTimeFieldProps extends WtDateFieldBaseProps {
  * Drop-in replacement for `<TextField type="datetime-local">`.
  */
 export function WtDateTimeField(props: WtDateTimeFieldProps) {
-  const { label, value, onChange, disabled, minDateTime, maxDateTime, fullWidth } = props;
+  const { label, value, onChange, disabled, minDateTime, maxDateTime } = props;
   const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'), { noSsr: true });
   const Picker = isPhone ? MobileDateTimePicker : DateTimePicker;
   const { ref: boundaryRef, slotProps: boundarySlots } = useDropdownBoundary();
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Box ref={boundaryRef} sx={{ width: fullWidth === false ? 'auto' : '100%', minWidth: 0 }}>
+      <Box ref={boundaryRef} sx={shellSx(props)}>
         <Picker
           label={label}
           value={parse(value)}
@@ -177,7 +204,6 @@ export function WtDateTimeField(props: WtDateTimeFieldProps) {
           minDateTime={parse(minDateTime) ?? undefined}
           maxDateTime={parse(maxDateTime) ?? undefined}
           format={getTimeTokens().DATETIME}
-          reduceAnimations
           slotProps={textFieldSlot(props, boundarySlots.popper)}
         />
       </Box>

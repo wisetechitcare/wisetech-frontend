@@ -95,7 +95,7 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
       const payload: any = { ...form, fiscalYear, ...(parentOrg ? { parentOrganizationId: parentOrg.id } : {}) };
       const res = await createCompanyOverview(payload);
       if (res && !res.hasError) {
-        successConfirmation(parentOrg ? 'Sub-organization created successfully' : 'Organization created successfully');
+        successConfirmation(parentOrg ? 'Sub-organization created.' : 'Organization created.');
         onCreated();
         onClose();
       } else {
@@ -136,6 +136,7 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
   return (
     <GlassDialog
       open={show} onClose={onClose} maxWidth="md" fullWidth
+      preset="form"
       header={
         <GlassHeader
           title={parentOrg ? 'Add Sub-Organization' : 'New Organization'}
@@ -145,7 +146,7 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
         />
       }
     >
-      <Box sx={{ p: { xs: 2, sm: 2.75 }, maxHeight: '66vh', overflowY: 'auto' }}>
+      <Box sx={{ p: { xs: 2, sm: 2.75 } }}>
         <Stack direction="row" spacing={1.75} alignItems="center" sx={{ mb: 2.5 }}>
           <Box sx={{
             width: 64, height: 64, borderRadius: '12px', overflow: 'hidden', flexShrink: 0,

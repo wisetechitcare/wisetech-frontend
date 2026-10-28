@@ -1,18 +1,18 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from "react";
-import { Modal, Button, Form } from "react-bootstrap";
+import { Button, Form } from "react-bootstrap";
 import PaymentPlanStagesTree from "./PaymentPlanStagesTree";
+import PlanScopePicker from "./PlanScopePicker";
 import { settlePercentages, toPlanStage, type PlanStage } from "./paymentPlanStages";
 import { createPaymentPlan, updatePaymentPlan } from "@services/paymentPlan";
 import { showSuccess, showError } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import type { PaymentPlan, PaymentPlanStage } from "@models/leads";
-import { HierarchicalTaskPicker, buildTaskOptions } from "@app/pages/employee/tasks/components/HierarchicalTaskSelect";
 import {
   CategoryLike,
   SubCategoryLike,
   buildCategoryNodes,
-  nodeIdFromScope,
   scopeFromNodeId,
 } from "@utils/categoryScope";
 import { getPresetPath, PATH_SEPARATOR } from "@utils/presetTaskHierarchy";
@@ -27,11 +27,21 @@ interface PaymentPlanModalProps {
   // opens populated instead of racing its own fetch.
   categories?: CategoryLike[];
   subCategories?: SubCategoryLike[];
+  /**
+   * Every plan, so the picker can grey out a project type another plan already bills and say
+   * which plan holds it. The plan being edited is ignored when working that out.
+   */
+  plans?: PaymentPlan[];
+  /**
+   * Whether a stage can be opened to add, edit or remove its deliverables. Deliverables are
+   * task configuration, so only Tasks → Configure turns this on; the Leads and Projects
+   * configure pages edit the fee split and nothing more.
+   */
+  deliverablesEditable?: boolean;
 }
 
 // A sensible starter matching the common "stage-wise break-up of fee" (sums to 100).
 const DEFAULT_STAGES: { name: string; percentage: number }[] = [
-  { name: "Advance (To be paid along with the Work Order)", percentage: 30 },
   { name: "Design Concept", percentage: 20 },
   { name: "Design Detailing", percentage: 20 },
   { name: "Tendering", percentage: 20 },
@@ -47,15 +57,17 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
   isEditing = false,
   categories = [],
   subCategories = [],
+  plans = [],
+  deliverablesEditable = false,
 }) => {
   const [description, setDescription] = useState("");
   const [isDefault, setIsDefault] = useState(false);
-  // The picked category OR subcategory node. One field, because the picker returns one id;
-  // it is split back into the (categoryId, subCategoryId) pair on save.
-  const [scopeNodeId, setScopeNodeId] = useState("");
+  // The picked project types: each a category id (the whole category) or a subcategory id. Split
+  // back into (categoryId, subCategoryId) pairs on save.
+  const [scopeNodeIds, setScopeNodeIds] = useState<string[]>([]);
   const [rows, setRows] = useState<PlanStage[]>([]);
-  /** The numbering vocabulary for this plan's stages. "" = number by position. */
-  const [paymentStageGroupId, setPaymentStageGroupId] = useState("");
+  /** How this plan's stages print their Sr No. "" = the default format. */
+  const [stageNumberingFormatId, setStageNumberingFormatId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,8 +78,8 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     if (isEditing && initialData) {
       setDescription(initialData.description || "");
       setIsDefault(!!initialData.isDefault);
-      setScopeNodeId(nodeIdFromScope(initialData));
-      setPaymentStageGroupId(initialData.paymentStageGroupId ?? "");
+      setScopeNodeIds((initialData.scopes ?? []).map((s) => s.subCategoryId || s.categoryId));
+      setStageNumberingFormatId(initialData.stageNumberingFormatId ?? "");
       setRows(
         (initialData.stages || [])
           .slice()
@@ -77,8 +89,8 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     } else {
       setDescription("");
       setIsDefault(false);
-      setScopeNodeId("");
-      setPaymentStageGroupId("");
+      setScopeNodeIds([]);
+      setStageNumberingFormatId("");
       setRows(DEFAULT_STAGES.map((s) => toPlanStage(s.name, s.percentage)));
     }
   }, [show, isEditing, initialData]);
@@ -87,18 +99,37 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
     () => buildCategoryNodes(categories, subCategories),
     [categories, subCategories],
   );
-  const categoryOptions = React.useMemo(() => buildTaskOptions(categoryNodes), [categoryNodes]);
   /** "Bungalow & Duplex → Bungalow (SINGLE)" — so the type being billed is unambiguous. */
-  const scopePath = scopeNodeId ? getPresetPath(categoryNodes, scopeNodeId).join(PATH_SEPARATOR) : "";
+  const pathOf = (nodeId: string) => getPresetPath(categoryNodes, nodeId).join(PATH_SEPARATOR);
+
+  /**
+   * Project type → the plan that already bills it. A type can belong to only one plan, so these
+   * are greyed out in the picker. The plan being edited does not count against itself.
+   */
+  const takenBy = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const plan of plans) {
+      if (!plan.id || plan.id === initialData?.id || plan.isActive === false) continue;
+      for (const s of plan.scopes ?? []) map.set(s.subCategoryId || s.categoryId, plan.name || "another plan");
+    }
+    return map;
+  }, [plans, initialData?.id]);
+  const claimedIds = scopeNodeIds.filter((id) => takenBy.has(id));
 
   const hasEmptyName = rows.some((r) => !r.name.trim());
-  const canSave = !!scopeNodeId && rows.length > 0 && !hasEmptyName;
+  const canSave = scopeNodeIds.length > 0 && claimedIds.length === 0 && rows.length > 0 && !hasEmptyName;
 
   const handleSave = async () => {
     setError(null);
 
-    if (!scopeNodeId) {
+    if (scopeNodeIds.length === 0) {
       setError("Pick the project category this plan bills.");
+      return;
+    }
+    // The picker already blocks these; this covers a plan saved elsewhere since it opened.
+    if (claimedIds.length) {
+      const lines = claimedIds.map((id) => `${pathOf(id)} is already in “${takenBy.get(id)}”`);
+      setError(`${lines.join("; ")}. A project type can belong to only one payment plan — remove ${claimedIds.length === 1 ? "it" : "them"} to save.`);
       return;
     }
     if (rows.length === 0) {
@@ -119,9 +150,12 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       sortOrder: idx,
     }));
 
-    // One picked node → the pair the API stores. The server re-checks that the subcategory
-    // belongs to the category, so a stale tree here cannot file a plan under two branches.
-    const scope = scopeFromNodeId(scopeNodeId, subCategories);
+    // Each picked node → the pair the API stores. The server re-checks that every subcategory
+    // belongs to its category, so a stale tree here cannot file a plan under two branches.
+    const scopes = scopeNodeIds
+      .map((id) => scopeFromNodeId(id, subCategories))
+      .filter((s): s is NonNullable<typeof s> => !!s)
+      .map((s) => ({ categoryId: s.categoryId, subCategoryId: s.subCategoryId }));
 
     const payload: PaymentPlan = {
       // No `name`: a plan IS the fee split for a project type, so the server names it from
@@ -130,21 +164,20 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       isDefault,
       isActive: true,
       stages,
-      categoryId: scope?.categoryId,
-      subCategoryId: scope?.subCategoryId ?? null,
+      scopes,
       // Explicit null clears it; the server treats absent as "leave alone", so always send.
-      paymentStageGroupId: paymentStageGroupId || null,
+      stageNumberingFormatId: stageNumberingFormatId || null,
     };
 
     setIsSubmitting(true);
     try {
       if (isEditing && initialData?.id) {
         await updatePaymentPlan(initialData.id, payload);
-        showSuccess("Success", "Payment plan updated successfully.");
+        showSuccess("Success", "Payment plan updated.");
         eventBus.emit(EVENT_KEYS.paymentPlanUpdated, { id: initialData.id });
       } else {
         const res = await createPaymentPlan(payload);
-        showSuccess("Success", "Payment plan created successfully.");
+        showSuccess("Success", "Payment plan created.");
         eventBus.emit(EVENT_KEYS.paymentPlanCreated, { id: res?.paymentPlan?.id || "created" });
       }
       if (onSuccess) onSuccess();
@@ -183,15 +216,17 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
               select cannot select its own group heading. */}
           <div className="col-12">
             <Form.Label className="fw-semibold text-gray-800 fs-7 mb-2">
-              Project Category <span className="text-danger">*</span>
+              Project Categories <span className="text-danger">*</span>
             </Form.Label>
             <div className="d-flex flex-column flex-md-row align-items-md-center gap-4">
               <div className="flex-grow-1">
-                <HierarchicalTaskPicker
-                  value={scopeNodeId}
-                  onChange={(option) => setScopeNodeId(option?.value || "")}
-                  options={categoryOptions}
-                  placeholder="Search categories & subcategories…"
+                <PlanScopePicker
+                  categories={categories}
+                  subCategories={subCategories}
+                  value={scopeNodeIds}
+                  onChange={setScopeNodeIds}
+                  takenBy={takenBy}
+                  hasError={claimedIds.length > 0}
                 />
               </div>
               <div className="d-flex align-items-center">
@@ -206,9 +241,9 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
               </div>
             </div>
             <div className="text-muted mt-2" style={{ fontSize: 12 }}>
-              {scopePath
-                ? `This is the fee split for ${scopePath}.`
-                : "Pick a category for the whole type, or a subcategory for just that one."}
+              {scopeNodeIds.length
+                ? `This is the fee split for ${scopeNodeIds.map(pathOf).join("; ")}.`
+                : "Pick one or more categories — a whole category, or just a subcategory. A project type can be in only one plan."}
             </div>
           </div>
           <div className="col-12">
@@ -234,14 +269,14 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
         <PaymentPlanStagesTree
           stages={rows}
           onChange={setRows}
-          showDeliverables
-          paymentStageGroupId={paymentStageGroupId}
-          onPaymentStageGroupChange={setPaymentStageGroupId}
+          showDeliverables={deliverablesEditable}
+          stageNumberingFormatId={stageNumberingFormatId}
+          onStageNumberingFormatChange={setStageNumberingFormatId}
         />
       </Modal.Body>
 
       <Modal.Footer style={{ borderTop: "none" }}>
-        <Button variant="light" onClick={onClose} disabled={isSubmitting}>
+        <Button variant="light" data-unsaved-changes-close onClick={onClose} disabled={isSubmitting}>
           Cancel
         </Button>
         <Button

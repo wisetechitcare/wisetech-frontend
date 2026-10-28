@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Checkbox, FormControlLabel, Stack, TextField, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
+import { ConfigSectionCard } from "@app/modules/configuration";
 import {
-  ConfigSectionCard, ConfigColorChip,
-} from "@app/modules/configuration";
-import { GlassDialog, GlassHeader, WtButton } from "@app/modules/common/components/ui";
+  GlassDialog, GlassHeader, WtButton, WtCheckboxField, WtField, ConfigColorChip,
+} from "@app/modules/common/components/ui";
 import { confirmDialog, toast } from "@app/modules/common/components/ui/feedback";
 import {
   getBillingTaxRates, saveGstSlab, deleteGstSlab, saveTdsSection, deleteTdsSection,
@@ -277,6 +277,7 @@ const TaxRateSections: React.FC = () => {
         open={draft !== null}
         onClose={() => setDraft(null)}
         maxWidth="sm"
+        preset="form"
         disableBlur
         PaperProps={{
           sx: {
@@ -300,100 +301,67 @@ const TaxRateSections: React.FC = () => {
       >
         {draft && (
           <Stack spacing={3} sx={{ px: 3, pt: 1, pb: 3 }}>
-            <Stack spacing={1}>
-              <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
-                Name <Typography component="span" sx={{ color: "error.main" }}>*</Typography>
-              </Typography>
-              <TextField
-                value={draft.name}
-                autoFocus
-                placeholder={
-                  draft.kind === "GST"
-                    ? "GST 18% — Professional services"
-                    : "194J — Professional / technical fees"
-                }
-                inputProps={{ maxLength: 120 }}
-                onChange={(e) => patch({ name: e.target.value })}
-                sx={fieldSx}
-              />
-            </Stack>
+            <WtField
+              label="Name"
+              required
+              fullWidth
+              value={draft.name}
+              placeholder={
+                draft.kind === "GST"
+                  ? "GST 18% — Professional services"
+                  : "194J — Professional / technical fees"
+              }
+              onChange={(v) => patch({ name: String(v) })}
+            />
 
             {draft.kind === "TDS" && (
-              <Stack spacing={1}>
-                <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
-                  Section <Typography component="span" sx={{ color: "error.main" }}>*</Typography>
-                </Typography>
-                <TextField
-                  value={draft.section}
-                  placeholder="194J"
-                  inputProps={{ maxLength: 20 }}
-                  onChange={(e) => patch({ section: e.target.value })}
-                  sx={fieldSx}
-                />
-                <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-                  Printed on the TDS certificate you chase from the client.
-                </Typography>
-              </Stack>
+              <WtField
+                label="Section"
+                required
+                fullWidth
+                value={draft.section}
+                placeholder="194J"
+                onChange={(v) => patch({ section: String(v) })}
+                hint="Printed on the TDS certificate you chase from the client."
+              />
             )}
 
-            <Stack spacing={1}>
-              <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
-                Rate (%) <Typography component="span" sx={{ color: "error.main" }}>*</Typography>
-              </Typography>
-              <TextField
-                type="number"
-                value={draft.rate}
-                placeholder={draft.kind === "GST" ? "18" : "10"}
-                onChange={(e) => patch({ rate: e.target.value })}
-                error={draft.rate !== "" && !rateValid}
-                helperText={
-                  draft.rate !== "" && !rateValid ? "Enter a percentage between 0 and 100." : undefined
-                }
-                sx={fieldSx}
-              />
-              <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-                {draft.kind === "GST"
+            <WtField
+              label="Rate (%)"
+              required
+              fullWidth
+              type="number"
+              value={draft.rate}
+              placeholder={draft.kind === "GST" ? "18" : "10"}
+              onChange={(v) => patch({ rate: String(v) })}
+              error={draft.rate !== "" && !rateValid ? "Enter a percentage between 0 and 100." : undefined}
+              hint={
+                draft.kind === "GST"
                   ? "Added to the deliverable value. The CGST/SGST or IGST split is decided per bill from the two GST numbers."
-                  : "Calculated on the taxable value, not on the GST — that is what the law requires."}
-              </Typography>
-            </Stack>
+                  : "Calculated on the taxable value, not on the GST — that is what the law requires."
+              }
+            />
 
             <Stack spacing={1.5}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={draft.isDefault}
-                    disabled={busy || !draft.isActive}
-                    onChange={(e) => patch({ isDefault: e.target.checked })}
-                    sx={{ p: 0 }}
-                  />
-                }
+              <WtCheckboxField
+                size="sm"
+                checked={draft.isDefault}
+                disabled={busy || !draft.isActive}
+                onChange={(e) => patch({ isDefault: e.target.checked })}
                 label={draft.kind === "GST" ? "Set as Default Slab" : "Set as Default Section"}
-                sx={{ m: 0, gap: 1, "& .MuiFormControlLabel-label": { fontSize: 14, fontWeight: 500 } }}
+                description="What a new bill starts on. Only one can hold it — turning it on takes it off whichever has it now. A retired rate cannot be the default."
               />
-              <Typography sx={{ fontSize: 12, color: "text.secondary", mt: -0.75 }}>
-                What a new bill starts on. Only one can hold it — turning it on takes it
-                off whichever has it now. A retired rate cannot be the default.
-              </Typography>
 
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={draft.isActive}
-                    disabled={busy}
-                    onChange={(e) =>
-                      patch({ isActive: e.target.checked, isDefault: e.target.checked && draft.isDefault })
-                    }
-                    sx={{ p: 0 }}
-                  />
+              <WtCheckboxField
+                size="sm"
+                checked={draft.isActive}
+                disabled={busy}
+                onChange={(e) =>
+                  patch({ isActive: e.target.checked, isDefault: e.target.checked && draft.isDefault })
                 }
                 label="Available on the bill form"
-                sx={{ m: 0, gap: 1, "& .MuiFormControlLabel-label": { fontSize: 14, fontWeight: 500 } }}
+                description="Turn this off to retire a rate. Bills already raised on it keep their figures — nothing here is retroactive."
               />
-              <Typography sx={{ fontSize: 12, color: "text.secondary", mt: -0.75 }}>
-                Turn this off to retire a rate. Bills already raised on it keep their
-                figures — nothing here is retroactive.
-              </Typography>
             </Stack>
 
             <Stack direction="row" justifyContent="flex-end">
@@ -411,17 +379,6 @@ const TaxRateSections: React.FC = () => {
       </GlassDialog>
     </>
   );
-};
-
-/** The flat, filled input the sibling Configure dialog uses, so the two match. */
-const fieldSx = {
-  "& .MuiOutlinedInput-root": {
-    bgcolor: "action.hover",
-    borderRadius: "8px",
-    fontSize: 14,
-    "& fieldset": { borderColor: "divider" },
-  },
-  "& .MuiOutlinedInput-input": { py: 1.5, px: 2 },
 };
 
 export default TaxRateSections;

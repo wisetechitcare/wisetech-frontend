@@ -2,14 +2,14 @@ import { safeJsonParse } from '@utils/safeJson';
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon } from "@metronic/helpers";
-import { Modal } from "react-bootstrap";
+
 import { RootState } from "@redux/store";
 import { Form, Formik, FormikValues } from "formik";
 import { MRT_ColumnDef } from "material-react-table";
 import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import * as Yup from "yup";
-import { WtFieldFormik } from "@app/modules/common/components/ui";
+import { WtFieldFormik, UnsavedChangesModal as Modal } from "@app/modules/common/components/ui";
 import { deleteConfirmation, successConfirmation } from "@utils/modal";
 import { fetchConfiguration, updateConfigurationById } from "@services/company";
 import { GROSS_PAY } from "@constants/configurations-key";
@@ -78,7 +78,7 @@ const GrossPayDistribution = () => {
   };
 
   const handleDelete = async (rowDetails: any) => {
-    const sure = await deleteConfirmation('Gross Pay Rule deleted successfully')
+    const sure = await deleteConfirmation('Gross Pay Rule deleted.')
     if(!sure) return;
     const config: any = configurationRule;
 
@@ -90,7 +90,7 @@ const GrossPayDistribution = () => {
     };
 
     await updateConfigurationById(configurationId, payload);
-    // successConfirmation('Gross Pay Rule deleted successfully');
+    // successConfirmation('Gross Pay Rule deleted.');
     fetchPayrollConfiguration();
   };
 
@@ -119,7 +119,7 @@ const GrossPayDistribution = () => {
       if (editMode) {
         await updateConfigurationById(configurationId, payload);
         setLoading(false);
-        successConfirmation('Gross Pay Rule updated successfully');
+        successConfirmation('Gross Pay Rule updated.');
         fetchPayrollConfiguration();
         setShow(false);
         setEditMode(false);
@@ -128,7 +128,7 @@ const GrossPayDistribution = () => {
 
       await updateConfigurationById(configurationId, payload);
       setLoading(false);
-      successConfirmation('Gross Pay Rule created successfully');
+      successConfirmation('Gross Pay Rule created.');
       fetchPayrollConfiguration();
       setShow(false);
     } catch (err) {

@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Checkbox, FormControlLabel, Stack, TextField, Typography } from "@mui/material";
+import { Stack } from "@mui/material";
 import {
-  ConfigPageLayout, ConfigSectionCard, ConfigColorChip, ConfigChipGrid,
+  ConfigPageLayout, ConfigSectionCard,
 } from "@app/modules/configuration";
 import {
-  GlassDialog, GlassHeader, WtButton, WtColorPicker, isHexColor,
+  GlassDialog, GlassHeader, WtButton, WtCheckboxField, WtColorPicker, WtField, isHexColor,
+  ConfigColorChip, ConfigChipGrid,
   type ColorSwatch, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import { confirmDialog, toast } from "@app/modules/common/components/ui/feedback";
@@ -225,6 +226,7 @@ const BillingConfigurePage: React.FC = () => {
         open={editing !== null}
         onClose={() => setEditing(null)}
         maxWidth="sm"
+        preset="form"
         disableBlur
         PaperProps={{
           sx: {
@@ -247,66 +249,35 @@ const BillingConfigurePage: React.FC = () => {
         }
       >
         <Stack spacing={3} sx={{ px: 3, pt: 1, pb: 3 }}>
-          <Stack spacing={1}>
-            <Typography sx={{ fontSize: 14, fontWeight: 500, color: "text.primary" }}>
-              Status Name <Typography component="span" sx={{ color: "error.main" }}>*</Typography>
-            </Typography>
-            <TextField
-              value={label}
-              autoFocus
-              placeholder="Enter status name"
-              inputProps={{ maxLength: 80 }}
-              onChange={(e) => setLabel(e.target.value)}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  bgcolor: "action.hover",
-                  borderRadius: "8px",
-                  fontSize: 14,
-                  "& fieldset": { borderColor: "divider" },
-                },
-                "& .MuiOutlinedInput-input": { py: 1.5, px: 2 },
-              }}
-            />
-          </Stack>
+          <WtField
+            label="Status Name"
+            required
+            fullWidth
+            value={label}
+            placeholder="Enter status name"
+            onChange={setLabel}
+          />
 
           {/* A checkbox on the left, not a toggle on the right — the shape Leads
               Configure uses for exactly this setting. Offered on every group: each
               list nominates its own default independently. */}
-          <Stack spacing={0.5}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={isDefault}
-                  disabled={busy}
-                  onChange={(e) => setIsDefault(e.target.checked)}
-                  // No padding: the stock 9px gutter pushes the box out of the
-                  // column every other label in this dialog starts in.
-                  sx={{ p: 0 }}
-                />
-              }
-              label="Set as Default Status"
-              sx={{ m: 0, gap: 1, "& .MuiFormControlLabel-label": { fontSize: 14, fontWeight: 500 } }}
-            />
-            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-              Work that reaches the end settles here. Only one entry in
-              {" "}{editingGroup || "this list"} can hold it — turning it on takes it
-              off whichever has it now.
-            </Typography>
-          </Stack>
+          <WtCheckboxField
+            size="sm"
+            checked={isDefault}
+            disabled={busy}
+            onChange={(e) => setIsDefault(e.target.checked)}
+            label="Set as Default Status"
+            description={`Work that reaches the end settles here. Only one entry in ${editingGroup || "this list"} can hold it — turning it on takes it off whichever has it now.`}
+          />
 
-          <Stack spacing={1}>
-            <Typography sx={{ fontSize: 14, fontWeight: 500, color: "text.primary" }}>
-              Choose Status Colour
-            </Typography>
-            <WtColorPicker
-              variant="row"
-              label="Status colour"
-              value={tone}
-              palette={swatches}
-              disabled={busy}
-              onChange={setTone}
-            />
-          </Stack>
+          <WtColorPicker
+            variant="row"
+            label="Status colour"
+            value={tone}
+            palette={swatches}
+            disabled={busy}
+            onChange={setTone}
+          />
 
           <Stack direction="row" justifyContent="flex-end">
             <WtButton

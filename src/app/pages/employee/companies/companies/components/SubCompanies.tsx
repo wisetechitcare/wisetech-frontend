@@ -11,6 +11,7 @@ import dayjs from "dayjs";
 import { deleteConfirmation } from "@utils/modal";
 import { canSection } from "@utils/can";
 import Loader from "@app/modules/common/utils/Loader";
+import { ToneChip } from "@app/modules/common/components/ui";
 
 interface SubCompanyType {
   id: string;
@@ -132,7 +133,7 @@ const SubCompanies = ({
 
   const handleDelete = async (subCompany: SubCompany) => {
     try {
-      const sure = await deleteConfirmation("Sub-company deleted successfully");
+      const sure = await deleteConfirmation("Sub-company deleted.");
       if (!sure) return;
       await deleteSubCompany(subCompany.id);
       fetchSubCompanies();
@@ -205,9 +206,11 @@ const SubCompanies = ({
         accessorKey: "status",
         header: "Status",
         Cell: ({ row }) => (
-          <span className={`badge ${row.original.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`}>
-            {row.original.status}
-          </span>
+          <ToneChip
+            dense
+            tone={row.original.status === "ACTIVE" ? "success" : "danger"}
+            label={row.original.status}
+          />
         ),
       },
       {
@@ -275,9 +278,11 @@ const SubCompanies = ({
         accessorKey: "blacklisted",
         header: "Blacklisted",
         Cell: ({ row }) => (
-          <span className={`badge ${row.original.blacklisted ? 'badge-danger' : 'badge-success'}`}>
-            {row.original.blacklisted ? 'Yes' : 'No'}
-          </span>
+          <ToneChip
+            dense
+            tone={row.original.blacklisted ? "danger" : "success"}
+            label={row.original.blacklisted ? "Yes" : "No"}
+          />
         ),
       },
       ...(canWrite ? [{

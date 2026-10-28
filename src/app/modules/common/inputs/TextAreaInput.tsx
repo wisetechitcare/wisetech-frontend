@@ -1,6 +1,7 @@
-import { Field } from "formik";
+import { Field, useFormikContext, type FormikValues } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
+import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
 
 interface TextAreaInputProps {
     isRequired: boolean;
@@ -13,6 +14,8 @@ interface TextAreaInputProps {
 }
 
 function TextAreaInput({ margin, isRequired, label, formikField, readonly, placeholder, rows = 4 }: TextAreaInputProps) {
+    const { dirty } = useFormikContext<FormikValues>();
+    useUnsavedChangesRegistration(dirty);
     const hasEmptyPlaceholder = placeholder === "-";
     // DOM-safe id derived from the Formik path so the <label> links to the textarea.
     const fieldId = `field-${formikField.replace(/[^a-zA-Z0-9_-]/g, "-")}`;

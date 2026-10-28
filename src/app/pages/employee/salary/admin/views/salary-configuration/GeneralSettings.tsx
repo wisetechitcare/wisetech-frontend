@@ -32,7 +32,7 @@ interface IEmployee {
   name: string;
   designation: string;
   avatar: string;
-  gender: number;
+  gender: string | number | null;
 }
 
 // Transform API response to IEmployee format
@@ -50,8 +50,8 @@ const transformEmployeeData = (apiData: any): IEmployee[] => {
         ? `${emp.users.firstName || ''} ${emp.users.lastName || ''}`.trim()
         : 'Unknown',
       designation: emp.designations?.role || 'N/A',
-      avatar: getAvatar(emp.avatar || null, emp.gender ?? 0),
-      gender: emp.gender ?? 0,
+      avatar: getAvatar(emp.avatar || null, emp.gender ?? null),
+      gender: emp.gender ?? null,
     }));
 };
 
@@ -149,7 +149,7 @@ function GeneralSettings() {
       const res = await createNewConfiguration(payload);
       setConfigurationId(res?.data?.configuration?.id);
     }
-    successConfirmation("Excluded from late attendance deduction updated successfully");
+    successConfirmation("Excluded from late attendance deduction updated.");
     fetchConfiguration(EXCLUDE_FROM_LATE_ATTENDANCE)
     setShowModal(false);
   };
@@ -164,7 +164,7 @@ function GeneralSettings() {
     });
     if (items.length > 0) await saveCheckinDeadlineOverrides(items);
     setDeadlines(next);
-    successConfirmation("Custom check-in deadlines updated successfully");
+    successConfirmation("Custom check-in deadlines updated.");
     setShowDeadlineModal(false);
   };
 
@@ -181,7 +181,7 @@ function GeneralSettings() {
       const res = await createNewConfiguration(payload);
       setPaymentModeConfigurationId(res?.data?.configuration?.id);
     }
-    successConfirmation("Payment mode updated successfully");
+    successConfirmation("Payment mode updated.");
     fetchConfiguration(PAYMENT_MODE)
   };
   

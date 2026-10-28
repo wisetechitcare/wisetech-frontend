@@ -16,7 +16,8 @@ import { successConfirmation } from "@utils/modal";
 import Tooltip from "@mui/material/Tooltip";
 import { resourceNameMapWithCamelCase, permissionConstToUseWithHasPermission } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { AppIcon, ToneChip } from '@app/modules/common/components/ui';
+import type { SemanticTone } from '@app/theme/tokens';
 import { getTimeTokens } from '@utils/timeFormat';
 
 interface AttendanceRequestLimitResetRequest {
@@ -96,7 +97,7 @@ function AttendanceRequestLimitReset() {
       setProcessingRowId(request.id);
       setProcessingAction('approve');
       await approveAttendanceRequestLimitReset(request.id);
-      successConfirmation("Request approved successfully");
+      successConfirmation("Request approved.");
       fetchRequests();
     } catch (error) {
       console.error("Error approving request:", error);
@@ -111,7 +112,7 @@ function AttendanceRequestLimitReset() {
       setProcessingRowId(requestId);
       setProcessingAction('reject');
       await rejectAttendanceRequestLimitReset(requestId);
-      successConfirmation("Request rejected successfully");
+      successConfirmation("Request rejected.");
       fetchRequests();
     } catch (error) {
       console.error("Error rejecting request:", error);
@@ -134,16 +135,16 @@ function AttendanceRequestLimitReset() {
     }
   };
 
-  const getStatusColor = (status: number) => {
+  const getStatusTone = (status: number): SemanticTone => {
     switch (status) {
       case 0:
-        return "#F39C12"; // warning/pending - orange
+        return 'warning';
       case 1:
-        return "#2ECC71"; // success/approved - green
+        return 'success';
       case 2:
-        return "#E74C3C"; // danger/rejected - red
+        return 'danger';
       default:
-        return "#95A5A6"; // secondary - gray
+        return 'neutral';
     }
   };
 
@@ -180,22 +181,12 @@ function AttendanceRequestLimitReset() {
       accessorKey: "status",
       header: "Status",
       Cell: ({ row }: any) => (
-        <span
-          className="badge"
-          style={{
-            backgroundColor: getStatusColor(row.original.status),
-            color: 'white',
-            fontWeight: '500',
-            fontSize: '11px',
-            padding: '5px 8px',
-            borderRadius: '12px',
-            display: 'inline-block',
-            minWidth: '60px',
-            textAlign: 'center'
-          }}
-        >
-          {getStatusText(row.original.status)}
-        </span>
+        <ToneChip
+          dense
+          tone={getStatusTone(row.original.status)}
+          label={getStatusText(row.original.status)}
+          sx={{ minWidth: 60, '& .MuiChip-label': { width: '100%', textAlign: 'center' } }}
+        />
       ),
     },
     {

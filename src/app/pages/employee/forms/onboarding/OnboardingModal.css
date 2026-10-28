@@ -20,7 +20,8 @@
 /* Close (X) — sits over the navy wizard header, so it is white-on-navy. */
 .ob-wizard-close {
   position: absolute;
-  top: 22px;
+  /* Centred in the header, so it lines up with the header's own actions. */
+  top: calc((var(--wt-header-height, 92px) - 36px) / 2);
   right: 20px;
   z-index: 1300;
   display: inline-flex;
@@ -551,32 +552,20 @@
     justify-content: flex-end;
   }
   /* Cancel — superseded by the header ✕. */
-  .onboarding-wizard-modal .wizard-footer-left .wt-btn-ghost {
-    display: none;
+  .onboarding-wizard-modal .wizard-footer-cancel {
+    display: none !important;
   }
-  /* The direct save keeps its place but stops competing with the primary:
-     secondary weight, and it shrinks before the primary does. */
-  .onboarding-wizard-modal .wizard-footer-left .wt-btn-primary {
+  /* Direct save shrinks before the step primary; kit WtButton keeps brand look. */
+  .onboarding-wizard-modal .wizard-footer-direct-save {
     min-width: 0 !important;
-    padding: 0.5rem 0.7rem;
-    font-size: 0.78rem;
-    background: transparent;
-    color: var(--wt-primary, #1e3a8a);
-    border: 1px solid var(--wt-gray-300, #d1d5db);
-    box-shadow: none;
   }
-  .onboarding-wizard-modal .wizard-footer-right .wt-btn-ghost {
+  .onboarding-wizard-modal .wizard-footer-right .MuiButton-root {
     flex: 0 0 auto;
-    padding: 0.5rem 0.55rem;
-    font-size: 0.78rem;
   }
   /* The one action the step is about — it takes the leftover width. */
-  .onboarding-wizard-modal .wizard-footer-right .wt-btn-primary {
+  .onboarding-wizard-modal .wizard-footer-right .MuiButton-contained {
     flex: 1 1 auto;
     min-width: 0;
-    justify-content: center;
-    padding: 0.55rem 0.75rem;
-    font-size: 0.82rem;
   }
 }
 

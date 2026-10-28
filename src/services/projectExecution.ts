@@ -41,6 +41,8 @@ export interface ProjectDeliverable {
   isBillable: boolean;
   isMandatory: boolean;
   status: DeliverableStatus;
+  /** Work done, 0–100, set by hand on the Billing tab. `status` follows it. */
+  progress: number;
   startedAt?: string | null;
   completedAt?: string | null;
   completedById?: string | null;
@@ -162,6 +164,16 @@ export const updateDeliverableStatus = async (
   const endpoint = `${API_BASE_URL}/${PROJECT_EXECUTION.UPDATE_DELIVERABLE_STATUS.replace(":deliverableId", deliverableId)}`;
   const { data } = await axios.patch(endpoint, { status });
   return { deliverable: data?.deliverable, progress: data?.progress };
+};
+
+/** Work done, 0–100. Status (0 / 1–99 / 100) and its timestamps are derived server-side. */
+export const updateDeliverableProgress = async (
+  deliverableId: string,
+  progress: number,
+): Promise<ProjectDeliverable> => {
+  const endpoint = `${API_BASE_URL}/${PROJECT_EXECUTION.UPDATE_DELIVERABLE_PROGRESS.replace(":deliverableId", deliverableId)}`;
+  const { data } = await axios.patch(endpoint, { progress });
+  return data?.deliverable;
 };
 
 export const updateDeliverableRemarks = async (

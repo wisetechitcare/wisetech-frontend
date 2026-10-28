@@ -69,6 +69,11 @@ export interface IFormField {
                          // (their DB column still exists); custom fields are removed outright
     showOnInfoPage?: boolean; // visible on the read-only Organization Info page.
                               // undefined/true = shown (opt-out only); false = hidden there.
+    // Constraints a host form puts on a BUILT-IN field whose widget is bespoke. Derived from
+    // the host's defaults on every load, never trusted from a saved config.
+    fixedType?: boolean;     // rendered by its own widget (phone, dropdown…) — type can't change
+    fixedSection?: boolean;  // part of a composite widget (the address picker) — can't move out
+    essential?: boolean;     // always required and can't be hidden (e.g. company name)
 }
 
 export interface IFormSection {

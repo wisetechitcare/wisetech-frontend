@@ -13,7 +13,9 @@
 //   deleteStakeholderService,
 // } from "@services/projects";
 
-import { ActionIconButton, AppIcon, ViewModeSwitch } from '@app/modules/common/components/ui';
+import {
+  ActionIconButton, AppIcon, GridListViewSwitch,
+} from '@app/modules/common/components/ui';
 import {
   getAllTasksStatus,
   createTasksStatus,
@@ -72,10 +74,6 @@ import {
 
 // Bootstrap Icon CLASSES, not AppIcon names: the mapped keenicons do not read as "grid" and
 // "list", which is the one thing an icon-only control has to get right.
-const STAGE_VIEW_OPTIONS = [
-  { value: 'grid' as const, icon: 'bi-grid-3x3-gap-fill', label: 'Grid view' },
-  { value: 'list' as const, icon: 'bi-list-ul', label: 'List view' },
-];
 
 import BillingRateCard from './BillingRateCard';
 
@@ -232,7 +230,7 @@ const TasksConfigure = () => {
       await remove(item.id);
       refetch();
       invalidateTasks();
-      successConfirmation(`${label} deleted successfully`);
+      successConfirmation(`${label} deleted.`);
     } catch (err: any) {
       await errorConfirmation(
         err?.response?.data?.detail || err?.response?.data?.message || `Failed to delete ${label.toLowerCase()}.`
@@ -284,7 +282,7 @@ const TasksConfigure = () => {
       await deletePresetTask(id);
       refetch();
       invalidateTasks();
-      successConfirmation(`${label} deleted successfully`);
+      successConfirmation(`${label} deleted.`);
     } catch (err: any) {
       // The server refuses when children appeared meanwhile — show its reason verbatim.
       await errorConfirmation(
@@ -524,7 +522,7 @@ const TasksConfigure = () => {
   // ) => {
   //   try {
   //     const confirmed = await deleteConfirmation(
-  //       `Successfully deleted ${type}`
+  //       `Deleted ${type}`
   //     );
   //     if (!confirmed) return;
 
@@ -837,8 +835,7 @@ const TasksConfigure = () => {
                       onClick={() => handleScopeChange('')}
                     />
                   )}
-                  <ViewModeSwitch<StageView>
-                    options={STAGE_VIEW_OPTIONS}
+                  <GridListViewSwitch
                     value={stageView}
                     onChange={setStageView}
                     ariaLabel="Stage layout"
@@ -877,7 +874,7 @@ const TasksConfigure = () => {
               A deliverable belongs to a stage and a stage belongs to a payment plan, so the
               plans ARE the deliverables surface: open one and its stage tree is where they are
               written. Added here, it appears there, because there is only one of it. */}
-          {activeTab === 'deliverables' && <PaymentPlansSection />}
+          {activeTab === 'deliverables' && <PaymentPlansSection deliverablesEditable />}
         </div>
       </ConfigPageLayout>
 

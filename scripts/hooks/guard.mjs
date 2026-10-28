@@ -36,21 +36,54 @@ const SECRET_RULES = [
   ['connection string with password', /\b(mysql|postgres(?:ql)?|mongodb(?:\+srv)?|redis|amqp):\/\/[^\s:@/]+:[^\s:@/]{3,}@/i],
 ]
 
-/** Code smells that should never reach a shared branch. */
+/** Stylesheets that already held a raw blur when the rule landed — the CSS half of the
+ * ESLint ratchet baseline. The rule scans whole files, so without this list an unrelated
+ * edit to one of them would block the commit. This list can only shrink: delete a path
+ * once its blur moves to the kit. */
+const LEGACY_BLUR_CSS = [
+  'src/main.css',
+  'src/app/pages/employee/forms/shared/Workspace.css',
+  'src/app/pages/employee/glass.css',
+  'src/app/pages/employee/forms/onboarding/OnboardingModal.css',
+  'src/app/pages/employee/leads/template-builder/TemplateDocumentationBuilderPage.css',
+  'src/app/pages/employee/wizard/steps/Step2.css',
+  'src/components/navigation/BottomNavigation/BottomNav.css',
+]
+
+/** Code smells that should never reach a shared branch.
+ *
+ * Entries are [rule, regex] or [rule, regex, appliesTo]. The optional third element is a
+ * predicate over the file path (forward slashes); a rule that has one runs only on the
+ * paths it accepts. Rules without it run on every file, exactly as before. */
 const CODE_RULES = [
   ['merge conflict marker', /^(<{7}|>{7}|\|{7})[ \t]/],
   ['leftover debugger', /(^|[\s;{])debugger\s*(;|$)/],
   ['focused test (.only)', /\b(describe|it|test|suite)\.only\s*\(/],
+  /* Stylesheet half of the blur ratchet (ESLint covers TS/TSX). A hand-written blur ignores
+   * the Interface Style (Glass/Material) setting; the kit's glassSx / GlassSurface /
+   * GlassDialog read it. Turning blur OFF (`none`) is fine. The lookahead sits AFTER the
+   * colon on purpose: `:\s*(?!none)` lets `\s*` backtrack to zero and still match
+   * `: none`. Vendored Metronic, the UI kit and the theme implement surfaces — exempt. */
+  ['raw backdrop-filter', /backdrop-filter\s*:(?!\s*none\b)/, (path) =>
+    /\.(css|scss|sass)$/i.test(path) &&
+    !/(^|\/)src\/(_metronic|app\/modules\/common\/components\/ui|app\/theme)\//.test(path) &&
+    !LEGACY_BLUR_CSS.some((legacy) => path === legacy || path.endsWith(`/${legacy}`))],
 ]
 
-/** @returns {{line:number, rule:string, text:string}[]} */
-export function scanText(text) {
+/**
+ * @param {string} text
+ * @param {string} [path] the file being scanned; path-scoped rules are skipped without it
+ * @returns {{line:number, rule:string, text:string}[]}
+ */
+export function scanText(text, path = '') {
   const hits = []
+  const p = path.split('\\').join('/')
+  const rules = [...SECRET_RULES, ...CODE_RULES].filter(([, , appliesTo]) => !appliesTo || appliesTo(p))
   const lines = text.split('\n')
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (line.includes(ALLOW)) continue
-    for (const [rule, re] of [...SECRET_RULES, ...CODE_RULES]) {
+    for (const [rule, re] of rules) {
       if (re.test(line)) hits.push({ line: i + 1, rule, text: line.trim().slice(0, 120) })
     }
   }
@@ -82,7 +115,10 @@ function scanFiles(files) {
     if (basename(file) === 'guard.mjs') continue // this file is all patterns
 
     if (SECRET_FILES.test(file)) {
-      problems.push(`${file}: secret file must never be committed (add it to .gitignore)`)
+      problems.push(
+        `${file}: This file looks like a secret and cannot be committed.\n` +
+        `      Add it to .gitignore (or remove it from the commit).`,
+      )
       continue
     }
 
@@ -101,8 +137,16 @@ function scanFiles(files) {
 
     const buf = readFileSync(file)
     if (buf.subarray(0, 8000).includes(0)) continue // binary
-    for (const h of scanText(buf.toString('utf8'))) {
-      problems.push(`${file}:${h.line}: ${h.rule}\n      ${h.text}`)
+    for (const h of scanText(buf.toString('utf8'), file)) {
+      const tip =
+        h.rule === 'leftover debugger' ? 'Remove debugger before committing.'
+          : h.rule.startsWith('focused test') ? 'Remove .only so the full test suite runs.'
+            : h.rule === 'merge conflict marker' ? 'Finish the merge conflict, then stage again.'
+            : h.rule === 'raw backdrop-filter' ? 'Raw backdrop-filter ignores the Interface Style (Glass/Material) setting. Use glassSx / GlassSurface / GlassDialog from the UI kit.'
+              : h.rule.includes('secret') || h.rule.includes('key') || h.rule.includes('token') || h.rule.includes('password') || h.rule.includes('JWT') || h.rule.includes('PRIVATE KEY')
+                ? 'This looks like a secret — remove it before committing.'
+                : h.rule
+      problems.push(`${file}:${h.line}: ${tip}\n      ${h.text}`)
     }
   }
   return problems
@@ -122,6 +166,22 @@ function selfTest() {
   assert.deepEqual(hit('await it.only'), []) // needs a call
   // the allow marker suppresses
   assert.deepEqual(hit('const example = "AKIA1234567890ABCDEF" // guard:allow docs sample'), [])
+  // raw backdrop-filter: stylesheets only, outside the kit / theme / Metronic
+  const css = (s, path) => scanText(s, path).map((h) => h.rule)
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/pages/employee/new-feature.css'), ['raw backdrop-filter'])
+  assert.deepEqual(css('  -webkit-backdrop-filter:blur(8px);', 'C:\\repo\\src\\app\\x.scss'), ['raw backdrop-filter'])
+  assert.deepEqual(css('  backdrop-filter: none;', 'src/app/pages/employee/new-feature.css'), [])
+  assert.deepEqual(css('  backdrop-filter:none;', 'src/app/x.scss'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/modules/common/components/ui/tw/glass.css'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/theme/toast.css'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/_metronic/assets/sass/_x.scss'), [])
+  assert.deepEqual(css('  `backdrop-filter: blur(8px);`', 'src/app/pages/X.tsx'), []) // ESLint owns TSX
+  assert.deepEqual(css('  backdrop-filter: blur(8px); /* guard:allow legacy */', 'src/app/x.scss'), [])
+  // legacy stylesheets (LEGACY_BLUR_CSS) stay committable, relative or absolute; a lookalike name does not
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/pages/employee/glass.css'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'C:\\repo\\src\\main.css'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/pages/employee/xglass.css'), ['raw backdrop-filter'])
+  assert.deepEqual(hit('  backdrop-filter: blur(8px);'), []) // no path: path-scoped rules stay off
 
   const ok = (m) => assert.equal(validateCommitMsg(m), null, m)
   const bad = (m) => assert.ok(validateCommitMsg(m), m)
@@ -144,15 +204,15 @@ if (flag === '--self-test') {
 } else if (flag === '--commit-msg') {
   const error = validateCommitMsg(readFileSync(rest[0], 'utf8'))
   if (error) {
-    console.error(`\n  commit-msg: ${error}\n`)
+    console.error(`\n  Commit message needs a fix:\n  ${error}\n`)
     process.exit(1)
   }
 } else {
   const problems = scanFiles(process.argv.slice(2))
   if (problems.length) {
-    console.error('\n  pre-commit guard blocked this commit:\n')
+    console.error('\n  Commit blocked — fix these items first:\n')
     for (const p of problems) console.error(`    ${p}`)
-    console.error(`\n  Fix them, or mark an intentional line with a \`${ALLOW}\` comment.\n`)
+    console.error(`\n  Then stage again and commit. For a rare intentional exception, add a \`${ALLOW}\` comment on that line.\n`)
     process.exit(1)
   }
 }

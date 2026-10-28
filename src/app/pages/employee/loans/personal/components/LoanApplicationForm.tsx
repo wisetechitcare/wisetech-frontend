@@ -1,7 +1,7 @@
 ﻿import DateInput from '@app/modules/common/inputs/DateInput';
 import DropDownInput from '@app/modules/common/inputs/DropdownInput';
 import NumberInput from '@app/modules/common/inputs/NumberInput';
-import RadioInput from '@app/modules/common/inputs/RadioInput';
+import { WtChoiceField } from '@app/modules/common/components/ui';
 import TextAreaInput from '@app/modules/common/inputs/TextAreaInput';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { LoanType } from '@constants/statistics';
@@ -155,15 +155,15 @@ function LoanApplicationForm({ setShowModalFunc, defaultData, isUpdate = false, 
 
                         <div className="row px-3 my-3">
                             <div className="col-lg-12 fv-row">
-                <RadioInput
-                  isRequired={true}
-                                    inputLabel="Loan Type"
-                                    formikField="loanType"
-                  radioBtns={[
-                                        { label: "One Time", value: LoanType.ONE_TIME },
-                                        { label: "EMI", value: LoanType.EMI },
+                <WtChoiceField
+                  name="loanType"
+                  label="Loan Type"
+                  variant="cards"
+                  options={[
+                    { value: LoanType.ONE_TIME, label: "One Time" },
+                    { value: LoanType.EMI, label: "EMI" },
                   ]}
-                  customCss='my-2'
+                  required
                 />
               </div>
             </div>

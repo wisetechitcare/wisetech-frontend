@@ -5,6 +5,7 @@ import type { RootState } from "@redux/store";
 import { sortKpiFactors } from "@utils/kpiSort";
 import { formatHours, formatWeightageUnit, isHourUnit } from "@app/pages/employee/kpis/common/kpiUtils";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { ToneChip } from "@app/modules/common/components/ui";
 
 interface Factor {
   factor: string;
@@ -80,9 +81,11 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
       Cell: ({ cell }: any) => {
         const score = Number(cell.getValue()) || 0;
         return (
-          <span className={`badge fw-bolder fs-7 px-3 py-1 ${score >= 0 ? "badge-light-success" : "badge-light-danger"}`}>
-            {score >= 0 ? `+${score.toFixed(2)}` : score.toFixed(2)}
-          </span>
+          <ToneChip
+            dense
+            tone={score >= 0 ? "success" : "danger"}
+            label={score >= 0 ? `+${score.toFixed(2)}` : score.toFixed(2)}
+          />
         );
       },
     },
@@ -138,9 +141,7 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
                         {module?.moduleName || "Other"}
                       </h5>
                     </div>
-                    <div className="badge badge-light-primary fw-bolder px-4 py-2 fs-8">
-                      Module Total: {totalScore.toFixed(2)}
-                    </div>
+                    <ToneChip dense tone="brand" label={`Module Total: ${totalScore.toFixed(2)}`} />
                   </div>
 
                   {factors.length === 0 ? (

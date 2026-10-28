@@ -1,6 +1,6 @@
 import { safeJsonParse } from '@utils/safeJson';
 import React, { useEffect, useState } from "react";
-import { Modal } from "react-bootstrap";
+
 import { Form, Formik } from "formik";
 import * as Yup from "yup";
 import { fetchConfiguration, updateConfigurationById } from "@services/company";
@@ -9,7 +9,7 @@ import { DEDUCTIONS } from "@constants/configurations-key";
 import { hasPermission } from "@utils/authAbac";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import { WtFieldFormik, WtSwitch } from "@app/modules/common/components/ui";
+import { WtFieldFormik, WtSwitch, UnsavedChangesModal as Modal } from "@app/modules/common/components/ui";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { currencyPrefix } from '@utils/currency';
 
@@ -178,7 +178,7 @@ function DeductionRules() {
       providentFund: values
     };
     try {
-      await saveConfiguration(updatedConfig, "Provident Fund updated successfully");
+      await saveConfiguration(updatedConfig, "Provident Fund updated.");
       setShowPFModal(false);
     } catch (error) {
       // Error handled in saveConfiguration
@@ -191,7 +191,7 @@ function DeductionRules() {
       professionalTax: values
     };
     try {
-      await saveConfiguration(updatedConfig, "Professional Tax rules updated successfully");
+      await saveConfiguration(updatedConfig, "Professional Tax rules updated.");
       setShowPTModal(false);
     } catch (error) {
       // Error handled in saveConfiguration

@@ -38,7 +38,7 @@ const CustomizeDashboard: React.FC<CustomizeDashboardProps> = ({ show, onHide, o
     try {
       setIsSubmitting(true);
       await saveSections(sections);
-      successConfirmation("Dashboard settings saved successfully!");
+      successConfirmation("Dashboard settings saved.");
       onSettingsChange?.();
       onHide();
     } catch (error) {

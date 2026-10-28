@@ -129,17 +129,27 @@ export function parseAttendanceTime(
   const formats = [
     'YYYY-MM-DD HH:mm:ss',
     'YYYY-MM-DD HH:mm',
+    // Strict parsing tells "07:10 PM" (hh) from "7:10 PM" (h); both are stored.
+    'YYYY-MM-DD hh:mm:ss A',
+    'YYYY-MM-DD hh:mm A',
     'YYYY-MM-DD h:mm:ss A',
     'YYYY-MM-DD h:mm A',
     'HH:mm:ss',
     'HH:mm',
+    'hh:mm:ss A',
+    'hh:mm A',
     'h:mm:ss A',
     'h:mm A',
   ];
 
   for (const fmt of formats) {
-    const withDate = fmt.includes('YYYY') ? trimmed : `${referenceDate} ${trimmed}`;
-    const parsed = dayjs(withDate, fmt, true);
+    // A time-only value is parsed ON the reference day — the date goes on BOTH the input
+    // and the format. Prefixing only the input meant no time-only format could ever match,
+    // and "06:30 PM" fell through to the loose parse below, which is browser-dependent.
+    const hasDate = fmt.includes('YYYY');
+    const parsed = hasDate
+      ? dayjs(trimmed, fmt, true)
+      : dayjs(`${referenceDate} ${trimmed}`, `YYYY-MM-DD ${fmt}`, true);
     if (parsed.isValid()) return parsed;
   }
 

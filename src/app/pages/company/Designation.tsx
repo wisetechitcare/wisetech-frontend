@@ -1,9 +1,9 @@
-import { ActionIconButton } from '@app/modules/common/components/ui';
+import { ActionIconButton, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues } from "formik";
-import { Modal } from "react-bootstrap";
+
 import { MRT_ColumnDef } from "material-react-table";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -148,7 +148,7 @@ function Designations() {
             if (editMode) {
                 await updateDesignationById(designationId, values);
                 setLoading(false);
-                successConfirmation('Designation updated successfully');
+                successConfirmation('Designation updated.');
                 setShowModal(false);
                 setEditMode(false);
                 // Refresh data
@@ -159,7 +159,7 @@ function Designations() {
             const payload = [{ isActive: true, companyId: companyId, role: values.role }];
             await createDesignation(payload);
             setLoading(false);
-            successConfirmation('Designation created successfully');
+            successConfirmation('Designation created.');
             setShowModal(false);
             // Refresh data
             const { data: { designations = [] } = {} } = await fetchDesignations();

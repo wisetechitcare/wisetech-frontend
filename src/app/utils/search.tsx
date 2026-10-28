@@ -211,6 +211,7 @@ export const STATIC_SEARCH_INDEX: Omit<UnifiedSearchResult, 'id'>[] = [
   { title: 'Leads', subtitle: 'Manage Inquiries', type: 'Navigation', path: '/leads', icon: 'graph-3', tags: ['inquiry', 'sales', 'potential'], pack: 'psa' },
   { title: 'Companies', subtitle: 'Client Companies', type: 'Navigation', path: '/companies', icon: 'briefcase', tags: ['client', 'organization', 'firm'], pack: 'psa' },
   { title: 'Contacts', subtitle: 'Client Contacts', type: 'Navigation', path: '/contacts', icon: 'profile-circle', tags: ['people', 'person', 'phonebook'], pack: 'psa' },
+  { title: 'Gift Managements', subtitle: 'Gift & welcome kit drives', type: 'Navigation', path: '/gift-management', icon: 'gift', tags: ['gift', 'diwali', 'ramzan', 'welcome', 'perfume', 'management'] },
   { title: 'Projects', subtitle: 'Manage Projects', type: 'Navigation', path: '/projects', icon: 'element-11', tags: ['work', 'plan', 'active'], pack: 'psa' },
   { title: 'Employees', subtitle: 'Staff Management', type: 'Navigation', path: '/employees', icon: 'profile-user', tags: ['staff', 'workers', 'team'] },
   { title: 'Tasks', subtitle: 'Daily Tasks', type: 'Navigation', path: '/tasks', icon: 'check-square', tags: ['todo', 'action', 'assignment'], pack: 'psa' },

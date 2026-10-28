@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Stack, Typography, CircularProgress, alpha } from '@mui/material';
 import { fetchEmployeesByBranch } from '@services/employee';
 import { getAvatar } from '@utils/avatar';
-import { GlassDialog, GlassHeader, ToneChip } from '@app/modules/common/components/ui';
+import { GlassDialog, GlassHeader, ToneChip, WtEmptyState } from '@app/modules/common/components/ui';
 import SmartAvatar from '@app/modules/common/components/SmartAvatar';
-import { IconUsers, IconBranch, IconChevron } from '@app/modules/common/components/icons/OrgIcons';
+import { IconBranch, IconChevron } from '@app/modules/common/components/icons/OrgIcons';
 
 /**
  * Employees in one branch.
@@ -63,6 +63,7 @@ export default function BranchEmployeesModal({ show, branchId, branchName, onClo
   return (
     <GlassDialog
       open={show} onClose={onClose} maxWidth="md" fullWidth
+      preset="workspace"
       header={
         <GlassHeader
           title={`${branchName || 'Branch'} — Employees`}
@@ -72,21 +73,16 @@ export default function BranchEmployeesModal({ show, branchId, branchName, onClo
         />
       }
     >
-      <Box sx={{ bgcolor: 'background.default', p: { xs: 1.5, sm: 2.5 }, maxHeight: '64vh', overflowY: 'auto' }}>
+      <Box sx={{ bgcolor: 'background.default', p: { xs: 1.5, sm: 2.5 } }}>
         {loading ? (
           <Stack alignItems="center" sx={{ py: 5 }}><CircularProgress size={26} /></Stack>
         ) : employees.length === 0 ? (
-          <Stack alignItems="center" sx={{ py: 6, textAlign: 'center', color: 'text.disabled' }}>
-            <Box sx={{ mb: 1.25, color: 'text.disabled' }}><IconUsers size={34} /></Box>
-            <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'text.secondary' }}>
-              No employees in this branch yet
-            </Typography>
-          </Stack>
+          <WtEmptyState dense icon="people" title="No employees in this branch yet" hint="Assign people to this branch from Employees, then reopen this list." />
         ) : (
           <Stack spacing={1}>
             {employees.map(emp => {
               const name = `${emp.users?.firstName ?? ''} ${emp.users?.lastName ?? ''}`.trim() || 'Unnamed';
-              const avatarUrl = getAvatar(emp.avatar || '', Number(emp.gender) === 1 ? 1 : Number(emp.gender) === 0 ? 0 : 2);
+              const avatarUrl = getAvatar(emp.avatar || '', emp.gender);
               return (
                 <Stack
                   key={emp.id}

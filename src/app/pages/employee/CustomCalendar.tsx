@@ -1,3 +1,4 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { safeJsonParse } from '@utils/safeJson';
 import { T as UiTokens } from '@app/modules/common/components/ui/tokens';
 import { useEffect, useRef, useState } from 'react';
@@ -5,7 +6,7 @@ import { parseWorkingDays } from '@utils/workingDays';
 import { anniversaryDateOrNull } from '@utils/anniversary';
 import { useFormik } from 'formik';
 import Flatpickr from "react-flatpickr";
-import { Modal } from 'react-bootstrap';
+
 import dayjs from 'dayjs';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -270,6 +271,8 @@ function CustomCalendar() {
     // Title shown in the shared PeriodNavigator (e.g. "July 2026"). Kept in sync
     // with FullCalendar via datesSet.
     const [periodTitle, setPeriodTitle] = useState('');
+    // Anchor for PeriodNavigator click-to-jump (calendar's current date as YYYY-MM-DD).
+    const [periodPickValue, setPeriodPickValue] = useState(dayjs().format('YYYY-MM-DD'));
     const [selectedStartDate, setSelectedStartDate] = useState('');
     const [selectedEndDate, setSelectedEndDate] = useState('');
     const [maxColumns, setMaxColumns] = useState(2);
@@ -319,7 +322,7 @@ function CustomCalendar() {
                 });
                 if (res && !res.hasError) {
                     setShowEventForm(false);
-                    successConfirmation('Successfully created calendar event');
+                    successConfirmation('Created calendar event.');
                     if (selectedDateTimeInfo) {
                         const calendarApi = (selectedDateTimeInfo as any).view.calendar;
                         calendarApi.unselect();
@@ -402,12 +405,13 @@ function CustomCalendar() {
         setCurrentYear(currentYear + "");
         setPeriodTitle(e?.view?.title || calendarApi.view?.title || "");
         setSelectedViewForCalendar(e?.view?.type || calendarApi.view?.type || selectedViewForCalendar);
+        setPeriodPickValue(dayjs(calendarApi.getDate()).format('YYYY-MM-DD'));
     };
 
     // const handleEventClick = async (clickInfo: any) => {
     //     const isPublicHoliday = holidays.filter((holiday: any) => holiday.title === clickInfo.event.title).length > 0;
     //     if (isPublicHoliday) return;
-    //     const userRes = await deleteConfirmation('Your event has been deleted successfully');
+    //     const userRes = await deleteConfirmation('Your event has been deleted.');
     //     if (userRes) {
     //         clickInfo.event.remove();
     //         await archiveEvent(clickInfo.event.title);
@@ -1382,6 +1386,13 @@ function CustomCalendar() {
                                     // and keeps everything on one line.
                                     minWidth={isMobile ? 108 : 170}
                                     labelColor="var(--mrd-primary)"
+                                    pickGranularity={
+                                        selectedViewForCalendar === 'multiMonthYear' ? 'year'
+                                            : selectedViewForCalendar === 'dayGridMonth' ? 'month'
+                                                : 'day'
+                                    }
+                                    pickValue={periodPickValue}
+                                    onPickDate={(v) => calendarRef?.current?.getApi()?.gotoDate(v)}
                                 />
                                 {/* Mobile-only. On tablet+ the same legend is always visible in the
                                     side rail, so a button for it would just be a second way in. */}
@@ -1747,7 +1758,7 @@ function CustomCalendar() {
                     setShowNewHolidayForm={undefined} 
                     selectedDateTimeInfo={selectedDateTimeInfo}
                     setRefetch={setHolidayRefresh}
-                    sendNotification={() => successConfirmation('Holiday added successfully')}
+                    sendNotification={() => successConfirmation('Holiday added.')}
                 />
                 </Modal.Body>
             </Modal>

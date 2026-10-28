@@ -1,20 +1,15 @@
 import { useEffect, useState } from "react";
 import { useFormikContext } from "formik";
+import { Box, Typography } from "@mui/material";
+import { WtChoiceField } from "@app/modules/common/components/ui";
 import AppRoleField from "./AppRoleField";
 import { fetchRoles } from "@services/roles";
-import RadioInput, { RadioButton } from "@app/modules/common/inputs/RadioInput";
 import { useParams } from "react-router-dom";
 import ApprovalSettings, { emptyApprovalChains } from "@app/components/ApprovalSettings";
 
-const showAppSettingsRadioBtn: RadioButton[] = [
-    { label: 'Yes', value: "1" },
-    { label: 'No', value: "0" },
-];
-
-const isEmployeeActiveRadioBtn: RadioButton[] = [
-    { label: 'Yes', value: "1" },
-    { label: 'No', value: "0" },
-];
+function SettingChoice({ field, label, helperText }: { field: string; label: string; helperText?: string }) {
+    return <WtChoiceField name={field} label={label} helperText={helperText} variant="switch" />;
+}
 
 function AppSettings() {
     const { employeeId } = useParams<{ employeeId: string }>();
@@ -40,54 +35,20 @@ function AppSettings() {
         <>
             {/* Row 1: Show App Settings, Is Employee Active, Allow Over Time,
                 Exempt from Site & Hybrid Attendance Approval */}
-            <div className="row mb-4">
-                <div className="col-lg-3 col-md-6 col-sm-12 mb-3 mb-lg-0">
-                    <RadioInput
-                        inputLabel="Show App Settings"
-                        isRequired={false}
-                        radioBtns={showAppSettingsRadioBtn}
-                        formikField="isAdmin"
-                    />
-                </div>
-                <div className="col-lg-3 col-md-6 col-sm-12 mb-3 mb-lg-0">
-                    <RadioInput
-                        inputLabel="Is Employee Active"
-                        isRequired={true}
-                        radioBtns={isEmployeeActiveRadioBtn}
-                        formikField="isEmployeeActive"
-                    />
-                </div>
-                <div className="col-lg-3 col-md-6 col-sm-12 mb-3 mb-lg-0">
-                    <RadioInput
-                        formikField="allowOverTime"
-                        inputLabel="Allow Over Time"
-                        radioBtns={[
-                            { label: "Yes", value: '1' },
-                            { label: "No", value: '0' },
-                        ]}
-                        isRequired={false}
-                    />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <SettingChoice field="isAdmin" label="App settings access" helperText="Can open the mobile/web app settings screen." />
+                <SettingChoice field="isEmployeeActive" label="Active employee" helperText="Inactive employees cannot sign in or be assigned work." />
+                <SettingChoice field="allowOverTime" label="Overtime allowed" helperText="Extra hours are counted toward overtime pay." />
                 {/* Escape hatch for the company-wide "Require Approval for Site & Hybrid
                     Attendance" setting (Attendance Settings). Yes = this employee's
                     On-site/Hybrid punches are marked immediately and never enter the
                     approval queue. No effect when the company setting is off, the default. */}
-                <div className="col-lg-3 col-md-6 col-sm-12">
-                    <RadioInput
-                        formikField="exemptFromSiteHybridApproval"
-                        inputLabel="Exempt from Site & Hybrid Attendance Approval"
-                        radioBtns={[
-                            { label: "Yes", value: '1' },
-                            { label: "No", value: '0' },
-                        ]}
-                        isRequired={true}
-                    />
-                </div>
+                <SettingChoice field="exemptFromSiteHybridApproval" label="Skip site/hybrid attendance approval" helperText="Site and hybrid check-ins will not need a manager's approval." />
             </div>
 
             {/* Row 2: App Role */}
-            <div className="row mb-4">
-                <div className="col-lg-6 col-md-6 col-sm-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
                     <AppRoleField employeeId={employeeId} roles={roles} />
                 </div>
             </div>
@@ -102,10 +63,10 @@ function AppSettings() {
                 chains at all and nobody was told. The chains now ride along in the
                 form in BOTH modes and are written by the wizard's single save. */}
             <div className="mt-6">
-                <h5 className="mb-1 required">Approval Settings</h5>
-                <div className="text-muted fs-7 mb-4">
+                <Typography variant="h6" sx={{ mb: 0.5 }}>Approval Settings</Typography>
+                <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
                     Each request type needs a Level 1 approver. These are saved with the employee.
-                </div>
+                </Typography>
                 {/* One mode for create and edit alike: the chains are ordinary form fields
                     that the wizard's single save persists. `employeeId` only tells the
                     component whose saved chains to load and who to exclude from the

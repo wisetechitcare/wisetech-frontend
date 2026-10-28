@@ -26,13 +26,17 @@ Use the kit barrel. Do **not** invent one-off maroon/navy hex buttons.
 | Old (Bootstrap / ad-hoc) | Use instead |
 |--------------------------|-------------|
 | `<Card>` / white box + `borderRadius: 12` | `GlassCard` (`preset="section"` / `"tile"` / `"row"`) |
+| Card / collection grid that stretches one tile full-bleed | **`AutoGrid`** (default `auto-fill` + max ~400; `stretch` opt-in only) |
 | Pill tabs (`#a94442`, rounded-full) | `SegmentedControl` |
-| Primary / danger buttons | `WtButton` (`tone`, `ghost`, `inverted`) |
+| Primary / danger / Cancel buttons | **`WtButton`** only — recipe matrix in kit `ui/README.md` (navy primary + white `ghost` Cancel locked) |
+| Status / meta chips, Bootstrap `badge`, private `MetaPill` | **`ToneChip`** / `StatusBadge` only — one chip primitive |
+| Dialog Cancel + Submit footer | **`GlassDialogActions`** (or leave `ConfigureFormDialog` / `WtFormDialog`) |
 | Icon-only row actions | `WtIconButton` / `ActionIconButton` |
 | `<Modal>` | `GlassDialog` (+ `GlassHeader` or `PlainDialogHeader`) |
 | Long multi-section form modal | `WtFormDialog` |
 | Short master create/edit (`*ConfigureForm`) | `ConfigureFormDialog` + `WtField` / `WtFieldFormik` |
 | Labels + inputs / selects / textarea | `WtField` (+ `WtSelect` when search/multi) |
+| Raw `TextField select` + `MenuItem` | **`WtField`** with `options` |
 | Date / datetime inputs | `WtDateField` / `WtDateTimeField` |
 | Empty copy (`text-muted` center) | `WtEmptyState` |
 | Section title blocks | `SectionHead` / `EntityPageHeader` / `ListHeader` |
@@ -45,7 +49,10 @@ Use the kit barrel. Do **not** invent one-off maroon/navy hex buttons.
 1. **No new** `react-bootstrap` imports in new code or in files you open for migration.  
 2. **No** hardcoded brand hex for CTAs (`#a94442`, `#9d4141`, ad-hoc `#1E3A8A` button styles) — use `WtButton` / tokens.  
 3. One **PR = one surface or one shared primitive** (see §4). Do not “while I’m here” rewrite an entire module.  
-4. Prefer **shared helpers first** (`CommonModal` → kit dialog) so many call sites improve at once.
+4. Prefer **shared helpers first** (`CommonModal` → kit dialog) so many call sites improve at once.  
+5. **Buttons:** new code uses only `WtButton` / `WtIconButton` / `ActionIconButton` / `GlassDialogActions` from the kit barrel. Do **not** mega-PR every remaining MUI `Button` or Bootstrap `btn-*` — replace CTAs when you migrate that surface (opened file). Do not invent a second global button or change the locked navy + white Cancel brand look.
+6. **Chips + cards:** status and meta → **`ToneChip`** only (no private `MetaPill`). List collections → **`GlassCard` + capped `AutoGrid`**. Enhance the kit, then migrate consumers.
+7. **BE Rule zero parity:** when an API file is opened in the same workstream, grep shared services / Yup `schemas/` / tenant helpers first — same reuse-before-write bar as the FE kit (see BE `docs/HANDBOOK.md`). No mega API rewrite required for a chrome migration PR.
 
 ---
 
@@ -167,8 +174,8 @@ Suggested order:
 
 1. Employee list / profile chrome still on Bootstrap  
 2. Calendar / public holiday admin — **started 2026-10-12**: `CalendarConfigForm` → `ConfigureFormDialog`; Add/Edit holiday shells on `PublicHolidayListTwo` / `RenameHoliday` → `GlassDialog`; weekends modal → `ConfigureFormDialog`; dead Bootstrap import removed from `Holidays.tsx`. Inner `PublicHoliday` / `Holiday` forms still legacy.  
-3. Announcements admin (if still Bootstrap)  
-4. Org masters (designation, employee types, onboarding docs) that use `CommonModal`
+3. Announcements admin — **done 2026-10-16**: delete confirmation → kit `confirmDialog` (create/edit already `AnnouncementFormDialog` / `GlassDialog`); `Announcements.tsx` off `react-bootstrap`  
+4. Org masters (designation, employee types, onboarding docs) that use Bootstrap Modal / `CommonModal`
 
 ### Phase 4 — Pay / Workforce deep screens
 

@@ -1,11 +1,16 @@
 import { forwardRef } from 'react';
 import { Button, ButtonProps, IconButton, IconButtonProps, Tooltip } from '@mui/material';
-import type { SxProps, Theme } from '@mui/material/styles';
+import { alpha, type SxProps, type Theme } from '@mui/material/styles';
 import { titleCaseNode } from './text';
 import { useIsDark } from './tw/useIsDark';
 
 /**
  * Reusable button primitives for the premium UI kit — single source of truth for CTA physics.
+ *
+ * **Global default:** compact, flat accent CTA. Opt into the navy primary
+ * (`tone="primary"`) for a high-emphasis action; Cancel stays white (`ghost`).
+ * Sandwich Add Rule is the visual benchmark. Appearance may theme other chrome;
+ * do **not** invent gold Cancel, yellow-on-navy primary, or a second button component.
  *
  * The recipe is the Meridian calendar's Create-Event button (CustomCalendar.premium.css
  * .mrd-createbtn / .mrd-btn--primary), generalized and re-tonable:
@@ -14,8 +19,20 @@ import { useIsDark } from './tw/useIsDark';
  *   • hover: -1px lift with a deeper glow · active: scale(.98) press
  *   • spring-ish easing cubic-bezier(.22,.61,.36,1)
  *
+ * Recipe matrix:
+ *   Default CTA                  → `<WtButton>` (compact, flat accent)
+ *   High-emphasis Create / Save  → `<WtButton tone="primary" flat={false} size="medium">`
+ *   Cancel / secondary close     → `<WtButton ghost>`
+ *   Header Add on gradient       → `<WtButton inverted>`
+ *   Delete / destructive         → `<WtButton tone="danger">`
+ *   Success confirm              → `<WtButton tone="success">`
+ *   Spacious CTA                 → `<WtButton size="medium">`
+ *   Icon-only                    → `WtIconButton` / `ActionIconButton` / `WtCloseButton`
+ *   Dialog Cancel + Submit       → `GlassDialogActions` (not hand-rolled DialogActions)
+ *
  * Usage:
- *   <WtButton tone="primary">Save</WtButton>
+ *   <WtButton>Save</WtButton>
+ *   <WtButton tone="primary" flat={false} size="medium">Save</WtButton>
  *   <WtButton tone="danger" startIcon={...}>Delete</WtButton>
  *   <WtButton ghost>Cancel</WtButton>
  *   <WtIconButton title="Edit" color="#2563eb"><KTIcon iconName="pencil" className="fs-3" /></WtIconButton>
@@ -24,24 +41,61 @@ import { useIsDark } from './tw/useIsDark';
 export const MRD_EASE = 'cubic-bezier(.22,.61,.36,1)';
 
 /**
- * The height every full-size control shares.
+ * Control density SSOT (modern SaaS mid-scale).
  *
- * Written three times inside this file before it had a name, which is how a search
- * field beside a button ended up 6px shorter: MUI `size="small"` is 40, this is 46.
- * Anything that sits in a row with a WtButton should use `controlHeightSx` rather than
- * guessing.
+ * - Default / row (`WT_CONTROL_HEIGHT` = 40): toolbars, list headers, most forms.
+ * - Spacious (`WT_CONTROL_HEIGHT_MD` = 44): opt-in dialog forms via `size="md"` / `size="medium"`.
+ *
+ * Anything that sits in a row with a WtButton should use `controlHeightSx` (or
+ * `controlHeightSxFor('md')`) rather than guessing heights per screen.
  */
-export const WT_CONTROL_HEIGHT = 46;
+export const WT_CONTROL_HEIGHT = 40;
+export const WT_CONTROL_HEIGHT_MD = 44;
 
 /**
  * Make a MUI input match button height. Applied to the OUTER root and the inner input,
  * because MUI sizes the input element independently of the wrapper — setting only the
  * root leaves the text off-centre.
  */
-export const controlHeightSx = {
-    "& .MuiOutlinedInput-root": { minHeight: WT_CONTROL_HEIGHT },
-    "& .MuiOutlinedInput-input": { paddingTop: 0, paddingBottom: 0, height: WT_CONTROL_HEIGHT - 2 },
+export const controlHeightSxFor = (density: 'sm' | 'md' = 'sm') => {
+  const h = density === 'md' ? WT_CONTROL_HEIGHT_MD : WT_CONTROL_HEIGHT;
+  return {
+    // Lock height (not only minHeight) so Autocomplete + avatar adornments cannot grow
+    // taller than neighbouring plain Selects in the same form row.
+    '& .MuiOutlinedInput-root': { minHeight: h, height: h, alignItems: 'center', boxSizing: 'border-box' },
+    '& .MuiOutlinedInput-input': {
+      paddingTop: 0,
+      paddingBottom: 0,
+      height: h - 2,
+      boxSizing: 'border-box',
+      // Real <input>s (Autocomplete / text) center via line-box; keep them optically middle.
+      lineHeight: `${h - 2}px`,
+    },
+    // MUI Select is a div.MuiSelect-select — height alone leaves the label high in the
+    // box. Flex-center to match Autocomplete (EmployeePicker / Recruiter gold standard).
+    '& .MuiSelect-select': {
+      display: 'flex',
+      alignItems: 'center',
+      paddingTop: 0,
+      paddingBottom: 0,
+      height: h - 2,
+      boxSizing: 'border-box',
+      lineHeight: 1.25,
+    },
+    '& .MuiAutocomplete-inputRoot': { flexWrap: 'nowrap', py: '0 !important' },
+  } as const;
 };
+
+/** Default (40px) — alias kept so existing imports keep working. */
+export const controlHeightSx = controlHeightSxFor('sm');
+
+const buttonHeightSx = (h: number, compact: boolean): SxProps<Theme> => ({
+  minHeight: h,
+  fontSize: compact ? 13.5 : 14,
+  px: compact ? 2 : 2.5,
+  py: compact ? 0.75 : 0.9,
+  borderRadius: compact ? '11px' : '12px',
+});
 
 export type WtCtaTone = 'primary' | 'accent' | 'danger' | 'success';
 
@@ -72,9 +126,8 @@ export const ctaSx = (tone: WtCtaTone = 'primary', flat = false): SxProps<Theme>
     : `0 3px 6px ${c.glow}59, 0 18px 32px -10px ${c.glow}cc, inset 0 1px 0 rgba(255,255,255,.16)`;
 
   return {
-    textTransform: 'none', fontWeight: 700, letterSpacing: '-0.01em', borderRadius: '13px',
-    // Larger, more tappable, more readable — a proper primary CTA.
-    fontSize: 14.5, lineHeight: 1.2, minHeight: WT_CONTROL_HEIGHT, px: 2.75, py: 1.1,
+    textTransform: 'none', fontWeight: 700, letterSpacing: '-0.01em', borderRadius: '12px',
+    lineHeight: 1.2,
     background: `linear-gradient(135deg, ${c.from}, ${c.to})`, color: '#fff',
     boxShadow: rest,
     transition: `transform .16s ${MRD_EASE}, box-shadow .2s, filter .15s`,
@@ -101,7 +154,7 @@ export const ctaSx = (tone: WtCtaTone = 'primary', flat = false): SxProps<Theme>
  * reads as a real, tappable secondary action (not just text). */
 export const ghostSx: SxProps<Theme> = {
   textTransform: 'none', fontWeight: 650, letterSpacing: '-0.01em', borderRadius: '12px', color: '#334155',
-  fontSize: 14.5, lineHeight: 1.2, minHeight: WT_CONTROL_HEIGHT, px: 2.5, py: 1.1,
+  lineHeight: 1.2,
   // White on a visible border, and a hover that goes DARKER.
   //
   // It used to sit at #F8FAFC behind a #E2E8F0 border and hover to #EEF2F7 — all three within a
@@ -122,7 +175,7 @@ export const ghostSx: SxProps<Theme> = {
  * also works on light surfaces (thin blue-tinted border + soft shadow). Same lift/press physics. */
 export const invertedSx: SxProps<Theme> = {
   textTransform: 'none', fontWeight: 700, letterSpacing: '-0.01em', borderRadius: '12px',
-  fontSize: 14.5, lineHeight: 1.2, minHeight: WT_CONTROL_HEIGHT, px: 2.5, py: 1.1,
+  lineHeight: 1.2,
   bgcolor: '#fff', color: '#1E3A8A', border: '1px solid #dbeafe',
   boxShadow: '0 1px 2px rgba(16,24,40,0.06)',
   transition: `background-color .15s, border-color .15s, transform .16s ${MRD_EASE}, box-shadow .2s`,
@@ -150,30 +203,37 @@ const ctaDarkSx: SxProps<Theme> = {
 };
 
 export interface WtButtonProps extends ButtonProps {
-  /** CTA gradient tone. Ignored when `ghost` or `inverted` is set. Default 'primary'. */
+  /** CTA gradient tone. Ignored when `ghost` or `inverted` is set. Default 'accent'. */
   tone?: WtCtaTone;
   /** Quiet text-button variant (the standard Cancel). */
   ghost?: boolean;
   /** White pill with navy text (the gradient-header "Add" pill) — secondary/launch actions. */
   inverted?: boolean;
-  /** Same colour, no coloured glow — for toolbars where CTAs sit side by side. */
+  /** Same colour, no coloured glow. Defaults to true for the compact global CTA recipe. */
   flat?: boolean;
 }
 
 export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function WtButton(
-  { tone = 'primary', ghost = false, inverted = false, flat = false, sx, variant, children, ...rest }, ref,
+  { tone = 'accent', ghost = false, inverted = false, flat = true, size = 'small', sx, variant, children, ...rest }, ref,
 ) {
   // Read dark from the html class ColorModeProvider stamps — not MUI useTheme —
   // so CTAs stay mode-aware even when a subtree's ThemeContext is briefly unavailable (HMR).
   const dark = useIsDark();
-  const base = ghost ? ghostSx : inverted ? invertedSx : ctaSx(tone, flat);
+  // Default = compact accent CTA (40px + neutral elevation); opt into medium/primary
+  // when a spacious, high-emphasis action needs the full colored glow.
+  const compact = size === 'small';
+  const spacious = size === 'medium' || size === 'large';
+  const h = spacious ? WT_CONTROL_HEIGHT_MD : WT_CONTROL_HEIGHT;
+  const useFlat = flat || compact;
+  const base = ghost ? ghostSx : inverted ? invertedSx : ctaSx(tone, useFlat);
   const darkOverride = dark ? (ghost ? ghostDarkSx : inverted ? invertedDarkSx : ctaDarkSx) : null;
   return (
     <Button
       ref={ref}
+      size={size}
       variant={ghost ? 'text' : (variant ?? 'contained')}
-      // recipe → dark override → caller sx, so per-use tweaks (width, margins) always win
-      sx={[base, darkOverride, ...(Array.isArray(sx) ? sx : [sx])].filter(Boolean) as SxProps<Theme>}
+      // recipe → height → dark override → caller sx, so per-use tweaks always win
+      sx={[base, buttonHeightSx(h, compact), darkOverride, ...(Array.isArray(sx) ? sx : [sx])].filter(Boolean) as SxProps<Theme>}
       {...rest}
     >
       {/* Labels are title-cased here so every button reads the same without
@@ -185,32 +245,75 @@ export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function Wt
   );
 });
 
+/**
+ * Aside-menu icon-tile surface — **kit SSOT** for tinted icon buttons.
+ *
+ * Soft pastel of `color` at rest → richer pastel of the *same* colour on hover
+ * (never grey/slate, never solid). Glyph stays full-strength ink so contrast holds.
+ * Used by `WtIconButton` and `ActionIconButton` — do not re-implement per screen.
+ */
+export function tintedIconSurfaceSx(
+  color: string,
+  opts: { dark?: boolean; radius?: string | number } = {},
+): SxProps<Theme> {
+  const dark = Boolean(opts.dark);
+  const radius = opts.radius ?? '12px';
+  const restBg = alpha(color, dark ? 0.22 : 0.12);
+  const hoverBg = alpha(color, dark ? 0.40 : 0.28);
+  const restBd = alpha(color, dark ? 0.40 : 0.28);
+  const hoverBd = alpha(color, dark ? 0.62 : 0.45);
+  return {
+    color,
+    bgcolor: restBg,
+    border: `1px solid ${restBd}`,
+    borderRadius: radius,
+    '& .ki-duotone, & .ki-solid, & .ki-outline': {
+      color: 'inherit',
+      '& [class*="path"]': { opacity: 1, color: 'inherit' },
+    },
+    transition: [
+      'background-color .2s cubic-bezier(0.4, 0, 0.2, 1)',
+      'border-color .2s cubic-bezier(0.4, 0, 0.2, 1)',
+      `transform .16s ${MRD_EASE}`,
+      'box-shadow .15s',
+    ].join(', '),
+    '&:hover': {
+      bgcolor: hoverBg,
+      borderColor: hoverBd,
+      transform: 'translateY(-1px)',
+      boxShadow: `0 5px 12px ${alpha(color, 0.28)}`,
+    },
+    '&:active': { transform: 'translateY(0) scale(.93)' },
+    '&:focus-visible': { outline: `2px solid ${color}`, outlineOffset: 2 },
+    '&.Mui-disabled': {
+      opacity: 0.5,
+      boxShadow: 'none',
+      transform: 'none',
+    },
+  };
+}
+
 export interface WtIconButtonProps extends Omit<IconButtonProps, 'color'> {
-  /** Tone hex — tint derives from it via the Devices-modal alpha formula (bg 8%, border 24%). */
+  /** Tone hex — tint derives from `tintedIconSurfaceSx` (aside-menu darken-to-icon-colour). */
   color?: string;
   /** Tooltip label (also used as aria-label). */
   title?: string;
 }
 
-/** Tinted-ghost icon button (BiometricDevicesModal action-button pattern) with the same press
- * physics: tint deepens on hover, -1px lift, scale(.94) press. Pass the glyph as children. */
+/** Tinted icon button — same surface recipe as ActionIconButton (`tintedIconSurfaceSx`). */
 export const WtIconButton = forwardRef<HTMLButtonElement, WtIconButtonProps>(function WtIconButton(
   { color = '#64748b', title, sx, children, ...rest }, ref,
 ) {
+  const dark = useIsDark();
   const btn = (
     <IconButton
       ref={ref}
       aria-label={title}
-      sx={[{
-        width: 44, height: 44, borderRadius: '12px', color,
-        bgcolor: `${color}14`, border: `1px solid ${color}3D`,
-        transition: `background-color .15s, border-color .15s, transform .16s ${MRD_EASE}, box-shadow .15s`,
-        '& .fs-2, & .fs-3': { fontSize: '1.2rem' },
-        '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66`, transform: 'translateY(-1.5px)', boxShadow: `0 5px 12px ${color}3D` },
-        '&:active': { transform: 'translateY(0) scale(.93)' },
-        '&:focus-visible': { outline: `2px solid ${color}`, outlineOffset: 2 },
-        '&.Mui-disabled': { opacity: 0.5 },
-      }, ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
+      sx={[
+        tintedIconSurfaceSx(color, { dark, radius: '12px' }),
+        { width: 44, height: 44, '& .fs-2, & .fs-3': { fontSize: '1.2rem' } },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ] as SxProps<Theme>}
       {...rest}
     >
       {children}

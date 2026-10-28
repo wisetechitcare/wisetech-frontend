@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Swal from 'sweetalert2';
+import { useSelector } from 'react-redux';
 import { Box, InputBase, Stack, Typography, alpha, keyframes } from '@mui/material';
 import { safeHtml } from '@app/modules/common/components/ui/safeHtml';
 import { IOrgNode, IOrgStats, IOrgBranchNode } from '@models/company';
@@ -11,7 +11,8 @@ import { useCountUp } from '@app/hooks/useCountUp';
 import OrganizationFormModal from './OrganizationFormModal';
 import BranchEmployeesModal from '@app/modules/common/components/BranchEmployeesModal';
 import { IconSearch, IconPlus, IconChevron, IconBuilding, IconHierarchy, IconBranch, IconUsers } from '@app/modules/common/components/icons/OrgIcons';
-import { WtButton } from '@app/modules/common/components/ui';
+import { WtButton, alertDialog, confirmDialog } from '@app/modules/common/components/ui';
+import type { RootState } from '@redux/store';
 
 interface Props {
   /** Called when an organization is opened — the shell switches to its profile. */
@@ -78,6 +79,8 @@ function StatTile({ label, value, tone, icon, index }: { label: string; value: n
  */
 export default function OrganizationsPage({ onOpenOrg }: Props) {
   const navigate = useNavigate();
+  const tier = useSelector((state: RootState) => state.authz.tier);
+  const canProvisionOrganizations = tier === 'SUPER_ADMIN';
   const [tree, setTree] = useState<IOrgNode[]>([]);
   const [stats, setStats] = useState<IOrgStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,23 +113,29 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
 
   async function handleDelete(org: IOrgNode) {
     const blocked = org.childCount > 0 || org.branchCount > 0 || org.employeeCount > 0;
-    const res = await Swal.fire({
-      title: blocked ? 'Cannot delete yet' : 'Delete organization?',
-      // safeHtml on BOTH arms: `org.name` is user-entered, and SweetAlert parses
-      // `html` as markup. The counts are numbers, but escaping them costs nothing
-      // and keeps the rule "every interpolation into html goes through safeHtml"
-      // free of exceptions to argue about.
-      html: blocked
-        ? safeHtml`<b>${org.name}</b> still has ${org.childCount} sub-org(s), ${org.branchCount} branch(es) and ${org.employeeCount} employee(s).<br/>Reassign or remove them first.`
-        : safeHtml`This will permanently delete <b>${org.name}</b>. This cannot be undone.`,
+    // safeHtml on BOTH arms: `org.name` is user-entered, and `html` renders as markup.
+    // The counts are numbers, but escaping them costs nothing and keeps the rule
+    // "every interpolation into html goes through safeHtml" free of exceptions to argue
+    // about. (The dialog also DOMPurifies it.)
+    if (blocked) {
+      // Acknowledge-only: a blocked delete offers nothing to confirm.
+      await alertDialog({
+        icon: 'warning',
+        title: 'Cannot delete yet',
+        html: safeHtml`<b>${org.name}</b> still has ${org.childCount} sub-org(s), ${org.branchCount} branch(es) and ${org.employeeCount} employee(s).<br/>Reassign or remove them first.`,
+        confirmText: 'OK',
+      });
+      return;
+    }
+    const confirmed = await confirmDialog({
       icon: 'warning',
-      showCancelButton: !blocked,
-      confirmButtonText: blocked ? 'OK' : 'Delete',
-      cancelButtonText: 'Cancel',
-      customClass: { confirmButton: `btn ${blocked ? 'btn-light' : 'btn-danger'} fw-bold px-6`, cancelButton: 'btn btn-light fw-bold px-6 ms-3' },
-      buttonsStyling: false,
+      title: 'Delete organization?',
+      html: safeHtml`This will permanently delete <b>${org.name}</b>. This cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      danger: true,
     });
-    if (blocked || !res.isConfirmed) return;
+    if (!confirmed) return;
     try {
       const r = await deleteOrganizationById(org.id);
       if (r && !r.hasError) { successConfirmation('Organization deleted'); load(); }
@@ -189,9 +198,11 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
             >
               {willOpen ? 'Expand all' : 'Collapse all'}
             </WtButton>
-            <WtButton size="small" onClick={() => setModal({ show: true, parent: null })} startIcon={<IconPlus size={15} />} sx={{ whiteSpace: 'nowrap' }}>
-              New organization
-            </WtButton>
+            {canProvisionOrganizations && (
+              <WtButton size="small" onClick={() => setModal({ show: true, parent: null })} startIcon={<IconPlus size={15} />} sx={{ whiteSpace: 'nowrap' }}>
+                New organization
+              </WtButton>
+            )}
           </Stack>
         </Stack>
   
@@ -212,7 +223,11 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
               onSelectOrg={onOpenOrg}
               onEditOrg={onOpenOrg}
               onSelectBranch={openBranch}
-              onAddSubOrg={(parent) => setModal({ show: true, parent: { id: parent.id, name: parent.name } })}
+              onAddSubOrg={
+                canProvisionOrganizations
+                  ? (parent) => setModal({ show: true, parent: { id: parent.id, name: parent.name } })
+                  : undefined
+              }
               onDeleteOrg={handleDelete}
               onViewBranchEmployees={(branch) => setEmpModal({ show: true, branch })}
             />

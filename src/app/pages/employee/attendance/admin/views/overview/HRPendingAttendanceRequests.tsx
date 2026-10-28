@@ -9,6 +9,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { KTIcon } from "@metronic/helpers";
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
 import { WtIconButton, Spinner, TRIO } from "@app/modules/common/components/ui/tw";
+import { ToneChip } from "@app/modules/common/components/ui";
 import { IAttendanceRequests } from "@models/employee";
 import { RootState } from "@redux/store";
 import { fetchCompanyOverview } from "@services/company";
@@ -159,18 +160,7 @@ function HRPendingAttendanceRequests() {
             header: 'Stage',
             size: 170,
             Cell: () => (
-                <span
-                    className="badge"
-                    style={{
-                        backgroundColor: '#F39C12',
-                        color: 'white',
-                        fontSize: '11px',
-                        padding: '5px 10px',
-                        borderRadius: '12px',
-                    }}
-                >
-                    ⏳ Pending HR Approval
-                </span>
+                <ToneChip dense tone="warning" label="⏳ Pending HR Approval" />
             ),
         },
         {

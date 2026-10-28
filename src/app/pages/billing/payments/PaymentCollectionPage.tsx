@@ -165,7 +165,7 @@ const PaymentCollectionPage: React.FC = () => {
       size: 230,
       /**
        * The two numbers the CLIENT holds. The internal record numbers — BR, BO and
-       * the per-deliverable BILL — are deliberately not shown: four series on one
+       * the per-stage BILL — are deliberately not shown: four series on one
        * row is noise, and "BILL/2026/0001" reads as the bill while the actual bill
        * is the tax invoice beside it.
        */
@@ -421,6 +421,7 @@ const PaymentCollectionPage: React.FC = () => {
             alignItems: 'center',
             gap: 3,
             border: '2px solid rgba(255, 255, 255, 0.2)',
+            // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
             backdropFilter: 'blur(8px)',
             '& .MuiAlert-icon': {
               fontSize: '28px',

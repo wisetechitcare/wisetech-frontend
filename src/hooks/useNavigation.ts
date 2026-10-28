@@ -104,7 +104,14 @@ export function useNavigation() {
     fetchPendingApprovals()
       .then((res: any) => {
         const records = res?.data ?? res ?? [];
-        setPendingApprovalsCount(Array.isArray(records) ? records.length : 0);
+        // The server caps how many pending steps it scans. Past that cap the list length IS the
+        // cap, so a badge reading it would plateau and stop telling the truth about the queue.
+        const meta = res?.meta as { truncated?: boolean; pendingSteps?: number | null } | undefined;
+        setPendingApprovalsCount(
+          meta?.truncated && meta.pendingSteps
+            ? meta.pendingSteps
+            : Array.isArray(records) ? records.length : 0,
+        );
       })
       .catch(() => setPendingApprovalsCount(0));
   };
@@ -367,6 +374,15 @@ export function useNavigation() {
         fontIcon: 'bi-person-lines-fill',
         visible: isPackEnabled('psa') && !isSectionBlocked('crm.contacts'),
       },
+      {
+        type: 'item',
+        id: 'crm-gift-management',
+        to: '/gift-management',
+        title: 'Gift Managements',
+        fontIcon: 'bi-gift',
+        // PSA pack + Contacts section until a dedicated crm.courtesyDesk permission exists.
+        visible: isPackEnabled('psa') && !isSectionBlocked('crm.contacts'),
+      },
 
       // ── Project Department ────────────────────────────────────────────────
       // Organization USED to sit under this header (it preceded the next section
@@ -593,6 +609,14 @@ export function useNavigation() {
         fontIcon: 'bi-boxes',
         // Commercial packs — platform Super Admin only (not tenant Admin self-serve).
         visible: tier === 'SUPER_ADMIN',
+      },
+      {
+        type: 'item',
+        id: 'admin-developer-mfa',
+        to: '/admin/app-settings?area=developer-mfa',
+        title: 'System PIN MFA',
+        fontIcon: 'bi-shield-check',
+        visible: isSubsectionVisible('settings.developerMfa'),
       },
       {
         type: 'item',

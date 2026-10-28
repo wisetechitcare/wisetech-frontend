@@ -73,7 +73,7 @@ const TasksTab = () => (
           {/*begin::Text*/}
           <div className='d-flex flex-column'>
             <Link
-              to='/crafted/pages/profile/overview'
+              to='/employee/profile/overview'
               className='text-gray-800 text-hover-primary fs-6 fw-bold'
             >
               {t.title}

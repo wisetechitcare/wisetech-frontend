@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from 'react';
-import { Modal } from 'react-bootstrap';
+
 import { FormModalProps, FormSubmitData } from './types';
 import FormHeader from './FormHeader';
 import FormField from './FormField';

@@ -14,6 +14,7 @@ export default function ReimbursementDetail({ step, onClose, onDone }: ApprovalD
             approvalInstanceId={step.instance.id}
             onClose={onClose}
             onBatchActionDone={onDone}
+            approverOnly
         />
     );
 }

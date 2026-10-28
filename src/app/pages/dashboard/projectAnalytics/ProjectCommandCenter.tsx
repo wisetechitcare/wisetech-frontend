@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import ProjectCommandCenterKpi from "./ProjectCommandCenterKpi";
 import { buildProjectCommandCenterKpis, ProjectStatus } from "./projectAnalyticsUtils";
+import { AutoGrid } from '@app/modules/common/components/ui';
 
 interface Props {
   statusData: ProjectStatus[];
@@ -48,17 +49,11 @@ const ProjectCommandCenter: React.FC<Props> = ({ statusData }) => {
       </section>
 
       {/* KPI Grid: 2 columns on desktop, responsive */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 16,
-        }}
-      >
+      <AutoGrid min={220} stretch gap={16}>
         {kpis.map((kpi, i) => (
           <ProjectCommandCenterKpi key={kpi.label} {...kpi} index={i} />
         ))}
-      </div>
+      </AutoGrid>
     </div>
   );
 };

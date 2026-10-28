@@ -11,6 +11,7 @@ import { Box, Link, Typography } from "@mui/material";
 import { FONT, ICON_COLORS } from "@app/modules/configuration/ConfigDesignSystem";
 import { StatGrid, SectionHeading, TwoUpGrid } from "./entity/detail/sections/SummarySection";
 import { fmtDate, DASH } from "./entity/detail/entityViewModel";
+import { employeeGenderLabel } from "@utils/employeeGender";
 
 /**
  * The employee's Details tab, built from the same pieces as the lead/project detail page
@@ -66,7 +67,7 @@ const ShowEmployeeDetailsById = ({ employee }: { employee: any }) => {
   } = employee;
 
   // A missing value reads as missing, never as a default (null gender used to show "Female").
-  const genderLabel = gender === 0 ? "Male" : gender === 1 ? "Female" : DASH;
+  const genderLabel = employeeGenderLabel(gender) || DASH;
   const maritalLabel = maritalStatus === 1 ? "Unmarried" : maritalStatus === 0 ? "Married" : DASH;
   const methodLabel = method === 0 ? "Office" : method === 1 ? "Remote" : DASH;
   const mealPreference = vegMealPreference ? "Vegetarian" : nonVegMealPreference ? "Non-Vegetarian" : veganMealPreference ? "Vegan" : DASH;

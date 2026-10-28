@@ -32,6 +32,8 @@ import {
 export interface EmployeeOption {
     id: string;
     name: string;
+    /** Company employee code (e.g. WT-141) — shown with the name in pickers. */
+    employeeCode?: string;
     designation?: string;
     avatar: string;
 }
@@ -77,7 +79,7 @@ export const EmployeeSelectionDialog: React.FC<EmployeeSelectionDialogProps> = (
     onSave,
     saveDisabled = false,
     saveLabel = 'Save Selection',
-    searchPlaceholder = 'Search by name or designation…',
+    searchPlaceholder = 'Search by name, code, or designation…',
 }) => {
     const [search, setSearch] = useState('');
     const trio = TRIO[tone];
@@ -86,7 +88,10 @@ export const EmployeeSelectionDialog: React.FC<EmployeeSelectionDialogProps> = (
     const rows = useMemo(() => {
         const q = search.trim().toLowerCase();
         return employees
-            .filter((e) => !q || e.name.toLowerCase().includes(q) || (e.designation ?? '').toLowerCase().includes(q))
+            .filter((e) => !q
+                || e.name.toLowerCase().includes(q)
+                || (e.employeeCode ?? '').toLowerCase().includes(q)
+                || (e.designation ?? '').toLowerCase().includes(q))
             .sort((a, b) => {
                 const aSel = selected.has(a.id);
                 const bSel = selected.has(b.id);
@@ -158,7 +163,18 @@ export const EmployeeSelectionDialog: React.FC<EmployeeSelectionDialogProps> = (
                                         className="w-9 h-9 rounded-full object-cover shrink-0 border border-white shadow-sm"
                                     />
                                     <div className="min-w-0 flex-1">
-                                        <p className="m-0 text-[13px] font-semibold text-slate-800 truncate leading-tight" title={emp.name}>{emp.name}</p>
+                                        <p
+                                            className="m-0 text-[13px] font-semibold text-slate-800 truncate leading-tight"
+                                            title={emp.employeeCode ? `${emp.employeeCode} · ${emp.name}` : emp.name}
+                                        >
+                                            {emp.employeeCode ? (
+                                                <>
+                                                    <span className="font-bold text-slate-500">{emp.employeeCode}</span>
+                                                    <span className="font-normal text-slate-400"> · </span>
+                                                    {emp.name}
+                                                </>
+                                            ) : emp.name}
+                                        </p>
                                         {emp.designation && (
                                             <p className="m-0 text-[11px] font-medium text-slate-400 truncate leading-tight" title={emp.designation}>{emp.designation}</p>
                                         )}

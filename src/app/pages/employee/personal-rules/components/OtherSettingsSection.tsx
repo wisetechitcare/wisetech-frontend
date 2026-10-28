@@ -19,7 +19,8 @@ interface OtherSettingsSectionProps {
   // Other attendance settings
   enableLunchDeduction: boolean;
   onSiteHolidayWeekendSettings: boolean;
-  allowedDistance: number;
+  /** Null = no limit. */
+  allowedDistance: number | null;
   restrictAttendanceRequestDays: number;
   showDataUpToToday: boolean;
   dayWiseShifts: DayWiseShiftData[];
@@ -265,7 +266,7 @@ const OtherSettingsSection: React.FC<OtherSettingsSectionProps> = ({
         {/* Other settings without subtitles */}
         <DataRow
           label="Allowed distance in meters from office for checkin"
-          value={`${allowedDistance} meters`}
+          value={allowedDistance ? `${allowedDistance} meters` : 'No limit'}
         />
         <DataRow
           label="Restrict Attendance Requests (Days)"

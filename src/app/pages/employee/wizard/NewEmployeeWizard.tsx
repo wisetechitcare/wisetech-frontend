@@ -2,16 +2,14 @@ import { resolveActiveOrgId } from '@utils/activeOrg';
 import { safeJsonParse } from "@utils/safeJson";
 import { Fragment, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Modal } from "react-bootstrap";
 import { Form, Formik, FormikValues, useFormikContext } from "formik";
+import { Box } from '@mui/material';
+import { InlineNotice, WtButton, WtIconButton, WtWizardDialog } from '@app/modules/common/components/ui';
 import * as Yup from "yup";
-import { StepperComponent } from "@metronic/assets/ts/components";
-import { KTIcon } from "@metronic/helpers";
-import { PageLink, PageTitle } from "@metronic/layout/core";
 import { uploadUserAsset } from "@services/uploader";
 import dayjs from "dayjs";
 import { DATE_FORMATS, formatDate } from "@utils/dateFormats";
-import { confirmDialog } from "@app/modules/common/components/ui";
+import { alertDialog, confirmDialog, ConfirmDiscardDialog } from "@app/modules/common/components/ui";
 import ManagerHandoverDialog, { type ManagerReplacement } from "@app/modules/common/components/ManagerHandoverDialog";
 import { getManagedProjects, type ManagedProject } from "@services/projects";
 // Only the section-id/field-map constants are still needed — the step components
@@ -51,8 +49,8 @@ import {
 import { approvalChainsFromConfigs, emptyApprovalChains, persistApprovalChains } from "@app/components/ApprovalSettings";
 import { fetchCompanyOverview } from "@services/company";
 import { takeConversion, clearConversion, linkConvertedEmployee } from "@services/recruitment";
-import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
+import { normalizeEmployeeGender } from "@utils/employeeGender";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 /**
@@ -861,11 +859,6 @@ const initialState = {
   reimbursementLimitPerRequest: "",
 };
 
-const newEmployeeWizardBreadcrumb: Array<PageLink> = [
-  { title: "Employee Management", path: "/employees", isSeparator: false, isActive: false },
-  { title: "", path: "", isSeparator: true, isActive: false },
-];
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Save helpers (unchanged from original)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -955,7 +948,7 @@ const saveNewEmployee = async (values: any, userId: string) => {
     sourceOfHireId,
     ...(employeeStatusId && { employeeStatusId }),
     ...(employeeStatusConfigId && { employeeStatusConfigId }),
-    companyId, method: parseInt(method), dateOfJoining, gender: parseInt(gender),
+    companyId, method: parseInt(method), dateOfJoining, gender: normalizeEmployeeGender(gender),
     ...(isAdmin && { isAdmin: isAdmin == "1" }),
     ...(branchId && { branchId }),
     ...(anniversary && { anniversary }),
@@ -1036,7 +1029,7 @@ const saveEmployeeData = async (values: any, employeeId: string) => {
 
     const responses = await Promise.all(reqPromises.map((fn) => fn()));
     const allSuccessful = responses.every((response) => response?.statusCode === 200);
-    if (!allSuccessful) throw new Error("Some operations failed to complete successfully");
+    if (!allSuccessful) throw new Error("Some operations failed to complete.");
     return true;
   } catch (err) { console.log(err); }
 };
@@ -1079,64 +1072,6 @@ function DraftAutosave({ enabled, finalizedRef }: { enabled: boolean; finalizedR
   return null;
 }
 
-function FormikValidationErrorFocus({ activeStepIndex, setActiveSection }: { activeStepIndex: number; setActiveSection: (id: string) => void }) {
-  const { errors, submitCount } = useFormikContext<any>();
-
-  useEffect(() => {
-    if (submitCount > 0 && Object.keys(errors).length > 0) {
-      const getFirstErrorField = (errs: any, prefix = ""): string => {
-        if (typeof errs === "string") {
-          return prefix;
-        }
-        if (Array.isArray(errs)) {
-          for (let i = 0; i < errs.length; i++) {
-            if (errs[i]) {
-              return getFirstErrorField(errs[i], `${prefix}.${i}`);
-            }
-          }
-        }
-        if (typeof errs === "object" && errs !== null) {
-          const keys = Object.keys(errs);
-          if (keys.length > 0) {
-            return getFirstErrorField(errs[keys[0]], prefix ? `${prefix}.${keys[0]}` : keys[0]);
-          }
-        }
-        return prefix;
-      };
-
-      const fieldName = getFirstErrorField(errors);
-      if (fieldName) {
-        // Every step renders one section at a time, so the offending field may not be in the
-        // DOM. Switch to the section that owns it first, then scroll/focus it. FIELD_TO_SECTION
-        // covers all steps (step 1 also falls back to SECTION_OF_FIELD, which additionally
-        // knows about the step-1-only "meal" completion field it was originally built for).
-        const topKey = fieldName.split('.')[0];
-        const targetSection = FIELD_TO_SECTION[activeStepIndex]?.[topKey]
-          ?? (activeStepIndex === 1 ? SECTION_OF_FIELD[topKey] : undefined);
-        if (targetSection) setActiveSection(targetSection);
-
-        const scrollToField = () => {
-          let inputEl = document.querySelector(`[name="${fieldName}"]`) as HTMLElement;
-          if (!inputEl) {
-            inputEl = document.getElementById(fieldName) as HTMLElement;
-          }
-          if (!inputEl) {
-            inputEl = document.querySelector(`[name^="${fieldName}"]`) as HTMLElement;
-          }
-          if (inputEl) {
-            inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            inputEl.focus({ preventScroll: true });
-          }
-        };
-        // Longer delay when we changed section so the new section finishes animating in.
-        setTimeout(scrollToField, targetSection ? 380 : 150);
-      }
-    }
-  }, [submitCount]);
-
-  return null;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1145,16 +1080,15 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
   const { employeeId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const stepperRef = useRef<HTMLDivElement | null>(null);
   const modalBodyRef = useRef<HTMLDivElement | null>(null);
   const formikRef = useRef<any>(null);
   // Exit handover: the save awaits this dialog's answer (resolve), then carries on.
   const [handover, setHandover] = useState<{ employeeId: string; name: string; projects: ManagedProject[]; resolve: (r: ManagerReplacement[]) => void } | null>(null);
   const profilePhotoPreviewRef = useRef<string>("");
-  const [stepper, setStepper] = useState<StepperComponent | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState(1);
   const [currentSchema, setCurrentSchema] = useState(newEmployeeWizardSchema[0]);
   const [show, setShow] = useState(openModal);
+  const [discardOpen, setDiscardOpen] = useState(false);
   // A drafted photo re-enters as a real File, so saving uploads it exactly as if it
   // had just been picked.
   const [files, setFiles] = useState<{ [key: string]: File }>(() => {
@@ -1190,12 +1124,28 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
    * still filling it in, so autosave must keep working.
    */
   const draftFinalizedRef = useRef(false);
+  const closeAfterSuccessfulSaveRef = useRef(false);
   const [defaultState, setDefaultState] = useState(() =>
     initialDraftRef.current ? { ...initialState, ...initialDraftRef.current } : initialState
   );
   const [showDraftNotice, setShowDraftNotice] = useState<boolean>(!!initialDraftRef.current);
   const [activeSection, setActiveSection] = useState("personal-info");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Keep the existing call sites readable while routing wizard feedback through the kit.
+  const successConfirmation = (message: string, title?: string) => alertDialog({
+    icon: "success",
+    title: title ?? message,
+    ...(title ? { text: message } : {}),
+  });
+  const errorConfirmation = (message: string) => {
+    const isHtml = /<[a-z][\s\S]*>/i.test(message || "");
+    return alertDialog({
+      icon: "error",
+      title: isHtml ? "Error" : message,
+      ...(isHtml ? { html: message } : {}),
+    });
+  };
 
   // Section "required to visit" — sections with no field-level requirement of their own
   // (e.g. Leave Settings) but that must still be opened at least once before the step
@@ -1430,69 +1380,14 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     }
   };
 
-  const loadStepper = () => {
-    const createdStepper = StepperComponent.createInsance(stepperRef.current as HTMLDivElement);
-    if (!createdStepper) return;
-    setStepper(createdStepper);
-    setActiveStepIndex(createdStepper.currentStepIndex);
-  };
-
-  const scrollWizardToTop = () => {
-    window.requestAnimationFrame(() => {
-      modalBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-      stepperRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  };
-
   // Section-aware Back: within a step, Back walks to the PREVIOUS SECTION first (mirroring how
   // Continue walks forward section-by-section) and only drops to the previous top-level step
   // once there's no earlier section left in the current one — otherwise Back from e.g. Hiring
   // Info inside "Company Details" jumped straight to "Personal Details" instead of Contact Info.
-  const prevStep = () => {
-    const currentStepSections = STEP_SECTIONS[activeStepIndex] ?? [];
-    const sectionIdx = currentStepSections.indexOf(activeSection);
-    if (sectionIdx > 0) {
-      changeSection(currentStepSections[sectionIdx - 1]);
-      scrollWizardToTop();
-      return;
-    }
-
-    if (activeStepIndex <= 1) return;
-    let targetStep: number;
-    if (stepper) {
-      stepper.goPrev();
-      targetStep = stepper.currentStepIndex;
-    } else {
-      targetStep = activeStepIndex - 1;
-    }
-    setActiveStepIndex(targetStep);
-    setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
-    // Land on the target step's LAST section, so Back lands exactly where Continue would have
-    // come from.
-    const targetSections = STEP_SECTIONS[targetStep] ?? ["personal-info"];
-    changeSection(targetSections[targetSections.length - 1]);
-    scrollWizardToTop();
-  };
-
   // Advance to the next top-level step WITHOUT going through Formik's validation gate — used by
   // the edit-mode Continue buttons, where an existing record may legitimately not satisfy
   // newly-added requirements and must not be trapped on a step. New-employee onboarding keeps the
   // validation-gated `type="submit"` path so it stays strictly guided.
-  const advanceToNextStep = () => {
-    let targetStep: number;
-    if (stepper) {
-      stepper.goNext();
-      targetStep = stepper.currentStepIndex;
-    } else {
-      targetStep = activeStepIndex + 1;
-    }
-    setActiveStepIndex(targetStep);
-    setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
-    setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
-    formikRef.current?.setTouched({});
-    scrollWizardToTop();
-  };
-
   const updateWizardData = async (values: any) => {
     // Leaving (exit date added/changed, or switched to inactive) → offer to end their projects
     // on that date. The backend does it by default; "No" sends applyExitToProjects=false.
@@ -1638,7 +1533,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       // Always send avatar (even when empty) so removing the photo persists —
       // a guarded `...(avatar && {avatar})` would silently keep the old image.
       avatar: values.avatar || "", id: employeeId, userId, dateOfJoining, ctcInLpa,
-      gender: parseInt(gender), designationId, branchId,
+      gender: normalizeEmployeeGender(gender), designationId, branchId,
       isActive: isEmployeeActive === "1",
       ...(employeeTypeId && { employeeTypeId }),
       ...(employeeTypeConfigId && { employeeTypeConfigId }),
@@ -1728,9 +1623,10 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
     try {
       await Promise.all(reqPromise.map((fn) => fn()));
-      await successConfirmation("Employee data updated successfully.");
+      await successConfirmation("Employee data updated.");
       // Same destination as Cancel — a save and an abandon from the same screen
       // should not land in two different places.
+      closeAfterSuccessfulSaveRef.current = true;
       handleClose();
     } catch (error: any) {
       let errMessage = "Something went wrong. Please try again with required fields filled with correct values.";
@@ -1899,7 +1795,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
             "Onboarded, with one issue",
           );
         } else {
-          successConfirmation("Successfully onboarded an employee");
+          successConfirmation("Onboarded an employee.");
         }
         // Order matters: latch BEFORE clearing, so the unmount flush that `handleClose()`
         // is about to trigger cannot write the finished values back into the slot.
@@ -1908,6 +1804,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
         actions.resetForm();
         // Onboarding is done — return to the list rather than leaving a reset
         // form parked on the last step with no indication anything happened.
+        closeAfterSuccessfulSaveRef.current = true;
         handleClose();
       } catch (error) {
         console.error("Submission error:", error);
@@ -1954,68 +1851,6 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
     if (!error?.response) errorConfirmation("A network error occurred. Please check your internet connection and try again.");
   };
 
-  useEffect(() => {
-    if (!stepperRef.current) return;
-    loadStepper();
-  }, [stepperRef]);
-
-  useEffect(() => {
-    setCurrentSchema(newEmployeeWizardSchema[activeStepIndex - 1]);
-  }, [activeStepIndex]);
-
-  // Sidebar nav click handler
-  useEffect(() => {
-    if (!stepper || !stepperRef.current) return;
-    const navItems = Array.from(stepperRef.current.querySelectorAll('[data-kt-stepper-element="nav"]')) as HTMLElement[];
-    const handlers: Array<(e: Event) => void> = [];
-
-    navItems.forEach((item, index) => {
-      const targetStep = index + 1;
-      const handler = (e: Event) => {
-        const currentIndex = stepper.currentStepIndex;
-        if (targetStep === currentIndex) { e.stopImmediatePropagation(); return; }
-        if (targetStep < currentIndex) {
-          e.stopImmediatePropagation();
-          stepper.goto(targetStep);
-          setActiveStepIndex(targetStep);
-          setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
-          setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
-          scrollWizardToTop(); return;
-        }
-        e.stopImmediatePropagation();
-        if (!formikRef.current) return;
-        formikRef.current.validateForm().then((errors: any) => {
-          if (Object.keys(errors).length === 0) {
-            stepper.goto(targetStep);
-            setActiveStepIndex(targetStep);
-            setCurrentSchema(newEmployeeWizardSchema[targetStep - 1]);
-            // Also land on the new step's first section immediately (the backward-jump branch
-            // above already does this). Without it, activeSection stays on the previous step's
-            // section for a frame, which is exactly the out-of-sync state that made Continue
-            // behave like a step-submit and skip sections.
-            setActiveSection((STEP_SECTIONS[targetStep] ?? ["personal-info"])[0]);
-            scrollWizardToTop();
-          } else {
-            const touchedObj: Record<string, boolean> = {};
-            const flatten = (obj: any, prefix = "") => {
-              for (const key of Object.keys(obj)) {
-                const path = prefix ? `${prefix}.${key}` : key;
-                if (obj[key] && typeof obj[key] === "object" && !Array.isArray(obj[key])) flatten(obj[key], path);
-                else touchedObj[path] = true;
-              }
-            };
-            flatten(errors);
-            formikRef.current.setTouched(touchedObj, false);
-          }
-        });
-      };
-      item.addEventListener("click", handler, { capture: true });
-      handlers.push(handler);
-    });
-
-    return () => { navItems.forEach((item, idx) => item.removeEventListener("click", handlers[idx], { capture: true })); };
-  }, [stepper]);
-
   // Edit mode data load
   useEffect(() => {
     if (!editMode) return;
@@ -2041,7 +1876,7 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
       }
 
       const newState = {
-        ...initialState, ...wizardData, method: "0",
+        ...initialState, ...wizardData, method: "0", gender: normalizeEmployeeGender(wizardData?.gender),
         educationalInfo: withDefaultEducationInfo(wizardData?.educationalInfo),
         familyInfo: withDefaultFamilyInfo(wizardData?.familyInfo),
         workExpInfo: withDefaultWorkExpInfo(wizardData?.workExpInfo),
@@ -2128,6 +1963,16 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
    * return path replaces the wizard entry rather than stacking on top of it.
    */
   const handleClose = () => {
+    if (!closeAfterSuccessfulSaveRef.current && formikRef.current?.dirty) {
+      setDiscardOpen(true);
+      return;
+    }
+    closeWizard();
+  };
+
+  const closeWizard = () => {
+    setDiscardOpen(false);
+    closeAfterSuccessfulSaveRef.current = false;
     setShow(false);
     if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
     else navigate(returnPath, { replace: true });
@@ -2135,36 +1980,13 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
 
   return (
     <>
-    <Modal
-      show={show}
-      onHide={handleClose}
-      fullscreen
-      /**
-       * Nested MUI dialogs (the photo editor, confirm/alert dialogs, pickers) render
-       * in a portal on <body>, which this modal does not contain. With the default
-       * focus enforcement, react-bootstrap pulls focus back here as soon as anything
-       * inside one of those portals is focused — so a slider thumb never keeps focus
-       * and its arrow keys silently do nothing. The trap buys little on a fullscreen
-       * modal that already covers the app; correct keyboard control inside the
-       * dialogs it opens is worth more.
-       */
-      enforceFocus={false}
-      dialogClassName="responsive-modal"
-      className="responsive-modal wt-wizard-modal onboarding-wizard-modal"
+    <WtWizardDialog title={editMode ? "Edit Employee" : "Employee Onboarding"} subtitle={editMode ? "Update this employee's profile, employment terms and documents" : "Capture the new joiner's profile, employment terms and documents"} icon="profile-circle" closeGuard="host"
+      open={show}
+      onClose={handleClose}
+      closeLabel="Close onboarding"
+      bodyRef={modalBodyRef}
+      className="onboarding-wizard-modal"
     >
-      <div className="ob-wizard-shell">
-        {/* EnterpriseFormWizard reserves space at the right of its header for this
-            button but does not render it — the host modal owns it. */}
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label="Close onboarding"
-          className="ob-wizard-close"
-        >
-          <KTIcon iconName="cross" className="fs-2" />
-        </button>
-
-        <Modal.Body ref={modalBodyRef} style={{ padding: 0, height: "100%", overflow: "hidden" }}>
           <Formik
             initialValues={defaultState}
             validationSchema={onboardingSchema}
@@ -2196,40 +2018,37 @@ function NewEmployeeWizard({ editMode, openModal }: any) {
                   {/* Draft-restored notice (create mode only). Floated over the
                       wizard so it never disturbs the sticky header/footer layout. */}
                   {!editMode && showDraftNotice && (
-                    <div className="ob-draft-notice" role="status">
-                      <AppIcon name="bi-clock-history" className="ob-draft-notice-icon" aria-hidden />
-                      <span className="ob-draft-notice-text">
-                        Restored your unsaved draft — pick up where you left off.
-                        <span className="ob-draft-notice-sub">
-                          Your profile photo was kept. Document uploads aren&apos;t saved and may need re-attaching.
-                        </span>
-                      </span>
-                      <button type="button" className="ob-draft-notice-discard" onClick={discardDraft}>
-                        Discard &amp; start fresh
-                      </button>
-                      <button
-                        type="button"
-                        className="ob-draft-notice-close"
-                        aria-label="Dismiss"
-                        onClick={() => setShowDraftNotice(false)}
-                      >
-                        <KTIcon iconName="cross" className="fs-5" />
-                      </button>
-                    </div>
+                    <Box sx={{ position: 'absolute', bottom: { xs: 112, sm: 88 }, left: 16, right: 16, maxWidth: 780, mx: 'auto', zIndex: 4 }}>
+                      <InlineNotice role="status">
+                        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <Box sx={{ flex: 1, minWidth: 180 }}>
+                            Restored your unsaved draft — pick up where you left off.
+                            <Box sx={{ fontSize: 12, mt: 0.5 }}>Your profile photo was kept. Document uploads may need re-attaching.</Box>
+                          </Box>
+                          <WtButton ghost onClick={discardDraft}>Discard &amp; start fresh</WtButton>
+                          <WtIconButton title="Dismiss draft notice" onClick={() => setShowDraftNotice(false)}><AppIcon name="cross" /></WtIconButton>
+                        </Box>
+                      </InlineNotice>
+                    </Box>
                   )}
                 </Form>
               );
             }}
           </Formik>
-        </Modal.Body>
-      </div>
-    </Modal>
+    </WtWizardDialog>
     <ManagerHandoverDialog
       open={!!handover}
       employeeId={handover?.employeeId ?? ""}
       employeeName={handover?.name ?? ""}
       projects={handover?.projects ?? []}
       onDone={(r) => { handover?.resolve(r); setHandover(null); }}
+    />
+    <ConfirmDiscardDialog
+      open={discardOpen}
+      title={editMode ? "Discard employee changes?" : "Leave onboarding?"}
+      message="Your unsaved changes will be lost."
+      onKeepEditing={() => setDiscardOpen(false)}
+      onDiscard={closeWizard}
     />
     </>
   );

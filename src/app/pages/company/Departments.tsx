@@ -169,14 +169,14 @@ function Departments() {
 
             if (editMode) {
                 await updateDepartmentById(departmentId, values);
-                successConfirmation('Department updated successfully');
+                successConfirmation('Department updated.');
                 setShow(false);
                 setEditMode(false);
                 await fetchData();
             } else {
                 const payload = [{ ...values, isActive: true }];
                 await createNewDepartment(payload);
-                successConfirmation('Department created successfully');
+                successConfirmation('Department created.');
                 setShow(false);
                 await fetchData();
             }

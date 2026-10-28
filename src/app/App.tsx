@@ -9,14 +9,18 @@ import { RootState, AppDispatch } from '@redux/store'
 import { setUserId, loadTimerStateThunk } from '@redux/slices/timer'
 import GlobalTimerModal from '../components/GlobalTimerModal';
 import { IdleLogoutGuard } from './components/IdleLogoutGuard';
+import { SecurityPinHost } from '@app/modules/common/components/SecurityPin';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { fetchColorAndStoreInSlice } from '@utils/file';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { Toaster } from 'sonner';
 import { ColorModeProvider } from '@app/theme/ColorMode';
 import { GlassToastProvider } from '@app/modules/common/components/ui';
+import { DialogServiceHost } from '@app/modules/common/components/ui/dialogService';
+import { UnsavedChangesProvider } from '@app/modules/common/components/ui/UnsavedChangesProvider';
 import { useTimeFormat } from '@hooks/useTimeFormat';
 import { useCurrencyCode } from '@hooks/useCurrency';
+import { PwaHost } from './pwa/PwaHost';
 // import { MaintenancePage } from './modules/errors/MaintenancePage';
 // import { NoInternetPage } from './modules/errors/NoInternetPage';
 
@@ -207,15 +211,25 @@ const App = () => {
                   No CssBaseline so Metronic/Bootstrap global styles stay intact. */}
               <ColorModeProvider>
                 <GlassToastProvider>
-                  <Outlet key={`${timeFormat}:${currency}`} />
+                  <UnsavedChangesProvider>
+                    <Outlet key={`${timeFormat}:${currency}`} />
+                  </UnsavedChangesProvider>
                   <MasterInit />
                   <Toaster richColors position="top-right" />
+                  <PwaHost />
+                  {/* The one imperative dialog (showDialog / confirmDialog / utils/modal helpers).
+                      Mounted for signed-out screens too — login errors use it. */}
+                  <DialogServiceHost />
 
                   {/* Global Timer Modal - only render when authenticated */}
                   {isAuthenticated && <GlobalTimerModal />}
 
                   {/* Idle logout guard - monitors inactivity and exit dates */}
                   {isAuthenticated && <IdleLogoutGuard />}
+
+                  {/* Security PIN: fallback unlock dialog for protected calls made outside a
+                      protected page, and idle re-lock. */}
+                  {isAuthenticated && <SecurityPinHost />}
                 </GlassToastProvider>
               </ColorModeProvider>
             </ThemeModeProvider>

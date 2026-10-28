@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Modal } from "react-bootstrap";
+
+import { UnsavedChangesModal as Modal, WtChoiceField } from "@app/modules/common/components/ui";
 import { Formik, Form as FormikForm, useFormikContext } from "formik";
 import * as Yup from "yup";
 import { fetchWizardData, updateEmployee, fetchAllEmployees, saveEmployeeAccessSettings } from "@services/employee";
 import { fetchRoles } from "@services/roles";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
-import RadioInput from "@app/modules/common/inputs/RadioInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import AppRoleField from "@pages/employee/wizard/forms/AppRoleField";
@@ -81,31 +81,16 @@ function GeneralSettings() {
     return (
         <div className="row g-4">
             <div className="col-sm-6">
-                <RadioInput
-                    formikField="isAdmin"
-                    inputLabel="Show App Settings"
-                    radioBtns={[{ label: "Yes", value: "1" }, { label: "No", value: "0" }]}
-                    isRequired={false}
-                />
+                <WtChoiceField name="isAdmin" label="Show App Settings" variant="switch" />
             </div>
             <div className="col-sm-6">
-                <RadioInput
-                    formikField="allowOverTime"
-                    inputLabel="Allow Overtime"
-                    radioBtns={[{ label: "Yes", value: "1" }, { label: "No", value: "0" }]}
-                    isRequired={false}
-                />
+                <WtChoiceField name="allowOverTime" label="Allow Overtime" variant="switch" />
             </div>
             {/* Escape hatch for the company-wide "Require Approval for Site & Hybrid Attendance"
                 setting (Attendance Settings). Yes = this employee's On-site/Hybrid punches are
                 marked immediately and never enter the approval queue. */}
             <div className="col-sm-6">
-                <RadioInput
-                    formikField="exemptFromSiteHybridApproval"
-                    inputLabel="Exempt from Site & Hybrid Attendance Approval"
-                    radioBtns={[{ label: "Yes", value: "1" }, { label: "No", value: "0" }]}
-                    isRequired={false}
-                />
+                <WtChoiceField name="exemptFromSiteHybridApproval" label="Exempt from Site & Hybrid Attendance Approval" variant="switch" />
             </div>
         </div>
     );
@@ -194,28 +179,18 @@ function FinancialSection() {
             </div>
             <div className="row g-4">
                 <div className="col-sm-6 col-md-4">
-                    <RadioInput
-                        formikField="professionalFeesEnabled"
-                        inputLabel="Employee Type"
-                        radioBtns={[
-                            { label: "Contract Based", value: "true" },
-                            { label: "Salary Based", value: "false" },
-                        ]}
-                        isRequired={false}
-                    />
+                    <WtChoiceField name="professionalFeesEnabled" label="Employee Type" variant="cards" options={[
+                        { label: "Contract Based", value: "true" },
+                        { label: "Salary Based", value: "false" },
+                    ]} />
                 </div>
                 {pfEnabled && (
                     <>
                         <div className="col-sm-6 col-md-4">
-                            <RadioInput
-                                formikField="professionalFeesType"
-                                inputLabel="Type"
-                                radioBtns={[
-                                    { label: "Fixed", value: "FIXED" },
-                                    { label: "Percentage", value: "PERCENTAGE" },
-                                ]}
-                                isRequired={false}
-                            />
+                            <WtChoiceField name="professionalFeesType" label="Type" variant="segmented" options={[
+                                { label: "Fixed", value: "FIXED" },
+                                { label: "Percentage", value: "PERCENTAGE" },
+                            ]} />
                         </div>
                         <div className="col-sm-6 col-md-4">
                             {pfType === "PERCENTAGE" ? (
@@ -232,28 +207,15 @@ function FinancialSection() {
             <div className="separator separator-dashed my-6" />
             <div className="row g-4">
                 <div className="col-sm-6 col-md-4">
-                    <RadioInput
-                        formikField="tds2Enabled"
-                        inputLabel={tds2Label}
-                        radioBtns={[
-                            { label: "Enabled", value: "true" },
-                            { label: "Disabled", value: "false" },
-                        ]}
-                        isRequired={false}
-                    />
+                    <WtChoiceField name="tds2Enabled" label={tds2Label} variant="switch" clearRevealOnDisable clearOnDisable={["tds2Type", "tds2Amount", "tds2Percentage"]} />
                 </div>
                 {tds2Enabled && (
                     <>
                         <div className="col-sm-6 col-md-4">
-                            <RadioInput
-                                formikField="tds2Type"
-                                inputLabel={`${tds2ShortLabel} Type`}
-                                radioBtns={[
-                                    { label: "Fixed", value: "FIXED" },
-                                    { label: "Percentage", value: "PERCENTAGE" },
-                                ]}
-                                isRequired={false}
-                            />
+                            <WtChoiceField name="tds2Type" label={`${tds2ShortLabel} Type`} variant="segmented" options={[
+                                { label: "Fixed", value: "FIXED" },
+                                { label: "Percentage", value: "PERCENTAGE" },
+                            ]} />
                         </div>
                         <div className="col-sm-6 col-md-4">
                             {tds2Type === "PERCENTAGE" ? (
@@ -270,15 +232,7 @@ function FinancialSection() {
             <div className="separator separator-dashed my-6" />
             <div className="row g-4">
                 <div className="col-sm-6 col-md-4">
-                    <RadioInput
-                        formikField="retentionEnabled"
-                        inputLabel="Retention (Fresher Bond)"
-                        radioBtns={[
-                            { label: "Enabled", value: "true" },
-                            { label: "Disabled", value: "false" },
-                        ]}
-                        isRequired={false}
-                    />
+                    <WtChoiceField name="retentionEnabled" label="Retention (Fresher Bond)" variant="switch" clearRevealOnDisable clearOnDisable={["retentionType", "retentionAmount", "retentionPercentage", "retentionStartDate", "retentionEndDate"]} />
                 </div>
                 {retentionEnabled && (
                     <>
@@ -302,15 +256,10 @@ function FinancialSection() {
                             />
                         </div>
                         <div className="col-sm-6 col-md-4">
-                            <RadioInput
-                                formikField="retentionType"
-                                inputLabel="Retention Type"
-                                radioBtns={[
-                                    { label: "Fixed", value: "FIXED" },
-                                    { label: "Percentage", value: "PERCENTAGE" },
-                                ]}
-                                isRequired={false}
-                            />
+                            <WtChoiceField name="retentionType" label="Retention Type" variant="segmented" options={[
+                                { label: "Fixed", value: "FIXED" },
+                                { label: "Percentage", value: "PERCENTAGE" },
+                            ]} />
                         </div>
                         <div className="col-sm-6 col-md-4">
                             {retentionType === "PERCENTAGE" ? (
@@ -330,12 +279,7 @@ function AccessSection({ employeeId, roleOptions }: { employeeId: string; roleOp
     return (
         <div className="row g-4">
             <div className="col-sm-6">
-                <RadioInput
-                    inputLabel="Is Employee Active"
-                    isRequired={false}
-                    radioBtns={[{ label: "Yes", value: "1" }, { label: "No", value: "0" }]}
-                    formikField="isEmployeeActive"
-                />
+                <WtChoiceField name="isEmployeeActive" label="Is Employee Active" variant="switch" />
             </div>
             <div className="col-sm-6">
                 <AppRoleField employeeId={employeeId} roles={roleOptions} isRequired={false} />
@@ -359,8 +303,6 @@ function ReimbursementSection() {
 }
 
 function PrivacySection() {
-    const { values, setFieldValue } = useFormikContext<any>();
-    const isHidden = values.isHiddenFromStaff === true;
     return (
         <div className="d-flex align-items-start justify-content-between gap-4">
             <div className="flex-grow-1">
@@ -370,18 +312,7 @@ function PrivacySection() {
                 </div>
             </div>
             <div className="flex-shrink-0 pt-1 text-center">
-                <div className="form-check form-switch form-check-custom form-check-solid">
-                    <input
-                        className="form-check-input"
-                        type="checkbox"
-                        checked={isHidden}
-                        onChange={() => setFieldValue("isHiddenFromStaff", !isHidden)}
-                        style={{ width: "3rem", height: "1.5rem", cursor: "pointer" }}
-                    />
-                </div>
-                <span className={`badge mt-1 ${isHidden ? "badge-light-danger" : "badge-light-success"} fs-8 fw-bold`}>
-                    {isHidden ? "Hidden" : "Visible"}
-                </span>
+                <WtChoiceField name="isHiddenFromStaff" label="Hide From Staff Directory" variant="switch" />
             </div>
         </div>
     );
@@ -665,7 +596,7 @@ const AppSettingsModal: React.FC<AppSettingsModalProps> = ({ show, onClose, onSu
             // the employee payload lands, same order the onboarding wizard uses. Shared
             // helper so both screens agree on what a valid chain is.
             await persistApprovalChains(values.approvalChains, employeeId);
-            successConfirmation("Settings saved successfully");
+            successConfirmation("Settings saved.");
             if (onSuccess) onSuccess();
             onClose();
         } catch (err: any) {

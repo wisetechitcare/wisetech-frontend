@@ -101,6 +101,10 @@ module.exports = {
             name: 'react-select/creatable',
             message: 'Use WtSelect (isCreatable) via a kit adapter — not react-select/creatable from a feature file.',
           },
+          {
+            name: '@app/modules/common/inputs/RadioInput',
+            message: 'Use WtChoiceField from @app/modules/common/components/ui. RadioInput is deprecated for new feature work.',
+          },
         ],
       },
     ],
@@ -229,6 +233,29 @@ module.exports = {
         selector: "Property[key.name=/^(icon|iconName)$/] > Literal[value='dollar']",
         message: 'The `dollar` keenicon is a currency-specific glyph. For a category icon use `wallet`; for an AMOUNT use <CurrencySymbol />.',
       },
+      /* Raw backdrop-filter. A hand-written blur ignores the Interface Style setting
+       * (Glass / Material): a Material user still gets frosted glass, and the GPU cost of a
+       * blur behind every card lands on the low-end machines Material exists for. The kit
+       * (glassSx / GlassSurface / GlassDialog) reads the setting, so blur belongs there.
+       * Four shapes: sx/style keys (camelCase and quoted CSS name), a template-literal CSS
+       * string, and the Tailwind `backdrop-blur*` utility. Turning blur OFF (`'none'`,
+       * `backdrop-blur-none`) is not the bug and is left alone. */
+      {
+        selector: "Property[key.name=/^(backdropFilter|WebkitBackdropFilter)$/]:not([value.value='none'])",
+        message: 'Raw backdrop-filter. Use glassSx / GlassSurface / GlassDialog from the UI kit — they follow the Interface Style (Glass/Material) setting.',
+      },
+      {
+        selector: "Property[key.value=/^(-webkit-)?backdrop-filter$/]:not([value.value='none'])",
+        message: 'Raw backdrop-filter. Use glassSx / GlassSurface / GlassDialog from the UI kit — they follow the Interface Style (Glass/Material) setting.',
+      },
+      {
+        selector: "TemplateElement[value.raw=/backdrop-filter\\s*:(?!\\s*none\\b)/]",
+        message: 'Raw backdrop-filter. Use glassSx / GlassSurface / GlassDialog from the UI kit — they follow the Interface Style (Glass/Material) setting.',
+      },
+      {
+        selector: "JSXAttribute[name.name='className'] Literal[value=/(^|\\s)backdrop-blur(?!-none\\b)/]",
+        message: 'Raw backdrop-filter. Use glassSx / GlassSurface / GlassDialog from the UI kit — they follow the Interface Style (Glass/Material) setting.',
+      },
     ],
   },
   overrides: [
@@ -267,11 +294,11 @@ module.exports = {
             paths: [
               {
                 name: 'react-select',
-                message: 'Migrate to WtField / WtFieldFormik / MultiSelectWithInlineCreate / WtSelect adapter.',
+                message: 'Migrate to WtField / WtFieldFormik / MultiSelectWithInlineCreate / WtSelect adapter. See summary/audits/SELECT_KIT_360_2026-10-15.md Wave 4.',
               },
               {
                 name: 'react-select/creatable',
-                message: 'Migrate to WtSelect (isCreatable) via a kit adapter.',
+                message: 'Migrate to WtSelect (isCreatable) via a kit adapter. See summary/audits/SELECT_KIT_360_2026-10-15.md Wave 4.',
               },
             ],
           },
@@ -346,6 +373,23 @@ module.exports = {
         'src/utils/modal.ts',
       ],
       rules: { 'no-restricted-imports': 'warn' },
+    },
+    {
+      /* These legacy surfaces now use WtChoiceField; their unrelated Bootstrap chrome remains a separate debt wave. */
+      files: [
+        'src/app/modules/accounts/components/settings/cards/ProfileDetails.tsx',
+        'src/app/pages/employee/loans/admin/views/KPISettings.tsx',
+        'src/app/pages/employee/loans/personal/components/LoanApplicationForm.tsx',
+      ],
+      rules: { 'no-restricted-syntax': 'warn' },
+    },
+    {
+      /* These choice migrations are complete; the remaining modal chrome is a separate UI debt. */
+      files: [
+        'src/app/pages/employee/components/AppSettingsModal.tsx',
+        'src/app/pages/employee/wizard/steps/StepAppSettings.tsx',
+      ],
+      rules: { 'no-restricted-syntax': 'warn' },
     },
     {
       /* India's professional-tax slabs. These rupee amounts are set by statute — they do

@@ -1,6 +1,6 @@
 import { safeJsonParse } from '@utils/safeJson';
 import React, { useState, useEffect } from 'react';
-import { Card, Modal } from 'react-bootstrap';
+import { Card } from 'react-bootstrap';
 import { fetchDayWiseShifts } from '@services/dayWiseShift';
 import { fetchConfiguration, fetchCompanyOverview } from '@services/company';
 import {
@@ -13,7 +13,7 @@ import { onSiteAndHolidayWeekendSettingsOnOffName } from '@constants/statistics'
 import Loader from '@app/modules/common/utils/Loader';
 import DailyShiftTimeSection from './DailyShiftTimeSection';
 import OtherSettingsSection from './OtherSettingsSection';
-import { fetchCompanySettings } from '@services/options';
+import { fetchMyCheckInGeofence } from '@services/options';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface DayWiseShiftData {
@@ -41,7 +41,8 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
   // Other attendance settings
   const [enableLunchDeduction, setEnableLunchDeduction] = useState<boolean>(false);
   const [onSiteHolidayWeekendSettings, setOnSiteHolidayWeekendSettings] = useState<boolean>(false);
-  const [allowedDistance, setAllowedDistance] = useState<number>(100);
+  /** The office check-in radius THIS employee is held to (their branch, else their org). Null = no limit. */
+  const [allowedDistance, setAllowedDistance] = useState<number | null>(null);
   const [restrictAttendanceRequestDays, setRestrictAttendanceRequestDays] = useState<number>(10);
   const [showDataUpToToday, setShowDataUpToToday] = useState<boolean>(false);
   
@@ -57,7 +58,7 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
           leaveManagementConfigRes,
           restrictConfigRes,
           dateConfigRes,
-          companySettingsRes,
+          myGeofenceRes,
           companyOverviewRes
         ] = await Promise.all([
           fetchDayWiseShifts(),
@@ -65,7 +66,7 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
           fetchConfiguration(LEAVE_MANAGEMENT),
           fetchConfiguration(RESTRICT_ATTENDANCE_TO_7_DAYS_KEY),
           fetchConfiguration(DATE_SETTINGS_KEY),
-          fetchCompanySettings(),
+          fetchMyCheckInGeofence().catch(() => null),
           fetchCompanyOverview()
         ]);
 
@@ -132,10 +133,8 @@ const AttendanceSection: React.FC<AttendanceSectionProps> = ({ sectionRef }) => 
         const dateSettingsEnabled = dateConfig?.useDateSettings ?? false;
         setShowDataUpToToday(dateSettingsEnabled);
 
-        // Get allowed distance from company settings
-        const appSettings = companySettingsRes?.data?.appSettings;
-        const allowedDistance = appSettings?.distanceAllowedInMeters || 100;
-        setAllowedDistance(allowedDistance);
+        // The radius this employee is actually held to — the same value the server enforces.
+        setAllowedDistance(myGeofenceRes?.radiusMeters ?? null);
 
       } catch (error) {
         console.error('[AttendanceSection] Error loading data:', error);

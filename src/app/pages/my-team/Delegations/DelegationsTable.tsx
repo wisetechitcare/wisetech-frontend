@@ -3,7 +3,7 @@ import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { usePermission } from '@hooks/usePermission';
 import { KTIcon } from '@metronic/helpers';
-import { Modal } from 'react-bootstrap';
+
 import {
   fetchDelegations,
   createApprovalDelegation,
@@ -13,6 +13,7 @@ import {
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
+import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 
 type EmployeeOption = { id: string; name: string; employeeCode?: string | null };
 
@@ -82,7 +83,7 @@ function CreateDelegationModal({ show, employees, onClose, onCreated }: CreateMo
     setSubmitting(true);
     try {
       await createApprovalDelegation({ originalApproverId: originalId, delegateToId: delegateId, startDate, endDate, reason: reason || undefined });
-      successConfirmation('Delegation has been created successfully.', 'Created!');
+      successConfirmation('Delegation has been created.', 'Created!');
       onCreated();
       onClose();
     } catch (err: any) {
@@ -198,7 +199,7 @@ function CreateDelegationModal({ show, employees, onClose, onCreated }: CreateMo
         </div>
       </Modal.Body>
       <Modal.Footer style={{ gap: 8 }}>
-        <button className='btn btn-sm btn-light' onClick={onClose} disabled={submitting}>
+        <button className='btn btn-sm btn-light' data-unsaved-changes-close onClick={onClose} disabled={submitting}>
           Cancel
         </button>
         <button
@@ -321,15 +322,15 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
         const now = new Date();
         const inWindow = new Date(d.startDate) <= now && now <= new Date(d.endDate);
         if (!d.isActive) {
-          return <span className='badge badge-light-danger fw-semibold fs-8'>Cancelled</span>;
+          return <ToneChip dense tone='danger' label='Cancelled' />;
         }
         if (inWindow) {
-          return <span className='badge badge-light-success fw-semibold fs-8'>Active</span>;
+          return <ToneChip dense tone='success' label='Active' />;
         }
         if (new Date(d.startDate) > now) {
-          return <span className='badge badge-light-info fw-semibold fs-8'>Upcoming</span>;
+          return <ToneChip dense tone='cyan' label='Upcoming' />;
         }
-        return <span className='badge badge-light-warning fw-semibold fs-8'>Expired</span>;
+        return <ToneChip dense tone='warning' label='Expired' />;
       },
     },
     {

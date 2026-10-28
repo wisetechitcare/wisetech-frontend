@@ -4,6 +4,7 @@ import AnalyticsHeader from "./AnalyticsHeader";
 import { toneColor } from "./leadAnalyticsUtils";
 import { YearlyInsight } from "./yearlyAnalyticsUtils";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { AutoGrid } from '@app/modules/common/components/ui';
 
 interface YearlyInsightsPanelProps {
   insights: YearlyInsight[];
@@ -25,13 +26,7 @@ const YearlyInsightsPanel: React.FC<YearlyInsightsPanelProps> = ({ insights }) =
         icon="bi-stars"
         accent="#F59E0B"
       />
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: 14,
-        }}
-      >
+      <AutoGrid min={280} stretch gap={14}>
         {insights.map((ins, i) => {
           const c = toneColor(ins.tone);
           return (
@@ -81,7 +76,7 @@ const YearlyInsightsPanel: React.FC<YearlyInsightsPanelProps> = ({ insights }) =
             </motion.div>
           );
         })}
-      </div>
+      </AutoGrid>
     </section>
   );
 };

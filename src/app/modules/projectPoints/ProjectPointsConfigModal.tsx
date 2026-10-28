@@ -1,6 +1,6 @@
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import React, { useEffect, useState } from "react";
-import Swal from "sweetalert2";
+import { alertDialog } from "@app/modules/common/components/ui/feedback";
 import {
     createProjectPointMaster,
     updateProjectPointMaster,
@@ -61,7 +61,7 @@ const ProjectPointsConfigModal: React.FC<ProjectPointsConfigModalProps> = ({
 
     const submit = async () => {
         if (!form.title.trim()) {
-            Swal.fire({ icon: "warning", title: "Name required", text: "Project Point Name is required.", confirmButtonColor: PRIMARY });
+            alertDialog({ icon: "warning", title: "Name required", text: "Project Point Name is required." });
             return;
         }
         try {
@@ -76,7 +76,7 @@ const ProjectPointsConfigModal: React.FC<ProjectPointsConfigModalProps> = ({
             onClose();
         } catch (e) {
             console.error("Failed to save project point master:", e);
-            Swal.fire({ icon: "error", title: "Save failed", text: "Could not save the project point.", confirmButtonColor: PRIMARY });
+            alertDialog({ icon: "error", title: "Save failed", text: "Could not save the project point." });
         } finally {
             setSaving(false);
         }

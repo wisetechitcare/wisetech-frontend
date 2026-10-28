@@ -1,4 +1,4 @@
-import { KTIcon } from "@metronic/helpers";
+import { AppIcon } from "@app/modules/common/components/ui";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import ObSectionsSidebar, { type ObSectionItem, type ObSidebarProfile } from "./ObSectionsSidebar";
@@ -32,7 +32,7 @@ function WizardSectionCard({
     >
       <div className="ob-section-header ob-section-header-static">
         <span className="ob-section-icon-wrap">
-          <KTIcon iconName={section.icon} className="fs-3" />
+          <AppIcon name={section.icon} className="fs-3" aria-hidden />
         </span>
         <span className="flex-grow-1 text-start">
           <span className="ob-section-header-title d-block">{section.title}</span>

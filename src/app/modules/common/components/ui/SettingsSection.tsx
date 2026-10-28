@@ -1,9 +1,8 @@
 import React from 'react';
-import { Box, Stack } from '@mui/material';
+import { Box, Chip, Stack, Typography } from '@mui/material';
 import { GlassSurface } from './glass';
 import { IconBox, type Trio } from './patterns';
 import { toTitleCase, HEADING_CASE_SX } from './text';
-import { Typography } from '@mui/material';
 
 /**
  * SettingsSection — the accent-topped configuration card.
@@ -35,7 +34,12 @@ export interface SettingsSectionProps {
     icon: string;
     title: string;
     description?: string;
-    /** Right-aligned control: a WtSwitch, a WtButton, a count, a StatusBadge. */
+    /**
+     * Optional count chip beside the title (rule lists, FAQ groups).
+     * Prefer this over inventing a local Chip in the title row.
+     */
+    count?: number | string;
+    /** Right-aligned control: a WtSwitch, a WtButton, a StatusBadge. */
     action?: React.ReactNode;
     /** Divider between header and body. Default true; false for a bare frame. */
     divided?: boolean;
@@ -45,7 +49,7 @@ export interface SettingsSectionProps {
 }
 
 export function SettingsSection({
-    tone, icon, title, description, action, divided = true, children, sx,
+    tone, icon, title, description, count, action, divided = true, children, sx,
 }: SettingsSectionProps) {
     return (
         <GlassSurface
@@ -67,9 +71,26 @@ export function SettingsSection({
                 <IconBox icon={icon} trio={tone} size={36} fs="fs-3" />
 
                 <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.25, ...HEADING_CASE_SX }}>
-                        {toTitleCase(title)}
-                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ rowGap: 0.5 }}>
+                        <Typography sx={{ fontSize: 15, fontWeight: 700, color: 'text.primary', lineHeight: 1.25, ...HEADING_CASE_SX }}>
+                            {toTitleCase(title)}
+                        </Typography>
+                        {count != null && (
+                            <Chip
+                                size="small"
+                                label={count}
+                                sx={{
+                                    height: 20,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: tone.c,
+                                    bgcolor: tone.bg,
+                                    border: `1px solid ${tone.bd}`,
+                                    '& .MuiChip-label': { px: 1 },
+                                }}
+                            />
+                        )}
+                    </Stack>
                     {description && (
                         <Typography sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.5, mt: 0.25 }}>
                             {description}

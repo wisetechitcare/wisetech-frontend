@@ -11,6 +11,30 @@ export const AUTH = {
 
 // Recruitment / ATS module. Keep in sync with the backend copy
 // (wisetech-backend/src/constants/api-endpoint.ts RECRUITMENT).
+export const GIFTS = {
+    GET_OVERVIEW: "api/gifts/overview",
+    GET_CONFIG: "api/gifts/config",
+    CONFIG_KIND: "api/gifts/config/:kind",
+    CONFIG_KIND_BY_SLUG: "api/gifts/config/:kind/:slug",
+    GROUPS: "api/gifts/groups",
+    GROUP_BY_ID: "api/gifts/groups/:id",
+    GROUP_ACTIVITY: "api/gifts/groups/:id/activity",
+    CLONE_GROUP: "api/gifts/groups/:id/clone",
+    ARCHIVE_GROUP: "api/gifts/groups/:id/archive",
+    UNARCHIVE_GROUP: "api/gifts/groups/:id/unarchive",
+    DRIVES: "api/gifts/drives",
+    DRIVE_BY_ID: "api/gifts/drives/:id",
+    CLONE_DRIVE: "api/gifts/drives/:id/clone",
+    ARCHIVE_DRIVE: "api/gifts/drives/:id/archive",
+    UNARCHIVE_DRIVE: "api/gifts/drives/:id/unarchive",
+    DRIVE_ACTIVITY: "api/gifts/drives/:id/activity",
+    APPLY_DEFAULTS: "api/gifts/drives/:id/apply-defaults",
+    RECIPIENT_BY_ID: "api/gifts/drives/:id/recipients/:recipientId",
+    BULK_RECIPIENTS: "api/gifts/drives/:id/recipients/bulk",
+    ADD_RECIPIENTS: "api/gifts/drives/:id/recipients",
+    REMOVE_RECIPIENTS: "api/gifts/drives/:id/recipients/remove",
+};
+
 export const RECRUITMENT = {
     // Requisitions (Phase 1)
     GET_OVERVIEW: "api/recruitment/overview",
@@ -21,13 +45,21 @@ export const RECRUITMENT = {
     UPDATE_REQUISITION: "api/recruitment/requisitions/:id",
     UPDATE_REQUISITION_SECTION: "api/recruitment/requisitions/:id/section",
     ARCHIVE_REQUISITION: "api/recruitment/requisitions/:id",
+    RESTORE_REQUISITION: "api/recruitment/requisitions/:id/restore",
+    PERMANENTLY_DELETE_REQUISITION: "api/recruitment/requisitions/:id/permanent",
     SUBMIT_REQUISITION_APPROVAL: "api/recruitment/requisitions/:id/submit-approval",
     // Applicants (Phase 2)
     CREATE_APPLICANT: "api/recruitment/applicants",
     GET_ALL_APPLICANTS: "api/recruitment/applicants",
     GET_APPLICANT_BY_ID: "api/recruitment/applicants/:id",
     UPDATE_APPLICANT: "api/recruitment/applicants/:id",
+    ARCHIVE_APPLICANT: "api/recruitment/applicants/:id",
+    RESTORE_APPLICANT: "api/recruitment/applicants/:id/restore",
+    PERMANENTLY_DELETE_APPLICANT: "api/recruitment/applicants/:id/permanent",
     UPLOAD_APPLICANT_RESUME: "api/recruitment/applicants/:id/resume",
+    UPLOAD_APPLICANT_PHOTO: "api/recruitment/applicants/:id/photo",
+    UPLOAD_APPLICANT_DOCUMENT: "api/recruitment/applicants/:id/documents",
+    EXPORT_APPLICANT: "api/recruitment/applicants/:id/export",
     SCORECARD_TEMPLATES: "api/recruitment/config/scorecard-templates",
     SCORECARD_TEMPLATE_BY_ID: "api/recruitment/config/scorecard-templates/:id",
     SCORECARD_TEMPLATE_FOR_INTERVIEW: "api/recruitment/interviews/:id/scorecard-template",
@@ -39,7 +71,10 @@ export const RECRUITMENT = {
     GET_APPLICATION_BY_ID: "api/recruitment/applications/:id",
     UPDATE_APPLICATION_SECTION: "api/recruitment/applications/:id/section",
     MOVE_APPLICATION_STAGE: "api/recruitment/applications/:id/move",
+    LINK_CONVERTED_EMPLOYEE: "api/recruitment/applications/:id/link-employee",
     ARCHIVE_APPLICATION: "api/recruitment/applications/:id",
+    RESTORE_APPLICATION: "api/recruitment/applications/:id/restore",
+    PERMANENTLY_DELETE_APPLICATION: "api/recruitment/applications/:id/permanent",
     // Interviews + scorecards (Phase 4)
     CREATE_INTERVIEW: "api/recruitment/interviews",
     GET_INTERVIEW_BY_ID: "api/recruitment/interviews/:id",
@@ -62,6 +97,8 @@ export const RECRUITMENT = {
     GET_POSTING_BY_ID: "api/recruitment/postings/:id",
     UPDATE_POSTING: "api/recruitment/postings/:id",
     DELETE_POSTING: "api/recruitment/postings/:id",
+    RESTORE_POSTING: "api/recruitment/postings/:id/restore",
+    PERMANENTLY_DELETE_POSTING: "api/recruitment/postings/:id/permanent",
     // Configuration masters (stages / reasons / sources)
     CONFIG_ENTITY: "api/recruitment/config/:type",
     CONFIG_ENTITY_BY_ID: "api/recruitment/config/:type/:id",
@@ -422,6 +459,8 @@ export const OPTIONS = {
     UPDATE_REIMBURSEMENT_TYPE_BY_ID: "api/options/reimbursement",
     GET_COMPANY_SETTINGS: "api/options/settings",
     UPDATE_COMPANY_SETTINGS: "api/options/settings",
+    CHECK_IN_RADIUS: "api/options/check-in-radius",
+    MY_CHECK_IN_GEOFENCE: "api/options/check-in-radius/me",
     GET_ALL_COLORS: "api/options/colors",
     UPDATE_COLOR_BY_ID: "api/options/colors",
     CREATE_COLOR: "api/options/colors",
@@ -646,14 +685,13 @@ export const LEAD_PROJECT_COMPANY = {
 
 // Payment Plans (stage-wise fee break-up) — configured under Lead Configuration and
 // selected on a lead's commercial step.
-// Payment Stage master — the index labels ("1", "Stage 1", "Stage A") a plan's stages are
-// numbered with. Indexes stages; does not name them.
-export const PAYMENT_STAGE = {
-    GET_ALL_PAYMENT_STAGES: "api/payment-stages",
-    CREATE_PAYMENT_STAGE: "api/payment-stages",
-    REORDER_PAYMENT_STAGES: "api/payment-stages/reorder",
-    UPDATE_PAYMENT_STAGE: "api/payment-stages/:id",
-    DELETE_PAYMENT_STAGE: "api/payment-stages/:id",
+// Stage numbering formats — how a plan's stages print their Sr No ("Stage 1", "STG-01",
+// "a"). A plan with no format of its own uses the default.
+export const STAGE_NUMBERING_FORMAT = {
+    GET_ALL: "api/stage-numbering-formats",
+    CREATE: "api/stage-numbering-formats",
+    UPDATE: "api/stage-numbering-formats/:id",
+    DELETE: "api/stage-numbering-formats/:id",
 };
 
 export const PAYMENT_PLAN = {
@@ -683,6 +721,7 @@ export const PROJECT_EXECUTION = {
     GET_STAGE_PROGRESS: "api/projects/:projectId/stages/:stageId/progress",
     UPDATE_DELIVERABLE_STATUS: "api/projects/deliverables/:deliverableId/status",
     UPDATE_DELIVERABLE_REMARKS: "api/projects/deliverables/:deliverableId/remarks",
+    UPDATE_DELIVERABLE_PROGRESS: "api/projects/deliverables/:deliverableId/progress",
     // Configuration — amounts are always derived, never posted.
     RECALCULATE_STAGE_AMOUNTS: "api/projects/stages/:stageId/recalculate-amounts",
     GET_DELIVERABLE_CATEGORIES: "api/projects/deliverable-categories",
@@ -714,17 +753,13 @@ export const BILLING_REQUEST = {
 // billing request through proforma → payment → invoice → closure.
 export const BILLING_OPERATION = {
     LIST: "api/billing/operations",
-    STATISTICS: "api/billing/operations/statistics",
-    WORKFLOW: "api/billing/operations/workflow",
     // One row per PROJECT rather than per billing request — unbilled projects included.
     PROJECTS: "api/billing/operations/projects",
     // The Tracker's own status dropdown, for a project with no operation yet.
     PROJECT_STATUS: "api/billing/operations/projects/:leadId/status",
     GET_BY_ID: "api/billing/operations/:id",
     UPDATE_STATUS: "api/billing/operations/:id/status",
-    TIMELINE: "api/billing/operations/:id/timeline",
     ACTIVITY: "api/billing/operations/:id/activity",
-    DOCUMENTS: "api/billing/operations/:id/documents",
     ADD_NOTE: "api/billing/operations/:id/notes",
 }
 
@@ -745,7 +780,6 @@ export const BILLING_CONFIG = {
 
 // Financial Reporting Center — every route is read-only.
 export const BILLING_REPORT = {
-    DASHBOARD: "api/billing/reports/dashboard",
     REVENUE: "api/billing/reports/revenue",
     COLLECTIONS: "api/billing/reports/collections",
     OUTSTANDING: "api/billing/reports/outstanding",
@@ -759,14 +793,11 @@ export const BILLING_REPORT = {
 // exposed on every payload for the next phase to filter on.
 export const PAYMENT = {
     LIST: "api/billing/payments",
-    SYNC: "api/billing/payments",
-    STATISTICS: "api/billing/payments/statistics",
     GET_BY_ID: "api/billing/payments/:id",
     HISTORY: "api/billing/payments/:id/history",
     RECORD: "api/billing/payments/:id/record",
     UPDATE_TRANSACTION: "api/billing/payments/:id/transactions/:transactionId",
     VERIFY: "api/billing/payments/:id/verify",
-    SET_VERIFICATION: "api/billing/payments/:id/verification",
     ADD_ATTACHMENT: "api/billing/payments/:id/attachments",
     GET_ATTACHMENT: "api/billing/payments/:id/attachments/:attachmentId",
     DELETE_ATTACHMENT: "api/billing/payments/:id/attachments/:attachmentId",
@@ -800,7 +831,7 @@ export const PROJECT_BILLING = {
     OVERVIEW: "api/billing/projects/:projectId/billing",
 }
 
-// Direct billing — one bill per deliverable. Unlike PROJECT_BILLING these are
+// Direct billing — one live bill per stage. Unlike PROJECT_BILLING these are
 // writes: a bill is raised, paid and closed here, not in another module.
 export const BILLS = {
     RAISE: "api/billing/bills",
@@ -809,7 +840,6 @@ export const BILLS = {
     INVOICE: "api/billing/bills/:id/invoice",
     CANCEL: "api/billing/bills/:id/cancel",
     PAYMENTS: "api/billing/bills/:id/payments",
-    PAYMENT: "api/billing/bills/payments/:paymentId",
     TDS: "api/billing/bills/:id/tds",
 }
 
@@ -817,16 +847,7 @@ export const BILLS = {
 // Collection path; there is deliberately no create route here.
 export const TAX_INVOICE = {
     LIST: "api/billing/tax-invoices",
-    GET_BY_ID: "api/billing/tax-invoices/:id",
-    VERSIONS: "api/billing/tax-invoices/:id/versions",
-    TIMELINE: "api/billing/tax-invoices/:id/timeline",
-    ACTIVITY: "api/billing/tax-invoices/:id/activity",
-    COMPARE: "api/billing/tax-invoices/:id/compare/:versionId",
-    PREVIEW: "api/billing/tax-invoices/:id/versions/:versionId/preview",
-    VERSION_STATUS: "api/billing/tax-invoices/:id/versions/:versionId/status",
     ACCESS: "api/billing/tax-invoices/:id/access",
-    ARCHIVE: "api/billing/tax-invoices/:id/archive",
-    RESTORE: "api/billing/tax-invoices/:id/restore",
     DOWNLOAD_WORD: "api/billing/tax-invoices/:id/download-word",
 }
 

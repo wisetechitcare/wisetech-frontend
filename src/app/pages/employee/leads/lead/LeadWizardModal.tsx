@@ -59,7 +59,7 @@ import {
 } from "@services/options";
 import { convertFiscalYearToYearFormat } from "@app/modules/common/components/PrefixSettingsForm";
 import PrefixInlineEdit from "@app/modules/common/components/PrefixInlineEdit";
-import { confirmDialog } from "@app/modules/common/components/ui";
+import { confirmDialog, UnsavedChangesModal as Modal } from "@app/modules/common/components/ui";
 import { useOrgScope } from "@hooks/useOrgScope";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import DateInput from "@app/modules/common/inputs/DateInput";
@@ -78,10 +78,11 @@ import {
   successConfirmation,
 } from "@utils/modal";
 import ProjectConfigForm from "@pages/employee/projects/configure/components/ProjectConfigForm";
+import type { LeadSetFieldValue } from "@pages/employee/forms/lead/LeadSections";
 import CompaniesBranchForm from "@pages/employee/companies/companies/components/CompaniesBranchForm";
 import NewCompanyForm from "@pages/employee/companies/companies/components/NewCompanyForm";
 import ClientContactsForm from "@pages/employee/companies/contacts/components/ClientContactsForm";
-import { Modal, Form, Row, Col, Button, Dropdown } from "react-bootstrap";
+import { Form, Row, Col, Button, Dropdown } from "react-bootstrap";
 import LeadsConfigForm from "../configuration/components/LeadsConfigForm";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -100,6 +101,7 @@ import DropdownInput from "@app/modules/common/inputs/DropdownInput";
 import { getAllLeadCancellationReasons } from "@services/lead";
 
 import { LeadWorkspace } from "@app/pages/employee/forms/lead/LeadWorkspace";
+import { fromLeadStages, toLeadStages, stageTotal } from "@app/pages/employee/leads/configuration/components/paymentPlanStages";
 import { useCompanyHierarchy } from "@/shared/form-engine";
 
 interface LeadFormModalProps {
@@ -667,7 +669,7 @@ const LeadWizardModal = ({
   // Helper to validate calculated values and show warnings
   const validateCalculatedCost = (
     cost: number,
-    setFieldError: Function,
+    setFieldError: (field: string, message: string) => void,
     fieldPath: string,
   ): boolean => {
     if (cost > 10000000000) {
@@ -871,6 +873,8 @@ const LeadWizardModal = ({
         // Payment plan (stage-wise fee break-up) selection for the commercial step.
         paymentPlanId: "",
         paymentPlan: null,
+        // This lead's own editable copy of the stages (PlanStage[]); seeded from the plan.
+        paymentStages: null,
         // Meeting schedule type selection for the meeting-schedule step.
         meetingScheduleTypeId: "",
         meetingScheduleType: null,
@@ -1261,6 +1265,8 @@ const LeadWizardModal = ({
       // re-renders the computed stage break-up on edit.
       paymentPlanId: leadData.paymentPlanId || leadData.paymentPlan?.id || "",
       paymentPlan: leadData.paymentPlan || null,
+      // null (a lead saved before per-lead stages) is seeded from the plan by the selector.
+      paymentStages: Array.isArray(leadData.paymentStages) ? fromLeadStages(leadData.paymentStages) : null,
       // Meeting schedule type selection — prefill so the meeting-schedule step
       // re-resolves the matching bracket + completion year on edit.
       meetingScheduleTypeId: leadData.meetingScheduleTypeId || leadData.meetingScheduleType?.id || "",
@@ -1829,7 +1835,7 @@ const LeadWizardModal = ({
 
   // Address location management functions
   const handleAddressCountryChange = useCallback(
-    async (index: number, countryId: string, setFieldValue: Function) => {
+    async (index: number, countryId: string, setFieldValue: LeadSetFieldValue) => {
       try {
         const selectedCountry = countries.find((c) => c.id === countryId);
         if (!selectedCountry) {
@@ -1866,7 +1872,7 @@ const LeadWizardModal = ({
       index: number,
       stateId: string,
       countryId: string,
-      setFieldValue: Function,
+      setFieldValue: LeadSetFieldValue,
     ) => {
       try {
         const selectedCountry = countries.find((c) => c.id === countryId);
@@ -2405,6 +2411,16 @@ const LeadWizardModal = ({
       errorConfirmation("Inquiry No. is required");
       return;
     }
+    // Same rules the plan editor enforces — the server re-checks them.
+    const editedStages = formData.paymentPlanId ? formData.paymentStages || [] : [];
+    if (editedStages.some((s: any) => !String(s.name || "").trim())) {
+      errorConfirmation("Every payment stage needs a name.");
+      return;
+    }
+    if (editedStages.length && stageTotal(editedStages) !== 100) {
+      errorConfirmation(`Payment stage percentages must total 100% (currently ${stageTotal(editedStages)}%).`);
+      return;
+    }
     const additionalDetailsFields = ["projectArea", "addresses"];
 
     const selectedCountryData = countries.find(
@@ -2766,6 +2782,9 @@ const LeadWizardModal = ({
     // paymentPlan is a client-only convenience object (full plan + stages for live
     // rendering). Only the scalar paymentPlanId is persisted; drop the object.
     delete finalData.paymentPlan;
+    // The lead's own stages go as plain rows; null = no plan, back to none.
+    finalData.paymentStages =
+      finalData.paymentPlanId && finalData.paymentStages?.length ? toLeadStages(finalData.paymentStages) : null;
     // Likewise, meetingScheduleType is a client-only object; only the id is persisted.
     delete finalData.meetingScheduleType;
     // delete finalData.cancellationReasonId; //new
@@ -2832,7 +2851,7 @@ const LeadWizardModal = ({
         || key === "fileLocationCompanyType" || key === "fileLocationCompany"
         || key === "handledByEntries" || key === "poStatus" || key === "poFile"
         || key === "leadAssignedTo" || key === "leadDirectSourceId"
-        || key === "paymentPlanId" || key === "meetingScheduleTypeId") {
+        || key === "paymentPlanId" || key === "meetingScheduleTypeId" || key === "paymentStages") {
         acc[key] = value !== undefined ? value : (key === "handledByEntries" ? [] : ""); // Ensure it's included
       } else if (value !== "" && value !== null && value !== undefined) {
         acc[key] = value;
@@ -2912,7 +2931,7 @@ const LeadWizardModal = ({
         } else {
           // LEAD-AS-MASTER: execution fields were persisted on the lead (execution
           // extension) as part of the lead update — no separate project write.
-          successConfirmation("Lead Updated successfully!");
+          successConfirmation("Lead Updated.");
           eventBus.emit(EVENT_KEYS.leadUpdated, { id: res.id });
           if (onClose) onClose();
         }
@@ -2922,7 +2941,7 @@ const LeadWizardModal = ({
           errorConfirmation("Failed to create lead. Please try again.");
         } else {
           eventBus.emit(EVENT_KEYS.leadCreated, { id: res.id });
-          successConfirmation("Lead created successfully!");
+          successConfirmation("Lead created.");
           if (onClose) onClose();
         }
       }

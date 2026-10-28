@@ -12,6 +12,7 @@ import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 interface FormValues {
     experience1: number;
@@ -119,7 +120,7 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                     const updatedCount = result.data.filter(item => item.action === 'updated').length;
                     const errorCount = result.data.filter(item => item.action === 'error').length;
                     
-                    const message = 'Addon leaves allowances processed successfully!';
+                    const message = 'Add-on leave allowances saved.';
                     // if (createdCount > 0) message += ` Created: ${createdCount}.`;
                     // if (updatedCount > 0) message += ` Updated: ${updatedCount}.`;
                     // if (errorCount > 0) message += ` Errors: ${errorCount}.`;
@@ -206,9 +207,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     1 Year Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(1)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(1)}
+                                    />
                                 </label>
                                 <input
                                     type="number"
@@ -233,9 +233,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     2 Years Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(2)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(2)}
+                                    />
                                 </label>
                                 <input
                                     type="number"
@@ -260,9 +259,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     3 Years Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(3)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(3)}
+                                    />
                                 </label>
                                 <input
                                     type="number"
@@ -287,9 +285,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     4 Years Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(4)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(4)}
+                                    />
                                 </label>
                                 <input
                                     type="number"
@@ -314,9 +311,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     5 Years Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(5)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(5)}
+                                    />
                                 </label>
                                 <input
                                     type="number"
@@ -341,9 +337,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     6 Years Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(6)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(6)}
+                                    />
                                 </label>
                                 <input
                                     type="number"
@@ -368,9 +363,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     7 Years Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(7)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(7)}
+                                    />
                                 </label>
                                 <input
                                     type="number"
@@ -395,9 +389,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     8 Years Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(8)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(8)}
+                                    />
                                 </label>
                                 <input
                                     type="number"
@@ -422,9 +415,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     9 Years Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(9)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(9)}
+                                    />
                                 </label>
                                 <input
                                     type="number"
@@ -449,9 +441,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     10 Years Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(10)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(10)}
+                                    />
                                 </label>
                                 <input
                                     type="number"
@@ -476,9 +467,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                             <div className="fv-row">
                                 <label className="form-label fw-bolder text-dark fs-6 required">
                                     10+ Years Experience
-                                    <span className="badge badge-light-info ms-2">
-                                        {getFieldStatus(11)}
-                                    </span>
+                                    <ToneChip dense tone="cyan" sx={{ ml: 1 }} label={getFieldStatus(11)}
+                                    />
                                 </label>
                                 <input
                                     type="number"

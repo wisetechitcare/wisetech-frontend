@@ -6,6 +6,8 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker, MobileDatePicker } from "@mui/x-date-pickers";
 import dayjs, { Dayjs } from "dayjs";
 import { useMediaQuery } from "@mui/material";
+import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
+import { useFloatingLabels } from "../components/ui/FloatingLabel";
 
 // One source of truth for the date format so the input mask and the placeholder always match.
 const DATE_FORMAT = "DD/MM/YYYY";
@@ -24,7 +26,9 @@ interface DateInputProps{
 
 function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, minDateField, minDate }: DateInputProps) {
   const { values, setFieldValue, setFieldTouched, setFieldError, errors, touched } = formikProps;
+  useUnsavedChangesRegistration(Boolean(formikProps?.dirty));
   const [validationError, setValidationError] = React.useState<string>('');
+  const floating = useFloatingLabels();
 
   // Checking if the screen is small (mobile)
   const isMobile = useMediaQuery("(max-width:600px)");
@@ -100,10 +104,15 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
 
       // DOM-safe id derived from the Formik path so the <label> links to the date input.
       const fieldId = `field-${formikField.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+      // Inside <FloatingLabels> the picker owns the label (MUI floats it natively); its
+      // size is left alone there — restyling `.MuiInputLabel-root` breaks the border notch.
+      const floatLabel = floating ? { label: inputLabel, required: isRequired } : {};
+      const labelSx = (fontSize: string): Record<string, object> =>
+        floating ? {} : { "& .MuiInputLabel-root": { fontSize } };
 
       return (
     <>
-      <label htmlFor={fieldId} className={`fs-6 form-label ${isRequired ? "required" : ""}`}>{inputLabel}</label>
+      {!floating && <label htmlFor={fieldId} className={`fs-6 form-label ${isRequired ? "required" : ""}`}>{inputLabel}</label>}
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         {isMobile ? (
           <MobileDatePicker
@@ -131,6 +140,7 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
                 fullWidth: true,
                 placeholder: DATE_FORMAT,
                 error: hasError,
+                ...floatLabel,
                 onBlur: (event) => {
                   // Validate on blur
                   const inputValue = event.target.value;
@@ -144,7 +154,7 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
                 },
                 sx: {
                   "& .MuiInputBase-input": { fontSize: "1.2rem" },
-                  "& .MuiInputLabel-root": { fontSize: "1.5rem" },
+                  ...labelSx("1.5rem"),
                   "& .MuiOutlinedInput-root": { height: "44px" },
                 }
               },
@@ -181,6 +191,7 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
                 fullWidth: true,
                 placeholder: DATE_FORMAT,
                 error: hasError,
+                ...floatLabel,
                 onBlur: (event) => {
                   // Validate on blur instead of during typing
                   const inputValue = event.target.value;
@@ -194,7 +205,7 @@ function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, 
                 },
                 sx: {
                   "& .MuiInputBase-input": { fontSize: "1.2rem" },
-                  "& .MuiInputLabel-root": { fontSize: "1rem" },
+                  ...labelSx("1rem"),
                   "& .MuiOutlinedInput-root": { height: "44px" },
                 }
               },

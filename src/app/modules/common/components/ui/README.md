@@ -41,12 +41,13 @@ are built from.
 
 | Need | Use | Never |
 |---|---|---|
-| Button | `WtButton` (`ghost` = cancel, `inverted` = secondary) | `<button className="btn">` |
+| Button (any labelled CTA) | **`WtButton`** — see recipe matrix below | raw MUI `<Button>`, Bootstrap `btn-*`, `<button className="btn">`, ad-hoc hex CTAs, a second “global” button |
 | Icon action | `WtIconButton` | a hand-rolled `<button>` with `place-items-center` |
-| Edit / delete / share on a row, card or chip | `ActionIconButton` (`size="sm"` in chips; `tone="success"` for share/send; `icon=` for a non-font glyph) | a `bi bi-pencil` / `fab fa-whatsapp` in a bare `<button>` |
+| Edit / delete / share on a row, card or chip | `ActionIconButton` (`size="sm"` in chips; `tone="success"` for share/send; `icon=` for a non-font glyph). Hover = kit `tintedIconSurfaceSx` (aside darken-to-icon-colour) — same as `WtIconButton` | a `bi bi-pencil` / `fab fa-whatsapp` in a bare `<button>`; per-screen hover sx |
 | Brand logo glyph (WhatsApp…) | `WhatsAppIcon` from `brandIcons` | `KTIcon iconName="whatsapp"` — the duotone font paints its first layer at 40% opacity, so the mark washes out |
 | Close (×) | `WtCloseButton` (`ui/tw/WtCloseButton`) | a `&times;` in an `IconButton` |
 | **Any labelled input** (text, number, textarea, select) | **`WtField`** | `InputLabel` + `Select`/`TextField` assembled by hand |
+| Labels that rest **inside** the empty field and float up on focus/value (placeholder-as-label) | Wrap the form in **`<FloatingLabels>`** — `WtField`, `TextInput`, `DropDownInput`, `MultiSelectWithInlineCreate`, `WtPhoneField` and the map search follow it; wrap any other control in **`FloatingLabelFrame`** | a per-screen CSS transform on `.MuiInputLabel-root`, or a hand-rolled absolutely-positioned label |
 | **Labelled select in a Formik form** | **`WtFieldFormik`** | inventing Formik + select glue, or new wrappers |
 | **An amount of money** (salary, fee, expense) | **`WtMoneyField`** (a `WtField` with the currency inside the frame and a live money read-back) | a number box with the unit in its label — "CTC (LPA)", "Lakhs per year" |
 | Toolbar filter | `ToolbarFilterSelect` + `FILTER_TONES` (a `WtField` adapter) | a bespoke `<select>` or `FormControl` |
@@ -61,29 +62,257 @@ are built from.
 
 **Migrating a legacy select?** Use-case → reference file table: [`docs/bootstrap-to-kit-migration.md` §3](../../../../../../docs/bootstrap-to-kit-migration.md) (Dropdown benchmarks).
 | Toggle | `WtSwitch` / `WtSwitchField` | raw `<Switch>`, `.form-switch` |
-| Dialog | `GlassDialog` + `GlassHeader` | react-bootstrap `<Modal>` |
+| Checkbox | `WtCheckbox` / `WtCheckboxField` (`WtControlLabel` for switch+label rows). Look is also themed on `MuiCheckbox` app-wide. | inventing a second checkbox style per screen |
+| Dialog | `GlassDialog` + `GlassHeader` (`preset="form"` / `"workspace"` for height) | react-bootstrap `<Modal>`; hand-rolled `maxHeight` vh |
+| Unsaved form exits | `ConfigureFormDialog` / `WtFormDialog` with explicit `dirty`; `useUnsavedChangesGuard` for custom shells; `UnsavedChangesModal` only as a compatibility wrapper for legacy Bootstrap forms | Calling `onClose` directly for a dirty form |
+| Dialog footer (Cancel + Submit) | **`GlassDialogActions`** (SSOT; or leave `ConfigureFormDialog` / `WtFormDialog`) | hand-rolled `DialogActions sx={{ px, py, borderTop }}`; Bootstrap Cancel/`btn-light` pairs |
+| Dialog form card | `FormSection` + `FORM_SPACE` | local `GlassSurface` + `SectionHead` stacks with magic gaps |
 | Surface / card | `GlassSurface` / `GlassCard` | `<div className="card">` |
-| Config section | `SettingsSection` | a `GlassSurface` with your own accent + header |
+| Right-side supporting workspace | `WtSheet` | Feature-local `Drawer` shells for filters/history |
+| **Table filters** | **`FilterSheetButton`** (via MaterialTable `renderToolbarIconActions`) + **`FilterSheet`** (draft state, Reset-applies, Apply). Set `enableFilters={false}` on the table. Reference: courtesy-desk `DrivesList.tsx` | selects in `renderTopToolbarRightActions`, a filter bar above the table, MRT head filters |
+| Config section | `SettingsSection` (optional `count` chip) | a `GlassSurface` with your own accent + header |
+| Config masters (CRUD lists) | **`MasterListSection`** — `ConfigSectionCard` + **`ConfigColorChip`** grid (+ injected fetch/create/update/delete) | per-feature GlassCard masters grids; vertical drag-row forks |
+| Compact configure value row (colour + name + actions) | **`ConfigColorChip`** + **`ConfigChipGrid`** | hand-rolled `#f7f8fa` / `#ffffff` chip tiles; forked NameChip/ColorChip |
+| Reorder list engine | **`ReorderableGroup` + `DragHandle`** (also on this barrel) | up/down buttons; deep import only from `components/ReorderableGroup` |
+| Row action tone from Trio | `trioToActionTone(TRIO.rose)` → `ActionIconButton` | mapping accents per screen |
 | Summary stat | `StatTile` | a bespoke number-in-a-box |
-| Chip / badge | `ToneChip` / `StatusBadge` | `<span className="badge">` |
-| Exclusive 2–5 way choice | `SegmentedControl` (status filter, view switch) | a row of outlined pills / `ToggleButtonGroup` |
+| Entity detail / Review card (identity, header band, label/value rows) | `EntityIdentityHeader`, `DetailCard`, `KeyValueRow`/`KeyValueList`, `SectionDivider`, `DetailGrid` — see Entity detail below | `DetailPageComponents.tsx` in new work; a second identity header row |
+| Chip / badge (status **and** meta) | **`ToneChip`** / `StatusBadge` — see chip recipe below | Private `MetaPill`, Bootstrap `badge`, hand-rolled muted pills |
+| Exclusive 2–5 way **named** choice (status, period) | `SegmentedControl` | a row of outlined pills / `ToggleButtonGroup` |
+| Boolean setting | `WtChoiceField variant="switch"` | Yes/No segmented controls |
+| Short exclusive choice | `WtChoiceField variant="segmented"` | bespoke radio/pill groups |
+| Consequential exclusive choice | `WtChoiceField variant="cards"` | cards without native radio semantics |
+| More than four options | `WtFieldFormik` select/picker | a crowded segmented row |
+
+### Choice-field recipe
+
+`WtChoiceField` is the Formik adapter for the shared native choice primitive. Use
+`switch` for booleans, `segmented` for short exclusive values, and `cards` when
+the choice needs descriptions or stronger visual separation. Every option remains
+a native checkbox/radio input, so keyboard navigation and screen-reader semantics
+do not depend on the visual treatment.
+
+```tsx
+<WtChoiceField
+  name="gender"
+  label="Gender"
+  variant="segmented"
+  required
+  editMode={isEditMode}
+  options={genderOptions}
+  orientation="column"
+/>
+
+<WtChoiceField
+  name="tdsEnabled"
+  label="Additional TDS"
+  variant="switch"
+  clearRevealOnDisable
+  clearOnDisable={["tdsType", "tdsAmount"]}
+  reveal={<TdsFields />}
+/>
+```
+
+`clearOnDisable` is the dependent Formik path list; `clearRevealOnDisable`
+controls whether the list is applied when a switch changes from on to off.
+Changed markers are opt-in through `editMode` and disappear after Formik
+`resetForm`; create forms do not show them.
+| Same data, different **layout** (cards / list / board) | **Typed wrappers** — `CardsListViewSwitch`, `BoardListViewSwitch`, `GridListViewSwitch`, `CardsTableViewSwitch`, `KanbanTableViewSwitch`, `DmsViewSwitch`. Glyphs **only** from `VIEW_MODE_ICONS` (same purpose → same icon). Track/cell: `viewModeSwitchTrackSx` / `viewModeSwitchButtonSx` | hand-rolled `bi-grid` / `element-11` / `btn-group` List/Cards / private `ViewToggle` |
 | Icon tile | `IconBox` | a styled `<div>` around a `KTIcon` |
-| List layout | `AutoGrid` + `ListHeader` | per-feature grid breakpoints |
-| Reorder | `ReorderableGroup` + `DragHandle` | up/down buttons |
+| List / collection cards | **`EntityCard`** (title / subtitle / status / tags / actions) inside capped **`AutoGrid`**; raw **`GlassCard`** only when the layout is not an entity | Bootstrap `card`; hand-rolled title+chip stacks; unbounded `auto-fit`+`1fr` stretch; per-page grid forks |
+| Reorder (standalone) | `ReorderableGroup` + `DragHandle` | up/down buttons |
 | Icon choice | `IconPicker` | an inline grid of buttons |
 | Colour choice | `WtColorPicker` | `<input type="color">`, an inline swatch grid |
 | Single-select modal | `OptionPickerDialog` | a bespoke option list |
 | Date / time | `WtDateField` / `WtDateTimeField` / `TimeWheelField` | `<input type="date">` |
 | Wizard | `WtStepper` | hand-rolled circles |
+| Full-window wizard host | `WtWizardDialog` with an explicit `title` and `EnterpriseFormWizard` content | feature-local fullscreen shells or missing dialog labels |
+
 | Short master create/edit dialog | **`ConfigureFormDialog`** + `WtFieldFormik` | Bootstrap `Modal` + hand-rolled C/FONT/SP fields |
 | Long multi-section form dialog | **`WtFormDialog`** | a private modal layout per feature |
 | Page / section loading block | **`PageLoader`** (also `@app/modules/common/utils/Loader`) | Bootstrap `spinner-border` / `react-bootstrap` Spinner |
 | Inline / button busy indicator | MUI `CircularProgress` size 14–18 | a second spinner component |
-| Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify, sweetalert2 directly |
+| PIN / one-time code | `PinInput` (masked by default; `masked={false}` for an emailed code; `shakeKey` to shake on a wrong entry) | `<input type="password">` — the browser saves and autofills it, which defeats a PIN meant to prove who is at the keyboard |
+| Toast / confirm | `toast` / `confirmDialog` / `alertDialog` | react-toastify directly; SweetAlert (removed, blocked by ESLint) |
 | User data inside an `html:` string | ``safeHtml`…${name}…` `` (or `escapeHtml(v)` for a generated list) | a plain template literal — see below |
 | Explanation inside a form or panel (why it is closed, what to fix first, what will happen) | `InlineNotice` (toned, `TRIO`) / `InlineHint` (quiet info line) | a Bootstrap `.alert` div with hard-coded hex, or a private `Notice` per screen |
 | Employee picker | `EmployeeSelectionDialog` | a bespoke picker |
 | Org filter data | `useOrgScope` | re-deriving an org list per feature |
+
+## Buttons — one public API (`WtButton`)
+
+Wizard close ownership: `WtWizardDialog` confirms dirty closes by default.
+Use `closeGuard="host"` only when `onClose` already confirms unsaved values or
+pending uploads. Employee, candidate, and job hosts use this mode; company and
+contact keep the dialog guard. Browser-route blocking remains a separate guard.
+
+Fullscreen wizard identity is progressive, not replaceable chrome:
+`WtWizardDialog` defaults to the WiseTech gradient entity header, and grouped
+flows retain the navy progress card, compact timeline rail, and branded section
+keyline. Use `headerVariant="plain"` or `showHeader={false}` only for an
+intentionally quiet editor—not as a migration shortcut.
+
+**Global default:** compact, flat accent (`tone="accent"`, `size="small"`,
+`flat`). This is the shared default for labelled actions. Opt into a larger,
+high-emphasis navy CTA with `tone="primary" flat={false} size="medium"`; Cancel
+remains white `ghost`. Sandwich Add Rule (`GlassDialogActions`) is the visual
+benchmark. Do **not** invent a second global button, gold Cancel, or
+yellow-on-navy primary. Appearance may theme other chrome; these recipes stay.
+
+| Need | Use |
+|------|-----|
+| Standard action | `WtButton` (default compact, flat accent) |
+| High-emphasis Create / Save / Submit | `WtButton tone="primary" flat={false} size="medium"` |
+| Cancel / Close secondary | `WtButton ghost` |
+| Header Add on gradient | `WtButton inverted` |
+| Delete / destructive | `WtButton tone="danger"` |
+| Success confirm | `WtButton tone="success"` |
+| Adjacent toolbar CTAs | `WtButton` defaults already use the compact, flat recipe |
+| Icon-only circle/square | `WtIconButton` / `ActionIconButton` / `WtCloseButton` |
+| Dialog Cancel + Submit | **`GlassDialogActions`** (not hand-rolled `DialogActions`) |
+
+**Never in feature code:** raw MUI `<Button>`, Bootstrap `btn` / `btn-primary` /
+`btn-light`, `<button className="btn …">`, or ad-hoc `#1E3A8A` / maroon CTA hex.
+Migrate remaining screens one surface per PR — see
+[`docs/bootstrap-to-kit-migration.md`](../../../../../../docs/bootstrap-to-kit-migration.md) §2.
+
+`ConfigureFormDialog` / `WtFormDialog` already ship matching Cancel/Submit
+`WtButton`s; leave those. New form dialogs prefer `GlassDialogActions`.
+
+Do **not** expand `ui/tw/Buttons.tsx` — narrow twin for surfaces already on TW;
+new forms stay on this MUI kit.
+
+## Chips — one primitive (`ToneChip`)
+
+**Status and meta share `ToneChip`.** Soft tint alphas (fill 18% / border 40%) are
+the readable default on glass cards. Do **not** invent a private `MetaPill`, muted
+`<Box>`, or Bootstrap `badge` for card identity/metrics.
+
+| Need | Use |
+|------|-----|
+| Status (Approved / Draft / Blacklisted) | `ToneChip tone="success\|warning\|danger\|…" dense` |
+| Meta (location, CTC, notice, source) | `ToneChip tone="neutral\|brand\|cyan\|…" dense` |
+| Dot + label live status | `StatusBadge` (trio + optional pulse) |
+| Solid fill (rare) | `ToneChip solid` |
+
+```tsx
+<ToneChip tone="success" label="Published" dense />
+<ToneChip tone="neutral" label="Bengaluru" dense />
+<ToneChip tone="cyan" label="Remote" dense />
+```
+
+## Cards + grids — capped `AutoGrid`
+
+Entity list cards are **`EntityCard`** inside **`AutoGrid`**. Default tracks use
+`auto-fill` with a **~400px max** and left alignment so sparse lists do not
+stretch one card full-bleed. Pass `stretch` only when tiles must absorb leftover
+width. Reach for raw **`GlassCard`** only when the surface is not a titled
+entity (settings tiles, ad-hoc chrome).
+
+```tsx
+<AutoGrid min={320}>
+  {items.map((i) => (
+    <EntityCard
+      key={i.id}
+      icon="briefcase"
+      iconTrio={TRIO.blue}
+      title={i.title}
+      subtitle={i.ref}
+      status={{ label: i.statusLabel, tone: i.statusTone }}
+      tags={[{ label: `${i.filled}/${i.headcount} filled`, tone: 'brand' }]}
+      actions={canWrite ? <ActionIconButton … /> : undefined}
+      onClick={canWrite ? () => open(i) : undefined}
+    />
+  ))}
+</AutoGrid>
+```
+
+**Never:** Bootstrap `card`, a feature-local `gridTemplateColumns` fork, or a
+second chip/pill next to `ToneChip` on the same card.
+
+## Entity detail — the Employee Details look, rebuilt here
+
+Detail screens and the wizard Review step share one look: per-section tone
+(`TRIO`) + KT icon in an `IconBox`, a card header band, and label/value rows.
+Rules: [`docs/wizard-ux-contract.md` §15](../../../../../../docs/wizard-ux-contract.md).
+
+| Need | Use | Never |
+|------|-----|-------|
+| Entity identity (avatar + name + meta) | **`EntityIdentityHeader`** — `variant="full"` on a detail page; `variant="compact"` in a wizard rail / Review step | a second header row under the dialog header; a per-screen avatar+name block |
+| Titled section card with a header band | **`DetailCard`** (tone + KT icon + heading in `HEADING_CASE_SX`) | `GlassSurface` + hand-rolled title row |
+| One label/value line | **`KeyValueRow`** | `Typography` pairs with magic widths |
+| A stack of label/value lines | **`KeyValueList`** | a bespoke `<dl>` / `Grid` per screen |
+| Divider between groups inside a card | **`SectionDivider`** | raw `<hr>`, Bootstrap `separator` |
+| Responsive grid of `DetailCard`s | **`DetailGrid`** (single column at 360px) | a feature-local `gridTemplateColumns` |
+
+Empty values render explicit **Not provided** / **Not set** (contract §4), not `—`.
+
+**Legacy:** `@app/modules/detail-page/DetailPageComponents.tsx` (its own
+`DetailCard`, `DetailRow`, `DetailInfoGrid`, `DetailProfileBlock`, …) is
+**superseded for new work**. Existing callers keep working; its 4
+identity-header copies migrate to `EntityIdentityHeader` later. Do not import
+it from new files, and do not confuse its `DetailCard` with the barrel's.
+
+**No raw `backdrop-filter` outside the kit** — `glassSx` / `GlassSurface` / `GlassDialog` follow Interface Style (`data-surface` glass | material); form canvas, fields, review and tables stay opaque.
+
+## Dialog / form shell
+
+| Need | Use |
+|------|-----|
+| Short master create/edit | **`ConfigureFormDialog`** + `WtFieldFormik` |
+| Long multi-section form | **`WtFormDialog`** + `WtFormSection` |
+| Settings / multi-block config | `GlassDialog` + `SettingsSection` / `FormSection` + `FORM_SPACE` |
+| Height preset | `GlassDialog preset="form"` \| `"workspace"` |
+| Cancel + Submit footer | **`GlassDialogActions`** (SSOT) |
+| Header | `GlassHeader` / `PlainDialogHeader` |
+
+**Never:** Bootstrap `Modal`, hand-rolled `DialogActions`/`maxHeight` vh, a private modal layout per feature.
+
+## Tables (Neighbor)
+
+| Need | Use |
+|------|-----|
+| Any data table | **`MaterialTable`** (`@app/modules/common/components`) |
+| Actions column | **`actionsColumn`** from `…/table/columns` (header defaults to **Actions**) |
+| Date column (chrono sort) | **`dateColumn`** from `…/table/columns` |
+| Row multi-select | `enableRowSelection` on `MaterialTable` |
+| Bulk CTA strip while rows selected | **`TableSelectionBar`** + `WtButton` via `renderSelectionActions` |
+| Sort / filter / export / fullscreen | Engine columns (`MRT_ColumnDef` in `useMemo`); actions column disables filters |
+
+**Never:** page-local `<Table>` / second MRT fork; hand-rolled "N selected" toolbars; blank `header: ""` on actions. Details: Neighbors section below + `NEIGHBORS_KIT_360`.
+
+## Empty / loading / error
+
+| Need | Use |
+|------|-----|
+| Empty collection / no-match | **`WtEmptyState`** (`variant="no-match"` drops create CTA) |
+| Block page/section load | **`PageLoader`** |
+| List placeholder skeleton | Neighbor **`Skeleton`** |
+| Button / inline busy | MUI `CircularProgress` size 14–18 |
+| Fetch error with retry | `WtEmptyState variant="error"` + `onAction` |
+
+**Never:** Bootstrap `spinner-border`, mute “nothing here” copy that only restates emptiness.
+
+## Notice / feedback
+
+| Need | Use |
+|------|-----|
+| In-form explanation | **`InlineNotice`** (toned) / **`InlineHint`** (quiet) |
+| Toast / confirm / alert | kit `toast` / `confirmDialog` / `alertDialog` |
+| User data inside `html:` | ``safeHtml`…${name}…` `` / `escapeHtml` |
+
+**Never:** Bootstrap `.alert`, raw react-toastify styling, SweetAlert (removed — use ConfirmDialog / showDialog), unescaped `html:` templates.
+
+## Date / datetime / time
+
+| Need | Use |
+|------|-----|
+| Date | **`WtDateField`** (same density SSOT as `WtField`) |
+| Date + time | **`WtDateTimeField`** |
+| Fiscal year range | `FiscalYearRangeField` |
+| Time wheel | Neighbor / kit `TimeWheelField` |
+
+**Never:** `<input type="date">` / unthemeable OS pickers in product forms.
 
 ## Labelled inputs — never build the pairing yourself
 
@@ -109,11 +338,46 @@ row cannot disagree about height, radius, focus ring or error colour.
 ```
 
 **`addOption`** is the reusable create affordance (`WtAddOption`): `{ onAdd, label?, placement? }`.
+
+**Phone:** use `WtPhoneField` for E.164 phone values. It is ESM-safe and returns the
+selected country metadata so Formik adapters can split the national number and dial code
+without importing `react-phone-input-2`.
 Default `placement: 'menu'` puts `+ Add New` as the first list row; `'label'` puts a text button on the label row (legacy adapters). Formik forms use the same prop on `WtFieldFormik`.
+
+**Toolbar / filter selects:** use `fullWidth={false}` on a plain (non-searchable) select — the kit sizes the closed field and its menu to the widest option label (including icon/prefix chrome) so values are not ellipsized. Override with `fitContent={false}` if you need a fixed width. Full-width form selects still lock the menu to the field width inside dialogs.
+
+### 360° Select contract (FAANG bar)
+
+Kit redesign is allowed when enhance-in-place cannot meet this contract. All of these share one surface for plain Select, searchable Autocomplete, and person pickers (`EmployeePickerField`):
+
+| Aspect | Contract |
+|--------|----------|
+| Label | Floating Sandwich notch by default; always shrink when valued |
+| Required | Visible `*` + MUI `required` |
+| Placeholder | Empty closed state only — never a substitute for the label |
+| Hint / error | One message slot; `error` replaces `hint`; alert role when invalid |
+| Disabled / clearable / icon / prefix / tone | Same chrome rules as text fields |
+| Menu | Flip + max-height inside the dialog scroll port (`dropdownBoundary`) |
+| Layout | `fullWidth` → cell + ellipsis; `fullWidth={false}` → `fitContent` |
+
+Audit: `summary/audits/SELECT_KIT_360_2026-10-15.md`.
 
 **It renders MUI's outlined field with its floating label** — the same control the
 "Add Rule" dialog in `pages/company/settings/SandwhichLeave.tsx` uses, which is the
 app's reference for a labelled input. There is no second look to choose between.
+
+**Density (SSOT):** `WT_CONTROL_HEIGHT` = **40** (default / shared rows),
+`WT_CONTROL_HEIGHT_MD` = **44** (spacious). `WtField` / `WtDateField` default
+`size="sm"` (40px via `controlHeightSx`). Pass `size="md"` only for spacious
+dialog forms. `WtButton` defaults to `size="small"` (40px), flat accent styling.
+Use `size="medium"` for a spacious 44px CTA; opt into the colored glow with
+`flat={false}` — do **not** invent per-page heights.
+`ToolbarFilterSelect` already pins `sm`. Do not invent per-page `fontSize`
+on labels or inputs — change the kit/theme instead.
+
+**Form chrome:** multi-block dialog forms use `FormSection` + `FORM_SPACE`
+(Sandwich Add Rule is the reference). Settings engines with an accent-top rule
+use `SettingsSection`. Long nav forms stay on `WtFormDialog` / `WtFormSection`.
 
 ⚠️ **Never style the label.** MUI cuts the gap with a `<legend><span>` inside the
 outline, and that legend renders in the DEFAULT label metrics — it does not see CSS
@@ -153,28 +417,33 @@ salaries: domain rules come in through `validate` (`utils/ctc` has the salary on
 
 A salary is always the **full annual amount**. Never label a field in lakhs or LPA.
 
-## Shared components OUTSIDE this folder — check here too
+## Neighbors — shared components OUTSIDE this folder
 
-This index used to cover only `ui/`, and the most-used shared component in the entire
-codebase is not in `ui/`. A recruitment drill-down was built on a hand-written `<Table>`
-while `MaterialTable` sat one directory up, imported by 84 other files. Searching the index
-and finding nothing is exactly the failure this file exists to prevent, so the neighbours
-are listed here.
+**Rule zero applies one directory up too.** This index used to cover only `ui/`, and
+the most-used shared component in the entire codebase is not in `ui/`. A recruitment
+drill-down was built on a hand-written `<Table>` while `MaterialTable` sat one
+directory up. Searching the kit and finding nothing is exactly the failure this
+file exists to prevent — check **Neighbors** before writing a feature twin.
 
 They live in `@app/modules/common/components/` (one level up from `ui/`).
 
-| Need | Use | Imported by | Never |
-|---|---|---|---|
-| **Any data table** | **`MaterialTable`** | **84 files** | a hand-written `<Table>`/`<TableHead>`/`<TableRow>` |
-| Tabbed page shell | `MaterialHeaderTab` | 21 | a bespoke `<Tabs>` row |
-| Date-period tabs / nav / filter | `PeriodTabs`, `PeriodNavigator`, `PeriodFilter` | 16 / 16 / 11 | a hand-rolled month stepper |
-| Export to Excel/CSV | `ExportButton` | 12 | a bespoke download handler |
-| Loading placeholder | `Skeleton` | 11 | a bare `<CircularProgress>` for list content |
-| Avatar with fallback initials | `SmartAvatar` | 10 | `<Avatar>` plus your own initials logic |
-| Summary card | `CommonCard` | 10 | a `GlassCard` with a hand-built header |
-| Employee name + avatar in a cell | `EmployeeIdentityCell` | 8 | re-assembling name and avatar per table |
-| Chart drill-down modal | `DrillDownDialog` | 5 | a raw `<Dialog>` (it also fixes the z-index against fullscreen charts) |
-| Lazy-mounted section | `LazySection` | 5 | rendering an expensive panel eagerly |
+| Need | Use | Never |
+|---|---|---|
+| **Any data table** | **`MaterialTable`** | a hand-written `<Table>`/`<TableHead>`/`<TableRow>` |
+| Tabbed page shell | `MaterialHeaderTab` | a bespoke `<Tabs>` row |
+| Date-period tabs / nav / filter | `PeriodTabs`, `PeriodNavigator`, `PeriodFilter` | a hand-rolled month stepper |
+| Export to Excel/CSV | `ExportButton` | a bespoke download handler |
+| Loading placeholder | `Skeleton` | a bare `<CircularProgress>` for list content |
+| Avatar with fallback initials | `SmartAvatar` | `<Avatar>` plus your own initials logic |
+| Summary card | `CommonCard` | a `GlassCard` with a hand-built header |
+| Employee name + avatar in a cell | `EmployeeIdentityCell` | re-assembling name and avatar per table |
+| Multi-select + inline create | `MultiSelectWithInlineCreate` | raw `react-select` multi in a page |
+| Person single-select | `EmployeePickerField` | a bespoke employee dropdown |
+| Chart drill-down modal | `DrillDownDialog` | a raw `<Dialog>` (fixes z-index against fullscreen charts) |
+| Lazy-mounted section | `LazySection` | rendering an expensive panel eagerly |
+| Org filter data | `useOrgScope` (+ `toCompanyIdParam`) | re-deriving an org list / inventing company IDs |
+| Hex filled status pill (legacy) | **`ToneChip solid`** (or thin alias `common/StatusBadge`) | a second pill component; Bootstrap `badge` |
+| Employee directory search (legacy) | **`EmployeePickerField`** — **freeze** `AllEmployeesSearchDropdown` (do not expand) | new call sites of `AllEmployeesSearchDropdown` |
 
 **`MaterialTable` is the one to remember.** It is a lazy boundary over a 2,500-line engine
 and brings sorting, per-column search, column show/hide, export, full-screen, and column
@@ -226,37 +495,37 @@ rule, its `IconBox` and its `WtSwitch` together.
 
 ## Form fields
 
-Plain MUI `TextField`, `size="small"`, label **notched into the border**. No
-bespoke field styling — the theme owns it, so every form matches and dark mode
-works without being handled per screen. The reference is the Sandwich Leave
-rule editor.
+**Public API is `WtField` / `WtFieldFormik`** — floating Sandwich notch, one
+hint/error slot, theme density. Do **not** assemble raw MUI `TextField` +
+`MenuItem` (or a TW `<select>`) in feature code. The reference is the Sandwich
+Leave rule editor (`SandwhichLeave.tsx`).
 
 ```tsx
-<TextField label="Rule name" size="small" fullWidth
-           placeholder="e.g. Diwali Bridge" value={v} onChange={…} />
+<WtField label="Rule name" value={v} onChange={setV}
+         placeholder="e.g. Diwali Bridge" required />
 
-<TextField label="Description" size="small" fullWidth multiline minRows={2} … />
+<WtField label="Description" value={desc} onChange={setDesc}
+         multiline minRows={2} />
 
-<TextField select label="Category" size="small" value={v} onChange={…}>
-  <MenuItem value="custom">Custom</MenuItem>
-</TextField>
+<WtField label="Category" value={cat} onChange={setCat}
+         options={[{ value: 'custom', label: 'Custom' }]} />
 ```
 
 Rules:
 - **Never** a `<label>` stacked above an input, and never a hand-styled
   `<input className="…border rounded-xl…">`. That is what made the FAQ editor
   look like a different app.
-- Errors and character counters go in **`helperText`**, with `error` for the
-  state — they then share the field's baseline and recolour together, instead
-  of being a separate row kept in sync by hand.
-- `select` variants are a `TextField select` with `MenuItem` children, not a
-  bare `Select` — you get the same label treatment for free.
+- Errors and character counters use the field's **`hint` / `error`** slot — they
+  share the baseline and recolour together, instead of a separate row kept in
+  sync by hand.
+- Labelled selects are **`WtField` with `options`**, not `TextField select` +
+  `MenuItem`.
 - Two-up layouts: `Box` with
   `gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }`, so they stack on phones.
-- Group a set of fields under an `Eyebrow` inside a `GlassSurface variant="thin"`.
-- **Mark every required field with `required`.** MUI renders the `*` on the
-  label itself, so it sits with the field and is announced by screen readers —
-  never hand-write an asterisk in the label string.
+- Group a set of fields under an `Eyebrow` inside a `GlassSurface variant="thin"`,
+  or use `FormSection` + `FORM_SPACE` in dialogs.
+- **Mark every required field with `required`.** The kit renders the `*` on the
+  label itself — never hand-write an asterisk in the label string.
 
 ### Long forms in a dialog — `WtFormDialog`
 
@@ -372,35 +641,24 @@ The v3 prefix form is not the canonical syntax here.
    table above.** An undocumented kit component gets reinvented.
 
 
-## Selects — one engine, three wrappers
+## Selects — public API vs engines
 
-`WtSelect` is the **engine**: menu portalled to `<body>`, `menuPlacement: auto` (flips up
-when there is no room below), a bounded self-scrolling menu, z-index above MUI's dialog
-layer, windowed rendering past ~80 options, theme-aware light/dark, and keyboard + ARIA
-inherited from react-select rather than re-invented.
+**Public API for labelled forms:** `WtField` / `WtFieldFormik` (plain MUI Select or searchable Autocomplete, including avatar/description options). **Toolbar:** `ToolbarFilterSelect` → **`WtField`** (`fullWidth={false}`, `fitContent`). **Person single:** `EmployeePickerField` → floating `WtField` searchable.
 
-It exposes what an enterprise select needs and none of the wrappers previously had:
-`isMulti`, `isClearable`, `isLoading`, `isCreatable`, `isDisabled`, grouped options with
-headings, `error` state, `size`, and `optionVariant` (`plain` | `avatar` | `colour`, with an
-optional second `description` line).
-
-The three wrappers stay, because a form field, a toolbar filter and a standalone control
-genuinely differ in binding and layout:
+**`WtSelect`** is the **rich-list engine** (grouped / creatable / colour / windowed): menu portalled to `<body>`, placement + `maxMenuHeight` capped to the dialog scroll port (same `dropdownBoundary` SSOT as Autocomplete/plain Select), z-index above MUI dialogs, windowing past ~80 options.
 
 | Context | Use | Engine |
 |---|---|---|
-| Formik form field | `DropdownInput` | `WtSelect` |
+| Labelled form / filter | `WtField` / `WtFieldFormik` | MUI Select or Autocomplete |
+| Toolbar filter | `ToolbarFilterSelect` | **`WtField`** plain select |
+| Person single-select | `EmployeePickerField` | `WtField` searchable + avatar options |
+| Legacy Formik (do not expand) | `DropdownInput` | `WtSelect` |
 | Standalone / redux-bound | `SelectInput` | `WtSelect` |
 | Country / state field | `LocationDropdown` | `WtSelect` |
-| Address from a map pin | `SmartLocationPicker` (one level up in `components/`, docs in `SmartLocationPicker.md`) | Leaflet + Nominatim |
-| Reimbursement type field | `ReimbursementDropdown` | `WtSelect` |
-| Toolbar filter | `ToolbarFilterSelect` | **MUI `Select`** — see below |
+| Address from a map pin | `SmartLocationPicker` | Leaflet + Nominatim |
+| Reimbursement type field | `ReimbursementDropdown` | `WtField` / `WtSelect` |
 
-`ToolbarFilterSelect` deliberately does NOT use `WtSelect`. It is a compact toolbar
-control whose floating uppercase label is MUI's own notched `InputLabel`; routing it
-through a react-select engine would lose that label and its wiring. Two engines is correct
-here — one for rich, searchable, large-list selects, one for small MUI-native controls.
-What was never correct was nine wrappers each re-deriving menu behaviour.
+Two engines remain correct — Sandwich MUI for labelled density, react-select for rich/windowed lists — with **one** menu-boundary SSOT. Do not invent a third.
 
 `DropdownInput` keeps only what is genuinely its own — the Formik binding, the label row,
 the "+ Add" affordance, and the option renderers (colour dot / avatar / titled row). Menu

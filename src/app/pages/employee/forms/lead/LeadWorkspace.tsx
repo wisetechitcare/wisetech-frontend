@@ -1,4 +1,5 @@
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { ToneChip } from '@app/modules/common/components/ui';
 import React from "react";
 import { useFormikContext } from "formik";
 import dayjs from "dayjs";
@@ -402,30 +403,30 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       {
         label: "Lead Status",
         value: (
-          <span
-            className={`badge px-2 py-1 fs-8 fw-bold ${
+          <ToneChip
+            dense
+            tone={
               currentStatusName === "Received"
-                ? "bg-light-success text-success"
+                ? "success"
                 : currentStatusName === "Canceled"
-                ? "bg-light-danger text-danger"
-                : "bg-light-primary text-primary"
-            }`}
-            style={{ textTransform: "capitalize" }}
-          >
-            {statusObj?.name || "Pending"}
-          </span>
+                  ? "danger"
+                  : "brand"
+            }
+            label={statusObj?.name || "Pending"}
+            sx={{ textTransform: "capitalize" }}
+          />
         ),
         stepId: "lead-status",
       },
       ...(isReceivedStatus ? [{
         label: "Project Status",
         value: (
-          <span
-            className="badge px-2 py-1 fs-8 fw-bold bg-light-primary text-primary"
-            style={{ textTransform: "capitalize" }}
-          >
-            {projectStatusObj?.name || "—"}
-          </span>
+          <ToneChip
+            dense
+            tone="brand"
+            label={projectStatusObj?.name || "—"}
+            sx={{ textTransform: "capitalize" }}
+          />
         ),
         stepId: "lead-status",
       }] : []),

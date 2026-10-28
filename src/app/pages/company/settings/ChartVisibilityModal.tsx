@@ -1,5 +1,6 @@
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React from "react";
-import { Modal } from "react-bootstrap";
+
 import { WtCloseButton } from "@app/modules/common/components/ui/tw";
 import ChartVisibilitySettings from "./ChartVisibilitySettings";
 

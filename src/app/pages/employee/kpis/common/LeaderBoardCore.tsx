@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from "react";
-import { Col, Modal, Row } from "react-bootstrap";
+import { UnsavedChangesModal as Modal } from "@app/modules/common/components/ui";
+import { Col, Row } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@redux/store";
 import {
@@ -17,6 +18,7 @@ import { EMPLOYEE } from "@constants/api-endpoint";
 import { sortKpiFactors } from "@utils/kpiSort";
 import { formatHours } from "./kpiUtils";
 import CommonCard from "@app/modules/common/components/CommonCard";
+import { ToneChip } from "@app/modules/common/components/ui";
 import { maleIcons } from "@metronic/assets/sidepanelicons";
 import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneousicons";
 import { getKpiBehavior, KpiBehavior, normalizeScoreSign } from "@utils/kpiBehavior";
@@ -754,7 +756,7 @@ const FactorLeaderboardCard = React.memo(
               const avatarSrc =
                 getAvatar(
                   safeString(item?.employee?.avatar),
-                  item?.employee?.gender as 0 | 1 | 2
+                  item?.employee?.gender
                 ) || maleIcons.maleIcon?.default;
               return (
                 <EmployeeCard
@@ -848,8 +850,8 @@ function LeaderBoardCore({
   const endDateStr = endDate?.format("YYYY-MM-DD") ?? "";
 
 
-  const getEmployeeAvatar = useCallback((avatar: string | undefined, gender: number | undefined) => {
-    const url = getAvatar(avatar || "", gender as 0 | 1 | 2);
+  const getEmployeeAvatar = useCallback((avatar: string | undefined, gender: string | number | undefined) => {
+    const url = getAvatar(avatar || "", gender);
     return url && url.trim() !== "" ? url : maleIcons.maleIcon?.default;
   }, []);
 
@@ -865,7 +867,7 @@ function LeaderBoardCore({
         emp?.employee?.users?.lastName || emp?.employee?.lastName || emp?.lastName || ""
       );
       const avatar = safeString(emp?.employee?.avatar || emp?.avatar || "");
-      const gender = emp?.employee?.gender ?? emp?.gender ?? 0;
+      const gender = emp?.employee?.gender ?? emp?.gender ?? null;
       const score = safeNumber(emp?.totalScore ?? emp?.score ?? 0);
       const maxScoreRaw = emp?.maxScore ?? null;
       const valueRaw = emp?.value ?? null;
@@ -901,7 +903,7 @@ function LeaderBoardCore({
     (item: any = {}) => {
       const emp = item?.employee || {};
       const avatar =
-        getAvatar(safeString(emp.avatar), emp.gender as 0 | 1 | 2) ||
+        getAvatar(safeString(emp.avatar), emp.gender) ||
         maleIcons.maleIcon?.default;
       return {
         name: `${safeString(emp.firstName)} ${safeString(emp.lastName)}`.trim() || "-",
@@ -1832,7 +1834,7 @@ const KpiInfoModal = ({ show, onHide, factorsGroups }: any) => {
                 </p>
                 <div className="d-flex flex-wrap gap-2">
                   {factorsGroups.positive.map((f: any) => (
-                    <span key={f.id} className="badge badge-light-success border border-success border-opacity-20 px-3 py-2 fw-bold">{f.name}</span>
+                    <ToneChip key={f.id} dense tone="success" label={f.name} />
                   ))}
                 </div>
               </div>
@@ -1852,7 +1854,7 @@ const KpiInfoModal = ({ show, onHide, factorsGroups }: any) => {
                 </p>
                 <div className="d-flex flex-wrap gap-2">
                   {factorsGroups.negative.map((f: any) => (
-                    <span key={f.id} className="badge badge-light-danger border border-danger border-opacity-20 px-3 py-2 fw-bold">{f.name}</span>
+                    <ToneChip key={f.id} dense tone="danger" label={f.name} />
                   ))}
                 </div>
               </div>

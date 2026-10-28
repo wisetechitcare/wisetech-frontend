@@ -249,21 +249,6 @@ export const listPayments = async (
   return { payments: data.payments ?? [], pagination: data.pagination };
 };
 
-export const getPaymentStatistics = async (
-  period: { from?: string; to?: string } = {},
-): Promise<PaymentStatistics> => {
-  // The tiles take the SAME period as the list, so a tile's count and the rows it
-  // filters to always describe one slice of time.
-  const params = new URLSearchParams();
-  if (period.from) params.set("from", period.from);
-  if (period.to) params.set("to", period.to);
-  const query = params.toString();
-  const { data } = await axios.get(`${url(PAYMENT.STATISTICS)}${query ? `?${query}` : ""}`, {
-    withCredentials: true,
-  });
-  return data.statistics;
-};
-
 export const getPayment = async (id: string): Promise<PaymentDetail> => {
   const { data } = await axios.get(url(PAYMENT.GET_BY_ID, { id }), { withCredentials: true });
   return data;
@@ -312,15 +297,6 @@ export const verifyPayment = async (
     url(PAYMENT.VERIFY, { id }), { transactionId, decision, note }, { withCredentials: true },
   );
   return data;
-};
-
-export const setCollectionVerification = async (
-  id: string, status: "UNDER_REVIEW" | "REJECTED", note: string,
-) => {
-  const { data } = await axios.patch(
-    url(PAYMENT.SET_VERIFICATION, { id }), { status, note }, { withCredentials: true },
-  );
-  return data.operation as PaymentListItem;
 };
 
 export const uploadAttachments = async (

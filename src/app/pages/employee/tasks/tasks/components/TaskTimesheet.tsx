@@ -13,6 +13,7 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { getTimeTokens } from '@utils/timeFormat';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { ToneChip } from '@app/modules/common/components/ui';
 
 // Extend dayjs with duration plugin
 dayjs.extend(duration);
@@ -164,7 +165,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
         if (isConfirmed) {
             try {
                 await deleteTimeSheetById(log.id);
-                toast.success("Timesheet entry deleted successfully");
+                toast.success("Timesheet entry deleted.");
                 await fetchTimesheetData();
             } catch (err) {
                 toast.error("Failed to delete timesheet entry");
@@ -453,9 +454,11 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                                                 {dayjs(log.startTime).format('DD MMM YYYY')}
                                             </td>
                                             <td>
-                                                <span className="badge badge-light-primary fw-bold">
-                                                    {formatDuration(log.logTimeHours, log.logTimeMinutes, log.logTimeSeconds)}
-                                                </span>
+                                                <ToneChip
+                                                    dense
+                                                    tone="brand"
+                                                    label={formatDuration(log.logTimeHours, log.logTimeMinutes, log.logTimeSeconds)}
+                                                />
                                             </td>
                                             <td className="text-nowrap">{dayjs(log.startTime).format(getTimeTokens().TIME)}</td>
                                             <td className="text-nowrap">{dayjs(log.endTime).format(getTimeTokens().TIME)}</td>

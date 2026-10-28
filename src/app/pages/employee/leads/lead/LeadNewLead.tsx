@@ -57,7 +57,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import LeadBulkImport from "./LeadBulkImport";
 import { useOrgScope } from "@hooks/useOrgScope";
-import { ActionIconButton, toast } from "@app/modules/common/components/ui";
+import { ActionIconButton, ToneChip, toast } from "@app/modules/common/components/ui";
 import LeadNoteDialog, { ReminderCell, REMINDER_COLUMN_WIDTH } from "./LeadNoteDialog";
 import LeadActionPicker from "./LeadActionPicker";
 // The SAME meeting dialog the calendar and the project board use. A second form here is how
@@ -734,7 +734,7 @@ const LeadNewLead: React.FC = () => {
   );
 
   const handleAlignmentChange = async (
-    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<{}> | null,
+    _: React.MouseEvent<HTMLElement> | React.ChangeEvent<HTMLElement> | null,
     newVal: string,
   ) => {
     if (!newVal) return;
@@ -962,7 +962,9 @@ const LeadNewLead: React.FC = () => {
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return (
-          <span style={{ whiteSpace: "nowrap" }}>
+          // Wraps inside the column: a nowrap span in a fixed-width cell spilled past the
+          // row's coloured background and over the next column.
+          <span>
             {typeof v === "object" ? JSON.stringify(v) : v || "N/A"}
           </span>
         );
@@ -1053,17 +1055,13 @@ const LeadNewLead: React.FC = () => {
         const poStatus = row?.original?.poStatus;
         if (row?.original?.status?.name !== "Received" || !poStatus)
           return <span>N/A</span>;
-        const color = poStatus === "Received" ? "#28A745" : "#FFC107";
         return (
-          <div
-            className="badge badge-light"
-            style={{
-              backgroundColor: color,
-              color: poStatus === "Received" ? "white" : "#333",
-            }}
-          >
-            {poStatus}
-          </div>
+          <ToneChip
+            dense
+            tone={poStatus === "Received" ? "success" : "warning"}
+            label={poStatus}
+            solid={poStatus === "Received"}
+          />
         );
       },
     },
@@ -1182,7 +1180,7 @@ const LeadNewLead: React.FC = () => {
         const type = row?.original?.fileLocationCompanyTypeName || row?.original?.fileLocationCompanyType || "";
         if (company) {
           return (
-            <span style={{ whiteSpace: "nowrap" }}>
+            <span>
               {company}
               {type ? (
                 <span style={{ color: "#9CA3AF" }}> ({type})</span>
@@ -1203,7 +1201,7 @@ const LeadNewLead: React.FC = () => {
               Open file
             </a>
           ) : (
-            <span style={{ whiteSpace: "nowrap" }}>{String(path)}</span>
+            <span>{String(path)}</span>
           );
         }
         return "N/A";

@@ -1,12 +1,16 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Modal, Form, Row, Col, Button } from "react-bootstrap";
-import { Formik, Form as FormikForm, Field } from "formik";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { Row, Col } from "react-bootstrap";
+import { Formik, Form as FormikForm, type FormikProps } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import Select from "react-select";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
+import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
+import { ContactWorkspace } from "../../forms/ContactWorkspace";
+import { CrmSection } from "../../forms/CrmSection";
+import { ContactAddressSection } from "../../forms/ContactAddressSection";
 import {
   getAllClientCompanies,
   createClientContact,
@@ -32,16 +36,32 @@ import { uploadCompanyAsset } from "@services/uploader";
 import DateInput from "@app/modules/common/inputs/DateInput";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { ContactFormValues, Branch, ContactRoleType } from "@models/companies";
-import CompanyConfigMain from "../../companyConfig/CompanyConfigMain";
+import { ContactFormValues, Branch, ContactRoleType, ContactChannel, ContactCompanyStint } from "@models/companies";
+import { ContactChannelFields, toChannelRows, toChannelPayload } from "./ContactChannelFields";
+import { CompanyMoveFields } from "./CompanyMoveFields";
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
 import CompaniesBranchForm from "../../companies/components/CompaniesBranchForm";
 import NewCompanyForm from "../../companies/components/NewCompanyForm";
 import { useEventBus } from "@hooks/useEventBus";
-import { Close } from "@mui/icons-material";
-import { Box, IconButton, Typography } from "@mui/material";
 import dayjs from "dayjs";
 import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
+import { AppIcon, useDiscardConfirm, FloatingLabels, FloatingLabelFrame, WtFieldFormik } from "@app/modules/common/components/ui";
+import { Box } from "@mui/material";
+import {
+  CRM_ACTIVE_COLOR,
+  CRM_INACTIVE_COLOR,
+} from "../../crmListRowSx";
+
+/** Prefer CRM active/inactive palette when the status name matches. */
+function contactStatusColor(name?: string, fallback?: string) {
+  const n = String(name || "")
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+  if (n === "active") return CRM_ACTIVE_COLOR;
+  if (n.includes("inactive") || n === "closed") return CRM_INACTIVE_COLOR;
+  return fallback || CRM_INACTIVE_COLOR;
+}
+
 
 interface Company {
   id: string;
@@ -69,14 +89,18 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   selectedCompanyId,
   key
 }) => {
+  // X / Esc / footer Cancel ask before throwing away unsaved edits (the ONE kit prompt).
+  const formikRef = useRef<FormikProps<ContactFormValues>>(null);
+  const discard = useDiscardConfirm(() => Boolean(formikRef.current?.dirty), onClose);
+
   // Dynamic validation: address fields not required on Add New Contact
   const validationSchema = useMemo(() => {
     const isAdd = !contactId;
     return Yup.object().shape({
       roleInCompany: Yup.string(),
       fullName: Yup.string().required("Full name is required"),
-      phone: Yup.string(),
-      email: Yup.string().email("Invalid email format"),
+      phones: Yup.array().of(Yup.object({ value: Yup.string().max(20, "Phone is too long") })),
+      emails: Yup.array().of(Yup.object({ value: Yup.string().trim().email("Invalid email format").max(100, "Email is too long") })),
       country: isAdd ? Yup.string() : Yup.string(),
       state: isAdd ? Yup.string() : Yup.string(),
       city: isAdd ? Yup.string() : Yup.string(),
@@ -138,6 +162,34 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   };
 
 
+  /*
+   * Saving REPLACES the contact's phone / email lists with the ones on screen. If the contact
+   * was handed in without its `channels` (a caller whose row lacks them), the screen would only
+   * show the primary ones and saving would drop the rest — so fetch them first.
+   */
+  const [fetchedChannels, setFetchedChannels] = useState<ContactChannel[] | null>(null);
+  // Company history is display-only (never a form value), so it lives outside initialValues
+  // and arriving late cannot reinitialize what the user has typed.
+  const [fetchedHistory, setFetchedHistory] = useState<ContactCompanyStint[] | null>(null);
+  useEffect(() => {
+    setFetchedChannels(null);
+    setFetchedHistory(null);
+    if (!contactId || !initialData) return;
+    const needChannels = !Array.isArray(initialData.channels);
+    if (!needChannels && Array.isArray(initialData.companyHistory)) return;
+    let cancelled = false;
+    getClientContactById(contactId)
+      .then((res: any) => {
+        if (cancelled) return;
+        const contact = res?.data?.contact;
+        if (needChannels) setFetchedChannels(contact?.channels ?? []);
+        setFetchedHistory(contact?.companyHistory ?? []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [contactId, initialData]);
+  const companyHistory = initialData?.companyHistory ?? fetchedHistory ?? [];
+
   // Create a clean initial values object for new contacts
   const emptyInitialValues: ContactFormValues = {
     companyId: "",
@@ -148,13 +200,13 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     serviceIds: [],
     subServiceIds: [],
     isPrimaryContact: false,
+    companyMovedOn: "",
     fullName: "",
     dob: "",
     anniversary: "",
     gender: "",
-    phone: "",
-    phone2: "",
-    email: "",
+    phones: toChannelRows("phones", undefined, []),
+    emails: toChannelRows("emails", undefined, []),
     country: "",
     zipCode: "",
     area: "",
@@ -183,13 +235,13 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       serviceIds: initialData.serviceMappings?.map((m: any) => m.serviceId) || [],
       subServiceIds: [],
       isPrimaryContact: initialData.isPrimaryContact || false,
+      companyMovedOn: "",
       fullName: initialData.fullName || "",
       dob: initialData.dateOfBirth ? formatDateForInput(initialData.dateOfBirth) : "",
       anniversary: initialData.anniversary ? formatDateForInput(initialData.anniversary) : "",
       gender: initialData.gender || "",
-      phone: initialData.phone || "",
-      phone2: initialData.phone2 || "",
-      email: initialData.email || "",
+      phones: toChannelRows("phones", initialData.channels ?? fetchedChannels ?? undefined, [initialData.phone, initialData.phone2]),
+      emails: toChannelRows("emails", initialData.channels ?? fetchedChannels ?? undefined, [initialData.email]),
       country: initialData.country || "",
       zipCode: initialData.zipCode || "",
       area: initialData.area || "",
@@ -216,7 +268,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     }
 
     return values;
-  }, [key, initialData, contactId, contactStatuses, selectedCompanyId]);
+  }, [key, initialData, contactId, contactStatuses, selectedCompanyId, fetchedChannels]);
 
   // Seed the photo preview with the contact's existing image when editing, so it
   // shows in the upload box instead of the empty placeholder. (The form field
@@ -441,15 +493,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     }
   };
 
-  const viewLocation = (latitude: string, longitude: string) => {
-    if (latitude && longitude) {
-      const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-      window.open(googleMapsUrl, '_blank');
-    } else {
-      errorConfirmation('Please enter latitude and longitude first');
-    }
-  };
-
   const handleSubmit = async (formValues: ContactFormValues) => {
     try {
       setLoading(true);
@@ -517,15 +560,19 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         statusId: formValues.statusId,
         serviceIds: formValues.serviceIds || [],
         isPrimaryContact: formValues.isPrimaryContact === true ? 'true' : 'false',
+        // Only on a move: the server closes the old company's stint on this day (default today).
+        companyMovedOn: contactId && initialData?.companyId && formValues.companyId !== initialData.companyId
+          ? parseDateFromDisplay(formValues.companyMovedOn || "") ?? undefined
+          : undefined,
 
         fullName: formValues.fullName,
         dateOfBirth: parseDateFromDisplay(formValues?.dob || ""),
         anniversary: parseDateFromDisplay(formValues?.anniversary || ""),
         gender: formValues.gender ? formValues.gender.toUpperCase() : null,
 
-        phone: formValues.phone,
-        phone2: formValues.phone2,
-        email: formValues.email,
+        // The server stores these and writes the primary ones back to phone / phone2 / email.
+        phones: toChannelPayload(formValues.phones),
+        emails: toChannelPayload(formValues.emails),
 
         country: selectedCountryData?.name || formValues.country,
         state: selectedStateData?.name || formValues.state,
@@ -585,10 +632,10 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
       if (contactId) {
         await updateClientContact(contactId, contactData);
-        successConfirmation("Contact updated successfully!");
+        successConfirmation("Contact updated.");
       } else {
         await createClientContact(contactData);
-        successConfirmation("Contact created successfully!");
+        successConfirmation("Contact created.");
       }
 
       eventBus.emit("clientContactUpdated");
@@ -625,139 +672,163 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
   return (
     <>
-      <Modal
+      <FullscreenWizardModal
         show={show}
-        onHide={onClose}
-        size="xl"
-        centered
-        aria-labelledby="responsive-modal"
-        dialogClassName="responsive-modal"
+        onClose={discard.requestClose}
+        closeLabel="Close contact form"
       >
-        <Box sx={{ position: "relative", backgroundColor: "#F3F4F7", p: { xs: 0, md: 3 } }}>
-          <IconButton
-            onClick={onClose}
-            sx={{
-              position: "absolute",
-              right: 8,
-              top: 8,
-              color: "text.secondary",
-            }}
-          >
-            <Close />
-          </IconButton>
-          <Typography
-            variant="h6"
-            component="h2"
-            // sx={{ mb: 3, fontWeight: 600 }}
-            sx={{ fontWeight: 600, pl: { xs: 2, md: 0 }, pt: { xs: 1, md: 0 } }}
-            style={{
-              fontSize: "20px",
-              fontFamily: "Barlow",
-              fontWeight: "600",
-            }}
-          >
-            {contactId ? "Edit Contact" : "Add New Contact"}
-          </Typography>
-          <Modal.Header>
-          </Modal.Header>
-          <Modal.Body>
-            <Formik
-              key={contactId ? `edit-${contactId}` : 'add-new'}
-              initialValues={initialValues}
-              validationSchema={validationSchema}
-              onSubmit={handleSubmit}
-              enableReinitialize={true}
-            >
-              {(formikProps) => {
-                const { values, setFieldValue, errors, touched } = formikProps;
+        <Formik
+          key={contactId ? `edit-${contactId}` : "add-new"}
+          innerRef={formikRef}
+          initialValues={initialValues}
+          validationSchema={validationSchema}
+          onSubmit={handleSubmit}
+          enableReinitialize={true}
+        >
+          {(formikProps) => {
+            const { values, setFieldValue, errors, touched, isSubmitting } = formikProps;
 
-                return (
-                  <FormikForm>
-                    {/* Profile Photo */}
-                    <div className="mb-3 text-start">
-                      <div className="d-flex align-items-start justify-content-start">
-                        <label
-                          htmlFor="profilePhotoInput"
-                          style={{ cursor: "pointer" }}
-                        >
-                          <div
-                            className="rounded-circle bg-light d-flex align-items-center justify-content-center"
-                            style={{
-                              width: "100px",
-                              height: "100px",
-                              overflow: "hidden",
-                            }}
-                          >
-                            {profilePhotoPreview ? (
-                              <img
-                                src={profilePhotoPreview}
-                                alt="Preview"
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
+            return (
+              <FormikForm style={{ height: "100%" }}>
+                {/* Every field in the wizard: label rests in the empty box, floats up on focus/value. */}
+                <FloatingLabels>
+                <ContactWorkspace
+                  isEdit={!!contactId}
+                  onCancel={discard.requestClose}
+                  isSubmitting={loading || isSubmitting}
+                  sections={[
+                    {
+                      id: "profile",
+                      label: "Profile",
+                      title: "Profile",
+                      subtitle: "Photo, name, dates and gender",
+                      fields: ["fullName","dob","gender","anniversary","profilePhoto"],
+                      requiredFields: ["fullName"],
+                      icon: "bi-person",
+                      content: (
+                        <CrmSection title="Profile">
+                          <div className="crm-profile-layout">
+                            <aside className="crm-profile-photo" aria-label="Profile photo">
+                              <label
+                                htmlFor="profilePhotoInput"
+                                className={`crm-avatar-circle crm-avatar-circle--lg${profilePhotoPreview ? " has-image" : ""}`}
+                                title="Upload profile photo"
+                              >
+                                {profilePhotoPreview ? (
+                                  <img src={profilePhotoPreview} alt="Profile preview" />
+                                ) : (
+                                  <span className="crm-avatar-placeholder">
+                                    <AppIcon name="bi-person-fill" />
+                                    <span>Add photo</span>
+                                  </span>
+                                )}
+                              </label>
+                              <div className="crm-avatar-actions crm-avatar-actions--stack">
+                                <button
+                                  type="button"
+                                  className="wt-btn wt-btn-outline-primary"
+                                  style={{ fontSize: 13, fontWeight: 600 }}
+                                  onClick={() => document.getElementById("profilePhotoInput")?.click()}
+                                >
+                                  {profilePhotoPreview ? "Change photo" : "Upload photo"}
+                                </button>
+                                {profilePhotoPreview && (
+                                  <button
+                                    type="button"
+                                    className="wt-btn wt-btn-ghost"
+                                    style={{ fontSize: 13 }}
+                                    onClick={() => {
+                                      setFieldValue("profilePhoto", null);
+                                      setProfilePhotoPreview(null);
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                                <span className="crm-avatar-hint">
+                                  JPG or PNG · shown on contact lists
+                                </span>
+                              </div>
+                              <input
+                                type="file"
+                                id="profilePhotoInput"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setFieldValue("profilePhoto", file);
+                                    setProfilePhotoPreview(URL.createObjectURL(file));
+                                  }
                                 }}
+                                style={{ display: "none" }}
                               />
-                            ) : (
-                              <i className="fas fa-user text-muted fs-1"></i>
-                            )}
-                          </div>
-                        </label>
-                      </div>
-                      <small className="text-muted ms-5">Profile Photo</small>
-                      <input
-                        type="file"
-                        id="profilePhotoInput"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setFieldValue("profilePhoto", file);
-                            setProfilePhotoPreview(URL.createObjectURL(file));
-                          }
-                        }}
-                        style={{ display: "none" }} // hide the input box
-                      />
-                    </div>
+                            </aside>
 
-                    {/* Company Details */}
-                    <div className="mb-4">
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          COMPANY DETAILS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
+                            <div className="crm-profile-fields">
+                              <Row className="g-3">
+                                <Col md={6}>
+                                  <TextInput
+                                    label="Full Name"
+                                    placeholder="Enter full name"
+                                    isRequired={true}
+                                    formikField="fullName"
+                                  />
+                                </Col>
+                                <Col md={6} className="crm-date-field">
+                                  <DateInput
+                                    formikField="dob"
+                                    isRequired={false}
+                                    formikProps={formikProps}
+                                    inputLabel="Date of birth"
+                                    placeHolder="1/3/2025"
+                                  />
+                                </Col>
+                                <Col md={6}>
+                                  {/* Pills in a box the date beside it's height, "Gender" in its border. */}
+                                  <FloatingLabelFrame label="Gender" filled controlHeight={44}>
+                                    <Box sx={{ display: "flex", alignItems: "center", minHeight: 44, px: 1, border: 1, borderColor: "divider", borderRadius: "8px", bgcolor: "background.paper", "& .crm-pill-group label": { padding: "4px 12px !important" } }}>
+                                      <div className="crm-pill-group" role="group" aria-label="Gender">
+                                        {genderOptions.map((option) => (
+                                          <label key={option.value}>
+                                            <input
+                                              type="radio"
+                                              name="gender"
+                                              checked={values.gender === option.value}
+                                              onChange={() => setFieldValue("gender", option.value)}
+                                            />
+                                            {option.label}
+                                          </label>
+                                        ))}
+                                      </div>
+                                    </Box>
+                                  </FloatingLabelFrame>
+                                </Col>
+                                <Col md={6} className="crm-date-field">
+                                  <DateInput
+                                    formikField="anniversary"
+                                    isRequired={false}
+                                    formikProps={formikProps}
+                                    inputLabel="Anniversary date"
+                                    placeHolder="1/3/2025"
+                                  />
+                                </Col>
+                              </Row>
+                            </div>
+                          </div>
+                        </CrmSection>
+                      ),
+                    },
+                    {
+                      id: "company",
+                      label: "Company",
+                      title: "Company",
+                      subtitle: "Link company, branch, role and services",
+                      fields: ["companyId","branchId","contactRoleId","statusId","serviceIds","roleInCompany","isPrimaryContact"],
+                      requiredFields: [],
+                      icon: "bi-building",
+                      content: (
+                        <CrmSection title="Company">
+
                           <Row>
                             <Col md={12}>
                               <DropDownInput
@@ -920,9 +991,10 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 options={contactStatuses.map((s) => ({
                                   value: s.id,
                                   label: s.name,
-                                  color: s.color,
+                                  color: contactStatusColor(s.name, s.color),
                                 }))}
                                 showColor={true}
+                                disableAlphabeticalSort
                                 onChange={(value) => {
                                   let statusId = value;
                                   if (
@@ -940,17 +1012,19 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 }}
                                 value={
                                   values.statusId
-                                    ? {
-                                      value: values.statusId,
-                                      label:
-                                        contactStatuses.find(
-                                          (s) => s.id === values.statusId
-                                        )?.name || "",
-                                      color:
-                                        contactStatuses.find(
-                                          (s) => s.id === values.statusId
-                                        )?.color || "",
-                                    }
+                                    ? (() => {
+                                        const s = contactStatuses.find(
+                                          (x) => x.id === values.statusId
+                                        );
+                                        return {
+                                          value: values.statusId,
+                                          label: s?.name || "",
+                                          color: contactStatusColor(
+                                            s?.name,
+                                            s?.color
+                                          ),
+                                        };
+                                      })()
                                     : null
                                 }
                               />
@@ -963,8 +1037,10 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               </small>
                             </Col>
                             <Col md={6} className="mt-2">
-                              <label className="form-label">Sub-services</label>
-                              <Select{...FLOATING_MENU_BEHAVIOUR}
+                              <FloatingLabelFrame label="Sub-services" filled={(values.serviceIds || []).length > 0} controlHeight={38}>
+                              <Select
+                                aria-label="Sub-services"
+{...FLOATING_MENU_BEHAVIOUR}
                                 isMulti
                                 placeholder={
                                   values.companyId
@@ -1008,6 +1084,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 menuPosition="fixed"
                                 styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
                               />
+                              </FloatingLabelFrame>
                               <small
                                 className="text-primary"
                                 onClick={() => setShowCompanyServiceModal(true)}
@@ -1039,440 +1116,103 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </fieldset>
-                    </div>
-
-                    {/* Personal Details */}
-                    <div className="mb-4">
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
+                          <CompanyMoveFields
+                            originalCompanyId={contactId ? initialData?.companyId || "" : ""}
+                            originalCompanyName={
+                              (initialData as any)?.company?.companyName ||
+                              companies.find((c) => c.id == initialData?.companyId)?.companyName ||
+                              "their current company"
+                            }
+                            newCompanyName={companies.find((c) => c.id == values.companyId)?.companyName}
+                            history={companyHistory}
+                            onMove={() => {
+                              // A new employer: nothing from the old one carries over.
+                              formikProps.setValues({
+                                ...values,
+                                companyId: "",
+                                branchId: "",
+                                roleInCompany: "",
+                                contactRoleId: "",
+                                serviceIds: [],
+                                isPrimaryContact: false,
+                                companyMovedOn: dayjs().format("YYYY-MM-DD"),
+                              });
+                              setSelectedCompany("");
+                              setBranches([]);
+                              setBranchWarning("");
                             }}
-                          ></div>
-                          PERSONAL DETAILS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
-                          <Row>
-                            <Col md={6}>
-                              <TextInput
-                                label="Full Name"
-                                placeholder="Enter full name"
-                                isRequired={true}
-                                formikField="fullName"
-                              />
-                            </Col>
-                            <Col md={6}>
-                              <DateInput
-                                formikField="dob"
-                                isRequired={false}
-                                formikProps={formikProps}
-                                inputLabel="Date Of Birth"
-                                placeHolder="1/3/2025"
-                              />
-                            </Col>
-                            <Col md={6}>
-                              <DropDownInput
-                                inputLabel="Gender"
-                                placeholder="Select gender"
-                                formikField="gender"
-                                options={genderOptions}
-                                onChange={(value) => {
-                                  const genderValue =
-                                    value &&
-                                      typeof value === "object" &&
-                                      "value" in value
-                                      ? value.value
-                                      : value;
-                                  setFieldValue("gender", genderValue);
-                                }}
-                                value={
-                                  values.gender
-                                    ? {
-                                      value: values.gender,
-                                      label:
-                                        genderOptions.find(
-                                          (g) => g.value === values.gender
-                                        )?.label || "",
-                                    }
-                                    : null
-                                }
-                                isRequired={false}
-                              />
-                            </Col>
-                            <Col md={6}>
-                              <DateInput
-                                formikField="anniversary"
-                                isRequired={false}
-                                formikProps={formikProps}
-                                inputLabel="Anniversary Date"
-                                placeHolder="1/3/2025"
-                              />
-                            </Col>
-                          </Row>
-                        </div>
-                      </fieldset>
-                    </div>
-
-                    <div className="mb-4">
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#b82525ff",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
+                            onUndo={() => {
+                              const original = initialValues;
+                              formikProps.setValues({
+                                ...values,
+                                companyId: original.companyId,
+                                branchId: original.branchId,
+                                roleInCompany: original.roleInCompany,
+                                contactRoleId: original.contactRoleId,
+                                serviceIds: original.serviceIds,
+                                isPrimaryContact: original.isPrimaryContact,
+                                companyMovedOn: "",
+                              });
+                              setSelectedCompany(original.companyId);
+                              if (original.companyId) loadBranches(original.companyId);
                             }}
-                          ></div>
-                          CONTACT DETAILS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
-                          <Row className="">
-                            <Col md={4}>
-                              <PhoneNumberInput
-                                label="Phone"
-                                placeholder="Enter phone"
-                                isRequired={false}
-                                formikField="phone"
-                              />
-                            </Col>
-                            <Col md={4}>
-                              <PhoneNumberInput
-                                label="Phone 2"
-                                placeholder="Enter phone 2"
-                                formikField="phone2"
-                                isRequired={false}
-                              />
-                            </Col>
-                            <Col md={4}>
-                              <TextInput
-                                label="Email"
-                                placeholder="Enter email"
-                                isRequired={false}
-                                formikField="email"
-                              />
-                            </Col>
-                          </Row>
-                        </div>
-                      </fieldset>
-                    </div>
+                          />
+                        </CrmSection>
+                      ),
+                    },
+                    {
+                      id: "contact",
+                      label: "Contact",
+                      title: "Contact Details",
+                      subtitle: "Phone numbers and email",
+                      fields: ["phones","emails"],
+                      requiredFields: [],
+                      icon: "bi-telephone",
+                      content: (
+                        <CrmSection title="Contact Details">
+                          <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <ContactChannelFields kind="phones" />
+                            <ContactChannelFields
+                              kind="emails"
+                              hint="Birthday greetings and meeting invites go to the primary email. A personal address keeps working if they change jobs."
+                            />
+                          </Box>
+                        </CrmSection>
+                      ),
+                    },
+                    {
+                      id: "address",
+                      label: "Address",
+                      title: "Address, Location & Docs",
+                      subtitle: "Search address, drop a pin, and fine-tune location details",
+                      fields: ["address","country","state","city","area","zipCode","latitude","longitude","gmbLink","googleMapLink"],
+                      requiredFields: [],
+                      icon: "bi-geo-alt",
+                      content: (
+                        <ContactAddressSection
+                          countries={countries}
+                          states={states}
+                          cities={cities}
+                          selectedCountry={selectedCountry}
+                          selectedState={selectedState}
+                          setSelectedCountry={setSelectedCountry}
+                          setSelectedState={setSelectedState}
+                          handleCountryChange={handleCountryChange}
+                          handleStateChange={handleStateChange}
+                        />
+                      ),
+                    },
+                    {
+                      id: "notes",
+                      label: "Notes",
+                      title: "Notes",
+                      subtitle: "Extra notes for this contact",
+                      fields: ["note","visibility"],
+                      requiredFields: [],
+                      icon: "bi-journal-text",
+                      content: (
+                        <CrmSection title="Notes">
 
-                    {/* Address */}
-                    <div className="mb-4">
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          ADDRESS
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
-                          <Row className="">
-                            <Col md={6}>
-                              <TextInput
-                                label="Address"
-                                placeholder="address"
-                                formikField="address"
-                                isRequired={false}
-                              />
-                            </Col>
-                            <Col md={6}>
-                              <DropDownInput
-                                formikField="country"
-                                inputLabel="Country"
-                                options={countries.map((c) => ({
-                                  label: c.name,
-                                  value: c.id,
-                                }))}
-                                isRequired={false}
-                                onChange={(option: any) => {
-                                  setFieldValue("country", option?.value || "");
-                                  setFieldValue("state", "");
-                                  setFieldValue("city", "");
-                                  setSelectedCountry(option?.value || "");
-                                  setSelectedState("");
-                                  if (option?.value) {
-                                    handleCountryChange(option.value);
-                                  }
-                                }}
-                                value={
-                                  selectedCountry
-                                    ? {
-                                      label:
-                                        countries.find(
-                                          (c) => c.id === selectedCountry
-                                        )?.name || "",
-                                      value: selectedCountry,
-                                    }
-                                    : null
-                                }
-                              />
-                            </Col>
-                            <Col md={6}>
-                              <DropDownInput
-                                formikField="state"
-                                inputLabel="State"
-                                options={selectedCountry ? states.map((s) => ({
-                                  label: s.name,
-                                  value: s.id,
-                                })) : []}
-                                placeholder={!selectedCountry ? "Please select country first" : "Select State"}
-                                isRequired={false}
-                                onChange={(option: any) => {
-                                  setFieldValue("state", option?.value || "");
-                                  setFieldValue("city", "");
-                                  setSelectedState(option?.value || "");
-                                  if (option?.value && selectedCountry) {
-                                    handleStateChange(
-                                      selectedCountry,
-                                      option.value
-                                    );
-                                  }
-                                }}
-                                value={
-                                  selectedState
-                                    ? {
-                                      label:
-                                        states.find(
-                                          (s) => s.id === selectedState
-                                        )?.name || "",
-                                      value: selectedState,
-                                    }
-                                    : null
-                                }
-                              />
-                            </Col>
-                            <Col md={6}>
-                              <DropDownInput
-                                formikField="city"
-                                inputLabel="City"
-                                options={selectedState ? [
-                                  ...cities.map((c) => ({
-                                    label: c.name,
-                                    value: c.id,
-                                  })),
-                                  // Add custom city if it's not in the list
-                                  ...(values.city &&
-                                    !cities.find((c) => c.id === values.city)
-                                    ? [
-                                      {
-                                        label: values.city,
-                                        value: values.city,
-                                      },
-                                    ]
-                                    : []),
-                                ] : []}
-                                placeholder={!selectedState ? "Please select state first" : "Select City"}
-                                isRequired={false}
-                                onChange={(option: any) =>
-                                  setFieldValue("city", option?.value || "")
-                                }
-                                value={
-                                  values.city
-                                    ? {
-                                      label:
-                                        cities.find(
-                                          (c) => c.id === values.city
-                                        )?.name || values.city,
-                                      value: values.city,
-                                    }
-                                    : null
-                                }
-                              />
-                            </Col>
-                          </Row>
-                          <Row>
-                            <Col md={6} className="mt-3">
-                              <TextInput
-                                label="Locality"
-                                placeholder="Enter locality"
-                                formikField="area"
-                                isRequired={false}
-                              />
-                            </Col>
-                            <Col md={6} className="mt-3">
-                              <TextInput
-                                label="Zip Code"
-                                placeholder="Enter zip code"
-                                formikField="zipCode"
-                                isRequired={false}
-                              />
-                            </Col>
-                          </Row>
-                          <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
-                            <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
-                            <Row>
-                              <Col md={3}>
-                                <TextInput
-                                  label="Google Map Link"
-                                  placeholder="Enter google map link"
-                                  formikField="googleMapLink"
-                                  isRequired={false}
-                                />
-                              </Col>
-                              <Col md={3}>
-                                <TextInput
-                                  label="Google Business Link"
-                                  placeholder="Enter google Business link"
-                                  formikField="gmbLink"
-                                  isRequired={false}
-                                />
-                              </Col>
-                              <Col md={3}>
-                                <TextInput
-                                  label="Latitude"
-                                  placeholder="Enter latitude"
-                                  formikField="latitude"
-                                  isRequired={false}
-                                  inputValidation="signed-decimal"
-                                />
-                              </Col>
-                              <Col md={3}>
-                                <TextInput
-                                  label="Longitude"
-                                  placeholder="Enter longitude"
-                                  formikField="longitude"
-                                  isRequired={false}
-                                  inputValidation="signed-decimal"
-                                />
-                              </Col>
-                              <div
-                                className="d-flex justify-content-end mt-4"
-                                onClick={() => viewLocation(
-                                  values.latitude || '',
-                                  values.longitude || ''
-                                )}
-                                style={{
-                                  cursor: 'pointer',
-                                  color: '#0D47A1',
-                                }}
-                              >
-                                View Location On Map
-                              </div>
-                            </Row>
-                          </div>
-                        </div>
-                      </fieldset>
-                    </div>
-
-                    {/* Portal */}
-                    <div className="mb-4">
-                      <fieldset
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          padding: "clamp(14px, 2vw, 15px)",
-                        }}
-                        className="mt-7"
-                      >
-                        <legend
-                          style={{
-                            fontSize: "17px",
-                            fontWeight: 600,
-                            fontFamily: "Inter",
-                            marginTop: "-25px",
-                            marginLeft: "-17px",
-                            backgroundColor: "#F3F4F7",
-                            width: "auto",
-                            lineHeight: "1",
-                            letterSpacing: 0,
-                            color: "#1E3A8A",
-                            padding: "2px 2px 8px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <div
-                            className="ms-5"
-                            style={{
-                              borderTop: "1px solid #1E3A8A",
-                              width: "30px",
-                              height: "0px",
-                            }}
-                          ></div>
-                          PORTAL
-                        </legend>
-                        <div className="card-body card responsive-card p-md-10 p-3 ">
                           <Row>
                             {/* <Col md={12}>
                               <div className="form-group">
@@ -1515,37 +1255,22 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               </div>
                             </Col> */}
                             <div className="mb-3 mt-3">
-                              <label className="form-label">Note</label>
-                              <Field
-                                as="textarea"
-                                name="note"
-                                className="form-control"
-                                rows={3}
-                                placeholder="Enter note"
-                              />
+                              <WtFieldFormik name="note" label="Note" multiline minRows={3} placeholder="Enter note" />
                             </div>
                           </Row>
-                        </div>
-                      </fieldset>
-                    </div>
-
-                    {/* Submit Buttons */}
-                    <div className="d-flex justify-content-start gap-2">
-                      <Button
-                        type="submit"
-                        variant="primary"
-                        disabled={loading}
-                      >
-                        {loading ? "Saving..." : "Submit"}
-                      </Button>
-                    </div>
-                  </FormikForm>
-                );
-              }}
-            </Formik>
-          </Modal.Body>
-        </Box>
-      </Modal>
+                    
+                        </CrmSection>
+                      ),
+                    }
+                  ]}
+                />
+                </FloatingLabels>
+              </FormikForm>
+            );
+          }}
+        </Formik>
+      </FullscreenWizardModal>
+      {discard.dialog}
       <CompanyConfigForm
         show={showModal}
         onClose={() => setShowModal(false)}

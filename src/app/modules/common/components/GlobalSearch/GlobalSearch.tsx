@@ -10,17 +10,30 @@ import {
   SearchResultType,
 } from '@app/utils/search';
 import { isPackEnabled } from '@utils/tenantPacks';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import BusinessIcon from '@mui/icons-material/Business';
-import PersonIcon from '@mui/icons-material/Person';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import PeopleIcon from '@mui/icons-material/People';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ExploreIcon from '@mui/icons-material/Explore';
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import KeyboardReturnIcon from '@mui/icons-material/KeyboardReturn';
+import AutoAwesomeIconModule from '@mui/icons-material/AutoAwesome';
+import BusinessIconModule from '@mui/icons-material/Business';
+import PersonIconModule from '@mui/icons-material/Person';
+import AssignmentIconModule from '@mui/icons-material/Assignment';
+import AccountTreeIconModule from '@mui/icons-material/AccountTree';
+import PeopleIconModule from '@mui/icons-material/People';
+import CheckCircleIconModule from '@mui/icons-material/CheckCircle';
+import ExploreIconModule from '@mui/icons-material/Explore';
+import AssessmentIconModule from '@mui/icons-material/Assessment';
+import KeyboardReturnIconModule from '@mui/icons-material/KeyboardReturn';
+import { resolveReactComponent } from '@utils/resolveReactComponent';
 import './GlobalSearch.css';
+import { ToneChip } from '@app/modules/common/components/ui';
+
+const AutoAwesomeIcon = resolveReactComponent<typeof AutoAwesomeIconModule>(AutoAwesomeIconModule);
+const BusinessIcon = resolveReactComponent<typeof BusinessIconModule>(BusinessIconModule);
+const PersonIcon = resolveReactComponent<typeof PersonIconModule>(PersonIconModule);
+const AssignmentIcon = resolveReactComponent<typeof AssignmentIconModule>(AssignmentIconModule);
+const AccountTreeIcon = resolveReactComponent<typeof AccountTreeIconModule>(AccountTreeIconModule);
+const PeopleIcon = resolveReactComponent<typeof PeopleIconModule>(PeopleIconModule);
+const CheckCircleIcon = resolveReactComponent<typeof CheckCircleIconModule>(CheckCircleIconModule);
+const ExploreIcon = resolveReactComponent<typeof ExploreIconModule>(ExploreIconModule);
+const AssessmentIcon = resolveReactComponent<typeof AssessmentIconModule>(AssessmentIconModule);
+const KeyboardReturnIcon = resolveReactComponent<typeof KeyboardReturnIconModule>(KeyboardReturnIconModule);
 
 interface GlobalSearchProps {
   restrictType?: 'Project' | 'Company' | 'Contact' | 'Lead' | 'Employee' | 'Task' | 'Navigation' | 'KPI';
@@ -516,7 +529,7 @@ const renderResultItem = (result: UnifiedSearchResult, query: string) => {
         </div>
       </div>
       {(result as any).score > 100 && (
-        <span className="badge badge-light-success fs-10 py-0 px-2 ms-2 rounded-pill">High Match</span>
+        <ToneChip dense tone="success" label="High Match" sx={{ ml: 1, flexShrink: 0 }} />
       )}
     </>
   );
@@ -537,4 +550,3 @@ const getTypeColor = (type: string) => {
 };
 
 export default GlobalSearch;
-

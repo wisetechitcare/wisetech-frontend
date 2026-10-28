@@ -43,15 +43,10 @@ export const ACCESS_AREAS: AccessArea[] = [
   },
   { module: "crm.companies", label: "Companies" },
   { module: "crm.contacts", label: "Contacts" },
-  {
-    module: "recruitment",
-    label: "Recruitment",
-    children: [
-      { module: "recruitment.requisitions", label: "Requisitions" },
-      { module: "recruitment.pipeline", label: "Pipeline" },
-      { module: "recruitment.candidates", label: "Candidates" },
-    ],
-  },
+  { module: "gift-management", label: "Gift Management" },
+  // Tabs (Roles / Pipeline / Candidates / …) are gated via SECTION_TABS + canTab — not fake
+  // child modules that never filtered the shell (360 Wave C / U5).
+  { module: "recruitment", label: "Recruitment" },
   { module: "tasks", label: "Tasks" },
   {
     module: "timesheets",
@@ -105,6 +100,7 @@ export const ACCESS_AREAS: AccessArea[] = [
       { module: "settings.media", label: "Media" },
       { module: "settings.teams", label: "Teams" },
       { module: "settings.employeeLevel", label: "Employee Level" },
+      { module: "settings.developerMfa", label: "System PIN MFA" },
     ],
   },
 ];
@@ -113,22 +109,36 @@ export const ACCESS_AREAS: AccessArea[] = [
 export interface FlatArea extends AccessArea {
   depth: number;
 }
-export const flattenAreas = (areas: AccessArea[] = ACCESS_AREAS, depth = 0): FlatArea[] =>
-  areas.flatMap((a) => [{ ...a, depth }, ...(a.children ? flattenAreas(a.children, depth + 1) : [])]);
+export const flattenAreas = (
+  areas: AccessArea[] = ACCESS_AREAS,
+  depth = 0,
+): FlatArea[] =>
+  areas.flatMap((a) => [
+    { ...a, depth },
+    ...(a.children ? flattenAreas(a.children, depth + 1) : []),
+  ]);
 
-export const AREA_LABELS: Record<string, string> = flattenAreas().reduce((acc, a) => {
-  acc[a.module] = a.label;
-  return acc;
-}, {} as Record<string, string>);
+export const AREA_LABELS: Record<string, string> = flattenAreas().reduce(
+  (acc, a) => {
+    acc[a.module] = a.label;
+    return acc;
+  },
+  {} as Record<string, string>,
+);
 
 /** True when the signed-in employee has no Read on this section or tab. */
-export const isSectionBlocked = (module: string): boolean => !canSection(module, "read");
+export const isSectionBlocked = (module: string): boolean =>
+  !canSection(module, "read");
 
 /**
  * Whether a section / tab shows. Section access alone decides it; `_baseAllowed` is the older
  * per-screen answer, kept in the signature so existing menu entries need no edit.
  */
-export const isSubsectionVisible = (module: string, _baseAllowed?: boolean): boolean => canSection(module, "read");
+export const isSubsectionVisible = (
+  module: string,
+  _baseAllowed?: boolean,
+): boolean => canSection(module, "read");
 
 /** Whether any tab under a section is readable — a section with tabs reads as the OR of them. */
-export const anyChildGranted = (parentModule: string): boolean => canSection(parentModule, "read");
+export const anyChildGranted = (parentModule: string): boolean =>
+  canSection(parentModule, "read");

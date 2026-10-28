@@ -12,7 +12,6 @@ const OVERLAY_SELECTOR = [
   '.modal.show',            // react-bootstrap
   '.offcanvas.show',
   '.MuiModal-root',         // MUI Dialog / Drawer / Menu
-  '.swal2-container',       // sweetalert
   '[role="dialog"][open]',
   'dialog[open]',
   '.menu-sub.show',         // Metronic dropdown

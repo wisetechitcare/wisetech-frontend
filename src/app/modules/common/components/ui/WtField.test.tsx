@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { Stack } from '@mui/material';
 import { WtField } from './WtField';
+import { wtFieldSelectChromePx, wtFieldSelectWidthPx } from './wtFieldSelectWidth';
 
 // Two layout bugs seen on the offer form, both in this component:
 //  1. `sx` reached only the input INSIDE a full-width frame, so `sx={{ flex: 1 }}` did nothing in a
@@ -17,6 +18,19 @@ afterEach(cleanup);
 const frameOf = (input: HTMLElement) => input.closest('.MuiTextField-root, .MuiAutocomplete-root')!.parentElement as HTMLElement;
 
 describe('WtField', () => {
+    test('default size is small (mid-density / 40px row)', () => {
+        render(<WtField label="Rule Name" value="" onChange={() => {}} />);
+        const root = screen.getByLabelText('Rule Name').closest('.MuiInputBase-root')!;
+        expect(root.classList.contains('MuiInputBase-sizeSmall')).toBe(true);
+    });
+
+    test('size="md" stays available for spacious dialog forms', () => {
+        render(<WtField label="Filter" value="" onChange={() => {}} size="md" />);
+        const root = screen.getByLabelText('Filter').closest('.MuiInputBase-root')!;
+        // MUI only tags the small variant; medium is the unmarked default.
+        expect(root.classList.contains('MuiInputBase-sizeSmall')).toBe(false);
+    });
+
     test('layout sx lands on the field\'s outer frame, so flex works in a row', () => {
         render(
             <Stack direction="row">
@@ -32,6 +46,99 @@ describe('WtField', () => {
     test('a caller-set width wins over full width when the field opts out of it', () => {
         render(<WtField label="Stage" value="" onChange={() => {}} fullWidth={false} sx={{ width: 240 }} />);
         expect(getComputedStyle(frameOf(screen.getByLabelText('Stage'))).width).toBe('240px');
+    });
+
+    test('plain select with fullWidth={false} sizes to the widest option (no ellipsis on value)', () => {
+        const options = [
+            { value: 'applied', label: 'Applied' },
+            { value: 'shortlisted', label: 'Shortlisted' },
+            { value: 'interview', label: 'Interview' },
+        ];
+        const labels = options.map((o) => o.label);
+        const expected = wtFieldSelectWidthPx(labels, {
+            chromePx: wtFieldSelectChromePx({ size: 'sm' }),
+            size: 'sm',
+        });
+        render(
+            <WtField
+                label="Stage"
+                value="shortlisted"
+                onChange={() => {}}
+                options={options}
+                fullWidth={false}
+            />,
+        );
+        const frame = frameOf(screen.getByLabelText('Stage'));
+        const frameW = parseFloat(getComputedStyle(frame).width);
+        expect(frameW).toBe(expected);
+        const value = screen.getByText('Shortlisted');
+        expect(getComputedStyle(value).textOverflow).not.toBe('ellipsis');
+    });
+
+    test('required select shows an asterisk and keeps the floating label', () => {
+        render(
+            <WtField
+                label="Branch"
+                value=""
+                onChange={() => {}}
+                options={[{ value: 'a', label: 'Alpha' }]}
+                required
+            />,
+        );
+        expect(screen.getByLabelText(/Branch/)).toBeTruthy();
+        expect(document.querySelector('label')?.textContent).toMatch(/\*/);
+    });
+
+    test('error replaces hint in the one message slot and marks the helper as alert', () => {
+        render(
+            <WtField
+                label="Stage"
+                value=""
+                onChange={() => {}}
+                options={[{ value: 'a', label: 'Applied' }]}
+                hint="Pick a stage"
+                error="Stage is required"
+            />,
+        );
+        expect(screen.queryByText('Pick a stage')).toBeNull();
+        expect(screen.getByText('Stage is required').getAttribute('role')).toBe('alert');
+    });
+
+    test('formats the displayed value while emitting the parsed wire value', async () => {
+        const Harness = () => {
+            const [value, setValue] = useState('1250');
+            return (
+                <>
+                    <WtField
+                        label="Amount"
+                        value={value}
+                        onChange={(next) => setValue(String(next))}
+                        formatValue={(next) => next ? Number(next).toLocaleString('en-IN') : ''}
+                        parseValue={(next) => next.replace(/,/g, '')}
+                    />
+                    <output data-testid="wire-value">{value}</output>
+                </>
+            );
+        };
+        render(<Harness />);
+        const input = screen.getByLabelText('Amount');
+        expect((input as HTMLInputElement).value).toBe('1,250');
+        await userEvent.clear(input);
+        await userEvent.type(input, '2500');
+        expect(screen.getByTestId('wire-value').textContent).toBe('2500');
+    });
+
+    test('empty select shows the placeholder, not a blank closed value', () => {
+        render(
+            <WtField
+                label="Role"
+                value=""
+                onChange={() => {}}
+                options={[{ value: 'r1', label: 'Draftman' }]}
+                placeholder="All roles"
+            />,
+        );
+        expect(screen.getByText('All roles')).toBeTruthy();
     });
 
     test('a searchable field keeps the floating label in the border, like every other field', () => {
@@ -60,10 +167,13 @@ describe('WtField', () => {
             );
         };
         render(<Harness />);
-        await userEvent.type(screen.getByRole('combobox', { name: 'Designation' }), 'elec');
-        const shown = await screen.findAllByRole('option');
+        const combo = screen.getByRole('combobox', { name: 'Designation' });
+        await userEvent.type(combo, 'elec');
+        // jsdom + Popper often sets `data-popper-reference-hidden` (zero layout boxes), and our
+        // boundary SSOT applies pointer-events:none — assert via list content + keyboard select.
+        const shown = await screen.findAllByRole('option', { hidden: true });
         expect(shown.map((o) => o.textContent)).toEqual(['Electrical Engineer']);
-        await userEvent.click(shown[0]);
+        await userEvent.keyboard('{Enter}');
         expect(screen.getByTestId('value').textContent).toBe('elec');
     });
 });

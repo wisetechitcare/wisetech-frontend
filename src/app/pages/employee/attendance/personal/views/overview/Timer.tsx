@@ -33,8 +33,10 @@ function Timer() {
       {attendanceStats.length > 0 &&
         currentDayWorkingHours(attendanceStats[0]) != "0h : 0m" && (
           <>
-            <KTIcon iconName="time" className="fs-1 text-white" />
-            <span className="text-white fw-bold mx-1 fs-5">
+            {/* Inherit the host's colour: white on the coloured button, readable grey when
+                it is disabled. A fixed white vanished on the disabled grey background. */}
+            <KTIcon iconName="time" className="fs-1" />
+            <span className="fw-bold mx-1 fs-5">
               {currentDayWorkingHours(attendanceStats[0])}
             </span>
           </>

@@ -29,7 +29,11 @@ import type { EditContext } from './EditBanner';
 
 // Rejection is final — not editable, not an action item. It shows up in the Inbox as a plain
 // "rejected" notice (no button), never here. This panel is only for things that need YOUR action.
+//
+// Do NOT include every ACTION_REQUIRED inbox row — that type is shared with System PIN MFA /
+// support notices, which belong in My Inbox / Approvals, not on the reimbursement page.
 const EMPLOYEE_TASK_TYPES = new Set(['QUERY_RECEIVED', 'ACTION_REQUIRED']);
+const REIMBURSEMENT_ENTITY = /^(Reimbursement|ReimbursementBatch|ReimbursementQuery)$/;
 
 const STYLE: Record<string, { tone: SemanticTone; icon: string; cta: string }> = {
     QUERY_RECEIVED: { tone: 'warning', icon: 'question', cta: 'Respond' },
@@ -62,7 +66,9 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
         if (!isSelf) return;
         try {
             const all = await fetchInboxTasks();
-            setTasks(all.filter((t) => EMPLOYEE_TASK_TYPES.has(t.type)));
+            setTasks(all.filter(
+                (t) => EMPLOYEE_TASK_TYPES.has(t.type) && REIMBURSEMENT_ENTITY.test(t.entityType),
+            ));
         } catch {
             setTasks([]);
         }

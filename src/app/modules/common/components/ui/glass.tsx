@@ -1,4 +1,4 @@
-import { Children, forwardRef, isValidElement } from 'react';
+import { Children, cloneElement, forwardRef, isValidElement } from 'react';
 import {
   Box, BoxProps, Dialog, DialogActions, DialogContent, DialogProps, Fade, Grow, IconButton,
   Stack, Typography, useMediaQuery,
@@ -6,6 +6,7 @@ import {
 import type { TransitionProps } from '@mui/material/transitions';
 import { alpha } from '@mui/material/styles';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { KTIcon } from '@metronic/helpers';
 import { T, GlassVariant, VividTone, ThemeMode, label } from './tokens';
 import { isMaterial, useSurfaceStyle } from '@app/theme/appearance';
 import { toTitleCase, HEADING_CASE_SX } from './text';
@@ -13,6 +14,15 @@ import { GH_DARK } from '@app/theme/githubDark';
 import { MRD_EASE } from './buttons';
 import { WtCloseButton } from './tw/WtCloseButton';
 import { useIsDark } from './tw/useIsDark';
+import { useDialogUnsavedChangesBoundary } from './useDialogUnsavedChangesBoundary';
+import { DialogCloseContext, DialogDirtyContext } from './UnsavedChangesContext';
+
+/** Resolve a keenicon name string or a ready-made node into the header glyph. */
+function resolveHeaderIcon(icon: React.ReactNode | string | undefined): React.ReactNode {
+  if (icon == null || icon === false) return null;
+  if (typeof icon === 'string') return <KTIcon iconName={icon} className="fs-1" />;
+  return icon;
+}
 
 /** Mode from the html class ColorModeProvider stamps — avoids MUI ThemeContext during HMR. */
 function useMode(): ThemeMode {
@@ -139,9 +149,14 @@ export const GlassSurface = forwardRef<HTMLDivElement, GlassSurfaceProps>(functi
 export interface GlassHeaderProps {
   title: string;
   subtitle?: string;
-  /** Pass the glyph node, e.g. `<KTIcon iconName="calendar-8" className="fs-1" />`. */
-  icon?: React.ReactNode;
+  /**
+   * Header glyph. Prefer a keenicon **name string** (`"pencil"`, `"calendar-8"`) —
+   * the kit renders the KTIcon. A ready-made node still works for rare custom marks.
+   */
+  icon?: React.ReactNode | string;
   onClose?: () => void;
+  /** Accessible label for the close action. */
+  closeLabel?: string;
   action?: React.ReactNode;
   /**
    * Drill-in navigation: when set, a back control replaces the icon tile and the
@@ -159,28 +174,39 @@ export interface GlassHeaderProps {
    *  'plain' = title + bare close on the Paper itself — no band, no accent rule,
    *  no icon tile. For quiet single-purpose editors (Leads / Billing Configure). */
   variant?: 'gradient' | 'frost' | 'plain';
+  /** Full-window workflows use a taller entity band than compact dialogs. */
+  size?: 'default' | 'workspace';
+  /** Rule under a gradient/frost band: the brand accent (default) or the neutral divider. */
+  rule?: 'accent' | 'divider';
 }
 
 export function GlassHeader({
   title, subtitle, icon, onClose, action,
-  onBack, backLabel = 'Back', backIcon, variant = 'gradient',
+  onBack, backLabel = 'Back', backIcon, closeLabel = 'Close', variant = 'gradient', size = 'default', rule = 'accent',
 }: GlassHeaderProps) {
   const gradient = variant === 'gradient';
   const plain = variant === 'plain';
   const mode = useMode();
   const frostSx = gradient || plain ? {} : glassSx('regular', { mode });
+  const iconNode = resolveHeaderIcon(icon);
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
-      px: { xs: 2, sm: 3 }, py: plain ? { xs: 2, sm: 2.25 } : { xs: 1.5, sm: 1.75 },
+      px: { xs: 2, sm: 3 },
+      py: plain ? { xs: 2, sm: 2.25 } : size === 'workspace' ? { xs: 1.75, sm: 2.25 } : { xs: 1.5, sm: 1.75 },
       ...(gradient
-        ? { background: `linear-gradient(135deg, ${T.color.brandHover} 0%, ${T.color.brand} 100%)`, color: '#fff' }
+        ? { background: T.color.brandGradientLeftToRight, color: T.color.onBrand }
         : plain
           ? { color: label(mode, 'primary') }
           : { ...frostSx, borderRadius: 0, color: label(mode, 'primary') }),
       // The accent rule separates a coloured band from the body. A plain header
       // sits ON the body, so a rule there would be drawing a line for nothing.
-      borderBottom: plain ? 'none' : `3px solid ${T.color.accent}`, flexShrink: 0,
+      ...(plain
+        ? { borderBottom: 'none' }
+        : rule === 'divider'
+          ? { borderBottom: '1px solid', borderColor: 'divider' }
+          : { borderBottom: `3px solid ${T.color.accent}` }),
+      flexShrink: 0,
     }}>
       <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
         {/* Back replaces the icon tile rather than sitting next to it: on a 360px header
@@ -196,7 +222,7 @@ export function GlassHeader({
           }}>
             {backIcon ?? <Box component="span" sx={{ fontSize: 26, lineHeight: 1, fontWeight: 400, mt: '-2px' }}>&lsaquo;</Box>}
           </IconButton>
-        ) : icon && !plain && (
+        ) : iconNode && !plain && (
           <Box sx={{
             width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5,
             display: 'grid', placeItems: 'center', flexShrink: 0,
@@ -204,20 +230,20 @@ export function GlassHeader({
               ? { bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)' }
               : { bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.08)' : T.color.brandSoft, color: T.color.brand, border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.12)' : T.color.line}` }),
           }}>
-            {icon}
+            {iconNode}
           </Box>
         )}
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{
             fontWeight: plain ? 600 : 700,
-            fontSize: plain ? 18 : { xs: 15.5, sm: 17 },
-            lineHeight: 1.25, color: gradient ? '#fff' : label(mode, 'primary'),
+            fontSize: plain ? 17 : { xs: 15.5, sm: 16.5 },
+            lineHeight: 1.25, color: gradient ? T.color.onBrand : label(mode, 'primary'),
             ...HEADING_CASE_SX,
           }}>
             {toTitleCase(title)}
           </Typography>
           {subtitle && (
-            <Typography sx={{ fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: gradient ? 'rgba(255,255,255,0.72)' : label(mode, 'secondary') }}>
+            <Typography sx={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: gradient ? 'rgba(255,255,255,0.72)' : label(mode, 'secondary'), mt: 0.15, lineHeight: 1.35 }}>
               {subtitle}
             </Typography>
           )}
@@ -237,7 +263,7 @@ export function GlassHeader({
           // its neighbours got a button. All nine callers passed the SAME cross
           // this component already draws, so the prop bought a regression and
           // nothing else. It is gone; this is the close control, everywhere.
-          <WtCloseButton variant={gradient ? 'dark' : plain ? 'plain' : 'light'} onClick={onClose} size={plain ? 34 : 38} />
+          <WtCloseButton aria-label={closeLabel} variant={gradient ? 'dark' : plain ? 'plain' : 'light'} onClick={onClose} size={plain ? 34 : 38} />
         )}
       </Stack>
     </Box>
@@ -302,6 +328,20 @@ export function PlainDialogHeader({
 }
 
 // ─── GlassDialog: MUI Dialog with a frosted Paper + dimmed/blurred backdrop ───────────────────
+/**
+ * Height behaviour for GlassDialog Paper.
+ * - `default` — viewport margin (`100dvh - 96px`); general dialogs.
+ * - `form` — nested / multi-section editors (`min(72vh, 680px)`); stays shorter than a workspace.
+ * - `workspace` — primary list/workspace sheets; same margin as default, roomier intent.
+ */
+export type GlassDialogPreset = 'default' | 'form' | 'workspace';
+
+const PRESET_MAX_HEIGHT: Record<GlassDialogPreset, SxProps<Theme>> = {
+  default: { maxHeight: 'calc(100dvh - 96px)' },
+  form: { maxHeight: { xs: '100%', sm: 'min(72vh, 680px)' } },
+  workspace: { maxHeight: 'calc(100dvh - 96px)' },
+};
+
 export interface GlassDialogProps extends Omit<DialogProps, 'title'> {
   /** Rendered flush at the top of the Paper (typically a <GlassHeader/>). */
   header?: React.ReactNode;
@@ -320,19 +360,66 @@ export interface GlassDialogProps extends Omit<DialogProps, 'title'> {
    * transition are all still wanted.
    */
   plain?: boolean;
+  /**
+   * Shared height recipe so every form/workspace dialog agrees — do not restate
+   * `maxHeight` in PaperProps per screen unless you have a one-off reason.
+   */
+  preset?: GlassDialogPreset;
+  /** Disable automatic dirty-field close protection when a form shell owns its own guard. */
+  disableUnsavedChangesGuard?: boolean;
 }
 
 export function GlassDialog({
-  header, mobileFullScreen = true, disableBlur, plain = false, children,
-  PaperProps, slotProps, disableEnforceFocus = true, maxWidth = 'md', fullWidth = true,
+  header, mobileFullScreen = true, disableBlur, plain = false, preset = 'default', children,
+  disableUnsavedChangesGuard = false,
+  /**
+   * `disableEnforceFocus` defaults to FALSE — the dialog keeps focus.
+   *
+   * It defaulted to true, which meant every dialog in the app let Tab walk out into the page
+   * behind it: a keyboard user tabbing through a modal ended up on the navigation underneath,
+   * with no way back and no idea the dialog was still open. A screen-reader user has it worse,
+   * because nothing announces the move. Audit L17.
+   *
+   * The permissive default existed for a real reason: react-select renders its menu in a portal
+   * OUTSIDE the dialog's DOM, so MUI's focus trap yanks focus back the moment the menu opens and
+   * the menu becomes unusable. That is a property of three dialogs, not of all of them, so those
+   * three pass `disableEnforceFocus` explicitly and everything else gets the accessible default.
+   * (`WtField searchable` is MUI Autocomplete, which the trap handles correctly — only the
+   * react-select family needs the opt-out.)
+   */
+  PaperProps, slotProps, disableEnforceFocus = false, maxWidth = 'md', fullWidth = true,
+  fullScreen: fullScreenProp = false,
   TransitionComponent, ...rest
 }: GlassDialogProps) {
+  const {
+    dirtyContext: dialogDirtyContext,
+    closeContext: dialogCloseContext,
+    requestClose,
+    discardDialog,
+  } = useDialogUnsavedChangesBoundary(disableUnsavedChangesGuard);
+  const guardedHeader = isValidElement(header)
+    && typeof (header.props as { onClose?: unknown }).onClose === 'function'
+    ? cloneElement(
+        header as React.ReactElement<{ onClose?: () => void }>,
+        {
+          onClose: () => requestClose(
+            (header.props as { onClose: () => void }).onClose,
+          ),
+        },
+      )
+    : header;
+  const guardedOnClose: DialogProps['onClose'] = (event, reason) => {
+    if (!rest.onClose) return;
+    requestClose(() => rest.onClose?.(event, reason));
+  };
   const mode = useMode();
   // Subscribed, not read: a plain read would keep painting whichever treatment
   // was current when the dialog mounted.
   const surface = useSurfaceStyle();
   const isPhone = useMediaQuery('(max-width:600px)');
-  const fullScreen = mobileFullScreen && isPhone;
+  // A caller can request a true workspace sheet on every viewport. Keep the
+  // existing mobile default, but do not silently downgrade explicit fullScreen.
+  const fullScreen = fullScreenProp || (mobileFullScreen && isPhone);
   const scrim = T.glass[mode].scrim;
   const scrimBlur = `blur(${T.glass[mode].scrimBlur}px)`;
   /**
@@ -355,20 +442,30 @@ export function GlassDialog({
   // traded that away and never replaced it, so tall content was unreachable —
   // no scrollbar, no keyboard scroll, just cut off.
   const managesOwnScrolling = Children.toArray(children).some(
-    (child) => isValidElement(child) && (child.type === DialogContent || child.type === DialogActions),
+    (child) => {
+      if (!isValidElement(child)) return false;
+      const t = child.type as { wtDialogChrome?: boolean } | typeof DialogContent | typeof DialogActions;
+      return (
+        t === DialogContent
+        || t === DialogActions
+        || (typeof t === 'function' && (t as { wtDialogChrome?: boolean }).wtDialogChrome === true)
+      );
+    },
   );
 
   return (
-    <Dialog
-      {...rest}
-      maxWidth={maxWidth}
-      fullWidth={fullWidth}
-      fullScreen={fullScreen}
-      disableEnforceFocus={disableEnforceFocus}
-      TransitionComponent={TransitionComponent ?? GlassTransition}
-      PaperProps={{
-        ...PaperProps,
-        sx: [
+    <>
+      <Dialog
+        {...rest}
+        onClose={guardedOnClose}
+        maxWidth={maxWidth}
+        fullWidth={fullWidth}
+        fullScreen={fullScreen}
+        disableEnforceFocus={disableEnforceFocus}
+        TransitionComponent={TransitionComponent ?? GlassTransition}
+        PaperProps={{
+          ...PaperProps,
+          sx: [
           // `flat`, not `plain`: Material is an app-wide choice, so it has to
           // reach every kit dialog, not only the ones whose author happened to
           // pass the prop. `glassSx` alone would have turned the frost off and
@@ -386,15 +483,25 @@ export function GlassDialog({
                 boxShadow: '0 24px 64px -12px rgba(15,23,42,0.28)',
               }
             : glassSx('regular', { mode, disableBlur }),
-          { fontFamily: T.font.family, overflow: 'hidden', ...(fullScreen ? { borderRadius: 0 } : null) },
+          {
+            fontFamily: T.font.family,
+            overflow: 'hidden',
+            // Flex column so DialogContent can scroll inside a height-capped Paper
+            // (header + footer stay pinned). Breathing room comes from `preset`.
+            display: 'flex',
+            flexDirection: 'column',
+            ...(fullScreen
+              ? { borderRadius: 0, maxHeight: '100%' }
+              : PRESET_MAX_HEIGHT[preset]),
+          },
           ...(PaperProps?.sx ? (Array.isArray(PaperProps.sx) ? PaperProps.sx : [PaperProps.sx]) : []),
-        ] as SxProps<Theme>,
-      }}
-      slotProps={{
-        ...slotProps,
-        backdrop: {
-          ...(slotProps?.backdrop as object),
-          sx: {
+          ] as SxProps<Theme>,
+        }}
+        slotProps={{
+          ...slotProps,
+          backdrop: {
+            ...(slotProps?.backdrop as object),
+            sx: {
             backgroundColor: scrim,
             // Dimmed but not smeared in plain mode — the blur is half of what reads as "glass",
             // and leaving it on made the Paper override look like it had not worked.
@@ -405,30 +512,36 @@ export function GlassDialog({
             // gave a flat sheet over a smeared page, half of each treatment.
             backdropFilter: flat ? 'none' : scrimBlur,
             WebkitBackdropFilter: flat ? 'none' : scrimBlur,
+            },
           },
-        },
-      }}
-    >
+        }}
+      >
       {/* flexShrink:0 — the header is chrome; it must not be squeezed to make room
           for a tall body, which is what a default flex item would do. */}
-      {header ? <Box sx={{ flexShrink: 0 }}>{header}</Box> : null}
-      {managesOwnScrolling ? children : (
-        <Box
-          sx={{
-            flex: '1 1 auto',
-            // Required: without it this flex item keeps `min-height: auto` and will not
-            // shrink below its content, so overflowY never has anything to scroll.
-            minHeight: 0,
-            overflowY: 'auto',
-            // Keep a wheel/trackpad gesture that reaches the end of the dialog from
-            // continuing on to scroll the page behind the scrim.
-            overscrollBehavior: 'contain',
-          }}
-        >
-          {children}
-        </Box>
-      )}
-    </Dialog>
+      <DialogDirtyContext.Provider value={dialogDirtyContext}>
+        <DialogCloseContext.Provider value={dialogCloseContext}>
+          {guardedHeader ? <Box sx={{ flexShrink: 0 }}>{guardedHeader}</Box> : null}
+          {managesOwnScrolling ? children : (
+            <Box
+              sx={{
+                flex: '1 1 auto',
+                // Required: without it this flex item keeps `min-height: auto` and will not
+                // shrink below its content, so overflowY never has anything to scroll.
+                minHeight: 0,
+                overflowY: 'auto',
+                // Keep a wheel/trackpad gesture that reaches the end of the dialog from
+                // continuing on to scroll the page behind the scrim.
+                overscrollBehavior: 'contain',
+              }}
+            >
+              {children}
+            </Box>
+          )}
+        </DialogCloseContext.Provider>
+      </DialogDirtyContext.Provider>
+      </Dialog>
+      {discardDialog}
+    </>
   );
 }
 

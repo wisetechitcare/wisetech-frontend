@@ -1,5 +1,5 @@
 import { FC, lazy, ReactElement, Suspense, useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { TAB_PATHS } from './tabPaths'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
 import TopBarProgress from 'react-topbar-progress-indicator'
@@ -52,6 +52,8 @@ const EmployeesLoanMain = lazy(() => import('@pages/employee/loans/admin/Employe
 const PersonalKpiMain = lazy(() => import('@pages/employee/kpis/personal/PersonalKpiMain'))
 const LeadsMain = lazy(() => import('@pages/employee/leads/LeadsMain'))
 const RecruitmentMain = lazy(() => import('@pages/employee/recruitment/RecruitmentMain'))
+const CandidateWizardHost = lazy(() => import('@pages/employee/recruitment/CandidateWizardHost'))
+const JobCreateWizardHost = lazy(() => import('@pages/employee/recruitment/JobCreateWizardHost'))
 // Opt-in beta: migrated EnterpriseForm wizard (parallel to classic LeadFormModal)
 const LeadWizardBetaPage = lazy(() => import('@pages/employee/leads/lead/LeadWizardBetaPage'))
 const ProjectsMain = lazy(() => import('@pages/employee/projects/ProjectsMain'))
@@ -76,6 +78,17 @@ const TaskDetails = lazy(() => import('@pages/employee/tasks/tasks/components/Ta
 const TasksMainCalenderPage = lazy(() => import('@pages/employee/tasks/calender/TasksMainCalenderPage'))
 const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain'))
 const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
+const CourtesyDeskMain = lazy(() => import('@pages/employee/courtesy-desk/CourtesyDeskMain'))
+const CourtesyGroupEditorPage = lazy(() => import('@pages/employee/courtesy-desk/pages/GroupEditorPage'))
+const CourtesyDriveCreatePage = lazy(() => import('@pages/employee/courtesy-desk/pages/DriveCreatePage'))
+const CourtesyDriveDetailPage = lazy(() => import('@pages/employee/courtesy-desk/pages/DriveDetailPage'))
+
+const CourtesyDeskLegacyRedirect: FC = () => {
+  const location = useLocation()
+  const next = `${location.pathname.replace('/courtesy-desk', '/gift-management')}${location.search}`
+  return <Navigate to={next} replace />
+}
+
 const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisationInfo/OrganisationInfoProfileMain'))
 const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
 const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
@@ -84,7 +97,6 @@ const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
 const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
 const MyTeamApprovals = lazy(() => import('@pages/my-team/Approvals'))
 const MyTeamDelegations = lazy(() => import('@pages/my-team/Delegations'))
-const ProfilePage = lazy(() => import('../modules/profile/ProfilePage'))
 const WizardsPage = lazy(() => import('../modules/wizards/WizardsPage'))
 const AccountPage = lazy(() => import('../modules/accounts/AccountPage'))
 const WidgetsPage = lazy(() => import('../modules/widgets/WidgetsPage'))
@@ -212,13 +224,26 @@ const PrivateRoutes = () => {
             </SuspensedView>}
         />
         {/* Lazy Modules */}
+        {/* Legacy Metronic demo profile/account → real employee profile */}
+        <Route
+          path='crafted/pages/profile/documents'
+          element={<Navigate to='/employee/profile/documents' replace />}
+        />
         <Route
           path='crafted/pages/profile/*'
-          element={
-            <SuspensedView>
-              <ProfilePage />
-            </SuspensedView>
-          }
+          element={<Navigate to='/employee/profile/overview' replace />}
+        />
+        <Route
+          path='crafted/account/settings'
+          element={<Navigate to='/employee/profile/edit' replace />}
+        />
+        <Route
+          path='crafted/account/*'
+          element={<Navigate to='/employee/profile/overview' replace />}
+        />
+        <Route
+          path='crafted/accounts'
+          element={<Navigate to='/employee/profile/overview' replace />}
         />
         <Route
           path='crafted/pages/wizards/*'
@@ -570,6 +595,62 @@ const PrivateRoutes = () => {
             </SuspensedView>
           </SectionGuard>,
         )}
+        {/* Candidate Add/Edit wizard — full page, outside the recruitment tab shell */}
+        <Route
+          path='/recruitment/candidates/new'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <CandidateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        <Route
+          path='/recruitment/candidates/:applicantId/edit'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <CandidateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        {/* Create / Edit Role (+ advert) wizard — same fullscreen family as Candidate / Onboarding */}
+        <Route
+          path='/recruitment/jobs/create'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <JobCreateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        <Route
+          path='/recruitment/jobs/adverts/new'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <JobCreateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        <Route
+          path='/recruitment/jobs/adverts/:postingId/edit'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <JobCreateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
+        <Route
+          path='/recruitment/jobs/:requisitionId/edit'
+          element={
+            <SectionGuard module='recruitment'>
+              <SuspensedView>
+                <JobCreateWizardHost />
+              </SuspensedView>
+            </SectionGuard>}
+        />
         <Route
           path='/recruitment/*'
           element={
@@ -744,6 +825,59 @@ const PrivateRoutes = () => {
             </SuspensedView>
           </SectionGuard>,
         )}
+        <Route
+          path='/courtesy-desk/*'
+          element={<CourtesyDeskLegacyRedirect />}
+        />
+        {tabRoutes(
+          '/gift-management',
+          TAB_PATHS.giftManagement,
+          <SectionGuard module='crm.contacts'>
+            <SuspensedView>
+              <CourtesyDeskMain />
+            </SuspensedView>
+          </SectionGuard>,
+        )}
+        <Route
+          path='/gift-management/groups/new'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyGroupEditorPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/gift-management/groups/:groupId'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyGroupEditorPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/gift-management/drives/new'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyDriveCreatePage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/gift-management/drives/:driveId'
+          element={
+            <SectionGuard module='crm.contacts'>
+              <SuspensedView>
+                <CourtesyDriveDetailPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
         {tabRoutes(
           '/companies',
           TAB_PATHS.companies,

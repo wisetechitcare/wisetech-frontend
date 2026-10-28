@@ -19,6 +19,7 @@ import EventAvailableRounded from '@mui/icons-material/EventAvailableRounded';
 import EventRounded from '@mui/icons-material/EventRounded';
 import FolderOpenRounded from '@mui/icons-material/FolderOpenRounded';
 import FolderRounded from '@mui/icons-material/FolderRounded';
+import CardGiftcardRounded from '@mui/icons-material/CardGiftcardRounded';
 import GroupsRounded from '@mui/icons-material/GroupsRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import InboxRounded from '@mui/icons-material/InboxRounded';
@@ -37,6 +38,7 @@ import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
 import VideocamRounded from '@mui/icons-material/VideocamRounded';
 import ViewKanbanRounded from '@mui/icons-material/ViewKanbanRounded';
 import WorkRounded from '@mui/icons-material/WorkRounded';
+import { resolveReactComponent } from '@utils/resolveReactComponent';
 
 /**
  * Bootstrap Icons class → Material icon component.
@@ -46,8 +48,8 @@ import WorkRounded from '@mui/icons-material/WorkRounded';
  * icons instead, so the mapping lives here rather than being duplicated at each call
  * site — and the nav tree stays the single source of truth for WHICH icon an item has.
  *
- * Deep imports (not `import { X } from '@mui/icons-material'`) so the barrel's ~2,000
- * modules never enter the graph; this matches how the rest of the app imports icons.
+ * Although written as deep imports, Vite maps these to MUI's named ESM exports so the
+ * CommonJS subpath wrappers never reach React.
  */
 const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-inbox': InboxRounded,
@@ -72,6 +74,7 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-graph-up-arrow': TrendingUpRounded,
   'bi-building': ApartmentRounded,
   'bi-person-lines-fill': ContactPageRounded,
+  'bi-gift': CardGiftcardRounded,
   'bi-briefcase': WorkRounded,
   'bi-check2-square': TaskAltRounded,
   'bi-clock-history': HistoryRounded,
@@ -99,5 +102,7 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
  * add its icon here.
  */
 export function navIcon(fontIcon?: string): SvgIconComponent {
-  return (fontIcon && ICON_BY_BI[fontIcon]) || FolderRounded;
+  const icon = (fontIcon && ICON_BY_BI[fontIcon]) || FolderRounded;
+
+  return resolveReactComponent<SvgIconComponent>(icon);
 }

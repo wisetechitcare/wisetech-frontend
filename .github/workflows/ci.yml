@@ -37,6 +37,10 @@ concurrency:
 
 jobs:
   verify:
+    # Shown in the PR checks list as "Frontend CI / <name>". The trigger used to be the only
+    # difference between the two rows ("verify (push)" / "verify (pull_request)"), which read
+    # like deployments. Say what each run is for instead.
+    name: ${{ github.event_name == 'pull_request' && 'PR check (tests, types, build)' || format('Branch check — {0} (tests, types)', github.ref_name) }}
     runs-on: ubuntu-latest
     # 25 to match the backend: a PR run now bundles, and the Vite build needs a 4 GB heap.
     # Push runs (main/dev) skip the bundle and finish well inside this.
@@ -133,6 +137,19 @@ jobs:
       - name: 🏗️ Build (PR only — proves the bundle before it can reach main)
         if: github.event_name == 'pull_request'
         run: pnpm run build
+
+      # --retry-connrefused: vite preview needs a moment to bind, and plain --retry does not
+      # retry a refused connection, so the first probe failed at once ("after 0 ms"). vite is
+      # called directly: `pnpm run preview -- --host` forwards a literal "--" (pnpm 11) and the
+      # host flag never reached vite, so it bound localhost instead of 127.0.0.1.
+      - name: 🌐 Preview employee-create route (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          curl --fail --silent --show-error --retry 10 --retry-delay 1 --retry-connrefused \
+            http://127.0.0.1:4173/employees/create-new | grep -q '<div id="root">'
 
       # Mirrors the backend gate. Blocks on high/critical only; moderate and low are
       # reported without blocking a merge. When a fix isn't published yet, pin the floor

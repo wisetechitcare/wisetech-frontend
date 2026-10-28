@@ -1,9 +1,24 @@
 import type { ReactNode } from 'react';
-import { Button, IconButton, Tooltip } from '@mui/material';
+import { Button, IconButton } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { T } from './tokens';
+import { TRIO, type Trio } from './patterns';
+import { tintedIconSurfaceSx } from './buttons';
+import { useIsDark } from './tw/useIsDark';
+import WtTooltip from './WtTooltip';
 
 export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success' | 'onBrand';
+
+/**
+ * Map a kit `Trio` accent onto an `ActionIconButton` tone.
+ * Keeps row actions (edit / delete / audit) on the same palette as section cards.
+ */
+export function trioToActionTone(trio: Trio): ActionTone {
+  if (trio === TRIO.rose) return 'danger';
+  if (trio === TRIO.green) return 'success';
+  if (trio === TRIO.blue) return 'indigo';
+  return 'brand';
+}
 
 const TONE_COLOR: Record<ActionTone, string> = {
   brand: T.color.brand,
@@ -66,15 +81,10 @@ const SIZE_PX: Record<'sm' | 'md', number> = { sm: 30, md: 40 };
 const SIZE_ICON_CLASS: Record<'sm' | 'md', string> = { sm: 'fs-6', md: 'fs-4' };
 
 /**
- * Row/card action button: a tinted ~40px square holding a KTIcon.
+ * Row/card action button: tinted square + KTIcon (optional `label`).
  *
- * Lifted verbatim out of BranchCard, which had this styling inline. It is the look
- * every list action is expected to have, so it lives in the kit and BranchCard consumes
- * it too — a second copy is exactly how the Towns table ended up with a Bootstrap
- * `btn btn-icon` pencil that looked nothing like the branch cards.
- *
- * 40px is deliberate: these were cramped micro-icons before, below a comfortable
- * touch target.
+ * Surface / hover come from kit SSOT `tintedIconSurfaceSx` in `buttons.tsx`
+ * (aside-menu darken-to-icon-colour) — same recipe as `WtIconButton`.
  */
 export default function ActionIconButton({
   iconName,
@@ -87,17 +97,12 @@ export default function ActionIconButton({
   label,
   fullWidth = false,
 }: ActionIconButtonProps) {
+  const dark = useIsDark();
   const color = TONE_COLOR[tone];
   const px = SIZE_PX[size];
+  const radius = size === 'sm' ? '8px' : '12px';
   const glyph = icon ?? <KTIcon iconName={iconName ?? ''} className={SIZE_ICON_CLASS[size]} />;
-
-  const toneSx = {
-    color,
-    bgcolor: `${color}1A`,
-    border: `1px solid ${color}3D`,
-    transition: 'background-color .15s, border-color .15s',
-    '&:hover': { bgcolor: `${color}30`, borderColor: `${color}66` },
-  } as const;
+  const surface = tintedIconSurfaceSx(color, { dark, radius });
 
   if (label) {
     return (
@@ -107,17 +112,14 @@ export default function ActionIconButton({
         startIcon={glyph}
         fullWidth={fullWidth}
         sx={{
-          ...toneSx,
+          ...surface,
           height: px,
           minWidth: 0,
           px: 1.25,
-          borderRadius: '10px',
           textTransform: 'none',
           fontSize: 12.5,
           fontWeight: 600,
           whiteSpace: 'nowrap',
-          // The kit's icon font sets its own margins; without this the glyph and
-          // the word drift apart at small sizes.
           '& .MuiButton-startIcon': { mr: 0.625, ml: 0 },
         }}
       >
@@ -127,19 +129,15 @@ export default function ActionIconButton({
   }
 
   return (
-    <Tooltip title={title}>
-      {/* span keeps the tooltip working while the button is disabled — a disabled
-          MUI button emits no pointer events for the tooltip to listen to. */}
-      <span>
-        <IconButton
-          onClick={onClick}
-          disabled={disabled}
-          aria-label={title}
-          sx={{ ...toneSx, width: px, height: px, borderRadius: size === 'sm' ? '8px' : '10px' }}
-        >
-          {glyph}
-        </IconButton>
-      </span>
-    </Tooltip>
+    <WtTooltip title={title} wrap>
+      <IconButton
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={title}
+        sx={{ ...surface, width: px, height: px }}
+      >
+        {glyph}
+      </IconButton>
+    </WtTooltip>
   );
 }

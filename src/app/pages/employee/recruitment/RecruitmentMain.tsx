@@ -1,13 +1,16 @@
-import { canSection } from "@utils/can";
+import { canTab } from "@utils/can";
 import MaterialHeaderTab, {
   TabItem,
 } from "@app/modules/common/components/MaterialHeaderTab";
-import { useTabRoute } from "@app/hooks/useTabRoute";
+import { tabSlug, useTabRoute } from "@app/hooks/useTabRoute";
 import { PageTitle } from "@metronic/layout/core";
 import { useState } from "react";
 import { Box, Menu, MenuItem, useMediaQuery, useTheme } from "@mui/material";
 import { WtField } from "@app/modules/common/components/ui";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
+import { useApprovalRealtime } from "@/hooks/useApprovalRealtime";
 import { useOrgScope, ALL_ORGS, toCompanyIdParam } from "@/hooks/useOrgScope";
 import RecruitmentOverview from "./RecruitmentOverview";
 import RequisitionsView from "./RequisitionsView";
@@ -16,6 +19,7 @@ import PipelineView from "./PipelineView";
 import CandidatesView from "./CandidatesView";
 import RecruitmentConfigurationMain from "./RecruitmentConfigurationMain";
 import ImportView from "./ImportView";
+import ArchiveView from "./ArchiveView";
 import { TERMS } from "./terms";
 
 /**
@@ -46,6 +50,22 @@ const RecruitmentMain = () => {
   const companyId = toCompanyIdParam(scopeId);
 
   /**
+   * A requisition approved elsewhere shows up here without a refresh.
+   *
+   * Requisitions go through the approval engine, and the person who APPROVES one is almost
+   * never the person looking at this board — so every recruitment screen showed a role as
+   * still pending until somebody reloaded, and "Open Roles" on the Overview disagreed with
+   * the Requisitions tab in front of two people at once.
+   *
+   * Mounted at the SHELL rather than per tab: the key invalidated is the module root, so one
+   * subscription refreshes whichever tab happens to be open and every cached one behind it.
+   * React Query refetches only what is actually being observed, so the cost of the wide key
+   * is the tab you are looking at, not all seven.
+   */
+  const qc = useQueryClient();
+  useApprovalRealtime(() => qc.invalidateQueries({ queryKey: queryKeys.recruitment.all }));
+
+  /**
    * The organization filter, in the tab bar itself.
    *
    * It used to sit on its own row underneath, repeated inside every scoped tab, which cost
@@ -61,9 +81,15 @@ const RecruitmentMain = () => {
    * Only the surface is themed for the bar, which is allowed. The white tone also carries
    * the icon and the focus ring, so one prop covers all three.
    */
-  const isPhone = useMediaQuery(useTheme().breakpoints.down("sm"));
+  const theme = useTheme();
+  const isPhone = useMediaQuery(theme.breakpoints.down("sm"));
   const [orgMenuAnchor, setOrgMenuAnchor] = useState<HTMLElement | null>(null);
   const scopedToOne = scopeId !== ALL_ORGS;
+  // Header is always dark navy — frosted white controls, not brand hex literals (360 Wave C).
+  const onBar = theme.palette.common.white;
+  const onBarMuted = "rgba(255,255,255,0.85)";
+  const onBarFill = "rgba(255,255,255,0.14)";
+  const onBarFillActive = "rgba(255,255,255,0.18)";
 
   /**
    * Phones: the filter as one 36px icon button, the same size and frosted fill as the tab icons
@@ -89,10 +115,10 @@ const RecruitmentMain = () => {
           placeItems: "center",
           border: 0,
           borderRadius: "10px",
-          color: "#fff",
-          backgroundColor: scopedToOne || orgMenuAnchor ? "rgba(255,255,255,0.18)" : "transparent",
+          color: onBar,
+          backgroundColor: scopedToOne || orgMenuAnchor ? onBarFillActive : "transparent",
           cursor: "pointer",
-          "&:focus-visible": { outline: "2px solid rgba(255,255,255,0.8)", outlineOffset: "-2px" },
+          "&:focus-visible": { outline: `2px solid ${onBarMuted}`, outlineOffset: "-2px" },
         }}
       >
         <AppIcon name="bank" className="fs-3" />
@@ -106,7 +132,7 @@ const RecruitmentMain = () => {
         onClose={() => setOrgMenuAnchor(null)}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
-        slotProps={{ paper: { sx: { mt: 0.75, minWidth: 220, borderRadius: "12px", boxShadow: "0 12px 32px rgba(15,23,42,0.18)" } } }}
+        slotProps={{ paper: { sx: { mt: 0.75, minWidth: 220, borderRadius: "12px" } } }}
       >
         {selectOptions.map((option) => {
           const selected = option.value === scopeId;
@@ -118,7 +144,7 @@ const RecruitmentMain = () => {
               sx={{
                 minHeight: 44, gap: 1, fontSize: 14,
                 fontWeight: selected ? 700 : 500,
-                color: selected ? "#1E3A8A" : "#334155",
+                color: selected ? "primary.main" : "text.primary",
                 "&.Mui-selected": { backgroundColor: "action.selected" },
                 "&.Mui-selected:hover": { backgroundColor: "action.hover" },
               }}
@@ -140,15 +166,17 @@ const RecruitmentMain = () => {
       value={scopeId}
       onChange={setScopeId}
       options={selectOptions}
-      tone="#ffffff"
+      tone={onBar}
       fullWidth={false}
+      // Content-sized (fitContent default); minWidth keeps short names usable on the navy bar.
       minWidth={200}
+      ariaLabel="Organization"
       sx={{
         "& .MuiOutlinedInput-root": {
-          color: "#fff",
-          backgroundColor: "rgba(255,255,255,0.14)",
+          color: onBar,
+          backgroundColor: onBarFill,
         },
-        "& .MuiSelect-icon": { color: "rgba(255,255,255,0.85)" },
+        "& .MuiSelect-icon": { color: onBarMuted },
       }}
     />
   );
@@ -160,9 +188,8 @@ const RecruitmentMain = () => {
    */
   const UNSCOPED_TABS = new Set(["Import", "Configure"]);
 
-  // Configure changes stages and sources for everyone — Write only.
-  const canConfigure = canSection("recruitment", "write");
-  const tabItems: TabItem[] = [
+  // canTab: Configure needs Write; any tab can be turned off under Access → Advanced (SECTION_TABS).
+  const tabItems: TabItem[] = ([
     { title: "Overview", component: <RecruitmentOverview companyId={companyId} />, icon: "bi-grid-1x2" },
     // Tab LABELS come from TERMS, and the URL slug is derived from the label, so the two
     // cannot disagree. The module used to say "Requisitions" here and "role" inside every
@@ -174,8 +201,9 @@ const RecruitmentMain = () => {
     // Sits before Configure: it is a migration tool, used heavily for a short while and
     // then rarely, so it belongs beside the day-to-day tabs rather than buried in settings.
     { title: "Import", component: <ImportView />, icon: "bi-upload" },
-    ...(canConfigure ? [{ title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" }] : []),
-  ];
+    { title: "Archive", component: <ArchiveView companyId={companyId} />, icon: "bi-archive" },
+    { title: "Configure", component: <RecruitmentConfigurationMain />, icon: "bi-gear" },
+  ] as TabItem[]).filter((t) => canTab("recruitment", tabSlug(t.title)));
 
   // The tab is the path segment (/recruitment/pipeline), so it survives a refresh, a shared
   // link and the remount the header does at the mobile breakpoint. Slugs come from the titles,
@@ -187,13 +215,14 @@ const RecruitmentMain = () => {
     { title: "", path: "", isSeparator: true, isActive: false },
   ];
 
+  const activeTitle = tabItems[activeTab]?.title ?? "Recruitment";
+
   return (
     <div>
-      <PageTitle breadcrumbs={breadcrumbs}>{tabItems[activeTab].title}</PageTitle>
-
+      <PageTitle breadcrumbs={breadcrumbs}>{activeTitle}</PageTitle>
 
       <MaterialHeaderTab
-        headerAction={UNSCOPED_TABS.has(tabItems[activeTab].title) ? undefined : orgFilter}
+        headerAction={UNSCOPED_TABS.has(activeTitle) ? undefined : orgFilter}
         tabItems={tabItems}
         onTabChange={setActiveTab}
         activeTab={activeTab}

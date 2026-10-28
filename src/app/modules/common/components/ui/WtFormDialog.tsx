@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Box, CircularProgress, Stack, Typography, alpha } from '@mui/material';
 import { GlassDialog, GlassHeader } from './glass';
 import { WtButton } from './buttons';
+import { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
 
 /**
  * WtFormDialog — the shell for a LONG form in a dialog (a profile, a settings record, a
@@ -48,7 +49,7 @@ export interface WtFormDialogProps {
   submitLabel?: string;
   saving?: boolean;
   /** Has the user changed anything? Drives the footer status and the Save button. */
-  dirty?: boolean;
+  dirty: boolean;
   /** Extra veto on Save beyond `dirty` / `saving` (e.g. an upload still running). */
   canSubmit?: boolean;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
@@ -60,7 +61,7 @@ const reducedMotion = () =>
 
 export function WtFormDialog({
   open, onClose, title, subtitle, icon, headerAction, sections = [], onSubmit,
-  submitLabel = 'Save changes', saving = false, dirty = true, canSubmit = true, maxWidth = 'lg', children,
+  submitLabel = 'Save changes', saving = false, dirty, canSubmit = true, maxWidth = 'lg', children,
 }: WtFormDialogProps) {
   const showNav = sections.length >= 3;
   const [active, setActive] = useState(sections[0]?.id);
@@ -87,17 +88,20 @@ export function WtFormDialog({
     document.getElementById(id)?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
   };
 
-  const close = () => { if (!saving) onClose(); };
+  const { requestClose, dialog } = useUnsavedChangesGuard(open && dirty, onClose);
+  const close = () => { if (!saving) requestClose(); };
 
   return (
-    <GlassDialog
-      open={open}
-      onClose={close}
-      maxWidth={maxWidth}
-      plain
-      header={<GlassHeader title={title} subtitle={subtitle} icon={icon} onClose={close} action={headerAction} />}
-    >
-      <Box component="form" noValidate onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <>
+      <GlassDialog
+        open={open}
+        onClose={close}
+        disableUnsavedChangesGuard
+        maxWidth={maxWidth}
+        plain
+        header={<GlassHeader title={title} subtitle={subtitle} icon={icon} onClose={close} action={headerAction} />}
+      >
+        <Box component="form" noValidate onSubmit={onSubmit} sx={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
         <Box
           ref={bodyRef}
           sx={{
@@ -171,8 +175,10 @@ export function WtFormDialog({
           <WtButton inverted onClick={close} disabled={saving}>Cancel</WtButton>
           <WtButton type="submit" disabled={saving || !dirty || !canSubmit}>{saving ? 'Saving…' : submitLabel}</WtButton>
         </Stack>
-      </Box>
-    </GlassDialog>
+        </Box>
+      </GlassDialog>
+      {dialog}
+    </>
   );
 }
 

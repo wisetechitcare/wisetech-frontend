@@ -2,9 +2,8 @@
 
 
 import React, { useEffect, useRef, useState } from 'react';
-import Select from 'react-select';
-import { ColourOption, SingleValue, DropdownIndicator } from '@app/modules/common/inputs/ColorInDropdwon';
-import { FLOATING_MENU_PROPS } from '@app/modules/common/inputs/selectMenuProps';
+import { Box, Stack, Typography } from '@mui/material';
+import { WtSelect } from '@app/modules/common/components/ui';
 import {
   fetchAllEmployeesSelectedData,
   fetchApprovalWorkflowConfigs,
@@ -251,11 +250,11 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
   };
 
   if (isLoading) {
-    return <div className="text-muted py-3">Loading approval settings...</div>;
+    return <Typography color="text.secondary" sx={{ py: 1.5 }}>Loading approval settings...</Typography>;
   }
 
   return (
-    <div className="d-flex flex-column gap-4">
+    <Stack spacing={2}>
       {MODULES.map(({ key, label }) => {
         // Level 1 is the requirement — without it the module has no approver at all.
         // Surfaced inline so the user sees it while filling the row, not when the
@@ -266,54 +265,48 @@ const ApprovalSettings: React.FC<ApprovalSettingsProps> = ({
         const isMissing = !chain[0];
 
         return (
-        <div key={key} className="border rounded p-4">
-          <div className="row g-3 align-items-end">
+        <Box key={key} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap flexWrap="wrap" alignItems={{ sm: 'flex-end' }}>
             {/* Category label */}
-            <div className="col-12 col-xl-2 d-flex align-items-center">
-              <label className="form-label fw-semibold mb-0">{label}</label>
-            </div>
+            <Typography component="div" variant="body2" fontWeight={600} sx={{ minWidth: { xl: 150 }, pb: { sm: 1 } }}>{label}</Typography>
 
             {/* Level dropdowns */}
             {[0, 1, 2, 3, 4].map(idx => (
-              <div key={`${key}-l${idx + 1}`} className="col-12 col-sm-6 col-md-4 col-xl-2">
-                <label
-                  className={`form-label mb-1 ${idx === 0 ? 'required' : ''}`}
-                  style={{ fontSize: '0.8125rem' }}
-                >
-                  Level {idx + 1}
-                </label>
-                <Select
-                  {...FLOATING_MENU_PROPS}
+              <Box key={`${key}-l${idx + 1}`} sx={{ flex: '1 1 170px', minWidth: { xs: '100%', sm: 170 } }}>
+                <Typography component="label" variant="caption" fontWeight={idx === 0 ? 600 : 500} sx={{ display: 'block', mb: 0.5 }}>
+                  Level {idx + 1}{idx === 0 ? ' *' : ''}
+                </Typography>
+                <WtSelect
                   options={approverOptions}
                   value={approverOptions.find(opt => opt.value === chain[idx]) ?? null}
                   onChange={selected => handleLevelChange(key, idx, selected?.value ?? '')}
                   placeholder={idx === 0 ? 'Select approver' : 'N/A'}
                   isClearable
                   isSearchable
-                  components={{ Option: ColourOption, SingleValue, DropdownIndicator }}
-                  classNamePrefix="react-select"
-                  className="react-select-styled"
+                  optionVariant="avatar"
+                  ariaLabel={`${label} level ${idx + 1}`}
+                  error={idx === 0 && isMissing && showErrors}
                 />
                 {idx === 0 && isMissing && showErrors && (
                   // `data-required-error` is what the wizard scrolls to when Continue is
                   // blocked here — this section's requirement is structural, so there is
                   // no single invalid input for it to find instead.
-                  <div className="text-danger fs-8 mt-1" data-required-error>
+                  <Typography color="error" variant="caption" data-required-error>
                     Level 1 approver is required
-                  </div>
+                  </Typography>
                 )}
-              </div>
+              </Box>
             ))}
 
             {/* No per-row Save/Delete: these chains are part of the form and are written
                 by the wizard's single save, like every other field on it. Level 1 is
                 mandatory for all three, so a "Delete Chain" here could only ever produce
                 a state that same save refuses. */}
-          </div>
-        </div>
+          </Stack>
+        </Box>
         );
       })}
-    </div>
+    </Stack>
   );
 };
 

@@ -14,7 +14,18 @@ export type AuditEntityType =
   | 'PROPOSAL'
   | 'INVOICE'
   | 'CONTACT'
-  | 'COMPANY';
+  | 'COMPANY'
+  | 'REQUISITION'
+  | 'APPLICANT'
+  | 'APPLICATION'
+  | 'INTERVIEW'
+  | 'OFFER'
+  | 'POSTING'
+  | 'APPLICATION_STATUS'
+  | 'REJECTION_REASON'
+  | 'APPLICANT_SOURCE'
+  | 'REQUISITION_STAGE'
+  | 'SCORECARD_TEMPLATE';
 
 export type ChangeType = 'ADDED' | 'REMOVED' | 'MODIFIED';
 export type ChangeImpact = 'MINOR' | 'MAJOR' | 'CRITICAL';

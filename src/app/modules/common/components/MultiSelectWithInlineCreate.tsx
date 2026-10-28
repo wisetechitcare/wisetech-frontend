@@ -237,6 +237,8 @@ const MultiSelectWithInlineCreate = forwardRef<
                         required={isRequired}
                         error={errorMessage}
                         disabled={disabled}
+                        // Only read by a floating label, to know whether to stay lifted.
+                        value={selectedIds}
                     >
                         <WtSelect
                             name={formikField}

@@ -1,12 +1,13 @@
-﻿import { useEffect, useState } from "react";
+import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { useEffect, useState } from "react";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { Modal, Button, Container, OverlayTrigger, Tooltip as RBTooltip, Form } from "react-bootstrap";
+import { Button, Container, OverlayTrigger, Tooltip as RBTooltip, Form } from "react-bootstrap";
 import { kpiAttendanceIcons } from "@metronic/assets/sidepanelicons";
 import { getAllKpiFactors, updateKpiFactors, getAllKpiModules, createKpiFactor } from "@services/employee";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import TextInput from "@app/modules/common/inputs/TextInput";
-import RadioInput from "@app/modules/common/inputs/RadioInput";
+import { WtChoiceField } from "@app/modules/common/components/ui";
 import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
 import { hasPermission } from "@utils/authAbac";
@@ -622,7 +623,7 @@ export default function KpiSettings() {
                 );
                 setEditModal({ open: false, item: null, moduleName: "" });
                 signalKpiConfigChanged();
-                successConfirmation("KPI factor updated successfully");
+                successConfirmation("KPI factor updated.");
               } catch (e) {
                 errorConfirmation((e as Error).message || "Failed to update KPI factor");
               } finally {
@@ -640,15 +641,16 @@ export default function KpiSettings() {
                     Adjust the KPI weightage and type. Historical scores are preserved and will not be recalculated.
                   </p>
 
-                  <RadioInput
-                    isRequired
-                    inputLabel="Type"
-                    radioBtns={[
+                  <WtChoiceField
+                    name="type"
+                    label="Type"
+                    variant="segmented"
+                    options={[
                       { label: "Positive", value: "positive" },
                       { label: "Negative", value: "negative" },
                       { label: "Leave", value: "leave" },
                     ]}
-                    formikField="type"
+                    required
                   />
 
                   <TextInput
@@ -783,7 +785,7 @@ export default function KpiSettings() {
               resetForm();
               setAddModal({ open: false, moduleId: "", moduleName: "" });
               signalKpiConfigChanged();
-              successConfirmation("KPI factor added successfully");
+              successConfirmation("KPI factor added.");
             } catch (e) {
               errorConfirmation((e as Error).message || "Failed to add KPI factor");
             } finally {
@@ -856,15 +858,16 @@ export default function KpiSettings() {
                   suffix="pts"
                 />
 
-                <RadioInput
-                  isRequired
-                  inputLabel="Type"
-                  radioBtns={[
+                <WtChoiceField
+                  name="type"
+                  label="Type"
+                  variant="segmented"
+                  options={[
                     { label: "Positive", value: "positive" },
                     { label: "Negative", value: "negative" },
                     { label: "Leave", value: "leave" },
                   ]}
-                  formikField="type"
+                  required
                 />
               </Modal.Body>
               <Modal.Footer style={{ borderTop: `1px solid ${C.border}`, padding: `${SP.lg}`, gap: SP.md }}>

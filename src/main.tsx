@@ -4,6 +4,10 @@ if (typeof globalThis.Buffer === 'undefined') {
   globalThis.Buffer = Buffer
 }
 
+// Ensure MUI's styled() is initialized before any component chunk (e.g. Popper)
+// evaluates — Vite's dep prebundle can otherwise leave styled_default undefined.
+import '@mui/material/styles'
+
 // Calendars / dayjs weeks start Monday everywhere (before any picker mounts).
 import { configureWeekStart } from '@utils/configureWeekStart'
 configureWeekStart()
@@ -39,6 +43,7 @@ import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { fetchCurrentUser } from '@services/users'
 import { saveCurrentUser } from '@redux/slices/auth'
 import { jwtDecode } from "jwt-decode"
+import { registerServiceWorker } from '@app/pwa/serviceWorker'
 // import Notification from "../src/app/pages/employee/tasks/components/notification/Notifications"
 // import { useState } from 'react'
 /**
@@ -54,6 +59,7 @@ import { jwtDecode } from "jwt-decode"
  */
 setupAxios(axios)
 Chart.register(...registerables)
+void registerServiceWorker()
 
 // Sensible defaults so React Query caches/dedupes instead of refetching on every mount
 // or window focus (the previous default of staleTime:0 made cached data instantly stale).
@@ -112,6 +118,7 @@ const renderApp = () => {
 const BOOTSTRAP_RETRIES = 3
 
 // ── Shared inline styles injected once ────────────────────────────────────────
+// eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
 const SPLASH_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}

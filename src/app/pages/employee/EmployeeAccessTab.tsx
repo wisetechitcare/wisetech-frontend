@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Modal } from "react-bootstrap";
+import { SecurityPinResetButton } from "@app/modules/common/components/SecurityPin";
+
 import { toast } from "react-toastify";
 import {
   getEmployeeAccessSummary,
@@ -16,10 +17,11 @@ import { ACCESS_AREAS, AccessArea } from "@utils/accessAreas";
 import Loader from "@app/modules/common/utils/Loader";
 import AccessControlTree, { EffLevel, RecordCells } from "./components/AccessControlTree";
 import AccessActivity from "./components/AccessActivity";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { InlineNotice, TRIO } from '@app/modules/common/components/ui';
+import { AppIcon, InlineNotice, TRIO, WtButton, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
+import { enrollAttendancePasskey, getAttendanceIdentityStatus, type AttendanceIdentityStatus } from '@services/attendanceIdentity';
+import { AttendanceFaceEnrollmentButton } from './components/AttendanceFaceEnrollmentButton';
 
 interface Props {
   employeeId: string;
@@ -49,6 +51,8 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
   const [saving, setSaving] = useState(false);
   const [summary, setSummary] = useState<EmployeeAccessSummary | null>(null);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [identity, setIdentity] = useState<AttendanceIdentityStatus | null>(null);
+  const [enrollingIdentity, setEnrollingIdentity] = useState(false);
 
   // Staged (unsaved) edits.
   const [levels, setLevels] = useState<Record<string, EffLevel>>({});
@@ -118,6 +122,22 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
     if (employeeId) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
+
+  useEffect(() => {
+    if (employeeId) getAttendanceIdentityStatus(employeeId).then(setIdentity).catch(() => setIdentity(null));
+  }, [employeeId]);
+
+  const enrollPasskey = async () => {
+    try {
+      setEnrollingIdentity(true);
+      setIdentity(await enrollAttendancePasskey(employeeId));
+      toast.success('Attendance passkey enrolled');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || error?.message || 'Could not enroll attendance passkey');
+    } finally {
+      setEnrollingIdentity(false);
+    }
+  };
 
   const customModules = useMemo(() => new Set(Object.keys(summary?.overrides || {})), [summary]);
 
@@ -248,11 +268,33 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
             </span>
           ))
         )}
+        <span className="ms-auto"><SecurityPinResetButton employeeId={employeeId} /></span>
       </div>
 
       <div className="row g-5">
         {/* LEFT: Module specific access — most of the width, so a row holds 4–5 cards */}
         <div className="col-12 col-xl-9">
+          <div className="card border shadow-sm mb-6" style={{ borderRadius: 14 }}>
+            <div className="card-body d-flex flex-wrap align-items-center justify-content-between gap-4">
+              <div>
+                <div className="fw-bold fs-5">Attendance identity</div>
+                <div className="text-muted fs-7 mt-1">
+                  {identity?.passkeys.length || 0} passkey{identity?.passkeys.length === 1 ? '' : 's'} enrolled
+                  {identity?.faceEnrolled ? ' · Face enrolled' : ''}. Enrollment must be completed with HR present.
+                </div>
+              </div>
+              <div className="d-flex gap-2">
+                <WtButton
+                  disabled={enrollingIdentity}
+                  onClick={enrollPasskey}
+                  startIcon={<AppIcon name="bi-fingerprint" />}
+                >
+                  {enrollingIdentity ? 'Enrolling…' : 'Enroll passkey'}
+                </WtButton>
+                <AttendanceFaceEnrollmentButton employeeId={employeeId} onEnrolled={setIdentity} />
+              </div>
+            </div>
+          </div>
           <div className="text-muted fw-bold fs-7 mb-3" style={{ letterSpacing: 1 }}>MODULE SPECIFIC ACCESS</div>
           <div className="card border shadow-sm mb-8" style={{ borderRadius: 14 }}>
             <div className="card-body">
@@ -282,6 +324,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
                   onResetToRole={onResetToRole}
                   recordCells={recordCells}
                   tabs={tabs}
+                  pinSubject={{ kind: "employee", employeeId }}
                 />
                 </>
               )}
@@ -289,7 +332,8 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
           </div>
         </div>
 
-        {/* RIGHT: Recent access changes — a slim, dense column */}
+        {/* RIGHT: recent access changes — a slim, dense column. Security PINs are set inside the
+            access tree (Advanced dialog / Roles & Permissions chip), not in a panel of their own. */}
         <div className="col-12 col-xl-3">
           <div>
             <AccessActivity logs={auditLogs} />
@@ -306,10 +350,9 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
           <div className="text-muted fs-8 fw-bold" style={{ letterSpacing: 1 }}>CURRENT ACCESS WEIGHT</div>
           <div className="fs-5"><span className="fw-bolder">{activeModuleCount}</span> <span className="text-muted">Modules Active</span></div>
         </div>
-        <button className="btn btn-primary px-6" disabled={!dirty || saving} onClick={onSaveClick}>
-          <AppIcon name="bi-save" className="me-2" />
+        <WtButton disabled={!dirty || saving} onClick={onSaveClick} startIcon={<AppIcon name="bi-save" />}>
           {saving ? "Saving…" : "Save Changes"}
-        </button>
+        </WtButton>
       </div>
 
       {/* Save confirmation */}
@@ -353,8 +396,8 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <button className="btn btn-light" onClick={() => setShowConfirm(false)}>Cancel</button>
-          <button className="btn btn-primary" onClick={saveAll}>Yes, Save</button>
+          <WtButton ghost onClick={() => setShowConfirm(false)}>Cancel</WtButton>
+          <WtButton onClick={saveAll}>Yes, Save</WtButton>
         </Modal.Footer>
       </Modal>
     </div>

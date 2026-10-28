@@ -27,6 +27,7 @@ import { MRT_ColumnDef } from 'material-react-table';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { SegmentedControl } from '@app/modules/common/components/ui/SegmentedControl';
+import { AutoGrid } from '@app/modules/common/components/ui/AutoGrid';
 import { getTimeTokens } from '@utils/timeFormat';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { errorConfirmation } from '@utils/modal';
@@ -1498,7 +1499,7 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
         </div>
 
         <DialogContent sx={{ p: 0 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', fontFamily: 'Inter' }}>
+            <AutoGrid min={300} stretch sx={{ fontFamily: 'Inter' }}>
                 {/* ── by person ── */}
                 <div style={{ borderRight: '1px solid #EEF2F6' }}>
                     <div style={{ padding: '12px 16px', borderBottom: '1px solid #EEF2F6', fontSize: 13, fontWeight: 700, color: '#1E293B' }}>
@@ -1544,7 +1545,7 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                         </div>
                     ))}
                 </div>
-            </div>
+            </AutoGrid>
         </DialogContent>
     </Dialog>
 );
@@ -1643,7 +1644,7 @@ const DayDetail: React.FC<{
             {/* Two sections, always both shown — a free half has to be VISIBLE to be
                 bookable, so the empty one states itself rather than being left out.
                 A meeting straddling noon appears under both, because it blocks both. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+            <AutoGrid min={320} stretch gap={12}>
             {([
                 { key: 'am', label: 'First half', hint: 'before 12:00', list: halves.am },
                 { key: 'pm', label: 'Second half', hint: 'from 12:00', list: halves.pm },
@@ -1888,7 +1889,7 @@ const DayDetail: React.FC<{
             )}
             </div>
             ))}
-            </div>
+            </AutoGrid>
             </DialogContent>
         </Dialog>
     );

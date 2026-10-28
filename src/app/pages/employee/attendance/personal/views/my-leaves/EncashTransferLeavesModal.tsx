@@ -119,8 +119,8 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
 
                 toast.success(
                     selectedOption === 'encash'
-                        ? 'Leave encashment request submitted successfully!'
-                        : 'Leave transfer request submitted successfully!'
+                        ? 'Leave encashment request submitted.'
+                        : 'Leave transfer request submitted.'
                 );
 
                 // Call onSuccess callback if provided

@@ -1,6 +1,6 @@
 import { FileCheck2, FileText } from "lucide-react";
-import TextInput from "@app/modules/common/inputs/TextInput";
 import FileInput from "@app/modules/common/inputs/FileInput";
+import { WtFieldFormik } from "@app/modules/common/components/ui";
 
 /**
  * One configured onboarding document type, rendered as an ATTACHMENT FIELD.
@@ -70,12 +70,11 @@ function Documents({ formikProps, index, setFile, removeFile }: any) {
 
             <div className={`ob-doc-card-body${hasIdentityNumber ? "" : " is-file-only"}`}>
                 {hasIdentityNumber && (
-                    <TextInput
-                        isRequired={false}
-                        margin="mb-0"
+                    <WtFieldFormik
+                        name={identityFieldPath}
                         label="Document Number"
                         placeholder="Enter number"
-                        formikField={identityFieldPath} />
+                    />
                 )}
 
                 <div className="ob-doc-card-file">
