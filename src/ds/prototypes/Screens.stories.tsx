@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, screen, userEvent } from 'storybook/test'
+import { animationsSettled } from '@/ds/lib/motion'
 import { PrototypeApp } from './PrototypeApp'
 
 /**
@@ -59,5 +60,7 @@ export const CommandPalette: Story = {
   play: async () => {
     await userEvent.keyboard('{Control>}k{/Control}')
     await expect(await screen.findByPlaceholderText('Search people, pages and actions…')).toBeInTheDocument()
+    // The a11y check runs after play: let the dialog finish fading in so contrast is judged on the end state.
+    await animationsSettled()
   },
 }

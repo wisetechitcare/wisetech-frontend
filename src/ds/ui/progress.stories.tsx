@@ -10,7 +10,7 @@ const meta = {
   render: (args) => (
     <div className="flex w-80 items-center gap-3">
       <Progress {...args} className="h-2" />
-      <span className="tabular text-label text-muted-foreground">{args.value}%</span>
+      <span className="tabular text-xs text-muted-foreground">{args.value}%</span>
     </div>
   ),
 } satisfies Meta<typeof Progress>

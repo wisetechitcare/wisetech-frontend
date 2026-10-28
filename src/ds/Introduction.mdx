@@ -26,8 +26,12 @@ Everything in `src/ds/ui` comes from the shadcn CLI (`components.json`, style `b
 changes, each marked in the file:
 
 - **Badge** — the WiseTech status set (`success`, `warning`, `danger`, `info`, `brand`, `neutral`) and `dot`.
-- **Button** — the live app's button physics: gradient + own-colour glow on filled buttons, 1px lift on
-  hover, press to 0.975, spring easing (motion only when the user allows it).
+- **Button** — the live app's WtButton recipe: the CTA gradient from a brighter brand to the brand with an
+  own-colour glow, an `inverted` variant (brand text on white, the "Choose Image" pill), bold labels with tight
+  tracking, 1px lift on hover, press to 0.975, spring easing. See Components/Button → States.
+- **Primitives** — Animate UI (`@animate-ui/react`) wraps the Base UI / React Aria primitives with Motion
+  springs (checkbox, switch, tabs, menus, dialogs, select, tooltip…). `KitProvider` sets
+  `MotionConfig reducedMotion="user"` so they honour the OS reduce-motion setting.
 - **Toaster** — follows our light/dark engine instead of `next-themes`.
 - **cmdk** (behind Command) — patched for three screen-reader bugs; see `pnpm-workspace.yaml`.
 - **Calendar, DateField, TimeField, DatePicker, NumberField** — React Aria (locale-aware: day-first dates,

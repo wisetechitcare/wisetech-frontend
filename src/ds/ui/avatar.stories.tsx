@@ -22,7 +22,7 @@ export const Initials: Story = {
         <AvatarFallback className="bg-accent text-accent-foreground">DN</AvatarFallback>
       </Avatar>
       <Avatar className="size-14">
-        <AvatarFallback className="bg-primary text-title font-semibold text-primary-foreground">KR</AvatarFallback>
+        <AvatarFallback className="bg-primary text-base font-semibold text-primary-foreground">KR</AvatarFallback>
       </Avatar>
     </div>
   ),

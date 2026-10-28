@@ -14,7 +14,7 @@ import {
   type DatePickerProps,
   type DateRangePickerProps,
   type DateValue,
-} from "react-aria-components"
+} from "@animate-ui/react/primitives/react-aria"
 
 import { AriaInputGroup, FieldChrome, type FieldChromeProps } from "@/ds/ui/aria-field"
 import { buttonVariants } from "@/ds/ui/button"
@@ -46,7 +46,7 @@ function PickerPopover({ children }: { children: React.ReactNode }) {
       placement="bottom start"
       // 4px below the pill, like popover.tsx: it anchors to the Group, 1px inside the pill's border.
       offset={5}
-      className={cn(popoverSurfaceClassName, "z-50 origin-(--trigger-anchor-point) duration-100 data-entering:animate-in data-entering:fade-in-0 data-entering:zoom-in-95 data-exiting:animate-out data-exiting:fade-out-0 data-exiting:zoom-out-95 data-[placement=bottom]:slide-in-from-top-2 data-[placement=left]:slide-in-from-right-2 data-[placement=right]:slide-in-from-left-2 data-[placement=top]:slide-in-from-bottom-2")}
+      className={cn(popoverSurfaceClassName, "z-50 origin-(--trigger-anchor-point)")}
     >
       <Dialog className="outline-none">{children}</Dialog>
     </Popover>

@@ -19,7 +19,7 @@ const meta = {
   title: 'Components/Command',
   component: Command,
   render: (args) => (
-    <Command {...args} className="w-96 rounded-xl border shadow-e2">
+    <Command {...args} className="w-96 rounded-xl border shadow-md">
       <CommandInput placeholder="Search people, pages and actions…" />
       <CommandList>
         <CommandEmpty>No results.</CommandEmpty>

@@ -42,4 +42,15 @@ describe('v2 kit consistency', () => {
         }
         expect(hits).toEqual([]);
     });
+
+    // Tokens retired when the kit moved to shadcn's type/shadow scale: a leftover class silently does nothing.
+    it('nothing in src/ds uses a retired design token', () => {
+        const RETIRED = /\b(text-(display|headline|title|body|label)|shadow-e[123]|subtle-foreground|duration-(fast|base|slow)|ease-standard)\b/;
+        const hits = tsxFiles(DS).flatMap((file) =>
+            readFileSync(file, 'utf8')
+                .split('\n')
+                .flatMap((line, i) => (RETIRED.test(line) ? [`${relative(DS, file)}:${i + 1} ${line.match(RETIRED)?.[0]}`] : [])),
+        );
+        expect(hits).toEqual([]);
+    });
 });

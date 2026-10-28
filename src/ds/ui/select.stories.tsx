@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test'
+import { animationsSettled } from '@/ds/lib/motion'
 import { Label } from './label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select'
 
@@ -46,6 +47,8 @@ export const ChooseOption: Story = {
     await waitFor(() => expect(args.onValueChange).toHaveBeenCalledWith('finance', expect.anything()))
     // The page stays hidden from assistive tech until the listbox finishes closing.
     await waitFor(() => expect(canvas.getByRole('combobox')).toHaveTextContent('Finance'))
+    // Animate UI animates the popup out; the a11y check must see the closed end state.
+    await animationsSettled()
   },
 }
 

@@ -34,7 +34,7 @@ export const Invalid: Story = {
     <div className="w-80 space-y-1.5">
       <Label htmlFor="email">Work email</Label>
       <Input id="email" type="email" defaultValue="aarav@" aria-invalid aria-describedby="email-error" />
-      <p id="email-error" className="text-label text-destructive-foreground">
+      <p id="email-error" className="text-xs text-destructive-foreground">
         Enter a complete email address.
       </p>
     </div>

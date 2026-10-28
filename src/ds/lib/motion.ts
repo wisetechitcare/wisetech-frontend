@@ -16,3 +16,12 @@ function subscribe(onChange: () => void) {
 export function useReducedMotion(): boolean {
   return React.useSyncExternalStore(subscribe, prefersReducedMotion, () => false)
 }
+
+/**
+ * Resolves when every finite running animation (CSS and Motion's WAAPI) has finished. Tests and a11y
+ * checks judge the end state, not a mid-fade frame; infinite loops (pulse, border beam) are skipped.
+ */
+export async function animationsSettled(root: Document = document) {
+  const finite = root.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity)
+  await Promise.all(finite.map((a) => a.finished.catch(() => undefined)))
+}
