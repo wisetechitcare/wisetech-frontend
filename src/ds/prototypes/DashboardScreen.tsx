@@ -7,6 +7,8 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, 
 import { Progress } from "@/ds/ui/progress"
 import { PageHeader } from "@/ds/patterns/page-header"
 import { StatCard } from "@/ds/patterns/stat-card"
+import { BorderBeam } from "@/ds/effects/border-beam"
+import { CountUp } from "@/ds/effects/count-up"
 import { initials } from "./fixtures"
 
 const APPROVALS = [
@@ -50,10 +52,10 @@ export function DashboardScreen() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Headcount" value="248" icon={<Users />} trend={{ direction: "up", value: "4.2%", good: true }} hint="vs September" />
-        <StatCard label="Present today" value="212" icon={<CheckCircle2 />} hint="85% of active staff" />
-        <StatCard label="Pending approvals" value="17" icon={<Clock />} trend={{ direction: "up", value: "5 overdue", good: false }} />
-        <StatCard label="Open roles" value="9" icon={<UserPlus />} hint="42 candidates in pipeline" />
+        <StatCard label="Headcount" value={<CountUp value={248} />} icon={<Users />} trend={{ direction: "up", value: "4.2%", good: true }} hint="vs September" />
+        <StatCard label="Present today" value={<CountUp value={212} />} icon={<CheckCircle2 />} hint="85% of active staff" />
+        <StatCard label="Pending approvals" value={<CountUp value={17} />} icon={<Clock />} trend={{ direction: "up", value: "5 overdue", good: false }} />
+        <StatCard label="Open roles" value={<CountUp value={9} />} icon={<UserPlus />} hint="42 candidates in pipeline" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
@@ -184,7 +186,7 @@ export function DashboardScreen() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative">
           <CardHeader>
             <CardDescription>
               <Badge variant="brand">
@@ -203,6 +205,7 @@ export function DashboardScreen() {
               <Plus data-icon="inline-start" /> Send reminder
             </Button>
           </CardFooter>
+          <BorderBeam />
         </Card>
       </div>
     </div>

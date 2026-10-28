@@ -81,7 +81,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    needsInterop: ['react-countup'],
     include: [
       '@emotion/react',
       '@emotion/styled',

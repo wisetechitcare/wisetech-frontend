@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import CountUpModule from "react-countup";
-import { resolveReactComponent } from "@utils/resolveReactComponent";
+import { CountUp } from "@/ds/effects/count-up";
+import { getCurrencyLocale } from "@utils/currency";
 import AnalyticsHeader from "./AnalyticsHeader";
 import AnalyticsCard from "./AnalyticsCard";
 import PipelineDistribution from "./PipelineDistribution";
@@ -17,8 +17,6 @@ import {
   summarizeStatusGroups,
   toneColor,
 } from "./leadAnalyticsUtils";
-
-const CountUp = resolveReactComponent<typeof CountUpModule>(CountUpModule);
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 
 interface PipelinePerformanceProps {
@@ -135,7 +133,7 @@ const KpiPill: React.FC<PillProps> = ({
             color: "#0F172A",
           }}
         >
-          <CountUp end={value} duration={1.1} decimals={decimals} separator="," />
+          <CountUp value={value} duration={1100} decimals={decimals} locale={getCurrencyLocale()} />
           {suffix}
         </span>
         {share != null && (
@@ -255,7 +253,7 @@ const AnalyticStat: React.FC<{
       {label}
     </span>
     <span style={{ fontFamily: "Barlow, sans-serif", fontSize: 17, fontWeight: 700, color }}>
-      <CountUp end={value} duration={1.1} decimals={value % 1 === 0 ? 0 : 1} />
+      <CountUp value={value} duration={1100} decimals={value % 1 === 0 ? 0 : 1} />
       {suffix}
     </span>
   </div>

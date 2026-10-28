@@ -1,16 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
-import JSConfetti from "js-confetti";
+import React, { useEffect, useState } from "react";
+import { celebrate } from "@/ds/effects/celebrate";
 import { fetchAllUsers } from "@services/users";
 import dayjs from "dayjs";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
 
 const BirthdayCelebration = () => {
-  const jsConfettiRef = useRef<JSConfetti | null>(null);
   const [birthdayUsers, setBirthdayUsers] = useState<any[]>([]);
-
-  useEffect(() => {
-    jsConfettiRef.current = new JSConfetti();
-  }, []);
 
   useEffect(() => {
     const getAllUsers = async () => {
@@ -30,8 +25,8 @@ const BirthdayCelebration = () => {
 
         setBirthdayUsers(todayBirthdayUsers);
 
-        if (todayBirthdayUsers.length && jsConfettiRef.current) {
-          jsConfettiRef.current.addConfetti({
+        if (todayBirthdayUsers.length) {
+          void celebrate({
             emojis: [
               "🎉", "🎂", "🎈", "🍰", "🎁", "🥳", "🕯", "🎊", "🪅", "🎟",
               "🧁", "🍩", "🍫", "🍬", "🍪", "🍦", "🍮", "🎂", "🍫",

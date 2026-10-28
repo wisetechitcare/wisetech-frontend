@@ -143,6 +143,10 @@
 
   /* Button physics from the live app's WtButton (Meridian recipe): quick, slightly springy. */
   --ease-spring: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* Border beam (src/ds/effects/border-beam.tsx): timing comes from the component's --beam-* vars. */
+  --animate-border-beam: border-beam var(--beam-duration) linear var(--beam-delay) infinite var(--beam-direction);
+  --animate-border-beam-orbit: border-beam-orbit var(--beam-duration) linear var(--beam-delay) infinite var(--beam-direction);
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
 
   --color-background: var(--background);
@@ -219,6 +223,13 @@
     0 3px 6px color-mix(in oklch, var(--glow, var(--primary)) 30%, transparent),
     0 12px 24px -8px color-mix(in oklch, var(--glow, var(--primary)) 65%, transparent),
     inset 0 1px 0 rgb(255 255 255 / 0.16);
+}
+
+@keyframes border-beam {
+  to { offset-distance: 100%; }
+}
+@keyframes border-beam-orbit {
+  to { transform: rotate(1turn); }
 }
 
 /* Numbers in tables, money and dates line up. */
