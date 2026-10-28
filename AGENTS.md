@@ -127,7 +127,7 @@ Single source of truth: `src/utils/currency.ts` + `src/hooks/useCurrency.ts`. Re
 - Heavy libs (PDF, charts, maps, xlsx) are code-split via `manualChunks` in `vite.config.ts`. Prefer lazy-loading heavy routes/components; don't import a vendor bundle into a hot common path.
 
 ## Lead / Entity module
-Docs live in **[`../LEAD_DB_CHANGES/`](../LEAD_DB_CHANGES/00_START_HERE.md)** — start at `00_START_HERE.md`; see also the [product audit](../LEAD_DB_CHANGES/LEAD_WORLD_CLASS_AUDIT.md) and [target architecture](../LEAD_DB_CHANGES/LEAD_CRM_ARCHITECTURE.md). Screens under `pages/employee/entity/`.
+Docs live in **[`../docs/leads/`](../docs/leads/00_START_HERE.md)** — start at `00_START_HERE.md`; see also the [product audit](../docs/leads/LEAD_WORLD_CLASS_AUDIT.md) and [target architecture](../docs/leads/LEAD_CRM_ARCHITECTURE.md). Screens under `pages/employee/entity/`.
 
 - **Lead-as-Master: the "project" IS the lead** — one row, one `prefix`, inquiry through billing. `EntityDetailPage` renders both lifecycles on one record; the Project view opens on a status whose `isProjectTrigger` flag is set — **never on `name === "Received"`**.
 - **The Source column renders blank today.** `EntityTablePage.tsx:692` and `ContactLeadsOverview.tsx:71` read dead columns (`source`, `sourceId`, `leadSource`); the live ones are `leadDirectSource` / `leadSourceType`. **`SummarySection.tsx:135` already has the correct precedence — copy it, don't reinvent it.** The Source *filter* compares the same empty value.
@@ -139,7 +139,7 @@ Docs live in **[`../LEAD_DB_CHANGES/`](../LEAD_DB_CHANGES/00_START_HERE.md)** �
 Plan: [../BILLING/INDEX.md](../BILLING/INDEX.md). The project Billing tab already exists as a placeholder — `pages/employee/entity/detail/sections/BillingSection.tsx`, registered in `detail/facets.ts` and rendered from `EntityDetailPage.tsx`. It predates the UI standard (raw divs, hardcoded hex), so **replace it wholesale rather than extending it**.
 
 ## Billing Operations (built)
-Design doc: [../BILLING_OPERATIONS.md](../BILLING_OPERATIONS.md). Pages under `pages/billing/operations/`, client in `services/billingOperations.ts`.
+Design doc: [../docs/billing/BILLING_OPERATIONS.md](../docs/billing/BILLING_OPERATIONS.md). Pages under `pages/billing/operations/`, client in `services/billingOperations.ts`.
 
 - **Monitoring, not editing.** Project/client/deliverable/amount data is read-only on these screens. The only write is the status transition, and its dropdown is populated from the server's `allowedTransitions` — never hardcode the status list in the UI.
 - **Server-side filter/sort/pagination.** Don't switch the list to client-side paging: the totals have to be right across pages, that's the whole point of the screen.
@@ -147,7 +147,7 @@ Design doc: [../BILLING_OPERATIONS.md](../BILLING_OPERATIONS.md). Pages under `p
 - Reuses `BillingTable`, `BillingTimeline`, `BillingStatsCard`, `BillingStatusBadge`, `BillingPageHeader`. New status tones go in `BILLING_STATUS_TONES`, not in the page.
 
 ## Payment Collection (built)
-Design doc: [../PAYMENT_COLLECTION.md](../PAYMENT_COLLECTION.md). Pages under `pages/billing/payments/`, client in `services/payments.ts`.
+Design doc: [../docs/billing/PAYMENT_COLLECTION.md](../docs/billing/PAYMENT_COLLECTION.md). Pages under `pages/billing/payments/`, client in `services/payments.ts`.
 
 - **A "payment" row in the list IS a Billing Operation** — there's no separate payment-collection entity to fetch. Don't build a second data model for it.
 - **Every payment is its own transaction.** `RecordPaymentDialog` records ONE receipt and closes; recording payment 2 of 3 is opening it again. Never build a multi-line batch form here.
@@ -155,7 +155,7 @@ Design doc: [../PAYMENT_COLLECTION.md](../PAYMENT_COLLECTION.md). Pages under `p
 - `readyForInvoice` and `invoiceNumber: null` are already on every payload — the Tax Invoice phase filters on the former and fills the latter. No shape change needed there.
 
 ## Proforma Management (built)
-Design doc: [../PROFORMA_MANAGEMENT.md](../PROFORMA_MANAGEMENT.md). Pages under `pages/billing/proformas/`, client in `services/proformas.ts`.
+Design doc: [../docs/billing/PROFORMA_MANAGEMENT.md](../docs/billing/PROFORMA_MANAGEMENT.md). Pages under `pages/billing/proformas/`, client in `services/proformas.ts`.
 
 - **Two URLs, two jobs:** `/billing/proformas/:id` is the read-only repository record (revision chain, compare, activity); `/billing/proformas/:id/edit` is the document editor. Don't merge them.
 - The tree groups revisions under their parent and **pages by document, not version** — one proforma with six revisions must not eat a page.
@@ -164,7 +164,7 @@ Design doc: [../PROFORMA_MANAGEMENT.md](../PROFORMA_MANAGEMENT.md). Pages under 
 - The Document tab renders the version's **stored HTML** via `DocumentSheet`. Never re-render a version for display.
 
 ## Billing Document Engine (built — Proforma + Tax Invoice live)
-Design doc: [../BILLING_DOCUMENT_ENGINE.md](../BILLING_DOCUMENT_ENGINE.md) (this phase); [../DOCUMENT_ENGINE.md](../DOCUMENT_ENGINE.md) (original). Editor pages under `pages/billing/documents/`, client in `services/documents.ts`; repository pages under `pages/billing/proformas/`, client in `services/proformas.ts` (also serves the generic `/billing/documents` mount).
+Design doc: [../docs/billing/BILLING_DOCUMENT_ENGINE.md](../docs/billing/BILLING_DOCUMENT_ENGINE.md) (this phase); [../docs/billing/DOCUMENT_ENGINE.md](../docs/billing/DOCUMENT_ENGINE.md) (original). Editor pages under `pages/billing/documents/`, client in `services/documents.ts`; repository pages under `pages/billing/proformas/`, client in `services/proformas.ts` (also serves the generic `/billing/documents` mount).
 
 - **`DocumentSheet` injects server-rendered HTML and patches it — it does not re-implement the template.** The same HTML string is what the PDF and Word export print, so a React version of the layout would immediately drift. Never build one.
 - Live editing writes `textContent` on `[data-field]` spans the server emitted. `textContent`, never `innerHTML` — typed text must never be parsed as markup.

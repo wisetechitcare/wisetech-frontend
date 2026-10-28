@@ -2,18 +2,25 @@ name: ✅ Frontend CI
 
 # The gate that actually holds. Every check here also runs locally in .husky/, but a
 # local hook is advisory — `--no-verify` skips all of them — so CI repeats the important
-# ones. Steps are ordered cheapest-first: a leaked key fails in ~40s, not after the build.
-# Wire this as a REQUIRED status check in Settings → Branches → main, alongside
-# "Require a pull request before merging".
+# ones. Wire the jobs below as REQUIRED status checks in Settings → Branches → main,
+# alongside "Require a pull request before merging".
+#
+# THREE PARALLEL JOBS, not one long one. Steps inside a job run one after another, so a
+# single job cost the SUM of every check (~5 min). Split, the run costs the slowest job:
+#   checks     scan, lint, tests, audit       — the cheap gates
+#   typecheck  tsc --noEmit                    — push runs only (see below)
+#   build      tsc + vite build + preview      — pull requests only
+# Each job installs on its own; the pnpm store cache makes that the price of parallelism.
 #
 # Lint note: the project has pre-existing ESLint errors in legacy files, so a whole-repo
 # lint gate would block every merge. We hard-gate on the typecheck and lint ONLY the files
 # a change touches, so new errors block while legacy ones don't.
 #
-# This job bundles on PULL REQUESTS ONLY. On a push, Amplify builds the artifact that
-# ships (see amplify.yml), so bundling here too would be a second bundle nothing
-# consumes. On a PR there is no Amplify build at all — and `main` is the only branch
-# that reaches production, so the PR into it is the last gate before users see the code.
+# Bundling happens on PULL REQUESTS ONLY. On a push, Amplify builds the artifact that
+# ships (see amplify.yml at the repo root — Amplify only reads it from there), so bundling
+# here too would be a second bundle nothing consumes. On a PR there is no Amplify build at
+# all — and `main` is the only branch that reaches production, so the PR into it is the
+# last gate before users see the code.
 #
 # Runs on `dev` too. `dev` is the integration branch — every feature merges there first,
 # so that is where a break should surface, not when the release PR is opened days later.
@@ -25,8 +32,8 @@ on:
   push:
     branches: [main, dev]
 
-# Least privilege: this job only reads the repo. Without this block the job would
-# inherit whatever the repo default is, which on older repos is read/write.
+# Least privilege: these jobs only read the repo. Without this block they would inherit
+# whatever the repo default is, which on older repos is read/write.
 permissions:
   contents: read
 
@@ -36,40 +43,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    # Shown in the PR checks list as "Frontend CI / <name>". The trigger used to be the only
-    # difference between the two rows ("verify (push)" / "verify (pull_request)"), which read
-    # like deployments. Say what each run is for instead.
-    name: ${{ github.event_name == 'pull_request' && 'PR check (tests, types, build)' || format('Branch check — {0} (tests, types)', github.ref_name) }}
+  # ── Cheap gates: anything that needs the diff, plus tests and the audit ──────────────
+  checks:
+    name: Checks (scan, lint, tests, audit)
     runs-on: ubuntu-latest
-    # 25 to match the backend: a PR run now bundles, and the Vite build needs a 4 GB heap.
-    # Push runs (main/dev) skip the bundle and finish well inside this.
-    timeout-minutes: 25
-
+    timeout-minutes: 15
     steps:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # needed to diff against the base commit
+          # Full history so the diff base exists, but WITHOUT file contents (blob:none):
+          # `git diff --name-only` needs commits and trees only, so this is a fraction of
+          # a full clone. Only this job diffs; the other two take the default shallow clone.
+          fetch-depth: 0
+          filter: blob:none
           persist-credentials: false # don't leave the token in .git/config for later steps
 
-      # Must come before setup-node: `cache: pnpm` needs pnpm on PATH.
-      # Version is read from the "packageManager" field in package.json.
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          # 24, not 20: pnpm 11.20 (our packageManager) requires Node >= 22.13 and dies on
-          # 20 with "No such built-in module: node:sqlite" before it can install anything.
-          # GitHub is also deprecating Node 20 on runners. Vite 7's floor is 20.19, so 24
-          # satisfies both.
-          node-version: 24
-          cache: 'pnpm'
-
-      - name: 📦 Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: 🎯 Resolve diff base
         id: base
@@ -97,10 +87,6 @@ jobs:
             echo "$files" | xargs pnpm exec eslint --quiet
           fi
 
-      # This repo had 30 test files and a configured vitest, and CI ran none of them.
-      # Placed before the build deliberately: the suite finishes in about 25s and the
-      # bundle takes minutes, so a broken test should not wait on a webpack-sized build
-      # to be reported.
       - name: 🧪 Run tests
         run: pnpm run test
 
@@ -111,51 +97,10 @@ jobs:
       - name: 🧩 Run task-domain tests
         run: pnpm run test:tasks
 
-      # Runs on every trigger: it is the hard gate and it is far cheaper than a bundle.
-      - name: 🔎 Typecheck
-        run: pnpm exec tsc --noEmit
-
-      # BUNDLE ON PULL REQUESTS ONLY.
-      #
-      # `--noEmit` above is an identical gate for TYPE errors, but not for bundling
-      # ones. Rollup resolves imports, assets and dynamic `import()` paths that tsc
-      # never looks at, so a build can fail with a perfectly clean typecheck.
-      #
-      # On a push that failure surfaces in the Amplify build — which happens AFTER the
-      # merge, on `main`, i.e. in the deploy itself. Amplify is not gated on this
-      # workflow; the two react to the same push independently. So a bad bundle cannot
-      # be caught by anything before it is already on the production branch.
-      #
-      # On a PR there is no Amplify build to consume a dist, which is exactly why the
-      # earlier "second bundle nothing consumes" reasoning does not apply here: this is
-      # the only bundle that exists before production. The artifact is not the point —
-      # the proof that it builds is.
-      #
-      # Deliberately `pnpm run build`, the same command amplify.yml runs, rather than
-      # `vite build` alone. Reproducing the deploy command is the whole purpose; saving
-      # the duplicated tsc would reintroduce the drift amplify.yml exists to prevent.
-      - name: 🏗️ Build (PR only — proves the bundle before it can reach main)
-        if: github.event_name == 'pull_request'
-        run: pnpm run build
-
-      # --retry-connrefused: vite preview needs a moment to bind, and plain --retry does not
-      # retry a refused connection, so the first probe failed at once ("after 0 ms"). vite is
-      # called directly: `pnpm run preview -- --host` forwards a literal "--" (pnpm 11) and the
-      # host flag never reached vite, so it bound localhost instead of 127.0.0.1.
-      - name: 🌐 Preview employee-create route (PR only)
-        if: github.event_name == 'pull_request'
-        run: |
-          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > preview.log 2>&1 &
-          preview_pid=$!
-          trap 'kill "$preview_pid"' EXIT
-          curl --fail --silent --show-error --retry 10 --retry-delay 1 --retry-connrefused \
-            http://127.0.0.1:4173/employees/create-new | grep -q '<div id="root">'
-
-      # Mirrors the backend gate. Blocks on high/critical only; moderate and low are
-      # reported without blocking a merge. When a fix isn't published yet, pin the floor
-      # in pnpm-workspace.yaml `overrides` rather than deleting this step.
-      # A registry we can't reach is not a vulnerability — only an actual advisory
-      # fails this step. Mirrors the backend gate.
+      # Blocks on high/critical only; moderate and low are reported without blocking a
+      # merge. When a fix isn't published yet, pin the floor in pnpm-workspace.yaml
+      # `overrides` rather than deleting this step. A registry we can't reach is not a
+      # vulnerability — only an actual advisory fails this step. Mirrors the backend gate.
       - name: 🛡️ Audit dependencies
         run: |
           if out=$(pnpm audit --audit-level high 2>&1); then echo "$out"; exit 0; fi
@@ -163,3 +108,58 @@ jobs:
           grep -qE 'TimeoutError|aborted due to timeout|ERR_PNPM_(AUDIT|FETCH)|ENOTFOUND|ECONNRESET|socket hang up' <<<"$out" \
             || exit 1
           echo "::warning::Advisory registry unreachable — dependency audit skipped."
+
+  # ── Typecheck: PUSH runs only ─────────────────────────────────────────────────────────
+  # On a pull request the build job runs `pnpm run build`, which is `tsc && vite build` —
+  # the same typecheck. Running it here as well made PRs pay for 1,900 files twice.
+  typecheck:
+    name: Typecheck
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: 🔎 Typecheck
+        run: pnpm exec tsc --noEmit
+
+  # ── Build: PULL REQUESTS only — proves the bundle before it can reach main ───────────
+  #
+  # `tsc --noEmit` is an identical gate for TYPE errors, but not for bundling ones. Rollup
+  # resolves imports, assets and dynamic `import()` paths that tsc never looks at, so a
+  # build can fail with a perfectly clean typecheck. On a push that failure would surface
+  # in the Amplify build — AFTER the merge, in the deploy itself. This is the only bundle
+  # that exists before production; the artifact is not the point, the proof that it builds is.
+  #
+  # Deliberately `pnpm run build`, the same command amplify.yml runs, rather than
+  # `vite build` alone. Reproducing the deploy command is the whole purpose.
+  build:
+    name: Build + preview (PR)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # The Vite build needs a 4 GB heap and is the slowest job; 25 matches the backend.
+    timeout-minutes: 25
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+
+      - name: 🏗️ Build (typecheck + bundle)
+        run: pnpm run build
+
+      # --retry-connrefused: vite preview needs a moment to bind, and plain --retry does not
+      # retry a refused connection, so the first probe failed at once ("after 0 ms"). vite is
+      # called directly: `pnpm run preview -- --host` forwards a literal "--" (pnpm 11) and the
+      # host flag never reached vite, so it bound localhost instead of 127.0.0.1.
+      - name: 🌐 Preview employee-create route
+        run: |
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          curl --fail --silent --show-error --retry 10 --retry-delay 1 --retry-connrefused \
+            http://127.0.0.1:4173/employees/create-new | grep -q '<div id="root">'

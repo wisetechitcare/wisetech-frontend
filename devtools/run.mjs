@@ -1,3 +1,4 @@
+// Test comment (frontend): harmless change used to try the stage → commit → push pipeline and CI end to end.
 // Launches devtools/<name>.sh (node devtools/run.mjs push|pull) with a real bash. On Windows a bare `bash` can resolve to the
 // WSL stub in System32, which fails when no distro is installed — so find Git's bash instead.
 import { spawnSync, execFileSync } from 'node:child_process'
