@@ -19,6 +19,8 @@ import {
   giftRunTotalAmount,
 } from "../types";
 import * as giftsApi from "@services/gifts";
+import { toast } from "react-toastify";
+import { apiErrorMessage } from "@utils/apiError";
 
 const LEGACY_STORAGE_KEYS = [
   "wisetech.courtesyDesk.v2",
@@ -100,6 +102,10 @@ export async function bootstrapCourtesyDeskFromApi() {
     lastHydrateError = err;
     apiEnabled = false;
     state = emptyState();
+    // The screen falls back to built-in defaults; say so, or they pass for real config.
+    toast.error(apiErrorMessage(err, "Could not load Gift Management — showing defaults only"), {
+      toastId: "gift-hydrate-failed",
+    });
     listeners.forEach((l) => l());
   }
 }

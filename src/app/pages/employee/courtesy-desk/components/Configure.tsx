@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "react-toastify";
 import {
   ConfigPageLayout,
@@ -17,7 +17,6 @@ import {
   deleteDeliveryStatusToApi,
   deleteGiftRunStatusToApi,
   deleteOccasionToApi,
-  fetchAllUnitsFromApi,
   saveDeliveryModeToApi,
   saveDeliveryStatusToApi,
   saveGiftRunStatusToApi,
@@ -40,24 +39,7 @@ export default function Configure() {
   const { ask, dialog: confirmDialog } = useConfirmDialog();
   const [modal, setModal] = useState<ModalKind>(null);
   const [editing, setEditing] = useState<ConfigOption | null>(null);
-  // Every unit incl. deactivated ones (Configure is where they get reactivated);
-  // the active list from config shows until that arrives.
-  const [allUnits, setAllUnits] = useState<ConfigOption[] | null>(null);
-  const units = allUnits ?? desk.config.units;
-
-  useEffect(() => {
-    fetchAllUnitsFromApi()
-      .then(setAllUnits)
-      .catch((err: unknown) => toast.error(apiErrorMessage(err, "Could not load units")));
-  }, []);
-
-  const runUnit = (p: Promise<ConfigOption[]>, ok: string) =>
-    void p
-      .then((all) => {
-        setAllUnits(all);
-        toast.success(ok);
-      })
-      .catch((err: unknown) => toast.error(apiErrorMessage(err, "Something went wrong")));
+  const units = desk.config.units;
 
   const openNew = (kind: ModalKind) => {
     setEditing(null);
@@ -121,15 +103,20 @@ export default function Configure() {
                     name={s.name}
                     color={s.color}
                     onEdit={() => openEdit("giftRunStatus", s)}
-                    action={{
-                      icon: "bi-trash",
-                      title: `Delete ${s.name}`,
-                      danger: true,
-                      onClick: () =>
-                        askDelete("status", s.name, () =>
-                          deleteGiftRunStatusToApi(s.id),
-                        ),
-                    }}
+                    // Built-in statuses are shared by every company: renamable, not deletable.
+                    action={
+                      s.isSystem
+                        ? undefined
+                        : {
+                            icon: "bi-trash",
+                            title: `Delete ${s.name}`,
+                            danger: true,
+                            onClick: () =>
+                              askDelete("status", s.name, () =>
+                                deleteGiftRunStatusToApi(s.id),
+                              ),
+                          }
+                    }
                   />
                 ))}
               </ConfigChipGrid>
@@ -158,15 +145,19 @@ export default function Configure() {
                     name={s.name}
                     color={s.color}
                     onEdit={() => openEdit("status", s)}
-                    action={{
-                      icon: "bi-trash",
-                      title: `Delete ${s.name}`,
-                      danger: true,
-                      onClick: () =>
-                        askDelete("status", s.name, () =>
-                          deleteDeliveryStatusToApi(s.id),
-                        ),
-                    }}
+                    action={
+                      s.isSystem
+                        ? undefined
+                        : {
+                            icon: "bi-trash",
+                            title: `Delete ${s.name}`,
+                            danger: true,
+                            onClick: () =>
+                              askDelete("status", s.name, () =>
+                                deleteDeliveryStatusToApi(s.id),
+                              ),
+                          }
+                    }
                   />
                 ))}
               </ConfigChipGrid>
@@ -195,15 +186,19 @@ export default function Configure() {
                     name={m.name}
                     color={m.color}
                     onEdit={() => openEdit("mode", m)}
-                    action={{
-                      icon: "bi-trash",
-                      title: `Delete ${m.name}`,
-                      danger: true,
-                      onClick: () =>
-                        askDelete("mode", m.name, () =>
-                          deleteDeliveryModeToApi(m.id),
-                        ),
-                    }}
+                    action={
+                      m.isSystem
+                        ? undefined
+                        : {
+                            icon: "bi-trash",
+                            title: `Delete ${m.name}`,
+                            danger: true,
+                            onClick: () =>
+                              askDelete("mode", m.name, () =>
+                                deleteDeliveryModeToApi(m.id),
+                              ),
+                          }
+                    }
                   />
                 ))}
               </ConfigChipGrid>
@@ -263,35 +258,29 @@ export default function Configure() {
               <EmptyState label="units" />
             ) : (
               <ConfigChipGrid>
-                {units.map((u) => {
-                  const active = u.isActive !== false;
-                  return (
-                    <ConfigColorChip
-                      key={u.id}
-                      name={unitLabel(u)}
-                      color={u.color}
-                      caption={`${u.isCountable ? "Countable" : "Measurable"}${active ? "" : " · Inactive"}`}
-                      badge={u.isSystem ? "Default" : undefined}
-                      disabled={!active}
-                      // Default units keep their name/symbol; custom ones are editable.
-                      onEdit={u.isSystem ? undefined : () => openEdit("unit", u)}
-                      action={
-                        u.isDefault
-                          ? undefined
-                          : {
-                              icon: active ? "bi-eye-slash" : "bi-eye",
-                              title: active ? `Deactivate ${u.name}` : `Activate ${u.name}`,
-                              tone: active ? "neutral" : "revert",
-                              onClick: () =>
-                                runUnit(
-                                  saveUnitToApi({ ...u, isActive: !active }, false),
-                                  active ? "Deactivated." : "Activated.",
-                                ),
-                            }
-                      }
-                    />
-                  );
-                })}
+                {units.map((u) => (
+                  <ConfigColorChip
+                    key={u.id}
+                    name={unitLabel(u)}
+                    color={u.color}
+                    // Built-in units (kg, L, Unit) are fixed; custom ones behave like any option.
+                    onEdit={u.isSystem ? undefined : () => openEdit("unit", u)}
+                    action={
+                      u.isSystem
+                        ? undefined
+                        : {
+                            icon: "bi-trash",
+                            title: `Delete ${u.name}`,
+                            danger: true,
+                            // Runs keep referencing a unit, so delete deactivates it.
+                            onClick: () =>
+                              askDelete("unit", u.name, () =>
+                                saveUnitToApi({ ...u, isActive: false }, false),
+                              ),
+                          }
+                    }
+                  />
+                ))}
               </ConfigChipGrid>
             )}
           </ConfigSectionCard>
@@ -344,7 +333,7 @@ export default function Configure() {
         nameLabel="Unit name"
         initial={editing}
         existing={units}
-        onSave={(o) => runUnit(saveUnitToApi(o, !editing), "Saved.")}
+        onSave={(o) => runConfig(saveUnitToApi(o, !editing), "Saved.")}
       />
     </>
   );
