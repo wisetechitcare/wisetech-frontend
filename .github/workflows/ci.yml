@@ -13,11 +13,11 @@ name: ✅ Frontend CI
 # (Turn on "Require branches to be up to date before merging" so the head commit already
 # contains main — that is what the pull_request run's merge-commit test used to give.)
 #
-# THREE PARALLEL JOBS, not one long one. Steps inside a job run one after another, so a
+# TWO PARALLEL JOBS, not one long one. Steps inside a job run one after another, so a
 # single job cost the SUM of every check (~5 min). Split, the run costs the slowest job:
-#   checks     scan, lint, tests, audit       — every branch
-#   build      tsc + vite build + preview     — every branch EXCEPT main
-#   typecheck  tsc --noEmit                    — main only
+#   checks  scan, lint, tests, audit                                — every branch
+#   build   "Build + preview": tsc + vite build + preview probe     — every branch EXCEPT main
+#           "Typecheck": tsc --noEmit only                          — main
 # Each job installs on its own; the pnpm store cache makes that the price of parallelism.
 #
 # Lint note: the project has pre-existing ESLint errors in legacy files, so a whole-repo
@@ -112,38 +112,28 @@ jobs:
             || exit 1
           echo "::warning::Advisory registry unreachable — dependency audit skipped."
 
-  # ── Typecheck: main only ──────────────────────────────────────────────────────────────
-  # Everywhere else the build job runs `pnpm run build`, which is `tsc && vite build` —
-  # the same typecheck. Running it here as well would pay for 1,900 files twice.
-  typecheck:
-    name: Typecheck
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: ⬇️ Checkout code
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup
-      - name: 🔎 Typecheck
-        run: pnpm exec tsc --noEmit
-
-  # ── Build: every branch except main — proves the bundle before it can reach main ─────
+  # ── Build: ONE job that picks its own work, so no job ever shows as "Skipped" ────────
   #
-  # `tsc --noEmit` is an identical gate for TYPE errors, but not for bundling ones. Rollup
-  # resolves imports, assets and dynamic `import()` paths that tsc never looks at, so a
-  # build can fail with a perfectly clean typecheck. On main that failure would surface
-  # in the Amplify build — AFTER the merge, in the deploy itself. This is the only bundle
-  # that exists before production; the artifact is not the point, the proof that it builds is.
+  # Every branch except main: `pnpm run build` = `tsc && pnpm run build:bundle`, then the
+  # preview probe. `tsc --noEmit` is an identical gate for TYPE errors, but not for bundling
+  # ones — Rollup resolves imports, assets and dynamic `import()` paths that tsc never looks
+  # at, so a build can fail with a perfectly clean typecheck. On main that failure would
+  # surface in the Amplify build — AFTER the merge, in the deploy itself. This is the only
+  # bundle that exists before production; the artifact is not the point, the proof is.
+  # amplify.yml runs `build:bundle` alone and relies on THIS tsc having passed before the
+  # merge (required check + "branches up to date" on main). Same `build:bundle` script in
+  # both places, so the bundle can't drift.
   #
-  # `pnpm run build` = `tsc && pnpm run build:bundle`. amplify.yml runs `build:bundle`
-  # alone — it relies on THIS job's tsc having passed before the merge (required check +
-  # "branches up to date" on main). So this job is now the typecheck Amplify trusts, as well
-  # as the bundle proof. Both call the same `build:bundle` script, so the bundle can't drift.
+  # main: typecheck only. Amplify bundles main itself, so a CI bundle there would be a
+  # second one nothing consumes.
+  #
+  # This used to be two jobs (`typecheck` for main, `build` for the rest) gated by
+  # job-level `if:`, and GitHub lists a job skipped that way as a grey "Skipped" check on
+  # every run. A step-level `if:` skips silently inside the job instead. The job name stays
+  # "Build + preview" on every branch a PR can come from, which is what branch protection
+  # requires by name.
   build:
-    name: Build + preview
-    if: github.ref != 'refs/heads/main'
+    name: ${{ github.ref == 'refs/heads/main' && 'Typecheck' || 'Build + preview' }}
     runs-on: ubuntu-latest
     # The Vite build needs a 4 GB heap and is the slowest job; 25 matches the backend.
     timeout-minutes: 25
@@ -154,7 +144,12 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
 
+      - name: 🔎 Typecheck (main — Amplify bundles it)
+        if: github.ref == 'refs/heads/main'
+        run: pnpm exec tsc --noEmit
+
       - name: 🏗️ Build (typecheck + bundle)
+        if: github.ref != 'refs/heads/main'
         run: pnpm run build
 
       # --retry-connrefused: vite preview needs a moment to bind, and plain --retry does not
@@ -162,6 +157,7 @@ jobs:
       # called directly: `pnpm run preview -- --host` forwards a literal "--" (pnpm 11) and the
       # host flag never reached vite, so it bound localhost instead of 127.0.0.1.
       - name: 🌐 Preview employee-create route
+        if: github.ref != 'refs/heads/main'
         run: |
           pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > preview.log 2>&1 &
           preview_pid=$!

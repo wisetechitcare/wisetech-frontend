@@ -119,6 +119,8 @@ src/app/pages/billing/Foo.tsx
 
 ### Job: **Typecheck** (`main` only) 🔎
 
+*Same job as **Build + preview** below — on `main` it names itself "Typecheck" and runs only this step, so no job ever shows up as "Skipped".*
+
 Runs `tsc --noEmit` over all ~1,900 TypeScript files.
 
 **Why only on `main`?** On every other branch, the Build job runs `pnpm run build`, which is `tsc && vite build` — the same typecheck is inside it. Running both was a big part of why CI used to take 5 minutes.
@@ -236,7 +238,6 @@ Set in **GitHub → Settings → Branches → `main`** (not in any file). These 
 | **Workflow** | One `.yml` file in `.github/workflows/` — a list of jobs GitHub runs |
 | **Job** | A group of steps on one fresh virtual machine. Jobs can run in parallel |
 | **Step** | One command inside a job. Steps in a job run in order |
-| **Skipped** | The job's condition said "not needed on this branch" — not a failure |
 | **PR** | Pull request — asking to merge one branch into another |
 | **Amplify** | The AWS service that builds and hosts the live website |
 | **Preview** | A temporary copy of the site built from a PR, for checking before merge |
