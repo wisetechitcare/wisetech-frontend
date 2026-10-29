@@ -377,16 +377,9 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                     {/* Filter Buttons */}
                     <div className="d-flex gap-2 mb-6 flex-wrap">
                         {filterButtons.map((filter) => (
-                            <button
+                            <Button variant={activeFilter === filter ? 'default' : 'outline'} size="sm" type="submit" aria-pressed={activeFilter === filter}
                                 key={filter}
                                 onClick={() => setActiveFilter(filter)}
-                                className={`btn ${activeFilter === filter ? 'btn-primary' : 'btn-light'} btn-sm`}
-                                style={{
-                                    borderRadius: '50px',
-                                    padding: '8px 20px',
-                                    border: 'none',
-                                    fontWeight: '500'
-                                }}
                             >
                                 {filter}
                                 {filter !== 'All' && (
@@ -397,7 +390,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                                         }
                                     </span>
                                 )}
-                            </button>
+                            </Button>
                         ))}
                     </div>
 
@@ -514,31 +507,17 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                     {/* Table Navigation Arrows */}
                     {filteredLogs.length > 0 && (
                         <div className="d-flex justify-content-center gap-3 mt-4">
-                            <div
+                            <Button variant="outline" size="sm" aria-label="Scroll left"
                                 
                                 onClick={scrollTableLeft}
-                                className="d-flex align-items-center"
-                                style={{
-                                    borderRadius: '50px',
-                                    padding: '8px 16px',
-                                    fontWeight: '500',
-                                    cursor: 'pointer'
-                                }}
                             >
                                 <KTIcon iconName="black-left" className="fs-2 me-1" />
-                            </div>
-                            <div
+                            </Button>
+                            <Button variant="outline" size="sm" aria-label="Scroll right"
                                 onClick={scrollTableRight}
-                                className="d-flex align-items-center"
-                                style={{
-                                    borderRadius: '50px',
-                                    padding: '8px 16px',
-                                    fontWeight: '500',
-                                    cursor: 'pointer'
-                                }}
                             >
                                 <KTIcon iconName="black-right" className="fs-2 ms-1" />
-                            </div>
+                            </Button>
                         </div>
                     )}
                 </Card.Body>

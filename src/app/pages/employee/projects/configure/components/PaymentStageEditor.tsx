@@ -10,6 +10,7 @@ import type { PaymentStageGroup } from "@models/leads";
 import { apiErrorMessage } from "@utils/apiError";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
 import { C, FONT, RADIUS } from "@app/modules/configuration";
+import { Button } from '@/ds/ui/button';
 
 /**
  * Payment stage NUMBERING GROUPS — "1, 2, 3", "a, b, c", "Stage I, Stage II".
@@ -193,19 +194,12 @@ const PaymentStageEditor: React.FC = () => {
           maxLength={80}
           style={{ ...input, flex: 1 }}
         />
-        <button
+        <Button size="sm" type="submit" style={{ flexShrink: 0 }}
           onClick={() => void addGroup()}
           disabled={!newGroupName.trim() || busy}
-          style={{
-            fontFamily: FONT.body, fontSize: 13, fontWeight: 600,
-            background: newGroupName.trim() ? C.primary : "#e5e7ef",
-            color: newGroupName.trim() ? C.textInverse : C.textSecondary,
-            border: "none", borderRadius: RADIUS.sm, padding: "7px 16px",
-            cursor: newGroupName.trim() && !busy ? "pointer" : "default", flexShrink: 0,
-          }}
         >
           Add Group
-        </button>
+        </Button>
       </div>
 
       {loading ? null : groups.length === 0 ? (
@@ -247,19 +241,13 @@ const PaymentStageEditor: React.FC = () => {
                   />
                 ) : (
                   <Tooltip title="Click to rename">
-                    <button
+                    <Button variant="ghost" size="icon-xs" style={{ flex: 1 }}
                       type="button"
                       onClick={() => { setEditingGroupId(group.id); setEditingGroupName(group.name); }}
                       aria-label={`Rename ${group.name}`}
-                      style={{
-                        flex: 1, minWidth: 0, textAlign: "left",
-                        background: "none", border: "none", padding: 0, cursor: "text",
-                        fontFamily: FONT.heading, fontWeight: 700, fontSize: 14, color: C.textPrimary,
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}
                     >
                       {group.name}
-                    </button>
+                    </Button>
                   </Tooltip>
                 )}
                 {/* Reads as "what a plan gets", not a row count. */}
@@ -268,9 +256,9 @@ const PaymentStageEditor: React.FC = () => {
                     ? "EMPTY"
                     : `NUMBERS ${group.labels.length} STAGE${group.labels.length === 1 ? "" : "S"}`}
                 </span>
-                <button onClick={() => void removeGroup(group)} aria-label={`Remove ${group.name}`} style={iconBtn(C.danger)}>
+                <Button variant="tinted" size="icon-xs" type="submit" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties} onClick={() => void removeGroup(group)} aria-label={`Remove ${group.name}`}>
                   <AppIcon name="bi-trash" className="fs-8" />
-                </button>
+                </Button>
               </div>
 
               {/* The labels in the order stages wear them.
@@ -322,18 +310,13 @@ const PaymentStageEditor: React.FC = () => {
                         />
                       ) : (
                         <Tooltip title={`Numbers stage ${index + 1} — click to rename`}>
-                          <button
+                          <Button variant="ghost" size="icon-xs"
                             type="button"
                             onClick={() => { setEditingLabelKey(key); setEditingLabelValue(label); }}
                             aria-label={`Rename ${label}, numbering stage ${index + 1}`}
-                            style={{
-                              fontFamily: FONT.body, fontSize: 12.5, fontWeight: 700,
-                              color: C.textPrimary, padding: "5px 10px", whiteSpace: "nowrap",
-                              background: "none", border: "none", cursor: "text",
-                            }}
                           >
                             {label}
-                          </button>
+                          </Button>
                         </Tooltip>
                       )}
 
@@ -344,21 +327,18 @@ const PaymentStageEditor: React.FC = () => {
                         width: hot ? "auto" : 0, overflow: "hidden",
                         opacity: hot ? 1 : 0, transition: "opacity .12s ease",
                       }}>
-                        <button onClick={() => void moveLabel(group, index, -1)} disabled={index === 0}
-                          aria-label={`Move ${label} earlier`} tabIndex={hot ? 0 : -1}
-                          style={iconBtn(index === 0 ? "#d1d5e0" : C.textSecondary)}>
+                        <Button variant="ghost" size="icon-xs" type="submit" onClick={() => void moveLabel(group, index, -1)} disabled={index === 0}
+                          aria-label={`Move ${label} earlier`} tabIndex={hot ? 0 : -1}>
                           <AppIcon name="bi-chevron-left" className="fs-9" />
-                        </button>
-                        <button onClick={() => void moveLabel(group, index, 1)} disabled={index === group.labels.length - 1}
-                          aria-label={`Move ${label} later`} tabIndex={hot ? 0 : -1}
-                          style={iconBtn(index === group.labels.length - 1 ? "#d1d5e0" : C.textSecondary)}>
+                        </Button>
+                        <Button variant="ghost" size="icon-xs" type="submit" onClick={() => void moveLabel(group, index, 1)} disabled={index === group.labels.length - 1}
+                          aria-label={`Move ${label} later`} tabIndex={hot ? 0 : -1}>
                           <AppIcon name="bi-chevron-right" className="fs-9" />
-                        </button>
-                        <button onClick={() => void removeLabel(group, index)}
-                          aria-label={`Remove ${label}`} tabIndex={hot ? 0 : -1}
-                          style={{ ...iconBtn(C.danger), paddingRight: 7 }}>
+                        </Button>
+                        <Button variant="tinted" size="icon-xs" type="submit" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties} onClick={() => void removeLabel(group, index)}
+                          aria-label={`Remove ${label}`} tabIndex={hot ? 0 : -1}>
                           <AppIcon name="bi-x" className="fs-8" />
-                        </button>
+                        </Button>
                       </span>
                     </span>
                   );

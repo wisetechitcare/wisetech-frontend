@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Card, Button, Spinner, Form } from "react-bootstrap";
+import { Card, Spinner, Form } from "react-bootstrap";
 import dayjs from "dayjs";
 import { getMonthlyLeadAnalytics } from "@services/lead";
 import ManageTargetModal from "../modals/ManageTargetModal";
@@ -353,24 +353,16 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
               className="bg-light p-1 rounded-pill d-flex gap-1 border shadow-sm"
               style={{ backgroundColor: "#F8FAFC !important" }}
             >
-              <Button
-                variant={!showFullDigits ? "white" : "transparent"}
-                size="sm"
-                className={`rounded-pill px-3 py-1 border-0 transition-all ${!showFullDigits ? "shadow-sm fw-bold text-primary bg-white" : "text-muted opacity-75"}`}
+              <KitButton variant={!showFullDigits ? 'outline' : 'ghost'} size="sm" aria-pressed={!showFullDigits}
                 onClick={() => setShowFullDigits(false)}
-                style={{ fontSize: "11px" }}
               >
                 Compact
-              </Button>
-              <Button
-                variant={showFullDigits ? "white" : "transparent"}
-                size="sm"
-                className={`rounded-pill px-3 py-1 border-0 transition-all ${showFullDigits ? "shadow-sm fw-bold text-primary bg-white" : "text-muted opacity-75"}`}
+              </KitButton>
+              <KitButton variant={showFullDigits ? 'outline' : 'ghost'} size="sm" aria-pressed={showFullDigits}
                 onClick={() => setShowFullDigits(true)}
-                style={{ fontSize: "11px" }}
               >
                 Digits
-              </Button>
+              </KitButton>
             </div>
           </div>
         </div>

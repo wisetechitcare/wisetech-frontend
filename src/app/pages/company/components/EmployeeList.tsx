@@ -9,6 +9,7 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { ToneChip } from '@app/modules/common/components/ui';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { Button } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 interface EmployeeListProps {
     adminId: string;
@@ -42,7 +43,7 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ adminId, adminName, adminEm
             header: 'Employee Name',
             Cell: ({ row }: any) => (
                 <>
-                    <div
+                    <div data-wt-control="row" {...pressableProps(() => navigate(`/company/media/${adminId}/${row.original.id}`))}
                         className="d-flex align-items-center cursor-pointer"
                         onClick={() => navigate(`/company/media/${adminId}/${row.original.id}`)}
                     >

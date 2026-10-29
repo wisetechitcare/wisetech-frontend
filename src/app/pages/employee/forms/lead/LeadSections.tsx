@@ -598,14 +598,13 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
           <div className="d-flex flex-column gap-3">
             {(values.referrals || []).map((ref: any, index: number) => (
               <div key={index} className="wt-entry-card">
-                <button
+                <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                   type="button"
-                  className="wt-entry-card-remove"
                   onClick={() => remove(index)}
                   aria-label="Remove referral"
                 >
                   <Close fontSize="small" />
-                </button>
+                </Button>
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={4}>
                     <DropDownInput
@@ -1150,7 +1149,7 @@ const PoFileUpload: React.FC = () => {
         }}
       />
 
-      <div
+      <div data-wt-control="dropzone"
         onClick={url ? undefined : openPicker}
         onDragOver={(e) => { e.preventDefault(); if (!dragging) setDragging(true); }}
         onDragLeave={() => setDragging(false)}
@@ -1740,14 +1739,13 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
 
               return (
                 <div key={index} className="wt-entry-card">
-                  <button
+                  <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                     type="button"
-                    className="wt-entry-card-remove"
                     onClick={() => remove(index)}
                     aria-label="Remove company"
                   >
                     <Close fontSize="small" />
-                  </button>
+                  </Button>
                   <Grid container spacing={2}>
                     <Grid item xs={12} md={3}>
                       <DropDownInput

@@ -1494,7 +1494,7 @@ function CustomCalendar() {
                         {/* Backdrop for the mobile bottom-sheet variant of the panel below —
                             inert/invisible on tablet+ (CSS), tapping it closes the sheet. */}
                         {isMobile && (
-                            <div
+                            <div data-wt-control="backdrop"
                                 className={`mrd-panel-backdrop${panelSheetOpen ? ' is-open' : ''}`}
                                 onClick={() => setPanelSheetOpen(false)}
                                 aria-hidden="true"
@@ -1777,7 +1777,7 @@ function CustomCalendar() {
             {/* Create Leave Request — the shared canonical ApplyLeave modal (apply mode), pre-selected
                 to the clicked calendar day. It owns its own card chrome, so we provide the backdrop. */}
             {showLeaveRequestForm && (
-                <div
+                <div data-wt-control="backdrop"
                     onClick={(e) => { if (e.target === e.currentTarget) handleCloseLeaveRequestForm(); }}
                     style={{
                         position: 'fixed', inset: 0, zIndex: 1050, background: 'rgba(15,23,42,.45)', display: 'flex',

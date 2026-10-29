@@ -271,75 +271,31 @@ function SubmissionDetailModal({
                     {asking && (
                       <div className="mt-1">
                         {hasAwaitingQuery ? (
-                          <button
+                          <Button variant="ghost" size="icon-sm" aria-label="Open conversation"
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setConversationFor({ id: row.original.id, label: row.original.description || 'Expense' });
-                            }}
-                            style={{
-                              padding: '2px 8px',
-                              border: `1px solid ${T.color.warning}`,
-                              borderRadius: `${T.radius.sm}px`,
-                              backgroundColor: '#fff',
-                              color: T.color.warning,
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              outline: 'none',
-                              boxShadow: T.shadow.xs,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              transition: 'all 0.15s ease-in-out',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = T.color.warningSoft;
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#fff';
                             }}
                           >
                             <span style={{ color: T.color.warning, display: 'inline-flex' }}>
                               <KTIcon iconName="message-text-2" className="fs-8" />
                             </span>
                             Respond
-                          </button>
+                          </Button>
                         ) : (
-                          <button
+                          <Button variant="ghost" size="icon-sm" aria-label="Open conversation"
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setConversationFor({ id: row.original.id, label: row.original.description || 'Expense' });
-                            }}
-                            style={{
-                              padding: '2px 8px',
-                              border: `1px solid ${T.color.neutral}`,
-                              borderRadius: `${T.radius.sm}px`,
-                              backgroundColor: '#fff',
-                              color: T.color.neutral,
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              outline: 'none',
-                              boxShadow: T.shadow.xs,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              transition: 'all 0.15s ease-in-out',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = T.color.neutralSoft;
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#fff';
                             }}
                           >
                             <span style={{ color: T.color.neutral, display: 'inline-flex' }}>
                               <KTIcon iconName="eye" className="fs-8" />
                             </span>
                             View Conversation
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}
@@ -1246,20 +1202,14 @@ function SubmissionsTable({
           {/* A filter set from a chart the reader may have scrolled past needs to say so here,
               where the narrowed rows are — and be undoable from the same place. */}
           {externalCategoryFilter && (
-            <button
+            <Button variant="ghost" size="icon-xs"
               type="button"
               onClick={onClearCategoryFilter}
               title="Clear category filter"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                border: '1px solid #c7d2fe', background: '#eef2ff', color: '#3730a3',
-                borderRadius: 999, padding: '3px 10px', fontSize: 11.5, fontWeight: 600,
-                cursor: onClearCategoryFilter ? 'pointer' : 'default',
-              }}
             >
               {externalCategoryFilter}
               {onClearCategoryFilter && <span aria-hidden>✕</span>}
-            </button>
+            </Button>
           )}
           <StatusFilterChips value={statusFilter} onChange={setStatusFilter} counts={statusCounts} />
         </div>

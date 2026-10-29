@@ -56,7 +56,7 @@ function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
       aria-modal="true"
       aria-label="Document preview"
     >
-      <div
+      <div data-wt-control="container"
         className="d-flex flex-column bg-white rounded shadow overflow-hidden"
         style={{ width: "min(75vw, 900px)", height: "min(78vh, 710px)" }}
         onClick={(e) => e.stopPropagation()}

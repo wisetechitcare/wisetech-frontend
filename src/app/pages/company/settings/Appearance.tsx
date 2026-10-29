@@ -208,7 +208,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
               {/* Attendance Calendar */}
               <div className='accordion-item border rounded mb-3'>
                 <h2 className='accordion-header'>
-                  <button
+                  <button data-wt-control="accordion"
                     className={`accordion-button fw-bold fs-5 ${!openSections.includes('calendar') ? 'collapsed' : ''}`}
                     type='button'
                     onClick={() => toggleSection('calendar')}
@@ -234,7 +234,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
               {/* Attendance Overview */}
               <div className='accordion-item border rounded mb-3'>
                 <h2 className='accordion-header'>
-                  <button
+                  <button data-wt-control="accordion"
                     className={`accordion-button fw-bold fs-5 ${!openSections.includes('overview') ? 'collapsed' : ''}`}
                     type='button'
                     onClick={() => toggleSection('overview')}
@@ -258,7 +258,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
               {/* Working Pattern */}
               <div className='accordion-item border rounded mb-3'>
                 <h2 className='accordion-header'>
-                  <button
+                  <button data-wt-control="accordion"
                     className={`accordion-button fw-bold fs-5 ${!openSections.includes('pattern') ? 'collapsed' : ''}`}
                     type='button'
                     onClick={() => toggleSection('pattern')}
@@ -285,7 +285,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
               {/* Work Locations */}
               <div className='accordion-item border rounded mb-3'>
                 <h2 className='accordion-header'>
-                  <button
+                  <button data-wt-control="accordion"
                     className={`accordion-button fw-bold fs-5 ${!openSections.includes('location') ? 'collapsed' : ''}`}
                     type='button'
                     onClick={() => toggleSection('location')}
@@ -307,7 +307,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
               {/* Moments That Matter */}
               <div className='accordion-item border rounded mb-3'>
                 <h2 className='accordion-header'>
-                  <button
+                  <button data-wt-control="accordion"
                     className={`accordion-button fw-bold fs-5 ${!openSections.includes('moments') ? 'collapsed' : ''}`}
                     type='button'
                     onClick={() => toggleSection('moments')}
@@ -328,7 +328,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
               {/* Leave Types */}
               <div className='accordion-item border rounded mb-3'>
                 <h2 className='accordion-header'>
-                  <button
+                  <button data-wt-control="accordion"
                     className={`accordion-button fw-bold fs-5 ${!openSections.includes('leaves') ? 'collapsed' : ''}`}
                     type='button'
                     onClick={() => toggleSection('leaves')}

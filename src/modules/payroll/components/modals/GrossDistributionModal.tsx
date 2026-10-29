@@ -141,13 +141,12 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                                     />
                                                 </div>
                                             </div>
-                                            <button
+                                            <Button variant="tinted" size="icon-xs" aria-label="Remove" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                                                 type="button"
                                                 onClick={() => onRemoveField(key, false)}
-                                                style={{ width: 28, height: 28, minWidth: 28, border: 'none', background: 'transparent', color: '#f1416c', cursor: 'pointer', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                             >
                                                 <Close sx={{ fontSize: 16 }} />
-                                            </button>
+                                            </Button>
                                         </div>
                                     ))}
 
@@ -175,13 +174,12 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                                     />
                                                 </div>
                                             </div>
-                                            <button
+                                            <Button variant="tinted" size="icon-xs" aria-label="Remove" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                                                 type="button"
                                                 onClick={() => onRemoveField(field.id, true)}
-                                                style={{ width: 28, height: 28, minWidth: 28, border: 'none', background: 'transparent', color: '#f1416c', cursor: 'pointer', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                             >
                                                 <Close sx={{ fontSize: 16 }} />
-                                            </button>
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>

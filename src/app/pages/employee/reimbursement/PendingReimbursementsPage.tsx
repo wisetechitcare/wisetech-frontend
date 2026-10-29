@@ -48,6 +48,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation, describeLimitBreach } from './utils/reimbursementSchema';
 import { currencyPrefix } from '@utils/currency';
 import { Button as KitButton } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
@@ -784,7 +785,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           hideFilters={false}
           showColumnFooter={true}
           renderMobileCard={({ row }: any) => (
-            <div
+            <div data-wt-control="row" {...pressableProps(() => handleEdit(row.original))}
               onClick={() => handleEdit(row.original)}
               style={{
                 padding: '12px', background: '#fff', border: `2px solid ${row.original?.isExceedingLimit ? '#ef4444' : '#f59e0b'}`,
@@ -1143,22 +1144,13 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                         }}
                       >
                         {/* Choose File button */}
-                        <button
+                        <KitButton variant="outline" size="sm" className="flex-shrink-0 h-100"
                           type='button'
                           onClick={() => fileInputRef.current?.click()}
-                          className='d-flex align-items-center gap-1 flex-shrink-0 h-100 px-3 border-0 fs-7 fw-semibold'
-                          style={{
-                            backgroundColor: '#e9ecef',
-                            color: '#5e6278',
-                            borderRight: '1px solid #dee2e6',
-                            borderRadius: '0.425rem 0 0 0.425rem',
-                            whiteSpace: 'nowrap',
-                            cursor: 'pointer',
-                          }}
                         >
                           <KTIcon iconName='paper-clip' className='fs-5' />
                           Choose File
-                        </button>
+                        </KitButton>
 
                         {/* Filename / placeholder */}
                         <div className='d-flex align-items-center gap-2 px-3 overflow-hidden flex-grow-1'>

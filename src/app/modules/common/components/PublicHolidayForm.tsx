@@ -229,7 +229,7 @@ function PublicHolidayForm({ onClose, setShowNewHolidayForm }: { onClose: () => 
                                 )}
                             </div>
 
-                            <div className='col-lg-6 fv-row' onClick={getAllCountries}>
+                            <div data-wt-control="container" className='col-lg-6 fv-row' onClick={getAllCountries}>
                                 <label className='required col-lg-6 col-form-label fw-bold fs-6 mb-4'>Observed In</label>
                                 <Select
                                     {...FLOATING_MENU_PROPS}

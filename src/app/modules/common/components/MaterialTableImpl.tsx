@@ -2325,7 +2325,7 @@ function MaterialTable({
                       }}
                     >
                       {/* Track */}
-                      <div
+                      <div data-wt-control="scrollbar"
                         ref={scrollTrackRef}
                         onClick={(e) => {
                           const track = scrollTrackRef.current;

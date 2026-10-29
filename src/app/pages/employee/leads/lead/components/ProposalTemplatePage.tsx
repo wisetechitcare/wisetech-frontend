@@ -17,6 +17,7 @@ import { ExportCenterModal } from "./dms/components/ExportCenterModal";
 import { useAuth } from "../../../../../modules/auth";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
 import { Button } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 interface ProposalTemplatePageProps {
   show: boolean;
@@ -1008,7 +1009,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             <h6 className="fw-bolder mb-5">Templates</h6>
             <div className="d-flex flex-column gap-2">
               {templates.map((tpl: any) => (
-                <div
+                <div data-wt-control="option" {...pressableProps(() => handleTemplateChange(tpl.id))}
                   key={tpl.id}
                   onClick={() => handleTemplateChange(tpl.id)}
                   className={`p-3 rounded-2 cursor-pointer mb-2 transition-all ${selectedTemplateId === tpl.id ? "bg-primary text-white" : "bg-hover-light border"}`}

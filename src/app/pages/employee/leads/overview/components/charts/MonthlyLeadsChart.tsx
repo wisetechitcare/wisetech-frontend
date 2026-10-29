@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Card, Button, Spinner, Form } from "react-bootstrap";
+import { Card, Spinner, Form } from "react-bootstrap";
 import {
   XAxis,
   YAxis,
@@ -445,28 +445,20 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
               className="bg-light p-1 rounded-pill d-flex gap-1 border shadow-sm"
               style={{ backgroundColor: "#F8FAFC !important" }}
             >
-              <Button
-                variant={viewMode === "inquiry" ? "white" : "transparent"}
-                size="sm"
-                className={`rounded-pill px-3 py-1 border-0 transition-all ${viewMode === "inquiry" ? "shadow-sm fw-bold text-primary bg-white" : "text-muted opacity-75"}`}
+              <KitButton variant={viewMode === "inquiry" ? 'outline' : 'ghost'} size="sm" aria-pressed={viewMode === "inquiry"}
                 onClick={() => {
                   setViewMode("inquiry");
                 }}
-                style={{ fontSize: "11px" }}
               >
                 Inquiry Value
-              </Button>
-              <Button
-                variant={viewMode === "received" ? "white" : "transparent"}
-                size="sm"
-                className={`rounded-pill px-3 py-1 border-0 transition-all ${viewMode === "received" ? "shadow-sm fw-bold text-success bg-white" : "text-muted opacity-75"}`}
+              </KitButton>
+              <KitButton variant={viewMode === "received" ? 'outline' : 'ghost'} size="sm" aria-pressed={viewMode === "received"}
                 onClick={() => {
                   setViewMode("received");
                 }}
-                style={{ fontSize: "11px" }}
               >
                 Received Value
-              </Button>
+              </KitButton>
             </div>
           </div>
         </div>

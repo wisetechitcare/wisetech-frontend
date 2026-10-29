@@ -316,7 +316,7 @@ function Holiday({
                             />
                             <div className="d-flex align-items-center gap-2 flex-wrap">
                                 {PRESET_COLORS.map(c => (
-                                    <button
+                                    <button data-wt-control="swatch"
                                         key={c}
                                         type="button"
                                         onClick={() => formik.setFieldValue('colorCode', c, true)}

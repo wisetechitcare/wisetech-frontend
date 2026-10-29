@@ -18,6 +18,7 @@ import {
   getNotificationBorderColor,
   type AttendanceNotificationType,
 } from '../../../utils/notificationStyles';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 interface Notification {
   id: string;
@@ -192,7 +193,7 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
               const borderColor = getNotificationBorderColor(n.status);
               const icon = getNotificationIcon(n.status);
               return (
-                <div
+                <div data-wt-control="row" {...pressableProps(() => handleNavigation(n.path))}
                   key={n.id}
                   onClick={() => handleNavigation(n.path)}
                   className="d-flex align-items-start gap-3 p-3 mb-2 rounded-3 cursor-pointer notification-item"

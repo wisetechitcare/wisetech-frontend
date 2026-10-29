@@ -351,7 +351,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                             enableStatusColorCoding={false}
                             isLoading={loading}
                             renderMobileCard={({ row }: any) => (
-                              <div
+                              <div data-wt-control="row"
                                 onClick={() => {
                                   setSelectedApprovalInstanceId(row.original.approvalInstanceId ?? null);
                                   setSelectedBatchId(row.original.batchId);

@@ -125,7 +125,7 @@ const PdfPreviewer: React.FC<PdfPreviewerProps> = ({ signatureUrl, file, onClose
                         </div>
                     </div>
                 </div>
-                <div onClick={handlePageClick} className='position-relative'>
+                <div data-wt-control="container" onClick={handlePageClick} className='position-relative'>
                     <Document file={file} onLoadSuccess={onDocumentLoadSuccess}>
                         {Array.from(new Array(numPages), (_, index) => (
                             <Page

@@ -146,7 +146,7 @@ function PdfLoader({ signatureUrl, file, onClose, fileName }: PdfLoaderProps) {
                 <div className="position-relative">
                     <Document file={file} onLoadSuccess={documentLoaded}>
                         {Array.from({ length: totalPages }, (v, index) => (
-                            <div ref={pageRefs.current[index]} key={index} onClick={(e) => handleClick(e, index + 1)}>
+                            <div data-wt-control="container" ref={pageRefs.current[index]} key={index} onClick={(e) => handleClick(e, index + 1)}>
                                 <Page
                                     pageNumber={index + 1}
                                     onLoadSuccess={(page) => pageLoaded(index + 1, page)}

@@ -370,7 +370,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                         Choose Color
                       </label>
                       <div className="position-relative">
-                        <div
+                        <div data-wt-control="accordion"
                           className="d-flex align-items-center justify-content-between"
                           style={{
                             backgroundColor: '#f8f9fa',

@@ -798,7 +798,7 @@ const TaskDetails = () => {
                             <ul className="nav nav-tabs nav-line-tabs nav-stretch fs-6 border-0">
                                 {tabs.map((tab) => (
                                     <li key={tab.key} className="nav-item" style={{height: '40px'}}>
-                                        <button
+                                        <button data-wt-control="tab"
                                             className={`nav-link ${activeTab === tab.key ? 'active' : ''}`}
                                             onClick={() => setActiveTab(tab.key as TabType)}
                                             style={{

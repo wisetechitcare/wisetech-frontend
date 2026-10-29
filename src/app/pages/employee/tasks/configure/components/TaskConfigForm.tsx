@@ -516,7 +516,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                                   {path.join(PATH_SEPARATOR) || taskId}
                                 </span>
                               </div>
-                              <button
+                              <Button variant="ghost" size="icon-xs" style={{ flexShrink: 0 }}
                                 type="button"
                                 aria-label={`Remove ${path.join(PATH_SEPARATOR) || 'task'} from this stage`}
                                 onClick={() =>
@@ -526,18 +526,9 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                                     true
                                   )
                                 }
-                                style={{
-                                  border: 'none',
-                                  background: 'transparent',
-                                  color: '#c0392b',
-                                  cursor: 'pointer',
-                                  lineHeight: 1,
-                                  padding: '2px 4px',
-                                  flexShrink: 0,
-                                }}
                               >
                                 <AppIcon name="bi-x-lg" />
-                              </button>
+                              </Button>
                             </div>
                           );
                         })}
@@ -562,7 +553,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                     Choose Color
                   </label>
                   <div className="position-relative">
-                    <div
+                    <div data-wt-control="accordion"
                       className="d-flex align-items-center justify-content-between"
                       style={{
                         backgroundColor: '#f8f9fa',

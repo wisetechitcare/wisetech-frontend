@@ -72,7 +72,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
         </div>
       </Card.Header>
       <Card.Body className="p-7 pt-2">
-        <div 
+        <div data-wt-control="container" 
           className="chart-body-container"
           style={{ width: "100%", height: height, cursor: onExpandClick ? 'pointer' : 'default' }}
           onClick={() => onExpandClick && onExpandClick()}

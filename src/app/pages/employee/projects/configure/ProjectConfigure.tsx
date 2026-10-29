@@ -36,6 +36,7 @@ import {
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 // ─── ColorChip ────────────────────────────────────────────────────────────────
 
@@ -86,19 +87,17 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
         </span>
       </div>
       <div style={{ display: 'flex', gap: '4px', flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
-        <button
+        <Button variant="ghost" size="icon-xs" type="submit" aria-label="Edit"
           onClick={onEdit}
-          style={{ background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
         >
           <AppIcon name="bi-pencil" className="fs-8" />
-        </button>
+        </Button>
         {onDelete && (
-          <button
+          <Button variant="tinted" size="icon-xs" type="submit" aria-label="Delete" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
             onClick={onDelete}
-            style={{ background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
           >
             <AppIcon name="bi-trash" className="fs-8" />
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -191,22 +190,22 @@ const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
         </span>
 
         {/* Reorder arrows */}
-        <button type="button" title="Move earlier" onClick={onMoveUp} disabled={disabled || isFirst} style={iconBtn(!disabled && !isFirst ? C.textSecondary : '#ddd', onMoveUp, 'bi-chevron-left', 'Move earlier', !disabled && !isFirst)}>
+        <Button variant="ghost" size="icon-xs" type="button" title="Move earlier" onClick={onMoveUp} disabled={disabled || isFirst}>
           <AppIcon name="bi-chevron-left" className="fs-9" />
-        </button>
-        <button type="button" title="Move later" onClick={onMoveDown} disabled={disabled || isLast} style={iconBtn(!disabled && !isLast ? C.textSecondary : '#ddd', onMoveDown, 'bi-chevron-right', 'Move later', !disabled && !isLast)}>
+        </Button>
+        <Button variant="ghost" size="icon-xs" type="button" title="Move later" onClick={onMoveDown} disabled={disabled || isLast}>
           <AppIcon name="bi-chevron-right" className="fs-9" />
-        </button>
+        </Button>
 
         {/* Edit button */}
-        <button type="button" title="Edit" onClick={onEdit} style={iconBtn('#4f82c4', onEdit, 'bi-pencil', 'Edit', true)}>
+        <Button variant="ghost" size="icon-xs" type="button" title="Edit" onClick={onEdit}>
           <AppIcon name="bi-pencil" className="fs-9" />
-        </button>
+        </Button>
 
         {/* Delete button */}
-        <button type="button" title="Delete" onClick={onDelete} style={iconBtn(C.danger, onDelete, 'bi-trash', 'Delete', true)}>
+        <Button variant="tinted" size="icon-xs" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties} type="button" title="Delete" onClick={onDelete}>
           <AppIcon name="bi-trash" className="fs-9" />
-        </button>
+        </Button>
       </div>
 
       {/* Connector arrow */}

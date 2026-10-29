@@ -3,6 +3,7 @@ import { Modal } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import "./Workspace.css";
 import "../onboarding/OnboardingModal.css";
+import { Button } from '@/ds/ui/button';
 
 /**
  * Fullscreen wizard host — same shell Employee Onboarding / Leads use.
@@ -40,9 +41,9 @@ export function FullscreenWizardModal({
       className={["responsive-modal", "wt-wizard-modal", className].filter(Boolean).join(" ")}
     >
       <div className="ob-wizard-shell">
-        <button type="button" onClick={onClose} aria-label={closeLabel} className="ob-wizard-close">
+        <Button variant="ghost" size="icon-sm" type="button" onClick={onClose} aria-label={closeLabel}>
           <KTIcon iconName="cross" className="fs-2" />
-        </button>
+        </Button>
         <Modal.Body ref={bodyRef} style={{ padding: 0, height: "100%", overflow: "hidden" }}>
           {children}
         </Modal.Body>

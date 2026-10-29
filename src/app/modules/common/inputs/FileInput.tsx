@@ -96,7 +96,7 @@ function FileInput({
 
     return (
         <>
-            <div
+            <div data-wt-control="container"
                 onClick={handleWrapperClick}
                 style={{
                     cursor: disabled ? 'not-allowed' : 'auto',

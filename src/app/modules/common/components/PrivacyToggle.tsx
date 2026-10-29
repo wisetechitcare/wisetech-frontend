@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '@/ds/ui/button';
 
 interface PrivacyToggleProps {
     isVisible: boolean;
@@ -14,8 +15,7 @@ const PrivacyToggle: React.FC<PrivacyToggleProps> = ({
     title 
 }) => {
     return (
-        <div 
-            className="privacy-toggle"
+        <Button variant="ghost" size="icon-sm" aria-label="Toggle sensitive data"
             onClick={onToggle}
             title={title || (isVisible ? "Hide sensitive data" : "Show sensitive data")}
         >
@@ -46,7 +46,7 @@ const PrivacyToggle: React.FC<PrivacyToggleProps> = ({
                     </>
                 )}
             </svg>
-        </div>
+        </Button>
     );
 };
 

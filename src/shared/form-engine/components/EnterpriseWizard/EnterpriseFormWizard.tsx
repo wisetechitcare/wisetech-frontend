@@ -8,6 +8,7 @@ import { SummarySidebar } from "../SummarySidebar/SummarySidebar";
 import { WizardSidebar } from "../WizardSidebar/WizardSidebar";
 import "@app/pages/employee/forms/shared/Workspace.css";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface EnterpriseFormWizardProps<TValues = any, TStepProps = any> {
   layout?: "steps";
@@ -211,26 +212,14 @@ function StepWizard<TValues = any, TStepProps = any>({
               gap: 12,
             }}
           >
-            <button
+            <Button variant="ghost" size="icon-sm"
               type="button"
               onClick={() => setSummaryCollapsed(false)}
               aria-label="Expand summary"
               title="Expand summary"
-              style={{
-                background: 'transparent',
-                border: '1px solid #e2e8f0',
-                borderRadius: 8,
-                width: 28,
-                height: 28,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#64748B',
-                cursor: 'pointer',
-              }}
             >
               <ChevronLeft style={{ fontSize: '1.2rem' }} />
-            </button>
+            </Button>
             <div
               style={{
                 writingMode: 'vertical-rl',
@@ -249,26 +238,14 @@ function StepWizard<TValues = any, TStepProps = any>({
         ) : (
         <aside className="wizard-summary-panel" aria-label="Lead summary" style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 8px 0' }}>
-            <button
+            <Button variant="ghost" size="icon-sm"
               type="button"
               onClick={() => setSummaryCollapsed(true)}
               aria-label="Collapse summary"
               title="Collapse summary"
-              style={{
-                background: 'transparent',
-                border: '1px solid #e2e8f0',
-                borderRadius: 8,
-                width: 28,
-                height: 28,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#64748B',
-                cursor: 'pointer',
-              }}
             >
               <ChevronRight style={{ fontSize: '1.2rem' }} />
-            </button>
+            </Button>
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
             <SummarySidebar
@@ -284,28 +261,24 @@ function StepWizard<TValues = any, TStepProps = any>({
           {isSaveStep && (actions.exportPdf || actions.exportDocx) && (
             <div className="mt-4 p-4 bg-white rounded-3 shadow-sm border border-gray-100 d-flex gap-3 justify-content-center flex-wrap">
               {actions.exportPdf && (
-                <button
+                <Button variant="outline" size="sm" style={{ flex: 1 }}
                   type="button"
-                  className="wt-btn wt-btn-outline-primary"
                   onClick={actions.exportPdf}
                   title="Export to PDF"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem' }}
                 >
                   <PictureAsPdf style={{ fontSize: "1.1rem", color: '#e2445c' }} />
                   <span className="fw-bold">Export PDF</span>
-                </button>
+                </Button>
               )}
               {actions.exportDocx && (
-                <button
+                <Button variant="outline" size="sm" style={{ flex: 1 }}
                   type="button"
-                  className="wt-btn wt-btn-outline-primary"
                   onClick={actions.exportDocx}
                   title="Export to Word Document"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem' }}
                 >
                   <Description style={{ fontSize: "1.1rem", color: '#2563eb' }} />
                   <span className="fw-bold">Export DOCX</span>
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -318,36 +291,32 @@ function StepWizard<TValues = any, TStepProps = any>({
 
         <div className="wizard-footer-left" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           {/* Cancel button */}
-          <button
+          <Button variant="outline"
             type="button"
-            className="wt-btn wt-btn-ghost"
             onClick={actions.onCancel}
             disabled={actions.isSubmitting}
             aria-label="Cancel"
           >
             Cancel
-          </button>
+          </Button>
 
           {/* Save Draft button */}
           {actions.onSaveDraft && (
-            <button
+            <Button variant="outline"
               type="button"
-              className="wt-btn wt-btn-ghost"
               onClick={actions.onSaveDraft}
               disabled={actions.isSubmitting || actions.isSavingDraft}
               title="Save your progress as a draft (no validation required)"
-              style={{ borderStyle: 'dashed' }}
             >
               {actions.isSavingDraft ? 'Saving…' : '💾 Save Draft'}
-            </button>
+            </Button>
           )}
 
           {/* Persistent Save — lets the user submit from any step (not only the
               final/review step). Hidden on the save step to avoid a duplicate. */}
           {actions.onFinalSave && !isSaveStep && (
-            <button
+            <Button
               type="button"
-              className="wt-btn wt-btn-primary"
               disabled={actions.isSubmitting || actions.submitDisabled}
               onClick={async () => {
                 const errors = await validateForm();
@@ -361,28 +330,26 @@ function StepWizard<TValues = any, TStepProps = any>({
               title="Save changes now"
             >
               {actions.isSubmitting ? "Saving…" : (actions.submitText || "Save")}
-            </button>
+            </Button>
           )}
         </div>
 
         <div className="wizard-footer-right" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           {/* Back button */}
-          <button
+          <Button variant="outline"
             type="button"
-            className="wt-btn wt-btn-ghost"
             onClick={handleBack}
             disabled={isFirstStep || actions.isSubmitting}
             aria-label="Go to previous step"
           >
             ← Back
-          </button>
+          </Button>
 
           {/* Forward actions */}
           {isSaveStep ? (
             actions.onFinalSave ? (
-              <button
+              <Button size="lg"
                 type="button"
-                className="wt-btn wt-btn-primary wt-btn-lg"
                 disabled={actions.isSubmitting || actions.submitDisabled}
                 onClick={async () => {
                   const errors = await validateForm();
@@ -395,12 +362,11 @@ function StepWizard<TValues = any, TStepProps = any>({
                 }}
               >
                 {actions.isSubmitting ? "Saving…" : "Save"}
-              </button>
+              </Button>
             ) : actions.onSaveUpdate && actions.onSaveRevision ? (
               <div className="d-flex gap-2">
-                <button
+                <Button variant="outline" size="lg"
                   type="button"
-                  className="wt-btn wt-btn-secondary wt-btn-lg"
                   disabled={actions.isSubmitting || actions.submitDisabled}
                   onClick={async () => {
                     const errors = await validateForm();
@@ -413,10 +379,9 @@ function StepWizard<TValues = any, TStepProps = any>({
                   }}
                 >
                   {actions.isSubmitting ? "Saving…" : "Save as Update"}
-                </button>
-                <button
+                </Button>
+                <Button size="lg"
                   type="button"
-                  className="wt-btn wt-btn-primary wt-btn-lg"
                   disabled={actions.isSubmitting || actions.submitDisabled}
                   onClick={async () => {
                     const errors = await validateForm();
@@ -429,12 +394,11 @@ function StepWizard<TValues = any, TStepProps = any>({
                   }}
                 >
                   {actions.isSubmitting ? "Saving…" : "Save as Revision"}
-                </button>
+                </Button>
               </div>
             ) : (
-              <button
+              <Button size="lg"
                 type="submit"
-                className="wt-btn wt-btn-primary wt-btn-lg"
                 disabled={actions.isSubmitting || actions.submitDisabled}
                 onClick={async (e) => {
                   const errors = await validateForm();
@@ -446,17 +410,16 @@ function StepWizard<TValues = any, TStepProps = any>({
                 {actions.isSubmitting
                   ? "Saving…"
                   : actions.submitText || (actions.isEditMode ? "Save Changes" : "Create")}
-              </button>
+              </Button>
             )
           ) : (
-            <button
+            <Button size="lg"
               type="button"
-              className="wt-btn wt-btn-primary wt-btn-lg"
               onClick={handleNext}
               disabled={actions.isSubmitting}
             >
               Save &amp; Continue →
-            </button>
+            </Button>
           )}
         </div>
       </div>

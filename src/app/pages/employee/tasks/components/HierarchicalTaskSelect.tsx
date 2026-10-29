@@ -272,7 +272,7 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                 // The WHOLE header row picks the node you are inside — the same target
                 // size as any option row, rather than a small button to aim at. The back
                 // arrow sits inside it and stops the click from bubbling.
-                <div
+                <div data-wt-control="row"
                     role="button"
                     tabIndex={0}
                     aria-label={`Select "${currentName}"`}

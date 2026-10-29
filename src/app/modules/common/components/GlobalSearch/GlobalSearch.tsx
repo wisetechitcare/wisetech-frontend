@@ -25,6 +25,7 @@ import KeyboardReturnIconModule from '@mui/icons-material/KeyboardReturn';
 import { resolveReactComponent } from '@utils/resolveReactComponent';
 import './GlobalSearch.css';
 import { ToneChip } from '@app/modules/common/components/ui';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 const AutoAwesomeIcon = resolveReactComponent<typeof AutoAwesomeIconModule>(AutoAwesomeIconModule);
 const BusinessIcon = resolveReactComponent<typeof BusinessIconModule>(BusinessIconModule);
@@ -433,7 +434,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
                     <span className="section-title fw-bold text-primary fs-8 text-uppercase">Best Match</span>
                   </div>
                   {bestMatches.map((result, idx) => (
-                    <div
+                    <div data-wt-control="row" {...pressableProps(() => handleResultClick(result))}
                       key={`best-${result.id}`}
                       className={`search-result-item d-flex align-items-center px-4 py-3 cursor-pointer transition-all ${
                         activeIndex === idx ? 'bg-light-primary' : 'hover-bg-light'
@@ -475,7 +476,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
                         <span className="section-count badge badge-light-primary fs-9">{typeResults.length}</span>
                       </div>
                       {typeResults.slice(0, 10).map((result, idx) => (
-                        <div
+                        <div data-wt-control="row" {...pressableProps(() => handleResultClick(result))}
                           key={result.id}
                           className={`search-result-item d-flex align-items-center px-4 py-3 cursor-pointer transition-all ${
                             activeIndex === bestMatches.length + idx ? 'bg-light-primary' : 'hover-bg-light'
@@ -490,7 +491,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
                 })}
               
               {!restrictType && (
-                <div className="search-footer" onClick={() => navigate(`/search-results?q=${encodeURIComponent(query)}`)}>
+                <div data-wt-control="row" {...pressableProps(() => navigate(`/search-results?q=${encodeURIComponent(query)}`))} className="search-footer" onClick={() => navigate(`/search-results?q=${encodeURIComponent(query)}`)}>
                   <span>Search for "{query}" across all fields</span>
                   <KeyboardReturnIcon className="fs-4" />
                 </div>

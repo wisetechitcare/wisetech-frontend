@@ -109,7 +109,7 @@ const CustomMenuList = ({ children, ...props }: any) => {
 
     return (
         <components.MenuList {...props}>
-            <div
+            <div data-wt-control="menuitem" role="menuitem"
                 className="dropdown-add-option"
                 onClick={addNewHoliday}
                 style={{
@@ -423,7 +423,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                         <div className="row g-4">
 
                             {/* Observed In */}
-                            <div className="col-lg-4" onClick={getAllCountries}>
+                            <div data-wt-control="container" className="col-lg-4" onClick={getAllCountries}>
                                 <label className="fs-7 fw-bold text-gray-700 d-block mb-2">
                                     Observed In <span className="text-danger">*</span>
                                 </label>

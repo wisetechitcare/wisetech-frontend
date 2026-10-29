@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Card, Button, Spinner } from "react-bootstrap";
+import { Card, Spinner } from "react-bootstrap";
 import {
   XAxis,
   YAxis,
@@ -330,24 +330,16 @@ const YearlyCumulativePerformance: React.FC<
             ))}
 
             <div className="bg-light p-1 rounded-pill d-flex gap-1 border shadow-sm">
-              <Button
-                variant={viewMode === "inquiry" ? "white" : "transparent"}
-                size="sm"
-                className={`rounded-pill px-3 py-1 border-0 transition-all ${viewMode === "inquiry" ? "shadow-sm fw-bold text-primary" : "text-muted opacity-75"}`}
+              <KitButton variant={viewMode === "inquiry" ? 'outline' : 'ghost'} size="sm" aria-pressed={viewMode === "inquiry"}
                 onClick={() => setViewMode("inquiry")}
-                style={{ fontSize: "12px" }}
               >
                 Inquiry
-              </Button>
-              <Button
-                variant={viewMode === "received" ? "white" : "transparent"}
-                size="sm"
-                className={`rounded-pill px-3 py-1 border-0 transition-all ${viewMode === "received" ? "shadow-sm fw-bold text-success" : "text-muted opacity-75"}`}
+              </KitButton>
+              <KitButton variant={viewMode === "received" ? 'outline' : 'ghost'} size="sm" aria-pressed={viewMode === "received"}
                 onClick={() => setViewMode("received")}
-                style={{ fontSize: "12px" }}
               >
                 Received
-              </Button>
+              </KitButton>
             </div>
 
             <KitButton variant="outline" size="sm"

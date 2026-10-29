@@ -15,6 +15,7 @@ import PercentageConfigurationTable from "./PercentageConfigurationTable";
 import MeetingConfigurationTable from "./MeetingConfigurationTable";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
 import { Button as KitButton } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 const ProposalConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
@@ -326,7 +327,7 @@ const ProposalConfigurationPage: React.FC = () => {
               <Card.Body className="px-4">
                 <div className="d-flex flex-column gap-2">
                   {configurations.map((config, index) => (
-                    <div
+                    <div data-wt-control="option" {...pressableProps(() => handleSelectTemplate(config))}
                       key={index}
                       onClick={() => handleSelectTemplate(config)}
                       className={`p-4 rounded-3 cursor-pointer transition-all ${selectedConfig?.id === config.id ? "bg-light-primary border border-primary" : "bg-hover-light border border-transparent"}`}

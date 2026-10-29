@@ -319,8 +319,7 @@ function RolesAndPermissions({ editingRole, onEditRole }: { editingRole: any, on
             </div>
             <div className='col-4 col-md-3'>{role?.employees?.length}</div>
             <div className='col-4 col-md-3'>
-              <div
-                className="btn p-0 btn-active-color-primary btn-sm"
+              <Button variant="ghost" size="icon-sm" aria-label="Edit role"
                 onClick={() => onEditRole(role)}
                 title="Edit role"
               >
@@ -328,16 +327,15 @@ function RolesAndPermissions({ editingRole, onEditRole }: { editingRole: any, on
                   iconName="pencil"
                   className="fs-3 cursor-pointer"
                 />
-              </div>
-              {(!role?.isSystem) && <div
-                className="btn p-0 btn-active-color-primary btn-sm"
+              </Button>
+              {(!role?.isSystem) && <Button variant="ghost" size="icon-sm" aria-label="Delete role"
                 onClick={() => handleDeleteRole(String(role.id))}
               >
                 <KTIcon
                   iconName="trash"
                   className="fs-3 cursor-pointer"
                 />
-              </div>}
+              </Button>}
             </div>
           </div>
         ))}

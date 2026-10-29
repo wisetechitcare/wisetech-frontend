@@ -149,7 +149,7 @@ const LevelSection: React.FC<LevelSectionProps> = React.memo(({
                         />
                     ))}
                     {/* Add Employee Placeholder */}
-                    {canWrite && <div
+                    {canWrite && <div data-wt-control="tile"
                         className="d-flex align-items-center justify-content-center bg-white rounded-2 border border-2 border-dashed text-secondary"
                         style={{
                             width: '240px',

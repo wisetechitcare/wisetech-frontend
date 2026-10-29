@@ -1,5 +1,7 @@
 import React, { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 /**
  * CompaniesByTypeChart — custom (no ApexCharts) horizontal bar tree.
@@ -149,7 +151,7 @@ const CompaniesByTypeChart: React.FC<Props> = ({
   const toggle = useCallback((id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }, []);
@@ -401,8 +403,8 @@ const CompaniesByTypeChart: React.FC<Props> = ({
       {/* Toolbar */}
       <div style={{ padding: isMobile ? "0 16px 12px" : "0 24px 14px", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: isMobile ? 8 : 10, flexWrap: "wrap" }}>
         <div style={{ display: "flex", background: "#f1f3f6", border: "1px solid #e6e9ee", borderRadius: 8, padding: 3, width: isMobile ? "100%" : undefined }}>
-          <button style={segBtn(group === "type")} onClick={() => setGroup("type")}>By Type</button>
-          <button style={segBtn(group === "service")} onClick={() => { setGroup("service"); setFilterOpen(false); }}>By Sub-service</button>
+          <button data-wt-control="segmented" aria-pressed={group === "type"} style={segBtn(group === "type")} onClick={() => setGroup("type")}>By Type</button>
+          <button data-wt-control="segmented" aria-pressed={group === "service"} style={segBtn(group === "service")} onClick={() => { setGroup("service"); setFilterOpen(false); }}>By Sub-service</button>
         </div>
 
         <div style={{ position: "relative", width: isMobile ? "100%" : undefined, flex: isMobile ? undefined : "1", minWidth: isMobile ? undefined : 200, maxWidth: isMobile ? undefined : 300 }}>
@@ -416,23 +418,22 @@ const CompaniesByTypeChart: React.FC<Props> = ({
         <div style={{ display: "flex", gap: isMobile ? 8 : 10, alignItems: "center", flexWrap: "wrap", width: isMobile ? "100%" : undefined }}>
           {group === "type" && (
             <div style={{ position: "relative" }} ref={filterWrapRef}>
-              <button onClick={() => setFilterOpen((v) => !v)}
-                style={{ ...ctrlBtn, display: "flex", alignItems: "center", gap: 6, border: `1px solid ${selectedCount > 0 ? ACCENT : "#dde2e8"}`, background: selectedCount > 0 ? "#fbf3f3" : "#fff", color: selectedCount > 0 ? ACCENT : "#46505d", whiteSpace: "nowrap" }}>
+              <Button variant="outline" size="sm" type="submit" onClick={() => setFilterOpen((v) => !v)}>
                 <AppIcon name="bi-funnel" className="fs-7" /> Filter{selectedCount > 0 ? ` (${selectedCount}/${tree.length})` : ""}
-              </button>
+              </Button>
               {filterOpen && (
                 <div style={{ position: "absolute", [isMobile ? "left" : "right"]: 0, top: 40, zIndex: 20, background: "#fff", border: "1px solid #e2e6ec", borderRadius: 10, boxShadow: "0 8px 28px rgba(16,24,40,.16)", padding: 8, width: 248, maxHeight: 300, overflow: "auto" } as React.CSSProperties}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px 8px" }}>
                     <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".5px", color: "#9aa3b0", fontWeight: 600 }}>{selectedCount > 0 ? `Showing ${selectedCount} selected` : "Select types to show"}</span>
                     {selectedCount > 0 && (
-                      <button onClick={() => setSelectedTypes(new Set())} style={{ border: "none", background: "none", color: ACCENT, fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0 }}>Clear (show all)</button>
+                      <Button variant="link" size="xs" type="submit" onClick={() => setSelectedTypes(new Set())}>Clear (show all)</Button>
                     )}
                   </div>
                   {tree.map((t) => {
                     const on = selectedTypes.has(t.id);
                     return (
                       <label key={t.id} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13, background: on ? "#fbf3f3" : "transparent" }}>
-                        <input type="checkbox" checked={on} onChange={() => setSelectedTypes((prev) => { const n = new Set(prev); n.has(t.id) ? n.delete(t.id) : n.add(t.id); return n; })} style={{ accentColor: ACCENT, width: 15, height: 15 }} />
+                        <input type="checkbox" checked={on} onChange={() => setSelectedTypes((prev) => { const n = new Set(prev); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })} style={{ accentColor: ACCENT, width: 15, height: 15 }} />
                         <span style={{ width: 9, height: 9, borderRadius: "50%", background: t.color, flex: "none" }} />
                         <span style={{ flex: 1, fontWeight: on ? 600 : 400, color: on ? ACCENT : "#1f2733" }}>{t.name}</span>
                         <span style={{ color: "#aab2bd", fontSize: 12 }}>{t.count}</span>
@@ -443,18 +444,18 @@ const CompaniesByTypeChart: React.FC<Props> = ({
               )}
             </div>
           )}
-          <button
+          <button data-wt-control="segmented" aria-pressed={allExpanded}
             style={{ ...ctrlBtn, ...(allExpanded ? { background: "#fbf3f3", border: `1px solid ${ACCENT}`, color: ACCENT, fontWeight: 700 } : {}) }}
             onClick={expandAll}
           >Expand</button>
-          <button
+          <button data-wt-control="segmented" aria-pressed={allCollapsed}
             style={{ ...ctrlBtn, ...(allCollapsed ? { background: "#fbf3f3", border: `1px solid ${ACCENT}`, color: ACCENT, fontWeight: 700 } : {}) }}
             onClick={collapseAll}
           >Collapse</button>
           {tree.length > topNLimit && group === "type" && (
-            <button style={{ ...ctrlBtn, color: ACCENT, fontWeight: 600 }} onClick={() => setShowAll((v) => !v)}>
+            <Button variant="link" size="xs" type="submit" onClick={() => setShowAll((v) => !v)}>
               {showAll ? `Show Top ${topNLimit}` : `Show All (${tree.length})`}
-            </button>
+            </Button>
           )}
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)}
             style={{
@@ -486,10 +487,10 @@ const CompaniesByTypeChart: React.FC<Props> = ({
             <span key={n.id} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "4px 6px 4px 10px", borderRadius: 16, fontSize: 12, fontWeight: 500, background: lighten(n.color, n.kind === "type" ? 0.82 : 0.88), color: "#3a4350", border: `1px solid ${lighten(n.color, 0.6)}` }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: n.color }} />
               {n.name}
-              <button onClick={() => collapseBranch(n.id)} style={{ border: "none", background: "rgba(0,0,0,.06)", color: "inherit", width: 17, height: 17, borderRadius: "50%", cursor: "pointer", fontSize: 11, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+              <Button variant="ghost" size="icon-xs" type="submit" aria-label="Collapse" onClick={() => collapseBranch(n.id)}>×</Button>
             </span>
           ))}
-          <button onClick={collapseAll} style={{ border: "none", background: "none", color: ACCENT, fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: 2 }}>Clear</button>
+          <Button variant="link" size="xs" type="submit" style={{ marginLeft: 2 }} onClick={collapseAll}>Clear</Button>
         </div>
       )}
 
@@ -515,9 +516,9 @@ const CompaniesByTypeChart: React.FC<Props> = ({
 
           if (isMobile) {
             return (
-              <div key={r.node.id + i} onClick={() => onRowClick(r)} style={{ display: "flex", flexDirection: "column", gap: 7, padding: "11px 0", borderBottom: "1px solid #f3f5f7", cursor: clickable ? "pointer" : "default" }}>
+              <div data-wt-control="row" {...pressableProps(() => onRowClick(r))} key={r.node.id + i} onClick={() => onRowClick(r)} style={{ display: "flex", flexDirection: "column", gap: 7, padding: "11px 0", borderBottom: "1px solid #f3f5f7", cursor: clickable ? "pointer" : "default" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: r.level * 16 }}>
-                  <span
+                  <span data-wt-control="toggle"
                     onClick={(e) => { if (r.hasChildren) { e.stopPropagation(); toggle(r.node.id); } }}
                     style={{ width: 24, height: 24, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, background: r.hasChildren ? lighten(r.node.color, 0.82) : "transparent", color: r.hasChildren ? r.node.color : "transparent", fontSize: 15, fontWeight: 800, cursor: r.hasChildren ? "pointer" : "default", transition: "transform .15s", transform: r.expanded ? "rotate(90deg)" : "rotate(0deg)" }}>
                     {r.hasChildren ? "▸" : ""}
@@ -537,10 +538,10 @@ const CompaniesByTypeChart: React.FC<Props> = ({
           }
 
           return (
-            <div key={r.node.id + i} onClick={() => onRowClick(r)} onMouseEnter={(e) => { if (clickable) (e.currentTarget as HTMLElement).style.background = "#f7f8fa"; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+            <div data-wt-control="row" {...pressableProps(() => onRowClick(r))} key={r.node.id + i} onClick={() => onRowClick(r)} onMouseEnter={(e) => { if (clickable) (e.currentTarget as HTMLElement).style.background = "#f7f8fa"; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               style={{ display: "grid", gridTemplateColumns: "300px 1fr 50px", alignItems: "center", gap: 10, height: 38, cursor: clickable ? "pointer" : "default", borderRadius: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: r.level * 22, minWidth: 0 }}>
-                <span
+                <span data-wt-control="toggle"
                   title={r.hasChildren ? (r.expanded ? "Collapse" : "Expand") : undefined}
                   onClick={(e) => { if (r.hasChildren) { e.stopPropagation(); toggle(r.node.id); } }}
                   style={{ width: 24, height: 24, flex: "none", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, background: r.hasChildren ? lighten(r.node.color, 0.82) : "transparent", color: r.hasChildren ? r.node.color : "transparent", fontSize: 15, fontWeight: 800, cursor: r.hasChildren ? "pointer" : "default", transition: "transform .15s", transform: r.expanded ? "rotate(90deg)" : "rotate(0deg)" }}>

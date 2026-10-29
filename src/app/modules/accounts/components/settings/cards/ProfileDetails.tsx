@@ -201,7 +201,7 @@ const ProfileDetails: React.FC = () => {
 
   return (
     <div className='card mb-5 mb-xl-10'>
-      <div
+      <div data-wt-control="accordion"
         className='card-header border-0 cursor-pointer'
         role='button'
         data-bs-toggle='collapse'

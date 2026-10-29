@@ -240,14 +240,13 @@ function RejectModal({ step, onClose, onConfirm, submitting, variant = 'reject' 
         <Button variant="outline" size="sm" type="submit" data-unsaved-changes-close onClick={onClose} disabled={submitting}>
           Cancel
         </Button>
-        <button
-          className={`btn btn-sm ${copy.btnClass} d-flex align-items-center gap-2`}
+        <Button variant={copy.btnClass === 'btn-danger' ? 'destructive' : 'default'} size="sm" type="submit"
           onClick={() => onConfirm(trimmed)}
           disabled={!canSubmit}
         >
           {submitting && <span className='spinner-border spinner-border-sm' />}
           {copy.confirm}
-        </button>
+        </Button>
       </Modal.Footer>
     </Modal>
   );
@@ -609,7 +608,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           if (d?.rejectedCount) pills.push({ label: `${d.rejectedCount} rejected`, tone: 'danger' });
           if (d?.resubmittedCount) pills.push({ label: `${d.resubmittedCount} sent again`, tone: 'indigo' });
           return (
-            <div
+            <div data-wt-control="row"
               role='button'
               style={{ cursor: 'pointer' }}
               onClick={(e: React.MouseEvent) => {
@@ -1031,16 +1030,15 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       <div className='d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2'>
         <div className='d-flex gap-2 flex-wrap'>
           {TABS.map((t) => (
-            <button
+            <Button variant={activeTab === t.key ? 'default' : 'outline'} size="sm" type="submit" aria-pressed={activeTab === t.key}
               key={t.key}
-              className={`btn btn-sm ${activeTab === t.key ? 'btn-primary' : 'btn-light'}`}
               onClick={() => setActiveTab(t.key)}
             >
               {t.label}
               {t.key === 'pending' && steps.length > 0 && activeTab === 'pending' && (
                 <span className='badge badge-circle badge-white ms-2 text-primary fw-bold'>{steps.length}</span>
               )}
-            </button>
+            </Button>
           ))}
         </div>
         <Button variant="tinted" size="sm" type="submit" onClick={() => load(activeTab)} disabled={loading}>

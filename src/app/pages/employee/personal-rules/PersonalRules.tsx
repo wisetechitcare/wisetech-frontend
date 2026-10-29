@@ -56,7 +56,7 @@ const PersonalRules: React.FC = () => {
     };
 
     return (
-      <div
+      <div data-wt-control="row"
         onClick={handleClick}
         style={{
           display: 'flex',
@@ -152,7 +152,7 @@ const PersonalRules: React.FC = () => {
 
         {/* Mobile Sidebar Overlay */}
         {showSidebar && (
-          <div
+          <div data-wt-control="backdrop"
             className="d-lg-none position-fixed top-0 start-0 w-100 h-100"
             style={{
               backgroundColor: 'rgba(0,0,0,0.5)',
@@ -160,7 +160,7 @@ const PersonalRules: React.FC = () => {
             }}
             onClick={() => setShowSidebar(false)}
           >
-            <div
+            <div data-wt-control="container"
               className="bg-white p-4"
               style={{
                 width: '250px',

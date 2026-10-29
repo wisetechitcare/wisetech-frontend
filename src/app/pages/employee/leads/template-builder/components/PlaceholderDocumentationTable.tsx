@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Form, Table } from 'react-bootstrap';
+import { Form, Table } from 'react-bootstrap';
 import { Copy, ChevronLeft, ChevronRight, Hash, Eye } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -55,7 +55,7 @@ const PlaceholderDocumentationTable: React.FC<
                   className="hover-bg-light"
                 >
                   <td className="ps-8 py-6">
-                    <button
+                    <button data-wt-control="chip"
                       type="button"
                       onClick={() => copyToken(row.token)}
                       className="token-pill"
@@ -147,15 +147,12 @@ const PlaceholderDocumentationTable: React.FC<
                 return null;
               }
               return (
-                <Button
+                <KitButton variant={normalizedPage === p ? 'default' : 'ghost'} size="icon-sm"
                   key={p}
-                  variant={normalizedPage === p ? "primary" : "white"}
-                  size="sm"
-                  className={`w-30px h-30px rounded-pill p-0 fs-8 fw-bold ${normalizedPage === p ? 'shadow-sm' : 'border'}`}
                   onClick={() => setPage(p)}
                 >
                   {p}
-                </Button>
+                </KitButton>
               );
             })}
           </div>

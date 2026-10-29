@@ -271,9 +271,9 @@ const ProjectWorkspacePage: React.FC = () => {
         {/* ── Header ── */}
         <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
           <div className="d-flex align-items-center gap-2 gap-md-3 flex-grow-1">
-            <button className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm" onClick={() => navigate('/projects')}>
+            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Back to projects" onClick={() => navigate('/projects')}>
               <img src={miscellaneousIcons.leftArrow} alt="Back" style={{ width: 36, height: 36, cursor: 'pointer' }} />
-            </button>
+            </Button>
             <div className="flex-grow-1">
               <div className="text-muted small font-inter d-flex align-items-center flex-wrap gap-2">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: ACCENT_SOFT, color: ACCENT, borderRadius: 999, padding: '3px 12px', fontSize: 11, fontWeight: 700, fontFamily: 'Inter, sans-serif', border: `1px solid ${ACCENT}33` }}>

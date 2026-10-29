@@ -572,13 +572,12 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                             </div>
                                         </div>
 
-                                        <button
+                                        <Button variant="tinted" size="icon-xs" aria-label="Remove" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                                             type="button"
                                             onClick={() => removeField(field.id, field.isNew)}
-                                            style={{ width: 28, height: 28, minWidth: 28, border: 'none', background: 'transparent', color: '#f1416c', cursor: 'pointer', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                         >
                                             <Close fontSize="small" />
-                                        </button>
+                                        </Button>
                                     </div>
                                 );
                             };

@@ -43,9 +43,9 @@ const DrawerMessenger: FC = () => (
             </Button>
           </div>
 
-          <div className='btn btn-sm btn-icon btn-active-light-primary' id='kt_drawer_chat_close'>
+          <Button variant="ghost" size="icon-sm" aria-label="Close" id='kt_drawer_chat_close'>
             <KTIcon iconName='cross' className='fs-2' />
-          </div>
+          </Button>
         </div>
       </div>
 
