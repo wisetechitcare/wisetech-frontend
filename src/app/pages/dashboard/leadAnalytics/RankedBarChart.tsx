@@ -246,7 +246,7 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
 
       {expandable && (
         <div style={{ textAlign: "center", marginTop: 2 }}>
-          <Button variant="link" size="sm" onClick={() => setIsFull(true)}>
+          <Button variant="outline" size="sm" onClick={() => setIsFull(true)}>
             View all {rankedAll.length} <AppIcon name="bi-arrows-fullscreen" className="fs-9" data-icon="inline-end" />
           </Button>
         </div>

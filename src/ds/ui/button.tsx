@@ -20,7 +20,7 @@ const CTA: Array<"default" | "destructive" | "success"> = ["default", "destructi
 const ctaClass =
   "bg-linear-135/srgb font-bold text-white hover:brightness-[1.04] motion-safe:hover:-translate-y-[1.5px] disabled:bg-none disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none dark:disabled:bg-white/10 dark:disabled:text-white/40"
 
-const buttonVariants = cva(
+const buttonVariantClasses = cva(
   "group/button inline-flex shrink-0 items-center justify-center rounded-4xl border border-transparent bg-clip-padding text-sm leading-[1.2] font-medium tracking-[-0.01em] whitespace-nowrap transition-[color,background-color,border-color,box-shadow,transform,filter] duration-160 ease-spring outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--glow,var(--ring)) motion-safe:active:not-aria-[haspopup]:translate-y-0 motion-safe:active:not-aria-[haspopup]:scale-[.975] disabled:pointer-events-none aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
@@ -72,7 +72,7 @@ const buttonVariants = cva(
 )
 
 type ButtonProps = ButtonPrimitive.Props &
-  VariantProps<typeof buttonVariants> & {
+  VariantProps<typeof buttonVariantClasses> & {
     /** Busy: disabled, announced as busy, with a spinner (replacing the glyph on icon-only sizes). */
     loading?: boolean
   }
@@ -95,12 +95,19 @@ function Button({
       data-loading={loading || undefined}
       aria-busy={loading || undefined}
       disabled={disabled || loading}
-      className={cn(buttonVariants({ variant, size, glow, className }))}
+      className={buttonVariants({ variant, size, glow, className })}
       {...props}
     >
       {loading && iconOnly ? spinner : <>{loading && spinner}{children}</>}
     </ButtonPrimitive>
   )
 }
+
+/**
+ * The button's classes, conflicts resolved (cva only concatenates: the base's border-transparent and
+ * text-sm would sit beside a variant's border colour and a size's text size, and whichever Tailwind
+ * emits later wins). Use this for links that look like buttons: <a className={buttonVariants({...})}>.
+ */
+const buttonVariants = (props?: Parameters<typeof buttonVariantClasses>[0]) => cn(buttonVariantClasses(props))
 
 export { Button, buttonVariants, type ButtonProps }
