@@ -23,7 +23,6 @@ import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
-import { canViewCommercial } from '@utils/can';
 
 /** Formik setFieldValue — named so LeadSections / LeadWorkspace props stay readable. */
 export type LeadSetFieldValue = (field: string, value: any, shouldValidate?: boolean) => void;
@@ -151,12 +150,37 @@ const mainCompanyTypeOptions = (companyTypes: any[]): { value: any; label: strin
   return list.filter((t: any) => !isSub(t)).map((t: any) => ({ value: t.id, label: t.name }));
 };
 
+/**
+ * Sub Categories options limited to the selected Categories (all of them when none is
+ * picked). A selected subcategory whose category gets removed is dropped from the value.
+ */
+const useScopedSubcategoryOptions = (subcategories: any[]) => {
+  const { values, setFieldValue } = useFormikContext<any>();
+  const categoryIds: string[] = values.categoryIds || [];
+
+  React.useEffect(() => {
+    if (!categoryIds.length) return;
+    const current: string[] = values.subcategoryIds || [];
+    const kept = current.filter((id) => {
+      const sub = (subcategories || []).find((s) => s.id === id);
+      return !sub?.categoryId || categoryIds.includes(sub.categoryId);
+    });
+    if (kept.length !== current.length) setFieldValue("subcategoryIds", kept);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryIds.join(), subcategories]);
+
+  return (subcategories || [])
+    .filter((s) => !categoryIds.length || categoryIds.includes(s.categoryId))
+    .map((s) => ({ value: s.id || s.value, label: s.name || s.label }));
+};
+
 // 1. Lead Details Section
 export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const transformToOptions = (arr: any[]) => {
     return (arr || []).map((x) => ({ value: x.id || x.value, label: x.name || x.label }));
   };
+  const subcategoryOptions = useScopedSubcategoryOptions(props.subcategories);
 
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
@@ -207,7 +231,7 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
           <MultiSelectWithInlineCreate
             formikField="subcategoryIds"
             inputLabel="Sub Categories"
-            options={transformToOptions(props.subcategories)}
+            options={subcategoryOptions}
             placeholder="Select subcategories..."
             isRequired={false}
             externalCreate
@@ -771,9 +795,6 @@ export const CommercialsSection: React.FC = () => {
   return (
     <>
       <div className="card shadow-sm border p-6 bg-white mb-6">
-        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-          Commercial Work Areas
-        </Typography>
         <CommercialsGrid type="lead" />
       </div>
 
@@ -792,6 +813,7 @@ export const CommercialsSection: React.FC = () => {
         </Typography>
         <MeetingScheduleSelector />
       </div>
+
     </>
   );
 };
@@ -1256,8 +1278,9 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
       <Grid container spacing={3}>
-        {/* Lead Status — the only editable field in this step. */}
-        <Grid item xs={12}>
+        {/* Lead Status — the only editable field in this step. Shares its row with the
+            receipt fields once the lead is Received, so the whole step sits on one grid. */}
+        <Grid item xs={12} md={isReceived ? 4 : 12}>
           <DropDownInput
             formikField="statusId"
             inputLabel="Lead Status"
@@ -1360,101 +1383,52 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
         {/* When the status is project-triggering, capture the commercial/PO details
             right here — they're set once on receipt and become read-only on the
             Project detail page afterwards. */}
+        {/* Same three columns as the row above (Lead Status | Received Date | PO Document),
+            so the fields line up down the whole step. */}
         {isReceived && (
-          <Grid item xs={12}>
-            <div
-              className="d-flex align-items-center gap-3 p-4 rounded mb-4"
-              style={{ background: "#ecfdf5", border: "1px solid #a7f3d0" }}
-            >
-              <CheckCircleOutline style={{ color: "#15803d", fontSize: "2rem", flexShrink: 0 }} />
-              <div>
-                <div style={{ fontWeight: 700, color: "#0A5C2A", fontSize: 15 }}>
-                  This lead has been converted to a Project
-                </div>
-                <div style={{ color: "#15803d", fontSize: 13, marginTop: 2 }}>
-                  Add the received date, contract financials and purchase order details
-                  below — the lead record stays fully preserved.
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
-                  <DateInput
-                    formikField="receivedDate"
-                    inputLabel="Received Date"
-                    formikProps={props.formikProps}
-                    placeHolder="Select received date"
-                    isRequired={false}
-                  />
-                  <p className="text-muted fs-8 mt-2 mb-0">
-                    Auto-filled with the current date and time when you move the status to Received. Left as-is otherwise — clear it and it stays cleared.
-                  </p>
-                </Grid>
-                <Grid item xs={12} md={5}>
-                  <PoFileUpload />
-                </Grid>
-              </Grid>
-            </div>
-
-            <div className="mb-4">
-              <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-                Contract Financials
-              </Typography>
-              <p className="text-muted fs-8 mb-3">
-                Auto-filled from the Commercials step totals when the status is set to Received. Adjust if needed.
+          <>
+            <Grid item xs={12} md={4}>
+              <DateInput
+                formikField="receivedDate"
+                inputLabel="Received Date"
+                formikProps={props.formikProps}
+                placeHolder="Select received date"
+                isRequired={false}
+              />
+              <p className="text-muted fs-8 mt-2 mb-0">
+                Auto-filled with the current date and time when you move the status to Received. Left as-is otherwise — clear it and it stays cleared.
               </p>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <TextInput
-                    formikField="projectArea"
-                    label="Total Area (sqft)"
-                    isRequired={false}
-                    inputValidation="decimal"
-                  />
-                </Grid>
-                {canViewCommercial('projects') && (
-                <Grid item xs={12} md={6}>
-                  <TextInput
-                    formikField="projectMeta.finalCost"
-                    label="Final Cost"
-                    isRequired={false}
-                    inputValidation="decimal"
-                  />
-                </Grid>
-                )}
-              </Grid>
-            </div>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <PoFileUpload />
+            </Grid>
 
-            <div>
-              <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+            <Grid item xs={12}>
+              <Typography className="fs-6 fw-bold text-gray-800 pb-2 border-bottom">
                 Purchase Order
               </Typography>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
-                  <DropDownInput
-                    formikField="poStatus"
-                    inputLabel="PO Status"
-                    isRequired={false}
-                    options={poStatusOptions}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextInput formikField="poNumber" label="PO Number" isRequired={false} />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <DateInput
-                    formikField="poDate"
-                    inputLabel="PO Date"
-                    formikProps={props.formikProps}
-                    placeHolder="Select PO Date"
-                    isRequired={false}
-                  />
-                </Grid>
-              </Grid>
-            </div>
-          </Grid>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <DropDownInput
+                formikField="poStatus"
+                inputLabel="PO Status"
+                isRequired={false}
+                options={poStatusOptions}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextInput formikField="poNumber" label="PO Number" isRequired={false} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <DateInput
+                formikField="poDate"
+                inputLabel="PO Date"
+                formikProps={props.formikProps}
+                placeHolder="Select PO Date"
+                isRequired={false}
+              />
+            </Grid>
+          </>
         )}
       </Grid>
     </div>
@@ -1586,6 +1560,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const transformToOptions = (arr: any[]) =>
     (arr || []).map((x) => ({ value: x.id || x.value, label: x.name || x.label }));
+  const subcategoryOptions = useScopedSubcategoryOptions(props.subcategories);
 
   return (
     <div className="wt-section-card">
@@ -1609,7 +1584,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
           </Grid>
         )}
 
-        {/* Inquiry No + Revision No (read-only) + Date */}
+        {/* Inquiry No + Date */}
         <Grid item xs={12} md={4}>
           <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
             Inquiry No. <span className="text-danger">*</span>
@@ -1642,31 +1617,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
             </Typography>
           )}
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
-            Revision No.
-          </Typography>
-          <Box
-            sx={{
-              border: "1px solid #D0D5DD",
-              borderRadius: "8px",
-              px: 2,
-              height: "45px",
-              display: "flex",
-              alignItems: "center",
-              background: "#F3F4F6",
-              color: "#6B7280",
-              fontSize: "14px",
-              cursor: "not-allowed",
-            }}
-            title="Revision number is managed automatically by the audit system"
-          >
-            {props.currLeadData?.revisionCount !== undefined &&
-            props.currLeadData?.revisionCount !== null
-              ? `R${props.currLeadData.revisionCount}`
-              : "—"}
-          </Box>
-        </Grid>
+        {/* Revision No. is shown as a chip in the step header (LeadWorkspace). */}
         <Grid item xs={12} md={4}>
           <DateInput formikField="leadInquiryDate" inputLabel="Lead Inquiry Date" formikProps={props.formikProps} placeHolder="Select Date" isRequired={false} />
         </Grid>
@@ -1703,7 +1654,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
           <MultiSelectWithInlineCreate
             formikField="subcategoryIds"
             inputLabel="Sub Categories"
-            options={transformToOptions(props.subcategories)}
+            options={subcategoryOptions}
             placeholder="Select subcategories…"
             isRequired={false}
             externalCreate

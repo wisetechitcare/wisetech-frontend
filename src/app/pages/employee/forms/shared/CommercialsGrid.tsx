@@ -1,272 +1,204 @@
-import React from "react";
-import { FieldArray, useFormikContext } from "formik";
-import { Button } from "react-bootstrap";
+import React, { useMemo, useRef } from "react";
+import { useFormikContext } from "formik";
+import { MenuItem, Stack, TextField, Typography } from "@mui/material";
 import { Delete, Add } from "@mui/icons-material";
-import "./Workspace.css";
-import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { WtButton, WtIconButton } from "@app/modules/common/components/ui";
+import { formatCurrencyDecimal } from "@utils/currency";
 
 interface CommercialsGridProps {
   type: "lead" | "project";
+  /** Card heading; the Add Row button sits at its right. */
+  title?: string;
 }
 
-export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
+const inputSx = { "& .MuiOutlinedInput-input": { py: "7px", fontSize: 13 } };
+
+export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type, title = "Commercial Work Areas" }) => {
   const { values, setFieldValue, setFieldError } = useFormikContext<any>();
 
   const isLead = type === "lead";
   const arrayPath = isLead ? "projectAreas" : "commercials";
-  const items = values[arrayPath] || [];
+  const items: any[] = values[arrayPath] || [];
 
-  // Two decimals, no symbol — the grid puts the symbol in its own column. Named for the
-  // amount rather than the currency because it used to be called `formatCurrency`, which
-  // is also the name of the shared formatter in @utils/currency: a local shadow of a
-  // global helper is how two different answers to the same question end up on one screen.
-  const formatAmount = (val: number) => {
-    return val.toLocaleString(getCurrencyLocale(), {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
+  const keys = isLead
+    ? { area: "projectArea", rate: "rate", rateCost: "cost", lumpsumCost: "cost", RATE: "1", LUMPSUM: "2" }
+    : { area: "area", rate: "rate", rateCost: "rateCost", lumpsumCost: "lumpsumCost", RATE: "RATE", LUMPSUM: "LUMPSUM" };
 
-  // Perform auto-calculation for a given row
-  const recalculateRow = (index: number, updatedFields: Partial<any>) => {
-    // Merge the latest values array with the incoming change to bypass stale closures
-    const currentItems = values[arrayPath] || [];
-    const item = { ...(currentItems[index] || {}), ...updatedFields };
+  const grandTotal = items.reduce((sum, item) => {
+    const costType = String(item.costType);
+    if (costType === keys.RATE) return sum + (parseFloat(item[keys.rateCost]) || 0);
+    if (costType === keys.LUMPSUM) return sum + (parseFloat(item[keys.lumpsumCost]) || 0);
+    return sum;
+  }, 0);
 
-    if (isLead) {
-      const area = parseFloat(item.projectArea) || 0;
-      const rate = parseFloat(item.rate) || 0;
-      const costType = String(item.costType);
+  // Area is summed over every row that has one, regardless of cost type — a work area is
+  // measured whether it is priced per sqft or as a lump sum.
+  const totalArea = items.reduce((sum, item) => sum + (parseFloat(item[keys.area]) || 0), 0);
 
-      if (costType === "1") {
-        // Rate cost type: calculate total
-        const calculatedCost = parseFloat((area * rate).toFixed(4));
-        setFieldValue(`projectAreas.${index}.cost`, calculatedCost.toString());
-
-        // Validate max 100 Crore limit
-        if (calculatedCost > 10000000000) {
-          setFieldError(`projectAreas.${index}.cost`, "Calculated cost exceeds 100 Crores limit");
-        } else {
-          setFieldError(`projectAreas.${index}.cost`, "");
-        }
-      } else if (costType === "2") {
-        // Lumpsum: clear rate
-        setFieldValue(`projectAreas.${index}.rate`, "0");
-      }
-    } else {
-      const area = parseFloat(item.area) || 0;
-      const rate = parseFloat(item.rate) || 0;
-      const costType = String(item.costType);
-
-      if (costType === "RATE") {
-        const calculatedCost = parseFloat((area * rate).toFixed(4));
-        setFieldValue(`commercials.${index}.rateCost`, calculatedCost.toString());
-      } else if (costType === "LUMPSUM") {
-        setFieldValue(`commercials.${index}.rate`, "0");
-      }
-    }
-  };
-
-  // Calculate Grand Total of all rows
-  const getGrandTotal = () => {
-    let grandTotal = 0;
-    for (const item of items) {
+  // `row` is the row as it stands now; `patch` is the field being typed. Cells are rendered
+  // from row.original, so this never reads a stale `values` closure.
+  const updateRow = (index: number, row: any, patch: Record<string, string>) => {
+    Object.entries(patch).forEach(([k, v]) => setFieldValue(`${arrayPath}.${index}.${k}`, v));
+    const item = { ...row, ...patch };
+    const costType = String(item.costType);
+    if (costType === keys.RATE) {
+      const calculatedCost = parseFloat(((parseFloat(item[keys.area]) || 0) * (parseFloat(item.rate) || 0)).toFixed(4));
+      setFieldValue(`${arrayPath}.${index}.${keys.rateCost}`, calculatedCost.toString());
       if (isLead) {
-        if (item.costType === "1") {
-          grandTotal += parseFloat(item.cost) || 0;
-        } else if (item.costType === "2") {
-          grandTotal += parseFloat(item.cost) || 0; // standard lumpsum cost
-        }
-      } else {
-        if (item.costType === "RATE") {
-          grandTotal += parseFloat(item.rateCost) || 0;
-        } else if (item.costType === "LUMPSUM") {
-          grandTotal += parseFloat(item.lumpsumCost) || 0;
-        }
+        setFieldError(`projectAreas.${index}.cost`, calculatedCost > 10000000000 ? "Calculated cost exceeds 100 Crores limit" : "");
       }
+    } else if (costType === keys.LUMPSUM) {
+      setFieldValue(`${arrayPath}.${index}.rate`, "0");
     }
-    return grandTotal;
   };
+
+  const nonNegative = (v: string) => v === "" || parseFloat(v) >= 0;
+
+  const addRow = () =>
+    setFieldValue(arrayPath, [
+      ...items,
+      isLead
+        ? { label: "", projectArea: "", costType: "", rate: "", cost: "" }
+        : { label: "", area: "", costType: "", rate: "", rateCost: "", lumpsumCost: "" },
+    ]);
+
+  // Columns are memoized (so typing doesn't rebuild the table); read rows through a ref.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const removeRow = (index: number) => setFieldValue(arrayPath, itemsRef.current.filter((_, i) => i !== index));
+
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "label",
+        header: "Label",
+        size: 220,
+        Cell: ({ row }: any) => (
+          <TextField
+            fullWidth size="small" sx={inputSx} placeholder="e.g. Basement Ground"
+            value={row.original.label || ""}
+            onChange={(e) => setFieldValue(`${arrayPath}.${row.index}.label`, e.target.value)}
+          />
+        ),
+        Footer: () => <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: "primary.main" }}>GRAND TOTAL</Typography>,
+      },
+      {
+        accessorKey: keys.area,
+        header: "Area (sqft)",
+        size: 130,
+        Footer: () => (
+          <Typography sx={{ fontSize: 14, fontWeight: 800, color: "primary.main" }}>
+            {totalArea ? totalArea.toLocaleString("en-IN") : "—"}
+          </Typography>
+        ),
+        Cell: ({ row }: any) => (
+          <TextField
+            fullWidth size="small" sx={inputSx} type="number" placeholder="0"
+            value={row.original[keys.area] || ""}
+            onChange={(e) => nonNegative(e.target.value) && updateRow(row.index, row.original, { [keys.area]: e.target.value })}
+          />
+        ),
+      },
+      {
+        accessorKey: "costType",
+        header: "Cost Type",
+        size: 150,
+        Cell: ({ row }: any) => (
+          <TextField
+            select fullWidth size="small" sx={inputSx}
+            value={row.original.costType ?? ""}
+            onChange={(e) => updateRow(row.index, row.original, { costType: e.target.value })}
+            SelectProps={{ displayEmpty: true }}
+          >
+            <MenuItem value="">Select</MenuItem>
+            <MenuItem value={keys.RATE}>Rate</MenuItem>
+            <MenuItem value={keys.LUMPSUM}>Lumpsum</MenuItem>
+          </TextField>
+        ),
+      },
+      {
+        accessorKey: "rate",
+        header: "Rate",
+        size: 130,
+        Cell: ({ row }: any) =>
+          String(row.original.costType) === keys.LUMPSUM ? (
+            <Typography sx={{ fontSize: 13, color: "text.disabled" }}>N/A (Lumpsum)</Typography>
+          ) : (
+            <TextField
+              fullWidth size="small" sx={inputSx} type="number" placeholder="0.00"
+              value={row.original.rate || ""}
+              onChange={(e) => nonNegative(e.target.value) && updateRow(row.index, row.original, { rate: e.target.value })}
+            />
+          ),
+      },
+      {
+        id: "cost",
+        header: "Calculated Cost",
+        size: 170,
+        accessorFn: (r: any) => (String(r.costType) === keys.LUMPSUM ? r[keys.lumpsumCost] : r[keys.rateCost]),
+        Cell: ({ row }: any) =>
+          String(row.original.costType) === keys.LUMPSUM ? (
+            <TextField
+              fullWidth size="small" sx={inputSx} type="number" placeholder="Enter Cost"
+              value={row.original[keys.lumpsumCost] || ""}
+              onChange={(e) =>
+                nonNegative(e.target.value) && setFieldValue(`${arrayPath}.${row.index}.${keys.lumpsumCost}`, e.target.value)
+              }
+            />
+          ) : (
+            <TextField
+              fullWidth size="small" sx={inputSx} placeholder="Calculated"
+              value={row.original[keys.rateCost] || ""}
+              InputProps={{ readOnly: true }}
+            />
+          ),
+        Footer: () => (
+          <Typography sx={{ fontSize: 14, fontWeight: 800, color: "primary.main" }}>
+            {formatCurrencyDecimal(grandTotal)}
+          </Typography>
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        size: 60,
+        enableSorting: false,
+        Cell: ({ row }: any) => (
+          <WtIconButton color="#dc2626" title="Delete Row" onClick={() => removeRow(row.index)} sx={{ width: 34, height: 34 }}>
+            <Delete fontSize="small" />
+          </WtIconButton>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [arrayPath, grandTotal, totalArea, items.length],
+  );
 
   return (
-    <FieldArray name={arrayPath}>
-      {({ push, remove }) => (
-        <div className="commercials-grid-card">
-          <div className="table-responsive">
-            <table className="commercials-table">
-              <thead className="commercials-thead">
-                <tr>
-                  <th className="commercials-th" style={{ width: "25%" }}>Label</th>
-                  <th className="commercials-th" style={{ width: "15%" }}>Area (sqft)</th>
-                  <th className="commercials-th" style={{ width: "18%" }}>Cost Type</th>
-                  <th className="commercials-th" style={{ width: "17%" }}>Rate</th>
-                  <th className="commercials-th" style={{ width: "20%" }}>Calculated Cost</th>
-                  <th className="commercials-th" style={{ width: "5%", textAlign: "center" }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-6 text-gray-500 fw-semibold fs-7">
-                      No commercial items added yet. Click "+ Add Row" to begin.
-                    </td>
-                  </tr>
-                ) : (
-                  items.map((item: any, index: number) => {
-                    const costType = item.costType;
-                    const showRateField = isLead ? costType !== "2" : costType !== "LUMPSUM";
-
-                    return (
-                      <tr key={index} className="commercials-tr">
-                        {/* Label field */}
-                        <td className="commercials-td">
-                          <input
-                            type="text"
-                            value={item.label || ""}
-                            onChange={(e) => setFieldValue(`${arrayPath}.${index}.label`, e.target.value)}
-                            className="commercials-input"
-                            placeholder="e.g. Basement Ground"
-                          />
-                        </td>
-
-                        {/* Area field */}
-                        <td className="commercials-td">
-                          <input
-                            type="number"
-                            value={isLead ? item.projectArea || "" : item.area || ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const areaKey = isLead ? "projectArea" : "area";
-                              if (val === "" || parseFloat(val) >= 0) {
-                                setFieldValue(`${arrayPath}.${index}.${areaKey}`, val);
-                                recalculateRow(index, { [areaKey]: val });
-                              }
-                            }}
-                            className="commercials-input"
-                            placeholder="0"
-                          />
-                        </td>
-
-                        {/* Cost Type select */}
-                        <td className="commercials-td">
-                          <select
-                            value={costType || ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setFieldValue(`${arrayPath}.${index}.costType`, val);
-                              recalculateRow(index, { costType: val });
-                            }}
-                            className="commercials-input form-select"
-                          >
-                            <option value="">Select</option>
-                            {isLead ? (
-                              <>
-                                <option value="1">Rate</option>
-                                <option value="2">Lumpsum</option>
-                              </>
-                            ) : (
-                              <>
-                                <option value="RATE">Rate</option>
-                                <option value="LUMPSUM">Lumpsum</option>
-                              </>
-                            )}
-                          </select>
-                        </td>
-
-                        {/* Rate field */}
-                        <td className="commercials-td">
-                          {showRateField ? (
-                            <input
-                              type="number"
-                              value={item.rate || ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === "" || parseFloat(val) >= 0) {
-                                  setFieldValue(`${arrayPath}.${index}.rate`, val);
-                                  recalculateRow(index, { rate: val });
-                                }
-                              }}
-                              className="commercials-input"
-                              placeholder="0.00"
-                            />
-                          ) : (
-                            <span className="text-gray-400 fs-7 px-3 fw-semibold">N/A (Lumpsum)</span>
-                          )}
-                        </td>
-
-                        {/* Cost field (Calculated or input depending on Type) */}
-                        <td className="commercials-td">
-                          {showRateField ? (
-                            <input
-                              type="text"
-                              value={isLead ? item.cost || "" : item.rateCost || ""}
-                              readOnly
-                              className="commercials-input bg-light text-gray-700 fw-semibold"
-                              placeholder="Calculated"
-                            />
-                          ) : (
-                            <input
-                              type="number"
-                              value={isLead ? item.cost || "" : item.lumpsumCost || ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const costKey = isLead ? "cost" : "lumpsumCost";
-                                if (val === "" || parseFloat(val) >= 0) {
-                                  setFieldValue(`${arrayPath}.${index}.${costKey}`, val);
-                                }
-                              }}
-                              className="commercials-input"
-                              placeholder="Enter Cost"
-                            />
-                          )}
-                        </td>
-
-                        {/* Delete Row button */}
-                        <td className="commercials-td text-center">
-                          <Button
-                            variant="link"
-                            className="text-danger p-1"
-                            onClick={() => remove(index)}
-                            title="Delete Row"
-                          >
-                            <Delete />
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Table summary actions footer */}
-          <div className="d-flex justify-content-between align-items-center p-4 bg-light border-top">
-            <Button
-              variant="outline-primary"
-              size="sm"
-              onClick={() => {
-                if (isLead) {
-                  push({ label: "", projectArea: "", costType: "", rate: "", cost: "" });
-                } else {
-                  push({ label: "", area: "", costType: "", rate: "", rateCost: "", lumpsumCost: "" });
-                }
-              }}
-              className="d-flex align-items-center gap-1 fw-bold"
-            >
-              <Add style={{ fontSize: "1.1rem" }} />
-              Add Commercial Row
-            </Button>
-
-            <div className="d-flex align-items-center gap-2">
-              <span className="text-gray-600 fs-7 fw-bold uppercase">Grand Total:</span>
-              <span className="text-primary fs-6 fw-bolder">
-                {getCurrencySymbol()} {formatAmount(getGrandTotal())}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-    </FieldArray>
+    <div>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} sx={{ mb: 2, pb: 1.5, borderBottom: 1, borderColor: "divider" }}>
+        <Typography sx={{ fontSize: 15, fontWeight: 700, color: "text.primary" }}>{title}</Typography>
+        <WtButton tone="primary" size="small" ghost startIcon={<Add fontSize="small" />} onClick={addRow}>
+          Add Commercial Row
+        </WtButton>
+      </Stack>
+      <MaterialTable
+        tableName={`commercials-${type}`}
+        data={items}
+        columns={columns}
+        showColumnFooter
+        hideFilters
+        hideExportCenter
+        hidePagination
+        enableBottomToolbar={false}
+        enableColumnSpecificSearch={false}
+        enableSorting={false}
+        enableColumnActions={false}
+        enableGrouping={false}
+        enableColumnDragging={false}
+        persistPreferences={false}
+      />
+    </div>
   );
 };

@@ -329,7 +329,6 @@ function ReimbursementEmployeeLimit() {
           employeeId={employeeId}
           isLoading={loading}
           searchPlaceholder="Search employee…"
-          renderTopToolbarRightActions={() => <OrgFilterToolbar filters={filters} />}
           muiTableProps={{
             sx: {
               "& .MuiTableBody-root .MuiTableCell-root": {

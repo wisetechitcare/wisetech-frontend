@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, Stack, Typography } from "@mui/material";
 import {
-  ActionIconButton, FILTER_TONES, ListHeader, TableSelectionBar, ToolbarFilterSelect,
+  ActionIconButton, FILTER_TONES, ListHeader, TableSelectionBar,
   WtButton, WtEmptyState, confirmDialog, toast,
 } from "@app/modules/common/components/ui";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
@@ -316,18 +316,6 @@ const ArchiveView = ({ companyId }: OrgScoped) => {
   const firstError = activeQueries.find((q) => q.isError)?.error;
   const refetchAll = () => { for (const q of activeQueries) void q.refetch(); };
 
-  const typeFilter = (
-    <ToolbarFilterSelect
-      label="Type"
-      icon="filter"
-      value={kind}
-      onChange={(v) => setKind(v as ArchiveKind)}
-      options={[...KIND_OPTIONS]}
-      theme={FILTER_TONES.blue}
-      minWidth={168}
-    />
-  );
-
   return (
     <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
       <ListHeader
@@ -352,7 +340,6 @@ const ArchiveView = ({ companyId }: OrgScoped) => {
             isLoading={isLoading}
             tableName={`RecruitmentArchive-${kind}`}
             enableRowSelection={canWrite}
-            renderTopToolbarRightActions={() => typeFilter}
             renderSelectionActions={(selected: ArchiveRow[]) => (
               <TableSelectionBar count={selected.length}>
                 <WtButton

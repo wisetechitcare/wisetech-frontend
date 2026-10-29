@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { useBillingOrgId } from "../BillingLayout";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Box, MenuItem, Stack, TextField, Tooltip, Typography } from "@mui/material";
+import { Box, Stack, Tooltip, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { toneAlpha, isHexColor, type SemanticTone } from "@app/modules/common/components/ui";
@@ -9,10 +10,11 @@ import { tonePair } from "@app/theme/tokens";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import dayjs from "dayjs";
-import {listProjectOverview,type ProjectOverviewRow, type ProjectOverviewParams, type ProjectOverviewSort,
+import {PROJECT_SORT_KEYS, listProjectOverview,type ProjectOverviewRow, type ProjectOverviewParams, type ProjectOverviewSort,
 } from "@services/billingOperations";
-import {  useBillingLabels, BILLING_LABEL_GROUP } from "../components";
+import { useBillingLabels } from "../components";
 import { TrackerStatusCell, TrackerBillPaymentCell, SolidChip } from "./TrackerCells";
+import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 
 /** The four chip columns sit centred, header and body alike. */
 const CENTRED = {
@@ -43,10 +45,7 @@ const CENTRED = {
 const DASH = "—";
 
 /** Only these can be ordered in SQL; a header click on anything else is ignored. */
-const SERVER_SORTABLE: ProjectOverviewSort[] = [
-  "projectNumber", "projectName", "clientName", "poValue", "receivedAmount",
-  "pendingAmount", "lastPaymentAt", "nextFollowUpDate",
-];
+const SERVER_SORTABLE: readonly string[] = PROJECT_SORT_KEYS;
 
 /**
  * What the three workflow columns mean, on the column header.
@@ -92,6 +91,8 @@ const BillingOperationsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const labels = useBillingLabels();
+  const poOptions = usePoStatusOptions();
+  const poColorByName = useMemo(() => new Map(poOptions.map((o) => [o.value, o.color])), [poOptions]);
 
   const [filters, setFilters] = useState({
     status: "", stage: "", billPaymentStatus: "", projectManagerId: "",
@@ -102,6 +103,9 @@ const BillingOperationsPage: React.FC = () => {
     { id: "projectNumber", desc: true },
   ]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
+  const organizationId = useBillingOrgId();
+  // A new organization is a new result set; staying on page 7 of the old one shows nothing.
+  useEffect(() => setPagination((prev) => ({ ...prev, pageIndex: 0 })), [organizationId]);
 
   useEffect(() => {
     const urlStatus = searchParams.get("status") || "";
@@ -113,7 +117,7 @@ const BillingOperationsPage: React.FC = () => {
   }, [searchParams]);
 
   const active = sorting[0];
-  const sortBy = SERVER_SORTABLE.includes(active?.id as ProjectOverviewSort)
+  const sortBy = SERVER_SORTABLE.includes(active?.id as string)
     ? (active.id as ProjectOverviewSort)
     : "projectNumber";
 
@@ -123,6 +127,8 @@ const BillingOperationsPage: React.FC = () => {
     stage: (filters.stage || undefined) as ProjectOverviewParams["stage"],
     billPaymentStatus: filters.billPaymentStatus || undefined,
     projectManagerId: filters.projectManagerId || undefined,
+    // The organization chosen in the Billing tab bar — one filter for the whole module.
+    organizationId,
     sortBy,
     sortDir: active?.desc ? "desc" : "asc",
     page: pagination.pageIndex + 1,
@@ -138,36 +144,9 @@ const BillingOperationsPage: React.FC = () => {
 
   const projects = data?.projects ?? [];
   const total = data?.pagination?.total ?? 0;
-
-  const setFilter = (key: keyof typeof filters, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  };
-
-  // Both dropdowns are the Configure catalogue, not a second hand-typed copy of
-  // it: rename a status there and the filter that selects it renames with it.
-  const statusOptions = [
-    { value: "", label: "All statuses" },
-    ...labels.options(BILLING_LABEL_GROUP.STATUS),
-  ];
-  const billPaymentOptions = [
-    { value: "", label: "All bill payments" },
-    ...labels.options(BILLING_LABEL_GROUP.BILL_PAYMENT),
-  ];
-  // Only people who manage a project, from the server — the same person the Handled By
-  // column shows. A full employee list offered names that could only ever return nothing.
-  const managerOptions = [
-    { value: "", label: "All managers" },
-    ...(data?.managers ?? []).map((m) => ({ value: m.id, label: m.name })),
-  ];
-
-  const filterSelects: Array<{ key: keyof typeof filters; label: string; width: number; options: { value: string; label: string }[] }> = [
-    // The Stage filter went with the Stage column — filtering on something the sheet no longer
-    // shows leaves the reader unable to see why rows disappeared.
-    { key: "status", label: "Bill Stage", width: 170, options: statusOptions },
-    { key: "billPaymentStatus", label: "Bill Payment", width: 160, options: billPaymentOptions },
-    { key: "projectManagerId", label: "Manager", width: 170, options: managerOptions },
-  ];
+  // Footer sums come from the server over the whole filtered set — summing `projects` here
+  // would total only the 25 rows on screen.
+  const totals = data?.totals;
 
   const columns = useMemo(
     () => [
@@ -175,8 +154,8 @@ const BillingOperationsPage: React.FC = () => {
         accessorKey: "projectStartDate",
         header: "Project Start Date",
         size: 150,
-        enableSorting: false,
         meta: { defaultVisible: true },
+        Footer: () => <Typography sx={{ fontSize: "inherit", fontWeight: 800, color: "#1E3A8A" }}>TOTAL</Typography>,
         Cell: ({ cell }: any) => {
           try {
             const v = cell.getValue();
@@ -219,14 +198,12 @@ const BillingOperationsPage: React.FC = () => {
         accessorKey: "handledByName",
         header: "Project Manager",
         size: 160,
-        enableSorting: false,
         Cell: ({ cell }: any) => cell.getValue() || DASH,
       },
       {
         accessorKey: "projectStatus",
         header: "Project Status",
         size: 150,
-        enableSorting: false,
         meta: { defaultVisible: true },
         ...CENTRED,
         Cell: ({ row }: any) => {
@@ -241,7 +218,6 @@ const BillingOperationsPage: React.FC = () => {
         header: "Bill Stage",
         Header: () => <HintHeader title="Bill Stage" hint={STATUS_HINT} />,
         size: 195,
-        enableSorting: false,
         ...CENTRED,
         Cell: ({ row }: any) => <TrackerStatusCell row={row.original as ProjectOverviewRow} />,
       },
@@ -249,7 +225,6 @@ const BillingOperationsPage: React.FC = () => {
         accessorKey: "followUpManagerName",
         header: "Follow-up Manager",
         size: 160,
-        enableSorting: false,
         // ponytail: no follow-up owner in the schema yet. Wire it to the row's
         // `followUpManagerName` the moment the column exists — nothing else changes.
         Cell: ({ cell }: any) => cell.getValue() || DASH,
@@ -265,17 +240,49 @@ const BillingOperationsPage: React.FC = () => {
         header: "PO Value",
         size: 150,
         Cell: ({ cell }: any) => <Money value={cell.getValue()} bold />,
+        Footer: () => <Money value={totals?.poValue} bold />,
+      },
+      {
+        accessorKey: "poStatus",
+        header: "PO Status",
+        size: 150,
+        ...CENTRED,
+        // The colour is the one configured for that PO status in Leads → Configure, the same
+        // source the lead form's dropdown uses. A name with no configured colour gets the
+        // neutral chip rather than a guessed one.
+        Cell: ({ cell }: any) => {
+          const name: string | null = cell.getValue();
+          if (!name) return DASH;
+          const configured = poColorByName.get(name);
+          const color = configured ? (isHexColor(configured) ? configured : tonePair(configured as SemanticTone).fg) : null;
+          return <SolidChip label={name} color={color} />;
+        },
+      },
+      {
+        accessorKey: "totalBilled",
+        header: "Total Billed",
+        size: 150,
+        Cell: ({ cell }: any) => <Money value={cell.getValue()} bold />,
+        Footer: () => <Money value={totals?.totalBilled} bold />,
       },
       {
         accessorKey: "receivedAmount",
         header: "Total Received",
         size: 150,
         Cell: ({ cell }: any) => <Money value={cell.getValue()} tone="success.main" />,
+        Footer: () => <Money value={totals?.receivedAmount} tone="success.main" />,
       },
       {
         accessorKey: "pendingAmount",
         header: "Total Pending",
         size: 165,
+        Footer: () => (
+          <Money
+            value={totals?.pendingAmount}
+            bold
+            tone={totals?.pendingAmount && totals.pendingAmount > 0 ? "error.main" : undefined}
+          />
+        ),
         Cell: ({ row }: any) => {
           const project: ProjectOverviewRow = row.original;
           return (
@@ -305,7 +312,6 @@ const BillingOperationsPage: React.FC = () => {
         accessorFn: (row: ProjectOverviewRow) => row.bill?.issueDate ?? null,
         header: "Bill Date",
         size: 130,
-        enableSorting: false,
         Cell: ({ cell }: any) => <DateCell value={cell.getValue()} />,
       },
       {
@@ -313,7 +319,6 @@ const BillingOperationsPage: React.FC = () => {
         accessorFn: (row: ProjectOverviewRow) => row.bill?.stageName ?? null,
         header: "Billed Stage",
         size: 190,
-        enableSorting: false,
         Cell: ({ cell }: any) => {
           const name: string | null = cell.getValue();
           return name ? (
@@ -330,7 +335,6 @@ const BillingOperationsPage: React.FC = () => {
         accessorFn: (row: ProjectOverviewRow) => row.bill?.documentNumber ?? null,
         header: "Bill No",
         size: 175,
-        enableSorting: false,
         Cell: ({ row }: any) => {
           const bill: ProjectOverviewRow["bill"] = row.original.bill;
           return bill ? (
@@ -350,7 +354,6 @@ const BillingOperationsPage: React.FC = () => {
         accessorFn: (row: ProjectOverviewRow) => row.bill?.amount ?? null,
         header: "Bill Amount",
         size: 150,
-        enableSorting: false,
         Cell: ({ cell }: any) => <Money value={cell.getValue()} />,
       },
       {
@@ -361,12 +364,11 @@ const BillingOperationsPage: React.FC = () => {
         header: "Bill Payment",
         Header: () => <HintHeader title="Bill Payment" hint={BILL_PAYMENT_HINT} />,
         size: 175,
-        enableSorting: false,
         ...CENTRED,
         Cell: ({ row }: any) => <TrackerBillPaymentCell row={row.original as ProjectOverviewRow} />,
       },
     ],
-    [],
+    [poColorByName, totals],
   );
 
   return (
@@ -379,6 +381,7 @@ const BillingOperationsPage: React.FC = () => {
         // Project Start Date moving to the front would never reach existing users.
         tableName="BillingProjectOverviewV2"
         isLoading={isLoading}
+        showColumnFooter={true}
         searchPlaceholder="Search project number, name or client…"
         enableColumnSpecificSearch={true}
         enableColumnResizing={true}
@@ -394,22 +397,6 @@ const BillingOperationsPage: React.FC = () => {
         rowCount={total}
         paginationState={pagination}
         onPaginationChange={setPagination}
-        renderTopToolbarRightActions={() => (
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ py: 0.5 }}>
-            {filterSelects.map((f) => (
-              <TextField
-                key={f.key} select size="small" label={f.label} value={filters[f.key]}
-                onChange={(e) => setFilter(f.key, e.target.value)}
-                sx={{ minWidth: f.width }}
-                SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 360 } } } }}
-              >
-                {f.options.map((o) => (
-                  <MenuItem key={o.value} value={o.value} sx={{ fontSize: 13 }}>{o.label}</MenuItem>
-                ))}
-              </TextField>
-            ))}
-          </Stack>
-        )}
         muiTableContainerProps={{ sx: { maxHeight: "700px", overflowX: "auto" } }}
         muiTableProps={{
           sx: {

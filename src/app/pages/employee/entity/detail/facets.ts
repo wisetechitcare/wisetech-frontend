@@ -216,7 +216,6 @@ export const buildEntityVM = (lead: any): EntityVM => {
     { label: 'Plot Area', value: areaText(ad.plotArea || p.plotArea, ad.plotAreaUnit || p.plotAreaUnit) },
     { label: 'Built-Up Area', value: areaText(ad.builtUpArea || p.builtUpArea, ad.builtUpAreaUnit || p.builtUpAreaUnit) },
     { label: 'Building Detail', value: ad.buildingDetail || p.buildingDetail },
-    { label: 'Project Area', value: ad.projectArea || p.projectArea },
     { label: 'Type', value: ad.type, minLevel: 'detailed' },
     { label: 'No. of Pages', value: ad.numberOfPages, minLevel: 'detailed' },
   ];

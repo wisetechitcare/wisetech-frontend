@@ -69,6 +69,12 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
     onChange(next);
   };
 
+  // Rescales the split to whole points totalling exactly 100 — see autoFixPercentages.
+  const autoFix = () => {
+    const fixed = autoFixPercentages(stages.map((s) => pct(s.percentage)));
+    onChange(stages.map((s, i) => ({ ...s, percentage: String(fixed[i]) })));
+  };
+
   const toggle = (stage: PlanStage) => {
     const opening = expandedUid !== stage.uid;
     setExpandedUid(opening ? stage.uid : null);
@@ -297,6 +303,43 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
           renderItem={renderStage}
         />
       )}
+
+      {stages.length > 0 && (() => {
+        const total = stageTotal(stages);
+        const exact = total === 100;
+        // Same padding, gaps and column widths as a stage row, so the total sits under the
+        // percentage boxes instead of floating at the edge.
+        return (
+          <Stack
+            direction="row" alignItems="center"
+            spacing={{ xs: 0.5, sm: 0.75 }} sx={{ mt: 1, px: { xs: 0.75, sm: 1 } }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
+              {!exact && (
+                <WtButton
+                  tone="primary" size="small" ghost onClick={autoFix}
+                  startIcon={<KTIcon iconName="arrows-circle" className="fs-6" />}
+                  sx={{ minHeight: 30, fontSize: 12.5, borderRadius: "9px" }}
+                >
+                  Auto-fix to 100%
+                </WtButton>
+              )}
+              <Typography sx={{ fontSize: 12.5, color: "text.secondary", fontWeight: 600 }}>Total</Typography>
+            </Box>
+            <Typography
+              sx={{
+                width: { xs: 88, sm: 104 }, flexShrink: 0, textAlign: "right", pr: 1.75,
+                fontSize: 13.5, fontWeight: 800, fontVariantNumeric: "tabular-nums",
+                color: exact ? "success.main" : "error.main",
+              }}
+            >
+              {total}%
+            </Typography>
+            {amounts && <Box sx={{ width: { xs: 84, sm: 120 }, flexShrink: 0 }} />}
+            <Box sx={{ width: 32, flexShrink: 0 }} />
+          </Stack>
+        );
+      })()}
 
       <WtButton
         tone="primary" size="small" ghost onClick={addStage}

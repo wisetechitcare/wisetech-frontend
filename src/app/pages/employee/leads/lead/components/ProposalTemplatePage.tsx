@@ -322,7 +322,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                       sum + (parseFloat(comm.area) || 0),
                     0,
                   )
-                : details.builtUpArea || details.projectArea || "0") || "0";
+                : details.builtUpArea || "0") || "0";
             break;
           case "built_up_area_unit":
             val = details.builtUpAreaUnit || "sqft";
@@ -420,7 +420,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                       sum + (parseFloat(comm.area) || 0),
                     0,
                   )
-                : details.builtUpArea || details.projectArea || "0") || "0";
+                : details.builtUpArea || "0") || "0";
             break;
           case "total_commercial_area":
             val =
@@ -436,7 +436,6 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                 0,
               ) ||
               details.builtUpArea ||
-              details.projectArea ||
               "0";
             break;
           case "locality":

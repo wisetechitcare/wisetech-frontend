@@ -440,7 +440,7 @@ export const ProjectListTable = ({ projects, tableName }: { projects: any[]; tab
         projectCost: Number(p.cost) || p.projectValue || 0,
         totalCost: p.projectValue || 0,
         projectRate: Number(p.rate) || 0,
-        projectArea: parseFloat(ad.projectArea) || parseFloat(ad.builtUpArea) || parseFloat(ad.plotArea) || 0,
+        projectArea: (p.commercials || []).reduce((s: number, c: any) => s + (parseFloat(c.area) || 0), 0) || parseFloat(ad.builtUpArea) || parseFloat(ad.plotArea) || 0,
         projectManagerIds: p.projectManagerIds || [],
         projectManagerId: p.execution?.projectManagerId || "N/A",
         projectTeamName: p.team?.name || "N/A",

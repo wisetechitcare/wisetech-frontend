@@ -182,7 +182,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       duration: computeDuration(start, end),
       rate: '-', // Not directly available in new structure
       totalCost: totalCost > 0 ? `${currencyPrefix()}${totalCost}` : '-',
-      area: lead?.additionalDetails?.projectArea || '-',
+      area: (lead?.commercials || []).reduce((sum: number, c: any) => sum + (parseFloat(c.area) || 0), 0) || '-',
       leadNumber: lead.prefix || lead.id || '-',
       inquiryDate: lead.inquiryDate ? dayjs(lead.inquiryDate).format("DD/MM/YYYY") : '-',
       leadAssignedTo: lead.assignedTo?.users ?
@@ -824,7 +824,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
                           ? (lead.commercials.reduce((sum: number, commercial: any) => {
                               return sum + (parseFloat(commercial.area) || 0);
                             }, 0)).toLocaleString('en-IN')
-                          : (parseFloat(lead?.additionalDetails?.projectArea) || 0).toLocaleString('en-IN')} sqft
+                          : 0} sqft
                       </div>
                     </div>
 

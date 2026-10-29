@@ -73,6 +73,7 @@ function StepWizard<TValues = any, TStepProps = any>({
   const isFirstStep = currentStep === 0;
   const currentStepDef = visibleSteps[currentStep];
   const summaryRows = typeof summary.rows === "function" ? summary.rows(values, currentStepDef) : summary.rows;
+  const summaryExtra = typeof summary.extra === "function" ? summary.extra(values, currentStepDef) : summary.extra;
   const isSaveStep = isLastStep || !!currentStepDef?.isSubmitStep;
   const StepComponent = currentStepDef?.component;
 
@@ -190,7 +191,10 @@ function StepWizard<TValues = any, TStepProps = any>({
                 <span>*</span> Required fields
               </span>
             </div>
-            <h2 className="wt-step-page-title">{currentStepDef?.title}</h2>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="wt-step-page-title">{currentStepDef?.title}</h2>
+              {currentStepDef?.titleAdornment}
+            </div>
             {currentStepDef?.subtitle && (
               <p className="wt-step-page-subtitle">{currentStepDef.subtitle}</p>
             )}
@@ -286,6 +290,7 @@ function StepWizard<TValues = any, TStepProps = any>({
               title={summary.title}
               rows={summaryRows}
               warningMessage={summary.warningMessage}
+              extra={summaryExtra}
               {...actions}
               hideSubmitButton
             />
