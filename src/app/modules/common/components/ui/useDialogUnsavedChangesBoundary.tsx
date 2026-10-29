@@ -5,7 +5,8 @@ import {
   DialogDirtyContext,
 } from './UnsavedChangesContext';
 
-export function useDialogUnsavedChangesBoundary(disabled = false) {
+/** `zIndex`: where the discard prompt stacks — above the dialog it guards. */
+export function useDialogUnsavedChangesBoundary(disabled = false, zIndex?: number) {
   const [dirtyRegistrations, setDirtyRegistrations] = useState<Set<string>>(
     () => new Set(),
   );
@@ -45,6 +46,7 @@ export function useDialogUnsavedChangesBoundary(disabled = false) {
   const discardDialog = confirmOpen ? (
     <ConfirmDiscardDialog
       open
+      zIndex={zIndex}
       onKeepEditing={() => {
         pendingClose.current = null;
         setConfirmOpen(false);

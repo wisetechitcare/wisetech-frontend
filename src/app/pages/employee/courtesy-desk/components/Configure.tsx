@@ -21,8 +21,10 @@ import {
   saveDeliveryStatusToApi,
   saveGiftRunStatusToApi,
   saveOccasionToApi,
+  saveUnitToApi,
 } from "../store/courtesyDeskStore";
 import type { ConfigOption } from "../types";
+import { unitLabel } from "../types";
 import GiftConfigOptionModal from "./GiftConfigOptionModal";
 
 const runConfig = (p: Promise<unknown>, ok: string) =>
@@ -30,13 +32,14 @@ const runConfig = (p: Promise<unknown>, ok: string) =>
     .then(() => toast.success(ok))
     .catch((err: unknown) => toast.error(apiErrorMessage(err, "Something went wrong")));
 
-type ModalKind = "occasion" | "status" | "giftRunStatus" | "mode" | null;
+type ModalKind = "occasion" | "status" | "giftRunStatus" | "mode" | "unit" | null;
 
 export default function Configure() {
   const desk = useCourtesyDesk();
   const { ask, dialog: confirmDialog } = useConfirmDialog();
   const [modal, setModal] = useState<ModalKind>(null);
   const [editing, setEditing] = useState<ConfigOption | null>(null);
+  const units = desk.config.units;
 
   const openNew = (kind: ModalKind) => {
     setEditing(null);
@@ -100,15 +103,20 @@ export default function Configure() {
                     name={s.name}
                     color={s.color}
                     onEdit={() => openEdit("giftRunStatus", s)}
-                    action={{
-                      icon: "bi-trash",
-                      title: `Delete ${s.name}`,
-                      danger: true,
-                      onClick: () =>
-                        askDelete("status", s.name, () =>
-                          deleteGiftRunStatusToApi(s.id),
-                        ),
-                    }}
+                    // Built-in statuses are shared by every company: renamable, not deletable.
+                    action={
+                      s.isSystem
+                        ? undefined
+                        : {
+                            icon: "bi-trash",
+                            title: `Delete ${s.name}`,
+                            danger: true,
+                            onClick: () =>
+                              askDelete("status", s.name, () =>
+                                deleteGiftRunStatusToApi(s.id),
+                              ),
+                          }
+                    }
                   />
                 ))}
               </ConfigChipGrid>
@@ -137,15 +145,19 @@ export default function Configure() {
                     name={s.name}
                     color={s.color}
                     onEdit={() => openEdit("status", s)}
-                    action={{
-                      icon: "bi-trash",
-                      title: `Delete ${s.name}`,
-                      danger: true,
-                      onClick: () =>
-                        askDelete("status", s.name, () =>
-                          deleteDeliveryStatusToApi(s.id),
-                        ),
-                    }}
+                    action={
+                      s.isSystem
+                        ? undefined
+                        : {
+                            icon: "bi-trash",
+                            title: `Delete ${s.name}`,
+                            danger: true,
+                            onClick: () =>
+                              askDelete("status", s.name, () =>
+                                deleteDeliveryStatusToApi(s.id),
+                              ),
+                          }
+                    }
                   />
                 ))}
               </ConfigChipGrid>
@@ -174,15 +186,19 @@ export default function Configure() {
                     name={m.name}
                     color={m.color}
                     onEdit={() => openEdit("mode", m)}
-                    action={{
-                      icon: "bi-trash",
-                      title: `Delete ${m.name}`,
-                      danger: true,
-                      onClick: () =>
-                        askDelete("mode", m.name, () =>
-                          deleteDeliveryModeToApi(m.id),
-                        ),
-                    }}
+                    action={
+                      m.isSystem
+                        ? undefined
+                        : {
+                            icon: "bi-trash",
+                            title: `Delete ${m.name}`,
+                            danger: true,
+                            onClick: () =>
+                              askDelete("mode", m.name, () =>
+                                deleteDeliveryModeToApi(m.id),
+                              ),
+                          }
+                    }
                   />
                 ))}
               </ConfigChipGrid>
@@ -220,6 +236,49 @@ export default function Configure() {
                           deleteOccasionToApi(o.id),
                         ),
                     }}
+                  />
+                ))}
+              </ConfigChipGrid>
+            )}
+          </ConfigSectionCard>
+
+          <ConfigSectionCard
+            title="Units & kits"
+            description="Shown next to gift quantities — kg, L, Unit, or your own like Box or Office Kit."
+            icon="bi-rulers"
+            iconColor="primary"
+            primaryAction={{
+              label: "New Unit",
+              icon: "bi-plus-lg",
+              onClick: () => openNew("unit"),
+              variant: "primary",
+            }}
+          >
+            {units.length === 0 ? (
+              <EmptyState label="units" />
+            ) : (
+              <ConfigChipGrid>
+                {units.map((u) => (
+                  <ConfigColorChip
+                    key={u.id}
+                    name={unitLabel(u)}
+                    color={u.color}
+                    // Built-in units (kg, L, Unit) are fixed; custom ones behave like any option.
+                    onEdit={u.isSystem ? undefined : () => openEdit("unit", u)}
+                    action={
+                      u.isSystem
+                        ? undefined
+                        : {
+                            icon: "bi-trash",
+                            title: `Delete ${u.name}`,
+                            danger: true,
+                            // Runs keep referencing a unit, so delete deactivates it.
+                            onClick: () =>
+                              askDelete("unit", u.name, () =>
+                                saveUnitToApi({ ...u, isActive: false }, false),
+                              ),
+                          }
+                    }
                   />
                 ))}
               </ConfigChipGrid>
@@ -265,6 +324,16 @@ export default function Configure() {
         initial={editing}
         existing={desk.config.deliveryModes}
         onSave={(o) => runConfig(saveDeliveryModeToApi(o), "Saved.")}
+      />
+      <GiftConfigOptionModal
+        unit
+        show={modal === "unit"}
+        onClose={closeModal}
+        title="Unit"
+        nameLabel="Unit name"
+        initial={editing}
+        existing={units}
+        onSave={(o) => runConfig(saveUnitToApi(o, !editing), "Saved.")}
       />
     </>
   );

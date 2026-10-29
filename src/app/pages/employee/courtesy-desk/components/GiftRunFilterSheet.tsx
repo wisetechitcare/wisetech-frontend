@@ -18,6 +18,8 @@ interface GiftRunFilterSheetProps {
   designationOptions: WtFieldOption[];
   areaOptions: WtFieldOption[];
   assigneeOptions: WtFieldOption[];
+  /** The run's People Groups; "Individual" is added here. */
+  groupOptions: WtFieldOption[];
   onClose: () => void;
   onApply: (filters: GiftRunFilters) => void;
 }
@@ -33,6 +35,7 @@ export default function GiftRunFilterSheet({
   designationOptions,
   areaOptions,
   assigneeOptions,
+  groupOptions,
   onClose,
   onApply,
 }: GiftRunFilterSheetProps) {
@@ -77,9 +80,22 @@ export default function GiftRunFilterSheet({
             desc="Filter by the person’s source and profile details."
           >
             <WtField
+              label="People From Groups"
+              value={draft.via}
+              onChange={(next) => set("via", next)}
+              options={[
+                { value: "ALL", label: "All" },
+                ...groupOptions,
+                { value: "INDIVIDUAL", label: "Individual (this run only)" },
+              ]}
+              fullWidth
+            />
+            <WtField
               label="Source"
               value={draft.source}
-              onChange={(next) => set("source", next as GiftRunFilters["source"])}
+              onChange={(next) =>
+                set("source", next as GiftRunFilters["source"])
+              }
               options={[
                 { value: "ALL", label: "All" },
                 { value: "CONTACT", label: "Contacts" },

@@ -102,6 +102,15 @@ interface LeadSectionsProps {
  * has been populated.
  */
 const buildRowContacts = (team: any, index: number, props: LeadSectionsProps): any[] => {
+  const rows = filterRowContacts(team, index, props);
+  // A contact who has since moved company is no longer in that company's list, but this
+  // lead still names them — keep them, or the row shows blank and saving drops them.
+  const saved = team.contactId && !rows.some((c: any) => c.id === team.contactId)
+    && (props.contacts || []).find((c: any) => c.id === team.contactId);
+  return saved ? [...rows, saved] : rows;
+};
+
+const filterRowContacts = (team: any, index: number, props: LeadSectionsProps): any[] => {
   const allContacts = props.contacts || [];
   const cascadeContacts = props.teamFilteredContacts && props.teamFilteredContacts[index];
   if (Array.isArray(cascadeContacts) && cascadeContacts.length > 0) {

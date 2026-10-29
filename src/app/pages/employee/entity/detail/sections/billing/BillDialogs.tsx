@@ -96,17 +96,17 @@ export const RaiseBillDialog: React.FC<{
 
     return (
         <GlassDialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={false}>
-            <GlassHeader title="Raise bill" subtitle={row.deliverableName} onClose={onClose} />
+            <GlassHeader title="Raise bill" subtitle={row.stageName} onClose={onClose} />
             <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
                 <Typography sx={{ fontSize: 12.5, color: "text.secondary", mb: 1.5 }}>
-                    {row.stageName} · {row.percentage}% of the stage
+                    {row.percentage}% of the contract
                 </Typography>
 
                 <Stack spacing={1.75}>
                     <TextField
                         select fullWidth size="small" label="GST slab"
                         value={gstSlabId} onChange={(e) => setGstSlabId(e.target.value)}
-                        helperText="Charged on top of the deliverable value."
+                        helperText="Charged on top of the stage value."
                     >
                         <MenuItem value="">No GST</MenuItem>
                         {gstSlabs.map((s) => (
@@ -156,7 +156,7 @@ export const RaiseBillDialog: React.FC<{
                     />
 
                     <Box sx={{ borderRadius: "10px", border: "1px solid", borderColor: "divider", p: 1.5 }}>
-                        <Line label="Deliverable value" value={formatCurrencyDecimal(amount)} />
+                        <Line label="Stage value" value={formatCurrencyDecimal(amount)} />
                         <Line label={`GST ${gstRate}%`} value={formatCurrencyDecimal(gstAmount)} />
                         <Line label="Bill total" value={formatCurrencyDecimal(totalAmount)} strong />
                         <Line
@@ -183,7 +183,7 @@ export const RaiseBillDialog: React.FC<{
                         disabled={busy || amount <= 0}
                         onClick={() =>
                             onSubmit({
-                                deliverableId: row.deliverableId,
+                                stageId: row.stageId,
                                 gstSlabId: gstSlabId || null,
                                 tdsSectionId: tdsSectionId || null,
                                 billDate,
@@ -210,11 +210,11 @@ const METHODS: PaymentMethod[] = [
 export const RecordPaymentDialog: React.FC<{
     open: boolean;
     bill: BillOnRow | null;
-    deliverableName?: string;
+    stageName?: string;
     busy?: boolean;
     onClose: () => void;
     onSubmit: (input: RecordPaymentInput) => void;
-}> = ({ open, bill, deliverableName, busy, onClose, onSubmit }) => {
+}> = ({ open, bill, stageName, busy, onClose, onSubmit }) => {
     const [amount, setAmount] = useState("");
     const [paymentDate, setPaymentDate] = useState(today());
     const [method, setMethod] = useState<PaymentMethod>("NEFT");
@@ -242,7 +242,7 @@ export const RecordPaymentDialog: React.FC<{
         <GlassDialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
             <GlassHeader
                 title="Record payment"
-                subtitle={`${bill.billNumber}${deliverableName ? ` · ${deliverableName}` : ""}`}
+                subtitle={`${bill.billNumber}${stageName ? ` · ${stageName}` : ""}`}
                 onClose={onClose}
             />
             <Box sx={{ p: { xs: 2, sm: 2.5 } }}>

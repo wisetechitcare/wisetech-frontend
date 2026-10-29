@@ -3,3 +3,4 @@
 
 # pnpm dependency patches must apply byte-exact on every OS
 patches/*.patch text eol=lf
+devtools/**/*.sh text eol=lf

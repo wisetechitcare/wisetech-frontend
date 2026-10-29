@@ -684,28 +684,44 @@ export function UnderlineTabs<K extends string>({
    */
   actions?: React.ReactNode;
 }) {
-  const tabListRef = React.useRef<HTMLDivElement>(null);
+  // A scrolling tab row can leave the active tab off-screen (a deep link to Billing on a
+  // phone shows Leads / Projects / Commercial and nothing selected). Bring it into view by
+  // moving the row only — scrollIntoView would also scroll the page.
+  const listRef = React.useRef<HTMLDivElement>(null);
   const tabRefs = React.useRef(new Map<K, HTMLButtonElement>());
-
   React.useEffect(() => {
     const keepActiveTabVisible = () => {
-      const tabList = tabListRef.current;
-      const activeTab = tabRefs.current.get(value);
-      if (!tabList || !activeTab) return;
-
-      const listRect = tabList.getBoundingClientRect();
-      const tabRect = activeTab.getBoundingClientRect();
-      if (tabRect.left < listRect.left) {
-        tabList.scrollLeft -= listRect.left - tabRect.left;
-      } else if (tabRect.right > listRect.right) {
-        tabList.scrollLeft += tabRect.right - listRect.right;
-      }
+      const list = listRef.current;
+      const active = tabRefs.current.get(value);
+      if (!list || !active) return;
+      const listRect = list.getBoundingClientRect();
+      const tabRect = active.getBoundingClientRect();
+      if (tabRect.left < listRect.left) list.scrollLeft -= listRect.left - tabRect.left;
+      else if (tabRect.right > listRect.right) list.scrollLeft += tabRect.right - listRect.right;
     };
     keepActiveTabVisible();
     window.addEventListener("resize", keepActiveTabVisible);
     return () => window.removeEventListener("resize", keepActiveTabVisible);
   }, [value]);
 
+  // Which ends have more tabs hidden past them — those ends fade out, so a clipped tab
+  // reads as "keep scrolling" and the last tab is only faded while something follows it.
+  const [more, setMore] = React.useState({ start: false, end: false });
+  React.useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const measure = () => {
+      const start = list.scrollLeft > 2;
+      const end = list.scrollLeft + list.clientWidth < list.scrollWidth - 2;
+      setMore((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+    };
+    measure();
+    list.addEventListener("scroll", measure, { passive: true });
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    observer?.observe(list);
+    return () => { list.removeEventListener("scroll", measure); observer?.disconnect(); };
+  }, [tabs.length]);
+  const fade = `linear-gradient(to right, ${more.start ? "transparent, #000 28px" : "#000, #000"}, ${more.end ? "#000 calc(100% - 28px), transparent" : "#000, #000"})`;
   return (
     <Box
       sx={
@@ -737,9 +753,9 @@ export function UnderlineTabs<K extends string>({
         }}
       >
         <Box
+          ref={listRef}
           role="tablist"
           aria-label={ariaLabel}
-          ref={tabListRef}
           sx={{
             display: "flex",
             flexWrap: "nowrap",
@@ -751,6 +767,7 @@ export function UnderlineTabs<K extends string>({
             // The scrollbar under a tab bar is chrome nobody needs; the row still scrolls.
             scrollbarWidth: "none",
             "&::-webkit-scrollbar": { display: "none" },
+            ...((more.start || more.end) && { maskImage: fade, WebkitMaskImage: fade }),
           }}
         >
           {tabs.map((tab) => {

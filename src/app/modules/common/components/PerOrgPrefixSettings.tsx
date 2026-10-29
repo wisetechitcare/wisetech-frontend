@@ -481,7 +481,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
           }}
         >
           {/* Section 1: the fiscal year itself — label and picker read as one field. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', whiteSpace: 'nowrap' }}>
                 Fiscal Year
@@ -510,6 +510,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
               <FiscalYearRangeField
                 value={fiscalYear}
                 onChange={setFiscalYear}
+                label=""
                 startLabel="Start"
                 endLabel="End"
                 density="compact"

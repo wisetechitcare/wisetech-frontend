@@ -6,7 +6,23 @@ import {
   type SyntheticEvent,
 } from "react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
-import { Alert, Autocomplete, Box, DialogActions, DialogContent, Link, MenuItem, Paper, Stack, TextField, Typography, alpha, useTheme } from "@mui/material";
+import {
+  Alert,
+  Autocomplete,
+  Box,
+  Button,
+  DialogActions,
+  DialogContent,
+  Link,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  InputAdornment,
+  Typography,
+  alpha,
+  useTheme,
+} from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { toast } from "react-toastify";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
@@ -31,6 +47,7 @@ import {
   useConfirmDialog,
   usePromptDialog,
   WtButton,
+  WtDateField,
   FilterSheetButton,
 } from "@app/modules/common/components/ui";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
@@ -42,6 +59,7 @@ import {
   cloneDriveToApi,
   deleteDriveToApi,
   getDrive,
+  listGroups,
   refreshDriveFromApi,
   removePeopleFromDriveToApi,
   unarchiveDriveToApi,
@@ -50,6 +68,7 @@ import {
 } from "../store/courtesyDeskStore";
 import type {
   ConfigOption,
+  CourtesyDrive,
   CourtesyRecipient,
   DeliveryMode,
   PersonRef,
@@ -60,8 +79,13 @@ import { useSensitiveData } from "@app/modules/common/components/SensitiveData";
 import {
   GIFT_RUN_LABEL,
   deliveryStatusColor,
+  driveGroupIds,
+  formatGiftQty,
+  groupMembersOf,
   giftRunTotalAmount,
+  giftsFromAmount,
   occasionLabel,
+  recipientQty,
 } from "../types";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import PersonPicker, {
@@ -75,6 +99,8 @@ import {
   isGiftRunEditable,
 } from "./DriveCreate";
 import GiftHistoryButton from "./GroupActivityLog";
+import GroupsChip from "./GroupsChip";
+import GroupsField from "./GroupsField";
 import SolidChipPickMenu from "./SolidChipPickMenu";
 import GiftRunFilterSheet from "./GiftRunFilterSheet";
 import {
@@ -89,6 +115,51 @@ const SKIP_REASON_OPTIONS: ConfigOption[] = [
   { id: "NOT_AVAILABLE", name: "Not available", color: "#ea580c" },
   { id: "DO_NOT_GIFT", name: "Do not gift", color: "#64748b" },
 ];
+
+/**
+ * One person's quantity in the run's unit ("0.25" kg, "2" Box). Keeps what is typed and saves
+ * on blur / Enter — saving per keystroke turned the leading "0" of "0.25" into 1.
+ */
+function GiftQtyInput({
+  quantity,
+  drive,
+  disabled,
+  onCommit,
+}: {
+  quantity: number;
+  drive: CourtesyDrive | null | undefined;
+  disabled: boolean;
+  onCommit: (quantity: number) => void;
+}) {
+  const shown = String(Math.round(quantity * Number(drive?.sizePerGift || 1) * 1000) / 1000);
+  const [text, setText] = useState(shown);
+  useEffect(() => setText(shown), [shown]);
+  const commit = () => {
+    const next = drive ? giftsFromAmount(text, drive) : null;
+    if (next === null) setText(shown);
+    else if (next !== quantity) onCommit(next);
+  };
+  return (
+    <TextField
+      size="small"
+      disabled={disabled}
+      value={text}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+      }}
+      inputProps={{ inputMode: "decimal" }}
+      InputProps={{
+        endAdornment: drive?.sizeUnitSymbol ? (
+          <InputAdornment position="end">{drive.sizeUnitSymbol}</InputAdornment>
+        ) : undefined,
+      }}
+      sx={{ width: 120 }}
+    />
+  );
+}
 
 type PersonProfile = {
   gender?: string;
@@ -354,6 +425,7 @@ export default function DriveDetail() {
   const [tableSelectionReset, setTableSelectionReset] = useState(0);
   const [addPeopleOpen, setAddPeopleOpen] = useState(false);
   const [pickerPeople, setPickerPeople] = useState<PersonRef[]>([]);
+  const [pickerGroupIds, setPickerGroupIds] = useState<string[]>([]);
   const [addingPeople, setAddingPeople] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [createFromRunOpen, setCreateFromRunOpen] = useState(false);
@@ -550,16 +622,31 @@ export default function DriveDetail() {
     return alpha(c, theme.palette.mode === "dark" ? 0.22 : 0.12);
   };
 
+  const linkedGroups = useMemo(
+    () =>
+      drive
+        ? driveGroupIds(drive).flatMap((id) => listGroups(true).filter((g) => g.id === id))
+        : [],
+    [drive],
+  );
   const tableRows = useMemo(() => {
     if (!drive) return [];
     return drive.recipients.filter((recipient) =>
       matchesGiftRunFilters(recipient, filters, {
         gender: recipientGender(recipient),
         designation: recipientDesignation(recipient),
+        groupIds: linkedGroups
+          .filter((g) =>
+            g.members.some(
+              (m) => m.memberType === recipient.memberType && m.personId === recipient.personId,
+            ),
+          )
+          .map((g) => g.id),
       }),
     );
   }, [
     drive,
+    linkedGroups,
     filters,
     recipientGender,
     recipientDesignation,
@@ -639,7 +726,7 @@ export default function DriveDetail() {
     const cost = Number(drive.costPerGift);
     if (!Number.isFinite(cost) || cost < 0) return 0;
     return tableRows.reduce(
-      (sum, r) => sum + cost * Math.max(1, r.quantity || 1),
+      (sum, r) => sum + cost * recipientQty(r.quantity),
       0,
     );
   }, [drive, tableRows]);
@@ -647,7 +734,7 @@ export default function DriveDetail() {
   const tableQuantityTotal = useMemo(
     () =>
       tableRows.reduce(
-        (sum, recipient) => sum + Math.max(1, recipient.quantity || 1),
+        (sum, recipient) => sum + recipientQty(recipient.quantity),
         0,
       ),
     [tableRows],
@@ -799,25 +886,23 @@ export default function DriveDetail() {
       {
         accessorKey: "quantity",
         header: "Qty",
-        size: 90,
+        size: 130,
+        meta: {
+          exportValue: (r: CourtesyRecipient) =>
+            drive ? formatGiftQty(recipientQty(r.quantity), drive) : r.quantity,
+        },
+        // Typed in the run's unit (0.25 kg); stored as gifts. Saved on blur / Enter.
         Cell: ({ row }) => (
-          <TextField
-            type="number"
-            size="small"
+          <GiftQtyInput
+            quantity={recipientQty(row.original.quantity)}
+            drive={drive}
             disabled={!runEditable}
-            inputProps={{ min: 1, step: 1 }}
-            value={row.original.quantity ?? 1}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => {
-              const n = Math.max(1, Number(e.target.value) || 1);
-              patchRecipient(row.original.id, { quantity: n });
-            }}
-            sx={{ width: 80 }}
+            onCommit={(quantity) => patchRecipient(row.original.id, { quantity })}
           />
         ),
         Footer: () => (
           <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
-            {tableQuantityTotal.toLocaleString()}
+            {drive ? formatGiftQty(tableQuantityTotal, drive) : tableQuantityTotal.toLocaleString()}
           </Typography>
         ),
       },
@@ -826,7 +911,7 @@ export default function DriveDetail() {
         header: "Amount",
         size: 120,
         accessorFn: (r) =>
-          hasCost ? unitCost * Math.max(1, r.quantity || 1) : 0,
+          hasCost ? unitCost * recipientQty(r.quantity) : 0,
         Cell: ({ row }) => (
           <Box
             component="span"
@@ -838,7 +923,7 @@ export default function DriveDetail() {
             }}
           >
             {formatCurrencyCompact(
-              hasCost ? unitCost * Math.max(1, row.original.quantity || 1) : 0,
+              hasCost ? unitCost * recipientQty(row.original.quantity) : 0,
             )}
           </Box>
         ),
@@ -876,6 +961,23 @@ export default function DriveDetail() {
               })
             }
           />
+        ),
+      },
+      {
+        accessorKey: "deliveredOn",
+        header: "Delivery date",
+        size: 150,
+        Cell: ({ row }) => (
+          <Box onClick={(e) => e.stopPropagation()}>
+            <WtDateField
+              disabled={!runEditable}
+              value={row.original.deliveredOn}
+              onChange={(v) =>
+                patchRecipient(row.original.id, { deliveredOn: v || null })
+              }
+              sx={{ minWidth: 140 }}
+            />
+          </Box>
         ),
       },
       {
@@ -1002,13 +1104,13 @@ export default function DriveDetail() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="warning">{GIFT_RUN_LABEL} not found.</Alert>
-        <WtButton variant="text"
+        <Button
           sx={{ mt: 2 }}
           startIcon={<AppIcon name="bi-arrow-left" />}
           onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/drives`)}
         >
           Back
-        </WtButton>
+        </Button>
       </Box>
     );
   }
@@ -1033,10 +1135,8 @@ export default function DriveDetail() {
         patch.skippedReason = "";
       }
     }
-    if (selectionQty) {
-      const n = Math.max(1, Number(selectionQty) || 1);
-      patch.quantity = n;
-    }
+    const selectionGifts = selectionQty && drive ? giftsFromAmount(selectionQty, drive) : null;
+    if (selectionGifts) patch.quantity = selectionGifts;
     if (selectionMode) {
       patch.mode = selectionMode as DeliveryMode;
     }
@@ -1120,34 +1220,53 @@ export default function DriveDetail() {
   };
 
   const openAddPeople = () => {
-    if (!runEditable) return;
+    if (!runEditable || !drive) return;
+    setPickerGroupIds(driveGroupIds(drive));
     setPickerPeople(existingPickerPeople);
     setAddPeopleOpen(true);
   };
 
+  // Groups and individuals in one step; anyone already on the run or in a picked group is skipped
+  // (by person id — the API enforces the same rule).
   const confirmAddPeople = () => {
-    if (!runEditable || !driveId) return;
-    const toAdd = pickerPeople.filter(
-      (p) => !existingPersonKeys.has(`${p.memberType}:${p.personId}`),
-    );
-    if (!toAdd.length) {
-      toast.warning("No new people selected.");
+    if (!runEditable || !driveId || !drive) return;
+    if (!pickerGroupIds.length) {
+      toast.warning("Keep at least one People Group.");
       return;
     }
+    const groupsChanged = pickerGroupIds.join() !== driveGroupIds(drive).join();
+    const inGroups = new Set(
+      groupMembersOf(listGroups(true), pickerGroupIds)
+        .flat()
+        .map((p) => `${p.memberType}:${p.personId}`),
+    );
+    const toAdd = pickerPeople.filter((p) => {
+      const key = `${p.memberType}:${p.personId}`;
+      return !existingPersonKeys.has(key) && !inGroups.has(key);
+    });
+    if (!groupsChanged && !toAdd.length) {
+      toast.warning("Nothing new selected.");
+      return;
+    }
+    const parts = [
+      groupsChanged ? "update the People Groups" : "",
+      toAdd.length ? `add ${toAdd.length} individual person(s)` : "",
+    ].filter(Boolean);
     void ask({
       variant: "confirm",
       title: "Add people to Gift Run",
-      message: `Add ${toAdd.length} person(s)  to this Gift Run? They will not be added to the People Group.`,
-      confirmLabel: "Add",
+      message: `This will ${parts.join(" and ")}. Each person is listed once.`,
+      confirmLabel: "Save",
       icon: "bi-people",
     }).then((ok) => {
       if (!ok) return;
       setAddingPeople(true);
-      void addPeopleToDriveToApi(driveId, toAdd)
+      void (groupsChanged
+        ? updateDriveMetaToApi(driveId, { sourceGroupIds: pickerGroupIds })
+        : Promise.resolve())
+        .then(() => (toAdd.length ? addPeopleToDriveToApi(driveId, toAdd) : undefined))
         .then(() => {
-          toast.success(
-            `Added ${toAdd.length} to Gift Run (not added to group).`,
-          );
+          toast.success("Gift Run people updated.");
           setAddPeopleOpen(false);
           setPickerPeople([]);
         })
@@ -1160,7 +1279,7 @@ export default function DriveDetail() {
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {confirmDialog}
       {promptDialog}
-      <WtButton
+      <Button
         size="small"
         variant="text"
         startIcon={<AppIcon name="bi-arrow-left" />}
@@ -1168,7 +1287,7 @@ export default function DriveDetail() {
         sx={{ mb: 1, alignSelf: "flex-start", px: 0 }}
       >
         Back to Gift Runs
-      </WtButton>
+      </Button>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Box sx={{ minWidth: 0 }}>
@@ -1224,24 +1343,24 @@ export default function DriveDetail() {
                 }}
               />
               {runEditable ? (
-                <WtButton
+                <Button
                   size="small"
                   variant="outlined"
                   startIcon={<AppIcon name="bi-pencil" />}
                   onClick={() => setEditOpen(true)}
                 >
                   Edit
-                </WtButton>
+                </Button>
               ) : null}
-              <WtButton
+              <Button
                 size="small"
                 variant="outlined"
                 startIcon={<AppIcon name="bi-gift" />}
                 onClick={() => setCreateFromRunOpen(true)}
               >
                 Add
-              </WtButton>
-              <WtButton
+              </Button>
+              <Button
                 size="small"
                 variant="outlined"
                 startIcon={<AppIcon name="bi-copy" />}
@@ -1265,10 +1384,10 @@ export default function DriveDetail() {
                 }}
               >
                 Clone
-              </WtButton>
+              </Button>
               {drive.status === "ARCHIVED" ? (
                 <>
-                  <WtButton
+                  <Button
                     size="small"
                     variant="outlined"
                     color="success"
@@ -1291,8 +1410,8 @@ export default function DriveDetail() {
                     }}
                   >
                     Unarchive
-                  </WtButton>
-                  <WtButton
+                  </Button>
+                  <Button
                     size="small"
                     variant="outlined"
                     color="error"
@@ -1316,7 +1435,7 @@ export default function DriveDetail() {
                     }}
                   >
                     Delete
-                  </WtButton>
+                  </Button>
                 </>
               ) : null}
               <GiftHistoryButton kind="drive" id={drive.id} />
@@ -1347,14 +1466,8 @@ export default function DriveDetail() {
             ) : null}
           </Typography>
           <Typography variant="h6" fontWeight={700} color="text.secondary">
-            Group:{" "}
-            <Link
-              component={RouterLink}
-              to={`${GIFT_MANAGEMENT_BASE}/groups/${drive.sourceGroupId}`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {drive.sourceGroupName}
-            </Link>
+            {driveGroupIds(drive).length > 1 ? "Groups: " : "Group: "}
+            <GroupsChip drive={drive} />
           </Typography>
         </Box>
       </Paper>
@@ -1477,13 +1590,17 @@ export default function DriveDetail() {
                 ))}
               </TextField>
               <TextField
-                type="number"
                 size="small"
                 label="Qty"
                 value={selectionQty}
                 onChange={(e) => setSelectionQty(e.target.value)}
-                inputProps={{ min: 1 }}
-                sx={{ width: 90 }}
+                inputProps={{ inputMode: "decimal" }}
+                InputProps={{
+                  endAdornment: drive?.sizeUnitSymbol ? (
+                    <InputAdornment position="end">{drive.sizeUnitSymbol}</InputAdornment>
+                  ) : undefined,
+                }}
+                sx={{ width: 120 }}
               />
               <TextField
                 size="small"
@@ -1508,22 +1625,22 @@ export default function DriveDetail() {
                   ))}
                 </TextField>
               )}
-              <WtButton
+              <Button
                 size="medium"
                 variant="contained"
                 onClick={applyBulkFields}
               >
                 {selectedRows.length > 0 ? "Apply to selected" : "Apply to all"}
-              </WtButton>
+              </Button>
               {selectedRows.length > 0 ? (
-                <WtButton
+                <Button
                   size="medium"
                   color="error"
                   variant="contained"
                   onClick={removeSelectedFromRun}
                 >
                   Remove from Gift Run
-                </WtButton>
+                </Button>
               ) : null}
             </Stack>
           </Stack>
@@ -1562,9 +1679,16 @@ export default function DriveDetail() {
         }
       >
         <DialogContent>
+          <Box sx={{ mb: 2 }}>
+            <GroupsField
+              groups={listGroups()}
+              value={pickerGroupIds}
+              onChange={setPickerGroupIds}
+              helperText="Everyone in these groups is on the run — each person once."
+            />
+          </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            These people are added only to this run — not to the linked People
-            Group.
+            Individual people are added to this run only — not to any People Group.
           </Typography>
           <PersonPicker
             selected={pickerPeople}
@@ -1583,7 +1707,7 @@ export default function DriveDetail() {
             Cancel
           </WtButton>
           <WtButton onClick={confirmAddPeople} disabled={addingPeople}>
-            {addingPeople ? "Adding…" : "Add to Gift Run"}
+            {addingPeople ? "Saving…" : "Save"}
           </WtButton>
         </DialogActions>
       </GlassDialog>
@@ -1626,6 +1750,7 @@ export default function DriveDetail() {
           ...areas.map((area) => ({ value: area, label: area })),
         ]}
         assigneeOptions={recipientAssigneeFilterOptions}
+        groupOptions={linkedGroups.map((g) => ({ value: g.id, label: g.name }))}
         onClose={() => setFilterSheetOpen(false)}
         onApply={(nextFilters) => {
           setFilters(nextFilters);
@@ -1636,6 +1761,12 @@ export default function DriveDetail() {
       <MaterialTable
         key={`Courtesy-Gift-Run-Recipients-${tableSelectionReset}`}
         tableName="Courtesy-Gift-Run-Recipients"
+        // Export as the run's title; filtered to one of several groups → "Title (Group)".
+        exportName={
+          linkedGroups.length > 1 && linkedGroups.some((g) => g.id === filters.via)
+            ? `${drive.title} (${linkedGroups.find((g) => g.id === filters.via)!.name})`
+            : drive.title
+        }
         columns={columns}
         data={tableRows}
         employeeId={employeeId}

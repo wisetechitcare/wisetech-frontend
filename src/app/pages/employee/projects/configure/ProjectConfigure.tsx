@@ -18,7 +18,7 @@ import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
 import ProjectConfigForm from "./components/ProjectConfigForm";
 import PaymentPlansSection from "../../leads/configuration/components/PaymentPlansSection";
-import PaymentStageEditor from "./components/PaymentStageEditor";
+import StageNumberingFormatsEditor from "./components/StageNumberingFormatsEditor";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
@@ -36,7 +36,7 @@ import {
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { Button } from '@/ds/ui/button';
+import ReorderableGroup, { DragHandle, type DragHandleProps } from '@app/modules/common/components/ReorderableGroup';
 
 // ─── ColorChip ────────────────────────────────────────────────────────────────
 
@@ -87,17 +87,19 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
         </span>
       </div>
       <div style={{ display: 'flex', gap: '4px', flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
-        <Button variant="ghost" size="icon-xs" type="submit" aria-label="Edit"
+        <button
           onClick={onEdit}
+          style={{ background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
         >
           <AppIcon name="bi-pencil" className="fs-8" />
-        </Button>
+        </button>
         {onDelete && (
-          <Button variant="tinted" size="icon-xs" type="submit" aria-label="Delete" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
+          <button
             onClick={onDelete}
+            style={{ background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
           >
             <AppIcon name="bi-trash" className="fs-8" />
-          </Button>
+          </button>
         )}
       </div>
     </div>
@@ -109,16 +111,16 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
 // to that stage), not an alphabetical/arbitrary bag of chips — so it's a
 // horizontal, numbered pipeline of connected stage pills that wrap across the
 // full card width (instead of ChipGrid's arbitrary grid or a narrow, tall
-// column). Each pill reveals its reorder / edit / delete controls in a floating
-// toolbar on hover, keeping the resting row tight.
+// column). Pills are dragged into order by their grip (ArrowUp/ArrowDown on the
+// focused grip moves one step, for keyboard users); edit / delete brighten on hover.
 
 interface StatusFlowRowProps {
   index: number;
   total: number;
   name: string;
   color: string;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
+  handleProps?: DragHandleProps;
+  onNudge: (dir: -1 | 1) => void;
   onEdit: () => void;
   onDelete: () => void;
   disabled?: boolean;
@@ -130,10 +132,9 @@ interface DropdownState {
 }
 
 const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
-  index, total, name, color, onMoveUp, onMoveDown, onEdit, onDelete, disabled,
+  index, total, name, color, handleProps, onNudge, onEdit, onDelete, disabled,
 }) => {
   const [hov, setHov] = useState(false);
-  const isFirst = index === 0;
   const isLast = index === total - 1;
   const dotColor = color || '#cccccc';
 
@@ -158,12 +159,14 @@ const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
           backgroundColor: hov ? '#fafbfc' : '#f7f8fa',
           border: `1px solid ${hov ? '#d1d5e0' : '#eaecf0'}`,
           borderRadius: RADIUS.full,
-          padding: '4px 8px',
+          padding: '2px 8px 2px 2px',
           flexShrink: 0,
           margin: 0,
           transition: 'all 0.15s ease',
         }}
       >
+        <DragHandle handleProps={handleProps} disabled={disabled || total < 2} onNudge={onNudge} title="Drag to reorder" />
+
         {/* Position badge — small circle */}
         <div style={{
           width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
@@ -189,23 +192,15 @@ const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
           {name}
         </span>
 
-        {/* Reorder arrows */}
-        <Button variant="ghost" size="icon-xs" type="button" title="Move earlier" onClick={onMoveUp} disabled={disabled || isFirst}>
-          <AppIcon name="bi-chevron-left" className="fs-9" />
-        </Button>
-        <Button variant="ghost" size="icon-xs" type="button" title="Move later" onClick={onMoveDown} disabled={disabled || isLast}>
-          <AppIcon name="bi-chevron-right" className="fs-9" />
-        </Button>
-
         {/* Edit button */}
-        <Button variant="ghost" size="icon-xs" type="button" title="Edit" onClick={onEdit}>
+        <button type="button" title="Edit" onClick={onEdit} style={iconBtn('#4f82c4', onEdit, 'bi-pencil', 'Edit', true)}>
           <AppIcon name="bi-pencil" className="fs-9" />
-        </Button>
+        </button>
 
         {/* Delete button */}
-        <Button variant="tinted" size="icon-xs" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties} type="button" title="Delete" onClick={onDelete}>
+        <button type="button" title="Delete" onClick={onDelete} style={iconBtn(C.danger, onDelete, 'bi-trash', 'Delete', true)}>
           <AppIcon name="bi-trash" className="fs-9" />
-        </Button>
+        </button>
       </div>
 
       {/* Connector arrow */}
@@ -272,14 +267,11 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
     ? Math.max(...projectStatuses.map((s) => s.sortOrder ?? 0)) + 1
     : 0;
 
-  // Swap two adjacent statuses in the flow and persist the WHOLE list's positions
-  // (not just the two touched) so legacy rows still sharing the default
-  // sortOrder of 0 get normalized to distinct positions on the first reorder.
-  const moveStatus = async (index: number, direction: 'up' | 'down') => {
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= projectStatuses.length || reorderingStatus) return;
-    const reordered = [...projectStatuses];
-    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+  // Persist the WHOLE list's positions (not just the ones that moved) so legacy rows
+  // still sharing the default sortOrder of 0 get normalized on the first reorder.
+  // Called once per drop — dragging itself only repaints (see the ReorderableGroup below).
+  const saveStatusOrder = async (reordered: ProjectItem[]) => {
+    if (reorderingStatus) return;
     setProjectStatuses(reordered); // optimistic
     setReorderingStatus(true);
     try {
@@ -291,6 +283,15 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
     } finally {
       setReorderingStatus(false);
     }
+  };
+
+  /** Keyboard path from the drag grip: one step earlier (-1) or later (+1). */
+  const nudgeStatus = (index: number, dir: -1 | 1) => {
+    const to = index + dir;
+    if (to < 0 || to >= projectStatuses.length) return;
+    const next = [...projectStatuses];
+    [next[index], next[to]] = [next[to], next[index]];
+    void saveStatusOrder(next);
   };
 
   const handleStakeholderModalOpen = () => setShowStakeholderModal(true);
@@ -458,7 +459,7 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
             {/* 2. Project Status — Core */}
             <ConfigSectionCard
               title="Project Status"
-              description="Define the order a project moves through — use the arrows to set the flow."
+              description="Define the order a project moves through — drag a status by its grip to set the flow."
               icon="bi-flag"
               iconColor="primary"
               primaryAction={{ label: 'New Status', icon: 'bi-plus-lg', onClick: handleStatusModalOpen, variant: 'primary' }}
@@ -467,22 +468,34 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
               {projectStatuses.length === 0
                 ? <EmptyState label="project statuses" />
                 : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginTop: SP.md }}>
-                    {projectStatuses.map((s, i) => (
-                      <StatusFlowRow
-                        key={s.id}
-                        index={i}
-                        total={projectStatuses.length}
-                        name={s.name}
-                        color={s.color}
-                        disabled={reorderingStatus}
-                        onMoveUp={() => moveStatus(i, 'up')}
-                        onMoveDown={() => moveStatus(i, 'down')}
-                        onEdit={() => handleStatusEdit(s)}
-                        onDelete={() => handleDelete(s.id, 'status')}
-                      />
-                    ))}
-                  </div>
+                  // One row that scrolls sideways rather than wrapping: drag order is
+                  // tracked along a single x axis, and a wrapped second line would break it.
+                  <ReorderableGroup
+                    items={projectStatuses}
+                    getItemId={(s) => s.id}
+                    axis="x"
+                    withHandle
+                    disabled={reorderingStatus || projectStatuses.length < 2}
+                    className="flex flex-nowrap items-center gap-2 overflow-x-auto py-2 mt-2"
+                    onReorder={setProjectStatuses}
+                    onReorderEnd={(next) => void saveStatusOrder(next)}
+                    renderItem={(s, handleProps) => {
+                      const i = projectStatuses.findIndex((x) => x.id === s.id);
+                      return (
+                        <StatusFlowRow
+                          index={i}
+                          total={projectStatuses.length}
+                          name={s.name}
+                          color={s.color}
+                          disabled={reorderingStatus}
+                          handleProps={handleProps}
+                          onNudge={(dir) => nudgeStatus(i, dir)}
+                          onEdit={() => handleStatusEdit(s)}
+                          onDelete={() => handleDelete(s.id, 'status')}
+                        />
+                      );
+                    }}
+                  />
                 )
               }
             </ConfigSectionCard>
@@ -492,16 +505,16 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
                 its fetch, its modal and its delete; there is nothing for this page to hold. */}
             <PaymentPlansSection />
 
-            {/* 3b. Payment Stage — the index labels the plans above are numbered with.
+            {/* 3b. Payment Stage numbering — how the plans above print each stage's Sr No.
                 Sits directly under Payment Plans because it only exists to serve them. */}
             <ConfigSectionCard
-              title="Payment Stage"
-              description="Numbering groups for payment plan stages — 1 / 2 / 3, or a / b / c, or Stage I / Stage II. A plan picks one group and every stage takes its Sr No from it in order. This numbers stages; it does not name them."
+              title="Payment Stage Numbering"
+              description="How payment plan stages print their Sr No — a prefix (Stage, STG, or none) plus a number style (1, 01, 001, a, A, i, I). New plans use the Default automatically."
               icon="bi-123"
               iconColor="green"
               loading={loading}
             >
-              <PaymentStageEditor />
+              <StageNumberingFormatsEditor />
             </ConfigSectionCard>
 
             {/* 4. Stakeholders Services — Team Management */}

@@ -57,11 +57,6 @@ const ProposalConfigurationPage: React.FC = () => {
       enabledFields: availableFields.map((f) => f.key),
       enabledSections: ["percentages", "meetings"],
       paymentBreakdown: [
-        {
-          config_type: "percentage",
-          config_key: "Advance (To be paid along with the Work Order)",
-          value: 0,
-        },
         { config_type: "percentage", config_key: "Design Concept", value: 0 },
         { config_type: "percentage", config_key: "Design Detailing", value: 0 },
         { config_type: "percentage", config_key: "Tendering", value: 0 },

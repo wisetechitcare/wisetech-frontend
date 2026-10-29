@@ -210,6 +210,8 @@ export interface ProjectOverviewBill {
   kind: "PROFORMA" | "TAX_INVOICE";
   issueDate: string | null;
   amount: number;
+  /** The payment stage(s) this bill was raised for, e.g. "Advance". */
+  stageName: string | null;
   paymentStatus: PaymentStatus | null;
 }
 
@@ -289,11 +291,6 @@ export const listProjectOverview = async (
   return { projects: data.projects ?? [], managers: data.managers ?? [], pagination: data.pagination };
 };
 
-export const getBillingOperationStatistics = async (): Promise<OperationStatistics> => {
-  const { data } = await axios.get(url(BILLING_OPERATION.STATISTICS), { withCredentials: true });
-  return data.statistics;
-};
-
 export const getBillingOperation = async (id: string): Promise<OperationDetail> => {
   const { data } = await axios.get(url(BILLING_OPERATION.GET_BY_ID, id), { withCredentials: true });
   return data;
@@ -340,19 +337,9 @@ export const setProjectBillingFields = async (
   );
 };
 
-export const getOperationTimeline = async (id: string): Promise<OperationTimelineStep[]> => {
-  const { data } = await axios.get(url(BILLING_OPERATION.TIMELINE, id), { withCredentials: true });
-  return data.timeline ?? [];
-};
-
 export const getOperationActivity = async (id: string): Promise<OperationEvent[]> => {
   const { data } = await axios.get(url(BILLING_OPERATION.ACTIVITY, id), { withCredentials: true });
   return data.activity ?? [];
-};
-
-export const getOperationDocuments = async (id: string): Promise<OperationDocument[]> => {
-  const { data } = await axios.get(url(BILLING_OPERATION.DOCUMENTS, id), { withCredentials: true });
-  return data.documents ?? [];
 };
 
 export const addOperationNote = async (

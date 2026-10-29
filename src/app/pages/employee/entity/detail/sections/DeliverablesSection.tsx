@@ -8,7 +8,7 @@ import {
   addCustomDeliverable, addCustomStage, deleteCustomDeliverable, deleteCustomStage, deliverableBoardQuery,
   type BoardDeliverable, type BoardStage, type BoardTaskStatus,
 } from "@services/projectExecution";
-import { stageSrNo } from "@models/leads";
+import { stageSrNo } from "@utils/stageNumbering";
 import {
   GlassDialog, GlassHeader, WtButton, WtEmptyState, WtIconButton, confirmDialog, toast, toneAlpha, tonePair,
 } from "@app/modules/common/components/ui";
