@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Table, Form, Button, Badge } from "react-bootstrap";
+import { Table, Form, Badge } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 interface Props {
   percentages: any[];
@@ -185,10 +186,8 @@ const PercentageConfigurationTable: React.FC<Props> = ({
         </div>
         <div className="d-flex align-items-center gap-2">
           {!isValid && percentages.length > 0 && (
-            <Button
-              variant="light-danger"
-              size="sm"
-              className="btn-sm py-1 px-3 fs-9 fw-bold"
+            <Button variant="tinted" size="sm"
+              className="[--tint:var(--cta-danger)]"
               onClick={handleAutoFix}
             >
               <KTIcon iconName="magic" className="fs-9 me-1" /> Auto-Fix
@@ -200,11 +199,8 @@ const PercentageConfigurationTable: React.FC<Props> = ({
           >
             Total: {totalPercentage}%
           </Badge>
-          <Button
-            variant="light-primary"
-            size="sm"
+          <Button variant="tinted" size="icon-xs" aria-label="Add"
             onClick={handleAddRow}
-            className="btn-icon w-25px h-25px"
           >
             <KTIcon iconName="plus" className="fs-3" />
           </Button>
@@ -294,9 +290,8 @@ const PercentageConfigurationTable: React.FC<Props> = ({
                   </td>
                 )}
                 <td className="text-end pe-4">
-                  <Button
-                    variant="icon"
-                    className="btn btn-icon btn-light-danger btn-sm w-25px h-25px"
+                  <Button variant="tinted" size="icon-xs" aria-label="Delete"
+                    className="[--tint:var(--cta-danger)]"
                     onClick={() => handleRemoveRow(idx)}
                     disabled={percentages.length === 1}
                   >

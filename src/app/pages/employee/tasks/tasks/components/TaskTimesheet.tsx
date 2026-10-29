@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Card, Row, Col, Button, Table } from 'react-bootstrap';
+import { Card, Row, Col, Table } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import { Chip } from '@mui/material';
 import dayjs from 'dayjs';
@@ -14,6 +14,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import { getTimeTokens } from '@utils/timeFormat';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { ToneChip } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
 
 // Extend dayjs with duration plugin
 dayjs.extend(duration);
@@ -364,9 +365,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                 <Card.Header className="border-0 pt-6">
                     <div className="d-flex justify-content-between align-items-center w-100">
                         <h3 className="card-title fw-bold">Time Logs</h3>
-                        <Button 
-                            variant="primary" 
-                            className="btn btn-primary"
+                        <Button
                             onClick={handleAddLogClick}
                         >
                             <KTIcon iconName="plus" className="fs-6 me-2" />
@@ -378,16 +377,9 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                     {/* Filter Buttons */}
                     <div className="d-flex gap-2 mb-6 flex-wrap">
                         {filterButtons.map((filter) => (
-                            <button
+                            <Button variant={activeFilter === filter ? 'default' : 'outline'} size="sm" type="submit" aria-pressed={activeFilter === filter}
                                 key={filter}
                                 onClick={() => setActiveFilter(filter)}
-                                className={`btn ${activeFilter === filter ? 'btn-primary' : 'btn-light'} btn-sm`}
-                                style={{
-                                    borderRadius: '50px',
-                                    padding: '8px 20px',
-                                    border: 'none',
-                                    fontWeight: '500'
-                                }}
                             >
                                 {filter}
                                 {filter !== 'All' && (
@@ -398,7 +390,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                                         }
                                     </span>
                                 )}
-                            </button>
+                            </Button>
                         ))}
                     </div>
 
@@ -408,12 +400,12 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                             <KTIcon iconName="warning-2" className="fs-2 me-3" />
                             <div>
                                 <strong>Error:</strong> {error}
-                                <button 
-                                    className="btn btn-light btn-sm ms-3" 
+                                <Button variant="outline" size="sm" type="submit" 
+                                    className="ms-3" 
                                     onClick={fetchTimesheetData}
                                 >
                                     Retry
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     )}
@@ -474,20 +466,18 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                                             </td>
                                             <td className="text-end">
                                                 <div className="d-flex gap-2 justify-content-end">
-                                                    <button
-                                                        className="btn btn-sm btn-light btn-active-light-primary"
+                                                    <Button variant="outline" size="sm" type="submit"
                                                         onClick={() => handleEditTimeSheet(log)}
                                                         title="Edit timesheet"
                                                     >
                                                         Edit
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-sm btn-light btn-active-light-danger"
+                                                    </Button>
+                                                    <Button variant="outline" size="sm" type="submit"
                                                         onClick={() => handleDeleteTimeSheet(log)}
                                                         title="Delete timesheet"
                                                     >
                                                         Delete
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -506,7 +496,7 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                                         : `No ${activeFilter.toLowerCase()} time logs found.`
                                     }
                                 </p>
-                                <Button variant="primary" onClick={handleAddLogClick}>
+                                <Button onClick={handleAddLogClick}>
                                     <KTIcon iconName="plus" className="fs-6 me-2" />
                                     Add First Log
                                 </Button>
@@ -517,31 +507,17 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                     {/* Table Navigation Arrows */}
                     {filteredLogs.length > 0 && (
                         <div className="d-flex justify-content-center gap-3 mt-4">
-                            <div
+                            <Button variant="outline" size="sm" aria-label="Scroll left"
                                 
                                 onClick={scrollTableLeft}
-                                className="d-flex align-items-center"
-                                style={{
-                                    borderRadius: '50px',
-                                    padding: '8px 16px',
-                                    fontWeight: '500',
-                                    cursor: 'pointer'
-                                }}
                             >
                                 <KTIcon iconName="black-left" className="fs-2 me-1" />
-                            </div>
-                            <div
+                            </Button>
+                            <Button variant="outline" size="sm" aria-label="Scroll right"
                                 onClick={scrollTableRight}
-                                className="d-flex align-items-center"
-                                style={{
-                                    borderRadius: '50px',
-                                    padding: '8px 16px',
-                                    fontWeight: '500',
-                                    cursor: 'pointer'
-                                }}
                             >
                                 <KTIcon iconName="black-right" className="fs-2 ms-1" />
-                            </div>
+                            </Button>
                         </div>
                     )}
                 </Card.Body>

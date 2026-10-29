@@ -265,7 +265,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             onChange={setMode}
                         />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
+                            <WtButton size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
                                 Add Candidate
                             </WtButton>
                         )}

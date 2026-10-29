@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { C, FONT, SP, RADIUS, ICON_COLORS } from './ConfigDesignSystem';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 // From the module, not the ui barrel — see ConfigSectionCard.
 import { toTitleCase } from '@app/modules/common/components/ui/text';
 
@@ -51,7 +52,6 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
 }) => {
   const theme = useTheme();
   const [hov, setHov] = useState(false);
-  const [btnHov, setBtnHov] = useState(false);
   const paper = theme.palette.background.paper;
   const divider = theme.palette.divider;
   const pulseBg = theme.palette.action.hover;
@@ -187,31 +187,14 @@ const ConfigSettingsRow: React.FC<ConfigSettingsRowProps> = ({
             {rightContent}
 
             {actionLabel && onAction && (
-              <button
-                onClick={onAction}
-                disabled={disabled}
-                onMouseEnter={() => setBtnHov(true)}
-                onMouseLeave={() => setBtnHov(false)}
-                style={{
-                  fontFamily: FONT.body,
-                  fontWeight: 500,
-                  fontSize: '13px',
-                  color: btnHov ? C.primary : theme.palette.text.secondary,
-                  backgroundColor: btnHov ? C.primaryLight : paper,
-                  border: `1px solid ${btnHov ? 'rgba(30, 58, 138,0.25)' : divider}`,
-                  borderRadius: RADIUS.md,
-                  padding: '7px 16px',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {actionIcon && <AppIcon name={actionIcon} className="fs-7" />}
+              <Button variant="outline" size="sm" onClick={onAction} disabled={disabled}>
+                {actionIcon && (
+                  <span data-icon="inline-start" className="inline-flex">
+                    <AppIcon name={actionIcon} className="fs-7" />
+                  </span>
+                )}
                 {actionLabel}
-              </button>
+              </Button>
             )}
           </>
         )}

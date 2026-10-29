@@ -9,8 +9,9 @@ import { useSalaryFilters, SalaryFilterToolbar, StatusFilter } from "./SalaryTab
 import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
 import QuickPayModal from "@modules/payroll/components/modals/QuickPayModal";
 import { saveSelectedEmployee } from "@redux/slices/employee";
-import { Dialog, DialogTitle, DialogContent, IconButton, Box, CircularProgress } from "@mui/material";
-import { Close } from "@mui/icons-material";
+import { Dialog, DialogTitle, DialogContent, Box, CircularProgress } from "@mui/material";
+import { Button } from "@/ds/ui/button";
+import { WtCloseButton } from "@app/modules/common/components/ui/tw/WtCloseButton";
 import SalaryView from "../personal/SalaryView";
 import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
@@ -534,18 +535,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                 };
 
                 // Two payment tracks, color-coded like the payout dialog:
-                // navy = salary to employee, rose = statutory to government.
-                const btnBase: React.CSSProperties = {
-                  width: 92, height: 28, borderRadius: 8, fontSize: 12, fontWeight: 700,
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', lineHeight: 1,
-                };
-                const navyBtn: React.CSSProperties = {
-                  ...btnBase, backgroundColor: '#1E3A8A', color: '#fff', border: '1px solid #1E3A8A',
-                };
-                const roseBtn: React.CSSProperties = {
-                  ...btnBase, backgroundColor: '#FFF1F4', color: '#D9214E', border: '1px solid #F9C9D4',
-                };
+                // the filled CTA = salary to employee, rose (danger-tinted) = statutory to
+                // government. One fixed width so "Pay" and "Pay Govt" line up down the column.
+                const govtTint = { '--tint': 'var(--cta-danger)' } as React.CSSProperties;
                 // Salary and govt dues are paid separately — keep an action available
                 // until BOTH are settled (salary paid alone must not hide it).
                 // The label alone carries the state: "Pay Govt" = salary settled,
@@ -554,13 +546,16 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                   const salarySettled = salaryDue <= 0;
                   const govtSettled = Math.round(Number(row.original.govtOwed) || 0) > 0 && govtDue <= 0;
                   return (
-                    <button
-                      style={salarySettled ? roseBtn : navyBtn}
+                    <Button
+                      variant={salarySettled ? 'tinted' : 'default'}
+                      size="sm"
+                      className="w-[92px]"
+                      style={salarySettled ? govtTint : undefined}
                       title={salarySettled ? 'Salary paid ✓ — govt. deduction pending' : govtDue > 0 ? 'Salary & govt. deduction pending' : govtSettled ? 'Govt. paid ✓ — salary pending' : 'Salary pending'}
                       onClick={(e) => openPay(e, salarySettled ? 'GOVERNMENT' : undefined)}
                     >
                       {salarySettled ? 'Pay Govt' : 'Pay'}
-                    </button>
+                    </Button>
                   );
                 }
                 return (
@@ -571,17 +566,15 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                     }}>
                       Paid ✓
                     </span>
-                    <button
-                      style={{
-                        width: 28, height: 28, borderRadius: 8, display: 'inline-flex',
-                        alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                        backgroundColor: '#fff', border: '1px solid #E1E3EA', color: '#5E6278',
-                      }}
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
                       title="Edit payouts"
+                      aria-label="Edit payouts"
                       onClick={openPay}
                     >
                       <i className="bi bi-pencil" style={{ fontSize: 12 }} />
-                    </button>
+                    </Button>
                   </div>
                 );
               }
@@ -638,13 +631,10 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
           <Box>
             {selectedEmpForDetail?.users?.firstName || selectedEmpForDetail?._displayName} {selectedEmpForDetail?.users?.lastName && selectedEmpForDetail.users.lastName} {selectedEmpForDetail?.employeeCode && `(${selectedEmpForDetail.employeeCode})`}
           </Box>
-          <IconButton
+          <WtCloseButton
             onClick={() => setSelectedEmpForDetail(null)}
-            size="small"
-            sx={{ ml: 2 }}
-          >
-            <Close />
-          </IconButton>
+            className="ml-4"
+          />
         </DialogTitle>
         <DialogContent dividers>
           {loadingDetail ? (

@@ -1,4 +1,4 @@
-import { Button } from '@mui/material'
+import { Button } from '@/ds/ui/button'
 import React, { useEffect, useMemo, useState } from 'react'
 import TeamForm from './component/TeamForm'
 import { getAllTeams, getAllTeamsMember, moveEmployeeTeam, backfillTeamMemberships } from '@services/projects'
@@ -133,23 +133,14 @@ const TeamCard: React.FC<{
                             {team.name}
                         </h5>
                     </div>
-                    {canWrite && <button
+                    {canWrite && <Button
                         type="button"
-                        className="btn btn-sm"
+                        variant="outline"
+                        size="sm"
                         onClick={() => onEditTeam(team)}
-                        style={{
-                            borderColor: '#1E3A8A',
-                            color: '#1E3A8A',
-                            fontFamily: 'Inter',
-                            fontSize: '14px',
-                            fontWeight: '500',
-                            borderRadius: '6px',
-                            border: '1px solid #1E3A8A',
-                            padding: '8px 18px',
-                        }}
                     >
                         Edit Team
-                    </button>}
+                    </Button>}
                 </div>
 
                 {/* Responsive Table Wrapper */}
@@ -636,45 +627,33 @@ const TasksMainCalenderPage = () => {
                             <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
                         </svg>
                         {searchTerm && (
-                            <button
+                            <Button
                                 type="button"
-                                className="btn btn-sm position-absolute"
+                                variant="ghost"
+                                size="icon-xs"
+                                aria-label="Clear search"
+                                className="position-absolute"
                                 style={{
                                     right: '8px',
                                     top: '50%',
                                     transform: 'translateY(-50%)',
-                                    padding: '0',
-                                    border: 'none',
-                                    background: 'none',
-                                    color: '#8998ab'
                                 }}
                                 onClick={clearSearch}
                             >
                                 <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                                 </svg>
-                            </button>
+                            </Button>
                         )}
                     </div>
 
-                    {canWrite && <button
+                    {canWrite && <Button
                         type="button"
-                        className="btn flex-shrink-0"
+                        className="flex-shrink-0"
                         onClick={handleAddTeam}
-                        style={{
-                            backgroundColor: "#1E3A8A",
-                            borderColor: "#1E3A8A",
-                            fontFamily: "Inter",
-                            fontSize: "14px",
-                            fontWeight: 500,
-                            borderRadius: "6px",
-                            padding: "8px 16px",
-                            whiteSpace: "nowrap",
-                            color: 'white'
-                        }}
                     >
                         + Add Team
-                    </button>}
+                    </Button>}
                 </div>
             </div>
 
@@ -711,14 +690,14 @@ const TasksMainCalenderPage = () => {
                     {deptOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
                 </select>
                 {isFiltering && (
-                    <button
+                    <Button
                         type="button"
-                        className="btn btn-sm"
+                        variant="outline"
+                        size="sm"
                         onClick={clearFilters}
-                        style={{ color: '#1E3A8A', border: '1px solid #1E3A8A', borderRadius: '6px', fontFamily: 'Inter', fontSize: '13px', fontWeight: 500, padding: '6px 14px', backgroundColor: 'white' }}
                     >
                         Clear Filters
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -752,20 +731,13 @@ const TasksMainCalenderPage = () => {
                                     }
                                 </p>
                                 {isFiltering && (
-                                    <button
+                                    <Button
                                         type="button"
-                                        className="btn btn-link"
+                                        variant="link"
                                         onClick={clearFilters}
-                                        style={{
-                                            color: '#1E3A8A',
-                                            textDecoration: 'none',
-                                            fontFamily: 'Inter',
-                                            fontSize: '14px',
-                                            fontWeight: '500'
-                                        }}
                                     >
                                         Clear Filters
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
                         )}
@@ -792,23 +764,13 @@ const TasksMainCalenderPage = () => {
                                 <ul className="pagination mb-0" style={{ gap: '8px' }}>
                                     {/* Previous Button */}
                                     <li className={`page-item ${currentPage <= 1 ? 'disabled' : ''}`}>
-                                        <button
-                                            className="btn"
+                                        <Button
+                                            variant="outline"
                                             onClick={handlePrevious}
                                             disabled={currentPage <= 1}
-                                            style={{
-                                                border: '1px solid #c1c9d6',
-                                                borderRadius: '6px',
-                                                padding: '8px 12px',
-                                                fontFamily: 'Inter',
-                                                fontSize: '14px',
-                                                fontWeight: '500',
-                                                color: currentPage <= 1 ? '#c1c9d6' : '#202020',
-                                                backgroundColor: 'white'
-                                            }}
                                         >
                                             Previous
-                                        </button>
+                                        </Button>
                                     </li>
 
                                     {/* Page Numbers */}
@@ -818,47 +780,25 @@ const TasksMainCalenderPage = () => {
 
                                         return (
                                             <li key={page} className="page-item">
-                                                <button
-                                                    className="btn"
+                                                <Button
+                                                    variant={isActive ? 'default' : 'outline'}
                                                     onClick={() => handlePageChange(page)}
-                                                    style={{
-                                                        border: '1px solid #c1c9d6',
-                                                        borderRadius: '6px',
-                                                        padding: '8px 12px',
-                                                        fontFamily: 'Inter',
-                                                        fontSize: '14px',
-                                                        fontWeight: '500',
-                                                        minWidth: '40px',
-                                                        color: isActive ? 'white' : '#202020',
-                                                        backgroundColor: isActive ? '#1E3A8A' : 'white',
-                                                        borderColor: isActive ? '#1E3A8A' : '#c1c9d6'
-                                                    }}
                                                 >
                                                     {page}
-                                                </button>
+                                                </Button>
                                             </li>
                                         );
                                     })}
 
                                     {/* Next Button */}
                                     <li className={`page-item ${currentPage >= clientTotalPages ? 'disabled' : ''}`}>
-                                        <button
-                                            className="btn"
+                                        <Button
+                                            variant="outline"
                                             onClick={handleNext}
                                             disabled={currentPage >= clientTotalPages}
-                                            style={{
-                                                border: '1px solid #c1c9d6',
-                                                borderRadius: '6px',
-                                                padding: '8px 12px',
-                                                fontFamily: 'Inter',
-                                                fontSize: '14px',
-                                                fontWeight: '500',
-                                                color: currentPage >= clientTotalPages ? '#c1c9d6' : '#202020',
-                                                backgroundColor: 'white'
-                                            }}
                                         >
                                             Next
-                                        </button>
+                                        </Button>
                                     </li>
                                 </ul>
                             </nav>

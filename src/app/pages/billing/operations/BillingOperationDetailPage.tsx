@@ -258,8 +258,7 @@ const BillingOperationDetailPage: React.FC = () => {
                     InputLabelProps={{ shrink: true }}
                   />
                   <Box>
-                    <WtButton
-                      tone="primary" size="small"
+                    <WtButton size="small"
                       disabled={!note.trim() || saveNote.isPending}
                       onClick={() => saveNote.mutate()}
                       sx={{ minHeight: 34, borderRadius: "10px", fontSize: 12.5 }}
@@ -391,8 +390,7 @@ const BillingOperationDetailPage: React.FC = () => {
                     helperText="Required — it is written to the activity log."
                   />
                 )}
-                <WtButton
-                  tone="primary" size="small"
+                <WtButton size="small"
                   disabled={!move.status || (reasonRequired && !move.reason.trim()) || transition.isPending}
                   onClick={() => transition.mutate()}
                   sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}

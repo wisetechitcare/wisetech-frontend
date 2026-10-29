@@ -17,11 +17,7 @@ module.exports = {
     ecmaFeatures: { jsx: true },
   },
   plugins: ['@typescript-eslint', 'react-hooks', 'react-refresh'],
-  extends: [
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:react-hooks/recommended',
-  ],
+  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'plugin:react-hooks/recommended', 'plugin:storybook/recommended'],
   ignorePatterns: [
     'dist',
     'build',
@@ -104,6 +100,15 @@ module.exports = {
           {
             name: '@app/modules/common/inputs/RadioInput',
             message: 'Use WtChoiceField from @app/modules/common/components/ui. RadioInput is deprecated for new feature work.',
+          },
+        ],
+        /* ADR-001 (docs/DESIGN_SYSTEM_DECISION.md): the WiseTech kit is the design system, owned
+         * code on Radix + Tailwind. Competing component libraries never enter the app — they
+         * bring their own look, theme and focus rules, which is how four visual systems piled up. */
+        patterns: [
+          {
+            group: ['antd', 'antd/*', '@ant-design/*', '@mantine/*', '@chakra-ui/*', '@carbon/*'],
+            message: 'Not part of the WiseTech design system (ADR-001). Use the kit: @app/modules/common/components/ui — add a component there if one is missing.',
           },
         ],
       },
@@ -270,6 +275,13 @@ module.exports = {
         'src/app/modules/common/utils/DropdownAdd.tsx',
       ],
       rules: { 'no-restricted-syntax': 'off', 'no-restricted-imports': 'off' },
+    },
+    {
+      /* ADR-001 v2 kit (Radix + Tailwind). It implements its own primitives, so the legacy
+       * MUI-kit syntax rules (raw Switch, raw `title`, etc.) don't apply here. The import
+       * bans stay ON: the v2 kit must not pull in antd / Mantine / raw react-select either. */
+      files: ['src/ds/**'],
+      rules: { 'no-restricted-syntax': 'off' },
     },
     {
       /* DROPDOWN MIGRATION BACKLOG — still import react-select outside the kit. Warn while

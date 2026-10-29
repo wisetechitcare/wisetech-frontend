@@ -164,7 +164,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                             onChange={setMode}
                         />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openCreate}>
+                            <WtButton size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openCreate}>
                                 Create Role
                             </WtButton>
                         )}

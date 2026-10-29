@@ -8,20 +8,21 @@
 # `pnpm run build` before landing. Re-check with `pnpm audit --audit-level high` after
 # any dependency change; drop an entry once its parents have moved past it.
 overrides:
-  nth-check: '>=2.0.1'        # ReDoS via inefficient regex complexity
+  nth-check: '>=2.0.1' # ReDoS via inefficient regex complexity
   brace-expansion: '>=5.0.11' # DoS via exponential-time expansion / uncontrolled recursion (all paths are on 5.x)
-  js-yaml: '>=4.3.0'          # quadratic CPU from YAML merge-key chains
-  immutable: '>=5.1.8'        # List 32-bit trie overflow -> unrecoverable corruption
-  fast-uri: '>=3.1.4'         # host confusion via literal backslash
-  postcss: '>=8.5.18'         # arbitrary file read / information disclosure
-  minimatch: '>=9.0.7'        # ReDoS via repeated wildcards (stays in-major: estree is already on 9.x)
+  js-yaml: '>=4.3.0' # quadratic CPU from YAML merge-key chains
+  immutable: '>=5.1.8' # List 32-bit trie overflow -> unrecoverable corruption
+  fast-uri: '>=3.1.4' # host confusion via literal backslash
+  postcss: '>=8.5.18' # arbitrary file read / information disclosure
+  minimatch: '>=9.0.7' # ReDoS via repeated wildcards (stays in-major: estree is already on 9.x)
   socket.io-parser: '>=4.2.7' # zero-attachment memory exhaustion
-  nanoid: '>=3.3.16'          # non-secure generator can loop indefinitely
-  source-map-js: '>=1.2.2'    # event-loop DoS via indexed source-map section offsets
+  nanoid: '>=3.3.16' # non-secure generator can loop indefinitely
+  source-map-js: '>=1.2.2' # event-loop DoS via indexed source-map section offsets
   follow-redirects: '>=1.16.1'
   vite: '>=7.3.7'
-  dompurify: '>=3.4.17'       # SAFE_FOR_TEMPLATES bypass (critical, GHSA-cg2g-xh64-v4q7) + IN_PLACE hook (GHSA-mrv2-3pqr-j5jr); covers jspdf's copy
-  undici: '>=8.12.2'          # DoS via excessive content-encodings (GHSA-xjj6-f33q-929c), via jsdom
+  dompurify: '>=3.4.17' # SAFE_FOR_TEMPLATES bypass (critical, GHSA-cg2g-xh64-v4q7) + IN_PLACE hook (GHSA-mrv2-3pqr-j5jr); covers jspdf's copy
+  undici: '>=8.12.2' # DoS via excessive content-encodings (GHSA-xjj6-f33q-929c), via jsdom
+  '@tanstack/react-virtual': '3.14.22' # React 19 support; material-react-table pins 3.10.6 (same major)
 
 # pnpm blocks dependency install scripts by default. These need theirs:
 #   esbuild, @swc/core   -> Vite's bundler + the React SWC plugin (build breaks without)
@@ -37,3 +38,23 @@ allowBuilds:
   puppeteer: true
   core-js: true
   '@fortawesome/fontawesome-free': true
+
+# React 19: these two declare an old React peer range but use no API React 19 removed
+# (checked their dist for findDOMNode, ReactDOM.render, string refs, legacy context).
+# Drop an entry once the package is replaced: react-table -> TanStack Table (ADR-001).
+peerDependencyRules:
+  allowedVersions:
+    react-table>react: '19'
+    react-copy-to-clipboard>react: '19'
+    # @aws-amplify/ui-react-liveness declares React 19 itself but still depends on @xstate/react 3.
+    '@xstate/react>react': '19'
+
+# cmdk 1.1.1 (shadcn's Command, all bases) has two a11y bugs, fixed in patches/cmdk@1.1.1.patch:
+#   1. after a search, aria-activedescendant keeps the id of an item that re-mounted with a new id
+#      (the store skips the update because the selected VALUE did not change);
+#   2. an empty result list keeps role="listbox" with no options (aria-required-children);
+#   3. Command.Separator is role="separator" inside the listbox, which allows only options/groups —
+#      it is decorative, so it is aria-hidden instead.
+# Re-check both on any cmdk upgrade (Storybook: Components/Command stories) and drop the patch if fixed upstream.
+patchedDependencies:
+  cmdk@1.1.1: patches/cmdk@1.1.1.patch

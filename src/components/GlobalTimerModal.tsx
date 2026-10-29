@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from 'react-redux';
-import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -28,6 +27,7 @@ import {
   selectIsTimerRunning,
   selectCurrentTask
 } from '@redux/slices/timer';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 export default function GlobalTimerModal() {
   const dispatch = useDispatch<AppDispatch>();
@@ -361,7 +361,7 @@ export default function GlobalTimerModal() {
           runtime and blanked the whole banner, and `title` on an MUI IconButton is lint-banned
           because it leaks to the DOM. A span does neither. */}
       <span title={isTimerRunning ? "Pause — keeps this session open" : "Resume"}>
-        <IconButton
+        <WtIconButton size="medium"
           onClick={handleTimerToggle}
           aria-label={isTimerRunning ? "Pause timer" : "Resume timer"}
           sx={{ ...controlSx, color: "green" }}
@@ -372,21 +372,21 @@ export default function GlobalTimerModal() {
           ) : (
             <PlayArrowIcon sx={{ fontSize: ICON_SIZE }} />
           )}
-        </IconButton>
+        </WtIconButton>
       </span>
 
       {/* Stop — commits the time AND ends the session, so the next start opens a NEW entry.
           Before this existed there was only pause, so a finished task stayed attached to the
           timer and the next start silently appended to the same row. */}
       <span title="Stop — saves the time, then asks what you did">
-        <IconButton
+        <WtIconButton size="medium"
           onClick={handleTimerStop}
           aria-label="Stop timer"
           sx={{ ...controlSx, color: "error.main" }}
           disabled={loading}
         >
           <StopCircleIcon sx={{ fontSize: ICON_SIZE }} />
-        </IconButton>
+        </WtIconButton>
       </span>
 
       {/* Content — two lines, not four.
@@ -422,26 +422,26 @@ export default function GlobalTimerModal() {
       {/* Park it at the edge. Not the same as closing: the clock keeps running and the tab
           stays on screen showing the elapsed time. */}
       <span title="Hide — parks the timer at the edge of the screen">
-        <IconButton
+        <WtIconButton size="medium"
           onClick={() => setCollapsed(true)}
           aria-label="Hide the timer"
           sx={{ ...controlSx, color: "text.secondary" }}
           disabled={loading}
         >
           <VisibilityOffIcon sx={{ fontSize: ICON_SIZE }} />
-        </IconButton>
+        </WtIconButton>
       </span>
 
       {/* Close — dismisses the banner for thirty minutes. The timer keeps running either way. */}
       <span title="Dismiss for 30 minutes">
-        <IconButton
+        <WtIconButton size="medium"
           onClick={handleTimerClose}
           aria-label="Dismiss the timer banner"
           sx={{ ...controlSx, color: "text.secondary" }}
           disabled={loading}
         >
           <CloseIcon sx={{ fontSize: ICON_SIZE }} />
-        </IconButton>
+        </WtIconButton>
       </span>
 
     </Box>

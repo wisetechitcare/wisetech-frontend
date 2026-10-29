@@ -17,14 +17,15 @@
  * task activity — so this shows an honest future-ready state rather than an empty feed that
  * implies data is merely missing.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import {
-    Box, Button, Chip, CircularProgress, Divider, Grid, IconButton, Menu, MenuItem,
+    Box, Chip, CircularProgress, Divider, Grid, Menu, MenuItem,
     Stack, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { KTIcon } from '@metronic/helpers';
 import { confirmDialog, toast, WhatsAppIcon } from '@app/modules/common/components/ui';
 import { formatDate } from '@utils/dateFormats';
@@ -36,7 +37,7 @@ import {
     useTask, useSubtasks, useTaskTimesheets, useTaskStatuses, useMoveTaskStage, useDeleteTask,
 } from './useTaskQueries';
 import {
-    TaskScopeBadge, TaskProgress, TaskAssignees, TaskStateBlock, AssigneeAvatar, primaryPillSx,
+    TaskScopeBadge, TaskProgress, TaskAssignees, TaskStateBlock, AssigneeAvatar,
 } from './components/primitives';
 import { GENERAL_PREFIX } from './components/ProjectRail';
 import { NotifyOnWhatsAppDialog, notifiableFromTask } from './components/NotifyOnWhatsAppDialog';
@@ -224,7 +225,7 @@ export const TaskDetailPage = () => {
                         apiErrorMessage(taskQuery.error, "This task does not exist, or you do not have access to it.")
                     }
                     action={
-                        <Button onClick={() => navigate('/tasks/tasks')} sx={{ textTransform: 'none', fontWeight: 600 }}>
+                        <Button variant="ghost" onClick={() => navigate('/tasks/tasks')}>
                             Back to tasks
                         </Button>
                     }
@@ -318,23 +319,11 @@ export const TaskDetailPage = () => {
                 page was opened from a link, a notification or a fresh tab. Sits on the page's
                 own left edge, above the header it leads out of. */}
             <Button
+                variant="outline"
+                className="mb-3"
                 onClick={() => navigate(backToBoard)}
-                startIcon={<KTIcon iconName="arrow-left" className="fs-6" />}
-                sx={{
-                    mb: 1.5,
-                    textTransform: 'none', fontWeight: 700, fontSize: 13,
-                    borderRadius: 999, pl: 1.5, pr: 2, py: 0.6,
-                    color: 'text.primary', bgcolor: 'background.paper',
-                    border: '1px solid', borderColor: 'divider',
-                    boxShadow: '0 1px 2px rgba(16,24,40,.06)',
-                    '& .MuiButton-startIcon': { transition: 'transform .15s' },
-                    '&:hover': {
-                        bgcolor: 'background.paper', borderColor: 'primary.main', color: 'primary.main',
-                        '& .MuiButton-startIcon': { transform: 'translateX(-2px)' },
-                    },
-                    '&:focus-visible': { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
-                }}
             >
+                <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="arrow-left" className="fs-6" /></span>
                 Back to tasks
             </Button>
 
@@ -380,11 +369,12 @@ export const TaskDetailPage = () => {
                         </Stack>
                         {task.parentTaskId && (
                             <Button
-                                size="small"
+                                variant="ghost"
+                                size="sm"
+                                className="mb-0.5"
                                 onClick={() => navigate(`/tasks/${task.parentTaskId}`)}
-                                startIcon={<KTIcon iconName="tree" className="fs-8" />}
-                                sx={{ textTransform: 'none', p: 0, minWidth: 0, mb: 0.25, color: 'text.secondary', fontWeight: 600 }}
                             >
+                                <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="tree" className="fs-8" /></span>
                                 Subtask of {task.parentTask?.taskName || 'another task'}
                             </Button>
                         )}
@@ -418,48 +408,38 @@ export const TaskDetailPage = () => {
                     {/* The stage control wears the stage's colour and glyph, so the control and the
                         header it sits in say the same thing. */}
                     <Button
+                        variant="tinted"
+                        style={{ '--tint': stageColor } as CSSProperties}
                         onClick={(e) => setStageAnchor(e.currentTarget)}
                         disabled={moveStage.isPending}
-                        startIcon={<StatusGlyph key={`pill-${task.statusId ?? 'none'}`} icon={task.status?.icon} color={stageColor} size={18} />}
-                        endIcon={<KTIcon iconName="down" className="fs-6" />}
-                        sx={{
-                            textTransform: 'none', fontWeight: 700, borderRadius: 999, px: 2.25, height: 40, fontSize: 14,
-                            color: stageColor, bgcolor: 'background.paper',
-                            border: '1px solid', borderColor: alpha(stageColor, 0.4),
-                            '&:hover': { bgcolor: alpha(stageColor, 0.08), borderColor: stageColor },
-                        }}
                     >
+                        <span data-icon="inline-start" className="inline-flex">
+                            <StatusGlyph key={`pill-${task.statusId ?? 'none'}`} icon={task.status?.icon} color={stageColor} size={18} />
+                        </span>
                         {task.status?.name ?? 'No stage'}
+                        <span data-icon="inline-end" className="inline-flex"><KTIcon iconName="down" className="fs-6" /></span>
                     </Button>
                     <Button
+                        variant="outline"
                         onClick={() => setEditOpen(true)}
-                        startIcon={<KTIcon iconName={canEdit ? 'pencil' : 'chart-simple'} className="fs-5" />}
-                        sx={{
-                            textTransform: 'none', fontWeight: 700, borderRadius: 999, px: 2.25, height: 40, fontSize: 14,
-                            color: 'text.primary', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
-                            '&:hover': { bgcolor: 'background.paper', borderColor: 'primary.main', color: 'primary.main' },
-                        }}
                     >
+                        <span data-icon="inline-start" className="inline-flex">
+                            <KTIcon iconName={canEdit ? 'pencil' : 'chart-simple'} className="fs-5" />
+                        </span>
                         {canEdit ? 'Edit' : 'Update progress'}
                     </Button>
                     {canEdit && (
                         <Tooltip title="Delete this task">
-                            <IconButton
+                            {/* Neutral until reached for: destructive controls should not shout from a
+                                page you are only reading. */}
+                            <Button
+                                variant="outline"
+                                size="icon"
                                 onClick={handleDelete}
                                 aria-label="Delete task"
-                                sx={{
-                                    width: 40, height: 40, bgcolor: 'background.paper',
-                                    border: '1px solid', borderColor: 'divider', color: 'text.secondary',
-                                    // Neutral until reached for: destructive controls should not
-                                    // shout from a page you are only reading.
-                                    '&:hover': {
-                                        color: 'error.main', bgcolor: alpha(theme.palette.error.main, 0.08),
-                                        borderColor: alpha(theme.palette.error.main, 0.5),
-                                    },
-                                }}
                             >
                                 <KTIcon iconName="trash" className="fs-4" />
-                            </IconButton>
+                            </Button>
                         </Tooltip>
                     )}
                 </Stack>
@@ -492,14 +472,10 @@ export const TaskDetailPage = () => {
                             key={t.label}
                             role="tab"
                             aria-selected={active}
+                            variant={active ? 'default' : 'ghost'}
                             onClick={() => setTab(i)}
-                            startIcon={<KTIcon iconName={t.icon} className="fs-5" />}
-                            sx={active ? primaryPillSx : {
-                                flexShrink: 0, textTransform: 'none', fontWeight: 700, fontSize: 13.5,
-                                borderRadius: 2.5, px: 2, py: 0.9, color: 'text.secondary',
-                                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08), color: 'primary.main' },
-                            }}
                         >
+                            <span data-icon="inline-start" className="inline-flex"><KTIcon iconName={t.icon} className="fs-5" /></span>
                             {t.label}
                             {t.count ? (
                                 <Box component="span" sx={{
@@ -532,14 +508,15 @@ export const TaskDetailPage = () => {
                                             task, long after the assignment too. */}
                                         {canEdit && notifiablePeople.length > 0 && (
                                             <Tooltip title="Send a WhatsApp note from your own number">
-                                                <IconButton
-                                                    size="small"
+                                                <Button
+                                                    variant="tinted"
+                                                    size="icon-sm"
+                                                    style={{ '--tint': 'var(--cta-success)' } as CSSProperties}
                                                     aria-label="Send a WhatsApp note"
                                                     onClick={() => setNotifyOpen(true)}
-                                                    sx={{ color: 'success.main' }}
                                                 >
                                                     <WhatsAppIcon size={16} />
-                                                </IconButton>
+                                                </Button>
                                             </Tooltip>
                                         )}
                                     </Stack>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import IconButton from "@mui/material/IconButton";
-import CloseIcon from "@mui/icons-material/Close";
+import { Button } from "@/ds/ui/button";
+import { WtCloseButton } from "@app/modules/common/components/ui/tw/WtCloseButton";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import PauseCircleIcon from "@mui/icons-material/PauseCircle";
@@ -105,9 +105,16 @@ export default function CustomToastNotification({
       }}
     >
       {/* Play/Pause Button */}
-      <IconButton onClick={handlePauseToggle} sx={{ color: "green", mr: 1 }}>
+      <Button
+        variant="tinted"
+        size="icon"
+        className="mr-2"
+        style={{ "--tint": "var(--cta-success)" } as React.CSSProperties}
+        aria-label={isTimerRunning ? "Pause timer" : "Resume timer"}
+        onClick={handlePauseToggle}
+      >
         {isTimerRunning ? <PauseCircleIcon sx={{ fontSize: 40 }} /> : <PlayArrowIcon sx={{ fontSize: 40 }} />}
-      </IconButton>
+      </Button>
 
       {/* Content */}
       <Box sx={{ flex: 1 }}>
@@ -150,9 +157,7 @@ export default function CustomToastNotification({
       </Box>
 
       {/* Close Button */}
-      <IconButton size="large" onClick={onClose}>
-        <CloseIcon fontSize="large" />
-      </IconButton>
+      <WtCloseButton variant="plain" onClick={onClose} />
     </Box>
   );
 }

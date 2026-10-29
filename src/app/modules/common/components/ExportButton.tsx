@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Box, Button, ButtonGroup, IconButton, Menu, MenuItem, ListItemIcon, ListItemText,
-    Divider, CircularProgress,
+    Box, Menu, MenuItem, ListItemIcon, ListItemText, Divider,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import DownloadIconModule from '@mui/icons-material/Download';
 import ArrowDropDownIconModule from '@mui/icons-material/ArrowDropDown';
 import TableChartIconModule from '@mui/icons-material/TableChart';
@@ -463,85 +463,63 @@ function ExportButton<T = any>({
         }
     };
 
-    const btnSx = {
-        textTransform: 'none',
-        fontWeight: 700,
-        fontSize: size === 'small' ? 12.5 : 13.5,
-        borderColor: '#3b82f6',
-        color: '#3b82f6',
-        borderRadius: 0,
-        '&:hover': { borderColor: '#2563eb', bgcolor: '#eff6ff' },
-        '&.Mui-disabled': { opacity: 0.5 },
-    };
+    const busy = loading !== null;
 
     return (
         <>
             {iconOnly ? (
                 <Box ref={groupRef} sx={{ display: 'inline-flex', ...sx }}>
-                    <IconButton
+                    <Button
+                        variant="tinted"
+                        size="icon"
                         onClick={handleOpen}
-                        disabled={disabled || loading !== null}
+                        disabled={disabled}
+                        loading={busy}
                         aria-label={label}
                         title={label}
                         aria-controls={open ? 'export-menu' : undefined}
                         aria-haspopup="true"
                         aria-expanded={open ? 'true' : undefined}
-                        sx={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: '10px',
-                            color: '#2563eb',
-                            bgcolor: '#eff6ff',
-                            border: '1px solid #dbeafe',
-                            '&:hover': { bgcolor: '#dbeafe' },
-                            '&.Mui-disabled': { opacity: 0.5 },
-                        }}
                     >
-                        {loading
-                            ? <CircularProgress size={16} sx={{ color: '#2563eb' }} />
-                            : <DownloadIcon sx={{ fontSize: 19 }} />}
-                    </IconButton>
+                        <DownloadIcon sx={{ fontSize: 19 }} />
+                    </Button>
                 </Box>
             ) : (
-            <ButtonGroup
-                ref={groupRef}
-                variant="outlined"
-                size={size}
-                disabled={disabled || loading !== null}
-                sx={{
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    boxShadow: '0 1px 3px rgba(59,130,246,0.10)',
-                    ...sx,
-                }}
-            >
+            // The split button: two joined kit buttons in the menu's anchor box (`sx` lands
+            // here, as it did on the ButtonGroup).
+            <Box ref={groupRef} sx={{ display: 'inline-flex', ...sx }}>
                 {/* Main Export button — clicking it opens the menu too */}
                 <Button
-                    startIcon={
-                        loading ? (
-                            <CircularProgress size={14} sx={{ color: '#3b82f6' }} />
-                        ) : (
-                            <DownloadIcon sx={{ fontSize: 15 }} />
-                        )
-                    }
+                    variant="outline"
+                    size={size === 'small' ? 'sm' : 'default'}
+                    className="rounded-r-none"
                     onClick={handleOpen}
-                    sx={{ ...btnSx, borderRadius: '8px 0 0 8px', px: 1.25, py: 0.35 }}
+                    disabled={disabled}
+                    loading={busy}
                 >
-                    {loading ? 'Exporting…' : label}
+                    {!busy && (
+                        <span data-icon="inline-start" className="inline-flex">
+                            <DownloadIcon sx={{ fontSize: 15 }} />
+                        </span>
+                    )}
+                    {busy ? 'Exporting…' : label}
                 </Button>
 
                 {/* Arrow to open menu */}
                 <Button
-                    size="small"
+                    variant="outline"
+                    size={size === 'small' ? 'icon-sm' : 'icon'}
+                    className="-ml-px rounded-l-none"
                     onClick={handleOpen}
-                    sx={{ ...btnSx, borderRadius: '0 8px 8px 0', px: 0.25, minWidth: 26 }}
+                    disabled={disabled || busy}
+                    aria-label={`${label} options`}
                     aria-controls={open ? 'export-menu' : undefined}
                     aria-haspopup="true"
                     aria-expanded={open ? 'true' : undefined}
                 >
                     <ArrowDropDownIcon sx={{ fontSize: 18 }} />
                 </Button>
-            </ButtonGroup>
+            </Box>
             )}
 
             <Menu

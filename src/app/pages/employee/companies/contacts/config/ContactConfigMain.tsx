@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
 import FormerContactsSetting from "./FormerContactsSetting";
+import AuditWindowSetting from "../../AuditWindowSetting";
 import { useContactConfig } from "@hooks/useContactConfig";
 import {
   ConfigPageLayout,
@@ -117,6 +118,8 @@ const ContactConfigMain = () => {
           </ConfigSectionCard>
 
           <FormerContactsSetting />
+
+          <AuditWindowSetting entity="CONTACT" what="contact" />
         </div>
       </ConfigPageLayout>
 

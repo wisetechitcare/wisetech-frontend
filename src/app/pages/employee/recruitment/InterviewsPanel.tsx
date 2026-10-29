@@ -303,7 +303,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
             title="Interviews"
             description={summary}
             action={canWrite && (
-                <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openSchedule} aria-label={`Schedule an interview with ${applicantName}`}>
+                <WtButton size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openSchedule} aria-label={`Schedule an interview with ${applicantName}`}>
                     Schedule
                 </WtButton>
             )}
@@ -420,7 +420,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <WtButton ghost onClick={closeSchedule}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={!canSchedule || scheduleMut.isPending} onClick={() => scheduleMut.mutate()}>
+                    <WtButton disabled={!canSchedule || scheduleMut.isPending} onClick={() => scheduleMut.mutate()}>
                         {scheduleMut.isPending
                             ? (editingId ? "Saving…" : "Scheduling…")
                             : (editingId ? "Save & Notify" : "Schedule & Invite")}
@@ -539,7 +539,7 @@ const InterviewsPanel = ({ applicationId, applicantName }: Props) => {
                     {/* Held until the rubric is in AND a rating has actually been given: the server
                         validates the rating against the scale, so an unset one was an enabled button
                         that failed on press. */}
-                    <WtButton tone="primary" disabled={scoreMut.isPending || !ratingGiven || !decisions || !score.recommendation} onClick={() => scoreMut.mutate()}>
+                    <WtButton disabled={scoreMut.isPending || !ratingGiven || !decisions || !score.recommendation} onClick={() => scoreMut.mutate()}>
                         {scoreMut.isPending ? "Saving…" : "Save Scorecard"}
                     </WtButton>
                 </DialogActions>

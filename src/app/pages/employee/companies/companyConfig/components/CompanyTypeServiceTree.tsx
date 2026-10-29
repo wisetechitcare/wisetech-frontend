@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback } from "react";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 /**
  * CompanyTypeServiceTree
@@ -77,36 +78,19 @@ const hexToRgba = (hex: string, a: number): string => {
   }
 };
 
-const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (e: React.MouseEvent) => void }> = ({ icon, title, color, onClick }) => {
-  const [hov, setHov] = useState(false);
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        width: 30,
-        height: 30,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: hov ? hexToRgba(color, 0.24) : hexToRgba(color, 0.12),
-        border: `1px solid ${hov ? color : hexToRgba(color, 0.32)}`,
-        borderRadius: 8,
-        cursor: "pointer",
-        color,
-        boxShadow: hov ? `0 3px 8px ${hexToRgba(color, 0.3)}` : "none",
-        transform: hov ? "translateY(-1px)" : "none",
-        transition: "all .15s ease",
-      }}
-    >
-      <AppIcon name={icon} className="fs-7" style={{ lineHeight: 1 }} />
-    </button>
-  );
-};
+// The kit's tinted icon button, toned by the action colour (--tint): pastel at rest, deeper on hover.
+const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (e: React.MouseEvent) => void }> = ({ icon, title, color, onClick }) => (
+  <Button
+    variant="tinted"
+    size="icon-sm"
+    title={title}
+    aria-label={title}
+    onClick={(e) => { e.stopPropagation(); onClick(e); }}
+    style={{ "--tint": color } as React.CSSProperties}
+  >
+    <AppIcon name={icon} className="fs-7" style={{ lineHeight: 1 }} />
+  </Button>
+);
 
 const CompanyTypeServiceTree: React.FC<Props> = ({
   companyTypes, services,
@@ -200,7 +184,7 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
     return rows;
   }, [tree, expanded, q, matches]);
 
-  const toggle = (key: string) => setExpanded((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggle = (key: string) => setExpanded((prev) => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   const expandAll = () => setExpanded(new Set(expandableKeys));
   const collapseAll = () => setExpanded(new Set());
   const allExpanded = expandableKeys.size > 0 && Array.from(expandableKeys).every((k) => expanded.has(k));
@@ -217,12 +201,6 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
     : n.kind === "subservice" ? "sub-service"
     : "";
 
-  const toolBtn = (active: boolean): React.CSSProperties => ({
-    display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
-    border: `1px solid ${active ? ACCENT : "#dde2e8"}`, background: active ? "#fbf3f3" : "#fff",
-    color: active ? ACCENT : "#46505d", fontWeight: 500, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap",
-  });
-
   return (
     <div>
       {/* Toolbar */}
@@ -236,17 +214,17 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
             style={{ width: "100%", height: 36, border: "1px solid #dde2e8", borderRadius: 8, padding: "0 30px 0 32px", fontSize: 13, outline: "none", color: "#1f2733", boxSizing: "border-box" }}
           />
           {query && (
-            <button type="button" onClick={() => setQuery("")} title="Clear" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
+            <Button variant="ghost" size="icon-xs" onClick={() => setQuery("")} title="Clear" aria-label="Clear search" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)" }}>
               <AppIcon name="bi-x-lg" className="fs-8" />
-            </button>
+            </Button>
           )}
         </div>
-        <button type="button" onClick={expandAll} disabled={allExpanded || !!q} style={{ ...toolBtn(false), opacity: allExpanded || !!q ? 0.55 : 1, cursor: allExpanded || !!q ? "not-allowed" : "pointer" }}>
-          <AppIcon name="bi-arrows-expand" /> Expand all
-        </button>
-        <button type="button" onClick={collapseAll} disabled={allCollapsed || !!q} style={{ ...toolBtn(false), opacity: allCollapsed || !!q ? 0.55 : 1, cursor: allCollapsed || !!q ? "not-allowed" : "pointer" }}>
-          <AppIcon name="bi-arrows-collapse" /> Collapse all
-        </button>
+        <Button variant="outline" size="sm" onClick={expandAll} disabled={allExpanded || !!q}>
+          <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrows-expand" /></span> Expand all
+        </Button>
+        <Button variant="outline" size="sm" onClick={collapseAll} disabled={allCollapsed || !!q}>
+          <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrows-collapse" /></span> Collapse all
+        </Button>
       </div>
 
       {/* Tree */}
@@ -290,12 +268,16 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
                 } as React.CSSProperties}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-                  <span
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="size-4"
+                    aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`}
                     onClick={() => hasChildren && toggle(node.key)}
-                    style={{ width: 16, textAlign: "center", flexShrink: 0, color: "#8893a0", cursor: hasChildren ? "pointer" : "default", transition: "transform .18s ease", transform: open ? "rotate(90deg)" : "rotate(0deg)", visibility: hasChildren ? "visible" : "hidden" }}
+                    style={{ color: "#8893a0", transform: open ? "rotate(90deg)" : "rotate(0deg)", visibility: hasChildren ? "visible" : "hidden" }}
                   >
                     <AppIcon name="bi-chevron-right" className="fs-9" />
-                  </span>
+                  </Button>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: dotColor(node), flexShrink: 0, boxShadow: node.kind === "type" ? `0 0 0 2px ${dotColor(node)}28` : "none" }} />
                   <span style={{ fontWeight: node.kind === "type" ? 600 : node.kind === "group" ? 600 : 400, fontSize: node.kind === "type" ? 13.5 : 12.5, color: node.kind === "group" ? "#8893a0" : "#1f2733", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {node.name}

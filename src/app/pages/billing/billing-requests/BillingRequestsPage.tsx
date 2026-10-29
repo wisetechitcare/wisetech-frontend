@@ -273,7 +273,6 @@ const BillingRequestsPage: React.FC = () => {
         description={`${visible.length} request${visible.length === 1 ? "" : "s"} · ${formatCurrencyDecimal(total)}`}
         action={
           <WtButton
-            tone="primary"
             size="small"
             onClick={() => navigate("/billing/requests/new")}
             startIcon={<KTIcon iconName="plus" className="fs-6" />}

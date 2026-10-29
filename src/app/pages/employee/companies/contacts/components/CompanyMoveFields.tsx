@@ -2,9 +2,11 @@ import React from "react";
 import dayjs from "dayjs";
 import { useFormikContext } from "formik";
 import { Box, Typography } from "@mui/material";
+import { alpha, type Theme } from "@mui/material/styles";
+import { South } from "@mui/icons-material";
 import { KTIcon } from "@metronic/helpers";
 import DateInput from "@app/modules/common/inputs/DateInput";
-import { InlineNotice, TRIO, WtButton } from "@app/modules/common/components/ui";
+import { ToneChip, WtButton } from "@app/modules/common/components/ui";
 import type { ContactCompanyStint, ContactFormValues } from "@models/companies";
 
 const monthYear = (d?: string | null) => (d ? dayjs(d).format("MMM YYYY") : "");
@@ -13,73 +15,119 @@ const monthYear = (d?: string | null) => (d ? dayjs(d).format("MMM YYYY") : "");
 export const stintDates = (s: Pick<ContactCompanyStint, "startDate" | "endDate">) =>
   s.startDate ? `${monthYear(s.startDate)} – ${monthYear(s.endDate) || "Present"}` : `Until ${monthYear(s.endDate)}`;
 
-interface Props {
-  /** The company the contact was saved with. Empty for a new contact: nothing to move from. */
-  originalCompanyId: string;
-  originalCompanyName: string;
-  newCompanyName?: string;
-  history: ContactCompanyStint[];
-  onMove: () => void;
-  onUndo: () => void;
+/** What they were at the company they are leaving — captured by name when the move starts. */
+export interface MovedFrom {
+  companyName: string;
+  branch?: string;
+  role?: string;
+  status?: string;
+  services: string[];
 }
 
+const LeavingField: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, value }) => (
+  <Box sx={{ minWidth: 0 }}>
+    <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: "text.secondary", mb: 0.25 }}>{label}</Typography>
+    <Typography sx={{ fontSize: 14, fontWeight: 600, color: value ? "text.primary" : "text.disabled", overflowWrap: "anywhere" }}>
+      {value || "—"}
+    </Typography>
+  </Box>
+);
+
+const panelSx = (color: (t: Theme) => string, dashed = false) => (theme: Theme) => ({
+  p: { xs: 1.5, sm: 2 },
+  borderRadius: "12px",
+  border: `1px ${dashed ? "dashed" : "solid"} ${alpha(color(theme), 0.45)}`,
+  bgcolor: alpha(color(theme), theme.palette.mode === "dark" ? 0.12 : 0.05),
+});
+
 /**
- * The Company step's job-change controls. "Move to another company" clears the company
- * fields for the new employer; saving lets the server close the old stint (see companyMove),
- * so the old company shows under "Previous companies" and old leads stay with it.
+ * Wraps the Company step's fields. Normally it renders them as they are — editing them there
+ * CORRECTS the company. During a move (started by "Move to another company") the company they
+ * are leaving sits on top, read-only, and the same fields below become the company they join.
  */
-export const CompanyMoveFields: React.FC<Props> = ({
-  originalCompanyId, originalCompanyName, newCompanyName, history, onMove, onUndo,
-}) => {
+export const CompanyMoveStage: React.FC<{
+  movedFrom: MovedFrom | null;
+  onUndo: () => void;
+  children: React.ReactNode;
+}> = ({ movedFrom, onUndo, children }) => {
   const formik = useFormikContext<ContactFormValues>();
-  const { values } = formik;
-  const moving = !!originalCompanyId && values.companyId !== originalCompanyId;
-  const workPrimary = values.emails?.find((e) => e.isPrimary && e.label === "Work" && e.value);
+  if (!movedFrom) return <>{children}</>;
+
+  const workPrimary = formik.values.emails?.find((e) => e.isPrimary && e.label === "Work" && e.value);
+  const leftOn = formik.values.companyMovedOn ? dayjs(formik.values.companyMovedOn).format("DD MMM YYYY") : "";
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column" }}>
+      <Box sx={panelSx((t) => t.palette.text.secondary, true)}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1, mb: 1.5 }}>
+          <ToneChip dense tone="warning" label={leftOn ? `Leaving · ${leftOn}` : "Leaving"} />
+          <WtButton ghost size="small" onClick={onUndo} startIcon={<KTIcon iconName="arrow-left" className="fs-5" />}>
+            Undo move
+          </WtButton>
+        </Box>
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "2fr 1fr 1fr 1fr" } }}>
+          <LeavingField label="Company" value={movedFrom.companyName} />
+          <LeavingField label="Branch" value={movedFrom.branch} />
+          <LeavingField label="Designation" value={movedFrom.role} />
+          <LeavingField label="Status" value={movedFrom.status} />
+          {movedFrom.services.length > 0 && (
+            <Box sx={{ gridColumn: "1 / -1" }}>
+              <LeavingField label="Sub-services" value={movedFrom.services.join(", ")} />
+            </Box>
+          )}
+        </Box>
+        <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 1.5 }}>
+          Kept under Previous companies when you save. Old leads and projects stay with it.
+        </Typography>
+      </Box>
+
+      <Box aria-hidden sx={{ display: "flex", justifyContent: "center", py: 0.75, color: "text.disabled" }}>
+        <South fontSize="small" />
+      </Box>
+
+      <Box sx={panelSx((t) => t.palette.success.main)}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1.5, mb: 2 }}>
+          <ToneChip dense tone="success" label="Joining" />
+          <Box className="crm-date-field" sx={{ width: { xs: "100%", sm: 260 } }}>
+            <DateInput formikField="companyMovedOn" formikProps={formik} inputLabel="Joined on" isRequired={false} />
+          </Box>
+        </Box>
+        {children}
+        {workPrimary && (
+          <Typography sx={{ fontSize: 13, fontWeight: 600, color: "warning.dark", mt: 2 }}>
+            Their primary email ({workPrimary.value}) is a Work address. Make a personal or new email primary on the
+            Contact step so birthday greetings still reach them.
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  );
+};
+
+/**
+ * Below the fields: the "Move to another company" button (existing contacts, not mid-move)
+ * and the read-only Previous companies list.
+ */
+export const CompanyMoveFields: React.FC<{
+  canMove: boolean;
+  moving: boolean;
+  originalCompanyName: string;
+  history: ContactCompanyStint[];
+  onMove: () => void;
+}> = ({ canMove, moving, originalCompanyName, history, onMove }) => {
   const previous = history.filter((s) => s.endDate);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, mt: 3 }}>
-      {originalCompanyId && !moving && (
+      {canMove && !moving && (
         <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5 }}>
           <WtButton ghost onClick={onMove} startIcon={<KTIcon iconName="arrows-loop" className="fs-4" />}>
             Move to another company
           </WtButton>
           <Typography variant="caption" color="text.secondary">
-            Changed jobs? {originalCompanyName} stays in their history with its leads and projects.
+            Changed jobs? {originalCompanyName} stays in their history. To fix a wrongly picked company, just change it above.
           </Typography>
         </Box>
-      )}
-
-      {moving && (
-        <InlineNotice trio={TRIO.blue} icon="arrows-loop">
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "100%" }}>
-            <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
-                Moving from {originalCompanyName}
-                {newCompanyName ? ` to ${newCompanyName}` : ""}
-              </Typography>
-              <Typography sx={{ fontSize: 13 }}>
-                {newCompanyName ? "" : "Choose the new company above. "}
-                When you save, {originalCompanyName} moves to Previous companies. Old leads and projects stay with it.
-              </Typography>
-            </Box>
-            <Box sx={{
-              display: "grid", gap: 1.5, alignItems: "center",
-              gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 280px) auto" },
-            }}>
-              <Box className="crm-date-field">
-                <DateInput formikField="companyMovedOn" formikProps={formik} inputLabel="Joined new company on" isRequired={false} />
-              </Box>
-              <WtButton ghost onClick={onUndo} sx={{ justifySelf: "start" }}>Undo move</WtButton>
-            </Box>
-            {workPrimary && (
-              <Typography sx={{ fontSize: 13, fontWeight: 600 }}>
-                Their primary email ({workPrimary.value}) is a Work address. Make a personal or new email primary on
-                the Contact step so birthday greetings still reach them.
-              </Typography>
-            )}
-          </Box>
-        </InlineNotice>
       )}
 
       {previous.length > 0 && (

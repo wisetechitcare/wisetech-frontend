@@ -298,8 +298,7 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
         />
       )}
 
-      <WtButton
-        tone="primary" size="small" ghost onClick={addStage}
+      <WtButton size="small" ghost onClick={addStage}
         startIcon={<KTIcon iconName="plus" className="fs-6" />}
         sx={{ mt: 1.25, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
       >

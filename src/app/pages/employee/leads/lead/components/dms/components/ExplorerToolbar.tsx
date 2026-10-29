@@ -7,6 +7,7 @@ import { canSection } from '@utils/can';
 import type { SortField, SortOrder } from '../types/dms.types';
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal';
 import * as dmsService from '../services/dmsService';
+import { Button } from '@/ds/ui/button';
 
 interface ExplorerToolbarProps {
   onUploadClick: () => void;
@@ -121,17 +122,11 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
             onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.background = '#f8fafc'; e.target.style.boxShadow = 'none'; }}
           />
           {state.searchFilters.query && (
-            <button
+            <Button variant="ghost" size="icon-xs" type="submit" aria-label="Clear search" style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)' }}
               onClick={() => dispatch({ type: 'SET_SEARCH_FILTERS', payload: { query: '' } })}
-              style={{
-                position: 'absolute', right: '10px', top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'none', border: 'none',
-                cursor: 'pointer', display: 'flex', alignItems: 'center'
-              }}
             >
               <KTIcon iconName="cross" className="fs-3 text-muted" />
-            </button>
+            </Button>
           )}
         </div>
 
@@ -139,7 +134,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
           {['pdf', 'docx'].map(type => {
             const isActive = state.searchFilters.fileTypes.includes(type as any);
             return (
-              <button
+              <button data-wt-control="chip" aria-pressed={isActive}
                 key={type}
                 onClick={() => {
                   const newTypes = isActive
@@ -228,7 +223,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
                 }}
               >
                 {sortOptions.map(opt => (
-                  <button
+                  <button data-wt-control="menuitem" role="menuitem"
                     key={opt.field}
                     onClick={() => {
                       const newOrder: SortOrder = state.sortField === opt.field && state.sortOrder === 'asc' ? 'desc' : 'asc';

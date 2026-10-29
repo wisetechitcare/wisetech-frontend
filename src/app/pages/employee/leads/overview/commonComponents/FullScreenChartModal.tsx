@@ -1,9 +1,9 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState } from "react";
-import { Button } from "react-bootstrap";
 import { ResponsiveContainer } from "recharts";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface FullScreenChartModalProps {
   show: boolean;
@@ -45,23 +45,20 @@ const FullScreenChartModal: React.FC<FullScreenChartModalProps> = ({
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
                 <div className="position-absolute top-0 end-0 p-8 d-flex flex-column gap-3 z-index-2">
-                  <Button 
-                    variant="white" 
-                    className="btn-icon btn-active-light-primary shadow-sm rounded-circle w-45px h-45px border-0" 
+                  <Button variant="outline" 
+                    className="w-45px" 
                     onClick={() => zoomIn()}
                   >
                     <AppIcon name="bi-plus-lg" className="fs-3" />
                   </Button>
-                  <Button 
-                    variant="white" 
-                    className="btn-icon btn-active-light-primary shadow-sm rounded-circle w-45px h-45px border-0" 
+                  <Button variant="outline" 
+                    className="w-45px" 
                     onClick={() => zoomOut()}
                   >
                     <AppIcon name="bi-dash-lg" className="fs-3" />
                   </Button>
-                  <Button 
-                    variant="white" 
-                    className="btn-icon btn-active-light-primary shadow-sm rounded-circle w-45px h-45px border-0" 
+                  <Button variant="outline" 
+                    className="w-45px" 
                     onClick={() => resetTransform()}
                   >
                     <AppIcon name="bi-arrow-counterclockwise" className="fs-3" />

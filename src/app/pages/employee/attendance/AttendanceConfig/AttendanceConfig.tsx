@@ -43,6 +43,7 @@ import {
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Item } from '@/ds/ui/item';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -449,7 +450,7 @@ const AttendanceConfig: React.FC = () => {
                   what shift each one uses. (Replaces the in-modal "Configuring for" dropdown.) */}
               {(subOrgOptions.length > 0 || branchOptions.length > 0) && (
                 <div style={{ marginBottom: SP.lg }}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'stretch', width: '100%' }}>
+                  <div role="tablist" aria-label="Configuration scope" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'stretch', width: '100%' }}>
                     {[
                       // Root org default
                       { kind: 'org' as const, id: rootOrgId, label: rootOrgName, scope: { companyId: rootOrgId } },
@@ -466,6 +467,8 @@ const AttendanceConfig: React.FC = () => {
                         <button
                           key={`${b.kind}-${b.id || 'org'}`}
                           type="button"
+                          role="tab"
+                          aria-selected={active}
                           onClick={() => setConfigScope(b.scope)}
                           style={{
                             padding: '7px 14px',
@@ -771,8 +774,9 @@ const AttendanceConfig: React.FC = () => {
                   overflow: 'hidden',
                 }}
               >
-                <button
-                  type="button"
+                <Item
+                  render={<button type="button" />}
+                  className="flex-nowrap"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                     padding: '20px 24px', border: 'none', background: 'none', cursor: 'pointer',
@@ -784,7 +788,7 @@ const AttendanceConfig: React.FC = () => {
                   <AppIcon name="bi-palette" className="fs-3" color="#7c3aed" />
                   Open Appearance Editor
                   <AppIcon name="bi-arrow-right" className="ms-auto fs-6" color="#9ca3af" />
-                </button>
+                </Item>
                 <div style={{ padding: '16px 24px' }}>
                   <p style={{ fontFamily: FONT.body, fontSize: 13, color: C.textMuted, margin: 0 }}>
                     Customize colors for attendance calendar statuses, leave type indicators, working pattern metrics, work location tags, and chart series.

@@ -5,17 +5,14 @@ import ExportButton, { ExportVisibilityContext } from "@app/modules/common/compo
 import {
   MaterialReactTable,
   MRT_ShowHideColumnsMenu,
-  MRT_ToggleFiltersButton,
-  MRT_ToggleFullScreenButton,
-  MRT_ToggleGlobalFilterButton,
+  type MRT_TableInstance,
 } from "material-react-table";
+import { X } from "lucide-react";
+import { Button } from "@/ds/ui/button";
 import {
-  Button,
-  ButtonGroup,
   Container,
   createTheme,
   Icon,
-  IconButton,
   Menu,
   MenuItem,
   ThemeProvider,
@@ -68,9 +65,9 @@ const ShowHideColumnsButton = ({ table }: { table: any }) => {
   return (
     <>
       <Tooltip title={label}>
-        <IconButton aria-label={label} onClick={(e) => setAnchorEl(e.currentTarget)}>
+        <Button variant="ghost" size="icon-sm" aria-label={label} onClick={(e) => setAnchorEl(e.currentTarget)}>
           <ViewColumnIcon />
-        </IconButton>
+        </Button>
       </Tooltip>
       {anchorEl && (
         <MRT_ShowHideColumnsMenu
@@ -82,6 +79,85 @@ const ShowHideColumnsButton = ({ table }: { table: any }) => {
         />
       )}
     </>
+  );
+};
+
+/**
+ * MRT's built-in search / filter / full-screen toggles, rebuilt on the kit Button so the
+ * toolbar icon strip is one system. Handlers, tooltips, aria-labels (MRT localization),
+ * icons (table.options.icons) and the disabled rule are material-react-table 2.13.3's own
+ * MRT_Toggle*Button. A tool is `tinted` (primary) only while it is ON.
+ */
+type TableProp = { table: MRT_TableInstance<any> };
+
+const ToggleGlobalFilterButton = ({ table }: TableProp) => {
+  const { globalFilter, showGlobalFilter } = table.getState();
+  const { SearchIcon, SearchOffIcon } = table.options.icons;
+  const label = table.options.localization.showHideSearch;
+  return (
+    <Tooltip title={label}>
+      <Button
+        variant={showGlobalFilter ? "tinted" : "ghost"}
+        size="icon-sm"
+        aria-label={label}
+        aria-pressed={showGlobalFilter}
+        data-active={showGlobalFilter}
+        disabled={!!globalFilter}
+        onClick={() => {
+          table.setShowGlobalFilter(!showGlobalFilter);
+          queueMicrotask(() => table.refs.searchInputRef.current?.focus());
+        }}
+      >
+        {showGlobalFilter ? <SearchOffIcon /> : <SearchIcon />}
+      </Button>
+    </Tooltip>
+  );
+};
+
+const ToggleFiltersButton = ({ table }: TableProp) => {
+  const { showColumnFilters } = table.getState();
+  const { FilterListIcon, FilterListOffIcon } = table.options.icons;
+  const label = table.options.localization.showHideFilters;
+  return (
+    <Tooltip title={label}>
+      <Button
+        variant={showColumnFilters ? "tinted" : "ghost"}
+        size="icon-sm"
+        aria-label={label}
+        aria-pressed={showColumnFilters}
+        data-active={showColumnFilters}
+        onClick={() => table.setShowColumnFilters(!showColumnFilters)}
+      >
+        {showColumnFilters ? <FilterListOffIcon /> : <FilterListIcon />}
+      </Button>
+    </Tooltip>
+  );
+};
+
+const ToggleFullScreenButton = ({ table }: TableProp) => {
+  const { isFullScreen } = table.getState();
+  const { FullscreenExitIcon, FullscreenIcon } = table.options.icons;
+  const label = table.options.localization.toggleFullScreen;
+  // Controlled, as in MRT: the tooltip is closed on click, not left open over the new layout.
+  const [tooltipOpened, setTooltipOpened] = useState(false);
+  return (
+    <Tooltip open={tooltipOpened} title={label}>
+      <Button
+        variant={isFullScreen ? "tinted" : "ghost"}
+        size="icon-sm"
+        aria-label={label}
+        aria-pressed={isFullScreen}
+        data-active={isFullScreen}
+        onClick={() => {
+          setTooltipOpened(false);
+          table.setIsFullScreen(!isFullScreen);
+        }}
+        onMouseEnter={() => setTooltipOpened(true)}
+        onMouseLeave={() => setTooltipOpened(false)}
+      >
+        {isFullScreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+      </Button>
+    </Tooltip>
   );
 };
 
@@ -98,6 +174,9 @@ export interface MaterialTableProps {
   hideExportCenter?: boolean;
   hidePagination?: boolean;
   tableName: string;
+  /** Export file / title / sheet name (e.g. a record's title). `tableName` stays the
+   *  preferences key, so a per-record name never resets saved columns. */
+  exportName?: string;
   employeeId?: string;
   muiTableProps?: {
     sx?: object;
@@ -373,6 +452,7 @@ function MaterialTable({
   hideExportCenter,
   hidePagination,
   tableName,
+  exportName,
   muiTableProps,
   enableBottomToolbar = true,
   muiTableHeadCellStyle = {},
@@ -1032,17 +1112,23 @@ function MaterialTable({
         // accessorFn columns have no raw row[key] to read (id-only ones) or hold a
         // raw id the cell never shows (e.g. projectManagerId → manager names), so
         // export through the same accessor the table renders from.
-        ...(col.accessorFn
-          ? { format: (_v: any, row: any) => String(col.accessorFn(row) ?? '') }
-          : {}),
+        // `meta.exportValue(row)` wins when the cell decorates a value the column
+        // must still sort on numerically (e.g. a count shown as "16 Box").
+        ...(typeof col.meta?.exportValue === 'function'
+          ? { format: (_v: any, row: any) => String(col.meta.exportValue(row) ?? '') }
+          : col.accessorFn
+            ? { format: (_v: any, row: any) => String(col.accessorFn(row) ?? '') }
+            : {}),
       }));
   }, [columns, preferences.columnVisibility]);
 
   // Human-readable title from tableName (e.g. "MonthlySalary" → "Monthly Salary")
   const autoExportTitle = useMemo(
-    () => tableName.replace(/([A-Z])/g, ' $1').trim(),
-    [tableName],
+    () => exportName || tableName.replace(/([A-Z])/g, ' $1').trim(),
+    [exportName, tableName],
   );
+  // File and Excel sheet names can't hold  / : * ? [ ] — swap them out.
+  const exportFileName = (exportName || tableName).replace(/[\\/:*?[\]]+/g, ' ').trim();
 
   const tableTheme = useMemo(
     () =>
@@ -1412,29 +1498,20 @@ function MaterialTable({
                   borderBottom: "1px solid #F3F4F6",
                 }}
               >
-                <div
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  aria-expanded={isMobileSearchVisible}
                   onClick={toggleMobileSearch}
-                  style={{
-                    cursor: "pointer",
-                    padding: "10px 16px",
-                    borderRadius: "10px",
-                    backgroundColor: isMobileSearchVisible ? "#FEF2F2" : "#FAFAFA",
-                    border: `1px solid ${isMobileSearchVisible ? "#FECACA" : "#E5E7EB"}`,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    width: "100%",
-                    justifyContent: "center",
-                    transition: "all 0.2s ease",
-                    color: isMobileSearchVisible ? "#1E3A8A" : "#6B7280",
-                  }}
                 >
-                  <KTIcon iconName="magnifier" className="fs-5" />
-                  <span style={{ fontSize: "13px", fontWeight: 600 }}>
-                    {isMobileSearchVisible ? "Hide Search" : "Search Table"}
+                  <span data-icon="inline-start" className="inline-flex">
+                    <KTIcon iconName="magnifier" className="fs-5" />
                   </span>
-                  <KTIcon iconName={isMobileSearchVisible ? "up" : "down"} className="fs-6" />
-                </div>
+                  {isMobileSearchVisible ? "Hide Search" : "Search Table"}
+                  <span data-icon="inline-end" className="inline-flex">
+                    <KTIcon iconName={isMobileSearchVisible ? "up" : "down"} className="fs-6" />
+                  </span>
+                </Button>
               </div>
 
               {/* Collapsible Full-Width Search Interface */}
@@ -1522,31 +1599,20 @@ function MaterialTable({
                       {globalFilterValue && (
                         <Tooltip title="Clear search">
                           <span>
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={() => handleGlobalFilterChange("")}
                             style={{
                               position: "absolute",
                               right: "10px",
                               top: "50%",
                               transform: "translateY(-50%)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: "20px",
-                              height: "20px",
-                              borderRadius: "50%",
-                              border: "none",
-                              backgroundColor: "#D1D5DB",
-                              cursor: "pointer",
-                              padding: 0,
-                              color: "#6B7280",
-                              fontSize: "10px",
-                              lineHeight: 1,
                             }}
                             aria-label="Clear search"
                           >
-                            ✕
-                          </button>
+                            <X aria-hidden />
+                          </Button>
                           </span>
                         </Tooltip>
                       )}
@@ -1708,8 +1774,8 @@ function MaterialTable({
             // their enable-flags (density toggle is globally off for this table).
             renderToolbarInternalActions={({ table }) => {
               // One neutral segmented group (search-field height). Colour is reserved for
-              // state: a tool turns primary only while it is ON, so the tint carries meaning.
-              const { showColumnFilters, showGlobalFilter, isFullScreen } = table.getState();
+              // state: a tool turns primary (kit `tinted`) only while it is ON, so the tint
+              // carries meaning.
               return (
               <Box
                 sx={{
@@ -1737,18 +1803,20 @@ function MaterialTable({
                 }}
               >
                 {renderToolbarIconActions?.()}
-                {!enableColumnSpecificSearch && <MRT_ToggleGlobalFilterButton table={table} data-active={showGlobalFilter} />}
-                {(enableFilters ?? true) && <MRT_ToggleFiltersButton table={table} data-active={showColumnFilters} />}
+                {!enableColumnSpecificSearch && <ToggleGlobalFilterButton table={table} />}
+                {(enableFilters ?? true) && <ToggleFiltersButton table={table} />}
                 {(enableHiding ?? true) && <ShowHideColumnsButton table={table} />}
                 <Tooltip title="Reset columns to default layout">
-                  <IconButton
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     aria-label="Reset columns to default layout"
                     onClick={() => resetPreferences()}
                   >
                     <KTIcon iconName="arrows-circle" className="fs-2" />
-                  </IconButton>
+                  </Button>
                 </Tooltip>
-                {(enableFullScreenToggle ?? true) && <MRT_ToggleFullScreenButton table={table} data-active={isFullScreen} />}
+                {(enableFullScreenToggle ?? true) && <ToggleFullScreenButton table={table} />}
               </Box>
               );
             }}
@@ -2125,32 +2193,20 @@ function MaterialTable({
                     {globalFilterValue && (
                       <Tooltip title="Clear search">
                         <span>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
                           onClick={() => handleGlobalFilterChange("")}
                           style={{
                             position: "absolute",
                             right: "8px",
                             top: "50%",
                             transform: "translateY(-50%)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "18px",
-                            height: "18px",
-                            borderRadius: "50%",
-                            border: "none",
-                            backgroundColor: "#D1D5DB",
-                            cursor: "pointer",
-                            padding: 0,
-                            color: "#6B7280",
-                            fontSize: "10px",
-                            lineHeight: 1,
-                            transition: "background-color 0.15s ease",
                           }}
                           aria-label="Clear search"
                         >
-                          ✕
-                        </button>
+                          <X aria-hidden />
+                        </Button>
                         </span>
                       </Tooltip>
                     )}
@@ -2279,7 +2335,7 @@ function MaterialTable({
                       }}
                     >
                       {/* Track */}
-                      <div
+                      <div data-wt-control="scrollbar"
                         ref={scrollTrackRef}
                         onClick={(e) => {
                           const track = scrollTrackRef.current;
@@ -2380,9 +2436,9 @@ function MaterialTable({
                           data={selectedRows.length > 0 ? selectedRows : tableData}
                           getData={selectedRows.length === 0 ? fetchAllRows : undefined}
                           columns={autoExportCols}
-                          filename={tableName}
+                          filename={exportFileName}
                           title={autoExportTitle}
-                          sheetName={tableName.slice(0, 31)}
+                          sheetName={exportFileName.slice(0, 31)}
                           disabled={tableData.length === 0}
                         />
                       ) : null}
@@ -2409,46 +2465,27 @@ function MaterialTable({
                           >
                             {isMobile ? "Rows:" : "Rows per page:"}
                           </span>
-                          <ButtonGroup
-                            variant="outlined"
-                            size="small"
-                            sx={{
-                              borderRadius: '10px',
-                              overflow: 'hidden',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                            }}
-                          >
+                          {/* The page-size pick and its chevron: two joined kit buttons, both
+                              opening the same menu (as the MUI ButtonGroup pair did). */}
+                          <div className="inline-flex">
                             <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-r-none"
                               onClick={(e) => setRowsAnchorEl(e.currentTarget)}
-                              sx={{
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                fontSize: isMobile ? 12 : 13,
-                                borderColor: '#e5e7eb',
-                                color: '#374151',
-                                borderRadius: '10px 0 0 10px',
-                                px: isMobile ? 1 : 1.5,
-                                py: 0.6,
-                                minWidth: 'unset',
-                                '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-                              }}
                             >
                               {pageSize}
                             </Button>
                             <Button
+                              variant="outline"
+                              size="icon-sm"
+                              className="-ml-px rounded-l-none"
+                              aria-label="Rows per page"
                               onClick={(e) => setRowsAnchorEl(e.currentTarget)}
-                              sx={{
-                                borderColor: '#e5e7eb',
-                                color: '#9ca3af',
-                                borderRadius: '0 10px 10px 0',
-                                px: 0.4,
-                                minWidth: 'unset',
-                                '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-                              }}
                             >
                               <KTIcon iconName="down" className="fs-6" />
                             </Button>
-                          </ButtonGroup>
+                          </div>
                           <Menu
                             anchorEl={rowsAnchorEl}
                             open={Boolean(rowsAnchorEl)}
@@ -2539,58 +2576,30 @@ function MaterialTable({
                         {/* First page */}
                         <Tooltip title="First page">
                           <span>
-                          <button
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             onClick={() => table.setPageIndex(0)}
                             disabled={pageIndex === 0}
-                            className="et-page-nav-btn"
                             aria-label="First page"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: isMobile ? "30px" : "34px",
-                              height: isMobile ? "30px" : "34px",
-                              border: "1px solid #E5E7EB",
-                              borderRadius: "8px",
-                              backgroundColor: pageIndex === 0 ? "#F9FAFB" : "#fff",
-                              cursor: pageIndex === 0 ? "not-allowed" : "pointer",
-                              opacity: pageIndex === 0 ? 0.45 : 1,
-                              transition: "all 0.15s ease",
-                              padding: 0,
-                              flexShrink: 0,
-                            }}
                           >
-                            <KTIcon iconName="double-left" className="fs-4 text-gray-600" />
-                          </button>
+                            <KTIcon iconName="double-left" className="fs-4" />
+                          </Button>
                           </span>
                         </Tooltip>
 
                         {/* Previous page */}
                         <Tooltip title="Previous page">
                           <span>
-                          <button
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             onClick={() => table.previousPage()}
                             disabled={!table.getCanPreviousPage()}
-                            className="et-page-nav-btn"
                             aria-label="Previous page"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: isMobile ? "30px" : "34px",
-                              height: isMobile ? "30px" : "34px",
-                              border: "1px solid #E5E7EB",
-                              borderRadius: "8px",
-                              backgroundColor: !table.getCanPreviousPage() ? "#F9FAFB" : "#fff",
-                              cursor: !table.getCanPreviousPage() ? "not-allowed" : "pointer",
-                              opacity: !table.getCanPreviousPage() ? 0.45 : 1,
-                              transition: "all 0.15s ease",
-                              padding: 0,
-                              flexShrink: 0,
-                            }}
                           >
-                            <KTIcon iconName="black-left" className="fs-4 text-gray-600" />
-                          </button>
+                            <KTIcon iconName="black-left" className="fs-4" />
+                          </Button>
                           </span>
                         </Tooltip>
 
@@ -2619,94 +2628,49 @@ function MaterialTable({
 
                           const isActive = pageIndex === page;
                           return (
-                            <button
+                            <Button
                               key={page}
+                              variant={isActive ? "default" : "outline"}
+                              size="icon-sm"
                               onClick={() => table.setPageIndex(page)}
-                              className="et-page-num-btn"
                               // The active page is signalled only by colour otherwise —
                               // invisible to a screen reader, and to anyone who cannot
-                              // distinguish the navy fill.
+                              // distinguish the filled button.
                               aria-label={`Page ${page + 1}`}
                               aria-current={isActive ? "page" : undefined}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: isMobile ? "30px" : "34px",
-                                height: isMobile ? "30px" : "34px",
-                                border: isActive ? "1.5px solid #1E3A8A" : "1px solid #E5E7EB",
-                                borderRadius: "8px",
-                                backgroundColor: isActive ? "#1E3A8A" : "#fff",
-                                color: isActive ? "#fff" : "#374151",
-                                cursor: "pointer",
-                                fontSize: isMobile ? "12px" : "13px",
-                                fontWeight: isActive ? 700 : 500,
-                                transition: "all 0.15s ease",
-                                padding: 0,
-                                flexShrink: 0,
-                                boxShadow: isActive ? "0 2px 6px rgba(30, 58, 138,0.30)" : "none",
-                              }}
                             >
                               {page + 1}
-                            </button>
+                            </Button>
                           );
                         })}
 
                         {/* Next page */}
                         <Tooltip title="Next page">
                           <span>
-                          <button
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             onClick={() => table.nextPage()}
                             disabled={!table.getCanNextPage()}
-                            className="et-page-nav-btn"
                             aria-label="Next page"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: isMobile ? "30px" : "34px",
-                              height: isMobile ? "30px" : "34px",
-                              border: "1px solid #E5E7EB",
-                              borderRadius: "8px",
-                              backgroundColor: !table.getCanNextPage() ? "#F9FAFB" : "#fff",
-                              cursor: !table.getCanNextPage() ? "not-allowed" : "pointer",
-                              opacity: !table.getCanNextPage() ? 0.45 : 1,
-                              transition: "all 0.15s ease",
-                              padding: 0,
-                              flexShrink: 0,
-                            }}
                           >
-                            <KTIcon iconName="black-right" className="fs-4 text-gray-600" />
-                          </button>
+                            <KTIcon iconName="black-right" className="fs-4" />
+                          </Button>
                           </span>
                         </Tooltip>
 
                         {/* Last page */}
                         <Tooltip title="Last page">
                           <span>
-                          <button
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             onClick={() => table.setPageIndex(totalPages - 1)}
                             disabled={pageIndex === totalPages - 1}
-                            className="et-page-nav-btn"
                             aria-label="Last page"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: isMobile ? "30px" : "34px",
-                              height: isMobile ? "30px" : "34px",
-                              border: "1px solid #E5E7EB",
-                              borderRadius: "8px",
-                              backgroundColor: pageIndex === totalPages - 1 ? "#F9FAFB" : "#fff",
-                              cursor: pageIndex === totalPages - 1 ? "not-allowed" : "pointer",
-                              opacity: pageIndex === totalPages - 1 ? 0.45 : 1,
-                              transition: "all 0.15s ease",
-                              padding: 0,
-                              flexShrink: 0,
-                            }}
                           >
-                            <KTIcon iconName="double-right" className="fs-4 text-gray-600" />
-                          </button>
+                            <KTIcon iconName="double-right" className="fs-4" />
+                          </Button>
                           </span>
                         </Tooltip>
 

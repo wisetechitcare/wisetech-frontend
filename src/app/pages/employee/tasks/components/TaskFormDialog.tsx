@@ -15,9 +15,10 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert, Autocomplete, Avatar, Box, Button, Chip, CircularProgress, Grid, MenuItem,
+    Alert, Autocomplete, Avatar, Box, Chip, CircularProgress, Grid, MenuItem,
     Slider, Stack, TextField, Typography, alpha, useTheme,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { KTIcon } from '@metronic/helpers';
 import {
     TaskFormValues, TaskScope, TaskTypeMode, buildTaskPayload, fieldsForScope, validateScopeShape,
@@ -779,14 +780,14 @@ export const TaskFormDialog = ({
                                 {(['PRESETS', 'CUSTOM'] as const).map((mode) => (
                                     <Button
                                         key={mode}
-                                        size="small"
-                                        variant={values.taskTypeMode === mode ? 'contained' : 'outlined'}
+                                        size="sm"
+                                        variant={values.taskTypeMode === mode ? 'default' : 'outline'}
+                                        aria-pressed={values.taskTypeMode === mode}
                                         // Clearing the name on switch is deliberate: a preset title carried
                                         // into custom mode makes the two modes indistinguishable, which is
                                         // the confusion the old form shipped.
                                         disabled={progressLock}
                                         onClick={() => set({ taskTypeMode: mode, taskName: '', presetTaskId: '' })}
-                                        sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, borderColor: 'divider' }}
                                     >
                                         {mode === 'PRESETS' ? 'From preset' : 'Custom name'}
                                     </Button>

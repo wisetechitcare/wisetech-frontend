@@ -245,7 +245,7 @@ const ImportView = () => {
                         {SHEETS.find((s) => s.key === sheet)?.hint}
                     </Typography>
                     {canWrite && (
-                        <WtButton tone="primary" size="small" onClick={chooseFile} disabled={blockedByOrder || busy}>
+                        <WtButton size="small" onClick={chooseFile} disabled={blockedByOrder || busy}>
                             {file ? "Choose a different file" : "Choose CSV"}
                         </WtButton>
                     )}
@@ -280,7 +280,6 @@ const ImportView = () => {
                         </Stack>
                         {canWrite && (
                             <WtButton
-                                tone="primary"
                                 disabled={p.importable === 0 || importMut.isPending}
                                 onClick={commit}
                             >

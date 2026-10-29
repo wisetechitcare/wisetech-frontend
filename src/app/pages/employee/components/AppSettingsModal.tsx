@@ -14,6 +14,7 @@ import Loader from "@app/modules/common/utils/Loader";
 import ApprovalSettings, { emptyApprovalChains, persistApprovalChains } from "@app/components/ApprovalSettings";
 import { useSalaryMaster } from "@/modules/payroll/hooks/useSalaryComponentNames";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 // Leave Settings section removed — no longer needed
 // import LeaveAllocationStep from "@app/pages/employee/wizard/forms/LeaveAllocationStep";
 
@@ -362,12 +363,14 @@ function ModalContent({
         <>
             <Modal.Body style={{ padding: 0, display: "flex", minHeight: 480 }}>
                 {/* ── Left sidebar ── */}
-                <div className="app-settings-sidebar">
+                <div className="app-settings-sidebar" role="tablist" aria-orientation="vertical" aria-label="Sections">
                     <div className="app-settings-sidebar-label">SECTIONS</div>
                     {SECTIONS.map(s => (
                         <button
                             key={s.id}
                             type="button"
+                            role="tab"
+                            aria-selected={activeSection === s.id}
                             className={`app-settings-nav-item${activeSection === s.id ? " active" : ""}`}
                             onClick={() => setActiveSection(s.id)}
                         >
@@ -391,23 +394,12 @@ function ModalContent({
             </Modal.Body>
 
             <Modal.Footer style={{ borderTop: "1px solid #f0f0f0", gap: 8 }}>
-                <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={onClose}
-                    disabled={isSubmitting}
-                    style={{ borderRadius: 8, padding: "10px 24px", fontWeight: 500, fontSize: 14 }}
-                >
+                <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
                     Cancel
-                </button>
-                <button
-                    type="submit"
-                    className="btn"
-                    disabled={isSubmitting}
-                    style={{ backgroundColor: "#1E3A8A", border: "none", color: "#fff", borderRadius: 8, padding: "10px 24px", fontWeight: 500, fontSize: 14 }}
-                >
+                </Button>
+                <Button type="submit" variant="default" disabled={isSubmitting}>
                     {isSubmitting ? "Saving..." : "Save Changes"}
-                </button>
+                </Button>
             </Modal.Footer>
         </>
     );

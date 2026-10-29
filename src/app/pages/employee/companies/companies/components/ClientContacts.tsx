@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { formatBirthday, isYearless } from "@utils/birthday";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
-import { useNavigate } from "react-router-dom";
-import { Button } from "react-bootstrap";
+import { Link } from "react-router-dom";
+import { Button } from "@/ds/ui/button";
 import ClientContactsForm from "../../contacts/components/ClientContactsForm";
 import { getClientContactsByCompanyId, deleteClientContact } from "@services/companies";
 import { crmListRowSx, CRM_FORMER_COLOR } from "../../crmListRowSx";
@@ -10,13 +10,12 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
-import { KTIcon } from "@metronic/helpers";
 import { deleteConfirmation } from "@utils/modal";
 import { canSection } from "@utils/can";
 import { getAllClientBranches } from "@services/lead";
 import dayjs from "dayjs";
 import { Box } from "@mui/material";
-import { ToneChip } from "@app/modules/common/components/ui";
+import { ActionIconButton, ToneChip } from "@app/modules/common/components/ui";
 
 const ClientContacts = ({ companyId }: { companyId: string }) => {
   const canWrite = canSection("crm.companies", "write");
@@ -29,7 +28,6 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
   const [formerContacts, setFormerContacts] = useState<any[]>([]);
   const [allBranches, setAllBranches] = useState<any[]>([]);
   const employeeId = useSelector((state: RootState) => state.auth.currentUser?.id);
-  const navigate = useNavigate();
 
   const fetchClientContacts = async () => {
     try {
@@ -122,13 +120,13 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         Cell: ({ row }) => (
           // nowrap + no shrink: squeezed flex children wrapped one letter per line.
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, whiteSpace: "nowrap", "& > *": { flexShrink: 0 } }}>
-            <button
-              className="btn btn-link p-0 text-start text-decoration-none"
+            <Link
+              to={`/contacts/${row.original.id}`}
+              className="text-start text-decoration-none"
               style={{ color: "inherit", fontWeight: 600, fontSize: "14px", whiteSpace: "nowrap" }}
-              onClick={() => navigate(`/contacts/${row.original.id}`)}
             >
               {row.original.fullName || "NA"}
-            </button>
+            </Link>
             {row.original.__former && (
               <ToneChip dense color={CRM_FORMER_COLOR} label={`Former · left ${dayjs(row.original.__former.endDate).format("MMM YYYY")}`} />
             )}
@@ -197,30 +195,20 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         // A former contact is edited from their current company, not from here.
         Cell: ({ row }: any) => row.original.__former ? null : (
           <div className="d-flex align-items-center gap-2">
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-              onClick={() => handleEditClick(row.original.id)}
-            >
-              <KTIcon iconName="pencil" className="fs-3" />
-            </button>
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
-              onClick={() => handleDelete(row.original)}
-            >
-              <KTIcon iconName="trash" className="fs-3" />
-            </button>
+            <ActionIconButton iconName="pencil" title="Edit" size="sm" onClick={() => handleEditClick(row.original.id)} />
+            <ActionIconButton iconName="trash" title="Delete" size="sm" tone="danger" onClick={() => handleDelete(row.original)} />
           </div>
         ),
       }] : []),
     ],
-    [allBranches, contacts, employeeId, navigate, canWrite]
+    [allBranches, contacts, employeeId, canWrite]
   );
 
   return (
     <div>
       {canWrite && (
       <div className="d-flex justify-content-end align-items-center mb-4">
-        <Button variant="primary" onClick={handleAddNewClick}>
+        <Button onClick={handleAddNewClick}>
           Add New Contact
         </Button>
       </div>

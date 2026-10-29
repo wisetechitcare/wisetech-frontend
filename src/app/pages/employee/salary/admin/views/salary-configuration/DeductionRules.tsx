@@ -11,6 +11,8 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { WtFieldFormik, WtSwitch, UnsavedChangesModal as Modal } from "@app/modules/common/components/ui";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
+import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
 import { currencyPrefix } from '@utils/currency';
 
 // Interfaces matching the specific JSON structure
@@ -479,15 +481,14 @@ function DeductionRules() {
             </div>
           </div>
           {canEdit && (
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               className="sc-configure-btn"
-              style={styles.configureBtn}
               onClick={() => setShowPTModal(true)}
-              onMouseOver={(e) => { e.currentTarget.style.borderColor = '#1E3A8A'; e.currentTarget.style.color = '#1E3A8A'; e.currentTarget.style.backgroundColor = '#EEF3FC'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(30, 58, 138,0.12)'; }}
-              onMouseOut={(e)  => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(24,28,50,0.06)'; }}
             >
-              <AppIcon name="bi-pencil-square" className="fs-7" /> Configure
-            </button>
+              <AppIcon name="bi-pencil-square" className="fs-7" data-icon="inline-start" /> Configure
+            </Button>
           )}
         </div>
 
@@ -638,15 +639,14 @@ function DeductionRules() {
             </div>
           </div>
           {canEdit && (
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               className="sc-configure-btn"
-              style={styles.configureBtn}
               onClick={() => setShowPFModal(true)}
-              onMouseOver={(e) => { e.currentTarget.style.borderColor = '#0085db'; e.currentTarget.style.color = '#0085db'; e.currentTarget.style.backgroundColor = '#e1f0fa'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(0,133,219,0.12)'; }}
-              onMouseOut={(e)  => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(24,28,50,0.06)'; }}
             >
-              <AppIcon name="bi-pencil-square" className="fs-7" /> Configure
-            </button>
+              <AppIcon name="bi-pencil-square" className="fs-7" data-icon="inline-start" /> Configure
+            </Button>
           )}
         </div>
 
@@ -718,18 +718,7 @@ function DeductionRules() {
             }}>
               Edit Professional tax rule
             </div>
-            <button 
-              onClick={() => setShowPTModal(false)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                fontSize: '24px',
-                color: '#A1A5B7',
-                cursor: 'pointer'
-              }}
-            >
-              <AppIcon name="bi-x" />
-            </button>
+            <WtCloseButton onClick={() => setShowPTModal(false)} />
           </div>
 
           <Formik
@@ -936,48 +925,21 @@ function DeductionRules() {
 
                 {/* Save Button */}
                 <div className="d-flex justify-content-end sc-form-footer mt-4 pt-3" style={{ borderTop: '1px solid #E1E3EA' }}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
+                    size="lg"
                     onClick={() => setShowPTModal(false)}
-                    style={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #E1E3EA',
-                      borderRadius: '8px',
-                      color: '#3F4254',
-                      height: '44px',
-                      padding: '0 24px',
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 600,
-                      fontSize: '15px',
-                      cursor: 'pointer',
-                      marginRight: '12px',
-                    }}
+                    className="mr-3"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
+                    size="lg"
                     disabled={loading}
-                    style={{
-                      backgroundColor: '#1E3A8A',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: 'white',
-                      height: '44px',
-                      padding: '0 28px',
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 600,
-                      fontSize: '15px',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      opacity: loading ? 0.7 : 1,
-                      boxShadow: '0 4px 12px rgba(30, 58, 138, 0.2)',
-                      transition: 'all 0.2s ease',
-                    }}
-                    onMouseOver={(e) => { if (!loading) e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                    onMouseOut={(e) => { if (!loading) e.currentTarget.style.transform = 'translateY(0)'; }}
                   >
                     {loading ? "Saving..." : "Save Configuration"}
-                  </button>
+                  </Button>
                 </div>
               </Form>
             )
@@ -1037,25 +999,12 @@ function DeductionRules() {
                   </div>
                 </div>
 
-                <button
+                <Button
                   type="submit"
                   disabled={loading || !isValid}
-                  style={{
-                    backgroundColor: '#1E3A8A',
-                    border: 'none',
-                    borderRadius: '6px',
-                    color: 'white',
-                    height: '40px',
-                    padding: '0 20px',
-                    fontFamily: 'Inter, sans-serif',
-                    fontWeight: 500,
-                    fontSize: '14px',
-                    cursor: (loading || !isValid) ? 'not-allowed' : 'pointer',
-                    opacity: (loading || !isValid) ? 0.7 : 1,
-                  }}
                 >
                   {loading ? "Saving..." : "Save"}
-                </button>
+                </Button>
               </Form>
             )}
           </Formik>

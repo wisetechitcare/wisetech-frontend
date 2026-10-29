@@ -393,7 +393,7 @@ const ScorecardTemplateSection = () => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <WtButton ghost onClick={() => setOpen(false)} disabled={saveMut.isPending}>Cancel</WtButton>
-                    <WtButton tone="primary" disabled={!canSave} onClick={() => saveMut.mutate()}>
+                    <WtButton disabled={!canSave} onClick={() => saveMut.mutate()}>
                         {saveMut.isPending ? "Saving…" : "Save"}
                     </WtButton>
                 </DialogActions>

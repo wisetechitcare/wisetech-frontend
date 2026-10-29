@@ -62,7 +62,7 @@ export function GlassDialogActions({
   submitting = false,
   submitDisabled,
   submitStartIcon,
-  submitTone = 'primary',
+  submitTone = 'accent',
   children,
   sx,
   ...rest

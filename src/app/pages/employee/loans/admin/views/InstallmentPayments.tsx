@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { RootState } from "@redux/store";
 import { useSelector } from "react-redux";
 import { getCurrencySymbol } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 interface InstallmentPayment {
   name: string;
@@ -115,7 +116,7 @@ const InstallmentPayments: React.FC<InstallmentPaymentsProps> = ({
             {
               accessorKey: "actions",
               header: "Actions",
-              Cell: ({ row }: any) => <div style={commonButtonStyle} onClick={() => navigate(`/finance/loans/admin/loan-details/${row.original.id}`)}>View Details</div>,
+              Cell: ({ row }: any) => <Button variant="outline" size="sm" onClick={() => navigate(`/finance/loans/admin/loan-details/${row.original.id}`)}>View Details</Button>,
             },
           ]
         : []),

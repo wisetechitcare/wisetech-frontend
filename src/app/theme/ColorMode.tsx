@@ -3,7 +3,8 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import { ensureCurrentCompanyLoaded } from '@utils/file';
 import { ThemeProvider } from '@mui/material/styles';
-import { IconButton, IconButtonProps, Tooltip } from '@mui/material';
+import { Tooltip } from '@mui/material';
+import { WtIconButton, type WtIconButtonProps } from '@app/modules/common/components/ui/buttons';
 import { KTIcon } from '@metronic/helpers';
 import { makeWisetechTheme } from './wisetechTheme';
 import { ghDarkCssVars, ghDarkCssVarNames } from './githubDark';
@@ -206,13 +207,13 @@ export function ColorModeProvider({ children }: { children: React.ReactNode }) {
 }
 
 /** Drop-in sun/moon toggle button. Place it anywhere inside <ColorModeProvider>. */
-export function ColorModeToggle(props: IconButtonProps) {
+export function ColorModeToggle(props: WtIconButtonProps) {
   const { mode, toggle } = useColorMode();
   return (
     <Tooltip title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-      <IconButton onClick={toggle} aria-label="Toggle color mode" {...props}>
+      <WtIconButton size="medium" onClick={toggle} aria-label="Toggle color mode" {...props}>
         <KTIcon iconName={mode === 'dark' ? 'night-day' : 'moon'} className="fs-3" />
-      </IconButton>
+      </WtIconButton>
     </Tooltip>
   );
 }

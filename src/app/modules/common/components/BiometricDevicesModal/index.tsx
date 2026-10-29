@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState, ReactNode } from 'react';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import {
-  Box, Stack, Typography, IconButton, Button, TextField, Select,
-  MenuItem, ListItemText, CircularProgress, InputAdornment, Paper,
+  Box, Stack, Typography, TextField, Select,
+  MenuItem, ListItemText, InputAdornment, Paper,
   FormControl, FormHelperText, Skeleton, Drawer, Divider, useMediaQuery,
   Menu, ListItemIcon,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 // Type-only: erased at build, so the MRT vendor chunk stays behind MaterialTable's
 // lazy boundary (see MaterialTable.tsx — importing the runtime here would undo the split).
 import type { MRT_ColumnDef } from 'material-react-table';
@@ -428,37 +429,35 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
     return (
       <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap>
         <Button
-          size="small" variant="outlined"
-          disabled={busy(d.id)} onClick={() => handleTest(d)}
-          startIcon={running === 'test' ? <CircularProgress size={14} color="inherit" /> : <KTIcon iconName="pulse" className="fs-5" />}
-          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '9px', minHeight: 36, px: 1.5 }}
+          size="sm" variant="outline"
+          disabled={busy(d.id)} loading={running === 'test'} onClick={() => handleTest(d)}
         >
+          {running !== 'test' && <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="pulse" className="fs-5" /></span>}
           {running === 'test' ? 'Testing…' : 'Test'}
         </Button>
         {canPull && (
           <Button
-            size="small" variant="outlined" color="success"
-            disabled={busy(d.id)} onClick={() => handleSync(d)}
-            startIcon={running === 'sync' ? <CircularProgress size={14} color="inherit" /> : <KTIcon iconName="arrows-circle" className="fs-5" />}
-            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: '9px', minHeight: 36, px: 1.5 }}
+            size="sm" variant="outline"
+            disabled={busy(d.id)} loading={running === 'sync'} onClick={() => handleSync(d)}
           >
+            {running !== 'sync' && <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="arrows-circle" className="fs-5" /></span>}
             {running === 'sync' ? 'Syncing…' : 'Sync'}
           </Button>
         )}
         <WtTooltip title="More Actions">
           <span>
-            <IconButton
+            <Button
+              variant="outline"
+              size="icon-sm"
               aria-label="More actions"
               aria-haspopup="menu"
               aria-expanded={menuFor?.device.id === d.id}
               disabled={busy(d.id)}
+              loading={running === 'toggle' || running === 'delete'}
               onClick={(e) => setMenuFor({ device: d, anchor: e.currentTarget })}
-              sx={{ width: 36, height: 36, borderRadius: '9px', border: '1px solid', borderColor: 'divider', color: 'text.secondary' }}
             >
-              {running === 'toggle' || running === 'delete'
-                ? <CircularProgress size={16} />
-                : <KTIcon iconName="dots-horizontal" className="fs-3" />}
-            </IconButton>
+              <KTIcon iconName="dots-horizontal" className="fs-3" />
+            </Button>
           </span>
         </WtTooltip>
       </Stack>
@@ -740,18 +739,17 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
                         size="small" fullWidth
                         InputProps={{ endAdornment: (
                           <InputAdornment position="end">
-                            <IconButton size="small" onClick={() => setShowPass(p => !p)} aria-label="Toggle password">
+                            <Button variant="ghost" size="icon-sm" onClick={() => setShowPass(p => !p)} aria-label="Toggle password">
                               <KTIcon iconName={showPass ? 'eye-slash' : 'eye'} className="fs-5" />
-                            </IconButton>
+                            </Button>
                           </InputAdornment>
                         ) }}
                       />
                     </Box>
 
                     <Stack direction="row" spacing={1.5} justifyContent="flex-end">
-                      <Button variant="text" color="inherit" onClick={() => setShowForm(false)}>Cancel</Button>
-                      <Button type="submit" variant="contained" disabled={isSubmitting}
-                        startIcon={isSubmitting ? <CircularProgress size={14} color="inherit" /> : undefined}>
+                      <Button variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+                      <Button type="submit" loading={isSubmitting}>
                         {editMode ? 'Update Device' : 'Add Device'}
                       </Button>
                     </Stack>
@@ -776,7 +774,10 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
             <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.5, maxWidth: 360 }}>
               Connect a biometric machine to start syncing attendance for this location.
             </Typography>
-            <Button variant="contained" size="small" startIcon={<KTIcon iconName="plus" className="fs-5" />} onClick={openCreate} sx={{ mt: 2 }}>Add Device</Button>
+            <Button size="sm" onClick={openCreate} className="mt-[16px]">
+              <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="plus" className="fs-5" /></span>
+              Add Device
+            </Button>
           </Stack>
         ) : (
           // The shared engine, not a hand-written <Table>. What stood here was
@@ -912,13 +913,10 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
           />
         </Stack>
         <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2.5 }}>
-          <Button onClick={closeBackfill} disabled={backfillSubmitting} sx={{ textTransform: 'none' }}>Cancel</Button>
+          <Button variant="ghost" onClick={closeBackfill} disabled={backfillSubmitting}>Cancel</Button>
           <Button
-            variant="contained"
             onClick={handleBackfill}
-            disabled={backfillSubmitting}
-            startIcon={backfillSubmitting ? <CircularProgress size={16} color="inherit" /> : undefined}
-            sx={{ textTransform: 'none' }}
+            loading={backfillSubmitting}
           >
             {backfillSubmitting ? 'Backfilling…' : 'Backfill'}
           </Button>

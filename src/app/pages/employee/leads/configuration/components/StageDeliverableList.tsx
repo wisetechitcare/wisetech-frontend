@@ -276,8 +276,7 @@ const StageDeliverableList: React.FC<Props> = ({ stageId, loaded, onCountChange 
       )}
 
       {rows.length > 0 && (
-        <WtButton
-          tone="primary" size="small" ghost onClick={openNew}
+        <WtButton size="small" ghost onClick={openNew}
           startIcon={<KTIcon iconName="plus" className="fs-6" />}
           sx={{ mt: 1, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
         >
@@ -349,7 +348,7 @@ const StageDeliverableList: React.FC<Props> = ({ stageId, loaded, onCountChange 
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <WtButton ghost onClick={close} disabled={saving}>Cancel</WtButton>
-          <WtButton tone="primary" disabled={(!task && !editing) || saving} onClick={() => void save()}>
+          <WtButton disabled={(!task && !editing) || saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save"}
           </WtButton>
         </DialogActions>

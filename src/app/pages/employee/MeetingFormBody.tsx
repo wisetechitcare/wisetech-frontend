@@ -2,8 +2,9 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import {
-    Alert, Autocomplete, Avatar, Box, Button, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
+    Alert, Autocomplete, Avatar, Box, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { RootState } from '@redux/store';
 import { createMeetings, updateMeeting, fetchAllEmployees, getMyMeetingReminders, setMyMeetingReminders, getMeetingsByProject } from '@services/employee';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
@@ -1324,9 +1325,10 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     </Box>
                     {internalOptions.length > 0 && internal.length < internalOptions.length && (
                         <Button
-                            size="small"
+                            variant="ghost"
+                            size="sm"
+                            className="mb-1.5"
                             onClick={() => setInternal(internalOptions.map((o) => o.value))}
-                            sx={{ textTransform: 'none', fontWeight: 600, minWidth: 0, mb: 0.75 }}
                         >
                             Add whole team
                         </Button>
@@ -1356,15 +1358,14 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 {!agendaOpen && agendaItems.length === 0 ? (
                     <Button
                         type="button"
-                        variant="outlined"
-                        size="small"
-                        startIcon={<KTIcon iconName="plus" className="fs-6" />}
+                        variant="outline"
+                        size="sm"
+                        className="mb-2 self-start font-bold"
                         onClick={() => setAgendaOpen(true)}
-                        sx={{
-                            alignSelf: 'flex-start', textTransform: 'none', fontWeight: 700,
-                            borderRadius: 2, px: 1.5, mb: 1,
-                        }}
                     >
+                        <span data-icon="inline-start" className="inline-flex">
+                            <KTIcon iconName="plus" className="fs-6" />
+                        </span>
                         Add Agenda
                     </Button>
                 ) : (

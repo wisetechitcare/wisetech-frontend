@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActionIconButton, AppIcon } from '@app/modules/common/components/ui';
-import { C, FONT, SP, RADIUS, BTN } from '@app/modules/configuration';
+import { C, FONT, SP, RADIUS } from '@app/modules/configuration';
+import { Button } from '@/ds/ui/button';
 import { getPresetPath, PATH_SEPARATOR, PresetTaskLike } from '@utils/presetTaskHierarchy';
 import { groupStagesByScope } from '@utils/categoryScope';
 
@@ -74,27 +75,11 @@ const orderedTasks = (stage: StageRow): StageTaskRow[] =>
   [...(stage.tasks || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
 const AddTaskButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
-  const [hover, setHover] = React.useState(false);
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        ...BTN.outline,
-        padding: '4px 10px',
-        fontSize: '12px',
-        fontWeight: 500,
-        borderRadius: RADIUS.md,
-        gap: '4px',
-        whiteSpace: 'nowrap',
-        ...(hover ? { backgroundColor: C.primaryLight } : {}),
-      }}
-    >
-      <AppIcon name="bi-plus-lg" />
+    <Button type="button" variant="outline" size="sm" onClick={onClick}>
+      <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-plus-lg" /></span>
       Add Task
-    </button>
+    </Button>
   );
 };
 

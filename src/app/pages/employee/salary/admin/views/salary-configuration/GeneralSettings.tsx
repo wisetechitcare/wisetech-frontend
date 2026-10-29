@@ -10,6 +10,7 @@ import { EXCLUDE_FROM_LATE_ATTENDANCE, PAYMENT_MODE } from '@constants/configura
 import { successConfirmation } from '@utils/modal';
 import { fetchCheckinDeadlineOverrides, saveCheckinDeadlineOverrides, ICheckinDeadlineSaveItem } from '@services/employee';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 const HHMM_24H = /^([01]\d|2[0-3]):([0-5]\d)$/;
 /** Convert a company "Check-in time" (e.g. "10:00 AM" or "10:00") to 24h "HH:MM", else "". */
@@ -306,30 +307,11 @@ function GeneralSettings() {
             <option value="Hour Based">Hour Based</option>
             <option value="Day Based">Day Based</option>
           </select>
-          <button
+          <Button size="sm"
             onClick={handleSubmitPaymentMode}
-            style={{
-              backgroundColor: '#1E3A8A',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '9px',
-              padding: '9px 20px',
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 3px 10px rgba(30, 58, 138,0.2)',
-              transition: 'all 0.15s ease',
-              whiteSpace: 'nowrap' as const,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(30, 58, 138,0.28)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(30, 58, 138,0.2)'; }}
           >
-            <AppIcon name="bi-check-lg" className="fs-6" /> Save
-          </button>
+            <AppIcon name="bi-check-lg" className="fs-6" data-icon="inline-start" /> Save
+          </Button>
         </div>
       </div>
 
@@ -399,30 +381,11 @@ function GeneralSettings() {
               <span style={{ fontSize: '11.5px', fontWeight: 500, color: '#3B5BA9' }}>Selected</span>
             </div>
           )}
-          <button
+          <Button variant="outline" size="sm"
             onClick={() => { setTempExcludeIds(selectedEmployeeIds); setShowModal(true); }}
-            style={{
-              backgroundColor: '#fff',
-              border: '1px solid #E1E3EA',
-              borderRadius: '9px',
-              cursor: 'pointer',
-              padding: '9px 18px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 600,
-              fontSize: '13px',
-              color: '#374151',
-              transition: 'all 0.15s ease',
-              boxShadow: '0 1px 4px rgba(24,28,50,0.05)',
-              whiteSpace: 'nowrap' as const,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0085db'; e.currentTarget.style.color = '#0085db'; e.currentTarget.style.backgroundColor = '#f0f8ff'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(0,133,219,0.12)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.backgroundColor = '#fff'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(24,28,50,0.05)'; }}
           >
-            Configure <AppIcon name="bi-arrow-right" className="fs-7" />
-          </button>
+            Configure <AppIcon name="bi-arrow-right" className="fs-7" data-icon="inline-end" />
+          </Button>
         </div>
       </div>
 
@@ -487,19 +450,11 @@ function GeneralSettings() {
               <span style={{ fontSize: '11.5px', fontWeight: 500, color: '#9B6FF0' }}>Custom</span>
             </div>
           )}
-          <button
+          <Button variant="outline" size="sm"
             onClick={() => { setTempDeadlines(deadlines); setShowDeadlineModal(true); }}
-            style={{
-              backgroundColor: '#fff', border: '1px solid #E1E3EA', borderRadius: '9px', cursor: 'pointer',
-              padding: '9px 18px', display: 'inline-flex', alignItems: 'center', gap: '6px',
-              fontFamily: 'Inter, sans-serif', fontWeight: 600, fontSize: '13px', color: '#374151',
-              transition: 'all 0.15s ease', boxShadow: '0 1px 4px rgba(24,28,50,0.05)', whiteSpace: 'nowrap' as const,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#7239EA'; e.currentTarget.style.color = '#7239EA'; e.currentTarget.style.backgroundColor = '#f7f3fe'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.backgroundColor = '#fff'; }}
           >
-            Configure <AppIcon name="bi-arrow-right" className="fs-7" />
-          </button>
+            Configure <AppIcon name="bi-arrow-right" className="fs-7" data-icon="inline-end" />
+          </Button>
         </div>
       </div>
 

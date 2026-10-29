@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Box, Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Box, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Button, buttonVariants } from "@/ds/ui/button";
 import { KTIcon } from "@metronic/helpers";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { getTaskList, getAllTasksWithMetrics, getAvailableProjects, deleteTask } from "@services/tasks";
 import { WtTooltip, confirmDialog } from "@app/modules/common/components/ui";
 import dayjs from "dayjs";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { canSection } from "@utils/can";
 import { usePermission } from "@hooks/usePermission";
 import { getTimeTokens } from '@utils/timeFormat';
@@ -20,7 +21,6 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
   const [tasks, setTasks] = useState<any[]>([]);
   const [tasksMetrics, setTasksMetrics] = useState<any[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
-  const navigate = useNavigate();
   // Fetch tasks data
   /**
    * WHOSE tasks this widget is showing.
@@ -353,26 +353,30 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
         return (
           <div className="d-flex gap-2">
             {hasEditPermission && (
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Edit task"
                 onClick={e => {
                   e.stopPropagation();
                   onEditTask(row.original);
                 }}
               >
                 <KTIcon iconName="pencil" className="fs-2" />
-              </button>
+              </Button>
             )}
             {hasDeletePermission && (
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Delete task"
                 onClick={e => {
                   e.stopPropagation();
                   handleDeleteTask(row.original);
                 }}
               >
                 <KTIcon iconName="trash" className="fs-2" />
-              </button>
+              </Button>
             )}
           </div>
         );
@@ -463,20 +467,13 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
             >
               New Task
             </Button> */}
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => navigate(scope === "MINE" ? "/tasks" : `/tasks?scope=${encodeURIComponent(scope)}`)}
-              sx={{
-                textTransform: "none",
-                fontWeight: 500,
-                borderRadius: "8px",
-                px: 2.25,
-                whiteSpace: "nowrap",
-              }}
+            <Link
+              to={scope === "MINE" ? "/tasks" : `/tasks?scope=${encodeURIComponent(scope)}`}
+              data-slot="button"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               View all
-            </Button>
+            </Link>
           </Stack>
         </Stack>
 

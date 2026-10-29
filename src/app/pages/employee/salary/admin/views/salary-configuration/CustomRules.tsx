@@ -5,10 +5,12 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon,
   toAbsoluteUrl } from "@metronic/helpers";
-import { Button,
+import {
   Card,
   ListGroup
 } from "react-bootstrap";
+import { Button } from "@/ds/ui/button";
+import { WtCloseButton } from "@app/modules/common/components/ui/tw/WtCloseButton";
 import { RootState } from "@redux/store";
 import { Form, Formik, FormikValues } from "formik";
 import { MRT_ColumnDef } from "material-react-table";
@@ -183,15 +185,17 @@ function CustomRules() {
             return  (
               <div className="flex items-center justify-center space-x-4">
                 {" "}
-                {resEdit && <button
-                  className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+                {resEdit && <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Edit rule"
                   onClick={() => handleEdit(row.original)}
                 >
                   <KTIcon
                     iconName="pencil"
                     className=" inline fs-4 text-red-500"
                   />
-                </button>}
+                </Button>}
                 {!resEdit && "Not Allowed"}
               </div>
             )
@@ -282,18 +286,7 @@ function CustomRules() {
             }}>
               Edit {oldValue.name || "Custom Rule"}
             </div>
-            <button 
-              onClick={handleClose}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                fontSize: '24px',
-                color: '#A1A5B7',
-                cursor: 'pointer'
-              }}
-            >
-              <AppIcon name="bi-x" />
-            </button>
+            <WtCloseButton onClick={handleClose} />
           </div>
           <Formik
             initialValues={initialState}
@@ -331,56 +324,22 @@ function CustomRules() {
                 </div>
 
                 <div className="d-flex justify-content-end sc-form-footer mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
+                    size="lg"
                     onClick={handleClose}
-                    style={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #E1E3EA',
-                      borderRadius: '8px',
-                      color: '#3F4254',
-                      height: '44px',
-                      padding: '0 24px',
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 600,
-                      fontSize: '15px',
-                      cursor: 'pointer',
-                      marginRight: '12px',
-                    }}
+                    className="mr-3"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
+                    size="lg"
                     disabled={loading || !formikProps.isValid}
-                    style={{
-                      backgroundColor: '#1E3A8A',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: 'white',
-                      height: '44px',
-                      padding: '0 28px',
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 600,
-                      fontSize: '15px',
-                      cursor: (loading || !formikProps.isValid) ? 'not-allowed' : 'pointer',
-                      opacity: (loading || !formikProps.isValid) ? 0.7 : 1,
-                      boxShadow: '0 4px 12px rgba(30, 58, 138, 0.2)',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                    onMouseOver={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                    onMouseOut={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(0)'; }}
+                    loading={loading}
                   >
-                    {!loading && "Save Rule"}
-                    {loading && (
-                      <>
-                        Saving... <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                      </>
-                    )}
-                  </button>
+                    {loading ? "Saving..." : "Save Rule"}
+                  </Button>
                 </div>
               </Form>
             )}
