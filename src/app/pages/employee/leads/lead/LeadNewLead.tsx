@@ -3,7 +3,6 @@ import ExportButton from "@app/modules/common/components/ExportButton";
 import TimePeriodSelector, { TimePeriodMode } from "@app/modules/common/components/TimePeriodSelector";
 import {
   Box,
-  Button,
   MenuItem,
   Select,
   FormControl,
