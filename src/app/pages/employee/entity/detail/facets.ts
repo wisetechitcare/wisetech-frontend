@@ -327,6 +327,7 @@ export const ENTITY_TABS: TabDef[] = [
   { key: 'timesheet', label: 'Timesheet', icon: 'bi bi-stopwatch', projectOnly: true },
   { key: 'reimbursement', label: 'Reimbursement', icon: 'bi bi-wallet2', projectOnly: true },
   { key: 'documents', label: 'Documents', icon: 'bi bi-file-earmark-text' },
+  { key: 'gallery', label: 'Gallery', icon: 'bi bi-images', projectOnly: true },
   { key: 'audit', label: 'Audit', icon: 'bi bi-file-earmark-diff' },
   { key: 'teams', label: 'Teams', icon: 'bi bi-people', projectOnly: true },
   { key: 'meetings', label: 'Meetings', icon: 'bi bi-camera-video', projectOnly: true },

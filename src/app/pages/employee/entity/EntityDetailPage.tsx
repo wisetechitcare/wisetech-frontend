@@ -1,45 +1,62 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useTabKeyRoute } from '@app/hooks/useTabRoute';
-import { Button } from '@/ds/ui/button';
-import { KTIcon } from '@metronic/helpers';
-import { useDispatch } from 'react-redux';
-import { getLeadById } from '@services/leads';
-import { getClientCompanyById, getClientContactById } from '@services/companies';
-import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
-import { useEventBus } from '@hooks/useEventBus';
-import { EVENT_KEYS } from '@constants/eventKeys';
-import { mapLeadToFormInitialValues } from '@pages/employee/leads/lead/utils';
-import { canSection, canViewCommercial } from '@utils/can';
-import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
-import type { AppDispatch } from '@redux/store';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useTabKeyRoute } from "@app/hooks/useTabRoute";
+import { Button } from "@/ds/ui/button";
+import { KTIcon } from "@metronic/helpers";
+import { useDispatch } from "react-redux";
+import { getLeadById } from "@services/leads";
+import {
+  getClientCompanyById,
+  getClientContactById,
+} from "@services/companies";
+import { miscellaneousIcons } from "@metronic/assets/miscellaneousicons";
+import { useEventBus } from "@hooks/useEventBus";
+import { EVENT_KEYS } from "@constants/eventKeys";
+import { mapLeadToFormInitialValues } from "@pages/employee/leads/lead/utils";
+import { canSection, canViewCommercial } from "@utils/can";
+import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
+import type { AppDispatch } from "@redux/store";
 
-import LeadWizardModal from '@pages/employee/leads/lead/LeadWizardModal';
-import ProposalTemplatePage from '@pages/employee/leads/lead/components/ProposalTemplatePage';
-import { DMSProvider } from '@pages/employee/leads/lead/components/dms/store/DmsContext';
+import LeadWizardModal from "@pages/employee/leads/lead/LeadWizardModal";
+import ProposalTemplatePage from "@pages/employee/leads/lead/components/ProposalTemplatePage";
+import { DMSProvider } from "@pages/employee/leads/lead/components/dms/store/DmsContext";
 
-import { isProjectEntity, getProjectPhase, projectNumberOf, PHASE_THEMES } from './entityUtils';
-import { DensityProvider } from './detail/density';
-import { buildEntityVM, ENTITY_TABS } from './detail/facets';
+import {
+  isProjectEntity,
+  getProjectPhase,
+  projectNumberOf,
+  PHASE_THEMES,
+} from "./entityUtils";
+import { DensityProvider } from "./detail/density";
+import { buildEntityVM, ENTITY_TABS } from "./detail/facets";
 
-import SummarySection from './detail/sections/SummarySection';
-import { TasksTab, TimesheetTab, ReimbursementTab } from './detail/sections/ProjectModuleTabs';
-import DocumentsTab from './detail/sections/DocumentsTab';
-import AuditSection from './detail/sections/AuditSection';
-import TeamsSection from './detail/sections/TeamsSection';
-import BillingSection from './detail/sections/BillingSection';
-import DeliverablesSection from './detail/sections/DeliverablesSection';
-import ProjectMeetings from './detail/sections/ProjectMeetings';
-import ProjectStatusControl from './detail/ProjectStatusControl';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { UnderlineTabs, WtEmptyState } from '@app/modules/common/components/ui';
-import NoAccessPage from '@app/modules/common/components/NoAccessPage';
-import SensitiveDataProvider, { SensitiveDataBarToggle } from '@app/modules/common/components/SensitiveData';
+import SummarySection from "./detail/sections/SummarySection";
+import {
+  TasksTab,
+  TimesheetTab,
+  ReimbursementTab,
+} from "./detail/sections/ProjectModuleTabs";
+import DocumentsTab from "./detail/sections/DocumentsTab";
+import ProjectGalleryTab from "@app/modules/project-gallery/ProjectGalleryTab";
+import { ProjectAvatar } from "@app/modules/project-gallery/ProjectAvatar";
+import { initialsOf } from "@app/modules/project-gallery/media";
+import AuditSection from "./detail/sections/AuditSection";
+import TeamsSection from "./detail/sections/TeamsSection";
+import BillingSection from "./detail/sections/BillingSection";
+import DeliverablesSection from "./detail/sections/DeliverablesSection";
+import ProjectMeetings from "./detail/sections/ProjectMeetings";
+import ProjectStatusControl from "./detail/ProjectStatusControl";
+import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
+import { UnderlineTabs, WtEmptyState } from "@app/modules/common/components/ui";
+import NoAccessPage from "@app/modules/common/components/NoAccessPage";
+import SensitiveDataProvider, {
+  SensitiveDataBarToggle,
+} from "@app/modules/common/components/SensitiveData";
 
 /** Tabs carrying money, and so the eye that blurs it. */
-const EYE_TABS = ['commercial'];
+const EYE_TABS = ["commercial"];
 
-const NOT_AUTHORIZED = 'not-authorized';
+const NOT_AUTHORIZED = "not-authorized";
 
 /**
  * Unified Entity detail page. ONE entity, ONE page. The Lead is the master; the
@@ -65,7 +82,7 @@ const EntityDetailPage: React.FC = () => {
   //    click silently turned a lead into a project; and the choice was invisible
   //    in the URL, so it could not be shared or bookmarked. A path segment has
   //    neither problem — it survives refresh, copy-paste and every navigation.
-  const fromProjects = location.pathname.startsWith('/project/');
+  const fromProjects = location.pathname.startsWith("/project/");
   const fromLeads = !fromProjects;
 
   // ── Tab lives in the URL (?tab=billing) ─────────────────────────────────────
@@ -94,7 +111,7 @@ const EntityDetailPage: React.FC = () => {
 
   // The lead IS a project once it reaches a project-trigger status — data-driven, not nav-driven.
   const isProject = isProjectEntity(lead);
-  const canWrite = canSection(isProject ? 'projects' : 'crm.leads', 'write');
+  const canWrite = canSection(isProject ? "projects" : "crm.leads", "write");
   const projectId = lead?.projectId || lead?.project?.id || null;
   const phase = getProjectPhase(lead);
   const phaseTheme = PHASE_THEMES[phase] ?? PHASE_THEMES.none;
@@ -104,11 +121,18 @@ const EntityDetailPage: React.FC = () => {
   // longer required (lead-as-master). Entering from the Leads table suppresses
   // them entirely (lead-focused view), regardless of project status.
   const tabs = useMemo(
-    () => ENTITY_TABS.filter(t => (!t.projectOnly || (isProject && !fromLeads))
-      // Money tabs: Commercial follows the page (a lead page also shows the project's
-      // commercials once converted), Billing is project money.
-      && (t.key !== 'commercial' || canViewCommercial(isProject && !fromLeads ? 'projects' : 'crm.leads'))
-      && (t.key !== 'billing' || canViewCommercial('projects'))),
+    () =>
+      ENTITY_TABS.filter(
+        (t) =>
+          (!t.projectOnly || (isProject && !fromLeads)) &&
+          // Money tabs: Commercial follows the page (a lead page also shows the project's
+          // commercials once converted), Billing is project money.
+          (t.key !== "commercial" ||
+            canViewCommercial(
+              isProject && !fromLeads ? "projects" : "crm.leads",
+            )) &&
+          (t.key !== "billing" || canViewCommercial("projects")),
+      ),
     [isProject, fromLeads],
   );
 
@@ -118,8 +142,8 @@ const EntityDetailPage: React.FC = () => {
   // An empty list tells the route hook to leave the URL alone (the page shows a loader).
   const { activeKey: activeTab, setActiveKey: setActiveTab } = useTabKeyRoute(
     undefined,
-    lead ? tabs.map(t => t.key) : [],
-    fromProjects ? 'projects' : 'leads',
+    lead ? tabs.map((t) => t.key) : [],
+    fromProjects ? "projects" : "leads",
   );
   const vm = useMemo(() => (lead ? buildEntityVM(lead) : null), [lead]);
 
@@ -140,7 +164,7 @@ const EntityDetailPage: React.FC = () => {
 
   const fetchLeadDetails = useCallback(async () => {
     if (!leadId) {
-      setError('No lead ID provided');
+      setError("No lead ID provided");
       setIsLoading(false);
       return;
     }
@@ -151,16 +175,30 @@ const EntityDetailPage: React.FC = () => {
       const leadData = leadResponse.data.data.lead;
       setLead(leadData);
       const promises: Promise<any>[] = [];
-      if (leadData.companyId) promises.push(getClientCompanyById(leadData.companyId).then(r => setCompany(r?.data?.company || null)).catch(console.error));
-      if (leadData.contactId) promises.push(getClientContactById(leadData.contactId).then(r => setContact(r?.data?.contact || null)).catch(console.error));
+      if (leadData.companyId)
+        promises.push(
+          getClientCompanyById(leadData.companyId)
+            .then((r) => setCompany(r?.data?.company || null))
+            .catch(console.error),
+        );
+      if (leadData.contactId)
+        promises.push(
+          getClientContactById(leadData.contactId)
+            .then((r) => setContact(r?.data?.contact || null))
+            .catch(console.error),
+        );
       await Promise.all(promises);
       setError(null);
     } catch (err: any) {
-      console.error('Error fetching lead details:', err);
+      console.error("Error fetching lead details:", err);
       // 404 / 403: the server's by-id rule — not theirs (or gone). Say so instead of "failed".
       const status = err?.response?.status;
       setLead(null);
-      setError(status === 404 || status === 403 ? NOT_AUTHORIZED : 'Failed to load details. Please try again.');
+      setError(
+        status === 404 || status === 403
+          ? NOT_AUTHORIZED
+          : "Failed to load details. Please try again.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -184,7 +222,11 @@ const EntityDetailPage: React.FC = () => {
     // Only when company/contact are unmoved: those two drive side fetches this page also
     // holds, so a save that changes either still takes the full path.
     const next = (payload as any)?.lead;
-    if (next?.id && lead?.companyId === next.companyId && lead?.contactId === next.contactId) {
+    if (
+      next?.id &&
+      lead?.companyId === next.companyId &&
+      lead?.contactId === next.contactId
+    ) {
       setLead(next);
       return;
     }
@@ -198,14 +240,27 @@ const EntityDetailPage: React.FC = () => {
     setTimeout(fetchLeadDetails, 150);
   });
 
-  const openEdit = useCallback(() => lead && setFormValues(mapLeadToFormInitialValues(lead)), [lead]);
+  // The Gallery tab changes the cover; the header avatar follows without refetching the lead.
+  const onCoverChange = useCallback(
+    (url: string | null) =>
+      setLead((l: any) => (l ? { ...l, coverImageUrl: url } : l)),
+    [],
+  );
+
+  const openEdit = useCallback(
+    () => lead && setFormValues(mapLeadToFormInitialValues(lead)),
+    [lead],
+  );
 
   const renderTab = () => {
-    if (error || !lead || !vm) return <div className="alert alert-danger">{error || 'No data available'}</div>;
+    if (error || !lead || !vm)
+      return (
+        <div className="alert alert-danger">{error || "No data available"}</div>
+      );
     switch (activeTab) {
-      case 'leads':
-      case 'projects':
-      case 'commercial':
+      case "leads":
+      case "projects":
+      case "commercial":
         return (
           <SummarySection
             lead={lead}
@@ -216,26 +271,60 @@ const EntityDetailPage: React.FC = () => {
             view={activeTab}
           />
         );
-      case 'tasks':
+      case "tasks":
         return <TasksTab lead={lead} projectId={projectId} />;
-      case 'deliverables':
+      case "deliverables":
         return <DeliverablesSection lead={lead} />;
-      case 'timesheet':
+      case "timesheet":
         return <TimesheetTab lead={lead} projectId={projectId} />;
-      case 'reimbursement':
+      case "reimbursement":
         return <ReimbursementTab lead={lead} projectId={projectId} />;
-      case 'documents':
-        return <DocumentsTab lead={lead} vm={vm} isProject={isProject} projectId={projectId} onExport={canViewCommercial('crm.leads') ? () => setShowProposalModal(true) : undefined} />;
-      case 'audit':
-        return <AuditSection leadId={leadId} isProject={isProject} projectId={projectId} onChanged={fetchLeadDetails} />;
-      case 'teams':
+      case "documents":
+        return (
+          <DocumentsTab
+            lead={lead}
+            vm={vm}
+            isProject={isProject}
+            projectId={projectId}
+            onExport={
+              canViewCommercial("crm.leads")
+                ? () => setShowProposalModal(true)
+                : undefined
+            }
+          />
+        );
+      case "gallery":
+        return (
+          <ProjectGalleryTab
+            leadId={lead.id}
+            projectName={lead.title || "Project"}
+            onCoverChange={onCoverChange}
+          />
+        );
+      case "audit":
+        return (
+          <AuditSection
+            leadId={leadId}
+            isProject={isProject}
+            projectId={projectId}
+            onChanged={fetchLeadDetails}
+          />
+        );
+      case "teams":
         return <TeamsSection lead={lead} />;
-      case 'meetings':
+      case "meetings":
         // Meetings are linked by projectId = the lead id (lead-as-master).
         // A lead that is not yet a project is on nobody's project list, so the meeting form
         // needs its name handed over (same as the Leads table does).
-        return <ProjectMeetings leadId={lead.id} leadName={isProject ? undefined : (lead.title || lead.prefix || 'Lead')} />;
-      case 'billing':
+        return (
+          <ProjectMeetings
+            leadId={lead.id}
+            leadName={
+              isProject ? undefined : lead.title || lead.prefix || "Lead"
+            }
+          />
+        );
+      case "billing":
         return <BillingSection lead={lead} />;
       default:
         return null;
@@ -244,11 +333,22 @@ const EntityDetailPage: React.FC = () => {
 
   if (!isLoading && !lead && error) {
     if (error === NOT_AUTHORIZED) {
-      return <NoAccessPage kind="record" title="You don't have access to this lead or project" />;
+      return (
+        <NoAccessPage
+          kind="record"
+          title="You don't have access to this lead or project"
+        />
+      );
     }
     return (
       <div className="py-10">
-        <WtEmptyState variant="error" title="Couldn't load this record" hint={error} actionLabel="Try again" onAction={fetchLeadDetails} />
+        <WtEmptyState
+          variant="error"
+          title="Couldn't load this record"
+          hint={error}
+          actionLabel="Try again"
+          onAction={fetchLeadDetails}
+        />
       </div>
     );
   }
@@ -264,53 +364,104 @@ const EntityDetailPage: React.FC = () => {
   }
 
   return (
-    <DMSProvider leadId={lead.id} inquiryNumber={lead.inquiryNo || lead.prefix || 'N/A'} leadTitle={lead.title || lead.name || 'Lead'}>
+    <DMSProvider
+      leadId={lead.id}
+      inquiryNumber={lead.inquiryNo || lead.prefix || "N/A"}
+      leadTitle={lead.title || lead.name || "Lead"}
+    >
       <div className="d-flex flex-column flex-lg-row p-6">
         <div className="flex-lg-row-fluid">
           {/* ── Header ── */}
           <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4 mb-2">
-            <div className="d-flex align-items-start gap-3 flex-grow-1" style={{ minWidth: 0 }}>
+            <div
+              className="d-flex align-items-start gap-3 grow"
+              style={{ minWidth: 0 }}
+            >
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate(-1)}
                 aria-label="Back"
               >
-                <img src={miscellaneousIcons.leftArrow} alt="Back" style={{ width: '36px', height: '36px' }} />
+                <img
+                  src={miscellaneousIcons.leftArrow}
+                  alt="Back"
+                  style={{ width: "36px", height: "36px" }}
+                />
               </Button>
-              
-              <div className="d-flex flex-column flex-grow-1" style={{ minWidth: 0 }}>
+              {isProject && !fromLeads && (
+                <ProjectAvatar
+                  src={lead?.coverImageUrl}
+                  label={initialsOf(lead?.title || "")}
+                  className="size-12 shrink-0 text-base"
+                />
+              )}
+
+              <div className="d-flex flex-column grow" style={{ minWidth: 0 }}>
                 {/* Meta string */}
-                <div className="d-flex align-items-center flex-wrap gap-2 mb-1" style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 600, letterSpacing: '0.5px' }}>
+                <div
+                  className="d-flex align-items-center flex-wrap gap-2 mb-1"
+                  style={{
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    letterSpacing: "0.5px",
+                  }}
+                >
                   {/* Which number identifies this record follows the VIEW, not just
                       the tab: in the lead view every tab is looking at the lead, so
                       it stays the lead/OFFER number throughout. Showing the project
                       number on the lead view's Commercial tab was the same
                       lead-vs-project mix-up as the Project No. tile. */}
-                  {isProject && !fromLeads && activeTab !== 'leads' ? (
-                    <span style={{ color: '#059669' }}>{`#${projectNumberOf(lead) || 'N/A'}`}</span>
+                  {isProject && !fromLeads && activeTab !== "leads" ? (
+                    <span
+                      style={{ color: "#059669" }}
+                    >{`#${projectNumberOf(lead) || "N/A"}`}</span>
                   ) : (
-                    <span style={{ color: '#64748B' }}>{`#${lead?.prefix || 'N/A'}`}</span>
+                    <span
+                      style={{ color: "#64748B" }}
+                    >{`#${lead?.prefix || "N/A"}`}</span>
                   )}
-                  {(lead?.revisionCount !== undefined && lead?.revisionCount !== null) && (
-                    <>
-                      <span style={{ color: '#CBD5E1' }}>•</span>
-                      <span style={{ color: '#94A3B8' }}>{`R${lead.revisionCount}`}</span>
-                    </>
-                  )}
+                  {lead?.revisionCount !== undefined &&
+                    lead?.revisionCount !== null && (
+                      <>
+                        <span style={{ color: "#CBD5E1" }}>•</span>
+                        <span
+                          style={{ color: "#94A3B8" }}
+                        >{`R${lead.revisionCount}`}</span>
+                      </>
+                    )}
                   {lead?.priority && (
                     <>
-                      <span style={{ color: '#CBD5E1' }}>•</span>
-                      <span className="d-inline-flex align-items-center gap-1" style={{ color: '#F59E0B' }}>
-                        <AppIcon name="bi-star-fill" className="fs-8" style={{ marginTop: '-1px' }} /> {lead.priority}
+                      <span style={{ color: "#CBD5E1" }}>•</span>
+                      <span
+                        className="d-inline-flex align-items-center gap-1"
+                        style={{ color: "#F59E0B" }}
+                      >
+                        <AppIcon
+                          name="bi-star-fill"
+                          className="fs-8"
+                          style={{ marginTop: "-1px" }}
+                        />{" "}
+                        {lead.priority}
                       </span>
                     </>
                   )}
                 </div>
-                
+
                 {/* Title */}
-                <h2 className="mb-0 text-truncate" style={{ fontFamily: 'Barlow, sans-serif', fontWeight: 700, fontSize: '26px', color: '#0F172A', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
-                  {lead?.title || 'Unnamed Entity'}
+                <h2
+                  className="mb-0 text-truncate"
+                  style={{
+                    fontFamily: "Barlow, sans-serif",
+                    fontWeight: 700,
+                    fontSize: "26px",
+                    color: "#0F172A",
+                    letterSpacing: "-0.3px",
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {lead?.title || "Unnamed Entity"}
                 </h2>
               </div>
             </div>
@@ -319,7 +470,7 @@ const EntityDetailPage: React.FC = () => {
                 tab, Project status everywhere else (once the lead is a project).
                 Edit/Export stay lead-only actions, shown only on the Leads tab. */}
             <div className="d-flex flex-wrap align-items-stretch align-items-sm-center gap-2 mt-1 mt-md-0">
-              {isProject && !fromLeads && activeTab !== 'leads' ? (
+              {isProject && !fromLeads && activeTab !== "leads" ? (
                 <ProjectStatusControl
                   leadId={leadId!}
                   projectStatusId={lead?.execution?.projectStatusId}
@@ -331,27 +482,35 @@ const EntityDetailPage: React.FC = () => {
               ) : (
                 <div
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 9,
-                    border: `1px solid ${lead?.status?.color || '#64748B'}3D`,
-                    background: `linear-gradient(180deg, ${lead?.status?.color || '#64748B'}17, ${lead?.status?.color || '#64748B'}0A)`,
-                    color: lead?.status?.color || '#64748B',
-                    borderRadius: 10, padding: '7px 14px',
-                    fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 700,
-                    letterSpacing: '-0.1px',
-                    boxShadow: `0 1px 2px ${lead?.status?.color || '#64748B'}14`,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 9,
+                    border: `1px solid ${lead?.status?.color || "#64748B"}3D`,
+                    background: `linear-gradient(180deg, ${lead?.status?.color || "#64748B"}17, ${lead?.status?.color || "#64748B"}0A)`,
+                    color: lead?.status?.color || "#64748B",
+                    borderRadius: 10,
+                    padding: "7px 14px",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    letterSpacing: "-0.1px",
+                    boxShadow: `0 1px 2px ${lead?.status?.color || "#64748B"}14`,
                   }}
                 >
                   <span
                     style={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      background: lead?.status?.color || '#64748B', display: 'inline-block',
-                      boxShadow: `0 0 0 3px ${lead?.status?.color || '#64748B'}22`,
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: lead?.status?.color || "#64748B",
+                      display: "inline-block",
+                      boxShadow: `0 0 0 3px ${lead?.status?.color || "#64748B"}22`,
                     }}
                   />
-                  Lead - {lead?.status?.name || 'Set status'}
+                  Lead - {lead?.status?.name || "Set status"}
                 </div>
               )}
-              
+
               {/* The lead view hides every project tab by design, so a lead that
                   IS a project needs a door through to the project view — without
                   it an old /leads/:id link to a project is a dead end. Only this
@@ -362,22 +521,40 @@ const EntityDetailPage: React.FC = () => {
                   size="sm"
                   className="flex-auto"
                   onClick={() => navigate(`/project/${leadId}`)}
-                  style={{ '--tint': 'var(--cta-success)' } as React.CSSProperties}
+                  style={
+                    { "--tint": "var(--cta-success)" } as React.CSSProperties
+                  }
                 >
-                  <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-kanban" className="fs-7" /></span> Project view
+                  <span data-icon="inline-start" className="inline-flex">
+                    <AppIcon name="bi-kanban" className="fs-7" />
+                  </span>{" "}
+                  Project view
                 </Button>
               )}
 
-              {canWrite && activeTab === 'leads' && (
+              {canWrite && activeTab === "leads" && (
                 <>
                   <Button size="sm" className="flex-auto" onClick={openEdit}>
-                    <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-pencil-fill" className="fs-7" /></span> Edit
+                    <span data-icon="inline-start" className="inline-flex">
+                      <AppIcon name="bi-pencil-fill" className="fs-7" />
+                    </span>{" "}
+                    Edit
                   </Button>
 
-                  {canViewCommercial('crm.leads') && (
-                  <Button size="sm" className="flex-auto" onClick={() => setShowProposalModal(true)}>
-                    <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-file-earmark-arrow-down-fill" className="fs-7" /></span> Export
-                  </Button>
+                  {canViewCommercial("crm.leads") && (
+                    <Button
+                      size="sm"
+                      className="flex-auto"
+                      onClick={() => setShowProposalModal(true)}
+                    >
+                      <span data-icon="inline-start" className="inline-flex">
+                        <AppIcon
+                          name="bi-file-earmark-arrow-down-fill"
+                          className="fs-7"
+                        />
+                      </span>{" "}
+                      Export
+                    </Button>
                   )}
                 </>
               )}
@@ -391,12 +568,16 @@ const EntityDetailPage: React.FC = () => {
           <SensitiveDataProvider disabled={!EYE_TABS.includes(activeTab)}>
             <UnderlineTabs
               sticky
-              tabs={tabs.map(t => ({ ...t, count: tabCounts[t.key] }))}
+              tabs={tabs.map((t) => ({ ...t, count: tabCounts[t.key] }))}
               value={activeTab}
               onChange={setActiveTab}
               ariaLabel="Record sections"
               sx={{ mt: 3 }}
-              actions={EYE_TABS.includes(activeTab) ? <SensitiveDataBarToggle /> : undefined}
+              actions={
+                EYE_TABS.includes(activeTab) ? (
+                  <SensitiveDataBarToggle />
+                ) : undefined
+              }
             />
 
             <div className="tab-content">
@@ -408,12 +589,16 @@ const EntityDetailPage: React.FC = () => {
 
       {formValues && (
         <LeadWizardModal
-          key={formValues?.id || 'edit-lead-modal'}
+          key={formValues?.id || "edit-lead-modal"}
           leadTemplateId={formValues?.leadTemplateId}
           open={true}
           onClose={() => setFormValues(null)}
-          title={formValues?.id ? `Edit Lead / Project` : 'New Lead'}
-          initialData={formValues?.id ? { id: formValues?.leadTemplateId } : { ...formValues, title: '' }}
+          title={formValues?.id ? `Edit Lead / Project` : "New Lead"}
+          initialData={
+            formValues?.id
+              ? { id: formValues?.leadTemplateId }
+              : { ...formValues, title: "" }
+          }
           initialFormData={formValues}
           isEditMode={!!formValues?.id}
         />
