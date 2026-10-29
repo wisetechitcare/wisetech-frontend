@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { DetailCard, DetailRow, DetailMapLink, DetailLink } from "@app/modules/detail-page/DetailPageComponents";
 import { CardGrid } from "@app/pages/employee/entity/detail/sections/SummarySection";
 import { DASH } from "@app/pages/employee/entity/detail/entityViewModel";
@@ -119,6 +119,13 @@ ${company?.phone2 ? `• Phone 2: ${company.phone2}` : ''}
         <DetailRow label="Website" value={webLink(company?.website)} />
         <DetailRow label="Address" value={joinAddress(company) || DASH} isLast={!companyCoords} />
         {companyCoords && <DetailRow label="Location" value={<DetailMapLink lat={companyCoords.lat} lng={companyCoords.lng} />} isLast />}
+      </DetailCard>
+
+      {/* Same card as the company page's Notes; edited from the contact form's Notes step. */}
+      <DetailCard title="Notes" subtitle="Internal remarks" icon="bi bi-journal-text" accentColor="amber">
+        <Typography sx={{ fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "anywhere", py: 1.5, color: contact?.note ? "text.primary" : "text.disabled" }}>
+          {contact?.note || "No notes yet."}
+        </Typography>
       </DetailCard>
     </CardGrid>
   );

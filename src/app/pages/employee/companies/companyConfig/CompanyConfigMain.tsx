@@ -7,6 +7,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
 import CompanyConfigForm from "./components/CompanyConfigForm";
+import AuditWindowSetting from "../AuditWindowSetting";
 import { Container } from "react-bootstrap";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "../../../../../types/deleteConfirmation";
@@ -480,6 +481,8 @@ const CompanyConfigMain = () => {
               </div>
             </div>
           </ConfigSectionCard>
+
+          <AuditWindowSetting entity="COMPANY" what="company" />
         </div>
       </ConfigPageLayout>
 

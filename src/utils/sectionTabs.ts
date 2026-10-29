@@ -18,6 +18,7 @@ export interface SectionTab {
 
 const overview = (what: string): SectionTab => ({ key: "overview", label: "Overview", icon: "bi-grid-1x2", hint: `Charts and totals for ${what}` });
 const map: SectionTab = { key: "map", label: "Map", icon: "bi-geo-alt", hint: "Locations on a map" };
+const audit = (what: string): SectionTab => ({ key: "audit", label: "Audit", icon: "bi-clock-history", hint: `Edit history of each ${what}` });
 const configure = (what: string): SectionTab => ({ key: "configure", label: "Configure", icon: "bi-gear", hint: `Statuses, types and other settings for ${what}`, needsWrite: true });
 
 export const SECTION_TABS: Record<string, SectionTab[]> = {
@@ -37,6 +38,7 @@ export const SECTION_TABS: Record<string, SectionTab[]> = {
     overview("companies"),
     { key: "companies", label: "Companies", icon: "bi-building", hint: "The companies list" },
     map,
+    audit("company"),
     configure("companies"),
   ],
   "crm.contacts": [
@@ -44,6 +46,7 @@ export const SECTION_TABS: Record<string, SectionTab[]> = {
     { key: "contacts", label: "Contacts", icon: "bi-person-lines-fill", hint: "The contacts list" },
     { key: "calendar", label: "Calendar", icon: "bi-calendar-event", hint: "Contacts' birthdays and events" },
     map,
+    audit("contact"),
     configure("contacts"),
   ],
   // Pages whose tab bar is filtered by MaterialHeaderTab (`accessSection`): keys are the tab titles

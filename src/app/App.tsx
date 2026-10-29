@@ -21,6 +21,7 @@ import { UnsavedChangesProvider } from '@app/modules/common/components/ui/Unsave
 import { useTimeFormat } from '@hooks/useTimeFormat';
 import { useCurrencyCode } from '@hooks/useCurrency';
 import { PwaHost } from './pwa/PwaHost';
+import { useScrollLockGuard } from './hooks/useScrollLockGuard';
 // import { MaintenancePage } from './modules/errors/MaintenancePage';
 // import { NoInternetPage } from './modules/errors/NoInternetPage';
 
@@ -50,6 +51,8 @@ import { PwaHost } from './pwa/PwaHost';
 // };
 
 const App = () => {
+  // App-wide: a scroll lock left behind by overlapping modals would freeze scrolling until reload.
+  useScrollLockGuard();
   const dispatch = useDispatch<AppDispatch>();
 
   // // Global Error States
