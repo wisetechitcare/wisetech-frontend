@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { IconButton, Tooltip } from "@mui/material";
-import { ConfigSectionCard, ConfigSettingsRow, C, ICON_COLORS, coloredActionBtn } from "@app/modules/configuration";
+import { ConfigSectionCard, ConfigSettingsRow, C, ICON_COLORS } from "@app/modules/configuration";
 import { deleteConfirmation } from "@utils/modal";
 import { alertDialog } from "@app/modules/common/components/ui/feedback";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@services/projectPoints";
 import ProjectPointsConfigModal from "./ProjectPointsConfigModal";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 /**
  * Configuration → Project Points. Self-contained card: list + add/edit/delete +
@@ -104,46 +105,61 @@ const ProjectPointsConfigSection: React.FC = () => {
                             rightContent={
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                     <Tooltip title="Move up">
-                                        <button
+                                        <Button
+                                            variant="tinted"
+                                            size="icon-sm"
+                                            aria-label="Move up"
                                             disabled={idx === 0}
                                             onClick={() => move(idx, -1)}
-                                            style={coloredActionBtn("#0891b2", idx === 0)}
+                                            style={{ '--tint': "#0891b2" } as React.CSSProperties}
                                         >
                                             <AppIcon name="bi-arrow-up" className="fs-6" />
-                                        </button>
+                                        </Button>
                                     </Tooltip>
                                     <Tooltip title="Move down">
-                                        <button
+                                        <Button
+                                            variant="tinted"
+                                            size="icon-sm"
+                                            aria-label="Move down"
                                             disabled={idx === points.length - 1}
                                             onClick={() => move(idx, 1)}
-                                            style={coloredActionBtn("#0891b2", idx === points.length - 1)}
+                                            style={{ '--tint': "#0891b2" } as React.CSSProperties}
                                         >
                                             <AppIcon name="bi-arrow-down" className="fs-6" />
-                                        </button>
+                                        </Button>
                                     </Tooltip>
                                     <Tooltip title={p.isActive ? "Click to disable" : "Click to enable"}>
-                                        <button
+                                        <Button
+                                            variant="tinted"
+                                            size="icon-sm"
+                                            aria-label={p.isActive ? "Click to disable" : "Click to enable"}
                                             onClick={() => toggleActive(p)}
-                                            style={coloredActionBtn(p.isActive ? "#059669" : "#ef4444")}
+                                            style={{ '--tint': p.isActive ? "#059669" : "#ef4444" } as React.CSSProperties}
                                         >
                                             <AppIcon name={p.isActive ? "bi-eye" : "bi-eye-slash"} className="fs-6" />
-                                        </button>
+                                        </Button>
                                     </Tooltip>
                                     <Tooltip title="Edit">
-                                        <button
+                                        <Button
+                                            variant="tinted"
+                                            size="icon-sm"
+                                            aria-label="Edit"
                                             onClick={() => openEdit(p)}
-                                            style={coloredActionBtn("#2563eb")}
+                                            style={{ '--tint': "#2563eb" } as React.CSSProperties}
                                         >
                                             <AppIcon name="bi-pencil" className="fs-6" />
-                                        </button>
+                                        </Button>
                                     </Tooltip>
                                     <Tooltip title="Delete">
-                                        <button
+                                        <Button
+                                            variant="tinted"
+                                            size="icon-sm"
+                                            aria-label="Delete"
                                             onClick={() => handleDelete(p)}
-                                            style={coloredActionBtn("#ef4444")}
+                                            style={{ '--tint': "#ef4444" } as React.CSSProperties}
                                         >
                                             <AppIcon name="bi-trash" className="fs-6" />
-                                        </button>
+                                        </Button>
                                     </Tooltip>
                                 </div>
                             }

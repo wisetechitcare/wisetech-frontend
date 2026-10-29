@@ -16,6 +16,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { currencyPrefix } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
@@ -254,8 +255,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 header: 'Total Requests',
                 size: 140,
                 Cell: ({ row, renderedCellValue }: any) => (
-                    <button
-                        className="btn btn-link p-0 fw-bold fs-7"
+                    <Button variant="link" type="submit"
                         style={{ textDecoration: 'none', color: '#1E3A8A' }}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -264,7 +264,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                         }}
                     >
                         {renderedCellValue}
-                    </button>
+                    </Button>
                 ),
             },
             {

@@ -21,6 +21,7 @@ import {
 import { AppIcon, ToneChip } from '@app/modules/common/components/ui';
 import { getCurrencySymbol, getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { canSection } from "@utils/can";
+import { Button as KitButton } from '@/ds/ui/button';
 
 interface MonthlyBarWithTargetProps {
   title?: string;
@@ -273,9 +274,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
             </div>
             <div className="d-flex align-items-center gap-2">
               {canWrite && (
-              <Button
-                variant="outline-success"
-                size="sm"
+              <KitButton variant="success" size="sm"
                 className="d-flex align-items-center gap-2 px-3 fw-bold border-0 shadow-sm"
                 onClick={() => setTargetTypeToEdit("received")}
                 style={{
@@ -288,21 +287,19 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
               >
                 <AppIcon name="bi-gear-fill" />
                 SET TARGET
-              </Button>
+              </KitButton>
               )}
               <div
                 className="vr mx-1 my-1 text-muted opacity-25"
                 style={{ height: "20px" }}
               ></div>
-              <Button
-                variant="light"
-                size="sm"
+              <KitButton variant="outline" size="sm"
                 className="border shadow-sm rounded-3 p-0 bg-white d-flex align-items-center justify-content-center"
                 onClick={toggleExpand}
                 style={{ width: "32px", height: "32px" }}
               >
                 <AppIcon name={isExpanded ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"} className="fs-7" />
-              </Button>
+              </KitButton>
             </div>
           </div>
 
@@ -312,8 +309,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                 className="d-flex align-items-center bg-light rounded-3 p-1 border shadow-sm"
                 style={{ height: "32px" }}
               >
-                <Button
-                  variant="link"
+                <KitButton variant="link"
                   className="p-1 text-secondary d-flex align-items-center justify-content-center"
                   onClick={() =>
                     setCurrentDate((prev) => prev.subtract(1, "year"))
@@ -325,7 +321,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                   }}
                 >
                   <AppIcon name="bi-chevron-left" className="fs-7" />
-                </Button>
+                </KitButton>
                 <div className="px-3 border-start border-end">
                   <span
                     className="fw-bold text-primary"
@@ -339,8 +335,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                     {currentDate.year()}
                   </span>
                 </div>
-                <Button
-                  variant="link"
+                <KitButton variant="link"
                   className="p-1 text-secondary d-flex align-items-center justify-content-center"
                   onClick={() => setCurrentDate((prev) => prev.add(1, "year"))}
                   style={{
@@ -350,7 +345,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                   }}
                 >
                   <AppIcon name="bi-chevron-right" className="fs-7" />
-                </Button>
+                </KitButton>
               </div>
             </div>
 

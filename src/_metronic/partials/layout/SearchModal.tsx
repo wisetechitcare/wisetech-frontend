@@ -2,6 +2,7 @@
 import React from 'react'
 import {Modal} from 'react-bootstrap'
 import {KTIcon, toAbsoluteUrl} from '../../helpers'
+import { buttonVariants } from '@/ds/ui/button';
 // import {ListsWidget4, ListsWidget5} from '../widgets'
 
 type Props = {
@@ -60,7 +61,7 @@ const SearchModal: React.FC<Props> = ({show, handleClose}) => {
                             }}
                           />
                           <div className='overlay-layer bg-body bg-opacity-50'>
-                            <a href='#' className='btn btn-sm fw-bold btn-primary'>
+                            <a data-slot="button" href='#' className={buttonVariants({ size: 'sm' })}>
                               Explore
                             </a>
                           </div>
@@ -77,7 +78,7 @@ const SearchModal: React.FC<Props> = ({show, handleClose}) => {
                             }}
                           />
                           <div className='overlay-layer bg-body bg-opacity-50'>
-                            <a href='#' className='btn btn-sm fw-bold btn-primary'>
+                            <a data-slot="button" href='#' className={buttonVariants({ size: 'sm' })}>
                               Explore
                             </a>
                           </div>
@@ -96,7 +97,7 @@ const SearchModal: React.FC<Props> = ({show, handleClose}) => {
                             }}
                           />
                           <div className='overlay-layer bg-body bg-opacity-50'>
-                            <a href='#' className='btn btn-sm fw-bold btn-primary'>
+                            <a data-slot="button" href='#' className={buttonVariants({ size: 'sm' })}>
                               Explore
                             </a>
                           </div>
@@ -117,7 +118,7 @@ const SearchModal: React.FC<Props> = ({show, handleClose}) => {
                         }}
                       ></div>
                       <div className='overlay-layer bg-body bg-opacity-50'>
-                        <a href='#' className='btn btn-sm fw-bold btn-primary'>
+                        <a data-slot="button" href='#' className={buttonVariants({ size: 'sm' })}>
                           Explore
                         </a>
                       </div>

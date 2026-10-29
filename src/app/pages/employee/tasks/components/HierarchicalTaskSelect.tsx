@@ -9,6 +9,7 @@ import {
     flattenPresetTasks,
 } from '@utils/presetTaskHierarchy';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
 
 /**
@@ -302,30 +303,17 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                     }}
                 >
                     <Tooltip title="Back" arrow>
-                    <button
+                    <Button
                         type="button"
+                        variant="outline"
+                        size="icon-xs"
                         // Stop both, or going back would also select the node being left.
                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
                         onClick={(e) => { e.stopPropagation(); drill.goUp(); }}
                         aria-label="Back to the previous level"
-                        style={{
-                            border: `1px solid ${C.border}`,
-                            background: C.paper,
-                            borderRadius: 6,
-                            width: 24,
-                            height: 24,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            color: C.accent,
-                            flexShrink: 0,
-                            lineHeight: 1,
-                            padding: 0,
-                        }}
                     >
                         <AppIcon name="bi-arrow-left" className="fs-8" />
-                    </button>
+                    </Button>
                     </Tooltip>
 
                     <span

@@ -3,6 +3,7 @@ import React, {useEffect, useRef, useState} from 'react'
 import {CopyToClipboard} from 'react-copy-to-clipboard'
 import {Highlight} from 'prism-react-renderer'
 import {OverlayTrigger, Tooltip} from 'react-bootstrap'
+import {Button} from '@/ds/ui/button'
 
 type Props = {
   code: string
@@ -43,7 +44,9 @@ const CodeBlock: React.FC<Props> = ({code, language}) => {
           overlay={<Tooltip id='tooltip-copy-to-clipboard'>Copy Code</Tooltip>}
         >
           <CopyToClipboard text={code} onCopy={() => setCopied(true)}>
-            <a className='highlight-copy btn'>{copied ? 'copied' : 'copy'}</a>
+            <Button variant='ghost' size='sm' className='highlight-copy'>
+              {copied ? 'copied' : 'copy'}
+            </Button>
           </CopyToClipboard>
         </OverlayTrigger>
 

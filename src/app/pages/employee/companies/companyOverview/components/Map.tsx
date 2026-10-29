@@ -31,12 +31,13 @@ import {
   LayersOutlined as LayersIcon
 } from "@mui/icons-material";
 import { flagLocationError } from "@services/companies";
-import { Form, Button } from "react-bootstrap";
+import { Form } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
 import { mapStyles } from "./mapTheme";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { currencyPrefix } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
+import { Button } from '@/ds/ui/button';
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -946,18 +947,14 @@ const LocationMarker = React.memo(({
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button 
-            variant="secondary" 
-            size="sm"
+          <Button variant="outline" size="sm"
             data-unsaved-changes-close
             onClick={() => setIsReporting(false)}
             disabled={isSubmitting}
           >
             Cancel
           </Button>
-          <Button 
-            variant="danger" 
-            size="sm"
+          <Button variant="destructive" size="sm"
             onClick={handleSubmitError}
             disabled={isSubmitting || (!isError && remark.trim() === "" && !loc.item?.isLocationIncorrect)}
           >

@@ -1,6 +1,7 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from "react";
-import { Button, Form } from "react-bootstrap";
+import { Form } from "react-bootstrap";
+import { Button } from "@/ds/ui/button";
 import PaymentPlanStagesTree from "./PaymentPlanStagesTree";
 import { settlePercentages, toPlanStage, type PlanStage } from "./paymentPlanStages";
 import { createPaymentPlan, updatePaymentPlan } from "@services/paymentPlan";
@@ -242,14 +243,13 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
       </Modal.Body>
 
       <Modal.Footer style={{ borderTop: "none" }}>
-        <Button variant="light" data-unsaved-changes-close onClick={onClose} disabled={isSubmitting}>
+        <Button variant="outline" data-unsaved-changes-close onClick={onClose} disabled={isSubmitting}>
           Cancel
         </Button>
         <Button
-          variant="primary"
+          variant="default"
           onClick={handleSave}
           disabled={isSubmitting || !canSave}
-          style={{ backgroundColor: "#1E3A8A", border: "none" }}
         >
           {isSubmitting ? "Saving..." : isEditing ? "Update Plan" : "Save Plan"}
         </Button>

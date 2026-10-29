@@ -46,6 +46,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import { LEGACY_UIKIT as T, tonePair } from '@app/theme/tokens';
 import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 import { useStoredState } from '@app/hooks/useStoredState';
+import { Button } from '@/ds/ui/button';
 
 // Sentinel batch id for reimbursements that have no batch (batch_id = NULL).
 // These are legacy/imported records that were never submitted through the
@@ -427,8 +428,8 @@ function SubmissionDetailModal({
                 return (
                   <div className="flex items-center justify-center space-x-4">
                     {resEdit && (
-                      <button
-                        className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+                      <Button variant="ghost" size="icon-sm" type="submit"
+                        className="w-[20px]"
                         aria-label={needsAnswer ? 'Answer the approver' : 'Edit'}
                         title={needsAnswer
                           ? "Answer your approver's question — saving sends it back for approval"
@@ -446,7 +447,7 @@ function SubmissionDetailModal({
                         }}
                       >
                         <KTIcon iconName="pencil" className="inline fs-4 text-red-500" />
-                      </button>
+                      </Button>
                     )}
                     {resDelete && (
                       <button
@@ -694,17 +695,15 @@ function SubmissionDetailModal({
           </p>
         </Modal.Body>
         <Modal.Footer>
-          <button
-            className="btn btn-sm btn-light"
+          <Button variant="outline" size="sm" type="submit"
             onClick={() => {
               setShowPartialApprovalWarning(false);
               setPendingEditRow(null);
             }}
           >
             Cancel
-          </button>
-          <button
-            className="btn btn-sm btn-warning"
+          </Button>
+          <Button size="sm" type="submit"
             onClick={() => {
               setEditRow(pendingEditRow);
               setPendingEditRow(null);
@@ -712,7 +711,7 @@ function SubmissionDetailModal({
             }}
           >
             Yes, Edit and Reset Approval
-          </button>
+          </Button>
         </Modal.Footer>
       </Modal>
     </>

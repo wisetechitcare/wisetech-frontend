@@ -7,7 +7,9 @@ import {
   fetchAllStates,
 } from "@services/options";
 
-import { Button } from "react-bootstrap";
+import { Button } from "@/ds/ui/button";
+import { Item } from "@/ds/ui/item";
+import { WtCloseButton } from "@app/modules/common/components/ui/tw/WtCloseButton";
 import { Formik, Form as FormikForm, Field } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
@@ -16,8 +18,7 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { useEffect, useState } from "react";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
-import { Close } from "@mui/icons-material";
-import { Box, IconButton, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -606,17 +607,11 @@ const SubCompanyForm: React.FC<Props> = ({
           >
             {isEditMode ? "Edit Sub-Company" : "Add New Sub-Company"}
           </Typography>
-          <IconButton
+          <WtCloseButton
             onClick={onClose}
-            sx={{
-              position: "absolute",
-              right: 8,
-              top: 8,
-              color: "text.secondary",
-            }}
-          >
-            <Close />
-          </IconButton>
+            className="position-absolute"
+            style={{ right: 8, top: 8 }}
+          />
           <Formik
             initialValues={initialValues}
             onSubmit={handleSubmit}
@@ -1117,10 +1112,11 @@ const SubCompanyForm: React.FC<Props> = ({
                                     />
                                   </div>
                                 </div>
-                                <div 
-                                  className="d-flex justify-content-end mt-4" 
+                                <Item
+                                  render={<button type="button" />}
+                                  className="d-flex justify-content-end mt-4 p-0"
                                   onClick={() => viewLocation(
-                                    values.latitude || '', 
+                                    values.latitude || '',
                                     values.longitude || ''
                                   )}
                                   style={{
@@ -1131,7 +1127,7 @@ const SubCompanyForm: React.FC<Props> = ({
                                   }}
                                 >
                                   View Location On Map
-                                </div>
+                                </Item>
                               </div>
                           </div>
                         </div>
@@ -1309,7 +1305,6 @@ const SubCompanyForm: React.FC<Props> = ({
                 </Modal.Body>
                 <div className="d-flex justify-content-start gap-2 mt-4 mb-4 p-4">
                   <Button
-                    variant="primary"
                     type="submit"
                     disabled={isSubmitting || isDataLoading}
                   >

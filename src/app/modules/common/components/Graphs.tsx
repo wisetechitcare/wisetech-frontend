@@ -54,6 +54,7 @@ import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { useTimeFormat } from '@hooks/useTimeFormat';
 import { getTimeTokens } from '@utils/timeFormat';
+import { Button } from '@/ds/ui/button';
 
 // Attendance records carry `formattedDate` as "DD/MM/YYYY" (IST). Convert to ISO "YYYY-MM-DD"
 // so it can be matched against the backend's authoritative late-check-in dates.
@@ -2391,13 +2392,13 @@ export const ReportsTable = ({
                             <KTIcon iconName='trash' className='fs-3' />
                         </button>}
                         {isPending && row.original.hasApprovalInstance && (
-                            <button
-                                className='ms-2 btn btn-icon btn-bg-light btn-active-color-info btn-sm'
+                            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Track Approval"
+                                className="ms-2"
                                 title='Track Approval'
                                 onClick={() => openTracker(row.original.id)}
                             >
                                 <KTIcon iconName='map' className='fs-3' />
-                            </button>
+                            </Button>
                         )}
                         {((!editRes && !deleteRes) || isApproved) && !isPending && "Not Allowed"}
                     </>

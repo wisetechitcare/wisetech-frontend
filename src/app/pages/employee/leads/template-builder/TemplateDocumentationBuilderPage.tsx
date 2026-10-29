@@ -48,6 +48,7 @@ import {
 
 import "./TemplateDocumentationBuilderPage.css";
 import { useStoredState } from "@app/hooks/useStoredState";
+import { Button as KitButton } from '@/ds/ui/button';
 
 const PlaceholderDocumentationTable = lazy(
   () => import("./components/PlaceholderDocumentationTable"),
@@ -150,10 +151,10 @@ const TemplateDocumentationBuilderPage: React.FC = () => {
                   onChange={(e) => setGlobalSearch(e.target.value)}
                 />
              </div>
-             <Button variant="primary" size="sm" className="fw-bold px-5 rounded-pill shadow-sm">
+             <KitButton size="sm" className="fw-bold px-5 rounded-pill shadow-sm">
                 <Download size={14} className="me-2" />
                 Export Manifest
-             </Button>
+             </KitButton>
           </div>
         </div>
       </header>
@@ -216,10 +217,10 @@ const TemplateDocumentationBuilderPage: React.FC = () => {
                   Live Preview Lab
                 </h2>
                 <div className="d-flex gap-2">
-                  <Button variant="light" size="sm" className="rounded-pill px-4" onClick={resetDraft}>
+                  <KitButton variant="outline" size="sm" className="rounded-pill px-4" onClick={resetDraft}>
                     <RefreshCw size={14} className="me-2" />
                     Reset
-                  </Button>
+                  </KitButton>
                   <Button variant="light-danger" size="sm" className="rounded-pill px-4">
                     <ClipboardCheck size={14} className="me-2" />
                     Validation Report

@@ -3,6 +3,7 @@
 import React from 'react'
 import {Link} from 'react-router-dom'
 import {KTIcon} from '../../../helpers'
+import {Button, buttonVariants} from '@/ds/ui/button'
 
 const HelpDrawer = () => {
   return (
@@ -25,13 +26,15 @@ const HelpDrawer = () => {
           <h5 className='card-title fw-bold text-gray-600'>Learn & Get Inspired</h5>
 
           <div className='card-toolbar'>
-            <button
-              type='button'
-              className='btn btn-sm btn-icon explore-btn-dismiss me-n5'
+            <Button
+              variant='ghost'
+              size='icon-sm'
+              className='me-n5'
               id='kt_help_close'
+              aria-label='Close'
             >
               <KTIcon iconName='cross' className='fs-2' />
-            </button>
+            </Button>
           </div>
         </div>
         {/* end::Header */}
@@ -73,7 +76,8 @@ const HelpDrawer = () => {
               {/* begin::Link */}
               <a
                 href='https://devs.keenthemes.com'
-                className='btn btn-lg explore-btn-primary w-100'
+                data-slot='button'
+                className={buttonVariants({variant: 'default', size: 'lg', className: 'w-100'})}
               >
                 Get Support
               </a>

@@ -12,6 +12,7 @@ import { Box, CircularProgress } from '@mui/material';
 // Same MUI glass kit as the Sandwich Leave benchmark — for the primary action button.
 import { WtButton } from '@app/modules/common/components/ui';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 // The calendar's appearance registry — the ONE list of what the grid paints.
 // This screen is generated from it, so the two cannot drift apart again.
 import {
@@ -177,28 +178,15 @@ const ColorRow: React.FC<ColorRowProps> = ({ label, fieldName, value, onClick })
           {value || '#000000'}
         </p>
       </div>
-      <button
-        type="button"
+      <Button
+        variant="outline"
+        size="icon-sm"
         onClick={onClick}
         title={`Edit ${label} color`}
         aria-label={`Edit ${label} color`}
-        style={{
-          background: '#f1f5f9',
-          border: '1px solid #e2e8f0',
-          borderRadius: '9px',
-          padding: 0,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '32px',
-          height: '32px',
-          flexShrink: 0,
-          transition: 'background-color .15s, border-color .15s',
-        }}
       >
         <AppIcon name="pencil" className="fs-5" color="#475569" />
-      </button>
+      </Button>
     </div>
   );
 };
@@ -328,7 +316,10 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
   if (!show) return null;
 
   return (
-    <div style={{
+    // The backdrop's click-to-dismiss and the panel's stopPropagation are pointer conveniences on
+    // non-interactive containers, not buttons: role="presentation" says so (the dialog's own
+    // Cancel / Apply below are the controls).
+    <div role="presentation" style={{
       position: 'fixed',
       top: 0,
       left: 0,
@@ -341,7 +332,7 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
       zIndex: 1060,
       padding: '16px'
     }} onClick={onHide}>
-      <div style={{
+      <div role="presentation" style={{
         backgroundColor: '#FFFFFF',
         borderRadius: '12px',
         padding: '24px',
@@ -427,40 +418,19 @@ const ColorPickerModal: React.FC<ColorPickerModalProps> = ({
           gap: '12px',
           justifyContent: 'flex-end'
         }}>
-          <button
-            onClick={onHide}
-            style={{
-              padding: '8px 16px',
-              fontSize: '14px',
-              fontWeight: 500,
-              border: '1px solid #E5E7EB',
-              borderRadius: '6px',
-              backgroundColor: '#ffffff',
-              cursor: 'pointer'
-            }}
-          >
+          {/* Rendered after Appearance's </form>, so these never submitted it: type="button" is unchanged behaviour. */}
+          <Button variant="outline" onClick={onHide}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => {
               // Both fields in ONE write — see onColorChange's note.
               onColorChange(tempColor, editableName ? tempName.trim() : undefined);
               onHide();
             }}
-            style={{
-              backgroundColor: '#1E3A8A',
-              borderColor: '#1E3A8A',
-              padding: '8px 16px',
-              fontSize: '14px',
-              fontWeight: 500,
-              border: 'none',
-              borderRadius: '6px',
-              color: '#ffffff',
-              cursor: 'pointer'
-            }}
           >
             Apply
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -579,17 +549,9 @@ function CalendarToneCard({
           {color}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={onEdit}
-        aria-label={`Edit ${label}`}
-        className="flex size-8 shrink-0 items-center justify-center border border-[#e2e8f0] bg-[#f1f5f9] transition-colors hover:bg-[#e2e8f0] dark:border-white/10 dark:bg-white/[0.06]"
-        // Bootstrap Reboot's unlayered `button { border-radius: 0 }` outranks
-        // every rounded-* utility, so the radius has to be inline.
-        style={{ borderRadius: 9, padding: 0 }}
-      >
+      <Button variant="outline" size="icon-sm" onClick={onEdit} aria-label={`Edit ${label}`}>
         <AppIcon name="pencil" className="fs-5" color="#475569" />
-      </button>
+      </Button>
     </div>
   );
 }

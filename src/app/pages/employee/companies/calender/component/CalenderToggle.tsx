@@ -5,11 +5,11 @@ import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import dayjs, { Dayjs } from 'dayjs';
 import { getUpcomingContactsBirthdays } from '@services/companies';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { Button } from '@/ds/ui/button';
 import { googleCalenderIcons } from '@metronic/assets/sidepanelicons';
 
 const CalenderToggle = () => {
-    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('all');
     const [data, setData] = useState([]);
     
@@ -97,15 +97,9 @@ const CalenderToggle = () => {
             Cell: ({ row }: { row: any }) => {
               const contact = row.original;
               return (
-                <span
-                  style={{
-                    color: '#1E3A8A',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => navigate(`/contacts/${contact.id}`)}
-                >
+                <Link to={`/contacts/${contact.id}`} style={{ color: '#1E3A8A' }}>
                   {contact.name}
-                </span>
+                </Link>
               );
             },
           },
@@ -117,15 +111,9 @@ const CalenderToggle = () => {
           Cell: ({ row }: { row: any }) => {
             const contact = row.original;
             return (
-              <span
-                style={{
-                  color: '#1E3A8A',
-                  cursor: 'pointer'
-                }}
-                onClick={() => navigate(`/companies/${contact.companyId}`)}
-              >
+              <Link to={`/companies/${contact.companyId}`} style={{ color: '#1E3A8A' }}>
                 {contact.company}
-              </span>
+              </Link>
             );
           },
         },
@@ -201,18 +189,19 @@ const CalenderToggle = () => {
               };
 
               return (
-                <div
+                <Button
+                  variant="tinted"
+                  size="icon-sm"
                   onClick={handleGoogleCalendarSave}
-                  className="btn-sm btn btn-secondary"
                   title="Add to Google Calendar"
-                  style={{ cursor: 'pointer', backgroundColor: '#E8F0FE', border: 'none' }}
+                  aria-label="Add to Google Calendar"
                 >
                   <img
                     src={googleCalenderIcons.googleCalenderIcon.default}
                     alt="Google Calendar"
                     style={{ width: '24px', height: '24px' }}
                   />
-                </div>
+                </Button>
               );
             },
           },

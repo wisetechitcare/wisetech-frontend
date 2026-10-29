@@ -7,7 +7,6 @@ import { ProjectPointsSection } from "@app/modules/projectPoints";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 import { FieldArray, useFormikContext } from "formik";
-import { Button } from "react-bootstrap";
 import { Close, Add, Delete, Help, CheckCircleOutline, InfoOutlined } from "@mui/icons-material";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
@@ -24,6 +23,7 @@ import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/Sma
 import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
+import { Button } from '@/ds/ui/button';
 
 /** Formik setFieldValue — named so LeadSections / LeadWorkspace props stay readable. */
 export type LeadSetFieldValue = (field: string, value: any, shouldValidate?: boolean) => void;
@@ -303,9 +303,7 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                 })}
                 {/* Single Address To — hidden once one client connection exists. */}
                 {(values.leadTeams || []).length === 0 && (
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
+                  <Button variant="inverted" size="sm"
                     onClick={() => push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })}
                     className="align-self-start fw-bold mt-2"
                   >
@@ -514,14 +512,14 @@ export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
             <div style={{ marginTop: 8, fontSize: 12, color: "#b45309" }}>
               No direct sources configured yet.
               {props.setShowDirectSourceModal && (
-                <button
+                <Button variant="link"
                   type="button"
-                  className="btn btn-link p-0 ms-1 align-baseline fw-bold"
+                  className="ms-1 align-baseline"
                   style={{ fontSize: 12 }}
                   onClick={() => props.setShowDirectSourceModal(true)}
                 >
                   + Add a Direct Source
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -731,9 +729,7 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                 </Grid>
               </div>
             ))}
-            <Button
-              variant="outline-primary"
-              size="sm"
+            <Button variant="inverted" size="sm"
               type="button"
               onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "", referringContact: "" })}
               className="align-self-start fw-bold mt-1"
@@ -1002,9 +998,7 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
                   </div>
               );
             })}
-            <Button
-              variant="outline-primary"
-              size="sm"
+            <Button variant="inverted" size="sm"
               onClick={() => push({ projectAddress: "", country: "", state: "", city: "", locality: "", zipCode: "", mapLocation: "", googleMapLink: "", googleMyBusinessLink: "", latitude: "", longitude: "", isDefault: false })}
               className="align-self-start fw-bold mt-2"
             >
@@ -1548,9 +1542,7 @@ export const HandleBySection: React.FC<LeadSectionsProps> = (props) => {
                 </IconButton>
               </div>
             ))}
-            <Button
-              variant="outline-primary"
-              size="sm"
+            <Button variant="inverted" size="sm"
               onClick={() => push({ employeeId: "", sharePercentage: "" })}
               className="align-self-start fw-bold mt-2"
             >
@@ -1824,9 +1816,7 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                 one-way into the project's External Team; additional stakeholders
                 are managed there, not here. */}
             {(values.leadTeams || []).length === 0 && (
-              <Button
-                variant="outline-primary"
-                size="sm"
+              <Button variant="inverted" size="sm"
                 type="button"
                 onClick={() =>
                   push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })

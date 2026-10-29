@@ -2,6 +2,7 @@ import React from "react";
 import { Card } from "react-bootstrap";
 import { ResponsiveContainer } from "recharts";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface ChartCardProps {
   title: string;
@@ -48,9 +49,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
         </div>
         <div className="card-toolbar d-flex align-items-center gap-3">
           {onHeaderActionClick && headerActionLabel && (
-            <button
+            <Button variant="tinted" size="sm" type="submit"
               onClick={onHeaderActionClick}
-              className="btn btn-sm btn-light-primary fw-bold"
               style={{
                 fontSize: "11px",
                 padding: "8px 12px",
@@ -58,17 +58,16 @@ const ChartCard: React.FC<ChartCardProps> = ({
               }}
             >
               {headerActionLabel}
-            </button>
+            </Button>
           )}
           {filter}
           {onExpandClick && (
-            <button 
-              onClick={onExpandClick} 
-              className="btn btn-sm btn-icon btn-light btn-active-light-primary w-30px h-30px rounded-8 shadow-sm"
+            <Button variant="outline" size="icon-sm" type="submit" aria-label="Expand Chart" 
+              onClick={onExpandClick}
               title="Expand Chart"
             >
               <AppIcon name="bi-arrows-fullscreen" className="fs-9" />
-            </button>
+            </Button>
           )}
         </div>
       </Card.Header>

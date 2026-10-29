@@ -10,6 +10,7 @@ import {
   UserInfoModel,
   messageFromClient,
 } from '../../helpers'
+import { Button } from '@/ds/ui/button';
 
 type Props = {
   isDrawer?: boolean
@@ -162,31 +163,30 @@ const ChatInner: FC<Props> = ({isDrawer = false}) => {
 
         <div className='d-flex flex-stack'>
           <div className='d-flex align-items-center me-2'>
-            <button
-              className='btn btn-sm btn-icon btn-active-light-primary me-1'
+            <Button variant="ghost" size="icon-sm" aria-label="Coming soon"
+              className="me-1"
               type='button'
               data-bs-toggle='tooltip'
               title='Coming soon'
             >
               <i className='bi bi-paperclip fs-3'></i>
-            </button>
-            <button
-              className='btn btn-sm btn-icon btn-active-light-primary me-1'
+            </Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Coming soon"
+              className="me-1"
               type='button'
               data-bs-toggle='tooltip'
               title='Coming soon'
             >
               <i className='bi bi-upload fs-3'></i>
-            </button>
+            </Button>
           </div>
-          <button
-            className='btn btn-primary'
+          <Button
             type='button'
             data-kt-element='send'
             onClick={sendMessage}
           >
             Send
-          </button>
+          </Button>
         </div>
       </div>
     </div>

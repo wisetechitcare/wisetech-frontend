@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from "react";
 import { UnsavedChangesModal as Modal } from "@app/modules/common/components/ui";
-import { Button, Form } from "react-bootstrap";
+import { Form } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import {
@@ -30,6 +30,7 @@ import {
 } from "@utils/categoryScope";
 import { AppIcon, WtSwitchField } from "@app/modules/common/components/ui";
 import StatusGlyph, { STATUS_ICONS, STATUS_ICON_LABELS } from "@app/pages/employee/tasks/components/StatusGlyph";
+import { Button } from '@/ds/ui/button';
 
 interface ConfigFormProps {
   show: boolean;
@@ -669,7 +670,6 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
 
               <Modal.Footer style={{ borderTop: 'none', paddingTop: '0' }}>
                 <Button
-                  variant="primary"
                   type="submit"
                   disabled={isSubmitting}
                   style={{

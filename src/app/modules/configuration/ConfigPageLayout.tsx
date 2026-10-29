@@ -84,7 +84,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
 
         {/* Tab bar */}
         {hasTabs && (
-          <div className="cfg-tab-bar" style={{
+          <div className="cfg-tab-bar" role="tablist" style={{
             display: 'flex',
             gap: '4px',
             padding: `${SP.md} ${SP.xl} 0 ${SP.xl}`,
@@ -100,6 +100,8 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
               return (
                 <button
                   key={tab.id}
+                  role="tab"
+                  aria-selected={isActive}
                   className="cfg-tab-btn"
                   data-active={isActive ? 'true' : 'false'}
                   onClick={() => onTabChange?.(tab.id)}

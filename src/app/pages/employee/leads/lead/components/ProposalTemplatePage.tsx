@@ -1,6 +1,6 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect, useRef } from "react";
-import { Button, Form, Row, Col, Badge } from "react-bootstrap";
+import { Form, Row, Col, Badge } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import {
   getProposalConfigurations,
@@ -16,6 +16,7 @@ import dayjs from "dayjs";
 import { ExportCenterModal } from "./dms/components/ExportCenterModal";
 import { useAuth } from "../../../../../modules/auth";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
+import { Button } from '@/ds/ui/button';
 
 interface ProposalTemplatePageProps {
   show: boolean;
@@ -1267,8 +1268,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
       </Modal.Body>
 
       <Modal.Footer className="bg-white border-top py-4 px-8 justify-content-between">
-        <Button
-          variant="light"
+        <Button variant="outline"
           className="fw-bold px-6"
           data-unsaved-changes-close
           onClick={onHide}
@@ -1278,7 +1278,6 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         </Button>
         <div className="d-flex gap-3">
           <Button
-            variant="primary"
             className="fw-bold px-8 shadow-sm"
             disabled={!canExport || isGenerating}
             onClick={() => setShowExportCenter(true)}

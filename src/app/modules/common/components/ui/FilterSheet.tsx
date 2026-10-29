@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Badge, IconButton, Stack, Tooltip } from "@mui/material";
+import { Badge, Stack, Tooltip } from "@mui/material";
+import { Button } from "@/ds/ui/button";
 import { AppIcon } from "./AppIcon";
 import { WtButton } from "./buttons";
 import { WtSheet } from "./WtSheet";
@@ -12,13 +13,20 @@ export function countActiveFilters<T extends object>(value: T, empty: T): number
 
 /**
  * Filter trigger for a table's right-side icon group — pass it through MaterialTable's
- * `renderToolbarIconActions`. Applied filters show as a count badge and tint the icon.
+ * `renderToolbarIconActions`. Applied filters show as a count badge and tint the button
+ * (kit `tinted`), like the table's own tools while they are ON.
  */
 export function FilterSheetButton({ count, onClick }: { count: number; onClick: () => void }) {
   const label = count ? `Filters (${count} applied)` : "Filters";
   return (
     <Tooltip title={label}>
-      <IconButton aria-label={label} onClick={onClick} data-active={count > 0}>
+      <Button
+        variant={count > 0 ? "tinted" : "ghost"}
+        size="icon-sm"
+        aria-label={label}
+        onClick={onClick}
+        data-active={count > 0}
+      >
         <Badge
           badgeContent={count}
           color="primary"
@@ -36,7 +44,7 @@ export function FilterSheetButton({ count, onClick }: { count: number; onClick: 
         >
           <AppIcon name="bi-funnel" />
         </Badge>
-      </IconButton>
+      </Button>
     </Tooltip>
   );
 }

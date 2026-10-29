@@ -4,6 +4,7 @@ import { Copy, ChevronLeft, ChevronRight, Hash, Eye } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ProposalPlaceholder } from '../proposalPlaceholderData';
+import { Button as KitButton } from '@/ds/ui/button';
 
 type PlaceholderDocumentationTableProps = {
   rows: ProposalPlaceholder[];
@@ -133,15 +134,13 @@ const PlaceholderDocumentationTable: React.FC<
         </div>
 
         <div className="d-flex align-items-center gap-2">
-          <Button
-            variant="white"
-            size="sm"
-            className="btn-icon rounded-pill shadow-sm border"
+          <KitButton variant="outline" size="sm"
+            className="rounded-pill shadow-sm border"
             disabled={normalizedPage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft size={16} />
-          </Button>
+          </KitButton>
           
           <div className="d-flex gap-1">
             {[...Array(totalPages)].map((_, i) => {
@@ -164,15 +163,13 @@ const PlaceholderDocumentationTable: React.FC<
             })}
           </div>
 
-          <Button
-            variant="white"
-            size="sm"
-            className="btn-icon rounded-pill shadow-sm border"
+          <KitButton variant="outline" size="sm"
+            className="rounded-pill shadow-sm border"
             disabled={normalizedPage >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
             <ChevronRight size={16} />
-          </Button>
+          </KitButton>
         </div>
       </div>
     </div>

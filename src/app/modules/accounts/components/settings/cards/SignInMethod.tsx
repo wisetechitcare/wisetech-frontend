@@ -11,6 +11,7 @@ import {errorConfirmation} from '@utils/modal'
 import {removeAuth} from '@app/modules/auth'
 import {logoutUser} from '@redux/slices/auth'
 import {useNavigate} from 'react-router-dom'
+import { Button } from '@/ds/ui/button';
 
 const passwordFormValidationSchema = Yup.object().shape({
   currentPassword: Yup.string()
@@ -194,16 +195,15 @@ const SignInMethod: React.FC = () => {
                       </span>
                     )}
                   </button>
-                  <button
+                  <Button variant="ghost"
                     onClick={() => {
                       setPasswordForm(false)
                     }}
                     id='kt_password_cancel'
                     type='button'
-                    className='btn btn-color-gray-500 btn-active-light-primary px-6'
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -212,14 +212,13 @@ const SignInMethod: React.FC = () => {
               id='kt_signin_password_button'
               className={'ms-auto ' + (showPasswordForm && 'd-none')}
             >
-              <button
+              <Button variant="outline" type="submit"
                 onClick={() => {
                   setPasswordForm(true)
                 }}
-                className='btn btn-light btn-active-light-primary'
               >
                 Reset Password
-              </button>
+              </Button>
             </div>
           </div>
 

@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type CSSProperties } from 'react';
 import { getSocket } from '../../../utils/socketClient';
-import { Modal, Button } from 'react-bootstrap';
+import { Modal } from 'react-bootstrap';
+import { Button, buttonVariants } from '@/ds/ui/button';
+import { WtCloseButton } from '@/app/modules/common/components/ui/tw/WtCloseButton';
 import { KTIcon } from '../../helpers';
 import {
   fetchNotificationsByEmployeeId,
@@ -139,7 +141,7 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
   return (
     <div className="d-flex align-items-center cursor-pointer">
       {/* Bell icon with animated badge */}
-      <div onClick={handleOpen} className="position-relative" title="Notifications">
+      <Button variant="ghost" size="icon" onClick={handleOpen} className="position-relative" title="Notifications" aria-label="Notifications">
         <KTIcon iconName="notification-on" className="text-muted fs-2qx" />
         {unreadCount > 0 && (
           <span
@@ -149,7 +151,7 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
-      </div>
+      </Button>
 
       {/* Side-panel modal */}
       <Modal
@@ -170,22 +172,16 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
           </Modal.Title>
           <div className="d-flex align-items-center gap-3">
             {notifications.length > 0 && (
-              <button
+              <Button
+                variant="tinted"
+                size="sm"
                 onClick={handleClearAll}
-                className="btn btn-sm btn-light-danger fw-semibold fs-8 py-1 px-3 rounded-pill"
-                style={{ transition: 'all 0.15s' }}
+                style={{ '--tint': 'var(--cta-danger)' } as CSSProperties}
               >
                 Clear all
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
-              className="btn btn-icon btn-sm btn-active-light-primary border-0 bg-transparent p-0"
-              onClick={handleClose}
-              style={{ width: '28px', height: '28px' }}
-            >
-              <KTIcon iconName="cross" className="fs-2 text-gray-500" />
-            </button>
+            <WtCloseButton variant="plain" onClick={handleClose} />
           </div>
         </Modal.Header>
 
@@ -224,14 +220,15 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
                       <p className="mb-0 fw-semibold small text-truncate" style={{ color: text, flex: 1 }}>
                         {n.title ? n.title.replace(/^\?\s*/, '') : ''}
                       </p>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
                         onClick={(e) => handleClearSingle(e, n.id)}
-                        className="btn btn-icon btn-sm btn-active-light-danger p-0 border-0 bg-transparent"
-                        style={{ width: '20px', height: '20px', minWidth: '20px' }}
                         title="Clear notification"
+                        aria-label="Clear notification"
                       >
                         <KTIcon iconName="cross" className="fs-6 text-muted text-hover-danger" />
-                      </button>
+                      </Button>
                     </div>
                     <p className="mb-1 text-muted" style={{ fontSize: '0.78rem', lineHeight: 1.4 }}>
                       {n.message}
@@ -252,10 +249,14 @@ const NotificationsBell: React.FC<NotificationsProps> = ({ employeeId }) => {
         </Modal.Body>
 
         <Modal.Footer className="border-top pt-3 pb-5 pb-lg-3 px-4 bg-body" style={{ zIndex: 10 }}>
-          <Link to="/employees/notifications" className="w-100 text-decoration-none" onClick={handleClose}>
-            <Button variant="primary" className="w-100 py-3 fw-semibold fs-7" style={{ borderRadius: '8px' }}>
-              View all notifications
-            </Button>
+          {/* Navigation, so a link styled as the kit button (it used to be a button inside the link). */}
+          <Link
+            to="/employees/notifications"
+            data-slot="button"
+            className={buttonVariants({ size: 'lg', className: 'w-100 text-decoration-none' })}
+            onClick={handleClose}
+          >
+            View all notifications
           </Link>
         </Modal.Footer>
       </Modal>

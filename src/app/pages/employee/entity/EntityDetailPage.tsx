@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTabKeyRoute } from '@app/hooks/useTabRoute';
-import { Button } from 'react-bootstrap';
+import { Button } from '@/ds/ui/button';
 import { KTIcon } from '@metronic/helpers';
 import { useDispatch } from 'react-redux';
 import { getLeadById } from '@services/leads';
@@ -270,13 +270,14 @@ const EntityDetailPage: React.FC = () => {
           {/* ── Header ── */}
           <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4 mb-2">
             <div className="d-flex align-items-start gap-3 flex-grow-1" style={{ minWidth: 0 }}>
-              <button 
-                className="btn btn-icon btn-active-light-primary" 
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => navigate(-1)}
-                style={{ width: '40px', height: '40px', flexShrink: 0, border: 'none', background: 'transparent' }}
+                aria-label="Back"
               >
                 <img src={miscellaneousIcons.leftArrow} alt="Back" style={{ width: '36px', height: '36px' }} />
-              </button>
+              </Button>
               
               <div className="d-flex flex-column flex-grow-1" style={{ minWidth: 0 }}>
                 {/* Meta string */}
@@ -356,36 +357,27 @@ const EntityDetailPage: React.FC = () => {
                   it an old /leads/:id link to a project is a dead end. Only this
                   direction needs one: the Leads tab is present in both views. */}
               {isProject && fromLeads && (
-                <button
-                  type="button"
-                  className="btn btn-sm"
+                <Button
+                  variant="tinted"
+                  size="sm"
+                  className="flex-auto"
                   onClick={() => navigate(`/project/${leadId}`)}
-                  style={{ backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
+                  style={{ '--tint': 'var(--cta-success)' } as React.CSSProperties}
                 >
-                  <AppIcon name="bi-kanban" className="fs-7" /> Project view
-                </button>
+                  <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-kanban" className="fs-7" /></span> Project view
+                </Button>
               )}
 
               {canWrite && activeTab === 'leads' && (
                 <>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={openEdit}
-                    style={{ backgroundColor: '#1E3A8A', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
-                  >
-                    <AppIcon name="bi-pencil-fill" className="fs-7" /> Edit
-                  </button>
+                  <Button size="sm" className="flex-auto" onClick={openEdit}>
+                    <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-pencil-fill" className="fs-7" /></span> Edit
+                  </Button>
 
                   {canViewCommercial('crm.leads') && (
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={() => setShowProposalModal(true)}
-                    style={{ backgroundColor: '#7239ea', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, flex: '1 1 auto' }}
-                  >
-                    <AppIcon name="bi-file-earmark-arrow-down-fill" className="fs-7" /> Export
-                  </button>
+                  <Button size="sm" className="flex-auto" onClick={() => setShowProposalModal(true)}>
+                    <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-file-earmark-arrow-down-fill" className="fs-7" /></span> Export
+                  </Button>
                   )}
                 </>
               )}

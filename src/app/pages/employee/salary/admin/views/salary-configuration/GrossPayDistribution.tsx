@@ -17,6 +17,7 @@ import { hasPermission } from "@utils/authAbac";
 import { canSection } from "@utils/can";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface ISalary {
   name: string,
@@ -283,8 +284,7 @@ const GrossPayDistribution = () => {
 
         {(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.create) && hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers)) && (
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <button
-              className="btn btn-sm d-flex align-items-center gap-2"
+            <Button variant="ghost" size="sm" type="submit"
               onClick={() => handleNew()}
               style={{
                 backgroundColor: '#1E3A8A', color: '#fff', border: 'none',
@@ -297,7 +297,7 @@ const GrossPayDistribution = () => {
               onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(30, 58, 138,0.2)'; }}
             >
               <AppIcon name="bi-plus-lg" /> Add New Category
-            </button>
+            </Button>
           </div>
         )}
       </div>

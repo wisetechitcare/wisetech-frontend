@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Button, Row, Col, Badge, Card } from 'react-bootstrap';
+import { Modal, Row, Col, Badge, Card } from 'react-bootstrap';
 import { Formik, Form as FormikForm, FormikValues } from 'formik';
 import * as Yup from 'yup';
 import TextInput from '@app/modules/common/inputs/TextInput';
@@ -8,6 +8,7 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { KTIcon } from '@metronic/helpers';
 import { formatMoney2 } from '../../utils/payrollFormatters';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 interface PaymentModalProps {
     show: boolean;
@@ -610,12 +611,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                         </label>
                                     </div>
                                     <div className="d-flex gap-3">
-                                    <Button variant="light" onClick={onHide} className="fw-bold px-8 py-3">
+                                    <Button variant="outline" onClick={onHide} className="fw-bold px-8 py-3">
                                         Cancel
                                     </Button>
                                     <Button 
                                         type="submit" 
-                                        variant="primary" 
                                         disabled={loading || !formikProps.isValid}
                                         className="wt-btn-primary fw-bold px-12 py-3 shadow-sm"
                                     >

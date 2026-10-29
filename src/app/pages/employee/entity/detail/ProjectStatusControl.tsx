@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Checkbox, FormControlLabel, Stack, Typography } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
+import { Button } from '@/ds/ui/button';
 import { getAllProjectStatuses } from '@services/projects';
 import { updateLeadSection } from '@services/leadService';
 import { toDateInputValue } from '@app/modules/detail-page/EditableDetailCard';
@@ -104,25 +105,17 @@ const ProjectStatusControl: React.FC<{
 
   return (
     <>
-      <button
+      {/* Toned by the status colour. disabled:opacity-100: for a read-only user (and while
+          saving) this is the status itself, so it must not fade like a disabled control. */}
+      <Button
+        variant="tinted"
+        size="sm"
+        className="disabled:opacity-100"
+        style={{ '--tint': color } as React.CSSProperties}
         disabled={saving || !canWrite}
         onClick={handleOpen}
         onMouseEnter={() => canWrite && setHover(true)}
         onMouseLeave={() => setHover(false)}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 9,
-          border: `1px solid ${color}3D`,
-          background: `linear-gradient(180deg, ${color}17, ${color}0A)`,
-          color,
-          borderRadius: 10,
-          padding: '6px 8px 6px 13px',
-          cursor: !canWrite ? 'default' : saving ? 'wait' : 'pointer',
-          fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 700,
-          letterSpacing: '-0.1px',
-          boxShadow: hover ? `0 2px 8px ${color}26` : `0 1px 2px ${color}14`,
-          transform: hover ? 'translateY(-1px)' : 'none',
-          transition: 'box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease',
-        }}
       >
         <span
           style={{
@@ -142,7 +135,7 @@ const ProjectStatusControl: React.FC<{
         >
           <KTIcon iconName="pencil" className="fs-8" />
         </span>}
-      </button>
+      </Button>
 
       <OptionPickerDialog
         open={showModal}

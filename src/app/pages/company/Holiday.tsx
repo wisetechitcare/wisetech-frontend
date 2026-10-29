@@ -7,6 +7,7 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useFormik } from 'formik';
 import { useState } from 'react';
 import * as Yup from 'yup';
+import { Button } from '@/ds/ui/button';
 
 const usersBreadcrumbs: Array<PageLink> = [
     {
@@ -174,7 +175,7 @@ function Holiday({
                                 </label>
                                 <div className="d-flex gap-2">
                                     {[{ label: 'Fixed', value: true }, { label: 'Floating', value: false }].map(opt => (
-                                        <button
+                                        <Button variant="ghost" size="sm"
                                             key={String(opt.value)}
                                             type="button"
                                             onClick={() => {
@@ -185,7 +186,7 @@ function Holiday({
                                                     formik.setFieldValue('recurrenceDay', null, true);
                                                 }
                                             }}
-                                            className="btn btn-sm fw-semibold flex-fill"
+                                            className="flex-fill"
                                             style={{
                                                 borderRadius: '8px',
                                                 border: formik.values.isFixed === opt.value ? '2px solid #1E3A8A' : '1.5px solid #dde2ec',
@@ -197,7 +198,7 @@ function Holiday({
                                             }}
                                         >
                                             {opt.label}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                                 {/* Say the cost out loud. Floating is the right answer for a
@@ -218,11 +219,11 @@ function Holiday({
                                 </label>
                                 <div className="d-flex gap-2">
                                     {[{ label: 'Active', value: true }, { label: 'Inactive', value: false }].map(opt => (
-                                        <button
+                                        <Button variant="ghost" size="sm"
                                             key={String(opt.value)}
                                             type="button"
                                             onClick={() => formik.setFieldValue('isActive', opt.value, true)}
-                                            className="btn btn-sm fw-semibold flex-fill"
+                                            className="flex-fill"
                                             style={{
                                                 borderRadius: '8px',
                                                 border: formik.values.isActive === opt.value ? '2px solid #1E3A8A' : '1.5px solid #dde2ec',
@@ -234,7 +235,7 @@ function Holiday({
                                             }}
                                         >
                                             {opt.label}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                             </div>
@@ -354,14 +355,13 @@ function Holiday({
 
                 {/* ── FOOTER ────────────────────────────────────────────────────────── */}
                 <div className="d-flex align-items-center justify-content-end gap-3 pt-2 pb-1">
-                    <button
+                    <Button variant="ghost" size="sm"
                         type="button"
-                        className="btn btn-sm fw-semibold px-6"
                         style={{ borderRadius: '8px', border: '1.5px solid #dde2ec', background: '#ffffff', color: '#6b7280', fontSize: '13px' }}
                         onClick={onCloseHolidayForm}
                     >
                         Cancel
-                    </button>
+                    </Button>
                     <button
                         type="submit"
                         className="btn btn-sm fw-bold px-7 text-white"

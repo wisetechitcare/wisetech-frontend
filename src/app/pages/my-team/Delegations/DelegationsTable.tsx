@@ -14,6 +14,7 @@ import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
 
 type EmployeeOption = { id: string; name: string; employeeCode?: string | null };
 
@@ -199,9 +200,9 @@ function CreateDelegationModal({ show, employees, onClose, onCreated }: CreateMo
         </div>
       </Modal.Body>
       <Modal.Footer style={{ gap: 8 }}>
-        <button className='btn btn-sm btn-light' data-unsaved-changes-close onClick={onClose} disabled={submitting}>
+        <Button variant="outline" size="sm" type="submit" data-unsaved-changes-close onClick={onClose} disabled={submitting}>
           Cancel
-        </button>
+        </Button>
         <button
           className='btn btn-sm btn-primary d-flex align-items-center gap-2'
           onClick={handleSubmit}
@@ -371,18 +372,17 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
     <>
       <div className='d-flex align-items-center justify-content-end pt-0 pb-4'>
         <div className='d-flex gap-2'>
-          <button
-            className='btn btn-sm btn-light-primary d-flex align-items-center gap-2'
+          <Button variant="tinted" size="sm" type="submit"
             onClick={load}
             disabled={loading}
           >
             <KTIcon iconName='arrows-circle' className='fs-5' />
             {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
-          {mode === 'my' && <button className='btn btn-sm btn-primary d-flex align-items-center gap-2' onClick={() => setShowCreate(true)}>
+          </Button>
+          {mode === 'my' && <Button size="sm" type="submit" onClick={() => setShowCreate(true)}>
             <KTIcon iconName='plus' className='fs-5' />
             New Delegation
-          </button>}
+          </Button>}
         </div>
       </div>
 

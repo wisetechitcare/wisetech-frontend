@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { KTIcon } from '@metronic/helpers';
+import { Button } from '@/ds/ui/button';
+import { Item } from '@/ds/ui/item';
 import {
   HighlightMatch,
   isSearchTypeEnabled,
@@ -292,12 +294,14 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
   return (
     <div className={`global-search-container ${isMobile ? 'mobile-mode' : ''} ${className}`} ref={dropdownRef}>
       {isMobile ? (
-        <button 
-          className="btn btn-icon btn-active-light-primary w-40px h-40px rounded-circle"
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Search"
           onClick={() => setIsExpanded(true)}
         >
           <KTIcon iconName="magnifier" className="fs-2 text-primary" />
-        </button>
+        </Button>
       ) : (
         <div className={`global-search-input-wrapper ${isOpen ? 'active' : ''}`}>
           {restrictType ? (
@@ -337,9 +341,9 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
         <div className={`global-search-dropdown ${isExpanded ? 'is-expanded' : ''} shadow-lg rounded-xl overflow-hidden`}>
           {isExpanded && (
             <div className="mobile-search-header p-4 border-bottom d-flex align-items-center gap-3">
-              <button className="btn btn-icon btn-sm" onClick={() => setIsExpanded(false)}>
+              <Button variant="ghost" size="icon-sm" aria-label="Close search" onClick={() => setIsExpanded(false)}>
                 <KTIcon iconName="arrow-left" className="fs-1" />
-              </button>
+              </Button>
               <div className="flex-grow-1 position-relative">
                 <input
                   ref={mobileInputRef}
@@ -358,13 +362,15 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
           {!restrictType && (
             <div className="search-filters-bar px-4 py-2 border-bottom bg-gray-50 d-flex gap-2 overflow-auto">
               {types.map(t => (
-                <button
+                <Button
                   key={t}
-                  className={`btn btn-sm btn-flex py-1 px-3 fs-9 fw-bold rounded-pill transition-all ${effectiveFilter === t ? 'btn-primary' : 'btn-light text-gray-600'}`}
+                  size="xs"
+                  variant={effectiveFilter === t ? 'default' : 'outline'}
+                  aria-pressed={effectiveFilter === t}
                   onClick={() => setFilterType(t)}
                 >
                   {t}
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -373,24 +379,34 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
             <div className="search-history-section px-4 py-3">
               <div className="fs-9 fw-bold text-gray-500 text-uppercase mb-2 d-flex justify-content-between align-items-center">
                 <span>Recent Searches</span>
-                <span className="cursor-pointer hover-text-primary transition-all" onClick={() => { setHistory([]); localStorage.removeItem(historyKey); }}>Clear All</span>
+                <Button variant="link" size="xs" onClick={() => { setHistory([]); localStorage.removeItem(historyKey); }}>Clear All</Button>
               </div>
               {history.map((h, i) => (
-                <div 
-                  key={i} 
-                  className="history-item d-flex align-items-center justify-content-between py-2 cursor-pointer hover-bg-light rounded px-2 group"
-                  onClick={() => setQuery(h)}
+                // The row picks the search (a kit Item rendered as a button); its remove button
+                // sits beside it in the same row, never inside a button.
+                <div
+                  key={i}
+                  className="history-item d-flex align-items-center justify-content-between hover-bg-light rounded group"
+                  style={{ padding: '0 0.5rem 0 0' }}
                 >
-                  <div className="d-flex align-items-center">
+                  <Item
+                    render={<button type="button" />}
+                    onClick={() => setQuery(h)}
+                    className="flex-1 flex-nowrap gap-0 border-0 text-left"
+                    style={{ padding: '0.5rem' }}
+                  >
                     <KTIcon iconName="time" className="fs-6 text-gray-400 me-2" />
                     <span className="fs-7 text-gray-700">{h}</span>
-                  </div>
-                  <button 
-                    className="btn btn-icon btn-sm btn-active-light-danger opacity-0 group-hover:opacity-100 transition-all h-20px w-20px"
+                  </Item>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={`Remove "${h}" from recent searches`}
+                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                     onClick={(e) => removeFromHistory(e, h)}
                   >
                     <KTIcon iconName="cross" className="fs-9" />
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>

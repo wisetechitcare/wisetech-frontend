@@ -1,146 +1,36 @@
 {
- "src/_metronic/layout/components/aside/AsideFooter.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/_metronic/layout/components/aside/AsideMenuItem.tsx": {
-  "native-button": 1
- },
- "src/_metronic/layout/components/aside/AsideMenuItemWithSub.tsx": {
-  "clickable-div": 1
- },
  "src/_metronic/layout/components/aside/AsideTabs.tsx": {
   "bootstrap-btn-class": 1
  },
  "src/_metronic/layout/components/aside/Tabs/_TabsBase.tsx": {
-  "bootstrap-btn-class": 2
+  "bootstrap-btn-class": 1
  },
  "src/_metronic/layout/components/aside/Tabs/ProjectsTab.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/layout/components/aside/Tabs/SubscriptionsTab.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/layout/components/header/HeaderToolbar.tsx": {
   "bootstrap-btn-class": 1
  },
  "src/_metronic/layout/components/header/HeaderWrapper.tsx": {
   "native-button": 2
  },
- "src/_metronic/layout/components/header/Topbar.tsx": {
-  "bootstrap-btn-class": 3
- },
  "src/_metronic/layout/components/NotificationsBell.tsx": {
-  "clickable-div": 2,
-  "bootstrap-btn-class": 3,
-  "react-bootstrap-button": 1
- },
- "src/_metronic/layout/components/toolbar/Toolbar2.tsx": {
-  "bootstrap-btn-class": 5
- },
- "src/_metronic/partials/chat/ChatInner.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/_metronic/partials/content/activity/Item1.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/_metronic/partials/content/activity/Item5.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/_metronic/partials/content/activity/Item7.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/content/cards/Card1.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/content/code-highlight/CodeBlock.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/content/dropdown/Dropdown1.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/_metronic/partials/content/dropdown/Dropdown2.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/layout/activity-drawer/ActivityDrawer.tsx": {
-  "bootstrap-btn-class": 1
+  "clickable-div": 1
  },
  "src/_metronic/partials/layout/drawer-messenger/DrawerMessenger.tsx": {
   "bootstrap-btn-class": 2
  },
- "src/_metronic/partials/layout/header-menus/HeaderNotificationsMenu.tsx": {
-  "bootstrap-btn-class": 1
- },
  "src/_metronic/partials/layout/header-menus/Languages.tsx": {
   "clickable-div": 1
  },
- "src/_metronic/partials/layout/help-drawer/HelpDrawer.tsx": {
-  "bootstrap-btn-class": 2
- },
  "src/_metronic/partials/layout/InboxCompose.tsx": {
-  "bootstrap-btn-class": 8
- },
- "src/_metronic/partials/layout/search/Search.tsx": {
-  "bootstrap-btn-class": 13
- },
- "src/_metronic/partials/layout/SearchModal.tsx": {
-  "bootstrap-btn-class": 5
- },
- "src/_metronic/partials/layout/theme-mode/ThemeModeSwitcher.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/modals/create-app-stepper/CreateAppModal.tsx": {
   "bootstrap-btn-class": 4
  },
- "src/_metronic/partials/modals/invite-users/InviteUsers.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/_metronic/partials/modals/select-location/SelectLocationModal.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/_metronic/partials/modals/upgrade-plan/UpgradePlan.tsx": {
-  "bootstrap-btn-class": 7
+ "src/_metronic/partials/layout/SearchModal.tsx": {
+  "bootstrap-btn-class": 1
  },
  "src/_metronic/partials/widgets/_new/lists/ListsWidget26.tsx": {
   "bootstrap-btn-class": 1
  },
  "src/_metronic/partials/widgets/charts/ChartsWidget1.tsx": {
   "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/widgets/charts/ChartsWidget2.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/_metronic/partials/widgets/charts/ChartsWidget3.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/_metronic/partials/widgets/charts/ChartsWidget4.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/_metronic/partials/widgets/charts/ChartsWidget5.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/_metronic/partials/widgets/charts/ChartsWidget6.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/_metronic/partials/widgets/charts/ChartsWidget7.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/_metronic/partials/widgets/charts/ChartsWidget8.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/_metronic/partials/widgets/feeds/FeedsWidget2.tsx": {
-  "bootstrap-btn-class": 5
- },
- "src/_metronic/partials/widgets/feeds/FeedsWidget3.tsx": {
-  "bootstrap-btn-class": 5
- },
- "src/_metronic/partials/widgets/feeds/FeedsWidget4.tsx": {
-  "bootstrap-btn-class": 5
- },
- "src/_metronic/partials/widgets/feeds/FeedsWidget5.tsx": {
-  "bootstrap-btn-class": 5
- },
- "src/_metronic/partials/widgets/feeds/FeedsWidget6.tsx": {
-  "bootstrap-btn-class": 5
  },
  "src/_metronic/partials/widgets/lists/ListsWidget1.tsx": {
   "bootstrap-btn-class": 1
@@ -164,86 +54,13 @@
   "bootstrap-btn-class": 1
  },
  "src/_metronic/partials/widgets/lists/ListsWidget8.tsx": {
-  "bootstrap-btn-class": 5
+  "bootstrap-btn-class": 1
  },
  "src/_metronic/partials/widgets/lists/ListsWidget9.tsx": {
   "bootstrap-btn-class": 1
  },
- "src/_metronic/partials/widgets/mixed/MixedWidget1.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/widgets/mixed/MixedWidget2.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/widgets/mixed/MixedWidget3.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/widgets/mixed/MixedWidget4.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/widgets/mixed/MixedWidget6.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/widgets/mixed/MixedWidget7.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/_metronic/partials/widgets/mixed/MixedWidget8.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/widgets/mixed/MixedWidget9.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/widgets/tables/TablesWidget1.tsx": {
-  "bootstrap-btn-class": 6
- },
- "src/_metronic/partials/widgets/tables/TablesWidget10.tsx": {
-  "bootstrap-btn-class": 16
- },
- "src/_metronic/partials/widgets/tables/TablesWidget11.tsx": {
-  "bootstrap-btn-class": 16
- },
- "src/_metronic/partials/widgets/tables/TablesWidget12.tsx": {
-  "bootstrap-btn-class": 12
- },
- "src/_metronic/partials/widgets/tables/TablesWidget13.tsx": {
-  "bootstrap-btn-class": 17
- },
- "src/_metronic/partials/widgets/tables/TablesWidget2.tsx": {
-  "bootstrap-btn-class": 6
- },
- "src/_metronic/partials/widgets/tables/TablesWidget3.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/widgets/tables/TablesWidget4.tsx": {
-  "bootstrap-btn-class": 27
- },
- "src/_metronic/partials/widgets/tables/TablesWidget5.tsx": {
-  "bootstrap-btn-class": 15
- },
- "src/_metronic/partials/widgets/tables/TablesWidget6.tsx": {
-  "bootstrap-btn-class": 15
- },
- "src/_metronic/partials/widgets/tables/TablesWidget7.tsx": {
-  "bootstrap-btn-class": 15
- },
- "src/_metronic/partials/widgets/tables/TablesWidget8.tsx": {
-  "bootstrap-btn-class": 15
- },
- "src/_metronic/partials/widgets/tables/TablesWidget9.tsx": {
-  "bootstrap-btn-class": 16
- },
- "src/_metronic/partials/widgets/tiles/TilesWidget2.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/_metronic/partials/widgets/tiles/TilesWidget4.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/components/ErrorBoundary.tsx": {
-  "native-button": 5
- },
  "src/app/modules/accounts/components/documents/EmployeeDocumentTable.tsx": {
-  "mui-icon-button": 1,
-  "bootstrap-btn-class": 1
+  "mui-icon-button": 1
  },
  "src/app/modules/accounts/components/settings/cards/ProfileDetails.tsx": {
   "role-button": 1,
@@ -251,89 +68,16 @@
  },
  "src/app/modules/accounts/components/settings/cards/SignInMethod.tsx": {
   "role-button": 1,
-  "bootstrap-btn-class": 3
- },
- "src/app/modules/apps/chat/components/Group.tsx": {
   "bootstrap-btn-class": 1
- },
- "src/app/modules/apps/chat/components/Private.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/modules/apps/user-management/users-list/components/header/UserListToolbar.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/modules/apps/user-management/users-list/components/header/UsersListFilter.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/app/modules/apps/user-management/users-list/components/header/UsersListGrouping.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/modules/apps/user-management/users-list/table/columns/UserActionsCell.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/modules/apps/user-management/users-list/user-edit-modal/UserEditModalForm.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/modules/apps/user-management/users-list/user-edit-modal/UserEditModalHeader.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/modules/auth/components/ForgotPassword.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/modules/auth/components/InactiveEmployee.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/modules/auth/components/Login.tsx": {
-  "mui-icon-button": 1,
-  "mui-button": 1
- },
- "src/app/modules/auth/components/Registration.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/modules/auth/components/ResetPassword.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/modules/common/components/AddonLeavesAllowanceForm.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/modules/common/components/BiometricDevicesModal/index.tsx": {
-  "mui-button": 7,
-  "mui-icon-button": 2
- },
- "src/app/modules/common/components/BranchCard.tsx": {
-  "mui-button": 2
- },
- "src/app/modules/common/components/DragDropFileField/index.tsx": {
-  "native-button": 1,
-  "clickable-div": 2
- },
- "src/app/modules/common/components/DrillDownDialog.tsx": {
-  "mui-icon-button": 1
- },
- "src/app/modules/common/components/EmployeeSelectionDialog.tsx": {
-  "role-button": 1,
-  "clickable-div": 1
- },
- "src/app/modules/common/components/ExportButton.tsx": {
-  "mui-icon-button": 1,
-  "mui-button": 2
- },
- "src/app/modules/common/components/FormSchemaManager/index.tsx": {
-  "clickable-div": 2,
-  "native-button": 10
  },
  "src/app/modules/common/components/GlobalSearch/GlobalSearch.tsx": {
-  "bootstrap-btn-class": 4,
-  "clickable-div": 5
+  "clickable-div": 3
  },
  "src/app/modules/common/components/Graphs.tsx": {
-  "bootstrap-btn-class": 4
+  "bootstrap-btn-class": 3
  },
  "src/app/modules/common/components/MaterialTableImpl.tsx": {
-  "mui-icon-button": 2,
-  "clickable-div": 2,
-  "native-button": 7,
-  "mui-button": 2
+  "clickable-div": 1
  },
  "src/app/modules/common/components/MeetingsList.tsx": {
   "native-button": 16,
@@ -349,9 +93,6 @@
  },
  "src/app/modules/common/components/PrefixInlineEdit.tsx": {
   "mui-icon-button": 3
- },
- "src/app/modules/common/components/PrefixSettingsForm.tsx": {
-  "bootstrap-btn-class": 1
  },
  "src/app/modules/common/components/PremiumButton.tsx": {
   "native-button": 1
@@ -370,7 +111,6 @@
   "mui-button": 2
  },
  "src/app/modules/common/components/SensitiveData.tsx": {
-  "native-button": 1,
   "mui-button": 1
  },
  "src/app/modules/common/components/SmartAvatar.tsx": {
@@ -380,9 +120,6 @@
   "mui-icon-button": 1
  },
  "src/app/modules/common/components/StatDetailModal.tsx": {
-  "mui-icon-button": 1
- },
- "src/app/modules/common/components/ui/FilterSheet.tsx": {
   "mui-icon-button": 1
  },
  "src/app/modules/common/components/ui/glass.tsx": {
@@ -396,23 +133,7 @@
   "native-button": 2
  },
  "src/app/modules/common/inputs/FileInput.tsx": {
-  "clickable-div": 1,
-  "bootstrap-btn-class": 1
- },
- "src/app/modules/common/inputs/SignatureInput.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/app/modules/common/utils/DropdownAdd.tsx": {
-  "react-bootstrap-button": 1
- },
- "src/app/modules/configuration/ConfigPageLayout.tsx": {
-  "native-button": 1
- },
- "src/app/modules/configuration/ConfigSectionCard.tsx": {
-  "native-button": 2
- },
- "src/app/modules/configuration/ConfigSettingsRow.tsx": {
-  "native-button": 1
+  "clickable-div": 1
  },
  "src/app/modules/detail-page/DetailPageComponents.tsx": {
   "role-button": 1
@@ -420,25 +141,8 @@
  "src/app/modules/detail-page/EditableDetailCard.tsx": {
   "native-button": 4
  },
- "src/app/modules/employee/salary/AddEditIncrementDialog.tsx": {
-  "mui-icon-button": 1,
-  "mui-button": 2
- },
- "src/app/modules/projectPoints/ProjectPointRow.tsx": {
-  "native-button": 3
- },
  "src/app/modules/projectPoints/ProjectPointsConfigModal.tsx": {
-  "clickable-div": 2,
-  "native-button": 3
- },
- "src/app/modules/projectPoints/ProjectPointsConfigSection.tsx": {
-  "native-button": 5
- },
- "src/app/modules/projectPoints/ProjectPointsSection.tsx": {
-  "native-button": 1
- },
- "src/app/modules/wizards/components/Horizontal.tsx": {
-  "bootstrap-btn-class": 2
+  "clickable-div": 2
  },
  "src/app/modules/wizards/components/steps/Step1.tsx": {
   "bootstrap-btn-class": 2
@@ -446,50 +150,21 @@
  "src/app/modules/wizards/components/steps/Step2.tsx": {
   "bootstrap-btn-class": 4
  },
- "src/app/modules/wizards/components/Vertical.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/pages/billing/invoices/InvoicesPage.tsx": {
-  "mui-icon-button": 1
- },
- "src/app/pages/billing/proformas/ProformaTreeRow.tsx": {
-  "mui-icon-button": 3
- },
- "src/app/pages/billing/reports/shared/ColumnSelector.tsx": {
-  "mui-icon-button": 1
- },
- "src/app/pages/billing/reports/shared/ReportExportToolbar.tsx": {
-  "mui-icon-button": 4,
-  "mui-button": 2
- },
- "src/app/pages/billing/reports/shared/SavedFiltersMenu.tsx": {
-  "mui-icon-button": 2
- },
- "src/app/pages/company/announcement/Announcements.tsx": {
-  "bootstrap-btn-class": 2,
-  "clickable-div": 2
- },
  "src/app/pages/company/components/AdminFolderList.tsx": {
-  "clickable-div": 1,
-  "bootstrap-btn-class": 1
+  "clickable-div": 1
  },
  "src/app/pages/company/components/EmployeeList.tsx": {
-  "clickable-div": 1,
-  "bootstrap-btn-class": 1
+  "clickable-div": 1
  },
  "src/app/pages/company/Designation.tsx": {
   "native-button": 2
  },
  "src/app/pages/company/Holiday.tsx": {
-  "bootstrap-btn-class": 4,
-  "native-button": 1
- },
- "src/app/pages/company/masters/EmployeeTypes.tsx": {
-  "bootstrap-btn-class": 1,
-  "native-button": 3
+  "native-button": 1,
+  "bootstrap-btn-class": 1
  },
  "src/app/pages/company/OnboardingDocs.tsx": {
-  "bootstrap-btn-class": 4
+  "bootstrap-btn-class": 1
  },
  "src/app/pages/company/organisation/Branding.tsx": {
   "bootstrap-btn-class": 1
@@ -502,7 +177,7 @@
  },
  "src/app/pages/company/PublicHoliday.tsx": {
   "clickable-div": 2,
-  "bootstrap-btn-class": 5
+  "bootstrap-btn-class": 1
  },
  "src/app/pages/company/settings/Appearance.tsx": {
   "native-button": 6,
@@ -512,65 +187,13 @@
   "bootstrap-btn-class": 1
  },
  "src/app/pages/company/settings/RolesAndPermissions.tsx": {
-  "bootstrap-btn-class": 4
- },
- "src/app/pages/dashboard/DashboardAnnouncements.tsx": {
-  "mui-icon-button": 1
- },
- "src/app/pages/dashboard/DashboardDailyAttendanceOverview.tsx": {
-  "native-button": 1,
-  "bootstrap-btn-class": 1,
-  "clickable-div": 6
- },
- "src/app/pages/dashboard/DashboardTasks.tsx": {
-  "bootstrap-btn-class": 2,
-  "mui-button": 1
- },
- "src/app/pages/dashboard/leadAnalytics/ClientAnalysisSection.tsx": {
-  "native-button": 1
- },
- "src/app/pages/dashboard/leadAnalytics/PipelinePerformance.tsx": {
-  "native-button": 1
- },
- "src/app/pages/dashboard/leadAnalytics/RankedBarChart.tsx": {
-  "native-button": 4,
-  "bootstrap-btn-class": 1
- },
- "src/app/pages/dashboard/leadAnalytics/YearlyGrowthChart.tsx": {
-  "native-button": 1
- },
- "src/app/pages/dashboard/PendingRequestsTable.tsx": {
-  "bootstrap-btn-class": 11,
-  "mui-button": 1,
-  "native-button": 3
- },
- "src/app/pages/dashboard/RemindersTable.tsx": {
-  "clickable-div": 3,
-  "mui-button": 2,
-  "native-button": 2
- },
- "src/app/pages/dashboard/Todo.tsx": {
-  "mui-icon-button": 4
- },
- "src/app/pages/dashboard/UpcomingThings.tsx": {
-  "mui-icon-button": 2
- },
- "src/app/pages/employee/attendance/AttendanceConfig/AttendanceConfig.tsx": {
-  "native-button": 2
- },
- "src/app/pages/employee/attendance/AttendanceConfig/component/Appearance.tsx": {
-  "native-button": 4,
-  "clickable-div": 2
+  "bootstrap-btn-class": 2
  },
  "src/app/pages/employee/attendance/personal/views/my-leaves/apply-leave/LeaveCalendar.tsx": {
   "native-button": 2
  },
  "src/app/pages/employee/attendance/personal/views/my-leaves/apply-leave/tokens.tsx": {
   "native-button": 1
- },
- "src/app/pages/employee/attendance/personal/views/my-leaves/ApplyLeave.tsx": {
-  "native-button": 18,
-  "clickable-div": 1
  },
  "src/app/pages/employee/attendance/personal/views/my-leaves/ConvertLeavesModal.tsx": {
   "clickable-div": 2,
@@ -587,7 +210,7 @@
   "bootstrap-btn-class": 1
  },
  "src/app/pages/employee/attendance/personal/views/overview/calendar/CalendarLegend.tsx": {
-  "native-button": 3
+  "native-button": 2
  },
  "src/app/pages/employee/attendance/personal/views/overview/KPITestPanel.tsx": {
   "native-button": 5
@@ -598,110 +221,16 @@
  "src/app/pages/employee/attendance/personal/views/overview/PunchIdentityDialog.tsx": {
   "mui-button": 3
  },
- "src/app/pages/employee/attendance/personal/views/overview/WorkingMethodOptions.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/pages/employee/calendar/views/PublicHolidayListTwo.tsx": {
-  "bootstrap-btn-class": 15
- },
- "src/app/pages/employee/calendar/views/RenameHoliday.tsx": {
-  "bootstrap-btn-class": 3
- },
- "src/app/pages/employee/calendar/views/WeekendsAndWorkingDays.tsx": {
-  "native-button": 1
- },
- "src/app/pages/employee/companies/calender/component/CalenderToggle.tsx": {
-  "clickable-div": 2,
-  "bootstrap-btn-class": 1
- },
- "src/app/pages/employee/companies/companies/ClientCompaniesMain.tsx": {
-  "clickable-div": 1,
-  "bootstrap-btn-class": 3,
-  "mui-button": 1
- },
- "src/app/pages/employee/companies/companies/components/ClientContacts.tsx": {
-  "bootstrap-btn-class": 3,
-  "react-bootstrap-button": 1
- },
- "src/app/pages/employee/companies/companies/components/CompaniesBranch.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/pages/employee/companies/companies/components/CompaniesBranchForm.tsx": {
-  "mui-icon-button": 1,
-  "clickable-div": 1,
-  "react-bootstrap-button": 1
- },
- "src/app/pages/employee/companies/companies/components/CompaniesLeads.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/pages/employee/companies/companies/components/CompanyReferences.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/pages/employee/companies/companies/components/NewCompanyForm.tsx": {
-  "clickable-div": 2,
-  "native-button": 1
- },
- "src/app/pages/employee/companies/companies/components/NoteModal.tsx": {
-  "react-bootstrap-button": 2
- },
- "src/app/pages/employee/companies/companies/components/SubCompanies.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/pages/employee/companies/companies/components/SubCompanryForm.tsx": {
-  "mui-icon-button": 1,
-  "clickable-div": 1,
-  "react-bootstrap-button": 1
- },
- "src/app/pages/employee/companies/companies/components/SubServiceModal.tsx": {
-  "react-bootstrap-button": 1
- },
- "src/app/pages/employee/companies/companyConfig/CompanyConfigMain.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/pages/employee/companies/companyConfig/components/CompanyConfigForm.tsx": {
-  "clickable-div": 1,
-  "react-bootstrap-button": 1
- },
- "src/app/pages/employee/companies/companyConfig/components/CompanyTypeServiceTree.tsx": {
-  "native-button": 4,
-  "clickable-div": 1
- },
- "src/app/pages/employee/companies/companyOverview/CompanyOverview.tsx": {
-  "bootstrap-btn-class": 2
- },
  "src/app/pages/employee/companies/companyOverview/components/CompaniesByTypeChart.tsx": {
   "native-button": 9,
   "clickable-div": 4
  },
- "src/app/pages/employee/companies/companyOverview/components/CompanyChartSettingsForm.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/pages/employee/companies/companyOverview/components/Custom.tsx": {
-  "bootstrap-btn-class": 1
- },
  "src/app/pages/employee/companies/companyOverview/components/Map.tsx": {
   "native-button": 16,
-  "react-bootstrap-button": 2,
   "clickable-div": 4
- },
- "src/app/pages/employee/companies/companyOverview/components/Monthly.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/pages/employee/companies/companyOverview/components/Yearly.tsx": {
-  "bootstrap-btn-class": 1
- },
- "src/app/pages/employee/companies/contacts/ClientContactsMain.tsx": {
-  "bootstrap-btn-class": 5
  },
  "src/app/pages/employee/companies/contacts/components/ClientContactsForm.tsx": {
   "native-button": 2
- },
- "src/app/pages/employee/components/AccessControlTable.tsx": {
-  "clickable-div": 5
- },
- "src/app/pages/employee/components/AppSettingsModal.tsx": {
-  "native-button": 1,
-  "bootstrap-btn-class": 2
  },
  "src/app/pages/employee/courtesy-desk/components/DriveDetail.tsx": {
   "mui-button": 9
@@ -727,22 +256,7 @@
   "mui-button": 2
  },
  "src/app/pages/employee/CustomCalendar.tsx": {
-  "native-button": 14,
-  "clickable-div": 2,
-  "bootstrap-btn-class": 1,
-  "role-button": 1
- },
- "src/app/pages/employee/EmployeeListContent.tsx": {
-  "native-button": 1
- },
- "src/app/pages/employee/entity/detail/density.tsx": {
-  "native-button": 1
- },
- "src/app/pages/employee/entity/detail/ProjectStatusControl.tsx": {
-  "native-button": 1
- },
- "src/app/pages/employee/entity/detail/sections/AuditSection.tsx": {
-  "native-button": 1
+  "clickable-div": 2
  },
  "src/app/pages/employee/entity/detail/sections/billing/ProjectBillingTree.tsx": {
   "mui-icon-button": 1
@@ -750,44 +264,16 @@
  "src/app/pages/employee/entity/detail/sections/billing/ProjectBillingWorkspace.tsx": {
   "mui-icon-button": 1
  },
- "src/app/pages/employee/entity/detail/sections/DeliverablesSection.tsx": {
-  "native-button": 2
- },
- "src/app/pages/employee/entity/detail/sections/DocumentsSection.tsx": {
-  "native-button": 1
- },
- "src/app/pages/employee/entity/detail/sections/TeamsSection.tsx": {
-  "native-button": 12,
-  "bootstrap-btn-class": 5
- },
- "src/app/pages/employee/entity/detail/widgets.tsx": {
-  "native-button": 2
- },
- "src/app/pages/employee/entity/EntityDetailPage.tsx": {
-  "bootstrap-btn-class": 4
- },
- "src/app/pages/employee/entity/EntityTablePage.tsx": {
-  "bootstrap-btn-class": 4,
-  "native-button": 2
- },
  "src/app/pages/employee/forms/lead/LeadSections.tsx": {
   "mui-icon-button": 6,
-  "react-bootstrap-button": 5,
-  "bootstrap-btn-class": 1,
   "native-button": 2,
   "role-button": 1
  },
  "src/app/pages/employee/forms/lead/SectionWrapper.tsx": {
   "clickable-div": 1
  },
- "src/app/pages/employee/forms/shared/CommercialsGrid.tsx": {
-  "react-bootstrap-button": 2
- },
  "src/app/pages/employee/forms/shared/FullscreenWizardModal.tsx": {
   "native-button": 1
- },
- "src/app/pages/employee/forms/shared/SummaryPanel.tsx": {
-  "react-bootstrap-button": 4
  },
  "src/app/pages/employee/increment/components/IncrementDetailDialog.tsx": {
   "mui-icon-button": 1,
@@ -800,23 +286,8 @@
   "mui-button": 1
  },
  "src/app/pages/employee/kpis/common/LeaderBoardCore.tsx": {
-  "bootstrap-btn-class": 3,
+  "bootstrap-btn-class": 1,
   "native-button": 1
- },
- "src/app/pages/employee/leads/configuration/components/CategoryTreeExplorer.tsx": {
-  "native-button": 5
- },
- "src/app/pages/employee/leads/configuration/components/MeetingScheduleModal.tsx": {
-  "react-bootstrap-button": 6
- },
- "src/app/pages/employee/leads/configuration/components/PaymentPlanModal.tsx": {
-  "react-bootstrap-button": 2
- },
- "src/app/pages/employee/leads/configuration/components/PaymentPlansSection.tsx": {
-  "native-button": 2
- },
- "src/app/pages/employee/leads/configuration/LeadsConfigurationMain.tsx": {
-  "native-button": 2
  },
  "src/app/pages/employee/leads/lead/components/ConvertToClientProject.tsx": {
   "mui-icon-button": 1,
@@ -851,9 +322,6 @@
  "src/app/pages/employee/leads/lead/components/FeeBreakupTable.tsx": {
   "react-bootstrap-button": 3
  },
- "src/app/pages/employee/leads/lead/components/LeadOverview.tsx": {
-  "bootstrap-btn-class": 1
- },
  "src/app/pages/employee/leads/lead/components/MeetingConfigurationTable.tsx": {
   "react-bootstrap-button": 2
  },
@@ -861,61 +329,39 @@
   "react-bootstrap-button": 3
  },
  "src/app/pages/employee/leads/lead/components/ProposalConfigurationPage.tsx": {
-  "react-bootstrap-button": 9,
+  "react-bootstrap-button": 4,
   "clickable-div": 1
  },
  "src/app/pages/employee/leads/lead/components/ProposalTemplatePage.tsx": {
-  "clickable-div": 1,
-  "react-bootstrap-button": 2
- },
- "src/app/pages/employee/leads/lead/DetailsModal.tsx": {
-  "bootstrap-btn-class": 1,
-  "role-button": 1
- },
- "src/app/pages/employee/leads/lead/LeadNewLead.tsx": {
-  "bootstrap-btn-class": 4,
-  "native-button": 1
- },
- "src/app/pages/employee/leads/lead/LeadNoteDialog.tsx": {
-  "role-button": 1
+  "clickable-div": 1
  },
  "src/app/pages/employee/leads/lead/LeadWizardModal.tsx": {
   "mui-icon-button": 1
  },
  "src/app/pages/employee/leads/overview/commonComponents/ChartCard.tsx": {
-  "bootstrap-btn-class": 2,
   "clickable-div": 1
- },
- "src/app/pages/employee/leads/overview/commonComponents/FullScreenChartModal.tsx": {
-  "react-bootstrap-button": 3
  },
  "src/app/pages/employee/leads/overview/commonComponents/LeadsCustomGraph.tsx": {
   "native-button": 7
  },
  "src/app/pages/employee/leads/overview/components/charts/MonthlyBarWithTarget.tsx": {
-  "react-bootstrap-button": 6
+  "react-bootstrap-button": 2
  },
  "src/app/pages/employee/leads/overview/components/charts/MonthlyLeadsChart.tsx": {
-  "react-bootstrap-button": 7
+  "react-bootstrap-button": 2
  },
  "src/app/pages/employee/leads/overview/components/charts/YearlyCumulativePerformance.tsx": {
-  "react-bootstrap-button": 7
+  "react-bootstrap-button": 2
  },
  "src/app/pages/employee/leads/overview/components/charts/YearlyPerformanceAnalytics.tsx": {
-  "react-bootstrap-button": 7
- },
- "src/app/pages/employee/leads/overview/components/LeadsOverviewToggle.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/pages/employee/leads/overview/components/modals/ManageTargetModal.tsx": {
-  "react-bootstrap-button": 4
+  "react-bootstrap-button": 2
  },
  "src/app/pages/employee/leads/template-builder/components/PlaceholderDocumentationTable.tsx": {
   "native-button": 1,
-  "react-bootstrap-button": 4
+  "react-bootstrap-button": 2
  },
  "src/app/pages/employee/leads/template-builder/TemplateDocumentationBuilderPage.tsx": {
-  "react-bootstrap-button": 3
+  "react-bootstrap-button": 1
  },
  "src/app/pages/employee/loans/admin/views/InstallmentPayments.tsx": {
   "clickable-div": 1
@@ -937,7 +383,7 @@
   "bootstrap-btn-class": 1
  },
  "src/app/pages/employee/loans/personal/components/PendingLoanTable.tsx": {
-  "bootstrap-btn-class": 3
+  "bootstrap-btn-class": 2
  },
  "src/app/pages/employee/loans/personal/components/PreviousLoanTable.tsx": {
   "clickable-div": 1
@@ -948,35 +394,22 @@
  "src/app/pages/employee/loans/personal/views/monthly/Monthly.tsx": {
   "bootstrap-btn-class": 1
  },
- "src/app/pages/employee/loans/personal/views/PersonalLoan.tsx": {
-  "bootstrap-btn-class": 1
- },
  "src/app/pages/employee/loans/personal/views/Rules.tsx": {
-  "bootstrap-btn-class": 3,
-  "react-bootstrap-button": 1
- },
- "src/app/pages/employee/MeetingFormBody.tsx": {
-  "mui-button": 1
- },
- "src/app/pages/employee/MeetingViewModal.tsx": {
-  "react-bootstrap-button": 2
+  "bootstrap-btn-class": 3
  },
  "src/app/pages/employee/notifications/Notifications.tsx": {
-  "bootstrap-btn-class": 2,
+  "bootstrap-btn-class": 1,
   "clickable-div": 1
  },
  "src/app/pages/employee/PdfLoader.tsx": {
-  "native-button": 1,
   "clickable-div": 1
  },
  "src/app/pages/employee/PdfViewer.tsx": {
-  "native-button": 1,
-  "clickable-div": 1,
-  "bootstrap-btn-class": 1
+  "clickable-div": 1
  },
  "src/app/pages/employee/personal-rules/PersonalRules.tsx": {
   "clickable-div": 3,
-  "bootstrap-btn-class": 2
+  "bootstrap-btn-class": 1
  },
  "src/app/pages/employee/projects/commonComponents/CustomChart.tsx": {
   "native-button": 3
@@ -985,8 +418,7 @@
   "native-button": 7
  },
  "src/app/pages/employee/projects/configure/components/ProjectConfigForm.tsx": {
-  "clickable-div": 1,
-  "react-bootstrap-button": 1
+  "clickable-div": 1
  },
  "src/app/pages/employee/projects/configure/ProjectConfigure.tsx": {
   "native-button": 6
@@ -999,9 +431,6 @@
  },
  "src/app/pages/employee/projects/project/components/ProjectReimbursements.tsx": {
   "clickable-div": 1,
-  "bootstrap-btn-class": 3
- },
- "src/app/pages/employee/projects/project/components/ProjectsOverviewById.tsx": {
   "bootstrap-btn-class": 1
  },
  "src/app/pages/employee/projects/project/components/ProjectTimeSheets.tsx": {
@@ -1024,17 +453,16 @@
   "bootstrap-btn-class": 1
  },
  "src/app/pages/employee/reimbursement/components/ReimbursementPaymentHistoryTable.tsx": {
-  "bootstrap-btn-class": 1,
   "clickable-div": 1
  },
  "src/app/pages/employee/reimbursement/components/SubmissionMobileCard.tsx": {
   "role-button": 1
  },
  "src/app/pages/employee/reimbursement/PendingReimbursementsPage.tsx": {
-  "bootstrap-btn-class": 6,
   "mui-button": 2,
   "clickable-div": 1,
-  "native-button": 1
+  "native-button": 1,
+  "bootstrap-btn-class": 1
  },
  "src/app/pages/employee/reimbursement/Reimbursement.tsx": {
   "mui-button": 1
@@ -1043,8 +471,7 @@
   "native-button": 1
  },
  "src/app/pages/employee/reimbursement/views/admin/IconPickerModal.tsx": {
-  "native-button": 6,
-  "bootstrap-btn-class": 2
+  "native-button": 6
  },
  "src/app/pages/employee/reimbursement/views/admin/QueryTopics.tsx": {
   "mui-icon-button": 2
@@ -1060,125 +487,48 @@
  },
  "src/app/pages/employee/reimbursement/views/SubmissionsTable.tsx": {
   "native-button": 3,
-  "bootstrap-btn-class": 5
- },
- "src/app/pages/employee/salary/admin/MonthlySalary.tsx": {
-  "native-button": 2,
-  "mui-icon-button": 1
- },
- "src/app/pages/employee/salary/admin/SalaryTableFilters.tsx": {
-  "native-button": 1
- },
- "src/app/pages/employee/salary/admin/views/salary-configuration/CustomRules.tsx": {
-  "bootstrap-btn-class": 1,
-  "native-button": 3
- },
- "src/app/pages/employee/salary/admin/views/salary-configuration/DeductionMaster.tsx": {
-  "bootstrap-btn-class": 8,
-  "mui-icon-button": 6,
-  "native-button": 1
- },
- "src/app/pages/employee/salary/admin/views/salary-configuration/DeductionRules.tsx": {
-  "native-button": 6
- },
- "src/app/pages/employee/salary/admin/views/salary-configuration/GeneralSettings.tsx": {
-  "native-button": 3
+  "bootstrap-btn-class": 2
  },
  "src/app/pages/employee/salary/admin/views/salary-configuration/GrossPayDistribution.tsx": {
-  "bootstrap-btn-class": 3,
+  "bootstrap-btn-class": 2,
   "native-button": 3
  },
  "src/app/pages/employee/salary/personal/views/my-salary/DeductionDistributionModal.tsx": {
-  "native-button": 1,
-  "bootstrap-btn-class": 1,
-  "react-bootstrap-button": 2
+  "native-button": 1
  },
  "src/app/pages/employee/search/SearchResultsPage.tsx": {
   "bootstrap-btn-class": 2,
   "clickable-div": 1
  },
- "src/app/pages/employee/tasks/calender/component/TeamForm.tsx": {
-  "bootstrap-btn-class": 9
- },
- "src/app/pages/employee/tasks/calender/TasksMainCalenderPage.tsx": {
-  "bootstrap-btn-class": 8
- },
  "src/app/pages/employee/tasks/components/HierarchicalTaskSelect.tsx": {
-  "role-button": 1,
-  "native-button": 1
- },
- "src/app/pages/employee/tasks/components/notification/Notifications.tsx": {
-  "mui-icon-button": 2
- },
- "src/app/pages/employee/tasks/components/TaskBoard.tsx": {
-  "mui-button": 2
- },
- "src/app/pages/employee/tasks/components/TaskFormDialog.tsx": {
-  "mui-button": 1
- },
- "src/app/pages/employee/tasks/components/TaskSubtasksPanel.tsx": {
-  "mui-button": 1
- },
- "src/app/pages/employee/tasks/components/TaskTimePanel.tsx": {
-  "mui-button": 4
- },
- "src/app/pages/employee/tasks/configure/components/PresetTaskTree.tsx": {
-  "native-button": 4,
-  "clickable-div": 1
- },
- "src/app/pages/employee/tasks/configure/components/StageBoard.tsx": {
-  "native-button": 1
+  "role-button": 1
  },
  "src/app/pages/employee/tasks/configure/components/TaskConfigForm.tsx": {
   "native-button": 1,
-  "clickable-div": 1,
-  "react-bootstrap-button": 1
+  "clickable-div": 1
  },
  "src/app/pages/employee/tasks/employeTeamLevel/components/FormModal/EmployeeSelect.tsx": {
   "clickable-div": 3
- },
- "src/app/pages/employee/tasks/employeTeamLevel/components/FormModal/FormActions.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/pages/employee/tasks/employeTeamLevel/components/FormModal/FormHeader.tsx": {
-  "bootstrap-btn-class": 1
  },
  "src/app/pages/employee/tasks/employeTeamLevel/components/FormModal/FormModal.tsx": {
   "clickable-div": 2
  },
  "src/app/pages/employee/tasks/employeTeamLevel/components/LevelSection.tsx": {
-  "bootstrap-btn-class": 2,
   "clickable-div": 1
  },
- "src/app/pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain.simplified.tsx": {
-  "bootstrap-btn-class": 2
- },
- "src/app/pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain.tsx": {
-  "bootstrap-btn-class": 5
- },
- "src/app/pages/employee/tasks/TaskDetailPage.tsx": {
-  "mui-button": 6,
-  "mui-icon-button": 2
- },
  "src/app/pages/employee/tasks/tasks/components/TaskDetails.tsx": {
-  "react-bootstrap-button": 3,
   "native-button": 1
  },
  "src/app/pages/employee/tasks/tasks/components/TaskOverview.tsx": {
   "clickable-div": 1
  },
  "src/app/pages/employee/tasks/tasks/components/TaskTimesheet.tsx": {
-  "react-bootstrap-button": 2,
-  "bootstrap-btn-class": 4,
+  "bootstrap-btn-class": 1,
   "clickable-div": 2
  },
  "src/app/pages/employee/tasks/tasks/TasksMainTable.tsx": {
   "bootstrap-btn-class": 2,
   "mui-button": 1
- },
- "src/app/pages/employee/tasks/TasksWorkspace.tsx": {
-  "mui-icon-button": 2,
-  "mui-button": 2
  },
  "src/app/pages/employee/timesheet/employeetimesheet/component/MyEmployeesTimeSheetPorject.tsx": {
   "bootstrap-btn-class": 2
@@ -1198,9 +548,6 @@
  },
  "src/app/pages/employee/wizard/forms/AddressInfo.tsx": {
   "clickable-div": 6
- },
- "src/app/pages/employee/wizard/forms/LeaveAllocationStep.tsx": {
-  "bootstrap-btn-class": 1
  },
  "src/app/pages/employee/wizard/forms/ProfilePicture.tsx": {
   "role-button": 1,
@@ -1223,14 +570,14 @@
   "bootstrap-btn-class": 2
  },
  "src/app/pages/my-team/Approvals/DomainApprovalQueue.tsx": {
-  "bootstrap-btn-class": 8,
+  "bootstrap-btn-class": 2,
   "role-button": 1
  },
  "src/app/pages/my-team/Approvals/domains/LeaveDetail.tsx": {
   "clickable-div": 1
  },
  "src/app/pages/my-team/Delegations/DelegationsTable.tsx": {
-  "bootstrap-btn-class": 5
+  "bootstrap-btn-class": 2
  },
  "src/app/theme/ColorMode.tsx": {
   "mui-icon-button": 1
@@ -1263,10 +610,10 @@
   "native-button": 2
  },
  "src/components/notifications/components/NotificationFilters.tsx": {
-  "native-button": 2
+  "native-button": 1
  },
  "src/components/notifications/components/NotificationPanel.tsx": {
-  "native-button": 4
+  "native-button": 3
  },
  "src/components/notifications/components/NotificationSnackbar.tsx": {
   "native-button": 1
@@ -1290,7 +637,7 @@
   "native-button": 4
  },
  "src/modules/audit/DiffViewer.tsx": {
-  "native-button": 4
+  "native-button": 3
  },
  "src/modules/audit/ResetModal.tsx": {
   "clickable-div": 1,
@@ -1300,18 +647,11 @@
   "clickable-div": 1,
   "native-button": 6
  },
- "src/modules/payroll/components/common/DeductionPanel.tsx": {
-  "bootstrap-btn-class": 1
- },
  "src/modules/payroll/components/ContractBillSection.tsx": {
   "native-button": 3
  },
  "src/modules/payroll/components/modals/GrossDistributionModal.tsx": {
-  "react-bootstrap-button": 3,
   "native-button": 2
- },
- "src/modules/payroll/components/modals/PaymentModal.tsx": {
-  "react-bootstrap-button": 2
  },
  "src/modules/payroll/components/SalarySlipSection.tsx": {
   "native-button": 4
@@ -1320,16 +660,13 @@
   "bootstrap-btn-class": 1
  },
  "src/modules/payroll/components/table/PaymentDetailsTable.tsx": {
-  "react-bootstrap-button": 5
+  "react-bootstrap-button": 4
  },
  "src/modules/payroll/pages/SalaryReport.tsx": {
   "react-bootstrap-button": 2
  },
- "src/modules/projects/pages/ProjectFormPage.tsx": {
-  "bootstrap-btn-class": 1
- },
  "src/modules/projects/workspace/ProjectWorkspacePage.tsx": {
-  "bootstrap-btn-class": 4
+  "bootstrap-btn-class": 1
  },
  "src/shared/form-engine/components/EnterpriseWizard/EnterpriseFormWizard.tsx": {
   "native-button": 13

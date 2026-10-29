@@ -23,6 +23,7 @@ import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
 import { Box } from "@mui/material";
+import { Button } from "@/ds/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "react-select";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
@@ -1137,28 +1138,20 @@ const NewCompanyForm: React.FC<Props> = ({
                                       <div key={index} className="row g-3 mb-3" style={{ position: "relative" }}>
                                         {/* Remove button for items after the first one - positioned at top right */}
                                         {index > 0 && (
-                                          <div
+                                          <Button
+                                            variant="tinted"
+                                            size="icon-xs"
+                                            aria-label="Remove reference"
                                             onClick={() => remove(index)}
                                             style={{
                                               position: "absolute",
                                               top: "-8px",
                                               right: "8px",
-                                              cursor: "pointer",
-                                              color: "#1E3A8A",
-                                              fontSize: "20px",
-                                              fontWeight: "bold",
-                                              width: "24px",
-                                              height: "24px",
-                                              display: "flex",
-                                              alignItems: "center",
-                                              justifyContent: "center",
-                                              backgroundColor: "transparent",
-                                              // transition: "all 0.2s ease",
                                               zIndex: 10
                                             }}
                                           >
-                                            ×
-                                          </div>
+                                            <AppIcon name="cross" />
+                                          </Button>
                                         )}
 
                                         <div className="col-lg-6">
@@ -1311,7 +1304,9 @@ const NewCompanyForm: React.FC<Props> = ({
 
                                   {/* Add More button - placed outside the map */}
                                   <div className="col-12">
-                                    <div
+                                    <Button
+                                      variant="outline"
+                                      className="w-100"
                                       onClick={() =>
                                         push({
                                           referenceType: "",
@@ -1322,21 +1317,10 @@ const NewCompanyForm: React.FC<Props> = ({
                                           externalReferenceSubCompanyId: "",
                                         })
                                       }
-                                      style={{
-                                        cursor: "pointer",
-                                        color: "#1E3A8A",
-                                        border: "1px dotted #1E3A8A",
-                                        borderRadius: "5px",
-                                        padding: "8px 10px",
-                                        marginTop: "15px",
-                                        textAlign: "center",
-                                        display: "flex",
-                                        justifyContent: "center",
-                                        alignItems: "center",
-                                      }}
+                                      style={{ marginTop: "15px" }}
                                     >
                                       + Add More Reference
-                                    </div>
+                                    </Button>
                                   </div>
                                 </>
                               )}
@@ -1503,14 +1487,12 @@ const NewCompanyForm: React.FC<Props> = ({
                             )}
                           </label>
                           <div className="crm-avatar-actions">
-                            <button
-                              type="button"
-                              className="wt-btn wt-btn-outline-primary"
-                              style={{ fontSize: 13, fontWeight: 600 }}
+                            <Button
+                              variant="outline"
                               onClick={() => document.getElementById("logo")?.click()}
                             >
                               {logoPreview ? "Change logo" : "Upload logo"}
-                            </button>
+                            </Button>
                             <span className="crm-avatar-hint">
                               {logoFile?.name || "PNG or JPG · shown on company lists"}
                             </span>

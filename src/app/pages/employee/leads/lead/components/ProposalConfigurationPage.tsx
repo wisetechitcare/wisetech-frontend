@@ -22,6 +22,7 @@ import { canSection } from "@utils/can";
 import PercentageConfigurationTable from "./PercentageConfigurationTable";
 import MeetingConfigurationTable from "./MeetingConfigurationTable";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
+import { Button as KitButton } from '@/ds/ui/button';
 
 const ProposalConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
@@ -277,13 +278,12 @@ const ProposalConfigurationPage: React.FC = () => {
         style={{ zIndex: 100 }}
       >
         <div className="d-flex align-items-center">
-          <Button
-            variant="link"
+          <KitButton variant="link"
             className="p-0 me-4 text-gray-600 text-hover-primary"
             onClick={goBack}
           >
             <KTIcon iconName="arrow-left" className="fs-1" />
-          </Button>
+          </KitButton>
           <div>
             <h1 className="fs-2 fw-bolder mb-0 text-dark">
               Proposal Template Builder
@@ -312,15 +312,14 @@ const ProposalConfigurationPage: React.FC = () => {
             <KTIcon iconName="plus" className="fs-2 me-1" /> New Template
           </Button>
           {selectedConfig && (
-            <Button
-              variant="primary"
+            <KitButton
               className="fw-bold shadow-sm"
               onClick={handleSave}
               disabled={isSaving}
             >
               <KTIcon iconName="save-2" className="fs-2 me-1" />{" "}
               {isSaving ? "Saving..." : "Save Changes"}
-            </Button>
+            </KitButton>
           )}
         </div>
         )}
@@ -568,9 +567,7 @@ const ProposalConfigurationPage: React.FC = () => {
                           <h4 className="fw-bolder mb-0 text-dark">
                             Area-Specific Meetings & Durations
                           </h4>
-                          <Button
-                            variant="primary"
-                            size="sm"
+                          <KitButton size="sm"
                             onClick={() => {
                               const newGroup = {
                                 min_area: 0,
@@ -619,7 +616,7 @@ const ProposalConfigurationPage: React.FC = () => {
                           >
                             <KTIcon iconName="plus" className="fs-3 me-1" /> Add
                             Area Range
-                          </Button>
+                          </KitButton>
                         </div>
 
                         <div className="d-flex flex-column gap-6">
@@ -831,21 +828,20 @@ const ProposalConfigurationPage: React.FC = () => {
           </ul>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="light"
+          <KitButton variant="outline"
             onClick={() => setShowDeleteModal(false)}
             disabled={isDeleting}
           >
             Cancel
-          </Button>
-          <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>
+          </KitButton>
+          <KitButton variant="destructive" onClick={handleDelete} disabled={isDeleting}>
             {isDeleting ? (
               <span className="spinner-border spinner-border-sm me-2" />
             ) : (
               <KTIcon iconName="trash" className="me-1" />
             )}
             Confirm Hard Delete
-          </Button>
+          </KitButton>
         </Modal.Footer>
       </Modal>
     </div>

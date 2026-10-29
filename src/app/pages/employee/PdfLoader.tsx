@@ -1,6 +1,7 @@
 import { Dialog, DialogContent } from "@mui/material";
 import React, { useEffect, useRef, useState } from "react";
 import { DraggableEventHandler } from "react-draggable";
+import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
 import { Document, Page, pdfjs } from "react-pdf";
 
 interface Coordinates {
@@ -17,17 +18,12 @@ interface PdfLoaderProps {
 }
 
 const styles: { [key: string]: React.CSSProperties } = {
+    // Placement only: the look is WtCloseButton's.
     closeButton: {
         position: 'absolute',
         top: '0px',
         right: '0px',
-        background: 'transparent',
-        border: 'none',
-        fontSize: '24px',
-        cursor: 'pointer',
         zIndex: 1001,
-        display: 'block',
-        marginBottom: '10px'
     },
 };
 
@@ -142,7 +138,7 @@ function PdfLoader({ signatureUrl, file, onClose, fileName }: PdfLoaderProps) {
     return (
         <Dialog open={open} fullWidth maxWidth="lg">
             <DialogContent>
-                <button style={styles.closeButton} onClick={handleCloseDialog}>✖️</button>
+                <WtCloseButton variant="plain" style={styles.closeButton} onClick={handleCloseDialog} />
 
                 {/* <NotificationBar msg="Click on the document to e-sign it"
                     detail="If you haven't registered your e-sign then please go into My Profile - Edit Profile" /> */}

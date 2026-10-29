@@ -1,6 +1,7 @@
 import { ChangeEvent, useRef, useState } from "react";
 import ObFileUpload from "@pages/employee/wizard/components/ObFileUpload";
 import { DOCUMENT_ACCEPT, DOCUMENT_HINT, validateDocumentFile } from "@utils/fileValidation";
+import { Button } from '@/ds/ui/button';
 
 interface FileInputProps {
     placeholder: string;
@@ -117,14 +118,13 @@ function FileInput({
                     />
 
                     {existingDocument && existingDocument.path && (
-                        <button
+                        <Button size="sm"
                             type="button"
-                            className="btn btn-sm btn-primary"
                             onClick={() => window.open(existingDocument.path, '_blank')}
                             disabled={disabled}
                         >
                             View
-                        </button>
+                        </Button>
                     )}
                 </div>
                 {/* role="alert" so a screen reader announces the rejection — the visual

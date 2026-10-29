@@ -18,6 +18,7 @@ import {
   toneColor,
 } from "./leadAnalyticsUtils";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Item } from '@/ds/ui/item';
 
 interface PipelinePerformanceProps {
   statusData: ChartDatum[];
@@ -475,10 +476,11 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                   borderTop: "1px solid #EEF2F7",
                 }}
               >
-                <button
-                  type="button"
+                <Item
+                  render={<button type="button" />}
                   onClick={() => setInsightsOpen((o) => !o)}
                   aria-expanded={insightsOpen}
+                  className="flex-nowrap"
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -518,7 +520,7 @@ const PipelinePerformance: React.FC<PipelinePerformanceProps> = ({
                       style={{ display: "inline-block", color: "#94A3B8", fontSize: 12 }}
                     />
                   </span>
-                </button>
+                </Item>
                 <AnimatePresence initial={false}>
                   {insightsOpen && (
                     <motion.div

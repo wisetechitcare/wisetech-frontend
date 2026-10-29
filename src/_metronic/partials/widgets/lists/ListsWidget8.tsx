@@ -1,6 +1,7 @@
 import { FC } from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
+import { buttonVariants } from '@/ds/ui/button';
 
 type Props = {
   className: string
@@ -59,7 +60,7 @@ const ListsWidget8: FC<Props> = () => {
                 <i className='fa fa-star-half-alt me-1 text-warning fs-5'></i>
                 <span className='text-gray-800 fw-bold'>4.2</span>
               </div>
-              <a href='#' className='btn btn-icon btn-light btn-sm border-0'>
+              <a data-slot="button" href='#' className={buttonVariants({ variant: 'outline', size: 'icon-sm' })}>
                 <KTIcon iconName='arrow-right' className='fs-2 text-primary' />
               </a>
             </div>
@@ -94,7 +95,7 @@ const ListsWidget8: FC<Props> = () => {
                 <i className='fa fa-star-half-alt me-1 text-warning fs-5'></i>
                 <span className='text-gray-800 fw-bold'>5.0</span>
               </div>
-              <a href='#' className='btn btn-icon btn-light btn-sm border-0'>
+              <a data-slot="button" href='#' className={buttonVariants({ variant: 'outline', size: 'icon-sm' })}>
                 <KTIcon iconName='arrow-right' className='fs-2 text-primary' />
               </a>
             </div>
@@ -131,7 +132,7 @@ const ListsWidget8: FC<Props> = () => {
                 <i className='fa fa-star-half-alt me-1 text-warning fs-5'></i>
                 <span className='text-gray-800 fw-bold'>5.7</span>
               </div>
-              <a href='#' className='btn btn-icon btn-light btn-sm border-0'>
+              <a data-slot="button" href='#' className={buttonVariants({ variant: 'outline', size: 'icon-sm' })}>
                 <KTIcon iconName='arrow-right' className='fs-2 text-primary' />
               </a>
             </div>
@@ -168,7 +169,7 @@ const ListsWidget8: FC<Props> = () => {
                 <i className='fa fa-star-half-alt me-1 text-warning fs-5'></i>
                 <span className='text-gray-800 fw-bold'>3.7</span>
               </div>
-              <a href='#' className='btn btn-icon btn-light btn-sm border-0'>
+              <a data-slot="button" href='#' className={buttonVariants({ variant: 'outline', size: 'icon-sm' })}>
                 <KTIcon iconName='arrow-right' className='fs-2 text-primary' />
               </a>
             </div>

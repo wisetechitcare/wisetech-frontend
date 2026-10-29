@@ -2,6 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { ProjectItem } from '@models/clientProject';
 import { C, FONT, SP, RADIUS } from '@app/modules/configuration';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 /**
  * CategoryTreeExplorer
@@ -67,28 +68,20 @@ const Highlight: React.FC<{ text: string; query: string }> = ({ text, query }) =
 // ─── Action icon button ────────────────────────────────────────────────────────
 
 const IconBtn: React.FC<{
-  icon: string; title: string; color: string; hoverBg: string; onClick: (e: React.MouseEvent) => void;
-}> = ({ icon, title, color, hoverBg, onClick }) => {
-  const [hov, setHov] = useState(false);
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        background: hov ? hoverBg : 'transparent',
-        border: 'none', borderRadius: RADIUS.sm,
-        padding: '3px 6px', cursor: 'pointer', color,
-        display: 'flex', alignItems: 'center', transition: 'background 0.15s ease',
-      }}
-    >
-      <AppIcon name={icon} className="fs-8" />
-    </button>
-  );
-};
+  icon: string; title: string; color: string; onClick: (e: React.MouseEvent) => void;
+}> = ({ icon, title, color, onClick }) => (
+  <Button
+    type="button"
+    variant="tinted"
+    size="icon-xs"
+    title={title}
+    aria-label={title}
+    onClick={(e) => { e.stopPropagation(); onClick(e); }}
+    style={{ '--tint': color } as React.CSSProperties}
+  >
+    <AppIcon name={icon} className="fs-8" />
+  </Button>
+);
 
 // ─── Subcategory row ─────────────────────────────────────────────────────────────
 
@@ -119,8 +112,8 @@ const SubRow: React.FC<{
         </span>
       </div>
       <div className="cte-actions" style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-        <IconBtn icon="bi-pencil" title="Edit subcategory" color="#4f82c4" hoverBg="#eff6ff" onClick={onEdit} />
-        <IconBtn icon="bi-trash" title="Delete subcategory" color={C.danger} hoverBg={C.dangerLight} onClick={onDelete} />
+        <IconBtn icon="bi-pencil" title="Edit subcategory" color="#4f82c4" onClick={onEdit} />
+        <IconBtn icon="bi-trash" title="Delete subcategory" color={C.danger} onClick={onDelete} />
       </div>
     </div>
   );
@@ -193,9 +186,9 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
         </span>
 
         <div className="cte-actions" style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-          <IconBtn icon="bi-plus-lg" title="Add subcategory" color="#16a34a" hoverBg="#f0fdf4" onClick={() => onAddSubcategory(category.id)} />
-          <IconBtn icon="bi-pencil" title="Edit category" color="#4f82c4" hoverBg="#eff6ff" onClick={onCategoryEdit} />
-          <IconBtn icon="bi-trash" title="Delete category" color={C.danger} hoverBg={C.dangerLight} onClick={onCategoryDelete} />
+          <IconBtn icon="bi-plus-lg" title="Add subcategory" color="#16a34a" onClick={() => onAddSubcategory(category.id)} />
+          <IconBtn icon="bi-pencil" title="Edit category" color="#4f82c4" onClick={onCategoryEdit} />
+          <IconBtn icon="bi-trash" title="Delete category" color={C.danger} onClick={onCategoryDelete} />
         </div>
       </div>
 
@@ -216,13 +209,15 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
             }}>
               <AppIcon name="bi-dash" style={{ opacity: 0.4 }} />
               No subcategories —
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="xs"
+                className="h-auto p-0"
                 onClick={(e) => { e.stopPropagation(); onAddSubcategory(category.id); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.primary, fontFamily: FONT.body, fontSize: '12px', fontWeight: 600, padding: 0 }}
               >
                 Add one
-              </button>
+              </Button>
             </div>
           ) : (
             subs.map(sub => (
@@ -312,7 +307,7 @@ const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
   const toggle = useCallback((id: string) => {
     setExpanded(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }, []);
@@ -374,37 +369,45 @@ const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
             onBlur={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = 'none'; }}
           />
           {query && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               onClick={() => setQuery('')}
               title="Clear"
-              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, padding: '2px', display: 'flex' }}
+              aria-label="Clear search"
+              className="text-muted-foreground"
+              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)' }}
             >
               <AppIcon name="bi-x-lg" className="fs-8" />
-            </button>
+            </Button>
           )}
         </div>
 
         {/* Expand / Collapse all */}
         <div className="cte-toolbtns" style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={expandAll}
             disabled={allExpanded || !!q}
             title="Expand all"
-            style={toolBtnStyle(allExpanded || !!q)}
           >
-            <AppIcon name="bi-arrows-expand" className="fs-7" /> Expand all
-          </button>
-          <button
+            <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrows-expand" className="fs-7" /></span>
+            Expand all
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={collapseAll}
             disabled={allCollapsed || !!q}
             title="Collapse all"
-            style={toolBtnStyle(allCollapsed || !!q)}
           >
-            <AppIcon name="bi-arrows-collapse" className="fs-7" /> Collapse all
-          </button>
+            <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrows-collapse" className="fs-7" /></span>
+            Collapse all
+          </Button>
         </div>
       </div>
 
@@ -451,18 +454,5 @@ const CategoryTreeExplorer: React.FC<CategoryTreeExplorerProps> = ({
     </div>
   );
 };
-
-// ─── helpers ───────────────────────────────────────────────────────────────────
-
-const toolBtnStyle = (disabled: boolean): React.CSSProperties => ({
-  display: 'inline-flex', alignItems: 'center', gap: '5px',
-  padding: '7px 12px', borderRadius: RADIUS.md,
-  border: `1px solid ${C.border}`, backgroundColor: '#fff',
-  color: disabled ? C.textMuted : C.textSecondary,
-  fontFamily: FONT.body, fontWeight: 500, fontSize: '12px',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  opacity: disabled ? 0.55 : 1,
-  whiteSpace: 'nowrap', transition: 'all 0.15s ease',
-});
 
 export default CategoryTreeExplorer;

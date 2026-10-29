@@ -18,6 +18,7 @@ import { Pagination, Spinner, Alert } from 'react-bootstrap';
 import { KTIcon } from '../../../../_metronic/helpers';
 import AssignedTasksInbox from './AssignedTasksInbox';
 import { ToneChip } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
 
 interface Notification {
   id: string;
@@ -136,14 +137,13 @@ const Notifications: React.FC = () => {
           </h2>
           <p className="text-muted mb-0 small">Your tasks, attendance alerts and system messages</p>
         </div>
-        <button
+        <Button variant="tinted" size="sm" type="submit"
           onClick={handleMarkAllAsRead}
-          className="btn btn-sm btn-light-primary"
           disabled={notifications.length === 0 || clearing}
         >
           {clearing ? <Spinner animation="border" size="sm" className="me-1" /> : null}
           Mark all as read
-        </button>
+        </Button>
       </div>
 
       {/* ── Filter tabs ── */}

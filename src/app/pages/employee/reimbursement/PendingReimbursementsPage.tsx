@@ -48,6 +48,7 @@ import { WtButton, AppIcon } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation, describeLimitBreach } from './utils/reimbursementSchema';
 import { currencyPrefix } from '@utils/currency';
+import { Button as KitButton } from '@/ds/ui/button';
 
 const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
@@ -663,8 +664,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }) => (
-        <button
-          className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
+        <KitButton variant="ghost" size="icon-sm" type="submit"
+          className="w-[20px]"
           onClick={() => { if (row.original.document) setPreviewUrl(row.original.document); }}
           disabled={!row.original.document}
           aria-label={row.original.document ? 'Preview receipt' : 'No receipt attached'}
@@ -674,7 +675,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
             ? <KTIcon iconName='eye' className='fs-3' />
             : <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
           }
-        </button>
+        </KitButton>
       ),
     },
     {
@@ -685,22 +686,22 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       enableColumnActions: false,
       Cell: ({ row }) => (
         <div className='flex items-center justify-center space-x-4'>
-          <button
-            className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
+          <KitButton variant="ghost" size="icon-sm" type="submit"
+            className="w-[20px]"
             onClick={() => handleEdit(row.original)}
             aria-label='Edit this expense'
             title='Edit'
           >
             <i className='bi bi-pencil fs-4 text-gray-500' />
-          </button>
-          <button
-            className='btn btn-icon btn-active-color-primary btn-sm w-4'
+          </KitButton>
+          <KitButton variant="ghost" size="icon-sm" type="submit"
+            className="w-4"
             onClick={() => handleDelete(row.original.id)}
             aria-label='Delete this expense'
             title='Delete'
           >
             <i className='bi bi-trash3 fs-4 text-danger' />
-          </button>
+          </KitButton>
         </div>
       ),
     },
@@ -1178,17 +1179,17 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       {/* Action buttons — appear only when a document is attached */}
                       {formikProps.values.document && (
                         <>
-                          <button
+                          <KitButton variant="outline" size="icon-sm"
                             type='button'
-                            className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
+                            className="flex-shrink-0"
                             aria-label='Preview document' title='Preview document'
                             onClick={() => setPreviewUrl(justUploadedUrl ?? String(formikProps.values.document))}
                           >
                             <KTIcon iconName='eye' className='fs-3' />
-                          </button>
-                          <button
+                          </KitButton>
+                          <KitButton variant="outline" size="icon-sm"
                             type='button'
-                            className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
+                            className="flex-shrink-0"
                             aria-label='Remove document' title='Remove document'
                             onClick={() => {
                               formikProps.setFieldValue('document', '');
@@ -1196,7 +1197,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                             }}
                           >
                             <i className='bi bi-trash3 fs-3 text-danger' />
-                          </button>
+                          </KitButton>
                         </>
                       )}
                     </div>

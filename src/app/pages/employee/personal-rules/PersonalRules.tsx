@@ -3,6 +3,7 @@ import { Row, Col } from 'react-bootstrap';
 import AttendanceSection from './components/AttendanceSection';
 import LeavesSection from './components/LeavesSection';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 const PersonalRules: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>('attendance');
@@ -120,12 +121,11 @@ const PersonalRules: React.FC = () => {
 
       {/* Mobile Menu Toggle */}
       <div className="d-lg-none mb-3 w-100">
-        <button
-          className="btn btn-sm btn-primary"
+        <Button size="sm" type="submit"
           onClick={() => setShowSidebar(!showSidebar)}
         >
           <AppIcon name="burger-menu" className="fs-2" /> Menu
-        </button>
+        </Button>
       </div>
 
       {/* Main Content Area */}

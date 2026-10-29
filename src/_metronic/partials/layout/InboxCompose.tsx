@@ -2,6 +2,7 @@
 import React, {useRef, useState} from 'react'
 import {Modal} from 'react-bootstrap'
 import {KTIcon} from '../../helpers'
+import { Button, buttonVariants } from '@/ds/ui/button';
 
 export type Props = {
   show: boolean
@@ -177,18 +178,18 @@ const InboxCompose: React.FC<Props> = ({show, handleClose}) => {
             {/*begin::Actions*/}
             <div className='d-flex align-items-center me-3'>
               {/*begin::Send*/}
-              <button className='btn btn-primary me-4 px-6'>Send</button>
+              <Button type="submit" className="me-4">Send</Button>
               {/*end::Send*/}
 
               {/*begin::Other*/}
-              <a
+              <a data-slot="button"
                 href='#'
-                className='btn btn-icon btn-active-light-primary me-2'
+                className={buttonVariants({ variant: 'ghost', size: 'icon', className: "me-2" })}
                 id='kt_inbox_compose_attachments_select'
               >
                 <KTIcon className='fs-1' iconName='cloud-add' />
               </a>
-              <a href='#' className='btn btn-icon btn-active-light-primary'>
+              <a data-slot="button" href='#' className={buttonVariants({ variant: 'ghost', size: 'icon' })}>
                 <KTIcon className='fs-1' iconName='geolocation' />
               </a>
               {/*end::Other*/}
@@ -197,13 +198,13 @@ const InboxCompose: React.FC<Props> = ({show, handleClose}) => {
 
             {/*begin::Toolbar*/}
             <div className='d-flex align-items-center'>
-              <button
-                className='btn btn-icon btn-active-light-primary me-2'
+              <Button variant="ghost" size="icon" type="submit" aria-label="More actions"
+                className="me-2"
                 data-bs-toggle='tooltip'
                 title='More actions'
               >
                 <KTIcon className='fs-1' iconName='setting-2' />
-              </button>
+              </Button>
             </div>
             {/*end::Toolbar*/}
           </div>

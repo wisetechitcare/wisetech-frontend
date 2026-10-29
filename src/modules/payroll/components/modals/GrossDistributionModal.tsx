@@ -1,11 +1,12 @@
 import React from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import { Modal } from 'react-bootstrap';
 import { Formik, Form } from 'formik';
 import { KTIcon } from '@metronic/helpers';
 import { Close } from '@mui/icons-material';
 import { GrossDistributionData, DynamicField } from '../../types/payroll.types';
 import { formatMoneyDecimal } from '../../utils/payrollFormatters';
 import { getCurrencySymbol } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 interface GrossDistributionModalProps {
     show: boolean;
@@ -108,7 +109,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                         Allowances & Benefits
                                     </span>
                                 </div>
-                                <Button variant="outline-primary" size="sm" onClick={onAddComment} className="py-1 px-3 fs-8 fw-bold">
+                                <Button variant="inverted" size="sm" onClick={onAddComment} className="py-1 px-3 fs-8 fw-bold">
                                     <KTIcon iconName="plus" className="fs-8 me-1" />
                                     Add Component
                                 </Button>
@@ -192,7 +193,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                             )}
 
                             <div className="d-flex justify-content-end gap-3 py-4 border-top mt-2">
-                                <Button variant="light" onClick={onHide} disabled={loading}>Cancel</Button>
+                                <Button variant="outline" onClick={onHide} disabled={loading}>Cancel</Button>
                                 <Button
                                     type="submit"
                                     disabled={loading || !formikProps.isValid}

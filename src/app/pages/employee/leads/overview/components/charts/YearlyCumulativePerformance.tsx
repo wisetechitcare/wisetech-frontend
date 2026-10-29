@@ -15,6 +15,7 @@ import ManageTargetModal from "../modals/ManageTargetModal";
 import dayjs from "dayjs";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { canSection } from "@utils/can";
+import { Button as KitButton } from '@/ds/ui/button';
 
 interface YearlyCumulativePerformanceProps {
   startDate: dayjs.Dayjs;
@@ -260,14 +261,13 @@ const YearlyCumulativePerformance: React.FC<
             </h5>
             <div className="d-flex align-items-center gap-2">
               <div className="d-flex align-items-center bg-light rounded-3 p-1 border shadow-sm">
-                <Button
-                  variant="link"
+                <KitButton variant="link"
                   className="p-1 text-secondary d-flex align-items-center justify-content-center hover-bg-white rounded-2 transition-all"
                   onClick={() => navigateYear("prev")}
                   style={{ textDecoration: "none" }}
                 >
                   <AppIcon name="bi-chevron-left" className="fs-6" style={{ fontWeight: "800" }} />
-                </Button>
+                </KitButton>
                 <div className="px-3 border-start border-end">
                   <span
                     className="fw-bold text-primary m-0"
@@ -281,14 +281,13 @@ const YearlyCumulativePerformance: React.FC<
                     {currentDate.format("YYYY")}
                   </span>
                 </div>
-                <Button
-                  variant="link"
+                <KitButton variant="link"
                   className="p-1 text-secondary d-flex align-items-center justify-content-center hover-bg-white rounded-2 transition-all"
                   onClick={() => navigateYear("next")}
                   style={{ textDecoration: "none" }}
                 >
                   <AppIcon name="bi-chevron-right" className="fs-6" style={{ fontWeight: "800" }} />
-                </Button>
+                </KitButton>
               </div>
               <p
                 className="text-muted m-0"
@@ -301,9 +300,7 @@ const YearlyCumulativePerformance: React.FC<
 
           <div className="d-flex align-items-center gap-3">
             {canWrite && (viewMode === "inquiry" ? (
-              <Button
-                variant="outline-primary"
-                size="sm"
+              <KitButton variant="inverted" size="sm"
                 className="d-flex align-items-center gap-2 px-3 fw-bold border-0 shadow-sm"
                 onClick={() => setTargetTypeToEdit("inquiry")}
                 style={{
@@ -315,11 +312,9 @@ const YearlyCumulativePerformance: React.FC<
               >
                 <AppIcon name="bi-gear-fill" />
                 SET INQUIRY TARGET
-              </Button>
+              </KitButton>
             ) : (
-              <Button
-                variant="outline-success"
-                size="sm"
+              <KitButton variant="success" size="sm"
                 className="d-flex align-items-center gap-2 px-3 fw-bold border-0 shadow-sm"
                 onClick={() => setTargetTypeToEdit("received")}
                 style={{
@@ -331,7 +326,7 @@ const YearlyCumulativePerformance: React.FC<
               >
                 <AppIcon name="bi-gear-fill" />
                 SET RECEIVED TARGET
-              </Button>
+              </KitButton>
             ))}
 
             <div className="bg-light p-1 rounded-pill d-flex gap-1 border shadow-sm">
@@ -355,14 +350,12 @@ const YearlyCumulativePerformance: React.FC<
               </Button>
             </div>
 
-            <Button
-              variant="light"
-              size="sm"
+            <KitButton variant="outline" size="sm"
               className="border shadow-sm rounded-3 p-2 bg-white"
               onClick={toggleExpand}
             >
               <AppIcon name={isExpanded ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"} className="fs-6" />
-            </Button>
+            </KitButton>
           </div>
         </div>
 

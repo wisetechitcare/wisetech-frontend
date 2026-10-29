@@ -13,6 +13,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { hasPermission } from '@utils/authAbac';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
+import { Button } from '@/ds/ui/button';
 
 function PendingLoanTable({ completeLoanData, onLoanSubmited }: { completeLoanData: any[], onLoanSubmited?: (updatedLoan: any) => Promise<void> }) {
   const [loanData, setLoanData] = useState<any[]>([]);
@@ -115,11 +116,11 @@ function PendingLoanTable({ completeLoanData, onLoanSubmited }: { completeLoanDa
                 <KTIcon iconName="trash" className="inline fs-4 text-red-500" />
               </button>}
               {
-                !resDelete && !resEdit && <button
-                  className="btn btn-icon btn-active-color-primary btn-sm w-4"
+                !resDelete && !resEdit && <Button variant="ghost" size="icon-sm" type="submit"
+                  className="w-4"
                 >
                   -NA-
-                </button>
+                </Button>
               }
             </div>
           )

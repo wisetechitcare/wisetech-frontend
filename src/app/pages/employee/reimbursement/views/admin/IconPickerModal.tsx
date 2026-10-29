@@ -2,6 +2,7 @@ import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui'
 import React, { useState, useRef, useCallback, useEffect } from "react";
 
 import { KTIcon } from "@metronic/helpers";
+import { Button } from '@/ds/ui/button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -729,18 +730,16 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
           gap: "10px",
         }}
       >
-        <button
+        <Button variant="outline" size="sm"
           type="button"
-          className="btn btn-light btn-sm"
           data-unsaved-changes-close
           onClick={onHide}
           style={{ fontWeight: 600 }}
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button size="sm"
           type="button"
-          className="btn btn-primary btn-sm"
           onClick={handleConfirm}
           disabled={!selectedIcon}
           style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
@@ -749,7 +748,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
             <KTIcon iconName="check" className="fs-5" />
           </span>
           Select This Icon
-        </button>
+        </Button>
       </Modal.Footer>
     </Modal>
   );

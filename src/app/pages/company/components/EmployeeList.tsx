@@ -8,6 +8,7 @@ import MediaBreadcrumb from './MediaBreadcrumb';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { ToneChip } from '@app/modules/common/components/ui';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { Button } from '@/ds/ui/button';
 
 interface EmployeeListProps {
     adminId: string;
@@ -74,13 +75,12 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ adminId, adminName, adminEm
             accessorKey: 'actions',
             header: 'Action',
             Cell: ({ row }: any) => (
-                <button
-                    className="btn btn-sm btn-light-primary fs-8 fs-sm-7 px-2 px-sm-3"
+                <Button variant="tinted" size="sm" type="submit"
                     onClick={() => navigate(`/company/media/${adminId}/${row.original.id}`)}
                 >
                     <span className="d-none d-sm-inline">View Documents</span>
                     <span className="d-inline d-sm-none">View</span>
-                </button>
+                </Button>
             ),
         },
     ], [adminId, navigate]);

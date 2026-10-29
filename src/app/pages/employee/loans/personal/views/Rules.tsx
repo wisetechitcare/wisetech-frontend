@@ -8,16 +8,14 @@ import { fetchConfiguration,
 import { useEffect,
   useState } from 'react';
 import * as Yup from 'yup';
-import { Button,
-  Card,
-  ListGroup
-} from 'react-bootstrap';
+import { Card, ListGroup } from 'react-bootstrap';
 import { Form, Formik, FormikValues } from 'formik';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { successConfirmation } from '@utils/modal';
 import { LOAN_KEY } from '@constants/configurations-key';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
+import { Button } from '@/ds/ui/button';
 
 const loanSchema = Yup.object({
     name: Yup.string().required().label('Rule'),

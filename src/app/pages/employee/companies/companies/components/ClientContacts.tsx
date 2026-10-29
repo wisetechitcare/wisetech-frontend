@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
-import { useNavigate } from "react-router-dom";
-import { Button } from "react-bootstrap";
+import { Link } from "react-router-dom";
+import { Button } from "@/ds/ui/button";
 import ClientContactsForm from "../../contacts/components/ClientContactsForm";
 import { getClientContactsByCompanyId, deleteClientContact } from "@services/companies";
 import { crmListRowSx } from "../../crmListRowSx";
@@ -23,7 +23,6 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
   const [contacts, setContacts] = useState<any[]>([]);
   const [allBranches, setAllBranches] = useState<any[]>([]);
   const employeeId = useSelector((state: RootState) => state.auth.currentUser?.id);
-  const navigate = useNavigate();
 
   const fetchClientContacts = async () => {
     try {
@@ -100,13 +99,13 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         accessorKey: "fullName",
         header: "Full Name",
         Cell: ({ row }) => (
-          <button
-            className="btn btn-link p-0 text-start text-decoration-none"
+          <Link
+            to={`/contacts/${row.original.id}`}
+            className="text-start text-decoration-none"
             style={{ color: "inherit", fontWeight: 600, fontSize: "14px" }}
-            onClick={() => navigate(`/contacts/${row.original.id}`)}
           >
             {row.original.fullName || "NA"}
-          </button>
+          </Link>
         ),
       },
       {
@@ -165,30 +164,34 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         header: "Actions",
         Cell: ({ row }: any) => (
           <div className="d-flex align-items-center gap-2">
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Edit contact"
               onClick={() => handleEditClick(row.original.id)}
             >
               <KTIcon iconName="pencil" className="fs-3" />
-            </button>
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Delete contact"
               onClick={() => handleDelete(row.original)}
             >
               <KTIcon iconName="trash" className="fs-3" />
-            </button>
+            </Button>
           </div>
         ),
       }] : []),
     ],
-    [allBranches, contacts, employeeId, navigate, canWrite]
+    [allBranches, contacts, employeeId, canWrite]
   );
 
   return (
     <div>
       {canWrite && (
       <div className="d-flex justify-content-end align-items-center mb-4">
-        <Button variant="primary" onClick={handleAddNewClick}>
+        <Button onClick={handleAddNewClick}>
           Add New Contact
         </Button>
       </div>

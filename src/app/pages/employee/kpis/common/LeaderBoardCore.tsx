@@ -24,6 +24,7 @@ import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneou
 import { getKpiBehavior, KpiBehavior, normalizeScoreSign } from "@utils/kpiBehavior";
 import Skeleton from "@components/loaders/Skeleton";
 import { ModuleChampionCard } from "./leaderboard";
+import { Button } from '@/ds/ui/button';
 
 const PodiumHero = React.lazy(() => import("./leaderboard/PodiumHero"));
 
@@ -1226,8 +1227,7 @@ function LeaderBoardCore({
     <>
       <div className="d-flex align-items-center justify-content-end mb-2">
         <div className="d-flex align-items-center gap-3">
-          <button
-            className="btn btn-icon btn-sm btn-active-light-danger bg-transparent border-0 shadow-none"
+          <Button variant="ghost" size="icon-sm" type="submit" aria-label="How KPI Score Works"
             onClick={() => setShowInfoModal(true)}
             style={{ 
               width: "32px", 
@@ -1243,7 +1243,7 @@ function LeaderBoardCore({
             title="How KPI Score Works"
           >
             <i className="fa-solid fa-circle-info text-gray-500 fs-2" />
-          </button>
+          </Button>
         </div>
       </div>
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1305,8 +1305,7 @@ function LeaderBoardCore({
                 </div>
               )}
             </div>
-            <button
-              className="btn btn-sm fw-bold d-inline-flex align-items-center gap-2"
+            <Button variant="ghost" size="sm" type="submit"
               onClick={() =>
                 boardMode === "no-late"
                   ? setShowNoLateModal(true)
@@ -1333,7 +1332,7 @@ function LeaderBoardCore({
               }}
             >
               View All <i className="fa-solid fa-arrow-right fs-8" />
-            </button>
+            </Button>
           </div>
           {topFiveLoading || isLoading ? (
             <div

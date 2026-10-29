@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { PayrollTableRow } from '../../types/payroll.types';
 import { formatMoneyRounded } from '../../utils/payrollFormatters';
+import { Button as KitButton } from '@/ds/ui/button';
 
 interface PaymentDetailsTableProps {
     tableRows: PayrollTableRow[];
@@ -137,14 +138,14 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                 </div>
                 {fromAdmin && (
                     <div className="card-toolbar">
-                        <Button
-                            className="btn btn-sm btn-primary d-inline-flex align-items-center px-4 py-2 rounded-2 shadow-sm"
+                        <KitButton
+                            className="d-inline-flex align-items-center px-4 py-2 rounded-2 shadow-sm"
                             onClick={onAddPayment}
                             style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                         >
                             <KTIcon iconName="plus" className="fs-3 me-2" />
                             Record Payout
-                        </Button>
+                        </KitButton>
                     </div>
                 )}
             </div>

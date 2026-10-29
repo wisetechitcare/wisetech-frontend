@@ -1,6 +1,9 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { useEffect, useState } from "react";
-import { Button, Spinner } from "react-bootstrap";
+import { Spinner } from "react-bootstrap";
+import { Button } from "@/ds/ui/button";
+import { Item } from "@/ds/ui/item";
+import { WtCloseButton } from "@app/modules/common/components/ui/tw/WtCloseButton";
 import { Formik, Form as FormikForm } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
@@ -23,8 +26,7 @@ import {
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import ClientContactsForm from "../../contacts/components/ClientContactsForm";
-import { Close } from "@mui/icons-material";
-import { Box, IconButton, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 
 // Default empty form values
 const defaultValues = {
@@ -330,17 +332,11 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
         style={{ zIndex: 1500 }}
       >
         <Box sx={{ position: "relative", backgroundColor: "#F3F4F7", p: 3 }}>
-          <IconButton
+          <WtCloseButton
             onClick={onClose}
-            sx={{
-              position: "absolute",
-              right: 8,
-              top: 8,
-              color: "text.secondary",
-            }}
-          >
-            <Close />
-          </IconButton>
+            className="position-absolute"
+            style={{ right: 8, top: 8 }}
+          />
           <Formik
             initialValues={initialValues}
             validationSchema={validationSchema}
@@ -700,8 +696,9 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                             />
                           </div>
                         </div>
-                        <div
-                          className="d-flex justify-content-end mt-4"
+                        <Item
+                          render={<button type="button" />}
+                          className="d-flex justify-content-end mt-4 p-0"
                           onClick={() => viewLocation(values.latitude || '', values.longitude || '')}
                           style={{
                             cursor: 'pointer',
@@ -711,7 +708,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                           }}
                         >
                           View Location On Map
-                        </div>
+                        </Item>
                       </div>
                     </div>
                   </fieldset>
@@ -723,7 +720,6 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                   </Button> */}
                   <Button
                     type="submit"
-                    variant="primary"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? "Saving..." : "Save"}
