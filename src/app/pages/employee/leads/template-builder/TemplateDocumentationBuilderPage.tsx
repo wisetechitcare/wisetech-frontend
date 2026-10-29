@@ -151,7 +151,7 @@ const TemplateDocumentationBuilderPage: React.FC = () => {
                   onChange={(e) => setGlobalSearch(e.target.value)}
                 />
              </div>
-             <KitButton size="sm" className="fw-bold px-5 rounded-pill shadow-sm">
+             <KitButton size="sm">
                 <Download size={14} className="me-2" />
                 Export Manifest
              </KitButton>
@@ -217,7 +217,7 @@ const TemplateDocumentationBuilderPage: React.FC = () => {
                   Live Preview Lab
                 </h2>
                 <div className="d-flex gap-2">
-                  <KitButton variant="outline" size="sm" className="rounded-pill px-4" onClick={resetDraft}>
+                  <KitButton variant="outline" size="sm" onClick={resetDraft}>
                     <RefreshCw size={14} className="me-2" />
                     Reset
                   </KitButton>

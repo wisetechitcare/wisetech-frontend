@@ -46,19 +46,19 @@ const FullScreenChartModal: React.FC<FullScreenChartModalProps> = ({
               <>
                 <div className="position-absolute top-0 end-0 p-8 d-flex flex-column gap-3 z-index-2">
                   <Button variant="outline" 
-                    className="shadow-sm rounded-circle w-45px h-45px border-0" 
+                    className="w-45px" 
                     onClick={() => zoomIn()}
                   >
                     <AppIcon name="bi-plus-lg" className="fs-3" />
                   </Button>
                   <Button variant="outline" 
-                    className="shadow-sm rounded-circle w-45px h-45px border-0" 
+                    className="w-45px" 
                     onClick={() => zoomOut()}
                   >
                     <AppIcon name="bi-dash-lg" className="fs-3" />
                   </Button>
                   <Button variant="outline" 
-                    className="shadow-sm rounded-circle w-45px h-45px border-0" 
+                    className="w-45px" 
                     onClick={() => resetTransform()}
                   >
                     <AppIcon name="bi-arrow-counterclockwise" className="fs-3" />

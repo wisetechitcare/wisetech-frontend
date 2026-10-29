@@ -275,7 +275,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
             <div className="d-flex align-items-center gap-2">
               {canWrite && (
               <KitButton variant="success" size="sm"
-                className="d-flex align-items-center gap-2 px-3 fw-bold border-0 shadow-sm"
+                className="d-flex align-items-center gap-2"
                 onClick={() => setTargetTypeToEdit("received")}
                 style={{
                   fontSize: "11px",
@@ -294,7 +294,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                 style={{ height: "20px" }}
               ></div>
               <KitButton variant="outline" size="sm"
-                className="border shadow-sm rounded-3 p-0 bg-white d-flex align-items-center justify-content-center"
+                className="d-flex align-items-center justify-content-center"
                 onClick={toggleExpand}
                 style={{ width: "32px", height: "32px" }}
               >
@@ -310,7 +310,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                 style={{ height: "32px" }}
               >
                 <KitButton variant="link"
-                  className="p-1 text-secondary d-flex align-items-center justify-content-center"
+                  className="d-flex align-items-center justify-content-center"
                   onClick={() =>
                     setCurrentDate((prev) => prev.subtract(1, "year"))
                   }
@@ -336,7 +336,7 @@ const MonthlyBarWithTarget: React.FC<MonthlyBarWithTargetProps> = ({
                   </span>
                 </div>
                 <KitButton variant="link"
-                  className="p-1 text-secondary d-flex align-items-center justify-content-center"
+                  className="d-flex align-items-center justify-content-center"
                   onClick={() => setCurrentDate((prev) => prev.add(1, "year"))}
                   style={{
                     height: "100%",

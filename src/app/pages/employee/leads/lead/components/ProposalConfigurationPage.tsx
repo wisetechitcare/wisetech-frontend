@@ -272,7 +272,7 @@ const ProposalConfigurationPage: React.FC = () => {
       >
         <div className="d-flex align-items-center">
           <KitButton variant="link"
-            className="p-0 me-4 text-gray-600 text-hover-primary"
+            className="p-0 me-4 text-hover-primary"
             onClick={goBack}
           >
             <KTIcon iconName="arrow-left" className="fs-1" />
@@ -303,7 +303,6 @@ const ProposalConfigurationPage: React.FC = () => {
           </KitButton>
           {selectedConfig && (
             <KitButton
-              className="fw-bold shadow-sm"
               onClick={handleSave}
               disabled={isSaving}
             >

@@ -65,7 +65,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
         <Button
           type="submit"
           disabled={isSubmitting || submitDisabled}
-          className="d-flex align-items-center justify-content-center gap-2 py-3 fw-bold"
+          className="d-flex align-items-center justify-content-center gap-2"
           style={{ width: "100%", borderRadius: "8px" }}
         >
           <Save style={{ fontSize: "1.2rem" }} />
@@ -78,7 +78,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="d-flex align-items-center justify-content-center gap-2 py-2 text-gray-700 border"
+          className="d-flex align-items-center justify-content-center gap-2"
           style={{ width: "100%", borderRadius: "8px" }}
         >
           <Cancel style={{ fontSize: "1.2rem" }} />
@@ -92,7 +92,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
               <Button variant="destructive" size="sm"
                 type="button"
                 onClick={exportPdf}
-                className="d-flex align-items-center justify-content-center gap-1 flex-fill py-2"
+                className="d-flex align-items-center justify-content-center gap-1 flex-fill"
                 style={{ borderRadius: "6px" }}
               >
                 <PictureAsPdf style={{ fontSize: "1.1rem" }} />
@@ -103,7 +103,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
               <Button variant="inverted" size="sm"
                 type="button"
                 onClick={exportDocx}
-                className="d-flex align-items-center justify-content-center gap-1 flex-fill py-2"
+                className="d-flex align-items-center justify-content-center gap-1 flex-fill"
                 style={{ borderRadius: "6px" }}
               >
                 <Description style={{ fontSize: "1.1rem" }} />

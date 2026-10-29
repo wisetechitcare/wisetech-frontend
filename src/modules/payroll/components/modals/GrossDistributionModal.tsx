@@ -109,7 +109,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                         Allowances & Benefits
                                     </span>
                                 </div>
-                                <Button variant="inverted" size="sm" onClick={onAddComment} className="py-1 px-3 fs-8 fw-bold">
+                                <Button variant="inverted" size="sm" onClick={onAddComment}>
                                     <KTIcon iconName="plus" className="fs-8 me-1" />
                                     Add Component
                                 </Button>

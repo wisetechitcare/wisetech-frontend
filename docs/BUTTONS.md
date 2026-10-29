@@ -2,7 +2,8 @@
 
 One button for the whole app: the kit `Button` (`src/ds/ui/button.tsx`), documented in Storybook under
 **Components / Button**. `WtButton` (`src/app/modules/common/components/ui/buttons.tsx`) is the app-level
-API over it and renders it; use either. Nothing else draws a button.
+API over it and renders it; use either. Nothing else draws a button: since 2026-10-29 every button in the
+app is the kit Button, a wrapper over it, or a documented control (see "Approved exceptions"), and CI keeps it so.
 
 ## Contract
 
@@ -86,7 +87,28 @@ If a site cannot be migrated safely, leave it, and add it with the reason to "Ap
 
 ## Approved exceptions
 
-(none yet)
+A control that is **not an ordinary action** keeps its own element and look, and says what it is with
+`data-wt-control="<kind>"`. The audit (`scripts/audit-buttons.mjs`, `CONTROL_KINDS`) accepts only these kinds, so
+a marker cannot hide a real button — Save, Cancel, Close, Edit, Delete, Prev/Next, Apply, Approve/Reject and the
+like are always the kit Button.
+
+| Kind | What it is | Required semantics |
+|---|---|---|
+| `tab` | a tab in a tab strip | `role="tab"` + `aria-selected`, or a `nav-link` the Bootstrap tab plugin drives |
+| `segmented` / `toggle` / `chip` | a pressed-state toggle or filter chip | `aria-pressed={state}` |
+| `switch` / `checkbox` | an on/off knob or a selection box | `role="switch"` + `aria-checked`, or the native control |
+| `option` / `swatch` | a selectable card, colour or icon tile | `aria-pressed` when it shows a selection |
+| `cell` / `stepper` | a calendar day/month/slot cell, a date stepper | — |
+| `accordion` | a section header that expands | `aria-expanded` |
+| `menuitem` / `select` | an item in a menu, a dropdown trigger | `role="menuitem"` / `aria-haspopup` |
+| `row` / `tile` / `link` | a clickable list row, card or navigation text | keyboard: `pressableProps` from `ui/a11y` |
+| `dropzone` / `container` / `backdrop` / `scrollbar` | an upload area, a click-through wrapper, a modal backdrop, a custom scrollbar | — |
+| `shell` | Metronic app-shell chrome (aside tabs, header toggles, bottom nav) | retires with `src/_metronic` (ADR-001 Phase 5) |
+| `dev` | developer-only panels (KPI test panel, menu test page) | — |
+
+Wrappers that render the kit Button (count as canonical): `WtButton`, `WtIconButton`, `ActionIconButton`,
+`WtCloseButton`, `PremiumButton`, and the Tailwind twin in `ui/tw/Buttons`. Not React, so out of scope: the plain-HTML
+session-failure splash in `src/main.tsx` (rendered before React mounts).
 
 ## Enforcement
 

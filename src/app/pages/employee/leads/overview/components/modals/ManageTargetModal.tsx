@@ -106,11 +106,11 @@ const ManageTargetModal: React.FC<ManageTargetModalProps> = ({ show, onHide, onS
 
       <Modal.Body>
         <div className="d-flex justify-content-between align-items-center mb-4 bg-light p-2 rounded-3 border">
-          <Button variant="link" className="text-dark p-0 border-0 shadow-none" onClick={() => setCurrentYear(currentYear - 1)}>
+          <Button variant="link" className="p-0" onClick={() => setCurrentYear(currentYear - 1)}>
             <AppIcon name="bi-chevron-left" />
           </Button>
           <h5 className="fw-bold m-0 text-primary">{currentYear}</h5>
-          <Button variant="link" className="text-dark p-0 border-0 shadow-none" onClick={() => setCurrentYear(currentYear + 1)}>
+          <Button variant="link" className="p-0" onClick={() => setCurrentYear(currentYear + 1)}>
             <AppIcon name="bi-chevron-right" />
           </Button>
         </div>
@@ -142,8 +142,8 @@ const ManageTargetModal: React.FC<ManageTargetModalProps> = ({ show, onHide, onS
       </Modal.Body>
 
       <Modal.Footer className="border-0 pt-3">
-        <Button variant="outline" size="sm" className="px-4 fw-semibold border shadow-sm" data-unsaved-changes-close onClick={onHide} disabled={saving}>Cancel</Button>
-        <Button size="sm" className="px-4 shadow-sm" onClick={handleSave} disabled={saving || loading}>
+        <Button variant="outline" size="sm" data-unsaved-changes-close onClick={onHide} disabled={saving}>Cancel</Button>
+        <Button size="sm" onClick={handleSave} disabled={saving || loading}>
           {saving ? 'Saving...' : `Sync ${targetLabel} Targets`}
         </Button>
       </Modal.Footer>

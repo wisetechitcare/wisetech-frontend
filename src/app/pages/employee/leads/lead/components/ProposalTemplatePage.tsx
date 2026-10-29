@@ -1270,7 +1270,6 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
 
       <Modal.Footer className="bg-white border-top py-4 px-8 justify-content-between">
         <Button variant="outline"
-          className="fw-bold px-6"
           data-unsaved-changes-close
           onClick={onHide}
           disabled={isGenerating}
@@ -1279,7 +1278,6 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         </Button>
         <div className="d-flex gap-3">
           <Button
-            className="fw-bold px-8 shadow-sm"
             disabled={!canExport || isGenerating}
             onClick={() => setShowExportCenter(true)}
           >

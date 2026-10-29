@@ -306,7 +306,7 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                 {(values.leadTeams || []).length === 0 && (
                   <Button variant="inverted" size="sm"
                     onClick={() => push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })}
-                    className="align-self-start fw-bold mt-2"
+                    className="align-self-start mt-2"
                   >
                     + Add Client Company Connection
                   </Button>
@@ -732,7 +732,7 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
             <Button variant="inverted" size="sm"
               type="button"
               onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "", referringContact: "" })}
-              className="align-self-start fw-bold mt-1"
+              className="align-self-start mt-1"
             >
               + Add Referral Source
             </Button>
@@ -1000,7 +1000,7 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
             })}
             <Button variant="inverted" size="sm"
               onClick={() => push({ projectAddress: "", country: "", state: "", city: "", locality: "", zipCode: "", mapLocation: "", googleMapLink: "", googleMyBusinessLink: "", latitude: "", longitude: "", isDefault: false })}
-              className="align-self-start fw-bold mt-2"
+              className="align-self-start mt-2"
             >
               + Add Address details
             </Button>
@@ -1544,7 +1544,7 @@ export const HandleBySection: React.FC<LeadSectionsProps> = (props) => {
             ))}
             <Button variant="inverted" size="sm"
               onClick={() => push({ employeeId: "", sharePercentage: "" })}
-              className="align-self-start fw-bold mt-2"
+              className="align-self-start mt-2"
             >
               + Add Work Handled Employee
             </Button>
@@ -1820,7 +1820,7 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                 onClick={() =>
                   push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })
                 }
-                className="align-self-start fw-bold mt-1"
+                className="align-self-start mt-1"
               >
                 + Add Client Company Connection
               </Button>

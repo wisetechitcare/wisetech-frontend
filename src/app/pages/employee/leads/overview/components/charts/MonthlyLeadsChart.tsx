@@ -353,7 +353,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
               {/* SET TARGET BUTTON */}
               {canWrite && (viewMode === "inquiry" ? (
                 <KitButton variant="inverted" size="sm"
-                  className="d-flex align-items-center gap-2 px-3 fw-bold border-0 shadow-sm"
+                  className="d-flex align-items-center gap-2"
                   onClick={() => setTargetTypeToEdit("inquiry")}
                   style={{
                     fontSize: "10px",
@@ -368,7 +368,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                 </KitButton>
               ) : (
                 <KitButton variant="success" size="sm"
-                  className="d-flex align-items-center gap-2 px-3 fw-bold border-0 shadow-sm"
+                  className="d-flex align-items-center gap-2"
                   onClick={() => setTargetTypeToEdit("received")}
                   style={{
                     fontSize: "10px",
@@ -388,7 +388,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                 style={{ height: "20px" }}
               ></div>
               <KitButton variant="outline" size="sm"
-                className="border shadow-sm rounded-3 p-0 bg-white d-flex align-items-center justify-content-center"
+                className="d-flex align-items-center justify-content-center"
                 onClick={toggleExpand}
                 style={{ width: "32px", height: "32px" }}
               >
@@ -404,7 +404,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                 style={{ height: "32px" }}
               >
                 <KitButton variant="link"
-                  className="p-1 text-secondary d-flex align-items-center justify-content-center"
+                  className="d-flex align-items-center justify-content-center"
                   onClick={() => navigateMonth("prev")}
                   style={{
                     height: "100%",
@@ -428,7 +428,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                   </span>
                 </div>
                 <KitButton variant="link"
-                  className="p-1 text-secondary d-flex align-items-center justify-content-center"
+                  className="d-flex align-items-center justify-content-center"
                   onClick={() => navigateMonth("next")}
                   style={{
                     height: "100%",

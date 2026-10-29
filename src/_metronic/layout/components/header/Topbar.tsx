@@ -10,7 +10,7 @@ const Topbar: FC = () => (
     <div className='d-flex ms-3'>
       <Button
         variant='outline'
-        className='w-40px w-md-auto px-0 px-md-6'
+        className="w-40px w-md-auto"
         aria-label='New Member'
         data-bs-toggle='modal'
         data-bs-target='#kt_modal_invite_friends'
@@ -25,7 +25,7 @@ const Topbar: FC = () => (
     <div className='d-flex ms-3'>
       <Button
         variant='outline'
-        className='w-40px w-md-auto px-0 px-md-6'
+        className="w-40px w-md-auto"
         aria-label='New App'
         id='kt_toolbar_primary_button'
         data-bs-toggle='modal'

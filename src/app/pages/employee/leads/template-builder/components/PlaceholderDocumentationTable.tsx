@@ -132,7 +132,6 @@ const PlaceholderDocumentationTable: React.FC<
 
         <div className="d-flex align-items-center gap-2">
           <KitButton variant="outline" size="sm"
-            className="rounded-pill shadow-sm border"
             disabled={normalizedPage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
@@ -158,7 +157,6 @@ const PlaceholderDocumentationTable: React.FC<
           </div>
 
           <KitButton variant="outline" size="sm"
-            className="rounded-pill shadow-sm border"
             disabled={normalizedPage >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           >

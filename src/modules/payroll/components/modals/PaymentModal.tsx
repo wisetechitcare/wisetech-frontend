@@ -611,13 +611,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                         </label>
                                     </div>
                                     <div className="d-flex gap-3">
-                                    <Button variant="outline" onClick={onHide} className="fw-bold px-8 py-3">
+                                    <Button variant="outline" onClick={onHide}>
                                         Cancel
                                     </Button>
                                     <Button 
                                         type="submit" 
                                         disabled={loading || !formikProps.isValid}
-                                        className="wt-btn-primary fw-bold px-12 py-3 shadow-sm"
                                     >
                                         {loading ? (
                                             <span className="indicator-label">

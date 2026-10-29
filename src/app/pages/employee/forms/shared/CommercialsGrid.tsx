@@ -224,7 +224,6 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
                         {/* Delete Row button */}
                         <td className="commercials-td text-center">
                           <Button variant="link"
-                            className="text-danger p-1"
                             onClick={() => remove(index)}
                             title="Delete Row"
                           >
@@ -249,7 +248,7 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
                   push({ label: "", area: "", costType: "", rate: "", rateCost: "", lumpsumCost: "" });
                 }
               }}
-              className="d-flex align-items-center gap-1 fw-bold"
+              className="d-flex align-items-center gap-1"
             >
               <Add style={{ fontSize: "1.1rem" }} />
               Add Commercial Row

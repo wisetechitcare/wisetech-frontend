@@ -139,7 +139,7 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                 {fromAdmin && (
                     <div className="card-toolbar">
                         <KitButton
-                            className="d-inline-flex align-items-center px-4 py-2 rounded-2 shadow-sm"
+                            className="d-inline-flex align-items-center"
                             onClick={onAddPayment}
                             style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                         >

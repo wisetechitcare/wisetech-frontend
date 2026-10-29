@@ -262,7 +262,7 @@ const YearlyCumulativePerformance: React.FC<
             <div className="d-flex align-items-center gap-2">
               <div className="d-flex align-items-center bg-light rounded-3 p-1 border shadow-sm">
                 <KitButton variant="link"
-                  className="p-1 text-secondary d-flex align-items-center justify-content-center hover-bg-white rounded-2 transition-all"
+                  className="d-flex align-items-center justify-content-center transition-all"
                   onClick={() => navigateYear("prev")}
                   style={{ textDecoration: "none" }}
                 >
@@ -282,7 +282,7 @@ const YearlyCumulativePerformance: React.FC<
                   </span>
                 </div>
                 <KitButton variant="link"
-                  className="p-1 text-secondary d-flex align-items-center justify-content-center hover-bg-white rounded-2 transition-all"
+                  className="d-flex align-items-center justify-content-center transition-all"
                   onClick={() => navigateYear("next")}
                   style={{ textDecoration: "none" }}
                 >
@@ -301,7 +301,7 @@ const YearlyCumulativePerformance: React.FC<
           <div className="d-flex align-items-center gap-3">
             {canWrite && (viewMode === "inquiry" ? (
               <KitButton variant="inverted" size="sm"
-                className="d-flex align-items-center gap-2 px-3 fw-bold border-0 shadow-sm"
+                className="d-flex align-items-center gap-2"
                 onClick={() => setTargetTypeToEdit("inquiry")}
                 style={{
                   fontSize: "11px",
@@ -315,7 +315,7 @@ const YearlyCumulativePerformance: React.FC<
               </KitButton>
             ) : (
               <KitButton variant="success" size="sm"
-                className="d-flex align-items-center gap-2 px-3 fw-bold border-0 shadow-sm"
+                className="d-flex align-items-center gap-2"
                 onClick={() => setTargetTypeToEdit("received")}
                 style={{
                   fontSize: "11px",
@@ -343,7 +343,6 @@ const YearlyCumulativePerformance: React.FC<
             </div>
 
             <KitButton variant="outline" size="sm"
-              className="border shadow-sm rounded-3 p-2 bg-white"
               onClick={toggleExpand}
             >
               <AppIcon name={isExpanded ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"} className="fs-6" />
