@@ -2707,14 +2707,15 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                             </Button>
                         )}
                         {!isCancelled(m) && (
-                            <button
+                            <Button variant="ghost" size="icon-sm"
                                 type="button"
                                 onClick={() => navigate(`/employees/meetings/agenda?meeting=${m.id}`)}
                                 title="Open meeting detail (agenda and minutes)"
-                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#0F766E' }}
+                                aria-label="Open meeting detail (agenda and minutes)"
+                                style={{ color: '#0F766E' }}
                             >
                                 <AppIcon name="bi-journal-text" className="fs-5" />
-                            </button>
+                            </Button>
                         )}
                         {onCancel && viewerCanManage(m) && (() => {
                             // The SAME rule the day card applies, because this is the same act

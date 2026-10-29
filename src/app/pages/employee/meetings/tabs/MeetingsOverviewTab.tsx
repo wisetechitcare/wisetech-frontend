@@ -5,12 +5,12 @@ import { useSelector } from 'react-redux';
 import {
   Alert,
   Box,
-  Button,
   CircularProgress,
-  IconButton,
   Stack,
   Typography,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
+import { WtButton } from '@app/modules/common/components/ui';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import AccessTimeRounded from '@mui/icons-material/AccessTimeRounded';
@@ -304,29 +304,12 @@ export default function MeetingsOverviewTab() {
                   </Typography>
                 )}
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => joinMeeting(nextUp)}
-                    sx={{
-                      textTransform: 'none',
-                      fontWeight: 700,
-                      bgcolor: C.blue,
-                      borderRadius: 2,
-                      px: 2,
-                      boxShadow: 'none',
-                      '&:hover': { bgcolor: C.blue, filter: 'brightness(0.95)', boxShadow: 'none' },
-                    }}
-                  >
+                  <WtButton size="small" onClick={() => joinMeeting(nextUp)}>
                     Join Meeting
-                  </Button>
-                  <Button
-                    size="small"
-                    onClick={() => openDetail(nextUp.id)}
-                    sx={{ textTransform: 'none', color: C.mute, fontWeight: 600 }}
-                  >
+                  </WtButton>
+                  <WtButton size="small" ghost onClick={() => openDetail(nextUp.id)}>
                     Open
-                  </Button>
+                  </WtButton>
                 </Stack>
               </Box>
             </Box>
@@ -342,15 +325,15 @@ export default function MeetingsOverviewTab() {
           viewAll={() => navigate('/employees/meetings/agenda')}
           headerRight={
             <Stack direction="row" alignItems="center" spacing={0.25}>
-              <IconButton size="small" onClick={() => setAgendaDay((d) => d.subtract(1, 'day'))} aria-label="Previous day">
+              <Button variant="ghost" size="icon-sm" type="button" onClick={() => setAgendaDay((d) => d.subtract(1, 'day'))} aria-label="Previous day">
                 <ChevronLeftRounded fontSize="small" />
-              </IconButton>
+              </Button>
               <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: C.ink, minWidth: 108, textAlign: 'center' }}>
                 {agendaDay.format('ddd, D MMM YYYY')}
               </Typography>
-              <IconButton size="small" onClick={() => setAgendaDay((d) => d.add(1, 'day'))} aria-label="Next day">
+              <Button variant="ghost" size="icon-sm" type="button" onClick={() => setAgendaDay((d) => d.add(1, 'day'))} aria-label="Next day">
                 <ChevronRightRounded fontSize="small" />
-              </IconButton>
+              </Button>
             </Stack>
           }
         >
@@ -616,11 +599,7 @@ function Panel({
           </Typography>
         </Box>
         {headerRight}
-        <Button
-          size="small"
-          onClick={viewAll}
-          sx={{ textTransform: 'none', fontWeight: 700, color: C.blue, flexShrink: 0, minWidth: 0 }}
-        >
+        <Button variant="ghost" size="sm" type="button" onClick={viewAll} className="shrink-0 font-bold" style={{ color: C.blue }}>
           View all
         </Button>
       </Box>

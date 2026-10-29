@@ -18,7 +18,6 @@ import {
   DialogContent,
   DialogTitle,
   Fab,
-  IconButton,
   InputAdornment,
   Popover,
   Stack,
@@ -40,6 +39,7 @@ import AddRounded from '@mui/icons-material/AddRounded';
 import dayjs from 'dayjs';
 import { hasPermission } from '@utils/authAbac';
 import { apiErrorMessage } from '@utils/apiError';
+import { Button } from '@/ds/ui/button';
 import { successConfirmation } from '@utils/modal';
 import {
   permissionConstToUseWithHasPermission,
@@ -548,18 +548,15 @@ export default function MeetingsAgendaHubTab() {
             }}
           />
           <Tooltip title="Filter meetings" arrow>
-            <IconButton
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
               aria-label={`Filter meetings${activeFilterCount ? `, ${activeFilterCount} active` : ''}`}
               aria-haspopup="dialog"
               onClick={(e) => setFilterAnchor(e.currentTarget)}
-              sx={{
-                border: `1px solid ${activeFilterCount ? C.blueEdge : C.line}`,
-                bgcolor: activeFilterCount ? C.blueSoft : C.paper,
-                borderRadius: 2,
-                width: 40,
-                height: 40,
-                flexShrink: 0,
-              }}
+              className="shrink-0"
+              style={activeFilterCount ? { borderColor: C.blueEdge, background: C.blueSoft } : undefined}
             >
               <Badge
                 badgeContent={activeFilterCount}
@@ -569,7 +566,7 @@ export default function MeetingsAgendaHubTab() {
               >
                 <FilterListRounded sx={{ fontSize: 20, color: activeFilterCount ? C.blue : C.mute }} />
               </Badge>
-            </IconButton>
+            </Button>
           </Tooltip>
         </Stack>
 
@@ -1222,14 +1219,16 @@ function DetailPane({
         )}
         <Stack direction="row" spacing={1.25} alignItems="flex-start">
           {!isPhone && onBack && (
-            <IconButton
+            <Button
+              variant="outline"
+              size="icon-sm"
+              type="button"
               aria-label="Back to meetings"
               onClick={onBack}
-              size="small"
-              sx={{ mt: 0.25, border: `1px solid ${C.line}` }}
+              className="mt-0.5 shrink-0"
             >
               <ArrowBackRounded fontSize="small" />
-            </IconButton>
+            </Button>
           )}
           {!isPhone && <DateBadge date={meeting.startDate} />}
           <Box sx={{ flex: 1, minWidth: 0 }}>
