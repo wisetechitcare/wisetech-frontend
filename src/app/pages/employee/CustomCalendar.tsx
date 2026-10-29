@@ -1505,7 +1505,11 @@ function CustomCalendar() {
                             rail on tablet/laptop/desktop; an on-demand bottom sheet on mobile
                             (opened by tapping a day, or the compact bar below) so its five
                             sections don't dump a long scroll under the calendar on every phone. ---- */}
-                        <aside className={`mrd-card mrd-panel${isMobile ? ' mrd-panel--sheet' : ''}${panelSheetOpen ? ' is-open' : ''}`}>
+                        <aside
+                            className={`mrd-card mrd-panel${isMobile ? ' mrd-panel--sheet' : ''}${panelSheetOpen ? ' is-open' : ''}`}
+                            // Only the open mobile sheet is modal; the tablet+ side rail is part of the page.
+                            {...(isMobile && panelSheetOpen ? { role: 'dialog', 'aria-modal': true } : {})}
+                        >
                             <div className="mrd-panel__head">
                                 <div className="mrd-panel__top">
                                     {isMobile && <span className="mrd-panel__grabber" aria-hidden="true" />}

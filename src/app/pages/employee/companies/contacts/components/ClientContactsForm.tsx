@@ -38,7 +38,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { ContactFormValues, Branch, ContactRoleType, ContactChannel, ContactCompanyStint } from "@models/companies";
 import { ContactChannelFields, toChannelRows, toChannelPayload } from "./ContactChannelFields";
-import { CompanyMoveFields } from "./CompanyMoveFields";
+import { CompanyMoveFields, CompanyMoveStage, type MovedFrom } from "./CompanyMoveFields";
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
 import CompaniesBranchForm from "../../companies/components/CompaniesBranchForm";
 import NewCompanyForm from "../../companies/components/NewCompanyForm";
@@ -190,6 +190,13 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     return () => { cancelled = true; };
   }, [contactId, initialData]);
   const companyHistory = initialData?.companyHistory ?? fetchedHistory ?? [];
+
+  /*
+   * Set only by "Move to another company". Changing the Company dropdown without it is a
+   * CORRECTION (wrong company picked), which must not create a job-change history entry.
+   */
+  const [movedFrom, setMovedFrom] = useState<MovedFrom | null>(null);
+  useEffect(() => { setMovedFrom(null); }, [contactId, show]);
 
   // Create a clean initial values object for new contacts
   const emptyInitialValues: ContactFormValues = {
@@ -562,9 +569,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         serviceIds: formValues.serviceIds || [],
         isPrimaryContact: formValues.isPrimaryContact === true ? 'true' : 'false',
         // Only on a move: the server closes the old company's stint on this day (default today).
-        companyMovedOn: contactId && initialData?.companyId && formValues.companyId !== initialData.companyId
-          ? parseDateFromDisplay(formValues.companyMovedOn || "") ?? undefined
-          : undefined,
+        companyMove: movedFrom ? true : undefined,
+        companyMovedOn: movedFrom ? parseDateFromDisplay(formValues.companyMovedOn || "") ?? undefined : undefined,
 
         fullName: formValues.fullName,
         dateOfBirth: parseDateFromDisplay(formValues?.dob || ""),
@@ -825,7 +831,23 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                       icon: "bi-building",
                       content: (
                         <CrmSection title="Company">
-
+                          <CompanyMoveStage movedFrom={movedFrom} onUndo={() => {
+                            const original = initialValues;
+                            formikProps.setValues({
+                              ...values,
+                              companyId: original.companyId,
+                              branchId: original.branchId,
+                              roleInCompany: original.roleInCompany,
+                              contactRoleId: original.contactRoleId,
+                              statusId: original.statusId,
+                              serviceIds: original.serviceIds,
+                              isPrimaryContact: original.isPrimaryContact,
+                              companyMovedOn: "",
+                            });
+                            setMovedFrom(null);
+                            setSelectedCompany(original.companyId);
+                            if (original.companyId) loadBranches(original.companyId);
+                          }}>
                           <Row>
                             <Col md={12}>
                               <DropDownInput
@@ -1113,16 +1135,28 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               </div>
                             </div>
                           </div>
+                          </CompanyMoveStage>
                           <CompanyMoveFields
-                            originalCompanyId={contactId ? initialData?.companyId || "" : ""}
+                            canMove={!!contactId && !!initialData?.companyId}
+                            moving={!!movedFrom}
                             originalCompanyName={
                               (initialData as any)?.company?.companyName ||
                               companies.find((c) => c.id == initialData?.companyId)?.companyName ||
                               "their current company"
                             }
-                            newCompanyName={companies.find((c) => c.id == values.companyId)?.companyName}
                             history={companyHistory}
                             onMove={() => {
+                              // Snapshot the company they are leaving by NAME now: the branch list is
+                              // about to reload for the new company and would lose the old names.
+                              setMovedFrom({
+                                companyName:
+                                  companies.find((c) => c.id == values.companyId)?.companyName ||
+                                  (initialData as any)?.company?.companyName || "",
+                                branch: branches.find((b) => b.id === values.branchId)?.name,
+                                role: contactRoleTypes.find((r) => r.id === values.contactRoleId)?.name || values.roleInCompany,
+                                status: contactStatuses.find((x) => x.id === values.statusId)?.name,
+                                services: companyServices.filter((x: any) => (values.serviceIds || []).includes(x.id)).map((x: any) => x.name),
+                              });
                               // A new employer: nothing from the old one carries over.
                               formikProps.setValues({
                                 ...values,
@@ -1137,21 +1171,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               setSelectedCompany("");
                               setBranches([]);
                               setBranchWarning("");
-                            }}
-                            onUndo={() => {
-                              const original = initialValues;
-                              formikProps.setValues({
-                                ...values,
-                                companyId: original.companyId,
-                                branchId: original.branchId,
-                                roleInCompany: original.roleInCompany,
-                                contactRoleId: original.contactRoleId,
-                                serviceIds: original.serviceIds,
-                                isPrimaryContact: original.isPrimaryContact,
-                                companyMovedOn: "",
-                              });
-                              setSelectedCompany(original.companyId);
-                              if (original.companyId) loadBranches(original.companyId);
                             }}
                           />
                         </CrmSection>

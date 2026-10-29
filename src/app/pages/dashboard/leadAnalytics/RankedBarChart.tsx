@@ -256,6 +256,8 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
       {isFull &&
         createPortal(
           <div
+            role="dialog"
+            aria-modal="true"
             style={{
               position: "fixed",
               inset: 0,
