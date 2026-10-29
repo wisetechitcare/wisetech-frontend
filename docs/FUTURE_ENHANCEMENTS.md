@@ -61,9 +61,22 @@ Format: **what** — evidence (file / screen) — suggested fix.
   wrapped primitives on every upgrade (Storybook a11y runs at error level); keep it pinned.
 - **One field family** — `WtField` (162), raw MUI `TextField` (76 files), Bootstrap `form-control`
   (87 files), raw MUI `Checkbox` (11 files): move behind the kit Field/Input/Checkbox with the same API.
-- **Buttons not yet on the kit (Phase 3b)** — WtButton renders the kit Button since 2026-10-28; the tw twin
-  (`ui/tw/Buttons.tsx`, e.g. "New Gift Run", "New People Group"), raw MUI `Button` and Bootstrap `.btn`
-  still draw their own. — Point each at the kit Button the same way (adapter, API unchanged).
+- **Documented non-button controls onto kit primitives** — the button migration (2026-10-29, 0 legacy buttons left)
+  marked 199 controls with `data-wt-control` (docs/BUTTONS.md): tabs, segmented controls, toggles, option cards,
+  swatches, calendar cells, accordions, menu items, rows. They keep their old look. — Move each family onto a kit
+  primitive when it exists: `tab`/`segmented` → kit Tabs / a ToggleGroup, `accordion` → an Accordion, `menuitem` →
+  DropdownMenu, `row`/`option` → kit `Item` rendered as a button. Run `pnpm audit:buttons` for the list by kind.
+- **Dead CSS left by the button migration** — class rules for buttons that now render the kit: `.wt-btn*`
+  (`crmWizardTheme.css`, `forms/shared/Workspace.css`), `.report-ghost-btn` / `.primary-go-btn` / `.mf-btn-*`
+  (company overview Map), `.ob-photo-action-btn`, `.ob-file-upload-view/-clear`, `.wt-card__actbtn`, `.wt-iconbtn`
+  (notifications), `.wt-textbtn`. — Delete each rule once a grep shows no element still carries the class.
+- **Header user name is dark-on-dark in dark mode** — the avatar pill in the top bar (`HeaderEmployee`) renders the
+  name in a dark ink on the dark header (also in the pre-migration baseline). — Give it the header text token.
+- **KPI test panel ships in the production bundle** — `attendance/personal/views/overview/KPITestPanel.tsx` (raw
+  dev buttons, marked `data-wt-control="dev"`), and `pages/MenuTestPage.tsx`. — Gate behind a dev flag or remove.
+- **Buttons whose old submit default was kept as `type="submit"`** — the migration gave every native `<button>`
+  that had no `type` an explicit `type="submit"` (its old default), including many outside any form, where it is
+  harmless. — When a screen is next touched, set `type="button"` on those that are not form submits.
 - **WtButton call sites that restyle the button through `sx`** — Approvals `InboxItem.tsx` (approve/reject:
   own border, 8px corners, 11px text), `CsvUploadStep` / `MatchReviewTable` (danger text colour),
   `AddAnotherBtn` (dashed). They win over the kit by design, so they are not pills. — Replace each with a

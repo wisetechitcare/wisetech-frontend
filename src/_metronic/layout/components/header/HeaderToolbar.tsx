@@ -17,7 +17,6 @@ import { fetchCurrentEmployeeByEmpId } from "@services/employee";
 import GlobalSearch from "@app/modules/common/components/GlobalSearch/GlobalSearch";
 import { ColorModeToggle } from "@app/theme/ColorMode";
 import { NavTransformToggle } from "@/contexts/NavTransformContext";
-import { buttonVariants } from '@/ds/ui/button';
 
 const HeaderToolbar = () => {
   const { classes } = useLayout();
@@ -133,9 +132,9 @@ const HeaderToolbar = () => {
 
                 <div className="d-flex align-items-center">
                   {/*begin::Action*/}
-                  <a data-slot="button"
+                  <a data-wt-control="shell"
                     href="#"
-                    className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
+                    className="btn-icon btn-sm btn-active-color-primary"
                     data-kt-menu-trigger="{default: 'click', lg: 'hover'}"
                     data-kt-menu-placement="bottom-end"
                     data-kt-menu-overflow="false"

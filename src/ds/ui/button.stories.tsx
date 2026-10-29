@@ -80,8 +80,9 @@ export const Glow: Story = {
 }
 
 /**
- * Row and card actions (the live ActionIconButton / WtIconButton): a pastel of the tone that deepens on
- * hover. Set the tone with the --tint CSS variable; white is the close control on coloured headers.
+ * Row and card actions (the live ActionIconButton / WtIconButton / WtCloseButton): a pastel of the tone that
+ * deepens on hover, set with the --tint CSS variable. Close uses the neutral tint, so it sits in the same
+ * family as the other actions.
  */
 export const Tinted: Story = {
   render: () => (
@@ -89,10 +90,18 @@ export const Tinted: Story = {
       <Button variant="tinted" size="icon" aria-label="Edit"><Pencil /></Button>
       <Button variant="tinted" size="icon" aria-label="Delete" style={{ '--tint': 'var(--cta-danger)' } as CSSProperties}><Trash2 /></Button>
       <Button variant="tinted" size="icon" aria-label="Approve" style={{ '--tint': 'var(--cta-success)' } as CSSProperties}><Check /></Button>
+      <Button variant="tinted" size="icon" aria-label="Close" style={{ '--tint': 'var(--muted-foreground)' } as CSSProperties}><X /></Button>
       <Button variant="tinted" size="sm" style={{ '--tint': 'var(--cta-success)' } as CSSProperties}><Send data-icon="inline-start" /> Share</Button>
-      <div className="rounded-2xl bg-(--brand) p-3">
-        <Button variant="tinted" size="icon-sm" aria-label="Close" style={{ '--tint': 'white', '--tint-ink': 'white' } as CSSProperties}><X /></Button>
-      </div>
+    </div>
+  ),
+}
+
+/** On a coloured header the same recipe goes white (WtCloseButton variant="dark", ActionIconButton tone="onBrand"). */
+export const TintedOnHeader: Story = {
+  render: () => (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-(--brand) px-4 py-3 text-white">
+      <span className="text-sm font-bold">New Gift Run</span>
+      <Button variant="tinted" size="icon" aria-label="Close" style={{ '--tint': 'white', '--tint-ink': 'white' } as CSSProperties}><X /></Button>
     </div>
   ),
 }
@@ -123,6 +132,23 @@ export const Sizes: Story = {
       <Button {...args} size="lg">Large</Button>
     </div>
   ),
+}
+
+/** Every icon size; each icon-only button carries an aria-label (its accessible name). */
+export const IconSizes: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-3">
+      <Button variant="outline" size="icon-xs" aria-label="Edit (extra small)"><Pencil /></Button>
+      <Button variant="outline" size="icon-sm" aria-label="Edit (small)"><Pencil /></Button>
+      <Button variant="outline" size="icon" aria-label="Edit"><Pencil /></Button>
+      <Button variant="outline" size="icon-lg" aria-label="Edit (large)"><Pencil /></Button>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const buttons = canvas.getAllByRole('button')
+    await expect(buttons).toHaveLength(4)
+    for (const b of buttons) await expect(b).toHaveAccessibleName()
+  },
 }
 
 /** Icon-only buttons must have an accessible name. */
@@ -215,6 +241,90 @@ export const WizardFooter: Story = {
     await expect(canvas.getByRole('button', { name: 'Back' })).toBeDisabled()
     await expect(canvas.getByRole('button', { name: 'Save & Continue' })).toBeEnabled()
   },
+}
+
+/** Tab focuses the button (2px outline in its tone colour); Enter and Space activate it; a disabled button is skipped. */
+export const Keyboard: Story = {
+  render: (args) => (
+    <div className="flex gap-2">
+      <Button {...args}>Save</Button>
+      <Button variant="outline" disabled>Unavailable</Button>
+      <Button variant="outline">Next</Button>
+    </div>
+  ),
+  play: async ({ args, canvas }) => {
+    await userEvent.tab()
+    await expect(canvas.getByRole('button', { name: 'Save' })).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    await userEvent.keyboard(' ')
+    await expect(args.onClick).toHaveBeenCalledTimes(2)
+    await userEvent.tab()
+    await expect(canvas.getByRole('button', { name: 'Next' })).toHaveFocus()
+  },
+}
+
+const onSubmit = fn()
+
+/** The kit defaults to type="button": only a button that says type="submit" submits its form. */
+export const FormSubmission: Story = {
+  render: () => (
+    <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); onSubmit() }}>
+      <Button variant="outline">Preview</Button>
+      <Button type="submit">Save</Button>
+    </form>
+  ),
+  play: async ({ canvas }) => {
+    onSubmit.mockClear()
+    await userEvent.click(canvas.getByRole('button', { name: 'Preview' }))
+    await expect(onSubmit).not.toHaveBeenCalled()
+    await userEvent.click(canvas.getByRole('button', { name: 'Save' }))
+    await expect(onSubmit).toHaveBeenCalledTimes(1)
+  },
+}
+
+/** Footers stack full-width on a phone and sit side by side from sm up. */
+export const Responsive: Story = {
+  render: () => (
+    <div className="flex w-full max-w-xl flex-col-reverse gap-2 rounded-2xl border bg-card p-4 sm:flex-row sm:justify-end">
+      <Button variant="outline" className="w-full sm:w-auto">Cancel</Button>
+      <Button className="w-full sm:w-auto">Save changes</Button>
+    </div>
+  ),
+}
+
+/** Irreversible: Cancel (outline) beside the destructive action, inside a confirmation. */
+export const DestructiveConfirm: Story = {
+  render: () => (
+    <div className="flex w-[28rem] flex-col gap-4 rounded-2xl border bg-card p-5">
+      <p className="text-sm text-foreground">Delete this branch? Its employees keep their records, but the branch cannot be restored.</p>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline">Cancel</Button>
+        <Button variant="destructive"><Trash2 data-icon="inline-start" /> Delete branch</Button>
+      </div>
+    </div>
+  ),
+}
+
+/** Do: one default action with a quiet secondary. Do not: two glowing actions competing side by side. */
+export const DoDont: Story = {
+  render: () => (
+    <div className="grid gap-6 sm:grid-cols-2">
+      <figure className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
+        <figcaption className="text-xs font-bold text-success-foreground">Do</figcaption>
+        <div className="flex gap-2">
+          <Button variant="outline">Cancel</Button>
+          <Button>Save</Button>
+        </div>
+      </figure>
+      <figure className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
+        <figcaption className="text-xs font-bold text-destructive-foreground">Do not</figcaption>
+        <div className="flex gap-2">
+          <Button size="lg" glow>Save</Button>
+          <Button size="lg" variant="success" glow>Publish</Button>
+        </div>
+      </figure>
+    </div>
+  ),
 }
 
 const STATE_VARIANTS = ['default', 'success', 'destructive', 'inverted', 'outline', 'secondary', 'ghost', 'tinted'] as const
