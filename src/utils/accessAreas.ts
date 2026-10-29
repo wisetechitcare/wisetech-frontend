@@ -14,6 +14,7 @@ export interface AccessArea {
 export const ACCESS_AREAS: AccessArea[] = [
   { module: "dashboard", label: "Dashboard" },
   { module: "calendar", label: "Calendar" },
+  { module: "meetings", label: "Meetings" },
   {
     module: "attendance",
     label: "Attendance & Leaves",

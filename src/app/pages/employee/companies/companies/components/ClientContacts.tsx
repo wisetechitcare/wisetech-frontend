@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { formatBirthday, isYearless } from "@utils/birthday";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { Link } from "react-router-dom";
 import { Button } from "@/ds/ui/button";
@@ -172,7 +173,8 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         header: "Date of Birth",
         Cell: ({ cell }) => {
           const date = cell.getValue() as string;
-          return date ? new Date(date).toLocaleDateString() : '';
+          // A birthday saved without its year shows as day + month only.
+          return date ? (isYearless(date) ? formatBirthday(date) : new Date(date).toLocaleDateString()) : '';
         },
       },
       {

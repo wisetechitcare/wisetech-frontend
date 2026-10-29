@@ -74,6 +74,8 @@ export const SECTION_TO_PACK: Partial<Record<string, TenantPackKey>> = {
   tasks: 'psa',
   timesheets: 'psa',
   billing: 'psa',
+  // The backend serves every /meetings route behind psaGate.
+  meetings: 'psa',
   recruitment: 'talent',
   'finance.loans': 'pay',
   'finance.reimbursements': 'pay',
