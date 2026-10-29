@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Box, Stack, Typography, IconButton, Button } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { GlassSurface } from './glass';
 import { T, VividTone, ThemeMode, label } from './tokens';
 import { MOTION_KEYFRAMES, pressableSx } from './motion';
+import { WtButton, WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 /**
  * macOS-style frosted notification banner + a reusable toast system.
@@ -64,16 +65,16 @@ export function GlassNotification({
           <Typography sx={{ fontSize: 12.5, color: label(mode, 'secondary'), lineHeight: 1.45, mt: '2px' }}>{message}</Typography>
         )}
         {action && (
-          <Button size="small" onClick={action.onClick}
+          <WtButton variant="text" size="small" onClick={action.onClick}
             sx={{ mt: 0.75, textTransform: 'none', fontWeight: 600, fontSize: 12.5, color: accent, px: 1, minWidth: 0, ...pressableSx() }}>
             {action.label}
-          </Button>
+          </WtButton>
         )}
       </Box>
       {onClose && (
-        <IconButton size="small" onClick={onClose} aria-label="Dismiss" sx={{ color: label(mode, 'tertiary'), width: 26, height: 26, ...pressableSx(0.9) }}>
+        <WtIconButton size="small" onClick={onClose} aria-label="Dismiss" sx={{ color: label(mode, 'tertiary'), width: 26, height: 26, ...pressableSx(0.9) }}>
           <Box component="span" sx={{ fontSize: 18, lineHeight: 1 }}>&times;</Box>
-        </IconButton>
+        </WtIconButton>
       )}
     </GlassSurface>
   );

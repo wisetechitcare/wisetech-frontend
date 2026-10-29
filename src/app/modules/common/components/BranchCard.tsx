@@ -1,17 +1,11 @@
-import { Card, Box, Stack, Typography, Button, Divider } from '@mui/material';
+import { Card, Box, Stack, Typography, Divider } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { KTIcon } from '@metronic/helpers';
 import { T } from '@app/modules/common/components/ui/tokens';
 import { WtTooltip } from '@app/modules/common/components/ui';
 import ActionIconButton from '@app/modules/common/components/ui/ActionIconButton';
 
 /** One treatment for both drill-in buttons, defined once so they cannot drift apart. */
-const drillButtonSx = {
-  fontFamily: T.font.family, textTransform: 'none' as const, fontWeight: 600, fontSize: 13,
-  borderRadius: `${T.radius.sm}px`, px: 1.5,
-  color: T.color.brand, borderColor: T.color.brandRing,
-  '&:hover': { borderColor: T.color.brand, bgcolor: T.color.brandSoft },
-};
-
 export interface BranchCardProps {
   branch: any;
   isAdmin: boolean;
@@ -101,18 +95,12 @@ export default function BranchCard({
         sx={{ p: 2.25, pt: 1.75, alignItems: 'center', justifyContent: 'space-between', gap: 1.25, flexWrap: 'wrap' }}
       >
         <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-          <Button
-            size="small" variant="outlined" onClick={onViewEmployees}
-            startIcon={<KTIcon iconName="people" className="fs-5" />}
-            sx={drillButtonSx}
-          >
+          <Button size="sm" variant="outline" onClick={onViewEmployees}>
+            <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="people" className="fs-5" /></span>
             {employees} {employees === 1 ? 'Employee' : 'Employees'}
           </Button>
-          <Button
-            size="small" variant="outlined" onClick={onManageDevices}
-            startIcon={<KTIcon iconName="fingerprint-scanning" className="fs-5" />}
-            sx={drillButtonSx}
-          >
+          <Button size="sm" variant="outline" onClick={onManageDevices}>
+            <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="fingerprint-scanning" className="fs-5" /></span>
             Devices
           </Button>
         </Stack>

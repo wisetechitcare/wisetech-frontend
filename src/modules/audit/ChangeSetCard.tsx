@@ -5,6 +5,7 @@ import { CategoryBadge, ChangeTypeChip, ValueDelta } from './parts';
 import { initials, displayActor, actorKind, humanizeSummary } from './tokens';
 import { fromNow, fullDateTime } from './time';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface Props {
   cs: AuditChangeSet;
@@ -55,7 +56,7 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
       }}
     >
       {/* Header — clickable to expand */}
-      <button
+      <button data-wt-control="accordion"
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
@@ -148,7 +149,7 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
               {fromNow(cs.changedAt)}
             </span>
             
-            <button
+            <button data-wt-control="chip"
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -311,24 +312,22 @@ export const ChangeSetCard: React.FC<Props> = ({ cs, expanded, onToggle, onCompa
           >
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
               {onReset && (
-                <button
+                <Button variant="tinted" size="sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                   type="button"
                   onClick={() => onReset(cs.revisionNumber)}
-                  style={actionBtn({ color: C.danger, border: `1px solid ${C.danger}55` })}
                   title="Reset the record to this version (deletes newer versions)"
                 >
                   <AppIcon name="bi-arrow-counterclockwise" className="fs-7" aria-hidden />
                   Reset to here
-                </button>
+                </Button>
               )}
-              <button
+              <Button variant="outline" size="sm"
                 type="button"
                 onClick={() => onCompare(cs.revisionNumber)}
-                style={actionBtn({ color: C.primary, border: `1px solid ${C.primary}` })}
               >
                 <AppIcon name="bi-file-earmark-diff" className="fs-7" aria-hidden />
                 View this change
-              </button>
+              </Button>
             </div>
           </div>
           </div>

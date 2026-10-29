@@ -7,7 +7,7 @@ import { IOrgNode, IOrgStats, IOrgBranchNode } from '@models/company';
 import { fetchOrganizationTree, fetchOrganizationStats, deleteOrganizationById } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import OrgTree, { ORG_TONES } from '@app/modules/common/components/OrgTree';
-import { useCountUp } from '@app/hooks/useCountUp';
+import { CountUp } from '@/ds/effects/count-up';
 import OrganizationFormModal from './OrganizationFormModal';
 import BranchEmployeesModal from '@app/modules/common/components/BranchEmployeesModal';
 import { IconSearch, IconPlus, IconChevron, IconBuilding, IconHierarchy, IconBranch, IconUsers } from '@app/modules/common/components/icons/OrgIcons';
@@ -41,7 +41,6 @@ const rise = keyframes`from { opacity: 0; transform: translateY(8px); } to { opa
  * four tiles double as the tree's legend. The number counts up once on load.
  */
 function StatTile({ label, value, tone, icon, index }: { label: string; value: number; tone: string; icon: React.ReactNode; index: number }) {
-  const shown = useCountUp(value);
   return (
     <Stack
       direction="row"
@@ -63,7 +62,7 @@ function StatTile({ label, value, tone, icon, index }: { label: string; value: n
       </Box>
       <Box sx={{ minWidth: 0 }}>
         <Typography sx={{ fontFamily: 'Barlow', fontSize: { xs: 24, md: 28 }, fontWeight: 700, lineHeight: 1, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
-          {Math.round(shown)}
+          <CountUp value={value} />
         </Typography>
         <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, color: tone, mt: 0.5 }}>{label}</Typography>
       </Box>

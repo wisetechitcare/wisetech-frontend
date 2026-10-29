@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import Loader from "@app/modules/common/utils/Loader";
 import { getAllClientContacts } from "@services/companies";
 import { useOpenRecord } from "@hooks/useOpenRecord";
+import { Button } from "@/ds/ui/button";
 import { formatCurrencyRounded } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
 
@@ -51,18 +52,14 @@ const CompaniesLeads: React.FC<{ companyId: string }> = ({ companyId }) => {
   accessorKey: "title",
   header: "Title",
   Cell: ({ row }: any) => (
-    <button
-      className="btn btn-link p-0 text-start text-decoration-none"
-      style={{
-        color: "inherit",
-        fontWeight: "600",
-        fontSize: "14px",
-      }}
+    <Button
+      variant="link"
+      className="h-auto p-0 whitespace-normal text-start"
       title={canOpen(row.original.id, row.original.status?.isProjectTrigger) ? undefined : "You're not authorized to open this lead"}
       onClick={() => openRecord(row.original.id, !!row.original.status?.isProjectTrigger, `/leads/${row.original.id}`)}
     >
       {row.original.title}
-    </button>
+    </Button>
   ),
 },
     { accessorKey: "description", header: "Description" },

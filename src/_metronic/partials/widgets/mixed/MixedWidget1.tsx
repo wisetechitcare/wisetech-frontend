@@ -1,7 +1,8 @@
 
-import { FC } from 'react'
+import { FC, type CSSProperties } from 'react'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
 import {KTIcon} from '../../../helpers'
+import {Button} from '@/ds/ui/button'
 
 type Props = {
   className: string
@@ -20,15 +21,18 @@ const MixedWidget1: FC<Props> = ({className, color}) => {
             <h3 className='m-0 text-white fw-bold fs-3'>Sales Summary</h3>
             <div className='ms-1'>
               {/* begin::Menu */}
-              <button
-                type='button'
-                className={`btn btn-sm btn-icon btn-color-white btn-active-white btn-active-color-${color} border-0 me-n3`}
+              <Button
+                variant='tinted'
+                size='icon-sm'
+                className='me-n3'
+                style={{'--tint': 'white', '--tint-ink': 'white'} as CSSProperties}
+                aria-label='Menu'
                 data-kt-menu-trigger='click'
                 data-kt-menu-placement='bottom-end'
                 data-kt-menu-flip='top-end'
               >
                 <KTIcon iconName='category' className='fs-2' />
-              </button>
+              </Button>
               <Dropdown1 />
               {/* end::Menu */}
             </div>

@@ -1,5 +1,6 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, type CSSProperties } from "react";
 import dayjs from 'dayjs';
+import { Button } from '@/ds/ui/button';
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { usePermission } from "@hooks/usePermission";
@@ -496,14 +497,9 @@ function PublicHolidaysListTwo({
             <div className="mb-8">
                 <div className="d-flex align-items-center justify-content-between mb-4">
                     <h4 className="fs-8 text-uppercase fw-bold text-gray-500 m-0" style={{ letterSpacing: '0.8px' }}>Quick Filters</h4>
-                    <button 
-                        type="button" 
-                        className="btn btn-sm btn-active-light-primary text-primary fw-bold p-1 fs-8" 
-                        onClick={handleToggleAllFilters}
-                        style={{ lineHeight: 1 }}
-                    >
+                    <Button variant="ghost" size="xs" onClick={handleToggleAllFilters}>
                         {allFiltersChecked ? 'Clear All' : 'Select All'}
-                    </button>
+                    </Button>
                 </div>
                 <div className="d-flex flex-column gap-3">
                     <label className="form-check form-check-custom form-check-solid form-check-sm cursor-pointer">
@@ -556,45 +552,32 @@ function PublicHolidaysListTwo({
 
             {/* Jump to Month Grid */}
             <div>
-                {/* Non-active buttons turn grey on hover; active (selected) stays brand-blue.
-                    We avoid .btn-primary as it has !important maroon background in Metronic. */}
-                <style>{`
-                    .wt-filter-btn.wt-active {
-                        background-color: ${T.color.brand} !important;
-                        border-color: ${T.color.brand} !important;
-                        color: #ffffff !important;
-                    }
-                    .wt-filter-btn:hover:not(.wt-active) {
-                        background-color: ${T.color.panelAlt} !important;
-                        border-color: ${T.color.line} !important;
-                        color: ${T.color.ink} !important;
-                        --bs-btn-hover-bg: ${T.color.panelAlt};
-                        --bs-btn-hover-border-color: ${T.color.line};
-                        --bs-btn-hover-color: ${T.color.ink};
-                    }
-                `}</style>
+                {/* Segmented month picker: the selected month is the filled kit button, the rest
+                    are outline; aria-pressed carries the selection. */}
                 <h4 className="fs-8 text-uppercase fw-bold text-gray-500 mb-4" style={{ letterSpacing: '0.8px' }}>Jump to Month</h4>
-                <button
-                    type="button"
-                    className={`btn btn-sm w-100 py-2.5 px-0 text-center fw-bold fs-8 border transition-all mb-2 wt-filter-btn ${selectedMonthIndex === null ? 'wt-active' : 'btn-light border-gray-200 text-gray-600 bg-white'}`}
-                    style={{ borderRadius: '6px' }}
+                <Button
+                    size="sm"
+                    variant={selectedMonthIndex === null ? 'default' : 'outline'}
+                    aria-pressed={selectedMonthIndex === null}
+                    className="w-100 mb-2"
                     onClick={() => setSelectedMonthIndex(null)}
                 >
                     All Months
-                </button>
+                </Button>
                 <div className="row g-2">
                     {MONTHS.map((m, idx) => {
                         const isActive = selectedMonthIndex === idx;
                         return (
                             <div className="col-6" key={m}>
-                                <button
-                                    type="button"
-                                    className={`btn btn-sm w-100 py-2.5 px-0 text-center fw-bold fs-8 border transition-all wt-filter-btn ${isActive ? 'wt-active' : 'btn-light border-gray-200 text-gray-600 bg-white'}`}
-                                    style={{ borderRadius: '6px' }}
+                                <Button
+                                    size="sm"
+                                    variant={isActive ? 'default' : 'outline'}
+                                    aria-pressed={isActive}
+                                    className="w-100"
                                     onClick={() => setSelectedMonthIndex(idx)}
                                 >
                                     {m}
-                                </button>
+                                </Button>
                             </div>
                         );
                     })}
@@ -658,14 +641,14 @@ function PublicHolidaysListTwo({
                         {isAdmin && (
                             <div className="d-flex align-items-center gap-1.5">
                                 {allowdEdit && (
-                                    <button type="button" className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm border-0 shadow-xs wt-touch-target" onClick={() => handleEdit(item)} aria-label={`Edit ${item.name}`} style={{ width: '32px', height: '32px', borderRadius: '6px', background: '#f5f8fa' }}>
+                                    <Button variant="ghost" size="icon-sm" className="wt-touch-target" onClick={() => handleEdit(item)} aria-label={`Edit ${item.name}`}>
                                         <KTIcon iconName="pencil" className="fs-5 text-gray-600" />
-                                    </button>
+                                    </Button>
                                 )}
                                 {allowDelete && (
-                                    <button type="button" className="btn btn-icon btn-bg-light btn-active-color-danger btn-sm border-0 shadow-xs wt-touch-target" onClick={() => handleDelete(item)} aria-label={`Delete ${item.name}`} style={{ width: '32px', height: '32px', borderRadius: '6px', background: '#f5f8fa' }}>
+                                    <Button variant="ghost" size="icon-sm" className="wt-touch-target" onClick={() => handleDelete(item)} aria-label={`Delete ${item.name}`}>
                                         <KTIcon iconName="trash" className="fs-5 text-gray-600" />
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
                         )}
@@ -705,27 +688,27 @@ function PublicHolidaysListTwo({
 
                     {/* Year Switcher Arrows */}
                     <div className="d-flex align-items-center border rounded overflow-hidden shadow-xs">
-                        <button
-                            type="button"
-                            className="btn btn-icon btn-clean btn-sm border-0 rounded-0 wt-touch-target"
-                            style={{ background: '#f5f8fa' }}
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="wt-touch-target"
                             onClick={() => setSelectedYear(y => y - 1)}
                             aria-label="Previous year"
                         >
                             <KTIcon iconName="left" className="fs-6 text-gray-600" />
-                        </button>
+                        </Button>
                         <span className="px-4 fw-bold text-gray-800 fs-6" style={{ minWidth: '60px', textAlign: 'center' }}>
                             {selectedYear}
                         </span>
-                        <button
-                            type="button"
-                            className="btn btn-icon btn-clean btn-sm border-0 rounded-0 wt-touch-target"
-                            style={{ background: '#f5f8fa' }}
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="wt-touch-target"
                             onClick={() => setSelectedYear(y => y + 1)}
                             aria-label="Next year"
                         >
                             <KTIcon iconName="right" className="fs-6 text-gray-600" />
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -748,21 +731,20 @@ function PublicHolidaysListTwo({
                         to month) collapses behind this below 768px instead of always eating
                         vertical space above the actual holiday list. Same width as every other
                         toolbar control on mobile (w-100), one per row, so nothing looks mismatched. */}
-                    <button
-                        type="button"
-                        className="btn btn-sm d-md-none position-relative wt-touch-target w-100"
-                        style={{ borderRadius: '6px', border: '1px solid #dde2ec', background: showMobileFilters ? T.color.brandSoft : '#fcfdfe', color: showMobileFilters ? T.color.brand : '#3f4254', fontWeight: 600, height: '38px' }}
+                    <Button
+                        variant="outline"
+                        className="d-md-none position-relative wt-touch-target w-100"
                         onClick={() => setShowMobileFilters(v => !v)}
                         aria-expanded={showMobileFilters}
                     >
-                        <KTIcon iconName="filter" className="fs-5 me-1" />
+                        <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="filter" className="fs-5" /></span>
                         Filters
                         {isFiltersActive && (
                             <span className="position-absolute top-0 start-100 translate-middle p-1 rounded-circle" style={{ background: T.color.brand, width: '9px', height: '9px' }}>
                                 <span className="visually-hidden">Filters active</span>
                             </span>
                         )}
-                    </button>
+                    </Button>
 
                     {/* Locations Dropdown — "All Locations" shows company-wide + every
                         branch's holidays; picking a branch shows company-wide + that
@@ -790,54 +772,32 @@ function PublicHolidaysListTwo({
                         nothing it could add, so it never appears as a button that
                         silently does nothing. */}
                     {isAdmin && generatableCount > 0 && (
-                        <button
-                            type="button"
-                            className="btn btn-sm fw-semibold wt-touch-target w-100 w-md-auto text-nowrap"
-                            style={{
-                                height: '38px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #1E3A8A',
-                                background: '#ffffff',
-                                color: '#1E3A8A',
-                            }}
+                        <Button
+                            variant="inverted"
+                            className="wt-touch-target w-100 w-md-auto"
+                            loading={generating}
                             disabled={generating}
                             onClick={handleGenerateYear}
                             title={`Add the ${generatableCount} holiday(s) with a repeating date to ${selectedYear}`}
                         >
-                            {generating ? (
-                                <span className="d-flex align-items-center gap-2 justify-content-center">
-                                    <span className="spinner-border spinner-border-sm" />
-                                    Generating…
-                                </span>
-                            ) : `Generate from config (${generatableCount})`}
-                        </button>
+                            {generating ? 'Generating…' : `Generate from config (${generatableCount})`}
+                        </Button>
                     )}
 
                     {/* Off-Saturdays. Only offered when a month is actually below quota,
                         so it never invites a click that would do nothing. Previews before
                         writing, and is additive — an adjusted date is never moved. */}
                     {isAdmin && weekendAudit && weekendAudit.violations.length > 0 && (
-                        <button
-                            type="button"
-                            className="btn btn-sm fw-semibold wt-touch-target w-100 w-md-auto text-nowrap"
-                            style={{
-                                height: '38px',
-                                borderRadius: '8px',
-                                border: '1.5px solid #1E3A8A',
-                                background: '#ffffff',
-                                color: '#1E3A8A',
-                            }}
+                        <Button
+                            variant="inverted"
+                            className="wt-touch-target w-100 w-md-auto"
+                            loading={generatingSaturdays}
                             disabled={generatingSaturdays}
                             onClick={handleGenerateSaturdays}
                             title={`Fill the ${weekendAudit.violations.length} month(s) below ${weekendAudit.quota} off-Saturdays in ${selectedYear}`}
                         >
-                            {generatingSaturdays ? (
-                                <span className="d-flex align-items-center gap-2 justify-content-center">
-                                    <span className="spinner-border spinner-border-sm" />
-                                    Generating…
-                                </span>
-                            ) : `Generate Saturdays (${weekendAudit.violations.length})`}
-                        </button>
+                            {generatingSaturdays ? 'Generating…' : `Generate Saturdays (${weekendAudit.violations.length})`}
+                        </Button>
                     )}
 
                     {/* Add Holiday Button */}
@@ -1014,26 +974,26 @@ function PublicHolidaysListTwo({
                                                 const rowActions = isAdmin ? (
                                                     <>
                                                         {allowdEdit && (
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm border-0 shadow-xs wt-touch-target"
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon-sm"
+                                                                className="wt-touch-target"
                                                                 onClick={() => handleEdit(item)}
                                                                 aria-label={`Edit ${item.name}`}
-                                                                style={{ width: '30px', height: '30px', borderRadius: '6px', background: '#f5f8fa' }}
                                                             >
                                                                 <KTIcon iconName="pencil" className="fs-5 text-gray-600" />
-                                                            </button>
+                                                            </Button>
                                                         )}
                                                         {allowDelete && (
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-icon btn-bg-light btn-active-color-danger btn-sm border-0 shadow-xs wt-touch-target"
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon-sm"
+                                                                className="wt-touch-target"
                                                                 onClick={() => handleDelete(item)}
                                                                 aria-label={`Delete ${item.name}`}
-                                                                style={{ width: '30px', height: '30px', borderRadius: '6px', background: '#f5f8fa' }}
                                                             >
                                                                 <KTIcon iconName="trash" className="fs-5 text-gray-600" />
-                                                            </button>
+                                                            </Button>
                                                         )}
                                                     </>
                                                 ) : (
@@ -1139,15 +1099,15 @@ function PublicHolidaysListTwo({
                         <div>
                             {/* Slide Navigation Header */}
                             <div className="d-flex align-items-center justify-content-between mb-6 p-4 rounded" style={{ background: '#f5f8fa', border: '1px solid #e2e8f0' }}>
-                                <button type="button" className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm border-0 shadow-xs" onClick={prevSlideMonth}>
+                                <Button variant="ghost" size="icon-sm" onClick={prevSlideMonth} aria-label="Previous month">
                                     <KTIcon iconName="left" className="fs-3 text-gray-600" />
-                                </button>
+                                </Button>
                                 <span className="fs-4 fw-bold text-gray-900 text-uppercase" style={{ letterSpacing: '1px' }}>
                                     {dayjs().month(displayMonthIndex).format('MMMM')} {selectedYear}
                                 </span>
-                                <button type="button" className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm border-0 shadow-xs" onClick={nextSlideMonth}>
+                                <Button variant="ghost" size="icon-sm" onClick={nextSlideMonth} aria-label="Next month">
                                     <KTIcon iconName="right" className="fs-3 text-gray-600" />
-                                </button>
+                                </Button>
                             </div>
 
                             {slideMonthHolidays.length === 0 ? (
@@ -1192,15 +1152,16 @@ function PublicHolidaysListTwo({
                                 <h3 className="fs-1 fw-bold text-white mb-2">{countdownLabel}</h3>
                                 <p className="fs-6 fw-semibold text-white mb-5" style={{ opacity: 0.9 }}>{nextUpcomingHoliday.name}</p>
                                 
-                                <button 
-                                    type="button" 
-                                    className="btn btn-sm w-100 text-white fw-bold d-flex align-items-center justify-content-center gap-2 py-2.5"
-                                    style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '6px', fontSize: '13px', border: '1px solid rgba(255,255,255,0.1)' }}
+                                <Button
+                                    variant="tinted"
+                                    size="sm"
+                                    className="w-100"
+                                    style={{ '--tint': 'white', '--tint-ink': 'white' } as CSSProperties}
                                     onClick={() => successConfirmation(`Reminder set for ${nextUpcomingHoliday.name}`)}
                                 >
-                                    <KTIcon iconName="notification" className="fs-5 text-white" />
+                                    <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="notification" className="fs-5 text-white" /></span>
                                     Add Reminder
-                                </button>
+                                </Button>
                             </div>
                         );
                     })()}

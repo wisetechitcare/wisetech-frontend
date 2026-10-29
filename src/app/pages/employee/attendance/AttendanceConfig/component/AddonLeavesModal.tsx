@@ -333,7 +333,7 @@ export function AddonLeavesModal({ open, onClose, readOnly }: AddonLeavesModalPr
             Cancel
           </WtButton>
           {!readOnly && (
-            <WtButton tone="primary" onClick={handleSave} disabled={saving}
+            <WtButton onClick={handleSave} disabled={saving}
               startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <KTIcon iconName="check-circle" className="fs-2" />}
               sx={{ width: { xs: '100%', sm: 'auto' } }}>
               {saving ? 'Saving Changes…' : 'Save Allowance Policy'}

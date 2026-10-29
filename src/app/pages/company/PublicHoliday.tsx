@@ -23,6 +23,7 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { components } from 'react-select';
 import { T } from '@app/modules/common/components/ui/tokens';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 const usersBreadcrumbs: Array<PageLink> = [
     {
@@ -108,7 +109,7 @@ const CustomMenuList = ({ children, ...props }: any) => {
 
     return (
         <components.MenuList {...props}>
-            <div
+            <div data-wt-control="menuitem" role="menuitem"
                 className="dropdown-add-option"
                 onClick={addNewHoliday}
                 style={{
@@ -288,11 +289,11 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                 </label>
                                 <div className="d-flex gap-2">
                                     {[{ label: 'Fixed', value: true }, { label: 'Floating', value: false }].map(opt => (
-                                        <button
+                                        <Button variant="ghost" size="sm"
                                             key={String(opt.value)}
                                             type="button"
                                             onClick={() => formik.setFieldValue('isFixed', opt.value)}
-                                            className="btn btn-sm fw-semibold flex-fill d-flex align-items-center justify-content-center gap-1.5"
+                                            className="flex-fill"
                                             style={{
                                                 borderRadius: '8px',
                                                 border: formik.values.isFixed === opt.value ? `2px solid ${T.color.brand}` : '1.5px solid #dde2ec',
@@ -306,7 +307,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                         >
                                             {formik.values.isFixed === opt.value && <AppIcon name="bi-check-circle-fill" className="fs-7" />}
                                             {opt.label}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                                 {formik.touched.isFixed && formik.errors.isFixed && (
@@ -321,11 +322,11 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                 </label>
                                 <div className="d-flex gap-2">
                                     {[{ label: 'Active', value: true }, { label: 'Inactive', value: false }].map(opt => (
-                                        <button
+                                        <Button variant="ghost" size="sm"
                                             key={String(opt.value)}
                                             type="button"
                                             onClick={() => formik.setFieldValue('isActive', opt.value)}
-                                            className="btn btn-sm fw-semibold flex-fill d-flex align-items-center justify-content-center gap-1.5"
+                                            className="flex-fill"
                                             style={{
                                                 borderRadius: '8px',
                                                 border: formik.values.isActive === opt.value ? `2px solid ${T.color.brand}` : '1.5px solid #dde2ec',
@@ -339,7 +340,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                         >
                                             {formik.values.isActive === opt.value && <AppIcon name="bi-check-circle-fill" className="fs-7" />}
                                             {opt.label}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                                 {formik.touched.isActive && formik.errors.isActive && (
@@ -422,7 +423,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                         <div className="row g-4">
 
                             {/* Observed In */}
-                            <div className="col-lg-4" onClick={getAllCountries}>
+                            <div data-wt-control="container" className="col-lg-4" onClick={getAllCountries}>
                                 <label className="fs-7 fw-bold text-gray-700 d-block mb-2">
                                     Observed In <span className="text-danger">*</span>
                                 </label>
@@ -503,11 +504,11 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                 </label>
                                 <div className="d-flex gap-2 mt-1">
                                     {[{ label: 'Yes', value: true }, { label: 'No', value: false }].map(opt => (
-                                        <button
+                                        <Button variant="ghost" size="sm"
                                             key={String(opt.value)}
                                             type="button"
                                             onClick={() => formik.setFieldValue('isWeekend', opt.value)}
-                                            className="btn btn-sm fw-semibold flex-fill d-flex align-items-center justify-content-center gap-1.5"
+                                            className="flex-fill"
                                             style={{
                                                 borderRadius: '8px',
                                                 border: formik.values.isWeekend === opt.value ? `2px solid ${T.color.brand}` : '1.5px solid #dde2ec',
@@ -521,7 +522,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                         >
                                             {formik.values.isWeekend === opt.value && <AppIcon name="bi-check-circle-fill" className="fs-7" />}
                                             {opt.label}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                                 {formik.touched.isWeekend && formik.errors.isWeekend && (
@@ -533,17 +534,15 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
 
                     {/* ── FOOTER ────────────────────────────────────────────────────────── */}
                     <div className="d-flex align-items-center justify-content-end gap-3 pt-4" style={{ borderTop: '1px solid #eef1f5' }}>
-                        <button
+                        <Button variant="ghost" size="sm"
                             type="button"
-                            className="btn btn-sm fw-semibold px-6"
                             style={{ borderRadius: '8px', border: '1.5px solid #dde2ec', background: '#ffffff', color: '#6b7280', fontSize: '13px' }}
                             onClick={onClose}
                         >
                             Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button variant="ghost" size="sm"
                             type="submit"
-                            className="btn btn-sm fw-bold px-7 text-white d-flex align-items-center gap-2"
                             disabled={loading || !formik.isValid}
                             style={{
                                 borderRadius: '8px',
@@ -567,7 +566,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                     {isEditMode ? 'Update Holiday' : 'Save Holiday'}
                                 </>
                             )}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             )}

@@ -1,22 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import {
-  Avatar,
-  Box,
-  Button,
-  Checkbox,
-  Chip,
-  CircularProgress,
-  InputAdornment,
-  Link,
-  Stack,
-  Tab,
-  Tabs,
-  TextField,
-  Typography,
-  alpha,
-  useTheme,
-} from "@mui/material";
+import { Avatar, Box, Checkbox, Chip, CircularProgress, InputAdornment, Link, Stack, Tab, Tabs, TextField, Typography, alpha, useTheme } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { useDispatch, useSelector } from "react-redux";
@@ -33,6 +17,7 @@ import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
 import { TRIO, type Trio } from "@app/modules/common/components/ui/patterns";
 import type { MemberType, PersonRef } from "../types";
 import { pinNewlySelected } from "./personPickerUtils";
+import { WtButton } from '@app/modules/common/components/ui/buttons';
 
 export function personProfilePath(
   p: Pick<PersonRef, "memberType" | "personId">,
@@ -486,7 +471,7 @@ export function MemberListPanel({
                 </Typography>
               </Stack>
               {selectedCount > 0 && (
-                <Button
+                <WtButton
                   size="medium"
                   color="error"
                   variant="contained"
@@ -500,7 +485,7 @@ export function MemberListPanel({
                   }}
                 >
                   {removeBtnLabel}
-                </Button>
+                </WtButton>
               )}
             </Stack>
           )}
@@ -1026,14 +1011,14 @@ export default function PersonPicker({
                 })}
                 {hasMoreContacts && (
                   <Box sx={{ p: 1, textAlign: "center" }}>
-                    <Button
+                    <WtButton
                       size="large"
                       variant="outlined"
                       onClick={loadMoreContacts}
                       disabled={loadingMore}
                     >
                       {loadingMore ? "Loading…" : "Load more"}
-                    </Button>
+                    </WtButton>
                   </Box>
                 )}
               </>

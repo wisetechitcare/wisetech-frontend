@@ -1,3 +1,6 @@
 .githooks/* text eol=lf
 *.psd filter=lfs diff=lfs merge=lfs -text
+
+# pnpm dependency patches must apply byte-exact on every OS
+patches/*.patch text eol=lf
 devtools/**/*.sh text eol=lf

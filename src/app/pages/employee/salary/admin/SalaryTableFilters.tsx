@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Box } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 
 // Shared toolbar filters (Sub Organization / Employee Status / Pay Type) used by
@@ -216,23 +217,14 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
 
       {/* Reset appears only when a non-default filter is applied */}
       {(subOrgFilter !== 'All' || statusFilter !== 'Active' || payTypeFilter !== 'All' || branchFilter !== 'All' || teamFilter !== 'All') && (
-        <button
+        <Button
+          variant="outline"
           onClick={() => { setSubOrgFilter('All'); setStatusFilter('Active'); setPayTypeFilter('All'); setBranchFilter('All'); setTeamFilter('All'); onStatusChange?.('Active'); }}
           title="Reset filters to defaults"
-          style={{
-            height: '38px', padding: '0 12px',
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            border: '1px dashed #fca5a5', borderRadius: '10px',
-            backgroundColor: '#ffffff', color: '#dc2626',
-            fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 600,
-            cursor: 'pointer', transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
         >
-          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
+          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" data-icon="inline-start" />
           Reset
-        </button>
+        </Button>
       )}
 
     </Box>

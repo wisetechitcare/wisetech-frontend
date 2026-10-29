@@ -63,10 +63,11 @@ const CODE_RULES = [
    * the Interface Style (Glass/Material) setting; the kit's glassSx / GlassSurface /
    * GlassDialog read it. Turning blur OFF (`none`) is fine. The lookahead sits AFTER the
    * colon on purpose: `:\s*(?!none)` lets `\s*` backtrack to zero and still match
-   * `: none`. Vendored Metronic, the UI kit and the theme implement surfaces — exempt. */
+   * `: none`. Vendored Metronic, the UI kit, the theme and the ADR-001 v2 kit (src/ds, whose
+   * `surface-chrome` utility follows data-surface) implement surfaces — exempt. */
   ['raw backdrop-filter', /backdrop-filter\s*:(?!\s*none\b)/, (path) =>
     /\.(css|scss|sass)$/i.test(path) &&
-    !/(^|\/)src\/(_metronic|app\/modules\/common\/components\/ui|app\/theme)\//.test(path) &&
+    !/(^|\/)src\/(_metronic|app\/modules\/common\/components\/ui|app\/theme|ds)\//.test(path) &&
     !LEGACY_BLUR_CSS.some((legacy) => path === legacy || path.endsWith(`/${legacy}`))],
 ]
 
@@ -175,6 +176,7 @@ function selfTest() {
   assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/modules/common/components/ui/tw/glass.css'), [])
   assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/app/theme/toast.css'), [])
   assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/_metronic/assets/sass/_x.scss'), [])
+  assert.deepEqual(css('  backdrop-filter: blur(8px);', 'src/ds/styles/globals.css'), [])
   assert.deepEqual(css('  `backdrop-filter: blur(8px);`', 'src/app/pages/X.tsx'), []) // ESLint owns TSX
   assert.deepEqual(css('  backdrop-filter: blur(8px); /* guard:allow legacy */', 'src/app/x.scss'), [])
   // legacy stylesheets (LEGACY_BLUR_CSS) stay committable, relative or absolute; a lookalike name does not

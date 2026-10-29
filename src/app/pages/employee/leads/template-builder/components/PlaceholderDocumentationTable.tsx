@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Form, Table } from 'react-bootstrap';
+import { Form, Table } from 'react-bootstrap';
 import { Copy, ChevronLeft, ChevronRight, Hash, Eye } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ProposalPlaceholder } from '../proposalPlaceholderData';
+import { Button as KitButton } from '@/ds/ui/button';
 
 type PlaceholderDocumentationTableProps = {
   rows: ProposalPlaceholder[];
@@ -54,7 +55,7 @@ const PlaceholderDocumentationTable: React.FC<
                   className="hover-bg-light"
                 >
                   <td className="ps-8 py-6">
-                    <button
+                    <button data-wt-control="chip"
                       type="button"
                       onClick={() => copyToken(row.token)}
                       className="token-pill"
@@ -83,15 +84,12 @@ const PlaceholderDocumentationTable: React.FC<
                   </td>
                   <td className="pe-8 py-6 text-end">
                     <div className="d-flex justify-content-end gap-2">
-                       <Button 
-                        variant="light-primary" 
-                        size="sm" 
-                        className="btn-icon rounded-pill w-30px h-30px"
+                       <KitButton variant="tinted" size="icon-sm"
                         onClick={() => copyToken(row.token)}
                         title="Copy to clipboard"
                        >
                          <Copy size={14} />
-                       </Button>
+                       </KitButton>
                     </div>
                   </td>
                 </motion.tr>
@@ -133,15 +131,12 @@ const PlaceholderDocumentationTable: React.FC<
         </div>
 
         <div className="d-flex align-items-center gap-2">
-          <Button
-            variant="white"
-            size="sm"
-            className="btn-icon rounded-pill shadow-sm border"
+          <KitButton variant="outline" size="sm"
             disabled={normalizedPage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft size={16} />
-          </Button>
+          </KitButton>
           
           <div className="d-flex gap-1">
             {[...Array(totalPages)].map((_, i) => {
@@ -151,28 +146,22 @@ const PlaceholderDocumentationTable: React.FC<
                 return null;
               }
               return (
-                <Button
+                <KitButton variant={normalizedPage === p ? 'default' : 'ghost'} size="icon-sm"
                   key={p}
-                  variant={normalizedPage === p ? "primary" : "white"}
-                  size="sm"
-                  className={`w-30px h-30px rounded-pill p-0 fs-8 fw-bold ${normalizedPage === p ? 'shadow-sm' : 'border'}`}
                   onClick={() => setPage(p)}
                 >
                   {p}
-                </Button>
+                </KitButton>
               );
             })}
           </div>
 
-          <Button
-            variant="white"
-            size="sm"
-            className="btn-icon rounded-pill shadow-sm border"
+          <KitButton variant="outline" size="sm"
             disabled={normalizedPage >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
             <ChevronRight size={16} />
-          </Button>
+          </KitButton>
         </div>
       </div>
     </div>

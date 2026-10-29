@@ -374,7 +374,7 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
 
     {/* Row 2: Country, State, City */}
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-      <div
+      <div data-wt-control="container"
         className="min-w-0"
         onClick={fetchCountries}
       >
@@ -404,7 +404,7 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
         />
       </div>
 
-      <div
+      <div data-wt-control="container"
         className="min-w-0"
         onClick={fetchPresentStates}
       >
@@ -431,7 +431,7 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
         />
       </div>
 
-      <div
+      <div data-wt-control="container"
         className="min-w-0"
         onClick={fetchPresentCities}
       >
@@ -521,7 +521,7 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
 
     {/* Row 2: Country, State, City */}
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-      <div
+      <div data-wt-control="container"
         className="min-w-0"
         onClick={fetchCountries}
       >
@@ -549,7 +549,7 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
         />
       </div>
 
-      <div
+      <div data-wt-control="container"
         className="min-w-0"
         onClick={fetchPermanentStates}
       >
@@ -576,7 +576,7 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
         />
       </div>
 
-      <div
+      <div data-wt-control="container"
         className="min-w-0"
         onClick={fetchPermanentCities}
       >

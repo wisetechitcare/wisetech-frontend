@@ -4,6 +4,7 @@ import { SECTION_ICON } from "@hooks/useNavContainers";
 import { sectionAccent } from "@components/navigation/NavContainers/navTheme";
 import { navIcon } from "@components/navigation/NavContainers/navIcons";
 import { AppIcon, WtButton, WtIconButton, WtTooltip } from "@app/modules/common/components/ui";
+import { Item } from "@/ds/ui/item";
 import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
 import type { EffLevel } from "./accessControlTypes";
@@ -190,9 +191,12 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
               const openCount = leaves.filter(isOpenLevel).length;
               const GroupIcon = navIcon(SECTION_ICON[row.group.id]);
               return (
-                <div
+                <Item
                   key={row.key}
+                  render={<button type="button" />}
+                  aria-expanded={row.open}
                   onClick={() => { if (!q) toggle(row.key); }}
+                  className="flex-nowrap border-0"
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px 6px", marginTop: 6, cursor: q ? "default" : "pointer", userSelect: "none" }}
                 >
                   {chevron(row.open, !q)}
@@ -206,7 +210,7 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
                       {openCount}/{leaves.length} open
                     </span>
                   )}
-                </div>
+                </Item>
               );
             }
             const { node, depth } = row;
@@ -216,6 +220,18 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
             const isCustom = !hasTabs && !kids && employee && (customModules?.has(node.module) ?? false);
             const tabsOpen = hasTabs ? node.children!.filter((c) => isOpenLevel(c.module)).length : 0;
             const Icon = navIcon(node.icon === "bi-dot" ? undefined : node.icon);
+            const name = (
+              <>
+                {chevron(row.open, hasTabs)}
+                {node.icon === "bi-dot"
+                  // A module's tab: a bullet in the department's colour, as in a sidebar menu.
+                  ? <span className={accent.icon} style={{ width: 17, display: "inline-flex", justifyContent: "center", flexShrink: 0 }}><span style={{ width: 5, height: 5, borderRadius: 999, background: "currentColor" }} /></span>
+                  : <Icon className={`shrink-0 ${accent.icon}`} sx={{ fontSize: 17 }} />}
+                <span style={{ fontWeight: hasTabs ? 600 : 500, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {node.label}
+                </span>
+              </>
+            );
             return (
               <div
                 key={row.key}
@@ -223,21 +239,24 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
                 onMouseEnter={(e) => { if (!dirty) (e.currentTarget as HTMLElement).style.background = "rgba(100,116,139,0.08)"; }}
                 onMouseLeave={(e) => { if (!dirty) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, cursor: hasTabs ? "pointer" : "default" }}
-                  onClick={() => { if (hasTabs && !q) toggle(node.module); }}
-                >
-                  {chevron(row.open, hasTabs)}
-                  {node.icon === "bi-dot"
-                    // A module's tab: a bullet in the department's colour, as in a sidebar menu.
-                    ? <span className={accent.icon} style={{ width: 17, display: "inline-flex", justifyContent: "center", flexShrink: 0 }}><span style={{ width: 5, height: 5, borderRadius: 999, background: "currentColor" }} /></span>
-                    : <Icon className={`shrink-0 ${accent.icon}`} sx={{ fontSize: 17 }} />}
-                  <span style={{ fontWeight: hasTabs ? 600 : 500, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {node.label}
-                  </span>
-                  {hasTabs && <span style={{ fontSize: 11, color: "#8893a0" }}>{tabsOpen}/{node.children!.length}</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                  {/* Only the name toggles the row's tabs. The chips beside it are controls of their own
+                      (with dialogs whose clicks bubble through the React tree), so they sit next to the
+                      toggle rather than inside it, which is what used to need a stopPropagation on each. */}
+                  {hasTabs ? (
+                    <Item
+                      render={<button type="button" />}
+                      aria-expanded={row.open}
+                      onClick={() => { if (!q) toggle(node.module); }}
+                      className="w-auto flex-nowrap border-0 p-0"
+                      style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, cursor: "pointer" }}
+                    >
+                      {name}
+                      <span style={{ fontSize: 11, color: "#8893a0" }}>{tabsOpen}/{node.children!.length}</span>
+                    </Item>
+                  ) : name}
                   {((tabs && SECTION_TABS[node.module]) || kids) && (
-                    <span onClick={(e) => e.stopPropagation()}>
+                    <span>
                       <AdvancedTabsButton
                         section={node.module} label={node.label} icon={node.icon} readOnly={readOnly}
                         level={kids ? compositeLevel(kids, levels) : levels[node.module] || "none"}
@@ -246,10 +265,10 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
                     </span>
                   )}
                   {pinSubject && SECURITY_PIN_ROW_AREAS[node.module] && (
-                    <span onClick={(e) => e.stopPropagation()}><SecurityPinRowChip subject={pinSubject} label={node.label} areas={SECURITY_PIN_ROW_AREAS[node.module]} /></span>
+                    <span><SecurityPinRowChip subject={pinSubject} label={node.label} areas={SECURITY_PIN_ROW_AREAS[node.module]} /></span>
                   )}
                   {pinSubject && node.module === "settings.developerMfa" && (
-                    <span onClick={(e) => e.stopPropagation()}><SupportAccessPolicyChip subject={pinSubject} /></span>
+                    <span><SupportAccessPolicyChip subject={pinSubject} /></span>
                   )}
                   {isCustom && (
                     <span style={{ fontSize: 9.5, fontWeight: 600, color: ACCENT, background: "rgba(37,99,235,0.1)", borderRadius: 999, padding: "2px 8px", textTransform: "uppercase", letterSpacing: ".4px", flexShrink: 0 }}>Custom</span>

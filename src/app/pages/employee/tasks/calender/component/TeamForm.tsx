@@ -4,6 +4,8 @@ import { deleteConfirmation, removeConfirmation, successConfirmation } from '@ut
 import { canSection } from '@utils/can'
 import React, { useState, useEffect } from 'react'
 import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui'
+import { Button } from '@/ds/ui/button'
+import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton'
 
 // Types
 interface TeamMember {
@@ -451,9 +453,8 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                         >
                             {isEditMode ? 'Edit Team' : 'Add New Team'}
                         </h4>
-                        <button
+                        <WtCloseButton
                             type="button"
-                            className="btn-close"
                             data-unsaved-changes-close
                             onClick={onHide}
                             aria-label="Close"
@@ -556,23 +557,14 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                 >
                                     Team Members
                                 </label>
-                                {canWrite && <button
+                                {canWrite && <Button
                                     type="button"
-                                    className="btn btn-sm"
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => setShowAddMemberModal(true)}
-                                    style={{
-                                        border: '1px solid #1E3A8A',
-                                        padding: '8px 18px',
-                                        borderColor: '#1E3A8A',
-                                        color: '#1E3A8A',
-                                        fontFamily: 'Inter',
-                                        fontSize: '14px',
-                                        fontWeight: '500',
-                                        borderRadius: '6px'
-                                    }}
                                 >
                                     Add Member
-                                </button>}
+                                </Button>}
                             </div>
 
                             {/* Members Table */}
@@ -693,20 +685,15 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                         >
                                                             <div className="d-flex gap-3 align-items-center">
                                                                 {canWrite && member.role !== 'TEAM_LEADER' && (
-                                                                    <button
+                                                                    <Button
                                                                         type="button"
-                                                                        className="btn btn-link btn-sm p-0 d-flex align-items-center gap-1"
+                                                                        variant="link"
+                                                                        size="sm"
+                                                                        className="d-flex"
                                                                         onClick={() => handleMakeTeamLeader(member.id)}
-                                                                        style={{
-                                                                            color: '#1E3A8A',
-                                                                            textDecoration: 'none',
-                                                                            fontFamily: 'Inter',
-                                                                            fontSize: '14px',
-                                                                            fontWeight: '500',
-                                                                            whiteSpace: "nowrap"
-                                                                        }}
                                                                     >
                                                                         <svg
+                                                                            data-icon="inline-start"
                                                                             width="16"
                                                                             height="16"
                                                                             fill="currentColor"
@@ -715,21 +702,17 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                                                                         </svg>
                                                                         Make Team Leader
-                                                                    </button>
+                                                                    </Button>
                                                                 )}
-                                                                {canWrite && <button
+                                                                {canWrite && <Button
                                                                     type="button"
-                                                                    className="btn btn-link btn-sm p-0 d-flex align-items-center gap-1"
+                                                                    variant="link"
+                                                                    size="sm"
+                                                                    className="d-flex"
                                                                     onClick={() => handleRemoveMember(member.id)}
-                                                                    style={{
-                                                                        color: '#1E3A8A',
-                                                                        textDecoration: 'none',
-                                                                        fontFamily: 'Inter',
-                                                                        fontSize: '14px',
-                                                                        fontWeight: '500'
-                                                                    }}
                                                                 >
                                                                     <svg
+                                                                        data-icon="inline-start"
                                                                         width="16"
                                                                         height="16"
                                                                         fill="currentColor"
@@ -738,7 +721,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                         <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                                                                     </svg>
                                                                     Remove
-                                                                </button>}
+                                                                </Button>}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -783,9 +766,8 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                         >
                                             Add Team Member
                                         </h5>
-                                        <button
+                                        <WtCloseButton
                                             type="button"
-                                            className="btn-close"
                                             data-unsaved-changes-close
                                             onClick={() => setShowAddMemberModal(false)}
                                             aria-label="Close"
@@ -837,24 +819,23 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
                                                 </svg>
                                                 {searchTerm && (
-                                                    <button
+                                                    <Button
                                                         type="button"
-                                                        className="btn btn-sm position-absolute"
+                                                        variant="ghost"
+                                                        size="icon-xs"
+                                                        aria-label="Clear search"
+                                                        className="position-absolute"
                                                         style={{
                                                             right: '10px',
                                                             top: '50%',
                                                             transform: 'translateY(-50%)',
-                                                            padding: '0',
-                                                            border: 'none',
-                                                            background: 'none',
-                                                            color: '#8998ab'
                                                         }}
                                                         onClick={() => setSearchTerm('')}
                                                     >
                                                         <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
                                                             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                                                         </svg>
-                                                    </button>
+                                                    </Button>
                                                 )}
                                             </div>
                                         </div>
@@ -1072,23 +1053,12 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                     </div>
 
                                     <div className="d-flex gap-2">
-                                        <button
+                                        <Button
                                             type="button"
-                                            className="btn"
                                             onClick={handleAddSelectedEmployees}
-                                            style={{
-                                                backgroundColor: '#1E3A8A',
-                                                borderColor: '#1E3A8A',
-                                                color: 'white',
-                                                fontFamily: 'Inter',
-                                                fontSize: '14px',
-                                                fontWeight: '500',
-                                                borderRadius: '6px',
-                                                padding: '8px 20px'
-                                            }}
                                         >
                                             Add Members ({selectedEmployees.length})
-                                        </button>
+                                        </Button>
                                         {/* <button
                                             type="button"
                                             className="btn btn-secondary"
@@ -1110,42 +1080,21 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
 
                         {/* Action Buttons */}
                         <div className="d-flex gap-3 mt-3">
-                            {canWrite && <button
+                            {canWrite && <Button
                                 type="button"
-                                className="btn"
                                 onClick={handleSave}
-                                style={{
-                                    backgroundColor: '#1E3A8A',
-                                    borderColor: '#1E3A8A',
-                                    color: 'white',
-                                    fontFamily: 'Inter',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    borderRadius: '6px',
-                                    padding: '8px 20px'
-                                }}
                             >
                                 Save
-                            </button>}
+                            </Button>}
 
                             {canWrite && isEditMode && (
-                                <button
+                                <Button
                                     type="button"
-                                    className="btn"
+                                    variant="outline"
                                     onClick={handleDelete}
-                                    style={{
-                                        borderColor: '#1E3A8A',
-                                        color: '#1E3A8A',
-                                        fontFamily: 'Inter',
-                                        fontSize: '14px',
-                                        fontWeight: '500',
-                                        borderRadius: '6px',
-                                        border: '1px solid #1E3A8A',
-                                        padding: '8px 18px',
-                                    }}
                                 >
                                     Delete Team
-                                </button>
+                                </Button>
                             )}
                         </div>
                     </div>

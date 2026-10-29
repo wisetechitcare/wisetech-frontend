@@ -46,7 +46,7 @@ export function WizardFooterActions({
       <Box sx={{ display: "flex", gap: 1, flex: { xs: "1 1 100%", sm: "1 1 auto" }, justifyContent: "flex-end", "& > .MuiButton-root": { flex: { xs: 1, sm: "none" } } }}>
         <WtButton ghost startIcon={<ChevronLeft />} onClick={onBack} disabled={backDisabled || isSubmitting}>Back</WtButton>
         {nextSlot ?? (
-          <WtButton tone="primary" endIcon={<ChevronRight />} onClick={onNext} disabled={isSubmitting || nextDisabled}>
+          <WtButton tone="accent" endIcon={<ChevronRight />} onClick={onNext} disabled={isSubmitting || nextDisabled}>
             {isSubmitting ? "Saving…" : nextLabel}
           </WtButton>
         )}

@@ -9,6 +9,7 @@ import {Link} from 'react-router-dom'
 import {toAbsoluteUrl} from '../../../../_metronic/helpers'
 import {PasswordMeterComponent} from '../../../../_metronic/assets/ts/components'
 import {useAuth} from '../core/Auth'
+import {Button} from '@/ds/ui/button'
 
 const initialValues = {
   firstname: '',
@@ -287,28 +288,26 @@ export function Registration() {
 
       {/* begin::Form group */}
       <div className='text-center'>
-        <button
+        <Button
           type='submit'
           id='kt_sign_up_submit'
-          className='btn btn-lg btn-primary w-100 mb-5'
+          size='lg'
+          className='w-100 mb-5'
           disabled={formik.isSubmitting || !formik.isValid || !formik.values.acceptTerms}
+          loading={loading}
         >
-          {!loading && <span className='indicator-label'>Submit</span>}
-          {loading && (
-            <span className='indicator-progress' style={{display: 'block'}}>
-              Please wait...{' '}
-              <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-            </span>
-          )}
-        </button>
+          {loading ? 'Please wait...' : 'Submit'}
+        </Button>
         <Link to='/auth/login'>
-          <button
+          <Button
             type='button'
             id='kt_login_signup_form_cancel_button'
-            className='btn btn-lg btn-light-primary w-100 mb-5'
+            variant='tinted'
+            size='lg'
+            className='w-100 mb-5'
           >
             Cancel
-          </button>
+          </Button>
         </Link>
       </div>
       {/* end::Form group */}

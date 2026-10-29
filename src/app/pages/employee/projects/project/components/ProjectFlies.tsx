@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { KTIcon } from "@metronic/helpers";
+import { Button } from '@/ds/ui/button';
 
 const ProjectFiles = ({ projectId }: { projectId: string }) => {
   const [projectData, setProjectData] = useState<any[]>([]);
@@ -81,9 +82,9 @@ const ProjectFiles = ({ projectId }: { projectId: string }) => {
       header: "Actions",
       Cell: ({ row }: any) => (
         <div style={{ display: "flex", gap: "8px" }}>
-          <button className="btn btn-icon btn-active-color-primary btn-sm w-[20px]" onClick={() => handleViewDocument(row?.original?.media || row?.original?.path)}>          
+          <Button variant="ghost" size="icon-sm" type="submit" aria-label="View" className="w-[20px]" onClick={() => handleViewDocument(row?.original?.media || row?.original?.path)}>          
               {<KTIcon iconName='eye' className='fs-1' />}
-          </button>,
+          </Button>,
         </div>
       ),
     },

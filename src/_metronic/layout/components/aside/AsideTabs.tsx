@@ -56,7 +56,7 @@ const AsideTabs: FC<Props> = ({link, setLink}) => (
       {tabs.map((t) => (
         <li key={t.link}>
           {/* begin::Nav link */}
-          <a
+          <a data-wt-control="tab"
             className={clsx(
               'nav-link btn btn-icon btn-active-color-primary btn-color-gray-500 btn-active-light',
               {active: t.link === link}

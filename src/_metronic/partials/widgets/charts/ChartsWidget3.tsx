@@ -2,6 +2,7 @@
 import ApexCharts, {ApexOptions} from 'apexcharts'
 import {getCSSVariableValue} from '../../../assets/ts/_utils'
 import {useThemeMode} from '../../layout/theme-mode/ThemeModeProvider'
+import { buttonVariants } from '@/ds/ui/button';
 
 type Props = {
   className: string
@@ -45,22 +46,22 @@ const ChartsWidget3: React.FC<Props> = ({className}) => {
 
         {/* begin::Toolbar */}
         <div className='card-toolbar' data-kt-buttons='true'>
-          <a
-            className='btn btn-sm btn-color-muted btn-active btn-active-primary active px-4 me-1'
+          <a data-slot="button"
+            className={buttonVariants({ variant: 'ghost', size: 'sm', className: "active me-1" })}
             id='kt_charts_widget_3_year_btn'
           >
             Year
           </a>
 
-          <a
-            className='btn btn-sm btn-color-muted btn-active btn-active-primary px-4 me-1'
+          <a data-slot="button"
+            className={buttonVariants({ variant: 'ghost', size: 'sm', className: "me-1" })}
             id='kt_charts_widget_3_month_btn'
           >
             Month
           </a>
 
-          <a
-            className='btn btn-sm btn-color-muted btn-active btn-active-primary px-4'
+          <a data-slot="button"
+            className={buttonVariants({ variant: 'ghost', size: 'sm' })}
             id='kt_charts_widget_3_week_btn'
           >
             Week

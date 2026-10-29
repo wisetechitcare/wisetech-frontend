@@ -97,6 +97,8 @@ export interface CourtesyRecipient {
   assigneeName?: string;
   remark?: string;
   skippedReason?: SkippedReason;
+  /** YYYY-MM-DD the gift was handed over; the API fills today when marked Delivered. */
+  deliveredOn?: string | null;
   rosterSource?: RecipientRosterSource;
   updatedAt: string;
 }

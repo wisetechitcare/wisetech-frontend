@@ -1,10 +1,7 @@
-import { Dialog, DialogContent, DialogTitle, IconButton } from "@mui/material";
+import { Dialog, DialogContent, DialogTitle } from "@mui/material";
 import type { Breakpoint } from "@mui/material";
-import CloseIconModule from "@mui/icons-material/Close";
 import type { ReactNode } from "react";
-import { resolveReactComponent } from "@utils/resolveReactComponent";
-
-const CloseIcon = resolveReactComponent<typeof CloseIconModule>(CloseIconModule);
+import { WtCloseButton } from "@app/modules/common/components/ui/tw/WtCloseButton";
 
 export interface DrillDownDialogProps {
   open: boolean;
@@ -62,20 +59,17 @@ export const DrillDownDialog = ({
     sx={{ zIndex: DRILLDOWN_Z_INDEX }}
   >
     <DialogTitle sx={{ m: 0, p: 0, position: "relative" }}>
-      <IconButton
-        aria-label="close"
+      <WtCloseButton
+        variant="plain"
         onClick={onClose}
-        sx={{
+        style={{
           position: "absolute",
           right: 8,
           top: 8,
           // Keep the close affordance above the body toolbar once content fills width.
           zIndex: 1,
-          color: (theme) => theme.palette.grey[500],
         }}
-      >
-        <CloseIcon />
-      </IconButton>
+      />
     </DialogTitle>
     <DialogContent className="!p-0 !shadow-none">
       <div

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { Button, IconButton } from "@mui/material";
+import { Button } from "@/ds/ui/button";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import { MRT_ColumnDef } from "material-react-table";
@@ -204,19 +204,16 @@ const RemindersTable = () => {
           },
         },
         Cell: ({ row }) => (
-          <span
+          <Button
+            variant="link"
+            size="xs"
+            className="h-auto p-0"
             onClick={() =>
               handleReferenceClick(row.original.reference, row.original.referenceType)
             }
-            style={{
-              color: "#b22e2e",
-              textDecoration: "underline",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
           >
             {row.original.reference}
-          </span>
+          </Button>
         ),
       },
       {
@@ -232,38 +229,32 @@ const RemindersTable = () => {
         },
         Cell: ({ row }) => (
           <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                cursor: "pointer",
-                gap: "4px",
-              }}
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => handleCompleted(row.original.id)}
             >
               <CheckCircleOutlineIcon
+                data-icon="inline-start"
                 sx={{ fontSize: "20px", color: "#2d8e7c" }}
               />
               <span style={{ color: "#2d8e7c", fontSize: "14px" }}>
                 Completed
               </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                cursor: "pointer",
-                gap: "4px",
-              }}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => handleDismiss(row.original.id)}
             >
               <CancelOutlinedIcon
+                data-icon="inline-start"
                 sx={{ fontSize: "20px", color: "#b22e2e" }}
               />
               <span style={{ color: "#b22e2e", fontSize: "14px" }}>
                 Dismiss
               </span>
-            </div>
+            </Button>
           </div>
         ),
       },
@@ -320,50 +311,22 @@ const RemindersTable = () => {
             Reminders
           </h2>
           <div style={{ display: "flex", gap: "12px" }}>
-            <Button
-              variant="outlined"
-              onClick={handleViewAll}
-              sx={{
-                borderColor: "#1E3A8A",
-                color: "#1E3A8A",
-                textTransform: "none",
-                fontSize: "14px",
-                fontWeight: 500,
-                padding: "10px 14px",
-                borderRadius: "6px",
-                "&:hover": {
-                  borderColor: "#1E3A8A",
-                  backgroundColor: "rgba(30, 58, 138, 0.04)",
-                },
-              }}
-            >
+            {/* No destination exists yet (handleViewAll is a stub), so this stays a button. */}
+            <Button variant="outline" onClick={handleViewAll}>
               View all
             </Button>
-            <Button
-              variant="contained"
-              onClick={handleNewReminder}
-              sx={{
-                backgroundColor: "#1E3A8A",
-                color: "white",
-                textTransform: "none",
-                fontSize: "14px",
-                fontWeight: 500,
-                padding: "10px 20px",
-                borderRadius: "6px",
-                height: "40px",
-                "&:hover": {
-                  backgroundColor: "#8a3939",
-                },
-              }}
-            >
+            <Button onClick={handleNewReminder}>
               New Reminder
             </Button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "8px" }} role="tablist">
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "received"}
             onClick={() => setActiveTab("received")}
             style={{
               padding: "7px 12px",
@@ -382,6 +345,9 @@ const RemindersTable = () => {
             Received
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "sent"}
             onClick={() => setActiveTab("sent")}
             style={{
               padding: "7px 12px",

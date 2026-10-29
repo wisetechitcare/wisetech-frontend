@@ -41,6 +41,7 @@ import {
   ConfigColorChip,
   ConfigChipGrid,
 } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
 
 /**
  * One delete flow for every list on this screen: confirm, optionally transfer, then
@@ -172,24 +173,24 @@ const MeetingScheduleChip: React.FC<{
         </div>
 
         <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
-          <button
+          <Button
+            variant="tinted"
+            size="icon-xs"
+            aria-label={`Edit ${schedule.name}`}
             onClick={onEdit}
-            style={{
-              background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
-              padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center',
-            }}
+            style={{ '--tint': '#4f82c4' } as React.CSSProperties}
           >
             <AppIcon name="bi-pencil" className="fs-8" />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="tinted"
+            size="icon-xs"
+            aria-label={`Delete ${schedule.name}`}
             onClick={onDelete}
-            style={{
-              background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
-              padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center',
-            }}
+            style={{ '--tint': 'var(--cta-danger)' } as React.CSSProperties}
           >
             <AppIcon name="bi-trash" className="fs-8" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

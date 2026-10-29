@@ -6,6 +6,7 @@ import {
   Table, TableHead, TableBody, TableFooter, TableRow, TableCell, IconButton, Menu,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
+import { Button } from "@/ds/ui/button";
 import { TRIO, WtButton, toast } from "@app/modules/common/components/ui";
 import {
   listInvoices, accessInvoice, downloadInvoiceWord,
@@ -271,15 +272,17 @@ const InvoicesPage: React.FC = () => {
                     <BillingStatusBadge status={invoice.currentStatus || ""} />
                   </TableCell>
                   <TableCell align="center">
-                    <IconButton
-                      size="small"
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Invoice actions"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleMenuOpen(invoice.id, e);
                       }}
                     >
                       <KTIcon iconName="dots-vertical" className="fs-6" />
-                    </IconButton>
+                    </Button>
                     <Menu
                       anchorEl={anchorEl[invoice.id]}
                       open={Boolean(anchorEl[invoice.id])}

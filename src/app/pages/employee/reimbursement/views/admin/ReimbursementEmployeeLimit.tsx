@@ -13,6 +13,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 // ─── Small icon-only action button, matches the hover-tint pattern used by ──
 // the other configuration pages' chip edit/delete controls.
@@ -31,29 +32,16 @@ const RowIconBtn: React.FC<{
   }[tone];
 
   return (
-    <button
+    <Button variant="ghost" size="icon-sm"
       type="button"
       title={title}
       disabled={disabled}
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{
-        background: hov && !disabled ? TONE.bg : "transparent",
-        border: "none",
-        borderRadius: RADIUS.sm,
-        padding: "6px 8px",
-        cursor: disabled ? "not-allowed" : "pointer",
-        color: hov && !disabled ? TONE.color : C.textMuted,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: disabled ? 0.5 : 1,
-        transition: "all 0.15s ease",
-      }}
     >
       <AppIcon name={icon} className="fs-6" />
-    </button>
+    </Button>
   );
 };
 

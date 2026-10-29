@@ -8,6 +8,7 @@ import { DATE_SETTINGS_KEY } from "@constants/configurations-key";
 import CompanyOverViewToggle from "./components/CompanyOverViewToggle";
 import CompanyChartSettingsModal from "./components/CompanyChartSettingsModal";
 import { canSection } from "@utils/can";
+import { Button } from "@/ds/ui/button";
 
 function CompanyOverview() {
   const [show, setShow] = useState(false);
@@ -83,17 +84,14 @@ function CompanyOverview() {
             />
           </svg>
           {canSection("crm.companies", "write") && (
-            <button className="btn btn-primary" onClick={() => setShow(true)}>
+            <Button onClick={() => setShow(true)}>
               New Company
-            </button>
+            </Button>
           )}
           {canSection("crm.contacts", "write") && (
-            <button
-              className="btn btn-primary"
-              onClick={() => setShowContact(true)}
-            >
+            <Button onClick={() => setShowContact(true)}>
               New Contact
-            </button>
+            </Button>
           )}
         </div>
       </div>

@@ -15,6 +15,7 @@ import { faqsIcons } from '@metronic/assets/sidepanelicons';
 import { IFaqs } from '@models/company';
 import { fetchAllFaqs, fetchCompanyOverview } from '@services/company';
 import { useEventBus } from '@hooks/useEventBus';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 const RuleMainPage = () => {
   const [selectedCategory, setSelectedCategory] = useState<RuleCategory>('Attendance');
@@ -159,7 +160,7 @@ const RuleMainPage = () => {
           }}
         >
           {categories.map((category) => (
-            <div
+            <div data-wt-control="row" {...pressableProps(() => setSelectedCategory(category))}
               key={category}
               onClick={() => setSelectedCategory(category)}
               style={{

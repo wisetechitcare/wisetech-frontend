@@ -21,7 +21,7 @@ export const NotificationSnackbar = forwardRef<HTMLButtonElement, Props>(
       unreadCount === 1 ? '1 unread notification' : `${unreadCount} unread notifications`;
 
     return (
-      <button
+      <button data-wt-control="row"
         type="button"
         className="wt-snack"
         ref={ref}

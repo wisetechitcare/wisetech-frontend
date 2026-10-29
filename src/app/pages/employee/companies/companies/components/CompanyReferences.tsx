@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import AnalyticsTab from "@app/modules/common/components/AnalyticsTab";
 import { ToneChip } from "@app/modules/common/components/ui";
@@ -36,7 +36,6 @@ const referenceRow = (r: ReferredCompanyReference) => ({
 });
 
 const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference[] }> = ({ referredCompanies = [] }) => {
-  const navigate = useNavigate();
 
   const columns = [
     {
@@ -57,13 +56,13 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
         const c = (row.original as ReferredCompanyReference).company;
         if (!c) return <span className="text-muted">—</span>;
         return (
-          <button
-            className="btn btn-link p-0 text-start text-decoration-none fw-semibold"
+          <Link
+            to={`/companies/${c.id}`}
+            className="text-start text-decoration-none fw-semibold"
             style={{ color: "inherit", fontSize: "14px" }}
-            onClick={() => navigate(`/companies/${c.id}`)}
           >
             {c.companyName}
-          </button>
+          </Link>
         );
       },
     },

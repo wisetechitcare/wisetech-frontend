@@ -336,7 +336,7 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
             {/* View AND edit both use the SAME canonical Apply-Leave modal (mode-driven). It owns
                 its own card chrome, so we provide the backdrop (as MyLeaveView does). */}
             {detailGroup && (
-                <div
+                <div data-wt-control="backdrop"
                     onClick={(e) => { if (e.target === e.currentTarget) { setDetailGroup(null); fetchLeaves(); } }}
                     style={{
                         position: 'fixed', inset: 0, zIndex: 1050, background: 'rgba(15,23,42,.45)', display: 'flex',

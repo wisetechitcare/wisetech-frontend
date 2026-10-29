@@ -882,6 +882,7 @@ export async function updateRecipientToApi(
       | "assigneeName"
       | "remark"
       | "skippedReason"
+      | "deliveredOn"
     >
   >,
 ) {
@@ -907,6 +908,7 @@ export function updateRecipient(
       | "assigneeName"
       | "remark"
       | "skippedReason"
+      | "deliveredOn"
     >
   >,
 ) {
@@ -964,6 +966,7 @@ export async function bulkUpdateRecipientsToApi(
       | "assigneeName"
       | "remark"
       | "skippedReason"
+      | "deliveredOn"
     >
   >,
 ) {

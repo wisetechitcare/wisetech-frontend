@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import { WtField } from '@app/modules/common/components/ui/WtField';
 import { toast } from '@app/modules/common/components/ui/feedback';
@@ -13,6 +12,7 @@ import { fetchRoles } from '@services/roles';
 import { CompactPeoplePicker } from './CompactPeoplePicker';
 import { useSupportAccessPolicy } from './useSupportAccessPolicy';
 import type { SecurityPinSubject } from './useSecurityPinPolicy';
+import { WtButton } from '@app/modules/common/components/ui/buttons';
 
 /**
  * Three choices only — no repeated “Admins approve” lines.
@@ -276,14 +276,14 @@ export function SupportAccessPolicyControl({
                     <Typography sx={{ m: 0, fontSize: 12.5, color: '#64748B', lineHeight: 1.4 }}>
                         Approvers: Admins
                     </Typography>
-                    <Button
+                    <WtButton variant="text"
                         size="small"
                         disabled={fieldDisabled}
                         onClick={() => setCustomizeApprovers(true)}
                         sx={{ textTransform: 'none', fontSize: 12, minWidth: 0, px: 0.5 }}
                     >
                         Change
-                    </Button>
+                    </WtButton>
                 </Box>
             )}
 
@@ -319,7 +319,7 @@ export function SupportAccessPolicyControl({
                         disabled={fieldDisabled || directoryLoading}
                     />
                     {(approverRoleIds.length > 0 || approverEmployeeIds.length > 0) && (
-                        <Button
+                        <WtButton variant="text"
                             size="small"
                             disabled={fieldDisabled}
                             onClick={() => {
@@ -329,7 +329,7 @@ export function SupportAccessPolicyControl({
                             sx={{ textTransform: 'none', fontSize: 12, alignSelf: 'flex-start', minWidth: 0, px: 0.5 }}
                         >
                             Reset to Admins
-                        </Button>
+                        </WtButton>
                     )}
                 </>
             )}

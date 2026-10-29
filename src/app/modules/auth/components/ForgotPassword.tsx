@@ -9,6 +9,7 @@ import { redirect, saveToken } from '@redux/slices/auth'
 import { setAuth } from '../core/AuthHelpers'
 import {toAbsoluteUrl} from '@metronic/helpers/AssetHelpers'
 import { fetchCompanyLogo } from '@services/company'
+import { Button } from '@/ds/ui/button'
 
 const initialValues = {
   email: '',
@@ -112,21 +113,24 @@ export function ForgotPasswordForm() {
 
       {/* begin::Form group */}
       <div className='d-flex flex-wrap justify-content-center pb-lg-0'>
-        <button type='submit' id='kt_password_reset_submit' className='btn btn-primary me-4' disabled={loading || !formik.isValid || submitClick}>
-         {loading ? <span className='indicator-progress' style={{ display: 'block' }}>
-              Please wait...
-              <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-            </span> : 'Submit'}
-        </button>
+        <Button
+          type='submit'
+          id='kt_password_reset_submit'
+          className='me-4'
+          disabled={loading || !formik.isValid || submitClick}
+          loading={loading}
+        >
+          {loading ? 'Please wait...' : 'Submit'}
+        </Button>
         <Link to='/auth/login'>
-          <button
+          <Button
             type='button'
             id='kt_login_password_reset_form_cancel_button'
-            className='btn btn-light'
+            variant='outline'
             disabled={formik.isSubmitting || !formik.isValid}
           >
             Cancel
-          </button>
+          </Button>
         </Link>{' '}
       </div>
       {/* end::Form group */}

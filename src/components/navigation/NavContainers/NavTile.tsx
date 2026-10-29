@@ -59,7 +59,7 @@ export function NavOpenerTile({
   visual, accent, onOpen,
 }: { visual: NavTileVisual; accent: SectionAccent; onOpen: () => void }) {
   return (
-    <button type="button" onClick={onOpen} aria-haspopup="dialog" title={visual.title} className={TILE_CELL}>
+    <button data-wt-control="tile" type="button" onClick={onOpen} aria-haspopup="dialog" title={visual.title} className={TILE_CELL}>
       <TileFace visual={visual} accent={accent} />
     </button>
   );

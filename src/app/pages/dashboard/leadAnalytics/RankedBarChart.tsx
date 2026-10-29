@@ -5,6 +5,7 @@ import { useIsMobile } from "@components/navigation/BottomNavigation/useIsMobile
 import { formatCurrencyCompact, formatCurrencyRounded } from "@utils/currency";
 import { ChartDatum, ChartMetric, buildPalette, toRanked } from "./leadAnalyticsUtils";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface RankedBarChartProps {
   data: ChartDatum[];
@@ -211,49 +212,28 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
             <option value="name">A-Z</option>
           </select>
 
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="icon-xs"
             onClick={() => setSortDir(sortDir === "asc" ? "desc" : "asc")}
-            style={{
-              padding: "4px 8px",
-              border: "1px solid #E2E8F0",
-              borderRadius: 4,
-              background: "#fff",
-              color: "#475569",
-              fontFamily: "Inter, sans-serif",
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
             title={`Sort ${sortDir === "asc" ? "ascending" : "descending"}`}
+            aria-label={`Sort ${sortDir === "asc" ? "ascending" : "descending"}`}
           >
             <AppIcon name={sortDir === "asc" ? "bi-sort-up" : "bi-sort-down"} />
-          </button>
+          </Button>
         </div>
 
         {/* Fullscreen expander — only when there are more rows than the inline cap. */}
         {expandable && (
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="icon-sm"
             title="Expand to fullscreen"
+            aria-label="Expand to fullscreen"
             onClick={() => setIsFull(true)}
-            style={{
-              width: 28,
-              height: 28,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: "1px solid #E2E8F0",
-              borderRadius: 6,
-              background: "#fff",
-              boxShadow: "0 1px 2px rgba(15,23,42,0.06)",
-              cursor: "pointer",
-              color: "#475569",
-              padding: 0,
-            }}
           >
             <AppIcon name="bi-arrows-fullscreen" className="fs-8" />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -266,14 +246,9 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
 
       {expandable && (
         <div style={{ textAlign: "center", marginTop: 2 }}>
-          <button
-            type="button"
-            onClick={() => setIsFull(true)}
-            className="btn btn-sm btn-link text-primary fw-semibold p-0"
-            style={{ fontSize: 12, textDecoration: "none" }}
-          >
-            View all {rankedAll.length} <AppIcon name="bi-arrows-fullscreen" className="fs-9" />
-          </button>
+          <Button variant="link" size="sm" onClick={() => setIsFull(true)}>
+            View all {rankedAll.length} <AppIcon name="bi-arrows-fullscreen" className="fs-9" data-icon="inline-end" />
+          </Button>
         </div>
       )}
 
@@ -281,6 +256,8 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
       {isFull &&
         createPortal(
           <div
+            role="dialog"
+            aria-modal="true"
             style={{
               position: "fixed",
               inset: 0,
@@ -340,43 +317,19 @@ const RankedBarChart: React.FC<RankedBarChartProps> = ({
                   <option value="name">A-Z</option>
                 </select>
 
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="icon-sm"
                   onClick={() => setSortDir(sortDir === "asc" ? "desc" : "asc")}
-                  style={{
-                    padding: "6px 10px",
-                    border: "1px solid #E2E8F0",
-                    borderRadius: 6,
-                    background: "#fff",
-                    color: "#475569",
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
                   title={`Sort ${sortDir === "asc" ? "ascending" : "descending"}`}
+                  aria-label={`Sort ${sortDir === "asc" ? "ascending" : "descending"}`}
                 >
                   <AppIcon name={sortDir === "asc" ? "bi-sort-up" : "bi-sort-down"} />
-                </button>
+                </Button>
 
-                <button
-                  type="button"
-                  onClick={() => setIsFull(false)}
-                  className="d-flex align-items-center gap-2"
-                  style={{
-                    border: "1px solid #E2E8F0",
-                    borderRadius: 8,
-                    background: "#fff",
-                    padding: "7px 14px",
-                    fontFamily: "Inter, sans-serif",
-                    fontWeight: 600,
-                    fontSize: 13,
-                    color: "#475569",
-                    cursor: "pointer",
-                  }}
-                >
-                  <AppIcon name="bi-fullscreen-exit" className="fs-7" /> Close
-                </button>
+                <Button variant="outline" size="sm" onClick={() => setIsFull(false)}>
+                  <AppIcon name="bi-fullscreen-exit" className="fs-7" data-icon="inline-start" /> Close
+                </Button>
               </div>
             </div>
 

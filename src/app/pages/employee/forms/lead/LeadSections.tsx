@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Grid, Box, Typography, IconButton, CircularProgress, FormControlLabel } from "@mui/material";
+import { Grid, Box, Typography, CircularProgress, FormControlLabel } from "@mui/material";
 import { uploadLeadPoFile } from "@services/uploader";
 import axios from "axios";
 import { ProjectPointsSection } from "@app/modules/projectPoints";
@@ -7,7 +7,6 @@ import { ProjectPointsSection } from "@app/modules/projectPoints";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 import { FieldArray, useFormikContext } from "formik";
-import { Button } from "react-bootstrap";
 import { Close, Add, Delete, Help, CheckCircleOutline, InfoOutlined } from "@mui/icons-material";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
@@ -23,6 +22,9 @@ import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { canViewCommercial } from '@utils/can';
+import { Button } from '@/ds/ui/button';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 /** Formik setFieldValue — named so LeadSections / LeadWorkspace props stay readable. */
 export type LeadSetFieldValue = (field: string, value: any, shouldValidate?: boolean) => void;
@@ -284,13 +286,13 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
 
                   return (
                     <div key={index} className="p-4 border rounded bg-light position-relative">
-                      <IconButton
+                      <WtIconButton
                         onClick={() => remove(index)}
                         sx={{ position: "absolute", top: 8, right: 8, color: "red" }}
                         size="small"
                       >
                         <Close fontSize="small" />
-                      </IconButton>
+                      </WtIconButton>
                       <Grid container spacing={2}>
                         <Grid item xs={12} md={3}>
                           <DropDownInput
@@ -336,11 +338,9 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                 })}
                 {/* Single Address To — hidden once one client connection exists. */}
                 {(values.leadTeams || []).length === 0 && (
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
+                  <Button variant="inverted" size="sm"
                     onClick={() => push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })}
-                    className="align-self-start fw-bold mt-2"
+                    className="align-self-start mt-2"
                   >
                     + Add Client Company Connection
                   </Button>
@@ -547,14 +547,14 @@ export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
             <div style={{ marginTop: 8, fontSize: 12, color: "#b45309" }}>
               No direct sources configured yet.
               {props.setShowDirectSourceModal && (
-                <button
+                <Button variant="link"
                   type="button"
-                  className="btn btn-link p-0 ms-1 align-baseline fw-bold"
+                  className="ms-1 align-baseline"
                   style={{ fontSize: 12 }}
                   onClick={() => props.setShowDirectSourceModal(true)}
                 >
                   + Add a Direct Source
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -632,14 +632,13 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
           <div className="d-flex flex-column gap-3">
             {(values.referrals || []).map((ref: any, index: number) => (
               <div key={index} className="wt-entry-card">
-                <button
+                <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                   type="button"
-                  className="wt-entry-card-remove"
                   onClick={() => remove(index)}
                   aria-label="Remove referral"
                 >
                   <Close fontSize="small" />
-                </button>
+                </Button>
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={4}>
                     <DropDownInput
@@ -764,12 +763,10 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                 </Grid>
               </div>
             ))}
-            <Button
-              variant="outline-primary"
-              size="sm"
+            <Button variant="inverted" size="sm"
               type="button"
               onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "", referringContact: "" })}
-              className="align-self-start fw-bold mt-1"
+              className="align-self-start mt-1"
             >
               + Add Referral Source
             </Button>
@@ -926,13 +923,13 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
               return (
                   <div className="position-relative" key={index}>
                     {values.addresses.length > 1 && (
-                      <IconButton
+                      <WtIconButton
                         onClick={() => remove(index)}
                         sx={{ position: "absolute", top: -8, right: 0, color: "red", zIndex: 10 }}
                         size="small"
                       >
                         <Close fontSize="small" />
-                      </IconButton>
+                      </WtIconButton>
                     )}
                     <SmartLocationPicker
                       lat={addr.latitude}
@@ -1033,11 +1030,9 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
                   </div>
               );
             })}
-            <Button
-              variant="outline-primary"
-              size="sm"
+            <Button variant="inverted" size="sm"
               onClick={() => push({ projectAddress: "", country: "", state: "", city: "", locality: "", zipCode: "", mapLocation: "", googleMapLink: "", googleMyBusinessLink: "", latitude: "", longitude: "", isDefault: false })}
-              className="align-self-start fw-bold mt-2"
+              className="align-self-start mt-2"
             >
               + Add Address details
             </Button>
@@ -1186,7 +1181,7 @@ const PoFileUpload: React.FC = () => {
         }}
       />
 
-      <div
+      <div data-wt-control="dropzone"
         onClick={url ? undefined : openPicker}
         onDragOver={(e) => { e.preventDefault(); if (!dragging) setDragging(true); }}
         onDragLeave={() => setDragging(false)}
@@ -1221,17 +1216,17 @@ const PoFileUpload: React.FC = () => {
               </div>
               <div style={{ fontSize: 11, color: "#a1a5b7" }}>Uploaded</div>
             </div>
-            <IconButton size="small" title="Preview" onClick={() => window.open(url, "_blank", "noopener,noreferrer")}>
+            <WtIconButton size="small" title="Preview" onClick={() => window.open(url, "_blank", "noopener,noreferrer")}>
               <AppIcon name="bi-eye" className="fs-5" color="#5e6278" />
-            </IconButton>
-            <IconButton size="small" title="Replace" disabled={!!busy} onClick={openPicker}>
+            </WtIconButton>
+            <WtIconButton size="small" title="Replace" disabled={!!busy} onClick={openPicker}>
               <AppIcon name="bi-arrow-repeat" className="fs-5" color="#5e6278" />
-            </IconButton>
-            <IconButton size="small" title="Remove" disabled={!!busy} onClick={remove}>
+            </WtIconButton>
+            <WtIconButton size="small" title="Remove" disabled={!!busy} onClick={remove}>
               {busy === "remove"
                 ? <CircularProgress size={14} />
                 : <AppIcon name="bi-trash" className="fs-5" color="#d13438" />}
-            </IconButton>
+            </WtIconButton>
           </>
         ) : (
           <>
@@ -1526,16 +1521,14 @@ export const HandleBySection: React.FC<LeadSectionsProps> = (props) => {
                     type="number"
                   />
                 </div>
-                <IconButton onClick={() => remove(index)} color="error" className="mt-6">
+                <WtIconButton color="var(--cta-danger)" size="medium" onClick={() => remove(index)} className="mt-6">
                   <Delete />
-                </IconButton>
+                </WtIconButton>
               </div>
             ))}
-            <Button
-              variant="outline-primary"
-              size="sm"
+            <Button variant="inverted" size="sm"
               onClick={() => push({ employeeId: "", sharePercentage: "" })}
-              className="align-self-start fw-bold mt-2"
+              className="align-self-start mt-2"
             >
               + Add Work Handled Employee
             </Button>
@@ -1707,14 +1700,13 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
 
               return (
                 <div key={index} className="wt-entry-card">
-                  <button
+                  <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                     type="button"
-                    className="wt-entry-card-remove"
                     onClick={() => remove(index)}
                     aria-label="Remove company"
                   >
                     <Close fontSize="small" />
-                  </button>
+                  </Button>
                   <Grid container spacing={2}>
                     <Grid item xs={12} md={3}>
                       <DropDownInput
@@ -1784,14 +1776,12 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                 one-way into the project's External Team; additional stakeholders
                 are managed there, not here. */}
             {(values.leadTeams || []).length === 0 && (
-              <Button
-                variant="outline-primary"
-                size="sm"
+              <Button variant="inverted" size="sm"
                 type="button"
                 onClick={() =>
                   push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })
                 }
-                className="align-self-start fw-bold mt-1"
+                className="align-self-start mt-1"
               >
                 + Add Client Company Connection
               </Button>

@@ -24,6 +24,7 @@ import {
   RADIUS,
   KEYFRAMES,
 } from "@app/modules/configuration";
+import { Button as KitButton } from '@/ds/ui/button';
 
 const tooltipDescriptions: Record<string, string> = {
   "Working Days":
@@ -282,7 +283,7 @@ export default function KpiSettings() {
       <style>{KEYFRAMES}</style>
       <ConfigPageLayout>
         <div style={{ marginBottom: SP.lg }}>
-          <div
+          <div data-wt-control="container"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -344,34 +345,11 @@ export default function KpiSettings() {
                 badge={{ label: `${activeFactors.length}`, color: C.info, bg: '#dbeafe' }}
               >
                 {canEdit && (
-                  <button
+                  <KitButton size="sm" type="submit" style={{ marginBottom: SP.lg }}
                     onClick={() => openAddModal(section.moduleId, section.category)}
-                    style={{
-                      backgroundColor: C.info,
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: RADIUS.md,
-                      padding: `${SP.sm} ${SP.md}`,
-                      fontFamily: FONT.body,
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      marginBottom: SP.lg,
-                      transition: 'all 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#0066b3';
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = `0 6px 18px rgba(0, 133, 219, 0.3)`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = C.info;
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'none';
-                    }}
                   >
                     <AppIcon name="bi-plus" className="me-2" /> Add Factor
-                  </button>
+                  </KitButton>
                 )}
 
                 <div style={{ overflowX: 'auto', marginBottom: SP.lg }}>
@@ -487,29 +465,11 @@ export default function KpiSettings() {
                                     placement="top"
                                     overlay={<RBTooltip id={`edit-${factor.id}`}>Edit</RBTooltip>}
                                   >
-                                    <button
+                                    <KitButton variant="outline" size="sm" type="submit"
                                       onClick={() => openEditModal(factor, section.category)}
-                                      style={{
-                                        background: 'transparent',
-                                        border: `1px solid ${C.border}`,
-                                        color: C.primary,
-                                        cursor: 'pointer',
-                                        padding: '6px 8px',
-                                        borderRadius: RADIUS.md,
-                                        transition: 'all 0.2s ease',
-                                        fontSize: '14px',
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = C.bgSection;
-                                        e.currentTarget.style.color = C.primaryMid;
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                        e.currentTarget.style.color = C.primary;
-                                      }}
                                     >
                                       <AppIcon name="bi-pencil" />
-                                    </button>
+                                    </KitButton>
                                   </OverlayTrigger>
                                   <OverlayTrigger
                                     placement="top"
@@ -519,27 +479,11 @@ export default function KpiSettings() {
                                       </RBTooltip>
                                     }
                                   >
-                                    <button
+                                    <KitButton variant="outline" size="sm" type="submit"
                                       onClick={() => handleDeactivate(factor.id, factor.isActive)}
-                                      style={{
-                                        background: 'transparent',
-                                        border: `1px solid ${C.border}`,
-                                        color: factor.isActive ? C.success : C.textMuted,
-                                        cursor: 'pointer',
-                                        padding: '6px 8px',
-                                        borderRadius: RADIUS.md,
-                                        transition: 'all 0.2s ease',
-                                        fontSize: '14px',
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = C.bgSection;
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                      }}
                                     >
                                       <AppIcon name={factor.isActive ? 'bi-toggle-on' : 'bi-toggle-off'} />
-                                    </button>
+                                    </KitButton>
                                   </OverlayTrigger>
                                 </div>
                               ) : (
@@ -676,66 +620,19 @@ export default function KpiSettings() {
                   </div>
                 </Modal.Body>
                 <Modal.Footer style={{ borderTop: `1px solid ${C.border}`, padding: `${SP.lg}`, gap: SP.md }}>
-                  <button
+                  <KitButton variant="outline"
                     type="button"
                     onClick={() => setEditModal({ open: false, item: null, moduleName: "" })}
                     disabled={saving}
-                    style={{
-                      backgroundColor: C.bgCard,
-                      color: C.textSecondary,
-                      border: `1px solid ${C.border}`,
-                      borderRadius: RADIUS.md,
-                      padding: `8px 16px`,
-                      fontFamily: FONT.body,
-                      fontWeight: 500,
-                      fontSize: '13px',
-                      cursor: saving ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.2s ease',
-                      opacity: saving ? 0.6 : 1,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!saving) {
-                        e.currentTarget.style.backgroundColor = C.bgSection;
-                        e.currentTarget.style.borderColor = C.borderDark;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = C.bgCard;
-                      e.currentTarget.style.borderColor = C.border;
-                    }}
                   >
                     Cancel
-                  </button>
-                  <button
+                  </KitButton>
+                  <KitButton
                     type="submit"
                     disabled={saving}
-                    style={{
-                      backgroundColor: saving ? `${C.primary}80` : C.primary,
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: RADIUS.md,
-                      padding: '8px 16px',
-                      fontFamily: FONT.body,
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      cursor: saving ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!saving) {
-                        e.currentTarget.style.backgroundColor = C.primaryMid;
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = C.primary;
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'none';
-                    }}
                   >
                     {saving ? "Saving..." : "Save"}
-                  </button>
+                  </KitButton>
                 </Modal.Footer>
               </FormikForm>
             )}
@@ -871,66 +768,19 @@ export default function KpiSettings() {
                 />
               </Modal.Body>
               <Modal.Footer style={{ borderTop: `1px solid ${C.border}`, padding: `${SP.lg}`, gap: SP.md }}>
-                <button
+                <KitButton variant="outline"
                   type="button"
                   onClick={() => setAddModal({ open: false, moduleId: "", moduleName: "" })}
                   disabled={saving}
-                  style={{
-                    backgroundColor: C.bgCard,
-                    color: C.textSecondary,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: RADIUS.md,
-                    padding: `8px 16px`,
-                    fontFamily: FONT.body,
-                    fontWeight: 500,
-                    fontSize: '13px',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease',
-                    opacity: saving ? 0.6 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!saving) {
-                      e.currentTarget.style.backgroundColor = C.bgSection;
-                      e.currentTarget.style.borderColor = C.borderDark;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = C.bgCard;
-                    e.currentTarget.style.borderColor = C.border;
-                  }}
                 >
                   Cancel
-                </button>
-                <button
+                </KitButton>
+                <KitButton
                   type="submit"
                   disabled={saving}
-                  style={{
-                    backgroundColor: saving ? `${C.primary}80` : C.primary,
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: RADIUS.md,
-                    padding: '8px 16px',
-                    fontFamily: FONT.body,
-                    fontWeight: 600,
-                    fontSize: '13px',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!saving) {
-                      e.currentTarget.style.backgroundColor = C.primaryMid;
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = C.primary;
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
                 >
                   {saving ? "Adding..." : "Add Factor"}
-                </button>
+                </KitButton>
               </Modal.Footer>
             </FormikForm>
           )}

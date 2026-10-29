@@ -4,6 +4,7 @@ import CompaniesBranchForm from "./CompaniesBranchForm";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
+import { Button } from "@/ds/ui/button";
 import { RootState } from "@redux/store";
 import { useSelector } from "react-redux";
 import dayjs from "dayjs";
@@ -168,18 +169,22 @@ const CompaniesBranch = ({
         header: "Actions",
         Cell: ({ row }: any) => (
           <div className="d-flex align-items-center gap-2">
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Edit branch"
               onClick={() => handleEditBranch(row.original.id)}
             >
               <KTIcon iconName="pencil" className="fs-3" />
-            </button>
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Delete branch"
               onClick={() => handleDelete(row.original)}
             >
               <KTIcon iconName="trash" className="fs-3" />
-            </button>
+            </Button>
           </div>
         ),
       }] : []),

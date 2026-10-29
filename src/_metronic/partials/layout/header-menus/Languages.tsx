@@ -2,6 +2,7 @@
 import clsx from 'clsx'
 import {FC} from 'react'
 import {useLang, setLanguage} from '../../../i18n/Metronici18n'
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 const languages = [
   {
@@ -62,7 +63,9 @@ const Languages: FC = () => {
 
       <div className='menu-sub menu-sub-dropdown w-175px py-4'>
         {languages.map((l) => (
-          <div
+          <div data-wt-control="menuitem" {...pressableProps(() => {
+              setLanguage(l.lang)
+            })}
             className='menu-item px-3'
             key={l.lang}
             onClick={() => {
