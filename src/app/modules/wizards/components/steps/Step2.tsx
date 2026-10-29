@@ -37,7 +37,7 @@ const Step2: FC = () => {
               value='1-1'
               id='kt_account_team_size_select_1'
             />
-            <label
+            <label data-wt-control="option"
               className='btn btn-outline btn-outline-dashed btn-outline-default w-100 p-4'
               htmlFor='kt_account_team_size_select_1'
             >
@@ -53,7 +53,7 @@ const Step2: FC = () => {
               value='2-10'
               id='kt_account_team_size_select_2'
             />
-            <label
+            <label data-wt-control="option"
               className='btn btn-outline btn-outline-dashed btn-outline-default w-100 p-4'
               htmlFor='kt_account_team_size_select_2'
             >
@@ -69,7 +69,7 @@ const Step2: FC = () => {
               value='10-50'
               id='kt_account_team_size_select_3'
             />
-            <label
+            <label data-wt-control="option"
               className='btn btn-outline btn-outline-dashed btn-outline-default w-100 p-4'
               htmlFor='kt_account_team_size_select_3'
             >
@@ -85,7 +85,7 @@ const Step2: FC = () => {
               value='50+'
               id='kt_account_team_size_select_4'
             />
-            <label
+            <label data-wt-control="option"
               className='btn btn-outline btn-outline-dashed btn-outline-default w-100 p-4'
               htmlFor='kt_account_team_size_select_4'
             >

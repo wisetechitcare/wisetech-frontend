@@ -1,4 +1,6 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
+import { Item } from '@/ds/ui/item';
 
 import { useEffect, useState } from "react";
 import LeadWizardModal from "./LeadWizardModal";
@@ -75,9 +77,8 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
           }}
         >
           {/* Close Button */}
-          <button
-            type="button"
-            className="btn-close position-absolute"
+          <WtCloseButton
+            className="position-absolute"
             style={{
               top: "20px",
               right: "20px",
@@ -107,8 +108,10 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
           <div className="row g-3 g-md-4 mt-3">
             {Datas.map((template) => (
               <div className="col-12 col-md-6 col-lg-4 mb-4" key={template.id}>
-                <div
-                  className="d-flex flex-column justify-content-center align-items-center text-center h-100 transition-all"
+                <Item
+                  render={<button type="button" />}
+                  // Item's own focus ring is a box-shadow, which this card's inline shadow overrides.
+                  className="d-flex flex-column justify-content-center align-items-center text-center h-100 transition-all flex-nowrap gap-0 focus-visible:[outline:2px_solid_#1E3A8A] focus-visible:[outline-offset:2px]"
                   style={{
                     minHeight: "180px",
                     height: "clamp(160px, 20vw, 193px)",
@@ -134,14 +137,6 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
                   onClick={() => handleTemplateClick(template)}
                   onMouseEnter={() => setHoveredCard(template.id)}
                   onMouseLeave={() => setHoveredCard(null)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleTemplateClick(template);
-                    }
-                  }}
-                  tabIndex={0}
-                  role="button"
                   aria-label={`Select ${template.title}`}
                 >
                   <div
@@ -179,7 +174,7 @@ const DetailsModal = ({ open, onClose, closeDetailsModal, Datas, onLeadCreated }
                       }}
                     />
                   )}
-                </div>
+                </Item>
               </div>
             ))}
           </div>

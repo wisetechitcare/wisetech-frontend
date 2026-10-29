@@ -1,6 +1,6 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect, useRef } from "react";
-import { Button, Form, Row, Col, Badge } from "react-bootstrap";
+import { Form, Row, Col, Badge } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import {
   getProposalConfigurations,
@@ -16,6 +16,8 @@ import dayjs from "dayjs";
 import { ExportCenterModal } from "./dms/components/ExportCenterModal";
 import { useAuth } from "../../../../../modules/auth";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
+import { Button } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 interface ProposalTemplatePageProps {
   show: boolean;
@@ -1007,7 +1009,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             <h6 className="fw-bolder mb-5">Templates</h6>
             <div className="d-flex flex-column gap-2">
               {templates.map((tpl: any) => (
-                <div
+                <div data-wt-control="option" {...pressableProps(() => handleTemplateChange(tpl.id))}
                   key={tpl.id}
                   onClick={() => handleTemplateChange(tpl.id)}
                   className={`p-3 rounded-2 cursor-pointer mb-2 transition-all ${selectedTemplateId === tpl.id ? "bg-primary text-white" : "bg-hover-light border"}`}
@@ -1267,9 +1269,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
       </Modal.Body>
 
       <Modal.Footer className="bg-white border-top py-4 px-8 justify-content-between">
-        <Button
-          variant="light"
-          className="fw-bold px-6"
+        <Button variant="outline"
           data-unsaved-changes-close
           onClick={onHide}
           disabled={isGenerating}
@@ -1278,8 +1278,6 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         </Button>
         <div className="d-flex gap-3">
           <Button
-            variant="primary"
-            className="fw-bold px-8 shadow-sm"
             disabled={!canExport || isGenerating}
             onClick={() => setShowExportCenter(true)}
           >

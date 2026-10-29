@@ -13,6 +13,7 @@ import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { ToneChip } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
 
 interface FormValues {
     experience1: number;
@@ -504,33 +505,26 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
 
                     {/* Action Buttons */}
                     <div className="text-center pt-5">
-                        <button
+                        <Button
                             type="reset"
+                            variant="outline"
                             onClick={() => {
                                 formik.resetForm();
                                 if (onClose) onClose();
                             }}
-                            className="btn btn-light me-3"
+                            className="me-3"
                             disabled={loading}
                         >
                             Cancel
-                        </button>
+                        </Button>
 
-                        <button
+                        <Button
                             type="submit"
-                            className="btn btn-primary"
-                            disabled={loading || !formik.isValid}
+                            disabled={!formik.isValid}
+                            loading={loading}
                         >
-                            <span className="indicator-label">
-                                {loading ? 'Saving...' : 'Save Configuration'}
-                            </span>
-                            {loading && (
-                                <span className="indicator-progress">
-                                    Please wait...
-                                    <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                                </span>
-                            )}
-                        </button>
+                            {loading ? 'Saving...' : 'Save Configuration'}
+                        </Button>
                     </div>
                 </form>
             </KTCardBody>

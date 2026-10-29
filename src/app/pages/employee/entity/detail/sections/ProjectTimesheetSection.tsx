@@ -277,7 +277,7 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
                 { value: "nonBillable", label: "Non-billable", count: logs.filter((l) => !l.billable).length },
               ]}
             />
-            <WtButton tone="primary" size="small" onClick={() => setEditing(null)} startIcon={<KTIcon iconName="plus" className="fs-6" />}>
+            <WtButton size="small" onClick={() => setEditing(null)} startIcon={<KTIcon iconName="plus" className="fs-6" />}>
               Add Log
             </WtButton>
           </Stack>

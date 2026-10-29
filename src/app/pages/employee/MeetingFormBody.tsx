@@ -2,8 +2,9 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import {
-    Alert, Autocomplete, Avatar, Box, Button, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
+    Alert, Autocomplete, Avatar, Box, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { RootState } from '@redux/store';
 import { createMeetings, updateMeeting, fetchAllEmployees, getMyMeetingReminders, setMyMeetingReminders, getMeetingsByProject } from '@services/employee';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
@@ -1302,9 +1303,10 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     </Box>
                     {internalOptions.length > 0 && internal.length < internalOptions.length && (
                         <Button
-                            size="small"
+                            variant="ghost"
+                            size="sm"
+                            className="mb-1.5"
                             onClick={() => setInternal(internalOptions.map((o) => o.value))}
-                            sx={{ textTransform: 'none', fontWeight: 600, minWidth: 0, mb: 0.75 }}
                         >
                             Add whole team
                         </Button>

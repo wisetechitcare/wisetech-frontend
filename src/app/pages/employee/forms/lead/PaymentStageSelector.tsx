@@ -184,7 +184,7 @@ export const PaymentStageSelector: React.FC = () => {
             headerAction={
               isEdited && (
                 <WtButton
-                  tone="primary" size="small" ghost
+                  tone="accent" size="small" ghost
                   onClick={() => setStages(planStages(selectedPlan))}
                   startIcon={<KTIcon iconName="arrows-circle" className="fs-6" />}
                   sx={{ flexShrink: 0, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}

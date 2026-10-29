@@ -171,7 +171,7 @@ const FormModal: React.FC<FormModalProps> = ({
                 {filteredEmployees.map((employee) => {
                   const isSelected = selectedEmployee?.id === employee.id;
                   return (
-                    <div
+                    <div data-wt-control="option"
                       key={employee.id}
                       onClick={() => setSelectedEmployee(employee)}
                       style={{
@@ -304,7 +304,7 @@ const FormModal: React.FC<FormModalProps> = ({
                 {filteredEmployees.map((employee) => {
                   const isSelected = selectedEmployees.some(emp => emp.id === employee.id);
                   return (
-                    <div
+                    <div data-wt-control="option"
                       key={employee.id}
                       onClick={() => {
                         if (isSelected) {

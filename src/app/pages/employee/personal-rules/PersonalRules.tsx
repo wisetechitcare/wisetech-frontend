@@ -3,6 +3,7 @@ import { Row, Col } from 'react-bootstrap';
 import AttendanceSection from './components/AttendanceSection';
 import LeavesSection from './components/LeavesSection';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 const PersonalRules: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>('attendance');
@@ -55,7 +56,7 @@ const PersonalRules: React.FC = () => {
     };
 
     return (
-      <div
+      <div data-wt-control="row"
         onClick={handleClick}
         style={{
           display: 'flex',
@@ -120,12 +121,11 @@ const PersonalRules: React.FC = () => {
 
       {/* Mobile Menu Toggle */}
       <div className="d-lg-none mb-3 w-100">
-        <button
-          className="btn btn-sm btn-primary"
+        <Button size="sm" type="submit"
           onClick={() => setShowSidebar(!showSidebar)}
         >
           <AppIcon name="burger-menu" className="fs-2" /> Menu
-        </button>
+        </Button>
       </div>
 
       {/* Main Content Area */}
@@ -152,7 +152,7 @@ const PersonalRules: React.FC = () => {
 
         {/* Mobile Sidebar Overlay */}
         {showSidebar && (
-          <div
+          <div data-wt-control="backdrop"
             className="d-lg-none position-fixed top-0 start-0 w-100 h-100"
             style={{
               backgroundColor: 'rgba(0,0,0,0.5)',
@@ -160,7 +160,7 @@ const PersonalRules: React.FC = () => {
             }}
             onClick={() => setShowSidebar(false)}
           >
-            <div
+            <div data-wt-control="container"
               className="bg-white p-4"
               style={{
                 width: '250px',
@@ -171,12 +171,11 @@ const PersonalRules: React.FC = () => {
             >
               <div className="d-flex justify-content-between align-items-center mb-4">
                 <h5 className="mb-0">Menu</h5>
-                <button
-                  className="btn btn-sm btn-icon btn-light"
+                <Button variant="outline" size="icon-sm" type="submit" aria-label="Close"
                   onClick={() => setShowSidebar(false)}
                 >
                   <AppIcon name="cross" className="fs-2" />
-                </button>
+                </Button>
               </div>
               <div style={{
                 display: 'flex',

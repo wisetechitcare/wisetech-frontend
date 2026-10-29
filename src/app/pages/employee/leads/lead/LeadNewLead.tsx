@@ -3,7 +3,6 @@ import ExportButton from "@app/modules/common/components/ExportButton";
 import TimePeriodSelector, { TimePeriodMode } from "@app/modules/common/components/TimePeriodSelector";
 import {
   Box,
-  Button,
   MenuItem,
   Select,
   FormControl,
@@ -58,6 +57,7 @@ import { generateFiscalYearFromGivenYear } from "@utils/file";
 import LeadBulkImport from "./LeadBulkImport";
 import { useOrgScope } from "@hooks/useOrgScope";
 import { ActionIconButton, ToneChip, toast } from "@app/modules/common/components/ui";
+import { Button } from "@/ds/ui/button";
 import LeadNoteDialog, { ReminderCell, REMINDER_COLUMN_WIDTH } from "./LeadNoteDialog";
 import LeadActionPicker from "./LeadActionPicker";
 // The SAME meeting dialog the calendar and the project board use. A second form here is how
@@ -109,23 +109,9 @@ const NavigationButtons: React.FC<{
     gap: "6px",
     width: isMobile ? "100%" : "auto"
   }}>
-    <button
-      className="btn btn-sm p-0"
-      onClick={onPrev}
-      style={{
-        width: "24px",
-        height: "24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        borderRadius: "4px"
-      }}
-    >
+    <Button variant="ghost" size="icon-xs" aria-label="Previous" onClick={onPrev}>
       <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" style={{ width: "12px", height: "12px" }} />
-    </button>
+    </Button>
     <span
       className="mx-2"
       style={{
@@ -140,23 +126,9 @@ const NavigationButtons: React.FC<{
     >
       {displayText}
     </span>
-    <button
-      className="btn btn-sm p-0"
-      onClick={onNext}
-      style={{
-        width: "24px",
-        height: "24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        borderRadius: "4px"
-      }}
-    >
+    <Button variant="ghost" size="icon-xs" aria-label="Next" onClick={onNext}>
       <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" style={{ width: "12px", height: "12px" }} />
-    </button>
+    </Button>
   </div>
 );
 
@@ -1490,51 +1462,25 @@ const LeadNewLead: React.FC = () => {
               </div>
 
               {canWrite && (<>
-              <button
-                className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+              <Button
+                variant="inverted"
+                size="sm"
                 onClick={() => setShowBulkImport(true)}
-                style={{
-                  backgroundColor: "#fff",
-                  color: "#1E3A8A",
-                  border: "1px solid #E2E8F0",
-                  boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                  borderRadius: "6px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  height: "32px",
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  // Share the row on phones; keep their natural width on desktop and never
-                  // let the label wrap mid-word when the row gets tight.
-                  flex: isMobile ? 1 : '0 0 auto',
-                  whiteSpace: 'nowrap',
-                }}
+                // Share the row on phones; keep their natural width on desktop (the kit never
+                // wraps a label mid-word).
+                style={{ flex: isMobile ? 1 : '0 0 auto' }}
               >
-                <KTIcon iconName="cloud-download" className="fs-6 me-1" />
+                <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="cloud-download" className="fs-6" /></span>
                 Bulk Import
-              </button>
-              <button
-                className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
                 onClick={() => setShowOrgPicker(true)}
-                style={{
-                  backgroundColor: "#1E3A8A",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  height: "32px",
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                  flex: isMobile ? 1 : '0 0 auto',
-                  whiteSpace: 'nowrap',
-                }}
+                style={{ flex: isMobile ? 1 : '0 0 auto' }}
               >
                 + New Lead
-              </button>
+              </Button>
               </>)}
             </div>
           </div>
@@ -1826,22 +1772,9 @@ const LeadNewLead: React.FC = () => {
 
                 {/* Clear filters trigger */}
                 {hasAnyFilter && (
-                  <button
-                    onClick={clearAllFilters}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: "12px",
-                      color: "#1E3A8A",
-                      fontWeight: 600,
-                      fontFamily: "Inter, sans-serif",
-                      padding: "2px 8px",
-                      whiteSpace: "nowrap"
-                    }}
-                  >
+                  <Button variant="link" size="xs" onClick={clearAllFilters}>
                     ✕ Clear Filters
-                  </button>
+                  </Button>
                 )}
             </Box>
           )}

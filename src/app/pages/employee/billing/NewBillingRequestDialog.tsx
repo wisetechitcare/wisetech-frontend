@@ -291,7 +291,7 @@ const NewBillingRequestDialog: React.FC<{
         <WtButton ghost onClick={() => void save(false)} disabled={saving || selected.size === 0}>
           Save Draft
         </WtButton>
-        <WtButton tone="primary" onClick={() => void save(true)} disabled={saving || selected.size === 0}>
+        <WtButton onClick={() => void save(true)} disabled={saving || selected.size === 0}>
           {saving ? "Saving…" : "Submit for Approval"}
         </WtButton>
       </DialogActions>

@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import Tooltip from '@mui/material/Tooltip';
-import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import PrivacyToggle from './PrivacyToggle';
+import { WtButton } from '@app/modules/common/components/ui/buttons';
 
 /**
  * The eye toggle — one switch that hides every amount on a screen.
@@ -136,7 +136,7 @@ export function SensitiveDataBarToggle() {
     const label = sensitive.visible ? 'Hide amounts' : 'Show amounts';
     return (
         <Tooltip title={label}>
-            <Button
+            <WtButton
                 type="button"
                 size="small"
                 variant="outlined"
@@ -167,7 +167,7 @@ export function SensitiveDataBarToggle() {
                 }}
             >
                 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{label}</Box>
-            </Button>
+            </WtButton>
         </Tooltip>
     );
 }

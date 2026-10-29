@@ -120,7 +120,7 @@ const YearlyOverViewCard = (props: YearlyOverViewCardProps) => {
                   flexShrink: 0,
                 }}
               >
-                {React.cloneElement(row.icon as React.ReactElement, { style: { fontSize: '1rem' } })}
+                {React.cloneElement(row.icon as React.ReactElement<{ style?: React.CSSProperties }>, { style: { fontSize: '1rem' } })}
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <Typography sx={{ fontSize: { xs: '0.66rem', sm: '0.7rem' }, color: '#64748b', fontWeight: 600, mb: 0.1, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

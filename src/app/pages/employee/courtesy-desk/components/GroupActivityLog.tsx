@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  Avatar,
-  Box,
-  Button,
-  CircularProgress,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Avatar, Box, CircularProgress, Stack, Typography } from "@mui/material";
 import {
   AppIcon,
   TRIO,
@@ -152,14 +145,14 @@ export default function GiftHistoryButton({
 
   return (
     <>
-      <Button
+      <WtButton
         size="small"
         variant="outlined"
         startIcon={<AppIcon name="bi-clock-history" />}
         onClick={() => setOpen(true)}
       >
         {label}
-      </Button>
+      </WtButton>
 
       <WtSheet
         open={open}

@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, type CSSProperties } from "react";
+import { Button } from "@/ds/ui/button";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import dayjs from "dayjs";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -775,23 +776,15 @@ const EmployeeListContent = () => {
         ]}
       />
       {hasActiveFilters && (
-        <button
+        <Button
+          variant="tinted"
+          style={{ '--tint': 'var(--cta-danger)' } as CSSProperties}
           onClick={() => { setBranchFilter('All'); setSubOrgFilter('All'); setPayTypeFilter('All'); }}
           title="Reset filters"
-          style={{
-            height: '38px', padding: '0 12px',
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            border: '1px dashed #fca5a5', borderRadius: '10px',
-            backgroundColor: '#ffffff', color: '#dc2626',
-            fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 600,
-            cursor: 'pointer', transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
         >
-          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
+          <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrow-counterclockwise" className="fs-7" /></span>
           Reset
-        </button>
+        </Button>
       )}
       </Box>
     </GlassSurface>

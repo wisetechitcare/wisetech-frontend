@@ -7,6 +7,7 @@ import { formatBytes, getStatusConfig } from '../utils/dmsUtils';
 import type { DMSFile } from '../types/dms.types';
 import * as dmsService from '../services/dmsService';
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal';
+import { Button } from '@/ds/ui/button';
 
 interface DocumentCardProps {
   file: DMSFile;
@@ -144,7 +145,7 @@ const FileActionsDropdown: React.FC<{ file: DMSFile; onClose: () => void; onPrev
       }}
     >
       {actions.map((action, i) => (
-        <button
+        <button data-wt-control="menuitem" role="menuitem"
           key={i}
           onClick={action.action}
           style={{
@@ -199,7 +200,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
 
  if (viewMode === 'grid') {
   return (
-    <div
+    <div data-wt-control="row"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
@@ -230,7 +231,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
       }}
     >
       {/* Checkbox */}
-      <div
+      <div data-wt-control="checkbox"
         onClick={(e) => {
           e.stopPropagation();
           onSelect();
@@ -277,27 +278,11 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
           zIndex: 2,
         }}
       >
-        <button
+        <Button variant="ghost" size="icon-sm" type="submit" aria-label="More actions"
           onClick={handleMenuToggle}
-          style={{
-            background: showMenu
-              ? '#f1f5f9'
-              : isHovered
-              ? '#f8fafc'
-              : 'transparent',
-            border:
-              '1px solid ' +
-              (showMenu ? '#e2e8f0' : 'transparent'),
-            borderRadius: '8px',
-            padding: '3px 7px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            opacity: isHovered || showMenu ? 1 : 0,
-            transition: 'all 0.15s',
-          }}
         >
           ⋯
-        </button>
+        </Button>
 
         {showMenu && (
           <FileActionsDropdown
@@ -501,7 +486,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
 
   // List / Compact / Table view
   return (
-    <div
+    <div data-wt-control="row"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => { setIsHovered(false); setShowMenu(false); }}
       style={{
@@ -521,7 +506,7 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
       }}
     >
       {/* Checkbox */}
-      <div
+      <div data-wt-control="checkbox"
         onClick={e => { e.stopPropagation(); onSelect(); }}
         style={{
           width: '16px', height: '16px', flexShrink: 0,
@@ -609,16 +594,11 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
 
       {/* Actions */}
       <div style={{ flexShrink: 0, position: 'relative' }}>
-        <button
+        <Button variant="ghost" size="icon-sm" type="submit" aria-label="More actions"
           onClick={handleMenuToggle}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px',
-            opacity: isHovered || showMenu ? 1 : 0, transition: 'opacity 0.15s',
-            padding: '2px 6px',
-          }}
         >
           ⋯
-        </button>
+        </Button>
         {showMenu && (
           <FileActionsDropdown
             file={file}

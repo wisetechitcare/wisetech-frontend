@@ -4,6 +4,7 @@ import { WtButton, WtTooltip } from '@app/modules/common/components/ui';
 import { securityPinApi } from '@services/securityPin';
 import { securityPinBus } from '@utils/securityPinBus';
 import { useSecurityPin } from './useSecurityPin';
+import { Button } from '@/ds/ui/button';
 
 /**
  * "Lock" — for stepping away from the desk. Locks the tab you are on (and only that tab).
@@ -62,15 +63,14 @@ export function SecurityPinLockButton({ variant = 'bar' }: { variant?: 'bar' | '
 
     return (
         <WtTooltip title={title}>
-            <button
+            <Button variant="inverted" size="sm" className="shrink-0"
                 type="button"
                 onClick={lock}
                 aria-label={title}
-                className="inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-lg! border-0! px-3.5 text-[13px] leading-none font-semibold outline-none! transition-colors motion-reduce:transition-none bg-white/8! text-white/90! hover:bg-white/14! active:bg-white/20! focus-visible:ring-2! focus-visible:ring-white/70! max-sm:h-9 max-sm:w-9 max-sm:px-0 max-sm:rounded-[10px]! max-sm:bg-white/10! max-sm:hover:bg-white/16! max-sm:active:bg-white/22!"
             >
                 <KTIcon iconName="lock-2" className="fs-2 text-white" />
                 <span className="max-sm:sr-only">{label}</span>
-            </button>
+            </Button>
         </WtTooltip>
     );
 }

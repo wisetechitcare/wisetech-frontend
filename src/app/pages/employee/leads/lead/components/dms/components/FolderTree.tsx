@@ -4,6 +4,7 @@ import { KTIcon } from '@metronic/helpers';
 import { useDMS } from '../store/DmsContext';
 import { canSection } from '@utils/can';
 import type { DMSFolder } from '../types/dms.types';
+import { Button } from '@/ds/ui/button';
 
 interface FolderTreeProps {
   onFolderSelect?: (folderId: string | null) => void;
@@ -79,7 +80,7 @@ const FolderNode: React.FC<{
         whileHover={{ backgroundColor: isActive ? undefined : 'rgba(0,0,0,0.04)' }}
       >
         {/* Expand toggle */}
-        <button
+        <button data-wt-control="toggle"
           onClick={handleToggle}
           style={{
             background: 'none', border: 'none', padding: '0 4px 0 0',
@@ -164,18 +165,13 @@ const FolderNode: React.FC<{
                 { icon: 'pencil', label: 'Rename', action: () => setIsRenaming(true) },
                 { icon: 'trash', label: 'Delete', action: () => { if (confirm('Delete this folder?')) dispatch({ type: 'DELETE_FOLDER', payload: folder.id }); }, danger: true },
               ].map((a, i) => (
-                <button
+                <Button variant="ghost" size="icon-xs" type="submit"
                   key={i}
                   title={a.label}
                   onClick={e => { e.stopPropagation(); a.action(); }}
-                  style={{ 
-                    ...actionBtnStyle, 
-                    color: a.danger ? '#ef4444' : '#64748b',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}
                 >
                   <KTIcon iconName={a.icon} className="fs-6" />
-                </button>
+                </Button>
               ))}
             </motion.div>
           )}
@@ -278,9 +274,9 @@ export const FolderTree: React.FC<FolderTreeProps> = ({ onFolderSelect }) => {
                   fontFamily: 'Inter, sans-serif',
                 }}
               />
-              <button onClick={handleCreateFolder} style={{ background: '#1E3A8A', border: 'none', borderRadius: '6px', padding: '4px 8px', color: 'white', cursor: 'pointer', fontSize: '12px' }}>
+              <Button size="icon-xs" type="submit" aria-label="Create folder" onClick={handleCreateFolder}>
                 ✓
-              </button>
+              </Button>
             </div>
           </motion.div>
         )}

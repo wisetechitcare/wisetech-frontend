@@ -9,6 +9,7 @@ import {
   toAbsoluteUrl,
   useIllustrationsPath,
 } from '../../../helpers'
+import { buttonVariants } from '@/ds/ui/button';
 
 type Props = {
   backgrounUrl: string
@@ -106,9 +107,9 @@ const HeaderNotificationsMenu: FC<Props> = ({backgrounUrl}) => (
             </div>
 
             <div className='text-center mt-5 mb-9'>
-              <a
+              <a data-slot="button"
                 href='#'
-                className='btn btn-sm btn-primary px-6'
+                className={buttonVariants({ size: 'sm' })}
                 data-bs-toggle='modal'
                 data-bs-target='#kt_modal_upgrade_plan'
               >

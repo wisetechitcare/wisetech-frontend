@@ -182,7 +182,6 @@ export const BillingEmptyState: React.FC<{
       )}
       {actionLabel && onAction && (
         <WtButton
-          tone="primary"
           size="small"
           onClick={onAction}
           startIcon={<KTIcon iconName="plus" className="fs-6" />}

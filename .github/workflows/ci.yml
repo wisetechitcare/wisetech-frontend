@@ -90,6 +90,15 @@ jobs:
             echo "$files" | xargs pnpm exec eslint --quiet
           fi
 
+      # Button ratchet (docs/BUTTONS.md): every button is the kit Button / WtButton. Legacy sites are
+      # frozen per file in scripts/button-baseline.json; a file may only lose them, never gain.
+      - name: 🔘 Button ratchet
+        run: pnpm run audit:buttons:check
+
+      # This repo had 30 test files and a configured vitest, and CI ran none of them.
+      # Placed before the build deliberately: the suite finishes in about 25s and the
+      # bundle takes minutes, so a broken test should not wait on a webpack-sized build
+      # to be reported.
       - name: 🧪 Run tests
         run: pnpm run test
 

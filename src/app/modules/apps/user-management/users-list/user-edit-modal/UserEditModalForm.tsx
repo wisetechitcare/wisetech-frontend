@@ -9,6 +9,7 @@ import {UsersListLoading} from '../components/loading/UsersListLoading'
 import {createUser, updateUser} from '../core/_requests'
 import {useQueryResponse} from '../core/QueryResponseProvider'
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 type Props = {
   isUserLoading: boolean
@@ -373,30 +374,25 @@ const UserEditModalForm: FC<Props> = ({user, isUserLoading}) => {
 
         {/* begin::Actions */}
         <div className='text-center pt-15'>
-          <button
+          <Button
             type='reset'
+            variant='outline'
             onClick={() => cancel()}
-            className='btn btn-light me-3'
+            className='me-3'
             data-kt-users-modal-action='cancel'
             disabled={formik.isSubmitting || isUserLoading}
           >
             Discard
-          </button>
+          </Button>
 
-          <button
+          <Button
             type='submit'
-            className='btn btn-primary'
             data-kt-users-modal-action='submit'
             disabled={isUserLoading || formik.isSubmitting || !formik.isValid || !formik.touched}
+            loading={formik.isSubmitting || isUserLoading}
           >
-            <span className='indicator-label'>Submit</span>
-            {(formik.isSubmitting || isUserLoading) && (
-              <span className='indicator-progress'>
-                Please wait...{' '}
-                <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-              </span>
-            )}
-          </button>
+            Submit
+          </Button>
         </div>
         {/* end::Actions */}
       </form>

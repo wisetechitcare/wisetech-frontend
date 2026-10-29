@@ -121,18 +121,18 @@ const HeaderToolbar = () => {
                 </div>
                 {/* sidebar <-> container navigation (renders null below lg) */}
                 <div className="d-flex align-items-center">
-                  <NavTransformToggle className="btn-icon btn-active-color-primary" />
+                  <NavTransformToggle />
                 </div>
                 {/* light / dark mode toggle (drives the app-wide unified color mode) */}
                 <div className="d-flex align-items-center">
-                  <ColorModeToggle className="btn-icon btn-active-color-primary" />
+                  <ColorModeToggle />
                 </div>
                 {/* notification */}
                 <NotificationBell employeeId={employeeId} />
 
                 <div className="d-flex align-items-center">
                   {/*begin::Action*/}
-                  <a
+                  <a data-wt-control="shell"
                     href="#"
                     className="btn-icon btn-sm btn-active-color-primary"
                     data-kt-menu-trigger="{default: 'click', lg: 'hover'}"

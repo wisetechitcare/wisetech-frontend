@@ -21,7 +21,6 @@ import { usePersistedState } from '@app/modules/common/hooks/usePersistedState';
 import ReimbursementPeriodBar, { PeriodAlignment } from '../components/ReimbursementPeriodBar';
 import { TOOLBAR_ROW, lightToolbarButton } from '../utils/toolbarButton';
 import { WtButton } from '@app/modules/common/components/ui';
-import { Button } from '@mui/material';
 import ReimbursementCharts from '../components/ReimbursementCharts';
 import NeedsYourAttention from '../components/NeedsYourAttention';
 import ReimbursementPaymentHistoryTable from '../components/ReimbursementPaymentHistoryTable';
@@ -219,7 +218,7 @@ export default function ReimbursementWorkspace({
               rows is empty for the same reason. handleDownloadBill keeps its own guard —
               this removes the dead end, it does not replace the check. */}
           {rows.length > 0 && (
-            <Button
+            <WtButton variant="text"
               onClick={handleDownloadBill}
               disabled={downloadingBill}
               title="Download Reimbursement Slip"
@@ -231,7 +230,7 @@ export default function ReimbursementWorkspace({
               sx={lightToolbarButton('danger', downloadingBill)}
             >
               {downloadingBill ? 'Generating...' : 'Download Reimbursement Slip'}
-            </Button>
+            </WtButton>
           )}
         </div>
       }

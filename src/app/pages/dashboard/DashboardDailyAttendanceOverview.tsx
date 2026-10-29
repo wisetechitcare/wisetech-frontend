@@ -25,7 +25,9 @@ import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 // import { multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
 import { toAbsoluteUrl } from "@metronic/helpers";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { Button, buttonVariants } from "@/ds/ui/button";
+import { Item } from "@/ds/ui/item";
 import { canSection } from "@utils/can";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
@@ -47,6 +49,13 @@ import { getTimeTokens } from '@utils/timeFormat';
 import { useStoredState } from '@app/hooks/useStoredState';
 
 type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | null;
+
+/**
+ * The stat cards open their modal from a real <button> (kit Item rendered as one), so they are
+ * reachable by keyboard. These classes undo the Item's own row layout (flex, border, padding) so
+ * the card reads exactly as the plain block it was: content stacked, left-aligned, 1rem-ish inset.
+ */
+const CARD_TRIGGER = 'block border-0 text-start p-3';
 
 interface EmployeeWithAttendance {
   _id: string;
@@ -163,7 +172,6 @@ const DashboardDailyAttendanceOverview = () => {
   const employeesPresentAttendance = useSelector((state: RootState) =>
     state.attendance.employeesAttendance || [], shallowEqual
   );
-  const navigate = useNavigate();
   const workingLocationColors = useSelector((state: RootState) => state?.customColors?.workingLocation, shallowEqual);
   // Only check if rolesAndPermissions is loaded, not the entire object
   const rolesAndPermissionsLoaded = useSelector((state: RootState) =>
@@ -955,38 +963,22 @@ const DashboardDailyAttendanceOverview = () => {
               ]}
             />
             {hasActiveFilters && (
-              <button
+              <Button
+                variant="outline"
                 onClick={() => { setBranchFilter('All'); setSubOrgFilter('All'); }}
                 title="Reset filters"
-                style={{
-                  height: '38px', padding: '0 12px',
-                  display: 'inline-flex', alignItems: 'center', gap: '6px',
-                  border: '1px dashed #fca5a5', borderRadius: '10px',
-                  backgroundColor: '#ffffff', color: '#dc2626', cursor: 'pointer',
-                }}
               >
-                <AppIcon name="bi-x-lg" /> Reset
-              </button>
+                <AppIcon name="bi-x-lg" data-icon="inline-start" /> Reset
+              </Button>
             )}
             {canSection("attendance.employees") &&
-            <button
-              type="button"
-              className="btn btn-sm"
-              style={{
-                borderColor: '#1E3A8A',
-                color: '#1E3A8A',
-                fontFamily: 'Inter',
-                fontSize: '14px',
-                fontWeight: '500',
-                borderRadius: '6px',
-                border: '1px solid #1E3A8A',
-                padding: '8px 18px',
-                whiteSpace: 'nowrap',
-              }}
-              onClick = {() => navigate('/employees/attendance-and-leaves')}
+            <Link
+              to="/employees/attendance-and-leaves"
+              data-slot="button"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               View all
-            </button>
+            </Link>
 }
 
             {/* Date Navigation - tabs previous and next */}
@@ -1005,7 +997,7 @@ const DashboardDailyAttendanceOverview = () => {
         </div>
 
         {/* Working Employees Summary */}
-        <div className="rounded-2 p-3 mb-3" style={{ backgroundColor: '#edf2f9', border: '1px solid #edf2f9', cursor: 'pointer' }} onClick={() => handleCardClick('working')}>
+        <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-2 mb-3`} style={{ backgroundColor: '#edf2f9', border: '1px solid #edf2f9', cursor: 'pointer' }} onClick={() => handleCardClick('working')}>
           <div className="d-flex align-items-center gap-2">
             <i className="fa fa-users" style={{ fontSize: '20px', color: '#4a5568' }}></i>
             <div>
@@ -1014,20 +1006,20 @@ const DashboardDailyAttendanceOverview = () => {
             </div>
             <span style={{ fontSize: '14px', fontFamily: 'Inter', marginLeft: '8px' }}>Working Employees</span>
           </div>
-        </div>
+        </Item>
 
         {/* Attendance Cards Grid */}
         <div className="row g-2">
           {/* On Leave Card */}
           <div className="col-lg col-md-6 col-sm-6">
             <div className="border rounded-3 h-100" style={{ borderColor: '#dee5ef', minHeight: '80px', cursor: 'pointer' }}>
-              <div className="p-3 rounded-top" style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('leave')}>
+              <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-top`} style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('leave')}>
                 <div className="d-flex align-items-center gap-2 mb-2">
                   <i className="fa fa-calendar-times" style={{ fontSize: '20px', color: '#f59e0b' }}></i>
                   <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{employesLeaveDatas?.length || 0}</span>
                 </div>
                 <p className="mb-0" style={{ fontSize: '14px', fontWeight: '500', fontFamily: 'Inter' }}>On Leave</p>
-              </div>
+              </Item>
               <hr className="m-0" style={{ borderColor: '#d9d9d9' }} />
               <div
                 className="p-3"
@@ -1074,13 +1066,13 @@ const DashboardDailyAttendanceOverview = () => {
           {/* Absent Card */}
           <div className="col-lg col-md-6 col-sm-6">
             <div className="border rounded-3 h-100" style={{ borderColor: '#dee5ef', minHeight: '80px', cursor: 'pointer' }}>
-              <div className="p-3 rounded-top" style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('absent')}>
+              <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-top`} style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('absent')}>
                 <div className="d-flex align-items-center gap-2 mb-2">
                   <i className="fa fa-user-times" style={{ fontSize: '20px', color: '#ef4444' }}></i>
                   <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{absentCount}</span>
                 </div>
                 <p className="mb-0" style={{ fontSize: '14px', fontWeight: '500', fontFamily: 'Inter' }}>Absent</p>
-              </div>
+              </Item>
               <hr className="m-0" style={{ borderColor: '#d9d9d9' }} />
               <div
                 className="p-3"
@@ -1120,13 +1112,13 @@ const DashboardDailyAttendanceOverview = () => {
           {/* Extra Day Working Card */}
           <div className="col-lg col-md-6 col-sm-6">
             <div className="border rounded-3 h-100" style={{ borderColor: '#dee5ef', minHeight: '80px', cursor: 'pointer' }}>
-              <div className="p-3 rounded-top" style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('extra')}>
+              <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-top`} style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('extra')}>
                 <div className="d-flex align-items-center gap-2 mb-2">
                   <i className="fa fa-briefcase" style={{ fontSize: '20px', color: '#3b82f6' }}></i>
                   <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{extraDays || 0}</span>
                 </div>
                 <p className="mb-0" style={{ fontSize: '14px', fontWeight: '500', fontFamily: 'Inter' }}>Extra Day Working</p>
-              </div>
+              </Item>
               <hr className="m-0" style={{ borderColor: '#d9d9d9' }} />
               <div
                 className="p-3"
@@ -1166,13 +1158,13 @@ const DashboardDailyAttendanceOverview = () => {
           {/* Late Check-in Card */}
           <div className="col-lg col-md-6 col-sm-6">
             <div className="border rounded-3 h-100" style={{ borderColor: '#dee5ef', minHeight: '80px', cursor: 'pointer' }}>
-              <div className="p-3 rounded-top" style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('late')}>
+              <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-top`} style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('late')}>
                 <div className="d-flex align-items-center gap-2 mb-2">
                   <i className="fa fa-clock" style={{ fontSize: '20px', color: '#8b5cf6' }}></i>
                   <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{lateCheckInsCount}</span>
                 </div>
                 <p className="mb-0" style={{ fontSize: '14px', fontWeight: '500', fontFamily: 'Inter' }}>Late Check-in</p>
-              </div>
+              </Item>
               <hr className="m-0" style={{ borderColor: '#d9d9d9' }} />
               <div
                 className="p-3"
@@ -1212,13 +1204,13 @@ const DashboardDailyAttendanceOverview = () => {
           {/* Early Check-out Card */}
           <div className="col-lg col-md-6 col-sm-6">
             <div className="border rounded-3 h-100" style={{ borderColor: '#dee5ef', minHeight: '80px', cursor: 'pointer' }}>
-              <div className="p-3 rounded-top" style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('early')}>
+              <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-top`} style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('early')}>
                 <div className="d-flex align-items-center gap-2 mb-2">
                   <i className="fa fa-sign-out-alt" style={{ fontSize: '20px', color: '#ec4899' }}></i>
                   <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{earlyCheckOutsCount}</span>
                 </div>
                 <p className="mb-0" style={{ fontSize: '14px', fontWeight: '500', fontFamily: 'Inter' }}>Early Check-out</p>
-              </div>
+              </Item>
               <hr className="m-0" style={{ borderColor: '#d9d9d9' }} />
               <div
                 className="p-3"

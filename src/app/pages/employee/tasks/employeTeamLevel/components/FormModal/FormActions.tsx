@@ -1,5 +1,6 @@
 import React from 'react';
 import { FormActionsProps } from './types';
+import { Button } from '@/ds/ui/button';
 
 const FormActions: React.FC<FormActionsProps> = ({
   mode,
@@ -22,9 +23,8 @@ const FormActions: React.FC<FormActionsProps> = ({
 
   return (
     <div className="d-flex gap-3 mt-4">
-      <button
+      <Button variant="ghost"
         type="button"
-        className="btn "
         style={{
           backgroundColor: '#1E3A8A',
           borderColor: '#1E3A8A',
@@ -42,12 +42,11 @@ const FormActions: React.FC<FormActionsProps> = ({
         disabled={isSubmitDisabled}
       >
         {getSubmitText()}
-      </button>
+      </Button>
 
       {(mode === 'editLevel' || mode === 'editEmployee') && onDelete && (
-        <button
+        <Button variant="ghost"
           type="button"
-          className="btn  d-flex align-items-center gap-2"
           style={{
             borderColor: '#1E3A8A',
             border: "1px solid #1E3A8A",
@@ -82,7 +81,7 @@ const FormActions: React.FC<FormActionsProps> = ({
             />
           </svg>
           {mode === 'editLevel' ? 'Delete Level' : 'Delete Employee'}
-        </button>
+        </Button>
       )}
     </div>
   );

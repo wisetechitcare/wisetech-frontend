@@ -1,9 +1,9 @@
 import React from "react";
 import { FieldArray, useFormikContext } from "formik";
-import { Button } from "react-bootstrap";
 import { Delete, Add } from "@mui/icons-material";
 import "./Workspace.css";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 interface CommercialsGridProps {
   type: "lead" | "project";
@@ -223,9 +223,7 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
 
                         {/* Delete Row button */}
                         <td className="commercials-td text-center">
-                          <Button
-                            variant="link"
-                            className="text-danger p-1"
+                          <Button variant="link"
                             onClick={() => remove(index)}
                             title="Delete Row"
                           >
@@ -242,9 +240,7 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
 
           {/* Table summary actions footer */}
           <div className="d-flex justify-content-between align-items-center p-4 bg-light border-top">
-            <Button
-              variant="outline-primary"
-              size="sm"
+            <Button variant="inverted" size="sm"
               onClick={() => {
                 if (isLead) {
                   push({ label: "", projectArea: "", costType: "", rate: "", cost: "" });
@@ -252,7 +248,7 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type }) => {
                   push({ label: "", area: "", costType: "", rate: "", rateCost: "", lumpsumCost: "" });
                 }
               }}
-              className="d-flex align-items-center gap-1 fw-bold"
+              className="d-flex align-items-center gap-1"
             >
               <Add style={{ fontSize: "1.1rem" }} />
               Add Commercial Row

@@ -19,6 +19,7 @@ import { formatNumber } from '@utils/statistics';
 import { hasPermission } from '@utils/authAbac';
 import { RootState } from '@redux/store';
 import { useSelector } from 'react-redux';
+import { Button } from '@/ds/ui/button';
 
 
 // Syncs the installment being edited into the skip/custom-payment form. A real
@@ -625,9 +626,8 @@ function LoanDetails() {
 
                     <div className="row px-3 mb-0 my-3">
                       <div className="col-lg-12 text-start mb-5">
-                        <button
+                        <Button size="lg"
                           type="submit"
-                          className="btn btn-lg btn-primary"
                           disabled={loading}
                         >
                           {loading ? (
@@ -640,7 +640,7 @@ function LoanDetails() {
                           ) : (
                             "Send Request"
                           )}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </Form>

@@ -784,7 +784,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <WtButton ghost onClick={() => setRemarksOn(null)}>Cancel</WtButton>
-                    <WtButton tone="primary" onClick={() => void saveRemarks()}>Save remarks</WtButton>
+                    <WtButton tone="accent" onClick={() => void saveRemarks()}>Save remarks</WtButton>
                 </DialogActions>
             </GlassDialog>
         </Stack>

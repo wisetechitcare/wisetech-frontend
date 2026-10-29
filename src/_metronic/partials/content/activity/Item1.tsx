@@ -1,6 +1,7 @@
 ﻿
 import {FC} from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+import {buttonVariants} from '@/ds/ui/button'
 
 const Item1: FC = () => {
   return (
@@ -62,7 +63,7 @@ const Item1: FC = () => {
               <span className='badge badge-light-primary'>In Progress</span>
             </div>
 
-            <a href='#' className='btn btn-sm btn-light btn-active-light-primary'>
+            <a href='#' data-slot='button' className={buttonVariants({variant: 'outline', size: 'sm'})}>
               View
             </a>
           </div>
@@ -90,7 +91,7 @@ const Item1: FC = () => {
               <span className='badge badge-light-success'>Completed</span>
             </div>
 
-            <a href='#' className='btn btn-sm btn-light btn-active-light-primary'>
+            <a href='#' data-slot='button' className={buttonVariants({variant: 'outline', size: 'sm'})}>
               View
             </a>
           </div>

@@ -15,6 +15,7 @@ import {
   convertFiscalYearToDates,
   toCanonicalFiscalYearRange,
 } from '@utils/fiscalYearRange';
+import { Button } from '@/ds/ui/button';
 
 // Re-export helpers so existing PerOrg / LeadWizard imports keep working.
 // Canonical home is `@utils/fiscalYearRange`.
@@ -338,13 +339,12 @@ const PrefixSettingsForm: React.FC<PrefixSettingsFormProps> = ({
           <PrefixPreview typeLabel={typeLabel} organizationName={perOrganization ? selectedOrgName : ''} />
 
           <div className="mt-4">
-            <button
+            <Button
               type="submit"
-              className="btn btn-primary"
               disabled={isSubmitting || isLoading || (perOrganization && !selectedOrgId)}
             >
               {currentPrefix ? 'Update' : 'Create'} Prefix
-            </button>
+            </Button>
           </div>
         </FormikForm>
       )}

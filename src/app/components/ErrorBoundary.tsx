@@ -1,6 +1,7 @@
 import React from 'react';
-import { C, FONT, SP, RADIUS, BTN, KEYFRAMES } from '../modules/configuration/ConfigDesignSystem';
+import { C, FONT, SP, RADIUS, KEYFRAMES } from '../modules/configuration/ConfigDesignSystem';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface Props {
   children: React.ReactNode;
@@ -157,14 +158,18 @@ class ErrorBoundary extends React.Component<Props, State> {
               </div>
             </div>
             <div style={{ display: 'flex', gap: SP.md, justifyContent: 'center' }}>
-              <button type='button' onClick={() => window.history.back()} style={{ ...BTN.secondary, padding: '9px 20px' }}>
-                <i className='bi bi-arrow-left' style={{ fontSize: 13 }} />
+              <Button type='button' variant='outline' onClick={() => window.history.back()}>
+                <span data-icon='inline-start' className='inline-flex'>
+                  <i className='bi bi-arrow-left' style={{ fontSize: 13 }} />
+                </span>
                 Go back
-              </button>
-              <button type='button' onClick={() => window.location.reload()} style={{ ...BTN.primary, padding: '9px 20px' }}>
-                <i className='bi bi-arrow-clockwise' style={{ fontSize: 13 }} />
+              </Button>
+              <Button type='button' onClick={() => window.location.reload()}>
+                <span data-icon='inline-start' className='inline-flex'>
+                  <i className='bi bi-arrow-clockwise' style={{ fontSize: 13 }} />
+                </span>
                 Reload page
-              </button>
+              </Button>
             </div>
           </div>
           <p style={{ marginTop: SP.lg, fontSize: 12, color: C.textMuted, textAlign: 'center' }}>
@@ -283,20 +288,19 @@ class ErrorBoundary extends React.Component<Props, State> {
             {/* Stack trace toggle */}
             {stackLines.length > 0 && (
               <div style={{ marginBottom: SP.lg }}>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-expanded={showStack}
                   onClick={() => this.setState(s => ({ showStack: !s.showStack }))}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    color: C.textMuted, fontSize: 12, fontFamily: FONT.body,
-                    padding: 0, marginBottom: showStack ? 8 : 0,
-                    transition: 'color 0.15s',
-                  }}
+                  style={{ marginBottom: showStack ? 8 : 0 }}
                 >
-                  <i className={`bi bi-chevron-${showStack ? 'up' : 'down'}`} style={{ fontSize: 11 }} />
+                  <span data-icon="inline-start" className="inline-flex">
+                    <i className={`bi bi-chevron-${showStack ? 'up' : 'down'}`} style={{ fontSize: 11 }} />
+                  </span>
                   {showStack ? 'Hide' : 'Show'} technical details
-                </button>
+                </Button>
 
                 {showStack && (
                   <pre style={{
@@ -322,22 +326,25 @@ class ErrorBoundary extends React.Component<Props, State> {
 
             {/* Actions */}
             <div style={{ display: 'flex', gap: SP.md, justifyContent: 'flex-end' }}>
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => window.history.back()}
-                style={{ ...BTN.secondary, padding: '9px 20px' }}
               >
-                <AppIcon name="bi-arrow-left" className="fs-7" />
+                <span data-icon="inline-start" className="inline-flex">
+                  <AppIcon name="bi-arrow-left" className="fs-7" />
+                </span>
                 Go back
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => window.location.reload()}
-                style={{ ...BTN.primary, padding: '9px 20px' }}
               >
-                <AppIcon name="bi-arrow-clockwise" className="fs-7" />
+                <span data-icon="inline-start" className="inline-flex">
+                  <AppIcon name="bi-arrow-clockwise" className="fs-7" />
+                </span>
                 Reload page
-              </button>
+              </Button>
             </div>
           </div>
         </div>

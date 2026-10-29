@@ -45,6 +45,7 @@ const AsideMenuItemWithSub: FC<Props & WithChildren> = ({
     <div className={clsx('menu-item menu-accordion menu-tree-group show', accentClass, {here: isActive})}>
       <span
         className='menu-link'
+        role='menuitem'
         title={title}
         onClick={() => {
           // In the collapsed rail the sub-items are hidden — expand so they're reachable.

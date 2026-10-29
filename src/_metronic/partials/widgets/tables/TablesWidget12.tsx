@@ -1,6 +1,7 @@
 
 import { FC } from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+import {Button, buttonVariants} from '@/ds/ui/button'
 
 type Props = {
   className: string
@@ -17,15 +18,16 @@ const TablesWidget12: FC<Props> = ({className}) => {
         </h3>
         <div className='card-toolbar'>
           {/* begin::Menu */}
-          <button
-            type='button'
-            className='btn btn-sm btn-icon btn-color-primary btn-active-light-primary'
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            aria-label='Quick actions'
             data-kt-menu-trigger='click'
             data-kt-menu-placement='bottom-end'
             data-kt-menu-flip='top-end'
           >
             <KTIcon iconName='category' className='fs-2' />
-          </button>
+          </Button>
           {/* begin::Menu 2 */}
           <div
             className='menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-semibold w-200px'
@@ -106,7 +108,11 @@ const TablesWidget12: FC<Props> = ({className}) => {
             {/* begin::Menu item */}
             <div className='menu-item px-3'>
               <div className='menu-content px-3 py-3'>
-                <a className='btn btn-primary btn-sm px-4' href='#'>
+                <a
+                  data-slot='button'
+                  className={buttonVariants({variant: 'default', size: 'sm'})}
+                  href='#'
+                >
                   Generate Reports
                 </a>
               </div>
@@ -205,13 +211,15 @@ const TablesWidget12: FC<Props> = ({className}) => {
                 <td className='text-end'>
                   <a
                     href='#'
-                    className='btn btn-bg-light btn-color-muted btn-active-color-primary btn-sm px-4 me-2'
+                    data-slot='button'
+                    className={buttonVariants({variant: 'outline', size: 'sm', className: 'me-2'})}
                   >
                     View
                   </a>
                   <a
                     href='#'
-                    className='btn btn-bg-light btn-color-muted btn-active-color-primary btn-sm px-4'
+                    data-slot='button'
+                    className={buttonVariants({variant: 'outline', size: 'sm'})}
                   >
                     Edit
                   </a>
@@ -284,13 +292,15 @@ const TablesWidget12: FC<Props> = ({className}) => {
                 <td className='text-end'>
                   <a
                     href='#'
-                    className='btn btn-bg-light btn-color-muted btn-active-color-primary btn-sm px-4 me-2'
+                    data-slot='button'
+                    className={buttonVariants({variant: 'outline', size: 'sm', className: 'me-2'})}
                   >
                     View
                   </a>
                   <a
                     href='#'
-                    className='btn btn-bg-light btn-color-muted btn-active-color-primary btn-sm px-4'
+                    data-slot='button'
+                    className={buttonVariants({variant: 'outline', size: 'sm'})}
                   >
                     Edit
                   </a>
@@ -363,13 +373,15 @@ const TablesWidget12: FC<Props> = ({className}) => {
                 <td className='text-end'>
                   <a
                     href='#'
-                    className='btn btn-bg-light btn-color-muted btn-active-color-primary btn-sm px-4 me-2'
+                    data-slot='button'
+                    className={buttonVariants({variant: 'outline', size: 'sm', className: 'me-2'})}
                   >
                     View
                   </a>
                   <a
                     href='#'
-                    className='btn btn-bg-light btn-color-muted btn-active-color-primary btn-sm px-4'
+                    data-slot='button'
+                    className={buttonVariants({variant: 'outline', size: 'sm'})}
                   >
                     Edit
                   </a>
@@ -440,13 +452,15 @@ const TablesWidget12: FC<Props> = ({className}) => {
                 <td className='text-end'>
                   <a
                     href='#'
-                    className='btn btn-bg-light btn-color-muted btn-active-color-primary btn-sm px-4 me-2'
+                    data-slot='button'
+                    className={buttonVariants({variant: 'outline', size: 'sm', className: 'me-2'})}
                   >
                     View
                   </a>
                   <a
                     href='#'
-                    className='btn btn-bg-light btn-color-muted btn-active-color-primary btn-sm px-4'
+                    data-slot='button'
+                    className={buttonVariants({variant: 'outline', size: 'sm'})}
                   >
                     Edit
                   </a>
@@ -519,13 +533,15 @@ const TablesWidget12: FC<Props> = ({className}) => {
                 <td className='text-end'>
                   <a
                     href='#'
-                    className='btn btn-bg-light btn-color-muted btn-active-color-primary btn-sm px-4 me-2'
+                    data-slot='button'
+                    className={buttonVariants({variant: 'outline', size: 'sm', className: 'me-2'})}
                   >
                     View
                   </a>
                   <a
                     href='#'
-                    className='btn btn-bg-light btn-color-muted btn-active-color-primary btn-sm px-4'
+                    data-slot='button'
+                    className={buttonVariants({variant: 'outline', size: 'sm'})}
                   >
                     Edit
                   </a>

@@ -51,6 +51,7 @@ import {
   CRM_ACTIVE_COLOR,
   CRM_INACTIVE_COLOR,
 } from "../../crmListRowSx";
+import { Button } from '@/ds/ui/button';
 
 /** Prefer CRM active/inactive palette when the status name matches. */
 function contactStatusColor(name?: string, fallback?: string) {
@@ -730,26 +731,22 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 )}
                               </label>
                               <div className="crm-avatar-actions crm-avatar-actions--stack">
-                                <button
+                                <Button variant="outline" size="sm"
                                   type="button"
-                                  className="wt-btn wt-btn-outline-primary"
-                                  style={{ fontSize: 13, fontWeight: 600 }}
                                   onClick={() => document.getElementById("profilePhotoInput")?.click()}
                                 >
                                   {profilePhotoPreview ? "Change photo" : "Upload photo"}
-                                </button>
+                                </Button>
                                 {profilePhotoPreview && (
-                                  <button
+                                  <Button variant="ghost" size="sm"
                                     type="button"
-                                    className="wt-btn wt-btn-ghost"
-                                    style={{ fontSize: 13 }}
                                     onClick={() => {
                                       setFieldValue("profilePhoto", null);
                                       setProfilePhotoPreview(null);
                                     }}
                                   >
                                     Remove
-                                  </button>
+                                  </Button>
                                 )}
                                 <span className="crm-avatar-hint">
                                   JPG or PNG · shown on contact lists

@@ -629,7 +629,7 @@ export function LeavePolicyModal({ open, onClose, readOnly, scope }: LeavePolicy
           Cancel
         </WtButton>
         {!readOnly && (
-          <WtButton tone="primary" onClick={handleSave} disabled={saving}
+          <WtButton onClick={handleSave} disabled={saving}
             startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <KTIcon iconName="check-circle" className="fs-4" />}
             sx={{
               px: { xs: 3, sm: 3.5 }, py: 1.3, minHeight: 48, borderRadius: '12px',

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Alert, Box, Button } from "@mui/material";
+import { Alert, Box } from "@mui/material";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
@@ -12,6 +12,7 @@ import { DriveCreateModal } from "./DriveCreate";
 import { getGroup, saveGroupToApi } from "../store/courtesyDeskStore";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import type { PersonRef } from "../types";
+import { WtButton } from '@app/modules/common/components/ui/buttons';
 
 function membersEqual(a: PersonRef[], b: PersonRef[]) {
   if (a.length !== b.length) return false;
@@ -148,12 +149,12 @@ export default function PeopleGroupEditor() {
       <Box sx={{ p: 3 }}>
         <Alert severity="warning">Group not found.</Alert>
         <Box sx={{ mt: 2 }}>
-          <Button
+          <WtButton variant="text"
             startIcon={<AppIcon name="bi-arrow-left" />}
             onClick={goBack}
           >
             Back to People Groups
-          </Button>
+          </WtButton>
         </Box>
       </Box>
     );

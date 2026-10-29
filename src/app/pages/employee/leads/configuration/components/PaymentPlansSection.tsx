@@ -8,6 +8,7 @@ import { PaymentPlan } from '@models/leads';
 import type { CategoryLike, SubCategoryLike } from '@utils/categoryScope';
 import { ChipGrid, ConfigSectionCard, EmptyState, C, FONT, RADIUS } from '@app/modules/configuration';
 import { ToneChip } from '@app/modules/common/components/ui/chips';
+import { Button } from '@/ds/ui/button';
 import PaymentPlanModal from './PaymentPlanModal';
 
 /**
@@ -94,24 +95,24 @@ const PaymentPlanChip: React.FC<{
                 </div>
 
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
-                    <button
+                    <Button
+                        variant="tinted"
+                        size="icon-xs"
+                        aria-label={`Edit ${scopeLabel || 'payment plan'}`}
                         onClick={onEdit}
-                        style={{
-                            background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
-                            padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center',
-                        }}
+                        style={{ '--tint': '#4f82c4' } as React.CSSProperties}
                     >
                         <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="tinted"
+                        size="icon-xs"
+                        aria-label={`Delete ${scopeLabel || 'payment plan'}`}
                         onClick={onDelete}
-                        style={{
-                            background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm,
-                            padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center',
-                        }}
+                        style={{ '--tint': 'var(--cta-danger)' } as React.CSSProperties}
                     >
                         <i className="bi bi-trash" style={{ fontSize: '11px' }} />
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

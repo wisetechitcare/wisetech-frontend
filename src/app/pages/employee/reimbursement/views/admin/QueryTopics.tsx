@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Box, IconButton, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Box, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import type { RootState } from '@redux/store';
 import { ConfigSectionCard } from '@app/modules/configuration';
 import { ToneChip, WtButton } from '@app/modules/common/components/ui';
@@ -15,6 +15,7 @@ import {
   type QueryTopic,
   type TopicScope,
 } from '@services/reimbursementQueries';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 /**
  * The "What is this about?" master.
@@ -159,12 +160,12 @@ function QueryTopics() {
             <ToneChip tone="neutral" size="small" label={scopeLabel(topic.scope)} />
             {canWrite && (
               <>
-                <IconButton size="small" onClick={() => handleEdit(topic)} aria-label={`Edit ${topic.label}`}>
+                <WtIconButton size="small" onClick={() => handleEdit(topic)} aria-label={`Edit ${topic.label}`}>
                   <i className="bi bi-pencil" style={{ fontSize: 12 }} />
-                </IconButton>
-                <IconButton size="small" color="error" onClick={() => handleDelete(topic)} aria-label={`Delete ${topic.label}`}>
+                </WtIconButton>
+                <WtIconButton color="var(--cta-danger)" size="small" onClick={() => handleDelete(topic)} aria-label={`Delete ${topic.label}`}>
                   <i className="bi bi-trash" style={{ fontSize: 12 }} />
-                </IconButton>
+                </WtIconButton>
               </>
             )}
           </Stack>

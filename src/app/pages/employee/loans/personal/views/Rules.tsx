@@ -8,16 +8,14 @@ import { fetchConfiguration,
 import { useEffect,
   useState } from 'react';
 import * as Yup from 'yup';
-import { Button,
-  Card,
-  ListGroup
-} from 'react-bootstrap';
+import { Card, ListGroup } from 'react-bootstrap';
 import { Form, Formik, FormikValues } from 'formik';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { successConfirmation } from '@utils/modal';
 import { LOAN_KEY } from '@constants/configurations-key';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
+import { Button } from '@/ds/ui/button';
 
 const loanSchema = Yup.object({
     name: Yup.string().required().label('Rule'),
@@ -140,20 +138,20 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                                     <span className="float-end">
                                      {value.details}
                                         {fromAdmin && hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.editOthers) && (
-                                            <button
-                                                className="btn btn-icon btn-active-color-primary btn-sm ps-2 pr-0"
+                                            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
+                                                className="pr-0"
                                                 onClick={() => handleEdit({ name, value })}
                                                 style={{ backgroundColor: 'transparent', border: 'none', paddingLeft: '4px' }}>
                                                 <KTIcon iconName="pencil" className="fs-3" />
-                                            </button>
+                                            </Button>
                                         )}
                                         {fromAdmin && hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.editOthers) && (
-                                            <button
-                                                className="btn btn-icon btn-active-color-primary btn-sm ps-2 pr-0"
+                                            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
+                                                className="pr-0"
                                                 onClick={() => handleDelete({ name, value })}
                                                 style={{ backgroundColor: 'transparent', border: 'none', paddingLeft: '4px' }}>
                                                 <KTIcon iconName="trash" className="fs-3" />
-                                            </button>
+                                            </Button>
                                         )}
                                     </span>
                                 </ListGroup.Item>
@@ -187,9 +185,8 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                                     <TextInput isRequired={true} label="Details" margin="mb-7" formikField="details" />
                                 </div>
                                 <div className='d-flex justify-content-end'>
-                                    <button
+                                    <Button
                                         type='submit'
-                                        className='btn btn-primary'
                                         style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                                         disabled={loading || !formikProps.isValid}
                                     >
@@ -199,7 +196,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                                                 Please wait... <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                                             </span>
                                         )}
-                                    </button>
+                                    </Button>
                                 </div>
                             </Form>
                         )}

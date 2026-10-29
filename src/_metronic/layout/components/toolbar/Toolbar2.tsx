@@ -2,6 +2,7 @@
 import clsx from 'clsx'
 import React, {FC} from 'react'
 import {KTIcon} from '../../../helpers'
+import {Button, buttonVariants} from '@/ds/ui/button'
 import {useLayout} from '../../core'
 import {DefaultTitle} from '../header/page-title/DefaultTitle'
 
@@ -32,8 +33,11 @@ const Toolbar2: FC = () => {
             <ul className='nav'>
               <li className='nav-item'>
                 <a
-                  className='nav-link btn btn-sm btn-color-muted btn-active-color-primary btn-active-light active fw-bold fs-7 px-4 me-1'
+                  className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'nav-link active me-1 [&.active]:bg-muted [&.active]:text-primary' })}
+                  data-slot='button'
                   data-bs-toggle='tab'
+                  role='tab'
+                  aria-selected={true}
                   href='#'
                 >
                   Day
@@ -42,8 +46,11 @@ const Toolbar2: FC = () => {
 
               <li className='nav-item'>
                 <a
-                  className='nav-link btn btn-sm btn-color-muted btn-active-color-primary btn-active-light fw-bold fs-7 px-4 me-1'
+                  className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'nav-link me-1 [&.active]:bg-muted [&.active]:text-primary' })}
+                  data-slot='button'
                   data-bs-toggle='tab'
+                  role='tab'
+                  aria-selected={false}
                   href=''
                 >
                   Week
@@ -52,8 +59,11 @@ const Toolbar2: FC = () => {
 
               <li className='nav-item'>
                 <a
-                  className='nav-link btn btn-sm btn-color-muted btn-active-color-primary btn-active-light fw-bold fs-7 px-4'
+                  className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'nav-link [&.active]:bg-muted [&.active]:text-primary' })}
+                  data-slot='button'
                   data-bs-toggle='tab'
+                  role='tab'
+                  aria-selected={false}
                   href='#'
                 >
                   Year
@@ -68,7 +78,8 @@ const Toolbar2: FC = () => {
             {/* begin::Daterangepicker */}
             <a
               href='#'
-              className='btn btn-sm btn-bg-light btn-color-gray-500 btn-active-color-primary me-2'
+              className={buttonVariants({variant: 'outline', size: 'sm', className: 'me-2'})}
+              data-slot='button'
               id='kt_dashboard_daterangepicker'
               data-bs-toggle='tooltip'
               data-bs-dismiss='click'
@@ -87,15 +98,16 @@ const Toolbar2: FC = () => {
 
             {/* begin::Actions */}
             <div className='d-flex align-items-center'>
-              <button
-                type='button'
-                className='btn btn-sm btn-icon btn-color-primary btn-active-light btn-active-color-primary'
+              <Button
+                variant='tinted'
+                size='icon-sm'
                 data-bs-toggle='modal'
                 data-bs-target='#kt_modal_create_app'
                 id='kt_toolbar_primary_button'
+                aria-label='Create app'
               >
                 <KTIcon iconName='add-files' className='fs-2x' />
-              </button>
+              </Button>
             </div>
             {/* end::Actions */}
           </div>

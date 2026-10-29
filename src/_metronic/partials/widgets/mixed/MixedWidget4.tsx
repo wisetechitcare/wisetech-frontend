@@ -2,6 +2,7 @@
 import clsx from 'clsx'
 import React from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+import {Button} from '@/ds/ui/button'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
 
 type Props = {
@@ -44,15 +45,16 @@ const MixedWidget4: React.FC<Props> = ({className, color, image, title, date, pr
 
           {/* begin:Menu */}
           <div className='ms-1'>
-            <button
-              type='button'
-              className='btn btn-sm btn-icon btn-color-primary btn-active-light-primary'
+            <Button
+              variant='tinted'
+              size='icon-sm'
+              aria-label='Menu'
               data-kt-menu-trigger='click'
               data-kt-menu-placement='bottom-end'
               data-kt-menu-flip='top-end'
             >
               <KTIcon iconName='category' className='fs-2' />
-            </button>
+            </Button>
             <Dropdown1 />
           </div>
           {/* end::Menu */}

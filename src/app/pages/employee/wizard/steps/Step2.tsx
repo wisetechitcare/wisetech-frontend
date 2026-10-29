@@ -18,6 +18,7 @@ import MealPreferences from '../forms/MealPreference';
 import { fetchQualificationMasters } from '@services/employee';
 import { createEducationRow, getEducationCompletionValues } from '../../../../../utils/educationUtils';
 import './Step2.css';
+import { Button } from '@/ds/ui/button';
 
 const ADD_NEW_QUALIFICATION = '__ADD_NEW__';
 
@@ -198,9 +199,9 @@ function WelcomeBanner({ firstName, profilePct, onDismiss }: WelcomeBannerProps)
         </p>
       </div>
 
-      <button className="ob-welcome-dismiss" type="button" onClick={onDismiss} aria-label="Dismiss welcome banner">
+      <Button variant="ghost" size="icon-sm" type="button" onClick={onDismiss} aria-label="Dismiss welcome banner">
         <X size={14} />
-      </button>
+      </Button>
     </motion.div>
   );
 }

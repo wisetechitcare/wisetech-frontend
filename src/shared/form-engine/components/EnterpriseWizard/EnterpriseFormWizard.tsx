@@ -348,7 +348,7 @@ function StepWizard<TValues = any, TStepProps = any>({
               <WtButton inverted onClick={() => saveAfterValidation(actions.onSaveUpdate!)} disabled={actions.isSubmitting || actions.submitDisabled}>
                 {actions.isSubmitting ? "Saving…" : "Save as Update"}
               </WtButton>
-              <WtButton tone="primary" onClick={() => saveAfterValidation(actions.onSaveRevision!)} disabled={actions.isSubmitting || actions.submitDisabled}>
+              <WtButton tone="accent" onClick={() => saveAfterValidation(actions.onSaveRevision!)} disabled={actions.isSubmitting || actions.submitDisabled}>
                 {actions.isSubmitting ? "Saving…" : "Save as Revision"}
               </WtButton>
             </>
