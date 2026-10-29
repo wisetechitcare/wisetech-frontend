@@ -2,8 +2,9 @@
 
 **The rule: search here first. If it exists, use it. If it doesn't, build it *here*, not in your feature.**
 
-> **Direction (ADR-001, 2026-10-26):** this kit *is* the WiseTech design system — owned code, moving onto
-> Radix primitives + Tailwind v4 behind the same public API. Screens import UI from this barrel only.
+> **Direction (ADR-001, amended 2026-10-27):** this kit *is* the WiseTech design system — owned code, moving onto
+> Base UI primitives (React Aria for date, time and number fields) + Tailwind v4 behind the same public API.
+> The v2 components live in `src/ds` and are catalogued in Storybook (`pnpm storybook`). Screens import UI from this barrel only.
 > Rules and roadmap: [`docs/DESIGN_SYSTEM_DECISION.md`](../../../../../../docs/DESIGN_SYSTEM_DECISION.md).
 
 This file exists because that rule kept being broken — not out of disagreement,

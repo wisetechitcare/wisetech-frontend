@@ -14,7 +14,7 @@ import {
 } from './dialog'
 
 /**
- * Modal dialog (Radix). Focus moves in and is trapped; Esc and the close button dismiss.
+ * Modal dialog (Base UI). Focus moves in and is trapped; Esc and the close button dismiss.
  * The discard prompt below is the pattern every wizard uses before closing with unsaved work.
  */
 const meta = {

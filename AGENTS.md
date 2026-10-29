@@ -47,7 +47,8 @@ comment, or a green typecheck is not proof; check the thing itself.
 ## Design system v2 + Storybook MCP (branch `v2`)
 
 The target design system is **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`): the WiseTech kit as owned code on
-**Radix + Tailwind v4**, tokens as CSS variables in `src/ds/styles/globals.css`, components in `src/ds/ui`,
+**Base UI + Tailwind v4** (shadcn style `base-maia`; React Aria for date, time and number fields; Animate UI
+for primitive motion — never Radix), tokens as CSS variables in `src/ds/styles/globals.css`, components in `src/ds/ui`,
 patterns in `src/ds/patterns`. Storybook (`pnpm storybook`, port 6006) is the catalogue; its MCP server is
 registered for agents as **`wisetech-storybook`** (`http://localhost:6006/mcp`, needs Storybook running).
 
