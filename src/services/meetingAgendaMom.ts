@@ -119,6 +119,12 @@ export const convertAgendaToMom = async (meetingId: string, itemIds: string[]) =
   return data;
 };
 
+/** Turn MoM lines into tasks for their assignees; omit `itemIds` for every ready line. */
+export const assignMomTasks = async (meetingId: string, itemIds?: string[]) => {
+  const { data } = await axios.post(`${base(meetingId)}/agenda-items/assign-tasks`, itemIds ? { itemIds } : {});
+  return data;
+};
+
 export const getMeetingMinutes = async (meetingId: string) => {
   const { data } = await axios.get(`${base(meetingId)}/minutes`);
   return data;

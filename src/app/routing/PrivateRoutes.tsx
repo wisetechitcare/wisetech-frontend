@@ -390,24 +390,24 @@ const PrivateRoutes = () => {
             </SectionGuard>) : <NoAccessPage />}
         />
         {/* Meetings module tabs (static slugs) — must register before :meetingId detail. */}
+        {/* Its own section (Access → Meetings): SectionGuard checks Read and the PSA pack. */}
         {tabRoutes(
           'employees/meetings',
           TAB_PATHS.meetings,
-          (hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers)) ? (
-            <SectionGuard module='calendar'>
-              <SuspensedView>
-                <MeetingsMain />
-              </SuspensedView>
-            </SectionGuard>
-          ) : <NoAccessPage />,
+          <SectionGuard module='meetings'>
+            <SuspensedView>
+              <MeetingsMain />
+            </SuspensedView>
+          </SectionGuard>,
         )}
         <Route
           path='employees/meetings/:meetingId'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers)) ? (<SectionGuard module='calendar'>
+          element={
+            <SectionGuard module='meetings'>
               <SuspensedView>
                 <MeetingDetailPage />
               </SuspensedView>
-            </SectionGuard>) : <NoAccessPage />}
+            </SectionGuard>}
         />
         <Route
           path='employees/notifications'

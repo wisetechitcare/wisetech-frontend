@@ -1,4 +1,5 @@
 import React from "react";
+import { formatBirthday, isYearless } from "@utils/birthday";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useSelector } from "react-redux";
@@ -356,7 +357,8 @@ const ClientContactsMain = ({
         header: "Date of Birth",
         Cell: ({ cell }) => {
           const date = cell.getValue() as string;
-          return date ? new Date(date).toLocaleDateString() : "NA";
+          // A birthday saved without its year shows as day + month only.
+          return date ? (isYearless(date) ? formatBirthday(date) : new Date(date).toLocaleDateString()) : "NA";
         },
       },
       {
@@ -425,7 +427,7 @@ const ClientContactsMain = ({
 📧 Email: ${contact.email || "N/A"}
 📞 Phone: ${contact.phone || "N/A"}
 ${contact.phone2 ? `📱 Alternate Phone: ${contact.phone2}` : ""}
-🎂 Date of Birth: ${contact.dateOfBirth ? new Date(contact.dateOfBirth).toLocaleDateString() : "N/A"}
+🎂 Date of Birth: ${contact.dateOfBirth ? (isYearless(contact.dateOfBirth) ? formatBirthday(contact.dateOfBirth) : new Date(contact.dateOfBirth).toLocaleDateString()) : "N/A"}
 📍 Address: ${fullAddress || "N/A"}
 ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
 

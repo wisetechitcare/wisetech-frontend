@@ -48,6 +48,13 @@ export const SECTION_TABS: Record<string, SectionTab[]> = {
   ],
   // Pages whose tab bar is filtered by MaterialHeaderTab (`accessSection`): keys are the tab titles
   // as slugs (tabSlug), so a tab is found by its name.
+  // Tab titles in MeetingsMain, as slugs. Agenda carries the minutes (MoM) too.
+  meetings: [
+    overview("meetings"),
+    { key: "all-meetings", label: "All Meetings", icon: "bi-people", hint: "Every meeting, on a list and the calendar" },
+    { key: "agenda", label: "Agenda", icon: "bi-list-check", hint: "Agendas and Minutes of Meeting" },
+    configure("meetings"),
+  ],
   calendar: [
     { key: "calendar", label: "Calendar", icon: "bi-calendar-event", hint: "The shared calendar" },
     { key: "meetings", label: "Meetings", icon: "bi-people", hint: "Meetings list" },

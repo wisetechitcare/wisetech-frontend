@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import { formatBirthday, isYearless } from "@utils/birthday";
 import { useNavigate } from "react-router-dom";
 import { Box } from "@mui/material";
 import { DetailCard, DetailRow, DetailMapLink, DetailLink } from "@app/modules/detail-page/DetailPageComponents";
@@ -9,6 +10,8 @@ import { AppIcon, ToneChip, WhatsAppIcon, WtButton } from "@app/modules/common/c
 import { coordsOf, telLink, mailLink, webLink, companyStatusChip } from "../../companies/components/CompanyOverview";
 
 const fmt = (v?: string | null) => (v ? dayjs(v).format("DD MMM YYYY") : DASH);
+/** As `fmt`, but a birthday saved without its year shows day + month only. */
+const fmtBirthday = (v?: string | null) => (v && isYearless(v) ? formatBirthday(v) : fmt(v));
 const joinAddress = (o: any) =>
   [o?.address, o?.area, o?.city, o?.state, o?.country, o?.zipCode].filter(Boolean).join(", ");
 
@@ -33,7 +36,7 @@ const ContactOverview = ({ contact }: { contact: any }) => {
 • Phone: ${contact?.phone || 'N/A'}
 ${contact?.phone2 ? `• Phone 2: ${contact.phone2}` : ''}
 • Gender: ${contact?.gender || 'N/A'}
-• Date of Birth: ${fmt(contact?.dateOfBirth)}
+• Date of Birth: ${fmtBirthday(contact?.dateOfBirth)}
 • Role: ${contact?.roleInCompany || 'N/A'}
 • Anniversary: ${fmt(contact?.anniversary)}
 • Address: ${joinAddress(contact) || 'N/A'}
@@ -69,7 +72,7 @@ ${company?.phone2 ? `• Phone 2: ${company.phone2}` : ''}
       >
         <DetailRow label="Full Name" value={contact?.fullName || DASH} />
         <DetailRow label="Gender" value={contact?.gender || DASH} />
-        <DetailRow label="Date of Birth" value={fmt(contact?.dateOfBirth)} />
+        <DetailRow label="Date of Birth" value={fmtBirthday(contact?.dateOfBirth)} />
         <DetailRow label="Anniversary" value={fmt(contact?.anniversary)} />
         <DetailRow label="Role in Company" value={contact?.roleInCompany || DASH} />
         <DetailRow label="Primary Contact" value={contact?.isPrimaryContact ? <ToneChip dense tone="warning" label="Primary" /> : "No"} />

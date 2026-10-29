@@ -46,6 +46,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import dayjs from "dayjs";
 import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
 import { AppIcon, useDiscardConfirm, FloatingLabels, FloatingLabelFrame, WtFieldFormik } from "@app/modules/common/components/ui";
+import BirthdayField from "./BirthdayField";
 import { Box } from "@mui/material";
 import {
   CRM_ACTIVE_COLOR,
@@ -779,13 +780,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   />
                                 </Col>
                                 <Col md={6} className="crm-date-field">
-                                  <DateInput
-                                    formikField="dob"
-                                    isRequired={false}
-                                    formikProps={formikProps}
-                                    inputLabel="Date of birth"
-                                    placeHolder="1/3/2025"
-                                  />
+                                  {/* Day + month; the year is optional — often not known. */}
+                                  <BirthdayField name="dob" />
                                 </Col>
                                 <Col md={6}>
                                   {/* Pills in a box the date beside it's height, "Gender" in its border. */}

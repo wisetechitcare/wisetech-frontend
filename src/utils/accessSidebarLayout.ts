@@ -62,6 +62,7 @@ export const ACCESS_SIDEBAR_LAYOUT: AccessLayoutGroup[] = [
     items: [
       { module: "dashboard", label: "Dashboard", icon: "bi-speedometer2" },
       { module: "calendar", label: "Calendar", icon: "bi-calendar-event" },
+      { module: "meetings", label: "Meetings", icon: "bi-people" },
     ],
   },
   {

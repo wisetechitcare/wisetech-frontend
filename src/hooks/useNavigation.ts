@@ -189,16 +189,8 @@ export function useNavigation() {
         to: '/employees/meetings',
         title: 'Meetings',
         fontIcon: 'bi-people',
-        visible: isSubsectionVisible(
-          'calendar',
-          hasPermission(
-            uiControlResourceNameMapWithCamelCase.calendar,
-            permissionConstToUseWithHasPermission.readOthers,
-          ),
-        ) && hasPermission(
-          resourceNameMapWithCamelCase.meeting,
-          permissionConstToUseWithHasPermission.readOwn,
-        ),
+        // Its own section now (Access → Meetings); it used to ride on Calendar.
+        visible: isPackEnabled('psa') && canSection('meetings'),
       },
 
       // ── HR & People ───────────────────────────────────────────────────────

@@ -4,10 +4,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Alert,
+  Badge,
   Box,
   Chip,
   CircularProgress,
@@ -18,6 +20,7 @@ import {
   Fab,
   IconButton,
   InputAdornment,
+  Popover,
   Stack,
   TextField,
   Tooltip,
@@ -26,6 +29,8 @@ import {
   useTheme,
 } from '@mui/material';
 import SearchRounded from '@mui/icons-material/SearchRounded';
+import FilterListRounded from '@mui/icons-material/FilterListRounded';
+import CheckRounded from '@mui/icons-material/CheckRounded';
 import PlaceOutlined from '@mui/icons-material/PlaceOutlined';
 import FlagRounded from '@mui/icons-material/FlagRounded';
 import AccessTimeRounded from '@mui/icons-material/AccessTimeRounded';
@@ -35,6 +40,7 @@ import AddRounded from '@mui/icons-material/AddRounded';
 import dayjs from 'dayjs';
 import { hasPermission } from '@utils/authAbac';
 import { apiErrorMessage } from '@utils/apiError';
+import { successConfirmation } from '@utils/modal';
 import {
   permissionConstToUseWithHasPermission,
   resourceNameMapWithCamelCase,
@@ -58,6 +64,7 @@ import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
 import type { PresetTask } from '../../tasks/taskDomain';
 import { getProjectTeam } from '@services/tasks';
 import {
+  assignMomTasks,
   convertAgendaToMom,
   createAgendaItem,
   createAgendaItemsBulk,
@@ -92,6 +99,10 @@ type HubMeeting = {
   isOverdue: boolean;
   isUpcoming: boolean;
   isPast: boolean;
+  /** Where the meeting is in its flow — the backend's meetingStage. */
+  stage: MeetingStage;
+  momLines: number;
+  tasksPending: number;
 };
 
 type DetailCache = {
@@ -102,7 +113,9 @@ type DetailCache = {
   purposeOptions: Array<{ code: string; label: string; requiresOther?: boolean }>;
 };
 
-type FilterKey = 'all' | 'upcoming' | 'past' | 'withAgenda' | 'noAgenda' | 'overdue';
+type MeetingStage = 'AGENDA_NEEDED' | 'SCHEDULED' | 'MOM_PENDING' | 'TASKS_PENDING' | 'COMPLETED';
+type WhenFilter = 'all' | 'upcoming' | 'past';
+type AgendaFilter = 'any' | 'with' | 'none';
 
 const C = {
   ink: '#0F172A',
@@ -118,7 +131,21 @@ const C = {
   amber: '#D97706',
   amberWash: '#FFEDD5',
   slate: '#F1F5F9',
+  rose: '#BE123C',
+  roseWash: '#FFE4E6',
+  violet: '#6D28D9',
+  violetWash: '#EDE9FE',
 };
+
+/** One look per stage of the meeting flow, used by the list chip, tracker and Status filter. */
+const STAGE_META: Record<MeetingStage, { label: string; hint: string; fg: string; bg: string }> = {
+  AGENDA_NEEDED: { label: 'Agenda needed', hint: 'Upcoming, with no agenda yet', fg: C.amber, bg: C.amberWash },
+  SCHEDULED: { label: 'Scheduled', hint: 'Upcoming, agenda ready', fg: C.blue, bg: C.blueSoft },
+  MOM_PENDING: { label: 'MoM pending', hint: 'Meeting over, minutes not recorded', fg: C.rose, bg: C.roseWash },
+  TASKS_PENDING: { label: 'Tasks pending', hint: 'Minutes recorded, tasks not assigned yet', fg: C.violet, bg: C.violetWash },
+  COMPLETED: { label: 'Completed', hint: 'Minutes recorded and every task assigned', fg: C.green, bg: C.greenWash },
+};
+const STAGES = Object.keys(STAGE_META) as MeetingStage[];
 
 /** Clear (X) collapses until hover/focus so the assignee name + avatar stay readable. */
 const assigneeSelectSx = {
@@ -200,22 +227,27 @@ export default function MeetingsAgendaHubTab() {
   );
 
   const [meetings, setMeetings] = useState<HubMeeting[]>([]);
-  const [counts, setCounts] = useState({
-    all: 0,
-    upcoming: 0,
-    past: 0,
-    withAgenda: 0,
-    noAgenda: 0,
-    overdue: 0,
-  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<FilterKey>('all');
+  const [when, setWhen] = useState<WhenFilter>('all');
+  const [stages, setStages] = useState<MeetingStage[]>([]);
+  const [agendaFilter, setAgendaFilter] = useState<AgendaFilter>('any');
+  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [filterAnchor, setFilterAnchor] = useState<HTMLElement | null>(null);
+  const activeFilterCount =
+    (when !== 'all' ? 1 : 0) + stages.length + (agendaFilter !== 'any' ? 1 : 0) + (overdueOnly ? 1 : 0);
+  const clearFilters = () => {
+    setWhen('all');
+    setStages([]);
+    setAgendaFilter('any');
+    setOverdueOnly(false);
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const panelParam = searchParams.get('panel');
   const [detailTab, setDetailTab] = useState<'overview' | 'agenda' | 'mom'>(
-    panelParam === 'mom' ? 'mom' : panelParam === 'overview' ? 'overview' : 'agenda',
+    // A meeting opens on its Overview; an explicit ?panel=agenda|mom link still lands there.
+    panelParam === 'mom' ? 'mom' : panelParam === 'agenda' ? 'agenda' : 'overview',
   );
   const [detailLoading, setDetailLoading] = useState(false);
   const [cache, setCache] = useState<Record<string, DetailCache>>({});
@@ -237,14 +269,6 @@ export default function MeetingsAgendaHubTab() {
       const res = await getMeetingsAgendaHub();
       const list: HubMeeting[] = res.meetings || [];
       setMeetings(list);
-      setCounts(res.counts || {
-        all: list.length,
-        upcoming: 0,
-        past: 0,
-        withAgenda: 0,
-        noAgenda: 0,
-        overdue: 0,
-      });
       return list;
     } catch (e: any) {
       if (!opts?.silent) {
@@ -283,11 +307,12 @@ export default function MeetingsAgendaHubTab() {
 
   const filtered = useMemo(() => {
     return meetings.filter((m) => {
-      if (filter === 'upcoming' && !m.isUpcoming) return false;
-      if (filter === 'past' && !m.isPast) return false;
-      if (filter === 'withAgenda' && !m.hasAgenda) return false;
-      if (filter === 'noAgenda' && m.hasAgenda) return false;
-      if (filter === 'overdue' && !m.isOverdue) return false;
+      if (when === 'upcoming' && !m.isUpcoming) return false;
+      if (when === 'past' && !m.isPast) return false;
+      if (stages.length && !stages.includes(m.stage)) return false;
+      if (agendaFilter === 'with' && !m.hasAgenda) return false;
+      if (agendaFilter === 'none' && m.hasAgenda) return false;
+      if (overdueOnly && !m.isOverdue) return false;
       if (!query.trim()) return true;
       const hay = [
         m.title,
@@ -296,10 +321,24 @@ export default function MeetingsAgendaHubTab() {
         placeLabel(m),
         m.startDate ? dayjs(m.startDate).format('DD MMM YYYY ddd') : '',
         m.agendaCount ? `${m.agendaCount} agenda` : 'no agenda',
+        STAGE_META[m.stage]?.label,
       ].filter(Boolean).join(' ');
       return matchesQuery(hay, query);
     });
-  }, [meetings, filter, query]);
+  }, [meetings, when, stages, agendaFilter, overdueOnly, query]);
+
+  // How many meetings each filter option would show, from the whole list.
+  const optionCounts = useMemo(() => {
+    const n = (f: (m: HubMeeting) => boolean) => meetings.filter(f).length;
+    return {
+      upcoming: n((m) => m.isUpcoming),
+      past: n((m) => m.isPast),
+      withAgenda: n((m) => m.hasAgenda),
+      noAgenda: n((m) => !m.hasAgenda),
+      overdue: n((m) => m.isOverdue),
+      stage: Object.fromEntries(STAGES.map((st) => [st, n((m) => m.stage === st)])) as Record<MeetingStage, number>,
+    };
+  }, [meetings]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, HubMeeting[]>();
@@ -394,7 +433,7 @@ export default function MeetingsAgendaHubTab() {
   const selectMeeting = (id: string) => {
     if (id !== selectedId) {
       setSelectedId(id);
-      setDetailTab('agenda');
+      setDetailTab('overview');
       if (!cacheRef.current[id]) setDetailLoading(true);
     }
     if (isMobile) setMobileDetail(true);
@@ -424,15 +463,6 @@ export default function MeetingsAgendaHubTab() {
     });
   }, []);
 
-  const filterChips: { key: FilterKey; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: counts.all },
-    { key: 'upcoming', label: 'Upcoming', count: counts.upcoming },
-    { key: 'past', label: 'Past', count: counts.past },
-    { key: 'withAgenda', label: 'With Agenda', count: counts.withAgenda },
-    { key: 'noAgenda', label: 'No Agenda', count: counts.noAgenda },
-    { key: 'overdue', label: 'Overdue', count: counts.overdue },
-  ];
-
   if (loading) {
     return (
       <Box sx={{ p: 6, display: 'flex', justifyContent: 'center' }}>
@@ -448,7 +478,9 @@ export default function MeetingsAgendaHubTab() {
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', lg: 'minmax(320px, 380px) minmax(0, 1fr)' },
+        // minmax(0, 1fr): a `1fr` track won't shrink below its content, so long one-line
+        // addresses pushed the phone list past the screen edge.
+        gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(320px, 380px) minmax(0, 1fr)' },
         gap: 0,
         minHeight: { lg: 'calc(100vh - 220px)' },
         borderTop: `1px solid ${C.line}`,
@@ -484,7 +516,7 @@ export default function MeetingsAgendaHubTab() {
           sx={{ px: 2, pt: 2, pb: 1.25 }}
         >
           <Typography sx={{ fontWeight: 800, fontSize: 16, color: C.ink }}>
-            Meetings ({counts.all})
+            Meetings ({activeFilterCount || query.trim() ? `${filtered.length} of ${meetings.length}` : meetings.length})
           </Typography>
           {canCreate && !isMobile && (
             <WtButton size="small" onClick={() => setShowNew(true)}>
@@ -493,7 +525,7 @@ export default function MeetingsAgendaHubTab() {
           )}
         </Stack>
 
-        <Box sx={{ px: 2, pb: 1 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 2, pb: 1 }}>
           <TextField
             size="small"
             fullWidth
@@ -515,43 +547,134 @@ export default function MeetingsAgendaHubTab() {
               },
             }}
           />
-        </Box>
-
-        <Stack
-          direction="row"
-          flexWrap="wrap"
-          useFlexGap
-          spacing={0.75}
-          sx={{ px: 2, pb: 1.5 }}
-        >
-          {filterChips.map((chip) => {
-            const active = filter === chip.key;
-            return (
-              <Box
-                key={chip.key}
-                component="button"
-                type="button"
-                onClick={() => setFilter(chip.key)}
-                sx={{
-                  border: `1px solid ${active ? C.blueEdge : C.line}`,
-                  bgcolor: active ? C.blueSoft : C.paper,
-                  color: active ? C.blue : C.mute,
-                  borderRadius: 999,
-                  px: 1.1,
-                  py: 0.35,
-                  fontSize: 11.5,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  lineHeight: 1.4,
-                }}
+          <Tooltip title="Filter meetings" arrow>
+            <IconButton
+              aria-label={`Filter meetings${activeFilterCount ? `, ${activeFilterCount} active` : ''}`}
+              aria-haspopup="dialog"
+              onClick={(e) => setFilterAnchor(e.currentTarget)}
+              sx={{
+                border: `1px solid ${activeFilterCount ? C.blueEdge : C.line}`,
+                bgcolor: activeFilterCount ? C.blueSoft : C.paper,
+                borderRadius: 2,
+                width: 40,
+                height: 40,
+                flexShrink: 0,
+              }}
+            >
+              <Badge
+                badgeContent={activeFilterCount}
+                color="primary"
+                invisible={!activeFilterCount}
+                sx={{ '& .MuiBadge-badge': { fontSize: 10, height: 16, minWidth: 16 } }}
               >
-                {chip.label} ({chip.count})
-              </Box>
-            );
-          })}
+                <FilterListRounded sx={{ fontSize: 20, color: activeFilterCount ? C.blue : C.mute }} />
+              </Badge>
+            </IconButton>
+          </Tooltip>
         </Stack>
 
-        <Box ref={listRef} sx={{ flex: 1, overflowY: 'auto', px: 1.25, pb: 2 }}>
+        {activeFilterCount > 0 && (
+          <Stack direction="row" flexWrap="wrap" useFlexGap gap={0.75} alignItems="center" sx={{ px: 2, pb: 1.25 }}>
+            {when !== 'all' && (
+              <Chip size="small" label={when === 'upcoming' ? 'Upcoming' : 'Past'} onDelete={() => setWhen('all')} />
+            )}
+            {stages.map((st) => (
+              <Chip
+                key={st}
+                size="small"
+                label={STAGE_META[st].label}
+                onDelete={() => setStages((prev) => prev.filter((x) => x !== st))}
+                sx={{ bgcolor: STAGE_META[st].bg, color: STAGE_META[st].fg, fontWeight: 700 }}
+              />
+            ))}
+            {agendaFilter !== 'any' && (
+              <Chip
+                size="small"
+                label={agendaFilter === 'with' ? 'With agenda' : 'No agenda'}
+                onDelete={() => setAgendaFilter('any')}
+              />
+            )}
+            {overdueOnly && <Chip size="small" label="Overdue" onDelete={() => setOverdueOnly(false)} />}
+            <Box
+              component="button"
+              type="button"
+              onClick={clearFilters}
+              sx={{ border: 0, bgcolor: 'transparent', color: C.blue, fontSize: 12, fontWeight: 700, cursor: 'pointer', px: 0.5 }}
+            >
+              Clear all
+            </Box>
+          </Stack>
+        )}
+
+        <Popover
+          open={!!filterAnchor}
+          anchorEl={filterAnchor}
+          onClose={() => setFilterAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          slotProps={{ paper: { sx: { width: 320, p: 2, borderRadius: 2.5, border: `1px solid ${C.line}` } } }}
+        >
+          <Stack spacing={1.75}>
+            <FilterGroup title="When">
+              {([
+                ['all', 'All', meetings.length],
+                ['upcoming', 'Upcoming', optionCounts.upcoming],
+                ['past', 'Past', optionCounts.past],
+              ] as const).map(([key, label, count]) => (
+                <FilterOption key={key} active={when === key} onClick={() => setWhen(key)} label={label} count={count} />
+              ))}
+            </FilterGroup>
+            <FilterGroup title="Status" hint="Pick any number">
+              {STAGES.map((st) => (
+                <FilterOption
+                  key={st}
+                  active={stages.includes(st)}
+                  onClick={() =>
+                    setStages((prev) => (prev.includes(st) ? prev.filter((x) => x !== st) : [...prev, st]))
+                  }
+                  label={STAGE_META[st].label}
+                  count={optionCounts.stage[st]}
+                  tone={STAGE_META[st]}
+                  title={STAGE_META[st].hint}
+                />
+              ))}
+            </FilterGroup>
+            <FilterGroup title="Agenda">
+              {([
+                ['any', 'Any', meetings.length],
+                ['with', 'With agenda', optionCounts.withAgenda],
+                ['none', 'No agenda', optionCounts.noAgenda],
+              ] as const).map(([key, label, count]) => (
+                <FilterOption key={key} active={agendaFilter === key} onClick={() => setAgendaFilter(key)} label={label} count={count} />
+              ))}
+            </FilterGroup>
+            <FilterGroup title="Follow-up">
+              <FilterOption
+                active={overdueOnly}
+                onClick={() => setOverdueOnly((v) => !v)}
+                label="Overdue items"
+                count={optionCounts.overdue}
+                title="Open points past their due date"
+              />
+            </FilterGroup>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 0.5 }}>
+              <Box
+                component="button"
+                type="button"
+                onClick={clearFilters}
+                disabled={!activeFilterCount}
+                sx={{ border: 0, bgcolor: 'transparent', color: activeFilterCount ? C.blue : C.mute, fontSize: 12.5, fontWeight: 700, cursor: activeFilterCount ? 'pointer' : 'default', p: 0 }}
+              >
+                Clear all
+              </Box>
+              <WtButton size="small" onClick={() => setFilterAnchor(null)}>
+                Show {filtered.length} meeting{filtered.length === 1 ? '' : 's'}
+              </WtButton>
+            </Stack>
+          </Stack>
+        </Popover>
+
+        <Box ref={listRef} sx={{ flex: 1, overflowY: 'auto', px: 1.25, pb: { xs: 12, md: 2 } }}>
           {grouped.length === 0 ? (
             <Alert severity="info" sx={{ mx: 0.75 }}>
               No meetings match this filter.
@@ -598,7 +721,8 @@ export default function MeetingsAgendaHubTab() {
           overflowY: 'auto',
           bgcolor: C.page,
           p: { xs: 1.5, md: 2 },
-          pb: { xs: 2, md: 2.5 },
+          // Phones: clear the app's floating bottom bar, which would hide the last lines.
+          pb: { xs: 12, md: 2.5 },
           display: showDetail ? 'block' : 'none',
         }}
       >
@@ -627,7 +751,8 @@ export default function MeetingsAgendaHubTab() {
           sx={{
             position: 'fixed',
             right: 20,
-            bottom: 24,
+            // Sit above the app's floating bottom bar on phones and tablets.
+            bottom: { xs: 104, md: 24 },
             bgcolor: C.blue,
             '&:hover': { bgcolor: C.blueEdge },
             zIndex: 8,
@@ -744,33 +869,252 @@ function MeetingListCard({
             {placeLabel(m)}
           </Typography>
         </Stack>
-        <Box sx={{ mt: 0.75 }}>
-          {m.hasAgenda && m.agendaCount > 0 ? (
-            <Chip
-              size="small"
-              label={`${m.agendaCount} agenda item${m.agendaCount === 1 ? '' : 's'}`}
-              sx={{
-                height: 22,
-                fontSize: 11,
-                fontWeight: 700,
-                bgcolor: C.greenWash,
-                color: C.green,
-              }}
-            />
-          ) : (
-            <Chip
-              size="small"
-              label="No agenda"
-              sx={{
-                height: 22,
-                fontSize: 11,
-                fontWeight: 700,
-                bgcolor: C.amberWash,
-                color: C.amber,
-              }}
-            />
-          )}
-        </Box>
+        <Stack direction="row" alignItems="center" gap={0.75} sx={{ mt: 0.75 }}>
+          <StageChip stage={m.stage} />
+          <Typography sx={{ fontSize: 11, color: C.mute }}>
+            {m.agendaCount ? `${m.agendaCount} agenda item${m.agendaCount === 1 ? '' : 's'}` : 'No agenda'}
+          </Typography>
+        </Stack>
+      </Box>
+    </Box>
+  );
+}
+
+/** What to do next, per stage — the line under the tracker. */
+const NEXT_STEP: Record<MeetingStage, { text: string; tab?: 'agenda' | 'mom'; cta?: string }> = {
+  AGENDA_NEEDED: { text: 'Add the topics to discuss before the meeting.', tab: 'agenda', cta: 'Add agenda' },
+  SCHEDULED: { text: 'Agenda ready. Record the minutes once the meeting is held.' },
+  MOM_PENDING: { text: 'The meeting is over — record what was discussed.', tab: 'mom', cta: 'Record minutes' },
+  TASKS_PENDING: { text: 'Minutes recorded. Assign the action points as tasks.', tab: 'mom', cta: 'Assign tasks' },
+  COMPLETED: { text: 'Done — minutes recorded and every action point is a task.' },
+};
+
+/**
+ * The meeting's flow at a glance: Agenda → Meeting held → MoM recorded → Tasks assigned.
+ * Done steps get a tick; the first open one is the current step.
+ */
+function MeetingTracker({
+  meeting: m,
+  onOpen,
+}: {
+  meeting: HubMeeting;
+  onOpen: (t: 'overview' | 'agenda' | 'mom') => void;
+}) {
+  const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'));
+  if (!m.stage) return null;
+  const steps = [
+    { label: 'Agenda', done: m.hasAgenda },
+    { label: 'Meeting held', done: m.isPast },
+    { label: 'MoM recorded', done: m.momLines > 0 },
+    { label: 'Tasks assigned', done: m.stage === 'COMPLETED' },
+  ];
+  const current = steps.findIndex((st) => !st.done);
+  const next = NEXT_STEP[m.stage];
+  const stepsEl = (
+      <Stack
+        component="ol"
+        direction="row"
+        alignItems="center"
+        aria-label="Meeting progress"
+        sx={{ listStyle: 'none', m: 0, p: 0, flexWrap: { xs: 'nowrap', sm: 'wrap' }, rowGap: 0.75 }}
+      >
+        {steps.map((st, i) => {
+          const isCurrent = i === current;
+          return (
+            <Stack
+              component="li"
+              key={st.label}
+              direction={{ xs: 'column', sm: 'row' }}
+              alignItems="center"
+              sx={{ minWidth: 0, flex: { xs: 1, sm: 'none' } }}
+            >
+              {/* Phones: four equal columns, circle over label — no connector to wrap. */}
+              {i > 0 && (
+                <Box
+                  aria-hidden
+                  sx={{
+                    display: { xs: 'none', sm: 'block' },
+                    width: 22,
+                    height: 2,
+                    mx: 0.75,
+                    borderRadius: 1,
+                    bgcolor: steps[i - 1].done ? C.green : C.line,
+                  }}
+                />
+              )}
+              <Box
+                aria-hidden
+                sx={{
+                  width: { xs: 28, sm: 20 },
+                  height: { xs: 28, sm: 20 },
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  flexShrink: 0,
+                  bgcolor: st.done ? C.green : isCurrent ? C.blueSoft : C.paper,
+                  border: `1.5px solid ${st.done ? C.green : isCurrent ? C.blue : C.line}`,
+                  color: st.done ? C.paper : isCurrent ? C.blue : C.mute,
+                  fontSize: { xs: 12, sm: 10.5 },
+                  fontWeight: 800,
+                }}
+              >
+                {st.done ? <CheckRounded sx={{ fontSize: { xs: 17, sm: 14 } }} /> : i + 1}
+              </Box>
+              <Typography
+                sx={{
+                  ml: { xs: 0, sm: 0.6 },
+                  mt: { xs: 0.75, sm: 0 },
+                  fontSize: { xs: 11, sm: 12 },
+                  lineHeight: { xs: 1.25, sm: 1.5 },
+                  textAlign: { xs: 'center', sm: 'left' },
+                  fontWeight: isCurrent ? 800 : 600,
+                  color: st.done ? C.green : isCurrent ? C.ink : C.mute,
+                  whiteSpace: { xs: 'normal', sm: 'nowrap' },
+                }}
+              >
+                {st.label}
+                <Box component="span" sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+                  {st.done ? ' (done)' : isCurrent ? ' (current step)' : ''}
+                </Box>
+              </Typography>
+            </Stack>
+          );
+        })}
+      </Stack>
+  );
+
+  // Phones: a panel of its own — count, status, steps, then the next step as a real button.
+  if (isPhone) {
+    const doneCount = steps.filter((st) => st.done).length;
+    return (
+      <Box sx={{ mt: 2, p: 1.75, borderRadius: 3, bgcolor: C.page, border: `1px solid ${C.line}` }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1} sx={{ mb: 1.75 }}>
+          <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: C.ink }}>
+            Progress <Box component="span" sx={{ color: C.mute, fontWeight: 600 }}>· {doneCount} of {steps.length}</Box>
+          </Typography>
+          <StageChip stage={m.stage} />
+        </Stack>
+        {stepsEl}
+        <Typography sx={{ mt: 1.75, fontSize: 13, lineHeight: 1.5, color: C.ink }}>{next.text}</Typography>
+        {next.tab && next.cta && (
+          <WtButton size="small" fullWidth onClick={() => onOpen(next.tab!)} sx={{ mt: 1.25 }}>
+            {next.cta}
+          </WtButton>
+        )}
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ mt: 1.5 }}>
+      {stepsEl}
+      <Stack direction="row" alignItems="center" gap={1} sx={{ mt: 0.75 }} flexWrap="wrap">
+        <StageChip stage={m.stage} />
+        <Typography sx={{ fontSize: 12.5, color: C.mute }}>{next.text}</Typography>
+        {next.tab && next.cta && (
+          <Box
+            component="button"
+            type="button"
+            onClick={() => onOpen(next.tab!)}
+            sx={{ border: 0, bgcolor: 'transparent', color: C.blue, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', p: 0 }}
+          >
+            {next.cta}
+          </Box>
+        )}
+      </Stack>
+    </Box>
+  );
+}
+
+/** A labelled field in a phone MoM card. */
+function MomField({ label, wide, children }: { label: string; wide?: boolean; children: ReactNode }) {
+  return (
+    <Box sx={{ gridColumn: wide ? '1 / -1' : 'auto', minWidth: 0 }}>
+      <Typography sx={{ fontSize: 11, fontWeight: 700, color: C.mute, mb: 0.4 }}>{label}</Typography>
+      {children}
+    </Box>
+  );
+}
+
+function StageChip({ stage }: { stage?: MeetingStage }) {
+  const meta = stage ? STAGE_META[stage] : null;
+  if (!meta) return null;
+  return (
+    <Tooltip title={meta.hint} arrow>
+      <Chip
+        size="small"
+        icon={stage === 'COMPLETED' ? <CheckRounded sx={{ fontSize: 14 }} /> : undefined}
+        label={meta.label}
+        sx={{
+          height: 22,
+          fontSize: 11,
+          fontWeight: 700,
+          bgcolor: meta.bg,
+          color: meta.fg,
+          '& .MuiChip-icon': { color: meta.fg, ml: 0.5 },
+        }}
+      />
+    </Tooltip>
+  );
+}
+
+function FilterGroup({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <Box role="group" aria-label={title}>
+      <Stack direction="row" alignItems="baseline" gap={0.75} sx={{ mb: 0.75 }}>
+        <Typography sx={{ fontSize: 12, fontWeight: 800, color: C.ink }}>{title}</Typography>
+        {hint && <Typography sx={{ fontSize: 11, color: C.mute }}>{hint}</Typography>}
+      </Stack>
+      <Stack direction="row" flexWrap="wrap" useFlexGap gap={0.75}>
+        {children}
+      </Stack>
+    </Box>
+  );
+}
+
+function FilterOption({
+  active,
+  onClick,
+  label,
+  count,
+  tone,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+  tone?: { fg: string; bg: string };
+  title?: string;
+}) {
+  const fg = tone?.fg ?? C.blue;
+  return (
+    <Box
+      component="button"
+      type="button"
+      aria-pressed={active}
+      title={title}
+      onClick={onClick}
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.5,
+        border: `1px solid ${active ? fg : C.line}`,
+        bgcolor: active ? tone?.bg ?? C.blueSoft : C.paper,
+        color: active ? fg : C.ink,
+        borderRadius: 999,
+        px: 1.1,
+        py: 0.4,
+        fontSize: 12,
+        fontWeight: active ? 700 : 600,
+        cursor: 'pointer',
+        '&:focus-visible': { outline: `2px solid ${fg}`, outlineOffset: 2 },
+      }}
+    >
+      {active && <CheckRounded sx={{ fontSize: 14 }} />}
+      {label}
+      <Box component="span" sx={{ color: C.mute, fontWeight: 600 }}>
+        {count}
       </Box>
     </Box>
   );
@@ -805,6 +1149,7 @@ function DetailPane({
   const perms = cached?.permissions;
   const purposeOptions = cached?.purposeOptions || [];
   const purposeLabels: string[] = meeting.purposeLabels || listMeeting.purposeLabels || [];
+  const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'));
   const agendaCount = cached ? agendaItems.length : listMeeting.agendaCount;
   const permsLoaded = perms != null;
   const canEditMom = !!perms?.canEditMom;
@@ -839,17 +1184,44 @@ function DetailPane({
   })();
 
   return (
-    <Stack spacing={1.75} sx={{ opacity: loading ? 0.72 : 1, transition: 'opacity .18s ease' }}>
+    <Stack spacing={isPhone ? 2 : 1.75} sx={{ opacity: loading ? 0.72 : 1, transition: 'opacity .18s ease' }}>
       <Box
         sx={{
           bgcolor: C.paper,
           border: `1px solid ${C.line}`,
           borderRadius: 3,
-          p: { xs: 1.5, md: 2 },
+          p: isPhone ? 2 : { xs: 1.5, md: 2 },
         }}
       >
+        {isPhone && onBack && (
+          <Box
+            component="button"
+            type="button"
+            onClick={onBack}
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              mb: 1.5,
+              ml: -0.5,
+              px: 0.5,
+              py: 0.25,
+              border: 0,
+              borderRadius: 1.5,
+              bgcolor: 'transparent',
+              color: C.blue,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              '&:focus-visible': { outline: `2px solid ${C.blue}`, outlineOffset: 2 },
+            }}
+          >
+            <ArrowBackRounded sx={{ fontSize: 18 }} />
+            All meetings
+          </Box>
+        )}
         <Stack direction="row" spacing={1.25} alignItems="flex-start">
-          {onBack && (
+          {!isPhone && onBack && (
             <IconButton
               aria-label="Back to meetings"
               onClick={onBack}
@@ -859,22 +1231,42 @@ function DetailPane({
               <ArrowBackRounded fontSize="small" />
             </IconButton>
           )}
-          <DateBadge date={meeting.startDate} />
+          {!isPhone && <DateBadge date={meeting.startDate} />}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{ fontWeight: 800, fontSize: { xs: 18, md: 22 }, color: C.ink, letterSpacing: '-0.02em' }}>
               {meeting.title}
             </Typography>
-            <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1.5} sx={{ mt: 0.75, color: C.mute, fontSize: 13 }}>
-              <span>{fmtDate(meeting.startDate)}</span>
-              <Stack direction="row" alignItems="center" gap={0.4}>
-                <AccessTimeRounded sx={{ fontSize: 15 }} />
-                {fmtTime(meeting.startDate)}–{fmtTime(meeting.endDate)}
+            {isPhone ? (
+              // Phones: date + time on one line, the place clamped to two.
+              <Stack direction="row" flexWrap="wrap" useFlexGap columnGap={1.5} rowGap={0.5} sx={{ mt: 0.75, color: C.mute, fontSize: 12.5 }}>
+                <Stack direction="row" alignItems="center" gap={0.75} sx={{ whiteSpace: 'nowrap' }}>
+                  <span>{fmtDate(meeting.startDate)}</span>
+                  <AccessTimeRounded sx={{ fontSize: 15 }} />
+                  {fmtTime(meeting.startDate)}–{fmtTime(meeting.endDate)}
+                </Stack>
+                <Stack direction="row" alignItems="flex-start" gap={0.4} sx={{ minWidth: 0, flexBasis: '100%' }}>
+                  <PlaceOutlined sx={{ fontSize: 15, mt: '2px', flexShrink: 0 }} />
+                  <Box
+                    component="span"
+                    sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                  >
+                    {placeLabel(meeting)}
+                  </Box>
+                </Stack>
               </Stack>
-              <Stack direction="row" alignItems="center" gap={0.4}>
-                <PlaceOutlined sx={{ fontSize: 15 }} />
-                {placeLabel(meeting)}
+            ) : (
+              <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1.5} sx={{ mt: 0.75, color: C.mute, fontSize: 13 }}>
+                <span>{fmtDate(meeting.startDate)}</span>
+                <Stack direction="row" alignItems="center" gap={0.4}>
+                  <AccessTimeRounded sx={{ fontSize: 15 }} />
+                  {fmtTime(meeting.startDate)}–{fmtTime(meeting.endDate)}
+                </Stack>
+                <Stack direction="row" alignItems="center" gap={0.4}>
+                  <PlaceOutlined sx={{ fontSize: 15 }} />
+                  {placeLabel(meeting)}
+                </Stack>
               </Stack>
-            </Stack>
+            )}
             <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.75} sx={{ mt: 1.25 }}>
               {purposeLabels.length ? (
                 purposeLabels.map((label: string) => (
@@ -908,6 +1300,7 @@ function DetailPane({
                   size="small"
                   variant="outlined"
                   label={[meeting.projectNumber, meeting.projectName].filter(Boolean).join(' — ')}
+                  sx={{ maxWidth: { xs: '100%', sm: 'none' } }}
                 />
               )}
               <Chip
@@ -916,6 +1309,7 @@ function DetailPane({
                 label={`${agendaCount} agenda item${agendaCount === 1 ? '' : 's'}`}
               />
             </Stack>
+            <MeetingTracker meeting={listMeeting} onOpen={setDetailTab} />
           </Box>
           {accessBadge && (
             <Tooltip title={accessBadge.tip} arrow placement="left">
@@ -941,13 +1335,19 @@ function DetailPane({
         <Stack
           direction="row"
           spacing={0.5}
-          sx={{ mt: 2, borderBottom: `1px solid ${C.line}`, overflowX: 'auto' }}
+          role="tablist"
+          sx={
+            isPhone
+              ? // Phones: a segmented control — three thumb-sized pills on a tinted track.
+                { mt: 2, p: 0.5, bgcolor: C.slate, borderRadius: 999 }
+              : { mt: 2, borderBottom: `1px solid ${C.line}`, overflowX: 'auto' }
+          }
         >
           {(
             [
               { key: 'overview', label: 'Overview' },
               { key: 'agenda', label: `Agenda (${agendaCount})` },
-              { key: 'mom', label: 'Minutes of Meeting' },
+              { key: 'mom', label: isPhone ? 'MoM' : 'Minutes of Meeting' },
             ] as const
           ).map((t) => {
             const active = detailTab === t.key;
@@ -956,20 +1356,39 @@ function DetailPane({
                 key={t.key}
                 component="button"
                 type="button"
+                role="tab"
+                aria-selected={active}
                 onClick={() => setDetailTab(t.key)}
-                sx={{
-                  border: 0,
-                  bgcolor: 'transparent',
-                  px: 1.5,
-                  py: 1,
-                  fontSize: 13,
-                  fontWeight: active ? 800 : 600,
-                  color: active ? C.blue : C.mute,
-                  borderBottom: active ? `2px solid ${C.blue}` : '2px solid transparent',
-                  cursor: 'pointer',
-                  mb: '-1px',
-                  whiteSpace: 'nowrap',
-                }}
+                sx={
+                  isPhone
+                    ? {
+                        flex: 1,
+                        border: 0,
+                        borderRadius: 999,
+                        py: 1,
+                        fontSize: 13,
+                        fontWeight: active ? 800 : 600,
+                        color: active ? C.blue : C.mute,
+                        bgcolor: active ? C.paper : 'transparent',
+                        boxShadow: active ? '0 1px 3px rgba(15,23,42,0.12)' : 'none',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        transition: 'background-color .15s ease, color .15s ease',
+                      }
+                    : {
+                        border: 0,
+                        bgcolor: 'transparent',
+                        px: 1.5,
+                        py: 1,
+                        fontSize: 13,
+                        fontWeight: active ? 800 : 600,
+                        color: active ? C.blue : C.mute,
+                        borderBottom: active ? `2px solid ${C.blue}` : '2px solid transparent',
+                        cursor: 'pointer',
+                        mb: '-1px',
+                        whiteSpace: 'nowrap',
+                      }
+                }
               >
                 {t.label}
               </Box>
@@ -1076,6 +1495,14 @@ function OverviewPanel({
   const requiresOther = (list: string[]) =>
     list.some((code) => purposeOptions.find((o) => o.code === code)?.requiresOther || code === 'OTHER');
   const needsOther = requiresOther(codes);
+  const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'));
+  const agendaItemsText = `${items.length || listMeeting.agendaCount} item(s)`;
+  // Was the location by mistake; it is the meeting's type and mode.
+  const meetingTypeText = [
+    meeting.meetingType === 'PROJECT' ? 'Project meeting' : 'General meeting',
+    MODE_LABEL[meeting.meetingMode as string],
+  ].filter(Boolean).join(' · ');
+  const projectText = [meeting.projectNumber, meeting.projectName].filter(Boolean).join(' — ') || '—';
 
   const purposeSelectOptions: WtSelectOption[] = useMemo(
     () =>
@@ -1157,23 +1584,42 @@ function OverviewPanel({
           </Typography>
         )}
       </Box>
-      <Box
-        sx={{
-          display: 'grid',
-          gap: 1.5,
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-        }}
-      >
-        <InfoCard title="Agenda items" body={`${items.length || listMeeting.agendaCount} item(s)`} />
-        <InfoCard title="Location" body={placeLabel(meeting)} />
-        <InfoCard title="Meeting type" body={placeLabel(meeting)} />
-        <InfoCard
-          title="Project"
-          body={
-            [meeting.projectNumber, meeting.projectName].filter(Boolean).join(' — ') || '—'
-          }
-        />
-      </Box>
+      {isPhone ? (
+        // Phones: one card, short facts side by side and long ones full width — four tall cards
+        // were a screenful on a phone.
+        <Box
+          component="dl"
+          sx={{
+            m: 0,
+            p: 1.5,
+            bgcolor: C.paper,
+            border: `1px solid ${C.line}`,
+            borderRadius: 2.5,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            columnGap: 2,
+            rowGap: 1.5,
+          }}
+        >
+          <InfoItem title="Agenda items" body={agendaItemsText} />
+          <InfoItem title="Meeting type" body={meetingTypeText} />
+          <InfoItem title="Location" body={placeLabel(meeting)} wide />
+          <InfoItem title="Project" body={projectText} wide />
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 1.5,
+            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          }}
+        >
+          <InfoCard title="Agenda items" body={agendaItemsText} />
+          <InfoCard title="Location" body={placeLabel(meeting)} />
+          <InfoCard title="Meeting type" body={meetingTypeText} />
+          <InfoCard title="Project" body={projectText} />
+        </Box>
+      )}
     </Stack>
   );
 }
@@ -1183,6 +1629,21 @@ function InfoCard({ title, body }: { title: string; body: string }) {
     <Box sx={{ p: 2, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
       <Typography sx={{ fontSize: 12, fontWeight: 700, color: C.mute, mb: 0.5 }}>{title}</Typography>
       <Typography sx={{ fontWeight: 700, color: C.ink }}>{body}</Typography>
+    </Box>
+  );
+}
+
+const MODE_LABEL: Record<string, string> = { ONLINE: 'Online', OFFLINE: 'In person', HYBRID: 'Hybrid' };
+
+function InfoItem({ title, body, wide }: { title: string; body: string; wide?: boolean }) {
+  return (
+    <Box sx={{ gridColumn: wide ? '1 / -1' : 'auto', minWidth: 0 }}>
+      <Typography component="dt" sx={{ fontSize: 11.5, fontWeight: 700, color: C.mute, mb: 0.25 }}>
+        {title}
+      </Typography>
+      <Typography component="dd" sx={{ m: 0, fontSize: 13, fontWeight: 700, color: C.ink, overflowWrap: 'anywhere' }}>
+        {body}
+      </Typography>
     </Box>
   );
 }
@@ -1248,6 +1709,157 @@ function MomPanel({
   }, [taskOptions, items]);
   const projectId = meeting?.projectId || null;
   const rowsEditable = canEdit && !!minutes;
+  const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'));
+  // Lines that can become tasks now: an assignee, and not a task yet.
+  const readyToAssign = momItems.filter((it: any) => it.responsibleUserId && !it.taskId).length;
+  // Done: at least one task made, and nothing with an assignee left to make into one.
+  const allAssigned = readyToAssign === 0 && momItems.some((it: any) => it.taskId);
+  const meetingOver = !!meeting?.endDate && dayjs(meeting.endDate).isBefore(dayjs());
+  const [assigning, setAssigning] = useState(false);
+
+  /** One MoM line's fields — shared by the desktop table and the phone cards. */
+  const lineFields = (item: any) => {
+    const rowBusy = rowBusyId === item.id;
+    // Once a line is a task, its assignee and due date live on the task.
+    const lineEditable = rowsEditable && !item.taskId;
+    const dueVal = item.targetCompletionDate ? dayjs(item.targetCompletionDate).format('YYYY-MM-DD') : '';
+    return {
+      title: (
+        <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+          <Box component="span" sx={{ fontWeight: 600, fontSize: 13, color: C.ink }}>{item.description}</Box>
+          {item.addedInMom && (
+            <Chip
+              size="small"
+              label="Not on agenda"
+              sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: C.slate, color: C.mute }}
+            />
+          )}
+          {item.taskId && (
+            <Chip
+              size="small"
+              label="Task assigned"
+              sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: C.greenWash, color: C.green }}
+            />
+          )}
+        </Stack>
+      ),
+      assignee: lineEditable ? (
+        <Box sx={assigneeSelectSx}>
+          <WtSelect
+            size="sm"
+            options={assigneeOptions}
+            value={assigneeOptions.find((a) => a.value === item.responsibleUserId) || null}
+            isDisabled={rowBusy}
+            isLoading={directoryLoading}
+            isClearable
+            isSearchable
+            optionVariant="avatar"
+            placeholder="Assignee"
+            ariaLabel={`Assignee for ${item.description}`}
+            onChange={(next) => {
+              const opt = next as WtSelectOption | null;
+              void patchItem(item.id, { responsibleUserId: opt?.value || null }, { responsibleName: opt?.label || null });
+            }}
+          />
+        </Box>
+      ) : (
+        <Box component="span" sx={{ fontSize: 13 }}>{item.responsibleName || '—'}</Box>
+      ),
+      due: lineEditable ? (
+        <WtDateField
+          label=""
+          value={dueVal}
+          disabled={rowBusy}
+          onChange={(v) => {
+            void patchItem(item.id, { targetCompletionDate: v || null });
+          }}
+        />
+      ) : (
+        <Box component="span" sx={{ fontSize: 13 }}>{fmtDate(item.targetCompletionDate)}</Box>
+      ),
+      status: rowsEditable && statusOptions.length ? (
+        <WtSelect
+          size="sm"
+          options={statusOptions}
+          value={statusOptions.find((o) => o.value === item.status) || null}
+          isDisabled={rowBusy}
+          optionVariant="colour"
+          accentColor={statusOptions.find((o) => o.value === item.status)?.color}
+          placeholder="Status"
+          ariaLabel={`Status of ${item.description}`}
+          onChange={(next) => {
+            const opt = next as WtSelectOption | null;
+            if (!opt) return;
+            void patchItem(item.id, { status: opt.value }, { statusLabel: opt.label, statusColor: opt.color });
+          }}
+        />
+      ) : (
+        <Stack direction="row" alignItems="center" gap={0.75} sx={{ fontSize: 13 }}>
+          <Box aria-hidden sx={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, bgcolor: item.statusColor || C.mute }} />
+          <span>{item.statusLabel || item.status || '—'}</span>
+        </Stack>
+      ),
+      note: rowsEditable ? (
+        <TextField
+          // Re-seed when the saved note changes (refresh / another tab).
+          key={`${item.id}:${item.remarks ?? ''}`}
+          size="small"
+          fullWidth
+          multiline
+          maxRows={4}
+          placeholder="Note"
+          defaultValue={item.remarks || ''}
+          disabled={rowBusy}
+          inputProps={{ 'aria-label': `Note for ${item.description}` }}
+          onBlur={(e) => {
+            const remarks = e.target.value.trim() || null;
+            if (remarks === (item.remarks || null)) return;
+            void patchItem(item.id, { remarks });
+          }}
+          sx={{ '& .MuiInputBase-root': { fontSize: 13 } }}
+        />
+      ) : (
+        <Box sx={{ whiteSpace: 'pre-wrap', fontSize: 13, color: item.remarks ? C.ink : C.mute }}>{item.remarks || '—'}</Box>
+      ),
+      // Agenda items leave the MoM by unticking them on the Agenda tab.
+      remove: rowsEditable && item.addedInMom ? (
+        <WtIconButton
+          title="Remove topic"
+          color="#DC2626"
+          disabled={rowBusy}
+          onClick={() => removeTopic(item.id)}
+          sx={{ width: 32, height: 32, borderRadius: '10px', flexShrink: 0 }}
+        >
+          <AppIcon name="bi-trash" fallbackSize={14} />
+        </WtIconButton>
+      ) : null,
+    };
+  };
+
+  const assignTasks = async () => {
+    setAssigning(true);
+    try {
+      const res = await assignMomTasks(meetingId);
+      await onRefresh();
+      const skipped: Array<{ description: string; reason: string }> = res?.skipped || [];
+      if (skipped.length) {
+        onError(
+          `${res?.created ? `${res.created} assigned. ` : ''}Not assigned: ${skipped
+            .map((x) => `${x.description} (${x.reason})`)
+            .join('; ')}`,
+        );
+      } else if (res?.created) {
+        void successConfirmation(
+          `${res.created} task${res.created === 1 ? '' : 's'} assigned. They now appear on each person's task board.`,
+          'Tasks assigned',
+        );
+      }
+    } catch (e) {
+      onError(errMsg(e));
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   useEffect(() => {
     if (!projectId || !rowsEditable) {
@@ -1385,13 +1997,60 @@ function MomPanel({
       <Box sx={{ p: 2, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap gap={1}>
           <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-            <Typography sx={{ fontSize: 13, color: C.mute }}>
-              Document No. {minutes.documentNo || '—'}
-            </Typography>
+            {isPhone ? (
+              <Box>
+                <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: C.mute }}>Document No.</Typography>
+                <Typography sx={{ fontSize: 14, fontWeight: 800, color: C.ink, letterSpacing: '0.01em' }}>
+                  {minutes.documentNo || '—'}
+                </Typography>
+              </Box>
+            ) : (
+              <Typography sx={{ fontSize: 13, color: C.mute }}>
+                Document No. {minutes.documentNo || '—'}
+              </Typography>
+            )}
           </Stack>
-          <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1}>
+          {/* Phones: the two actions share one row, half each. */}
+          <Stack
+            direction="row"
+            useFlexGap
+            spacing={1}
+            sx={{ width: { xs: '100%', sm: 'auto' }, flexWrap: { xs: 'nowrap', sm: 'wrap' }, '& > *': { flex: { xs: 1, sm: 'none' } } }}
+          >
+            {rowsEditable && (
+              <Tooltip
+                arrow
+                title={
+                  allAssigned
+                    ? 'Tasks have already been assigned. Each person can see theirs on their task board.'
+                    : !meetingOver
+                      ? 'Available once the meeting has ended.'
+                      : !readyToAssign
+                        ? 'No line has an assignee yet. Pick an assignee on a line to assign it as a task.'
+                        : 'Create a task for each line that has an assignee, on their task board.'
+                }
+              >
+                {/* span: a disabled button fires no hover, so the tooltip needs a live wrapper. */}
+                <Box component="span" sx={{ display: { xs: 'flex', sm: 'inline' } }}>
+                  <WtButton
+                    size="small"
+                    inverted
+                    fullWidth={isPhone}
+                    disabled={assigning || allAssigned || !meetingOver || !readyToAssign}
+                    onClick={assignTasks}
+                    startIcon={allAssigned ? <CheckRounded /> : undefined}
+                  >
+                    {assigning
+                      ? 'Assigning…'
+                      : allAssigned
+                        ? 'Tasks assigned'
+                        : `Assign tasks${readyToAssign ? ` (${readyToAssign})` : ''}`}
+                  </WtButton>
+                </Box>
+              </Tooltip>
+            )}
             {canExport && (
-              <WtButton size="small" disabled={busy} onClick={exportPdf}>
+              <WtButton size="small" disabled={busy} onClick={exportPdf} sx={{ whiteSpace: { xs: 'nowrap', sm: 'normal' } }}>
                 Download PDF
               </WtButton>
             )}
@@ -1415,6 +2074,57 @@ function MomPanel({
             {rowsEditable ? ', or add a topic discussed below.' : '.'}
           </Alert>
         ) : (
+          // Phones get one card per line (fields stacked, nothing to scroll sideways); wider
+          // screens the table. Both draw the same fields from `lineFields`.
+          isPhone ? (
+            <Stack spacing={1.25} sx={{ p: 1.25, bgcolor: C.page }}>
+              {momItems.map((item: any, idx: number) => {
+                const f = lineFields(item);
+                return (
+                  <Box
+                    key={item.id}
+                    sx={{
+                      p: 1.75,
+                      bgcolor: C.paper,
+                      border: `1px solid ${C.line}`,
+                      // The line's status colour, readable at a glance while scrolling.
+                      borderLeft: `4px solid ${item.statusColor || C.line}`,
+                      borderRadius: 2.5,
+                    }}
+                  >
+                    <Stack direction="row" alignItems="flex-start" gap={1.25}>
+                      <Box
+                        aria-hidden
+                        sx={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          bgcolor: C.slate,
+                          color: C.mute,
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontSize: 11.5,
+                          fontWeight: 800,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {idx + 1}
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0, pt: '2px' }}>{f.title}</Box>
+                      {f.remove}
+                    </Stack>
+                    {/* Due date + Status share a row when each gets 150px; on the narrowest phones they stack. */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', columnGap: 1.25, rowGap: 1.5, mt: 1.75 }}>
+                      <MomField label="Assignee" wide>{f.assignee}</MomField>
+                      <MomField label="Due date">{f.due}</MomField>
+                      <MomField label="Status">{f.status}</MomField>
+                      <MomField label="Note" wide>{f.note}</MomField>
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Stack>
+          ) : (
           <Box sx={{ overflowX: 'auto' }}>
             <Box component="table" sx={agendaTableSx}>
               <Box component="thead">
@@ -1429,154 +2139,23 @@ function MomPanel({
               </Box>
               <Box component="tbody">
                 {momItems.map((item: any, idx: number) => {
-                  const rowBusy = rowBusyId === item.id;
-                  const dueVal = item.targetCompletionDate
-                    ? dayjs(item.targetCompletionDate).format('YYYY-MM-DD')
-                    : '';
+                  const f = lineFields(item);
                   return (
                     <Box component="tr" key={item.id}>
-                      <Box component="td" sx={{ color: C.mute, width: 36 }}>
-                        {idx + 1}
-                      </Box>
-                      <Box component="td" sx={{ minWidth: 180, fontWeight: 600 }}>
-                        <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-                          <span>{item.description}</span>
-                          {item.addedInMom && (
-                            <Chip
-                              size="small"
-                              label="Not on agenda"
-                              sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: C.slate, color: C.mute }}
-                            />
-                          )}
-                        </Stack>
-                      </Box>
-                      <Box component="td" sx={{ minWidth: 200 }}>
-                        {rowsEditable ? (
-                          <Box sx={assigneeSelectSx}>
-                            <WtSelect
-                              size="sm"
-                              options={assigneeOptions}
-                              value={assigneeOptions.find((a) => a.value === item.responsibleUserId) || null}
-                              isDisabled={rowBusy}
-                              isLoading={directoryLoading}
-                              isClearable
-                              isSearchable
-                              optionVariant="avatar"
-                              placeholder="Assignee"
-                              ariaLabel="Assignee"
-                              onChange={(next) => {
-                                const opt = next as WtSelectOption | null;
-                                void patchItem(
-                                  item.id,
-                                  { responsibleUserId: opt?.value || null },
-                                  { responsibleName: opt?.label || null },
-                                );
-                              }}
-                            />
-                          </Box>
-                        ) : (
-                          item.responsibleName || '—'
-                        )}
-                      </Box>
-                      <Box component="td" sx={{ whiteSpace: 'nowrap', minWidth: 150 }}>
-                        {rowsEditable ? (
-                          <WtDateField
-                            label=""
-                            value={dueVal}
-                            disabled={rowBusy}
-                            onChange={(v) => {
-                              void patchItem(item.id, { targetCompletionDate: v || null });
-                            }}
-                          />
-                        ) : (
-                          fmtDate(item.targetCompletionDate)
-                        )}
-                      </Box>
-                      <Box component="td" sx={{ minWidth: 160 }}>
-                        {rowsEditable && statusOptions.length ? (
-                          <WtSelect
-                            size="sm"
-                            options={statusOptions}
-                            value={statusOptions.find((o) => o.value === item.status) || null}
-                            isDisabled={rowBusy}
-                            optionVariant="colour"
-                            accentColor={statusOptions.find((o) => o.value === item.status)?.color}
-                            placeholder="Status"
-                            ariaLabel={`Status of ${item.description}`}
-                            onChange={(next) => {
-                              const opt = next as WtSelectOption | null;
-                              if (!opt) return;
-                              void patchItem(
-                                item.id,
-                                { status: opt.value },
-                                { statusLabel: opt.label, statusColor: opt.color },
-                              );
-                            }}
-                          />
-                        ) : (
-                          <Stack direction="row" alignItems="center" gap={0.75}>
-                            <Box
-                              aria-hidden
-                              sx={{
-                                width: 9,
-                                height: 9,
-                                borderRadius: '50%',
-                                flexShrink: 0,
-                                bgcolor: item.statusColor || C.mute,
-                              }}
-                            />
-                            <span>{item.statusLabel || item.status || '—'}</span>
-                          </Stack>
-                        )}
-                      </Box>
-                      <Box component="td" sx={{ minWidth: 220 }}>
-                        {rowsEditable ? (
-                          <TextField
-                            // Re-seed when the saved note changes (refresh / another tab).
-                            key={`${item.id}:${item.remarks ?? ''}`}
-                            size="small"
-                            fullWidth
-                            multiline
-                            maxRows={4}
-                            placeholder="Note"
-                            defaultValue={item.remarks || ''}
-                            disabled={rowBusy}
-                            inputProps={{ 'aria-label': `Note for ${item.description}` }}
-                            onBlur={(e) => {
-                              const remarks = e.target.value.trim() || null;
-                              if (remarks === (item.remarks || null)) return;
-                              void patchItem(item.id, { remarks });
-                            }}
-                            sx={{ '& .MuiInputBase-root': { fontSize: 13 } }}
-                          />
-                        ) : (
-                          <Box sx={{ whiteSpace: 'pre-wrap', color: item.remarks ? C.ink : C.mute }}>
-                            {item.remarks || '—'}
-                          </Box>
-                        )}
-                      </Box>
-                      {rowsEditable && (
-                        <Box component="td" sx={{ textAlign: 'center' }}>
-                          {/* Agenda items leave the MoM by unticking them on the Agenda tab. */}
-                          {item.addedInMom && (
-                            <WtIconButton
-                              title="Remove topic"
-                              color="#DC2626"
-                              disabled={rowBusy}
-                              onClick={() => removeTopic(item.id)}
-                              sx={{ width: 32, height: 32, borderRadius: '10px' }}
-                            >
-                              <AppIcon name="bi-trash" fallbackSize={14} />
-                            </WtIconButton>
-                          )}
-                        </Box>
-                      )}
+                      <Box component="td" sx={{ color: C.mute, width: 36 }}>{idx + 1}</Box>
+                      <Box component="td" sx={{ minWidth: 180 }}>{f.title}</Box>
+                      <Box component="td" sx={{ minWidth: 200 }}>{f.assignee}</Box>
+                      <Box component="td" sx={{ whiteSpace: 'nowrap', minWidth: 150 }}>{f.due}</Box>
+                      <Box component="td" sx={{ minWidth: 160 }}>{f.status}</Box>
+                      <Box component="td" sx={{ minWidth: 220 }}>{f.note}</Box>
+                      {rowsEditable && <Box component="td" sx={{ textAlign: 'center' }}>{f.remove}</Box>}
                     </Box>
                   );
                 })}
               </Box>
             </Box>
           </Box>
+          )
         )}
         {rowsEditable && (
           <Box sx={{ p: 1.5, borderTop: `1px solid ${C.line}`, bgcolor: C.page }}>
@@ -1640,6 +2219,7 @@ function AgendaPanel({
   onError: (m: string) => void;
 }) {
   const [agendaSearch, setAgendaSearch] = useState('');
+  const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'));
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
@@ -1765,19 +2345,31 @@ function AgendaPanel({
           sx={{ maxWidth: { sm: 320 }, bgcolor: C.paper, borderRadius: 2 }}
         />
         {canEdit ? (
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          // Phones: one row — the count on the left, both actions on the right.
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            useFlexGap
+            sx={{ width: { xs: '100%', sm: 'auto' }, flexWrap: { xs: 'nowrap', sm: 'wrap' } }}
+          >
             {items.length > 0 && (
               <>
-                <Typography sx={{ fontSize: 12.5, color: C.mute, whiteSpace: 'nowrap' }}>
+                <Typography sx={{ fontSize: 12.5, color: C.mute, whiteSpace: 'nowrap', mr: { xs: 'auto', sm: 0 } }}>
                   {checked.size} of {items.length} selected
                 </Typography>
-                <WtButton size="small" inverted disabled={converting} onClick={convert}>
+                <WtButton size="small" inverted disabled={converting} onClick={convert} sx={{ whiteSpace: { xs: 'nowrap', sm: 'normal' } }}>
                   {converting ? 'Converting…' : 'Convert to MoM'}
                 </WtButton>
               </>
             )}
-            <WtButton size="small" onClick={() => setOpen(true)}>
-              + Add agenda items
+            <WtButton
+              size="small"
+              onClick={() => setOpen(true)}
+              aria-label="Add agenda items"
+              sx={{ whiteSpace: { xs: 'nowrap', sm: 'normal' }, ml: { xs: items.length ? 0 : 'auto', sm: 0 } }}
+            >
+              {isPhone ? '+ Add' : '+ Add agenda items'}
             </WtButton>
           </Stack>
         ) : permsLoaded ? (
