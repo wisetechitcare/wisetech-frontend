@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setCustomColors } from '@redux/slices/customColors';
 import { updateColorsById } from '@services/options';
 import { fetchColorAndStoreInSlice } from '@utils/file';
+import { Button } from '@/ds/ui/button';
 
 const initialValues = {
   id: "",
@@ -352,7 +353,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
             </div>
 
             <div className='d-flex justify-content-start pt-6 mt-4'>
-              <button type='submit' className='btn btn-primary btn-lg' disabled={loading || !formik.isValid}>
+              <Button size="lg" type='submit' disabled={loading || !formik.isValid}>
                 {!loading && 'Save Changes'}
                 {loading && (
                   <span className='indicator-progress' style={{ display: 'block' }}>
@@ -360,7 +361,7 @@ function Appearance({ showAppearanceModal }: AppearanceProps) {
                     <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                   </span>
                 )}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

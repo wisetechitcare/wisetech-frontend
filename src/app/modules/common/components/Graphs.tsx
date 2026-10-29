@@ -1884,9 +1884,9 @@ export const StatisticsTable = ({
                  */
                 const isPastDate = dayjs(row?.original?.date).isBefore(dayjs(), 'day');
                 return !(row?.original?.id == "-") && res && !isPastDate ?
-                    < button className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm' onClick={() => raiseRequest(row?.original)} >
+                    < Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit" onClick={() => raiseRequest(row?.original)} >
                         <KTIcon iconName='pencil' className='fs-3' />
-                    </button > : 'Not Allowed'
+                    </Button > : 'Not Allowed'
             },
         }] : []),
     ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration, backendLateDates, backendDatesReady]);
@@ -2379,18 +2379,17 @@ export const ReportsTable = ({
                 const editRes = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.editOwn, row?.original);
                 return (
                     <>
-                        {editRes && !isApproved && <button
-                            className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                        {editRes && !isApproved && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
                             onClick={() => raiseRequest(row?.original)}
                         >
                             <KTIcon iconName='pencil' className='fs-3' />
-                        </button>}
-                        {deleteRes && !isApproved && <button
-                            className='ms-2 btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                        </Button>}
+                        {deleteRes && !isApproved && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
+                            className="ms-2"
                             onClick={() => deleteRequest(row?.original)}
                         >
                             <KTIcon iconName='trash' className='fs-3' />
-                        </button>}
+                        </Button>}
                         {isPending && row.original.hasApprovalInstance && (
                             <Button variant="ghost" size="icon-sm" type="submit" aria-label="Track Approval"
                                 className="ms-2"

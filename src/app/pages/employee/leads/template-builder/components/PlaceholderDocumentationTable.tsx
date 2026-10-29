@@ -84,15 +84,12 @@ const PlaceholderDocumentationTable: React.FC<
                   </td>
                   <td className="pe-8 py-6 text-end">
                     <div className="d-flex justify-content-end gap-2">
-                       <Button 
-                        variant="light-primary" 
-                        size="sm" 
-                        className="btn-icon rounded-pill w-30px h-30px"
+                       <KitButton variant="tinted" size="icon-sm"
                         onClick={() => copyToken(row.token)}
                         title="Copy to clipboard"
                        >
                          <Copy size={14} />
-                       </Button>
+                       </KitButton>
                     </div>
                   </td>
                 </motion.tr>

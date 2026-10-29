@@ -203,14 +203,13 @@ function CreateDelegationModal({ show, employees, onClose, onCreated }: CreateMo
         <Button variant="outline" size="sm" type="submit" data-unsaved-changes-close onClick={onClose} disabled={submitting}>
           Cancel
         </Button>
-        <button
-          className='btn btn-sm btn-primary d-flex align-items-center gap-2'
+        <Button size="sm" type="submit"
           onClick={handleSubmit}
           disabled={!isValid || submitting}
         >
           {submitting && <span className='spinner-border spinner-border-sm' />}
           Create Delegation
-        </button>
+        </Button>
       </Modal.Footer>
     </Modal>
   );
@@ -344,14 +343,14 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
         if (!d.isActive) return null;
         const isCancelling = cancellingId === d.id;
         return (
-          <button
-            className='btn btn-sm btn-light-danger d-flex align-items-center gap-1'
+          <Button variant="tinted" size="sm" type="submit"
+            className="[--tint:var(--cta-danger)]"
             disabled={isCancelling}
             onClick={() => handleCancel(d.id)}
           >
             {isCancelling ? <span className='spinner-border spinner-border-sm' /> : <KTIcon iconName='cross' className='fs-6' />}
             Cancel
-          </button>
+          </Button>
         );
       },
     },

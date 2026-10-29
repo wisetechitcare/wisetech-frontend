@@ -24,6 +24,7 @@ import { RootState } from "@redux/store";
 import ResubmitConfirmDialog from "./ResubmitConfirmDialog";
 import EditBanner, { type EditContext } from "./EditBanner";
 import { previewResubmission, type ResubmissionPreview } from "@services/reimbursementVersions";
+import { Button } from '@/ds/ui/button';
 
 // The schema lives in utils/reimbursementSchema — this file used to carry a third copy
 // that made every field optional, so the admin edit path could clear values the other
@@ -386,9 +387,8 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
               </div>
 
               <div className="d-flex justify-content-end mt-5">
-                <button
+                <Button
                   type="submit"
-                  className="btn btn-primary"
                   disabled={loading || !formikProps.isValid || formikProps.isSubmitting}
                 >
                   {!loading && "Save Changes"}
@@ -398,7 +398,7 @@ function ReimbursementEditModal({ show, onHide, reimbursement, onSaved, editCont
                       <span className="spinner-border spinner-border-sm align-middle ms-2" />
                     </span>
                   )}
-                </button>
+                </Button>
               </div>
             </Form>
           )}

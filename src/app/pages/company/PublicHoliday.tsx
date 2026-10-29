@@ -541,9 +541,8 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                         >
                             Cancel
                         </Button>
-                        <button
+                        <Button variant="ghost" size="sm"
                             type="submit"
-                            className="btn btn-sm fw-bold px-7 text-white d-flex align-items-center gap-2"
                             disabled={loading || !formik.isValid}
                             style={{
                                 borderRadius: '8px',
@@ -567,7 +566,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                     {isEditMode ? 'Update Holiday' : 'Save Holiday'}
                                 </>
                             )}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             )}

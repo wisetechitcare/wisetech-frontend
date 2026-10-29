@@ -1,7 +1,7 @@
-import { Box, Divider, Drawer, Typography, IconButton } from '@mui/material';
+import { Box, Divider, Drawer, Typography } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { KTIcon } from '@metronic/helpers';
-import { WtButton } from '@app/modules/common/components/ui/buttons';
+import { WtButton, WtIconButton } from '@app/modules/common/components/ui/buttons';
 import { StatusBadge } from '@app/modules/common/components/ui/patterns';
 import { fmtDate, formatMoney, PAYMENT_TONE, STATUS_LABEL, StatusNum } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow, PAYMENT_STATE_LABEL } from './paymentData';
@@ -88,14 +88,14 @@ export default function PaymentDetailDrawer({
                                 {row.employeeName} · {row.employeeCode}
                             </Typography>
                         </Box>
-                        <IconButton
+                        <WtIconButton
                             onClick={onClose}
                             size="small"
                             aria-label="Close payment details"
                             sx={{ ml: 'auto' }}
                         >
                             <Close fontSize="small" />
-                        </IconButton>
+                        </WtIconButton>
                     </Box>
 
                     {/* Scrolling body */}

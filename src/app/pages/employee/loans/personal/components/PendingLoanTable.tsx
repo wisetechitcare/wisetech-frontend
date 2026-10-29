@@ -103,18 +103,18 @@ function PendingLoanTable({ completeLoanData, onLoanSubmited }: { completeLoanDa
           const resDelete = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.deleteOwn, employeeId)
           return (
             <div className="flex items-center justify-center space-x-4">
-              {resEdit && <button
-                className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+              {resEdit && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
+                className="w-[20px]"
                 onClick={() => handleEdit(row.original)}
               >
                 {<KTIcon iconName="pencil" className="inline fs-4 text-red-500" />}
-              </button>}
-              {resDelete && <button
-                className="btn btn-icon btn-active-color-primary btn-sm w-4"
+              </Button>}
+              {resDelete && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
+                className="w-4"
                 onClick={() => handleDelete(row.original)}
               >
                 <KTIcon iconName="trash" className="inline fs-4 text-red-500" />
-              </button>}
+              </Button>}
               {
                 !resDelete && !resEdit && <Button variant="ghost" size="icon-sm" type="submit"
                   className="w-4"

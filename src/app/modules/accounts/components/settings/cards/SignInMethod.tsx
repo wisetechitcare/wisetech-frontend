@@ -182,10 +182,10 @@ const SignInMethod: React.FC = () => {
                 </div>
 
                 <div className='d-flex'>
-                  <button
+                  <Button
                     id='kt_password_submit'
                     type='submit'
-                    className='btn btn-primary me-2 px-6'
+                    className="me-2"
                   >
                     {!loading2 && 'Update Password'}
                     {loading2 && (
@@ -194,7 +194,7 @@ const SignInMethod: React.FC = () => {
                         <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                       </span>
                     )}
-                  </button>
+                  </Button>
                   <Button variant="ghost"
                     onClick={() => {
                       setPasswordForm(false)

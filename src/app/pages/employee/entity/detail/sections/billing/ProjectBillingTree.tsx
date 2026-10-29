@@ -1,15 +1,14 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-    Box, Collapse, Divider, IconButton, Stack, Tooltip, Typography, useMediaQuery,
-} from "@mui/material";
+import { Box, Collapse, Divider, Stack, Tooltip, Typography, useMediaQuery } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { WtButton } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import { getBill, type BillOnRow, type ProjectBillingRow } from "@services/bills";
 import type { ProjectDeliverable, ProjectStage } from "@services/projectExecution";
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 /**
  * Project → Billing: the stage-based billing workspace.
@@ -199,7 +198,7 @@ const Progress: React.FC<{ label: string; percent: number; tone: string; hint: s
 );
 
 const Chevron: React.FC<{ open: boolean; label: string; onClick: () => void }> = ({ open, label, onClick }) => (
-    <IconButton
+    <WtIconButton
         size="small"
         aria-expanded={open}
         aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
@@ -213,7 +212,7 @@ const Chevron: React.FC<{ open: boolean; label: string; onClick: () => void }> =
         }}
     >
         <KTIcon iconName="right" className="fs-6" />
-    </IconButton>
+    </WtIconButton>
 );
 
 /**

@@ -232,8 +232,11 @@ export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function Wt
   {
     tone = 'accent', ghost = false, inverted = false, flat = true, size = 'small',
     sx, className, fullWidth, startIcon, endIcon, component, href, disabled, children,
+    // MUI's own variant/color are honoured (a migrated MUI Button keeps its look: text → ghost,
+    // outlined → outline, contained → the tone, error/success colours → destructive/success).
+    variant: muiVariant, color: muiColor,
     // MUI-only props with no meaning on the kit Button; taken out so they never reach the DOM.
-    variant: _variant, color: _color, disableElevation: _de, disableRipple: _dr, disableFocusRipple: _dfr,
+    disableElevation: _de, disableRipple: _dr, disableFocusRipple: _dfr,
     disableTouchRipple: _dtr, centerRipple: _cr, focusRipple: _fr, focusVisibleClassName: _fvc,
     TouchRippleProps: _trp, touchRippleRef: _trr, LinkComponent: _lc, action: _a, classes: _c,
     ...rest
@@ -241,17 +244,20 @@ export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function Wt
   ref,
 ) {
   const spacious = size === 'medium' || size === 'large';
-  const cta = !ghost && !inverted;
+  const colorTone: WtCtaTone | null = muiColor === 'error' ? 'danger' : muiColor === 'success' ? 'success' : null;
+  const quiet = !ghost && !inverted && (muiVariant === 'text' || muiVariant === 'outlined');
+  const cta = !ghost && !inverted && !quiet;
+  const kitVariant = ghost || muiVariant === 'outlined' ? 'outline' : inverted ? 'inverted' : muiVariant === 'text' ? 'ghost' : KIT_TONE[colorTone ?? tone];
   const as = href ? <a href={href} /> : component && component !== 'button' ? createElement(component as ElementType) : undefined;
   const props = {
     ...rest,
     ref,
     disabled,
-    variant: ghost ? 'outline' : inverted ? 'inverted' : KIT_TONE[tone],
+    variant: kitVariant,
     size: spacious ? 'lg' : 'default',
     glow: cta && spacious && !flat,
     // Mui-disabled is kept so existing `&.Mui-disabled` sx overrides still match.
-    className: cn(cta && KT_ICON_FULL, fullWidth && 'w-full', disabled && 'Mui-disabled', className),
+    className: cn(cta && KT_ICON_FULL, quiet && colorTone === 'danger' && 'text-(--cta-danger)', fullWidth && 'w-full', disabled && 'Mui-disabled', className),
     ...(as ? { render: as, nativeButton: false } : null),
     children: (
       <>
@@ -267,7 +273,9 @@ export const WtButton = forwardRef<HTMLButtonElement, WtButtonProps>(function Wt
   return sx ? <Box component={KitButton} sx={raiseSx(sx)} {...props} /> : <KitButton {...props} />;
 });
 
-export interface WtIconButtonProps extends Omit<IconButtonProps, 'color'> {
+export interface WtIconButtonProps extends Omit<IconButtonProps, 'color' | 'size'> {
+  /** MUI sizes (small 32px, medium 40px, large 44px) or a pixel size. Default 44px. */
+  size?: 'small' | 'medium' | 'large' | number;
   /** Tone hex (or CSS colour) — the kit's `tinted` variant is toned from it. */
   color?: string;
   /** Tooltip label (also used as aria-label). */
@@ -280,8 +288,8 @@ export interface WtIconButtonProps extends Omit<IconButtonProps, 'color'> {
  */
 export const WtIconButton = forwardRef<HTMLButtonElement, WtIconButtonProps>(function WtIconButton(
   {
-    color = '#64748b', title, sx, className, style, children,
-    size: _size, edge: _edge, disableRipple: _dr, disableFocusRipple: _dfr, disableTouchRipple: _dtr,
+    color = '#64748b', title, sx, className, style, children, size,
+    edge: _edge, disableRipple: _dr, disableFocusRipple: _dfr, disableTouchRipple: _dtr,
     centerRipple: _cr, focusRipple: _fr, focusVisibleClassName: _fvc, TouchRippleProps: _trp,
     touchRippleRef: _trr, LinkComponent: _lc, action: _a, classes: _c,
     ...rest
@@ -292,10 +300,10 @@ export const WtIconButton = forwardRef<HTMLButtonElement, WtIconButtonProps>(fun
     ...rest,
     ref,
     variant: 'tinted',
-    size: 'icon-lg',
+    size: size === 'small' ? 'icon-sm' : size === 'medium' ? 'icon' : 'icon-lg',
     'aria-label': title ?? rest['aria-label'],
     className: cn(KT_ICON_FULL, className),
-    style: { '--tint': color, ...style } as CSSProperties,
+    style: { '--tint': color, ...(typeof size === 'number' ? { width: size, height: size } : null), ...style } as CSSProperties,
     children,
   } as const;
   const btn = sx ? <Box component={KitButton} sx={raiseSx(sx)} {...props} /> : <KitButton {...props} />;

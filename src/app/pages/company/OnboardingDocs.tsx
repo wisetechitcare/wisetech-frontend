@@ -117,12 +117,11 @@ function OnBoardingDocs() {
                 header: "Actions",
                 Cell: ({ row }: any) => {
                     return (hasPermission(resourceNameMapWithCamelCase.onboardingDocument, permissionConstToUseWithHasPermission.editOthers) ?
-                        <button
-                            className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                        <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
                             onClick={() => handleEditClick(row.original.id)}
                         >
                             <KTIcon iconName='pencil' className='fs-3' />
-                        </button> : "Not Allowed"
+                        </Button> : "Not Allowed"
                     );
                 }
             }]

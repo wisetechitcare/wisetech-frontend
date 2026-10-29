@@ -223,8 +223,8 @@ const GrossPayDistribution = () => {
             return (
               <div className="">
                 {" "}
-                {resEdit && <button
-                  className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+                {resEdit && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
+                  className="w-[20px]"
                   onClick={() => {
                     setIsBasicSalaryRow(isBasicSalaryRowCurr);
                     handleEdit(row.original);
@@ -234,16 +234,16 @@ const GrossPayDistribution = () => {
                     iconName="pencil"
                     className=" inline fs-4 text-red-500"
                   />
-                </button>}
-                {resDelete && !isBasicSalaryRowCurr && <button
-                  className="btn btn-icon btn-active-color-primary btn-sm w-4"
+                </Button>}
+                {resDelete && !isBasicSalaryRowCurr && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
+                  className="w-4"
                   onClick={() => handleDelete(row.original)}
                 >
                   <KTIcon
                     iconName="trash"
                     className="inline fs-4 text-red-500"
                   />
-                </button>}
+                </Button>}
                 {!resEdit && !resDelete && "Not Allowed"}
               </div>
             )

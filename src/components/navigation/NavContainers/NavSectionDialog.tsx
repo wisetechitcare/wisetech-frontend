@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
-import { Dialog, IconButton } from '@mui/material';
+import { Dialog } from '@mui/material';
 import type { NavContainer } from '@hooks/useNavContainers';
 import { NavLinkTile, NavOpenerTile } from './NavTile';
 import { navIcon } from './navIcons';
 import { LAUNCHER_ROW, sectionAccent } from './navTheme';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 /**
  * A section's contents, opened from its Home tile.
@@ -52,9 +53,9 @@ export function NavSectionDialog({
     >
       <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
         {activeGroup ? (
-          <IconButton onClick={() => setGroupId(null)} aria-label="Back to section" size="small" className="shrink-0">
+          <WtIconButton onClick={() => setGroupId(null)} aria-label="Back to section" size="small" className="shrink-0">
             <ArrowBackRounded fontSize="small" />
-          </IconButton>
+          </WtIconButton>
         ) : (
           <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accent.iconWrap}`}>
             <HeaderIcon sx={{ fontSize: 22 }} />
@@ -63,9 +64,9 @@ export function NavSectionDialog({
         <h2 className="min-w-0 flex-1 truncate text-[17px] font-bold text-slate-900 dark:text-slate-100">
           {title}
         </h2>
-        <IconButton onClick={onClose} aria-label="Close" size="small" className="shrink-0">
+        <WtIconButton onClick={onClose} aria-label="Close" size="small" className="shrink-0">
           <CloseRounded fontSize="small" />
-        </IconButton>
+        </WtIconButton>
       </div>
 
       <div className="bg-gradient-to-br from-[#eef2f9] via-[#f5f8fb] to-[#e9eef8] px-5 py-7 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">

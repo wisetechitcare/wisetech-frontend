@@ -1,14 +1,6 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from "react";
-import {
-  Form,
-  Button,
-  Table,
-  Card,
-  Row,
-  Col,
-  Badge
-} from "react-bootstrap";
+import { Form, Table, Card, Row, Col, Badge } from "react-bootstrap";
 import {
   getProposalConfigurations,
   getAvailableExportFields,
@@ -296,21 +288,18 @@ const ProposalConfigurationPage: React.FC = () => {
         {canWrite && (
         <div className="d-flex gap-3">
           {selectedConfig?.id && (
-            <Button
-              variant="light-danger"
-              className="fw-bold"
+            <KitButton variant="tinted"
+              className="[--tint:var(--cta-danger)]"
               onClick={() => setShowDeleteModal(true)}
             >
               <KTIcon iconName="trash" className="fs-2 me-1" /> Delete Template
-            </Button>
+            </KitButton>
           )}
-          <Button
-            variant="light-primary"
-            className="fw-bold"
+          <KitButton variant="tinted"
             onClick={handleCreateNew}
           >
             <KTIcon iconName="plus" className="fs-2 me-1" /> New Template
-          </Button>
+          </KitButton>
           {selectedConfig && (
             <KitButton
               className="fw-bold shadow-sm"
@@ -473,10 +462,7 @@ const ProposalConfigurationPage: React.FC = () => {
                           <h5 className="fw-bolder mb-0">
                             Select Fields to Enable in This Template:
                           </h5>
-                          <Button
-                            variant="light-primary"
-                            size="sm"
-                            className="fw-bold"
+                          <KitButton variant="tinted" size="sm"
                             onClick={() => {
                               const allKeys = availableFields.map((f) => f.key);
                               const current =
@@ -515,7 +501,7 @@ const ProposalConfigurationPage: React.FC = () => {
                               )
                               ? "Deselect All"
                               : "Select All"}
-                          </Button>
+                          </KitButton>
                         </div>
                         <Row className="g-4">
                           {availableFields.map((field, idx) => (
@@ -630,9 +616,7 @@ const ProposalConfigurationPage: React.FC = () => {
                                   className="position-absolute top-0 end-0 mt-4 me-4"
                                   style={{ zIndex: 10 }}
                                 >
-                                  <Button
-                                    variant="light-danger"
-                                    size="sm"
+                                  <KitButton variant="tinted" size="sm" className="[--tint:var(--cta-danger)]"
                                     onClick={() => {
                                       const updated = [...selectedConfig.rules];
                                       updated.splice(ruleIdx, 1);
@@ -643,7 +627,7 @@ const ProposalConfigurationPage: React.FC = () => {
                                     }}
                                   >
                                     <KTIcon iconName="trash" className="fs-3" />
-                                  </Button>
+                                  </KitButton>
                                 </div>
 
                                 <Row className="align-items-center mb-6 pe-12">

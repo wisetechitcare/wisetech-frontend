@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { Button, Col, Form, Row } from "react-bootstrap";
+import { Col, Form, Row } from "react-bootstrap";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen,
@@ -221,10 +221,10 @@ const TemplateDocumentationBuilderPage: React.FC = () => {
                     <RefreshCw size={14} className="me-2" />
                     Reset
                   </KitButton>
-                  <Button variant="light-danger" size="sm" className="rounded-pill px-4">
+                  <KitButton variant="tinted" size="sm" className="[--tint:var(--cta-danger)]">
                     <ClipboardCheck size={14} className="me-2" />
                     Validation Report
-                  </Button>
+                  </KitButton>
                 </div>
               </div>
               <div className="card-body-premium">

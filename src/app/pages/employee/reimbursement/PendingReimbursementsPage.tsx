@@ -20,7 +20,6 @@ import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { TOOLBAR_ROW, lightToolbarButton } from './utils/toolbarButton';
-import { Button } from '@mui/material';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
 import { ReimbursementDraft, ReimbursementOption } from './utils/reimbursementTypes';
@@ -745,16 +744,16 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 // Same action, same emphasis as the one on the records bar below —
                 // this is the one the user sees once drafts exist, and the two must
                 // not disagree about how prominent "add a request" is.
-                <Button
+                <WtButton variant="text"
                   onClick={handleNew}
                   startIcon={<KTIcon iconName='plus' className='fs-3' />}
                   sx={lightToolbarButton('accent')}
                 >
                   Add Reimbursement Request
-                </Button>
+                </WtButton>
               )}
             {drafts.length > 0 && (
-              <Button
+              <WtButton variant="text"
                 onClick={handleSendForApproval}
                 disabled={submitting}
                 startIcon={
@@ -765,7 +764,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 sx={lightToolbarButton('success', submitting)}
               >
                 {submitting ? 'Submitting...' : 'Send for Approval'}
-              </Button>
+              </WtButton>
             )}
           </div>
         </div>
@@ -1218,9 +1217,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
                 {/* Submit */}
                 <div className='d-flex justify-content-end gap-2 mt-5 flex-wrap'>
-                  <button
+                  <KitButton
                     type='submit'
-                    className='btn btn-primary'
                     disabled={formLoading || !formikProps.isValid || formikProps.isSubmitting}
                   >
                     {!formLoading && (editMode ? 'Save Changes' : 'Save to Pending Requests')}
@@ -1230,7 +1228,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                         <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                       </span>
                     )}
-                  </button>
+                  </KitButton>
                 </div>
 
               </Form>

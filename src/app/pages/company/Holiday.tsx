@@ -362,9 +362,8 @@ function Holiday({
                     >
                         Cancel
                     </Button>
-                    <button
+                    <Button variant="ghost" size="sm"
                         type="submit"
-                        className="btn btn-sm fw-bold px-7 text-white"
                         disabled={loading || !formik.isValid}
                         style={{
                             borderRadius: '8px',
@@ -382,7 +381,7 @@ function Holiday({
                                 Saving…
                             </span>
                         ) : 'Save Changes'}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </>

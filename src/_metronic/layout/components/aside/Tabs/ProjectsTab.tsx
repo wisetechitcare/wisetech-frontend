@@ -1,6 +1,7 @@
 import {Link} from 'react-router-dom'
 import {KTIcon, toAbsoluteUrl} from '../../../../helpers'
 import {Dropdown1, Search} from '../../../../partials'
+import { Button } from '@/ds/ui/button';
 
 const projects: ReadonlyArray<{image: string; title: string; link: string}> = [
   {
@@ -49,14 +50,13 @@ const ProjectsTab = () => {
         {/* begin::Filter */}
         <div className='flex-shrink-0 ms-2'>
           {/* begin::Menu toggle */}
-          <button
+          <Button variant="ghost" size="icon" aria-label="Filter"
             type='button'
-            className='btn btn-icon btn-bg-light btn-active-icon-primary btn-color-gray-500'
             data-kt-menu-trigger='click'
             data-kt-menu-placement='bottom-end'
           >
             <KTIcon iconName='filter' className='fs-2' />
-          </button>
+          </Button>
           {/* end::Menu toggle */}
 
           <Dropdown1 />

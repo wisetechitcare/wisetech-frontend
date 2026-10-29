@@ -28,6 +28,7 @@ import { usePermission } from "@hooks/usePermission";
 import TimeLogDetailDialog from "../../components/TimeLogDetailDialog";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
 import { getTimeTokens } from '@utils/timeFormat';
+import { Button } from '@/ds/ui/button';
 
 const MyEmployeesTimeSheetPorject = ({
   startDate,
@@ -289,24 +290,22 @@ const MyEmployeesTimeSheetPorject = ({
         header: "Actions",
         Cell: ({ row }: any) => (
           <div className="d-flex gap-2">
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
               onClick={(e) => {
                 e.stopPropagation();
                 handleEditTimeSheet(row?.original);
               }}
             >
               <KTIcon iconName="pencil" className="fs-2" />
-            </button>
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+            </Button>
+            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteTimeSheet(row?.original);
               }}
             >
               <KTIcon iconName="trash" className="fs-2" />
-            </button>
+            </Button>
           </div>
         ),
       },

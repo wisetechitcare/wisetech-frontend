@@ -15,6 +15,7 @@ import { uploadUserAsset } from '@services/uploader';
 import { successConfirmation } from '@utils/modal';
 import { getAvatar } from '@utils/avatar';
 import { MAX_FILE_SIZE } from '@constants/statistics';
+import { Button } from '@/ds/ui/button';
 
 const mealPreferences = [
   {
@@ -273,7 +274,7 @@ const ProfileDetails: React.FC = () => {
                   </div>
 
                   <div className='card-footer d-flex justify-content-end py-6 px-9'>
-                    <button type='submit' className='btn btn-primary' disabled={loading}>
+                    <Button type='submit' disabled={loading}>
                       {!loading && 'Save Changes'}
                       {loading && (
                         <span className='indicator-progress' style={{ display: 'block' }}>
@@ -281,7 +282,7 @@ const ProfileDetails: React.FC = () => {
                           <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                         </span>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 

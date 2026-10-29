@@ -8,6 +8,7 @@ import { KTCard, KTCardBody } from '@metronic/helpers';
 import { fetchCheckInRadius, updateCheckInRadius } from '@services/options';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { fetchLeaveOptions, updateLeaveOptionsById } from '@services/company';
+import { Button } from '@/ds/ui/button';
 
 // Syncs the fetched settings into Formik once they arrive. A real component
 // (not code inside Formik's render prop) so the hook obeys the Rules of Hooks.
@@ -237,9 +238,8 @@ function GeneralSettings() {
 
                         <div className="row px-7 mb-0">
                             <div className="col-lg-12 text-end mb-5">
-                                <button
+                                <Button size="lg"
                                     type="submit"
-                                    className="btn btn-lg btn-primary"
                                     disabled={loading}
                                 >
                                     {loading ? (
@@ -250,7 +250,7 @@ function GeneralSettings() {
                                     ) : (
                                         'Submit'
                                     )}
-                                </button>
+                                </Button>
                             </div>
                         </div>
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Badge } from 'react-bootstrap';
+import { Badge } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { useMediaQuery, useTheme } from '@mui/material';
@@ -226,12 +226,12 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
 
                                         {fromAdmin && (
                                             <div className="d-flex justify-content-end gap-2 mt-3">
-                                                <Button variant="light-primary" className="btn-icon btn-sm" onClick={() => onEditPayment(row)}>
+                                                <KitButton variant="tinted" size="icon-sm" aria-label="Edit" onClick={() => onEditPayment(row)}>
                                                     <KTIcon iconName="pencil" className="fs-4" />
-                                                </Button>
-                                                <Button variant="light-danger" className="btn-icon btn-sm" onClick={() => onDeletePayment(row)}>
+                                                </KitButton>
+                                                <KitButton variant="tinted" size="icon-sm" aria-label="Delete" className="[--tint:var(--cta-danger)]" onClick={() => onDeletePayment(row)}>
                                                     <KTIcon iconName="trash" className="fs-4" />
-                                                </Button>
+                                                </KitButton>
                                             </div>
                                         )}
                                     </div>
@@ -322,20 +322,17 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                             <div className="d-flex justify-content-center gap-2">
                                                 {fromAdmin ? (
                                                     <>
-                                                        <Button 
-                                                            variant="light-primary" 
-                                                            className="btn-icon btn-sm"
+                                                        <KitButton variant="tinted" size="icon-sm" aria-label="Edit"
                                                             onClick={() => onEditPayment(row)}
                                                         >
                                                             <KTIcon iconName="pencil" className="fs-3" />
-                                                        </Button>
-                                                        <Button 
-                                                            variant="light-danger" 
-                                                            className="btn-icon btn-sm"
+                                                        </KitButton>
+                                                        <KitButton variant="tinted" size="icon-sm" aria-label="Delete" 
+                                                            className="[--tint:var(--cta-danger)]"
                                                             onClick={() => onDeletePayment(row)}
                                                         >
                                                             <KTIcon iconName="trash" className="fs-3" />
-                                                        </Button>
+                                                        </KitButton>
                                                     </>
                                                 ) : (
                                                     <span className="text-muted">--</span>

@@ -6,22 +6,7 @@ import {
   type SyntheticEvent,
 } from "react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  DialogActions,
-  DialogContent,
-  Link,
-  MenuItem,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-  alpha,
-  useTheme,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, DialogActions, DialogContent, Link, MenuItem, Paper, Stack, TextField, Typography, alpha, useTheme } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { toast } from "react-toastify";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
@@ -1017,13 +1002,13 @@ export default function DriveDetail() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="warning">{GIFT_RUN_LABEL} not found.</Alert>
-        <Button
+        <WtButton variant="text"
           sx={{ mt: 2 }}
           startIcon={<AppIcon name="bi-arrow-left" />}
           onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/drives`)}
         >
           Back
-        </Button>
+        </WtButton>
       </Box>
     );
   }
@@ -1175,7 +1160,7 @@ export default function DriveDetail() {
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {confirmDialog}
       {promptDialog}
-      <Button
+      <WtButton
         size="small"
         variant="text"
         startIcon={<AppIcon name="bi-arrow-left" />}
@@ -1183,7 +1168,7 @@ export default function DriveDetail() {
         sx={{ mb: 1, alignSelf: "flex-start", px: 0 }}
       >
         Back to Gift Runs
-      </Button>
+      </WtButton>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Box sx={{ minWidth: 0 }}>
@@ -1239,24 +1224,24 @@ export default function DriveDetail() {
                 }}
               />
               {runEditable ? (
-                <Button
+                <WtButton
                   size="small"
                   variant="outlined"
                   startIcon={<AppIcon name="bi-pencil" />}
                   onClick={() => setEditOpen(true)}
                 >
                   Edit
-                </Button>
+                </WtButton>
               ) : null}
-              <Button
+              <WtButton
                 size="small"
                 variant="outlined"
                 startIcon={<AppIcon name="bi-gift" />}
                 onClick={() => setCreateFromRunOpen(true)}
               >
                 Add
-              </Button>
-              <Button
+              </WtButton>
+              <WtButton
                 size="small"
                 variant="outlined"
                 startIcon={<AppIcon name="bi-copy" />}
@@ -1280,10 +1265,10 @@ export default function DriveDetail() {
                 }}
               >
                 Clone
-              </Button>
+              </WtButton>
               {drive.status === "ARCHIVED" ? (
                 <>
-                  <Button
+                  <WtButton
                     size="small"
                     variant="outlined"
                     color="success"
@@ -1306,8 +1291,8 @@ export default function DriveDetail() {
                     }}
                   >
                     Unarchive
-                  </Button>
-                  <Button
+                  </WtButton>
+                  <WtButton
                     size="small"
                     variant="outlined"
                     color="error"
@@ -1331,7 +1316,7 @@ export default function DriveDetail() {
                     }}
                   >
                     Delete
-                  </Button>
+                  </WtButton>
                 </>
               ) : null}
               <GiftHistoryButton kind="drive" id={drive.id} />
@@ -1523,22 +1508,22 @@ export default function DriveDetail() {
                   ))}
                 </TextField>
               )}
-              <Button
+              <WtButton
                 size="medium"
                 variant="contained"
                 onClick={applyBulkFields}
               >
                 {selectedRows.length > 0 ? "Apply to selected" : "Apply to all"}
-              </Button>
+              </WtButton>
               {selectedRows.length > 0 ? (
-                <Button
+                <WtButton
                   size="medium"
                   color="error"
                   variant="contained"
                   onClick={removeSelectedFromRun}
                 >
                   Remove from Gift Run
-                </Button>
+                </WtButton>
               ) : null}
             </Stack>
           </Stack>

@@ -450,8 +450,8 @@ function SubmissionDetailModal({
                       </Button>
                     )}
                     {resDelete && (
-                      <button
-                        className="btn btn-icon btn-active-color-primary btn-sm w-4"
+                      <Button variant="ghost" size="icon-sm" type="submit"
+                        className="w-4"
                         aria-label="Delete" title="Delete"
                         disabled={isDeleting}
                         onClick={() => handleDelete(r.id)}
@@ -461,7 +461,7 @@ function SubmissionDetailModal({
                         ) : (
                           <i className="bi bi-trash3 fs-4 text-danger" />
                         )}
-                      </button>
+                      </Button>
                     )}
                     {!resEdit && !resDelete && (
                       <span className="text-muted fs-7">N/A</span>
@@ -555,8 +555,8 @@ function SubmissionDetailModal({
               )}
             </div>
             {batch && displayedReimbursements.length > 0 && (
-              <button
-                className="btn d-flex align-items-center gap-2 px-3 ms-auto"
+              <Button variant="ghost" type="submit"
+                className="ms-auto"
                 style={{
                   height: '35px',
                   background: '#1E3A8A',
@@ -586,7 +586,7 @@ function SubmissionDetailModal({
                     <span>Download Slip</span>
                   </>
                 )}
-              </button>
+              </Button>
             )}
           </div>
         </Modal.Header>

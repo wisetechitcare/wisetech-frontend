@@ -48,6 +48,13 @@ Format: **what** — evidence (file / screen) — suggested fix.
   leave rules stay in Apply Leave. Rollout: after Phase 1b, swap the insides of `WtDateField`,
   `WtDateTimeField`, `FiscalYearRangeField` and `LeaveCalendar` behind their existing props, one at a
   time, each checked with `pnpm visual:check`; Apply Leave last.
+- **Retire  (ADR-001 Phase 5)** — the Metronic template: theme SCSS (loaded in ), app shell
+  (header, aside, toolbar, MasterLayout), helpers (, ), i18n and demo widgets/modals. 404 app files
+  import it (342 from ); 168 of its 199 code files are reachable from , ~31 are not (more demo partials
+  are reachable only through barrel re-exports). — Delete it in pieces as the kit replaces each part: first the
+  unreachable files (list them for sign-off), then demo partials once barrels are trimmed, then the shell, icons and SCSS.
+- **WtIconButton  call sites now render at 34px** (, ) — the prop was
+  silently ignored before (they rendered 44px). Check those rows still align; drop the prop if 44px was intended.
 - **Two Motion versions in the bundle** — the app's `framer-motion` 12 (43 files) and `motion` 14 (brought by
   Animate UI, adopted 2026-10-28). — Move the 43 files to `motion/react` 14 and drop `framer-motion`.
 - **Animate UI is young** (package created 2026-10-18; MIT + Commons Clause) — re-check accessibility of the

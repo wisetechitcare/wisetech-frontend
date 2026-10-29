@@ -2,10 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-    Alert, Box, Chip, Divider, IconButton, Menu, MenuItem, Stack, TextField,
-    Tooltip, Typography, useTheme,
-} from "@mui/material";
+import { Alert, Box, Chip, Divider, Menu, MenuItem, Stack, TextField, Tooltip, Typography, useTheme } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, GlassCard, TRIO, WtButton, CurrencySymbol, toast,
@@ -24,6 +21,7 @@ import {
 } from "@services/bills";
 import { RaiseBillDialog, RecordPaymentDialog } from "./BillDialogs";
 import BillDocumentDialog, { type BillDocumentTarget } from "./BillDocumentDialog";
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 /**
  * Project → Billing.
@@ -484,13 +482,13 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     not only the stage whose primary action happens to open them.
                 */}
                 <Tooltip title="More actions">
-                    <IconButton
+                    <WtIconButton
                         size="small"
                         onClick={(event) => setRowMenu({ el: event.currentTarget, row })}
                         sx={{ width: 28, height: 28, borderRadius: "8px" }}
                     >
                         <KTIcon iconName="dots-vertical" className="fs-5" />
-                    </IconButton>
+                    </WtIconButton>
                 </Tooltip>
             </Stack>
         );

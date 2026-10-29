@@ -171,12 +171,11 @@ const PersonalRules: React.FC = () => {
             >
               <div className="d-flex justify-content-between align-items-center mb-4">
                 <h5 className="mb-0">Menu</h5>
-                <button
-                  className="btn btn-sm btn-icon btn-light"
+                <Button variant="outline" size="icon-sm" type="submit" aria-label="Close"
                   onClick={() => setShowSidebar(false)}
                 >
                   <AppIcon name="cross" className="fs-2" />
-                </button>
+                </Button>
               </div>
               <div style={{
                 display: 'flex',

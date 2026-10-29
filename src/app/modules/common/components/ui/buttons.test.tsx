@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { WtButton } from './buttons';
+import { WtButton, WtIconButton } from './buttons';
 
 afterEach(cleanup);
 
@@ -85,5 +85,25 @@ describe('WtButton renders the kit Button', () => {
     render(<WtButton variant="contained" color="primary" disableElevation disableRipple>Go</WtButton>);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+describe('MUI props on the wrappers (migrated MUI buttons keep their look)', () => {
+  test.each([
+    [{ variant: 'text' as const }, 'hover:bg-muted'],
+    [{ variant: 'outlined' as const }, 'border-slate-300'],
+    [{ variant: 'contained' as const, color: 'error' as const }, 'from-(--cta-danger)'],
+    [{ variant: 'contained' as const, color: 'success' as const }, 'from-(--cta-success)'],
+    [{ variant: 'contained' as const, color: 'primary' as const }, 'from-(--brand-bright)'],
+  ])('%o', (props, cls) => {
+    render(<WtButton {...props}>Go</WtButton>);
+    expect(has(button('Go'), cls)).toBe(true);
+  });
+
+  test('WtIconButton honours MUI and pixel sizes', () => {
+    render(<><WtIconButton title="A" size="small">a</WtIconButton><WtIconButton title="B" size={34}>b</WtIconButton><WtIconButton title="C">c</WtIconButton></>);
+    expect(has(screen.getByRole('button', { name: 'A' }), 'size-8')).toBe(true);
+    expect(screen.getByRole('button', { name: 'B' }).style.width).toBe('34px');
+    expect(has(screen.getByRole('button', { name: 'C' }), 'size-11')).toBe(true);
   });
 });

@@ -302,8 +302,8 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
         enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => (
-          <button
-            className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+          <Button variant="ghost" size="icon-sm" type="submit" aria-label="View"
+            className="w-[20px]"
             onClick={() => handleViewDocument(renderedCellValue)}
             disabled={!renderedCellValue}
             title={renderedCellValue ? "Preview document" : "No document attached"}
@@ -313,7 +313,7 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
             ) : (
               <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
             )}
-          </button>
+          </Button>
         ),
       },
     ],
