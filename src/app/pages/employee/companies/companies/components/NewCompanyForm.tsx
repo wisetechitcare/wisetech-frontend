@@ -21,8 +21,8 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
-import { Box } from "@mui/material";
+import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtTooltip, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
+import { Box, IconButton } from "@mui/material";
 import { Button } from "@/ds/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "react-select";
@@ -1529,9 +1529,22 @@ const NewCompanyForm: React.FC<Props> = ({
                     ) : undefined
                   }
                   headerActions={
-                    <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)} startIcon={<AppIcon name="bi-gear" className="fs-6" />}>
-                      Manage fields
-                    </WtButton>
+                    <>
+                      <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)}
+                        startIcon={<AppIcon name="bi-gear" className="fs-6" />} sx={{ display: { xs: "none", sm: "inline-flex" } }}>
+                        Manage fields
+                      </WtButton>
+                      {/* Phones: icon only, the same 32px translucent square as the close button beside it. */}
+                      <WtTooltip title="Manage fields" wrap>
+                        <IconButton onClick={() => setShowSchemaManager(true)} aria-label="Manage fields" sx={{
+                          display: { xs: "inline-flex", sm: "none" }, width: 32, height: 32, borderRadius: "10px",
+                          border: "1px solid rgba(255, 255, 255, 0.25)", bgcolor: "rgba(255, 255, 255, 0.12)", color: "#fff",
+                          fontSize: 15, "&:hover": { bgcolor: "rgba(255, 255, 255, 0.22)", borderColor: "rgba(255, 255, 255, 0.4)" },
+                        }}>
+                          <AppIcon name="bi-gear" />
+                        </IconButton>
+                      </WtTooltip>
+                    </>
                   }
                 
                   sections={

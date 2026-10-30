@@ -1801,7 +1801,9 @@
     z-index: 100;
     flex-wrap: wrap;
     gap: 0.5rem;
-    padding: 0.625rem 1rem;
+    /* The buttons wrap to two rows here; a fixed 68px pushed the second row off-screen. */
+    height: auto;
+    padding: 0.625rem 1rem max(0.625rem, env(safe-area-inset-bottom));
   }
   /* Keep the footer's two button clusters on one line each, wrapping only
      between them, and let the buttons share the width on small phones. */
@@ -1867,15 +1869,46 @@
    overflow-y:visible for the inline page usage, which would clip content
    here). Also pad the bottom so the last field clears the fixed footer bar. */
 @media (max-width: 768px) {
+  /* 100vh on a phone includes the strip behind the browser's own toolbar, which hid the
+     footer's last row; dvh is the height actually visible (100vh stays as the fallback). */
+  .lead-wizard-modal .modal-dialog,
+  .wt-wizard-modal .modal-dialog,
+  .lead-wizard-modal .modal-content,
+  .wt-wizard-modal .modal-content,
+  .lead-wizard-modal .modal-body,
+  .wt-wizard-modal .modal-body,
+  .lead-wizard-modal .enterprise-wizard,
+  .wt-wizard-modal .enterprise-wizard {
+    height: 100dvh !important;
+    min-height: 0 !important;
+  }
   .lead-wizard-modal .enterprise-wizard,
   .wt-wizard-modal .enterprise-wizard {
     overflow: hidden !important;
   }
+  /* Header, step strip and canvas share the height ABOVE the footer… */
+  .lead-wizard-modal .wizard-layout,
+  .wt-wizard-modal .wizard-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
   .lead-wizard-modal .wizard-step-canvas,
   .wt-wizard-modal .wizard-step-canvas {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    padding-bottom: 5rem;
+  }
+  .lead-wizard-modal .wt-step-body,
+  .wt-wizard-modal .wt-step-body {
+    padding-bottom: 1.25rem;
+  }
+  /* …and the footer takes its own rows at the bottom instead of floating over the form. */
+  .lead-wizard-modal .wizard-footer-bar,
+  .wt-wizard-modal .wizard-footer-bar {
+    position: static;
+    flex-shrink: 0;
   }
 }
 

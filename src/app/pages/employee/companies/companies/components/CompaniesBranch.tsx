@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { deleteClientBranch, getAllClientBranches, getClientBranchesByCompanyId } from "@services/lead";
 import CompaniesBranchForm from "./CompaniesBranchForm";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { isRowAction } from "../../crmListRowSx";
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import { Button } from "@/ds/ui/button";
@@ -211,6 +212,14 @@ const CompaniesBranch = ({
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        muiTableProps={{
+          muiTableBodyRowProps: ({ row }: any) => ({
+            onClick: (e: React.MouseEvent) => {
+              if (!isRowAction(e)) handleEditBranch(row.original.id);
+            },
+            sx: { cursor: "pointer" },
+          }),
+        }}
       />
 
       <CompaniesBranchForm
