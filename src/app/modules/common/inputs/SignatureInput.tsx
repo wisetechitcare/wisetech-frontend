@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import SignatureCanvas from 'react-signature-canvas';
+import SignatureCanvasClass from 'react-signature-canvas';
 import { dataURLtoFile } from '@utils/file';
+import { cjsDefault } from '@utils/cjsDefault';
 import { Button } from '@/ds/ui/button';
 
+const SignatureCanvas = cjsDefault(SignatureCanvasClass);
+
 function SignatureInput({ setFile, imageUrl }: any) {
-    const signatureCanvas = useRef<SignatureCanvas>(null);
+    const signatureCanvas = useRef<SignatureCanvasClass>(null);
     const [isPlaceholderVisible, setIsPlaceholderVisible] = useState(true);
     const [signatureUrl, setSignatureUrl] = useState(imageUrl);
 
