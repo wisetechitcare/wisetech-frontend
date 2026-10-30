@@ -23,7 +23,6 @@ import {
   useMediaQuery,
   Skeleton,
   useTheme,
-  IconButton,
 } from "@mui/material";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -68,9 +67,9 @@ const ShowHideColumnsButton = ({ table }: { table: any }) => {
   return (
     <>
       <Tooltip title={label}>
-        <IconButton aria-label={label} onClick={() => setOpen(true)}>
+        <Button variant="ghost" size="icon-sm" aria-label={label} onClick={() => setOpen(true)}>
           <ViewColumnIcon />
-        </IconButton>
+        </Button>
       </Tooltip>
       <ColumnsSheet table={table} open={open} onClose={() => setOpen(false)} zIndex={DRILLDOWN_Z_INDEX + 100} />
     </>

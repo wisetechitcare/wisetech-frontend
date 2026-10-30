@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Box, IconButton, ListItemIcon, Menu, MenuItem, Stack, Tooltip, Typography } from "@mui/material";
+import { Box, ListItemIcon, Menu, MenuItem, Stack, Tooltip, Typography } from "@mui/material";
 import { ArrowLeftToLine, ArrowRightToLine, ChevronDown, ChevronUp, Pin, PinOff } from "lucide-react";
+import { Button } from "@/ds/ui/button";
 import { TRIO, WtButton, WtField, WtSheet, WtSwitch } from "@app/modules/common/components/ui";
 
 /**
@@ -19,23 +20,15 @@ const PinMenu = ({ column, name, zIndex }: { column: any; name: string; zIndex?:
   return (
     <>
       <Tooltip title={side ? `Pinned ${side} — click to change` : `Pin ${name}`}>
-        <IconButton
-          size="small"
+        <Button
+          variant={side ? "default" : "outline"}
+          size="icon-sm"
           aria-label={`Pin options for ${name}`}
           aria-haspopup="menu"
           onClick={(e) => setAnchor(e.currentTarget)}
-          sx={{
-            width: 30,
-            height: 30,
-            border: "1px solid",
-            borderColor: side ? "primary.main" : "divider",
-            color: side ? "primary.contrastText" : "text.secondary",
-            bgcolor: side ? "primary.main" : "transparent",
-            "&:hover": { bgcolor: side ? "primary.dark" : "action.hover" },
-          }}
         >
           <Pin size={15} fill={side ? "currentColor" : "none"} />
-        </IconButton>
+        </Button>
       </Tooltip>
       <Menu
         anchorEl={anchor}
@@ -181,16 +174,16 @@ export function ColumnsSheet({
           <Stack direction="row" sx={{ flexShrink: 0 }}>
             <Tooltip title="Move up">
               <span>
-                <IconButton size="small" disabled={order.pos === 0} aria-label={`Move ${label(c)} up`} onClick={() => move(c, -1)}>
+                <Button variant="ghost" size="icon-sm" disabled={order.pos === 0} aria-label={`Move ${label(c)} up`} onClick={() => move(c, -1)}>
                   <ChevronUp size={16} />
-                </IconButton>
+                </Button>
               </span>
             </Tooltip>
             <Tooltip title="Move down">
               <span>
-                <IconButton size="small" disabled={order.pos === order.count - 1} aria-label={`Move ${label(c)} down`} onClick={() => move(c, 1)}>
+                <Button variant="ghost" size="icon-sm" disabled={order.pos === order.count - 1} aria-label={`Move ${label(c)} down`} onClick={() => move(c, 1)}>
                   <ChevronDown size={16} />
-                </IconButton>
+                </Button>
               </span>
             </Tooltip>
           </Stack>
