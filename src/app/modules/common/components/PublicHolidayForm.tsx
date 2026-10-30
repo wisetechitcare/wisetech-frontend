@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import * as Yup from 'yup';
 import Select from 'react-select';
 import { useFormik } from 'formik';
-import Flatpickr from "react-flatpickr";
+import Flatpickr from "@app/modules/common/inputs/Flatpickr";
 import { KTCard, KTCardBody } from '@metronic/helpers'
 import { IPublicHoliday } from "@models/company";
 import { createPublicHoliday, fetchCompanyOverview } from "@services/company";
