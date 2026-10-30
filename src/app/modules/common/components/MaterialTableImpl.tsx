@@ -4,6 +4,9 @@ import { useStoredState } from "@app/hooks/useStoredState";
 import ExportButton, { ExportVisibilityContext } from "@app/modules/common/components/ExportButton";
 import {
   MaterialReactTable,
+  MRT_ToggleFiltersButton,
+  MRT_ToggleFullScreenButton,
+  MRT_ToggleGlobalFilterButton,
   MRT_ShowHideColumnsMenu,
   type MRT_TableInstance,
 } from "material-react-table";
@@ -37,6 +40,7 @@ import useTablePreferences from "@hooks/useTablePreferences";
 import { fitColumnWidth } from "./fitColumnWidth";
 import { rowId, resolveSelectedRows, selectionSignature } from "./table/rowSelection";
 import { useGridNavigation } from "./table/useGridNavigation";
+import { ColumnsSheet } from "./table/ColumnsSheet";
 import {
   HighlightMatch,
   intelligentSearchFilterFn,
@@ -46,38 +50,28 @@ import {
 import React from "react";
 import { DRILLDOWN_Z_INDEX } from "@app/modules/common/components/DrillDownDialog";
 import { makeWisetechTheme } from "@app/theme/wisetechTheme";
+import { SortActiveIcon, SortNeutralIcon } from "./table/SortIcons";
 
 /**
- * Column show/hide toggle — a straight copy of MRT_ShowHideColumnsButton, kept only
- * so the menu can be given props MRT never forwards.
+ * Column show/hide toggle — opens `ColumnsSheet`, the side-sheet twin of `FilterSheet`.
  *
- * Two things break without them. The menu is a portal at the theme's modal layer
- * (1300), so inside a chart drill-down — whose Dialog is pinned at DRILLDOWN_Z_INDEX
- * to clear a fullscreen chart — it paints BEHIND the dialog. And MUI's default paper
- * height is `calc(100% - 96px)`, so a table with 25+ columns renders a panel that runs
- * floor to ceiling instead of scrolling inside itself.
+ * The z-index lift matters: inside a chart drill-down — whose Dialog is pinned at
+ * DRILLDOWN_Z_INDEX to clear a fullscreen chart — a sheet at the default drawer layer
+ * would paint BEHIND the dialog.
  */
 const ShowHideColumnsButton = ({ table }: { table: any }) => {
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [open, setOpen] = useState(false);
   const { ViewColumnIcon } = table.options.icons;
   const label = table.options.localization.showHideColumns;
 
   return (
     <>
       <Tooltip title={label}>
-        <Button variant="ghost" size="icon-sm" aria-label={label} onClick={(e) => setAnchorEl(e.currentTarget)}>
+        <Button variant="ghost" size="icon-sm" aria-label={label} onClick={() => setOpen(true)}>
           <ViewColumnIcon />
         </Button>
       </Tooltip>
-      {anchorEl && (
-        <MRT_ShowHideColumnsMenu
-          anchorEl={anchorEl}
-          setAnchorEl={setAnchorEl}
-          table={table}
-          sx={{ zIndex: DRILLDOWN_Z_INDEX + 100 }}
-          slotProps={{ paper: { sx: { maxHeight: 420 } } }}
-        />
-      )}
+      <ColumnsSheet table={table} open={open} onClose={() => setOpen(false)} zIndex={DRILLDOWN_Z_INDEX + 100} />
     </>
   );
 };
@@ -291,6 +285,12 @@ export interface MaterialTableProps {
   /** Fires with the DEBOUNCED search query so the page can refetch. */
   onSearchChange?: (query: string) => void;
   /**
+   * Fires with the DEBOUNCED per-column filters (`[{ id, value }]`) so a server-paged page
+   * can refetch. Pass it with manualFiltering: the column filter row then filters on the
+   * server, every page, instead of only the rows the browser holds.
+   */
+  onColumnFiltersChange?: (filters: Array<{ id: string; value: unknown }>) => void;
+  /**
    * Every row matching the current server-side filters, for the built-in Export.
    *
    * A server-paginated table holds one page in `data`, so without this its Export would
@@ -467,7 +467,7 @@ function MaterialTable({
   enableSorting = true,
   enableGrouping = true,
   enableColumnDragging = true,
-  enableColumnResizing = false,
+  enableColumnResizing = true,
   enableColumnPinning = true,
   enableExpandAll = true,
   enableColumnActions = true,
@@ -496,6 +496,7 @@ function MaterialTable({
   onVisibleColumnsChange,
   manualFiltering = false,
   onSearchChange,
+  onColumnFiltersChange,
   fetchAllRows,
   enableRowSelection = false,
   onSelectedRowsChange,
@@ -535,10 +536,64 @@ function MaterialTable({
     return () => clearTimeout(handler);
   }, [globalFilterValue]);
 
+  // Which filter control each column gets, decided from the data rather than hand-set on 88
+  // tables: numbers → min/max range; a short list of repeated strings (status, department,
+  // branch) → autocomplete, i.e. a dropdown you can also type into; anything else → text.
+  // Reduced to ONE string so the column memo below depends on the kinds, not on the rows —
+  // paging or refetching leaves the column model alone.
+  const filterKinds = useMemo(() => {
+    const out: string[] = [];
+    for (const col of columns as any[]) {
+      const key = col.accessorKey;
+      if (!key || col.filterVariant || col.enableColumnFilter === false || col.meta?.filterText) continue;
+      const seen = new Set<unknown>();
+      let kind = "";
+      for (const row of data as any[]) {
+        const v = row?.[key];
+        if (v == null || v === "") continue;
+        const t = typeof v === "number" ? "n" : typeof v === "string" ? "a" : "x";
+        if (kind && kind !== t) { kind = "x"; break; }
+        kind = t;
+        // A date is never a short list worth a dropdown, however few distinct days a page has.
+        if (t === "a" && /^\d{4}-\d{2}-\d{2}/.test(v as string)) { kind = "s"; break; }
+        if (t === "a") { seen.add(v); if (seen.size > 40) { kind = "s"; break; } }
+        else if (t === "x") break;
+      }
+      if (kind === "n" || kind === "a") out.push(`${key}:${kind}`);
+    }
+    return out.join("|");
+  }, [columns, data]);
+
+  /**
+   * `meta.filterText(row)` — what a person READS in the cell, when the row holds something
+   * else (an employee id, a status object). Those columns get a dropdown of the names on screen
+   * and filter on them; without it the dropdown listed raw ids and an object column got no list.
+   * Serialised so the column memo below depends on the option lists, not on the rows.
+   */
+  const filterTextOptions = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const col of columns as any[]) {
+      const read = col.meta?.filterText;
+      const key = col.accessorKey ?? col.id;
+      if (typeof read !== "function" || !key) continue;
+      const names = new Set<string>();
+      for (const row of data as any[]) {
+        const text = read(row);
+        if (text) names.add(String(text));
+      }
+      out[key] = [...names].sort((a, b) => a.localeCompare(b));
+    }
+    return JSON.stringify(out);
+  }, [columns, data]);
+
   // Apply default sizing if not set
   const finalColumns = useMemo(
-    () =>
-      columns.map((col: any) => {
+    () => {
+      const textOptions: Record<string, string[]> = JSON.parse(filterTextOptions);
+      const kindByKey: Record<string, string> = Object.fromEntries(
+        filterKinds ? filterKinds.split("|").map((p) => p.split(":")) : [],
+      );
+      return columns.map((col: any) => {
         // "actions" / "avatar" have no backing row field, so MRT's sort, group
         // and filter controls all operated on undefined — 42 of 68 such columns
         // app-wide rendered a ⇅ affordance that did nothing. Defaults only:
@@ -550,6 +605,20 @@ function MaterialTable({
         ...defaultColumnSizes,
         ...(isNonDataColumn
           ? { enableSorting: false, enableColumnActions: false, enableHiding: false }
+          : {}),
+        ...(kindByKey[key] === "n"
+          ? { filterVariant: "range", filterFn: "betweenInclusive" }
+          : kindByKey[key] === "a"
+            ? { filterVariant: "autocomplete" }
+            : {}),
+        ...(typeof col.meta?.filterText === "function"
+          ? {
+              filterVariant: "autocomplete",
+              filterSelectOptions: textOptions[key] ?? [],
+              // Match on the text shown, not the stored value.
+              filterFn: (row: any, _id: string, value: unknown) =>
+                value == null || value === "" || String(col.meta.filterText(row.original) ?? "") === String(value),
+            }
           : {}),
         ...col, // custom column values will override defaults
         // The search query is read from context INSIDE HighlightedCell, not closed over
@@ -564,18 +633,19 @@ function MaterialTable({
             {typeof col.Header === "function" ? col.Header(headerProps) : (col.Header ?? col.header)}
             {headerProps.column.getIsPinned() && (
               // Same glyph as the sidebar's pinned menu items (AsideMenuItem).
-              <Box component="i" className="bi bi-pin-angle-fill" aria-label="Pinned" sx={{ fontSize: 12, ml: 1, verticalAlign: "middle", color: "#1E3A8A" }} />
+              <Box component="i" className="bi bi-pin-angle-fill" aria-label="Pinned" sx={{ fontSize: 12, ml: 1, verticalAlign: "middle", color: "primary.main" }} />
             )}
           </>
         ),
         };
-      }),
+      });
+    },
     // Deliberately NOT depending on the search query. This memo rebuilds every column
     // definition, which invalidates MRT's entire column model; doing that on each
     // keystroke was the single most expensive thing typing in the search box did.
     // Highlighting still updates on every keystroke because HighlightedCell subscribes
     // to the query via context, so only the cells re-render, not the column model.
-    [columns],
+    [columns, filterKinds, filterTextOptions],
   );
 
   /**
@@ -1084,6 +1154,15 @@ function MaterialTable({
     if (!onSearchChange) return;
     onSearchChange(debouncedFilterValue);
   }, [debouncedFilterValue, onSearchChange]);
+
+  // Column filters, for a page that filters on the server. Held here (not in saved
+  // preferences: a filter is a question, not a layout) and handed over debounced, like search.
+  const [columnFilters, setColumnFilters] = useState<Array<{ id: string; value: unknown }>>([]);
+  useEffect(() => {
+    if (!onColumnFiltersChange) return;
+    const handler = setTimeout(() => onColumnFiltersChange(columnFilters), 300);
+    return () => clearTimeout(handler);
+  }, [columnFilters, onColumnFiltersChange]);
 
   // Mobile search toggle function
   const toggleMobileSearch = useCallback(() => {
@@ -1729,7 +1808,11 @@ function MaterialTable({
               isLoading: isLoading && tableData.length === 0,
               showProgressBars: isLoading,
               rowSelection,
+              ...(onColumnFiltersChange ? { columnFilters } : {}),
             }}
+            {...(onColumnFiltersChange ? { onColumnFiltersChange: setColumnFilters as any } : {})}
+            // When the page filters columns on the server, MRT must not re-filter the one page it holds.
+            manualFiltering={!!(manualFiltering && onColumnFiltersChange)}
             onColumnVisibilityChange={updateColumnVisibility}
             onColumnOrderChange={updateColumnOrder}
             onColumnSizingChange={updateColumnSizing}
@@ -1763,6 +1846,36 @@ function MaterialTable({
             enableBottomToolbar={enableBottomToolbar ?? true}
             enableTableHead={enableTableHead ?? true}
             enableColumnFilters={enableFilters ?? true}
+            // Dropdown options for the autocomplete filters come from the rows themselves.
+            enableFacetedValues
+            // Filter row: a soft rounded field under each header instead of MRT's bare
+            // underline. Same look for text, autocomplete and the min/max pair.
+            muiFilterTextFieldProps={({ column, rangeFilterIndex }: any) => ({
+              variant: "outlined",
+              size: "small",
+              placeholder:
+                column.columnDef.filterVariant === "range" ? (rangeFilterIndex === 1 ? "Max" : "Min")
+                : column.columnDef.filterVariant === "autocomplete" ? "All"
+                : "Search…",
+              sx: {
+                minWidth: 0,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: 12.5, minWidth: 0,
+                  fontWeight: 500,
+                  borderRadius: "8px",
+                  backgroundColor: "background.paper",
+                  "& fieldset": { borderColor: "#EAECF0" },
+                  "&:hover fieldset": { borderColor: "#98A2B3" },
+                  "&.Mui-focused fieldset": { borderColor: "#1E3A8A", borderWidth: 1.5 },
+                },
+                "& .MuiOutlinedInput-input": { py: "6px", px: "10px", minWidth: 0, width: "100%", textTransform: "none", letterSpacing: 0 },
+                // The clear button only exists once there is something to clear.
+                "& input:placeholder-shown ~ .MuiInputAdornment-root": { display: "none" },
+                // The Min/Max pair sits in an MRT grid with a 1rem gap, too wide for a narrow column.
+                "& .MuiInputAdornment-root": { ml: 0 },
+                "& .MuiInputLabel-root": { display: "none" },
+              },
+            })}
             enableGlobalFilter={!enableColumnSpecificSearch}
             onGlobalFilterChange={handleGlobalFilterChange}
             globalFilterFn={intelligentSearchFilterFn as any}
@@ -1861,7 +1974,7 @@ function MaterialTable({
 
                 // Padding, not a fixed height: a fixed height clips wrapped headers in grid
                 // layout mode, and min-height is ignored on <th> in table layout mode.
-                padding: "16px",
+                padding: "12px 16px",
                 minHeight: "48px",
 
                 borderBottom: "2px solid #EAECF0",
@@ -1873,12 +1986,32 @@ function MaterialTable({
                 boxSizing: "border-box",
                 userSelect: "none",
 
+                // The filter row sits in a Collapse directly under the label. MRT gives it no spacing,
+                // so the boxes touched the header text, the cell edges and the row below. A gap above
+                // and below, and a little air either side, lets each box read as its own control.
+                // The cell itself needs the room: padding on the Collapse's inner box was swallowed
+                // by the cell's own height, leaving the boxes flush on the first data row.
+                "&:has(> .MuiCollapse-root)": { paddingBottom: "10px" },
+                "& > .MuiCollapse-root": { marginTop: "4px" },
+                "& > .MuiCollapse-root .MuiCollapse-wrapperInner": { paddingTop: "8px", borderTop: "1px solid #EAECF0" },
+                "& > .MuiCollapse-root .MuiFormControl-root": { margin: "0", width: "100%" },
+                // Min/Max pair: MRT lays it out with a 1rem gap, which starves narrow columns.
+                "& .MuiBox-root:has(> .MuiTextField-root + .MuiTextField-root)": { gap: "6px" },
+                // Row virtualization switches MRT to CSS-grid layout, where the <th> is a flex
+                // COLUMN. There `height: 100%` on the label made it as tall as the whole cell and
+                // pushed the filter row out of the bottom, under the first data row. In grid the
+                // label takes its own height and the cell centres its content, which is what a
+                // semantic <th>'s vertical-align: middle does — so both layouts look the same.
+                ...(enableRowVirtualization || layoutMode !== "semantic"
+                  ? { justifyContent: "center" }
+                  : {}),
                 "& .Mui-TableHeadCell-Content": {
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
                   width: "100%",
-                  height: "100%",
+                  height: enableRowVirtualization || layoutMode !== "semantic" ? "auto" : "100%",
+                  flex: "0 0 auto",
                   // Floor = label's longest word + sort icon + gap + actions button. In
                   // semantic layout the <th> can't be resized below its content's
                   // min-content, so shrinking a column stops before anything overlaps.
@@ -1909,6 +2042,9 @@ function MaterialTable({
                   gap: "4px",
                   flexShrink: 0,
                 },
+                // Unsorted chevrons are faint until the header is hovered; the active arrow is always full.
+                "&:hover .MuiTableSortLabel-root": { opacity: 1 },
+                "& .MuiTableSortLabel-root .MuiTableSortLabel-icon": { margin: 0, width: "auto", height: "auto" },
 
                 "&:last-child": {
                   borderRight: "none",
@@ -2709,13 +2845,8 @@ function MaterialTable({
               );
             }}
             icons={{
-              ArrowDownwardIcon: (props: any) => (
-                <KTIcon
-                  iconName={"arrow-down"}
-                  className="fs-1 text-danger"
-                  {...props}
-                />
-              ),
+              ArrowDownwardIcon: SortActiveIcon,
+              SyncAltIcon: SortNeutralIcon,
               SortIcon: (props: any) => (
                 <KTIcon iconName="arrow-up-down" className="fs-1" {...props} />
               ),

@@ -33,8 +33,9 @@ export function WizardFooterActions({
 }: WizardFooterActionsProps) {
   return (
     <>
-      {/* Phones: each cluster takes a full row and its buttons share it equally. */}
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", flex: { xs: "1 1 100%", sm: "0 1 auto" }, "& > .MuiButton-root": { flex: { xs: 1, sm: "none" } } }}>
+      {/* Phones: each cluster takes a full row and its buttons share it equally (matched as
+          `button`, not `.MuiButton-root` — the kit buttons render through the design system now). */}
+      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", flex: { xs: "1 1 100%", sm: "0 1 auto" }, "& > button, & > a": { flex: { xs: "1 1 0", sm: "none" }, minWidth: 0 } }}>
         <WtButton ghost onClick={onCancel} disabled={isSubmitting}>Cancel</WtButton>
         {/* Secondary save — outlined, so the footer has exactly one filled primary action. */}
         <WtButton inverted onClick={onDirectSave} disabled={isSubmitting || directSaveDisabled}
@@ -43,7 +44,7 @@ export function WizardFooterActions({
         </WtButton>
         {leftExtra}
       </Box>
-      <Box sx={{ display: "flex", gap: 1, flex: { xs: "1 1 100%", sm: "1 1 auto" }, justifyContent: "flex-end", "& > .MuiButton-root": { flex: { xs: 1, sm: "none" } } }}>
+      <Box sx={{ display: "flex", gap: 1, flex: { xs: "1 1 100%", sm: "1 1 auto" }, justifyContent: "flex-end", "& > button, & > a": { flex: { xs: "1 1 0", sm: "none" }, minWidth: 0 } }}>
         <WtButton ghost startIcon={<ChevronLeft />} onClick={onBack} disabled={backDisabled || isSubmitting}>Back</WtButton>
         {nextSlot ?? (
           <WtButton tone="accent" endIcon={<ChevronRight />} onClick={onNext} disabled={isSubmitting || nextDisabled}>

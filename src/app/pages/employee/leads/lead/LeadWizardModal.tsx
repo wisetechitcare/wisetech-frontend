@@ -320,7 +320,6 @@ const LeadWizardModal = ({
   const [states, setStates] = useState<any[]>([]);
   const [cities, setCities] = useState<any[]>([]);
   const [projectData, setProjectData] = useState<any>(null);
-  const [useCalculatedAmount, setUseCalculatedAmount] = useState<boolean>(true);
   const [allCompanyTypes, setAllCompanyTypes] = useState<
     { id: string | number; name: string; parentTypeId?: string | null }[]
   >([]); //new update of alpabetical order
@@ -901,8 +900,7 @@ const LeadWizardModal = ({
         : [];
 
     // For MEP projects, extract project areas from commercials array (new structure)
-    const projectAreas = leadData.commercials
-      ? leadData.commercials.map((commercial: any) => ({
+    const projectAreas = (leadData.commercials || []).map((commercial: any) => ({
         id: commercial.id, // Include ID for edit mode
         label: commercial.label || "",
         projectArea: commercial.area || "",
@@ -914,14 +912,6 @@ const LeadWizardModal = ({
               : "",
         rate: commercial.rate || "",
         cost: commercial.cost || "",
-      }))
-      : additionalDetailsArray.map((detail: any) => ({
-        // Fallback for legacy data that still has projectAreas in additionalDetails
-        projectArea: detail.projectArea || "",
-        costType: detail.costType || "",
-        rate: detail.rate || "",
-        cost: detail.cost || "",
-        label: "", // Default empty label for legacy data
       }));
 
     // Handle addresses from single additionalDetails object (one-to-one relationship)
@@ -1325,9 +1315,6 @@ const LeadWizardModal = ({
       // another date (PO date, inquiry date): blank on a received lead stays
       // blank until the user sets it or moves the status.
       receivedDate: leadData.receivedDate || "",
-      // Total Area shown on the Lead Status step — seeded from the commercial rows
-      // when blank, but an edited value is persisted, so load it back on edit.
-      projectArea: leadData.additionalDetails?.projectArea || "",
       projectMeta: {
         projectManagerId:
           leadData.execution?.projectManagerId || leadData.project?.projectManagerId || leadData.project?.assignedToId || "",
@@ -1340,12 +1327,6 @@ const LeadWizardModal = ({
             ? String(leadData.execution.rate)
             : leadData.project?.rate !== undefined && leadData.project?.rate !== null
             ? String(leadData.project.rate)
-            : "",
-        finalCost:
-          leadData.execution?.cost !== undefined && leadData.execution?.cost !== null
-            ? String(leadData.execution.cost)
-            : leadData.project?.cost !== undefined && leadData.project?.cost !== null
-            ? String(leadData.project.cost)
             : "",
         poNumber: leadData.project?.poNumber || "",
         isLocationIncorrect: leadData.project?.isLocationIncorrect ?? false,
@@ -2422,7 +2403,7 @@ const LeadWizardModal = ({
       errorConfirmation(`Payment stage percentages must total 100% (currently ${stageTotal(editedStages)}%).`);
       return;
     }
-    const additionalDetailsFields = ["projectArea", "addresses"];
+    const additionalDetailsFields = ["addresses"];
 
     const selectedCountryData = countries.find(
       (c) => c.id === formData.country,
@@ -2441,9 +2422,6 @@ const LeadWizardModal = ({
           if (!isNaN(dateValue.getTime())) {
             additionalDetails[field] = dateValue.toISOString();
           }
-        } else if (field === "projectArea") {
-          // Project areas will be handled separately
-          return;
         } else if (field !== "addresses") {
           // Skip addresses as we handled them above
           additionalDetails[field] = formData[field];
@@ -2684,16 +2662,6 @@ const LeadWizardModal = ({
       leadDirectSourceId: formData?.leadDirectSource || "",
       additionalDetails: {
         ...additionalDetails,
-        // Total project area — the Total Area field on the Lead Status step wins
-        // when it carries a value (it's seeded from the commercial rows and may
-        // then be edited); otherwise fall back to the sum of the rows.
-        projectArea: (
-          parseFloat(formData.projectArea) ||
-          (formData.projectAreas || []).reduce(
-            (total: number, area: any) => total + (parseFloat(area.projectArea) || 0),
-            0,
-          )
-        ).toString(),
         // Always carry flat Formik values into additionalDetails for backend persistence
         poNumber: formData.poNumber || null,
         poDate: (() => {
@@ -2775,7 +2743,6 @@ const LeadWizardModal = ({
     // poNumber/poDate are now inside additionalDetails — remove from root to avoid confusion
     delete finalData.poNumber;
     delete finalData.poDate;
-    delete finalData?.projectArea;
     delete finalData?.companyTypeId;
     delete finalData?.companyId;
     delete finalData.googleMapLink;
@@ -2881,7 +2848,6 @@ const LeadWizardModal = ({
       isLive: !!pm.isLive,
       isProjectOpen: pm.isProjectOpen !== false,
       rate: toNum(pm.contractRate) ?? null,
-      cost: toNum(pm.finalCost) ?? null,
     };
 
     // Remove the flat project-only fields from the lead payload — they're now carried
@@ -3129,17 +3095,6 @@ const LeadWizardModal = ({
                   validateForm,
                 } = formikProps;
 
-                useEffect(() => {
-                  if (
-                    useCalculatedAmount
-                  ) {
-                    const cost =
-                      Number(values.rate || 0) *
-                      Number(values.projectArea || 0);
-                    setFieldValue("cost", cost);
-                  }
-                }, [values.rate, values.projectArea, useCalculatedAmount]);
-
                 // Set default direct source when leadSource is DIRECT
                 useEffect(() => {
                   if (
@@ -3266,28 +3221,6 @@ const LeadWizardModal = ({
                   // Clear receivedDate when status is no longer Received
                   if (!isReceived && values.receivedDate) {
                     setFieldValue("receivedDate", "");
-                  }
-                  // Seed Total Area / Final Cost from the Commercials step grand
-                  // totals — area and cost summed across every row (a Lumpsum row
-                  // has no ₹/sqft rate, so area+cost are the only totals that hold
-                  // for a mixed grid). Filled only when empty, so an edited value
-                  // is never overwritten.
-                  if (isReceived) {
-                    const rows = values.projectAreas || [];
-                    const totalCost = rows.reduce(
-                      (s: number, r: any) => s + (parseFloat(r?.cost) || 0),
-                      0,
-                    );
-                    const totalArea = rows.reduce(
-                      (s: number, r: any) => s + (parseFloat(r?.projectArea) || 0),
-                      0,
-                    );
-                    if (totalCost > 0 && !values.projectMeta?.finalCost) {
-                      setFieldValue("projectMeta.finalCost", String(totalCost));
-                    }
-                    if (totalArea > 0 && !parseFloat(values.projectArea)) {
-                      setFieldValue("projectArea", String(totalArea));
-                    }
                   }
                 }, [values.statusId, leadStatuses]);
 

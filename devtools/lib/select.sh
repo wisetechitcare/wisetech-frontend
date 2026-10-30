@@ -265,16 +265,19 @@ branch_candidates() {
       }'
 }
 
-# branch_select [CURRENT]  → BRANCH_ACTION (pick | create | back | cancel) and BRANCH_RESULT.
+# branch_select [CURRENT] [existing]  → BRANCH_ACTION (pick | create | back | cancel) and BRANCH_RESULT.
 #   Lists every branch; typing filters; a name that doesn't exist offers "+ New branch".
+#   "existing" (a pull source): only branches that exist on origin, and no "+ New branch".
 BRANCH_ACTION=""; BRANCH_RESULT=""
 branch_select() {
-  local cur=${1:-} name tag mark
-  LS_TITLE="Branch"; LS_ITEMS=(); LS_LABEL=(); LS_CREATE=1; LS_NONE=""; LS_BACK="← Back"; LS_QUIT_Q=0
+  local cur=${1:-} only=0 create=1 name tag mark
+  [ "${2:-}" = existing ] && { only=1; create=0; }
+  LS_TITLE="Branch"; LS_ITEMS=(); LS_LABEL=(); LS_CREATE=$create; LS_NONE=""; LS_BACK="← Back"; LS_QUIT_Q=0
   LS_HEIGHT=10; LS_EMPTY_ALL=1; LS_VALID=branch_valid; LS_CHAR_OK=branch_char_ok
   LS_CHAR_NOTE="in a branch name — letters, digits and / - _ ."; LS_CREATE_LABEL="+ New branch"
   while IFS=$'\t' read -r name tag; do
     [ -n "$name" ] || continue
+    [ "$only" = 1 ] && [ "$tag" = "local only" ] && continue     # nothing on origin to pull from
     mark=""; [ "$name" = "$cur" ] && mark=" · current branch"
     LS_ITEMS+=("$name"); LS_LABEL["$name"]="$name  ${D}${tag}${mark}${N}"
   done < <(branch_candidates)

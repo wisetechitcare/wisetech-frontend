@@ -21,7 +21,7 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
+import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtTooltip, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
 import { Box } from "@mui/material";
 import { Button } from "@/ds/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1529,9 +1529,29 @@ const NewCompanyForm: React.FC<Props> = ({
                     ) : undefined
                   }
                   headerActions={
-                    <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)} startIcon={<AppIcon name="bi-gear" className="fs-6" />}>
-                      Manage fields
-                    </WtButton>
+                    <>
+                      <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)}
+                        startIcon={<AppIcon name="bi-gear" className="fs-6" />} sx={{ display: { xs: "none", sm: "inline-flex" } }}>
+                        Manage fields
+                      </WtButton>
+                      {/* Phones: icon only, the same 32px translucent square as the close button beside it. */}
+                      {/* The kit Button (ds), as the button ratchet requires; the Box only decides
+                          the breakpoint so it flips at the same width as the labelled one above. */}
+                      <Box sx={{ display: { xs: "inline-flex", sm: "none" } }}>
+                        <WtTooltip title="Manage fields" wrap>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            type="button"
+                            aria-label="Manage fields"
+                            onClick={() => setShowSchemaManager(true)}
+                            className="rounded-[10px] border border-white/25 bg-white/12 text-white hover:border-white/40 hover:bg-white/22 hover:text-white"
+                          >
+                            <AppIcon name="bi-gear" />
+                          </Button>
+                        </WtTooltip>
+                      </Box>
+                    </>
                   }
                 
                   sections={

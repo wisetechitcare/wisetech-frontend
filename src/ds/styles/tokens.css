@@ -138,6 +138,10 @@
 }
 
 @theme inline {
+  /* Brand tints used by shared upload/drop zones (bg-brand-25, border-brand-500). */
+  --color-brand-25: color-mix(in oklch, var(--brand) 4%, white);
+  --color-brand-500: var(--brand);
+
   --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-heading: var(--font-sans);
 
@@ -152,6 +156,28 @@
   }
   @keyframes border-beam-orbit {
     to { transform: rotate(1turn); }
+  }
+
+  /* StatCard (src/ds/patterns/stat-card.tsx). Defined here, not via tw-animate-css, because the app
+     loads only this file (main.css), not globals.css. Transform-only: no opacity, so text never
+     dips below contrast mid-animation. */
+  --animate-stat-pop: stat-pop 0.6s var(--ease-spring) both;
+  --animate-stat-rise: stat-rise 0.5s var(--ease-spring) both;
+  --animate-stat-wiggle: stat-wiggle 0.6s ease-in-out;
+  @keyframes stat-pop {
+    0% { transform: scale(0.4) rotate(-20deg); }
+    70% { transform: scale(1.12) rotate(4deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+  @keyframes stat-rise {
+    from { transform: translateY(6px); }
+    to { transform: translateY(0); }
+  }
+  @keyframes stat-wiggle {
+    0%, 100% { transform: rotate(0) scale(1); }
+    25% { transform: rotate(-12deg) scale(1.12); }
+    50% { transform: rotate(9deg) scale(1.12); }
+    75% { transform: rotate(-5deg) scale(1.06); }
   }
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
 
