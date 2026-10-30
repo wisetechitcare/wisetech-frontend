@@ -53,7 +53,7 @@ import {
     ShieldAlert, SlidersHorizontal, SquareCheck, SquareMinus, TextAlignStart,
     TextCursorInput, ToggleLeft, TrendingUp, UserPen, UserRound, Venus, Video, VideoOff,
     Wifi, Zap,
-    CircleArrowLeft, PanelLeft, Minimize,
+    CircleArrowLeft, PanelLeft, PanelRight, Minimize,
     CirclePause, Pause, CirclePlay, Play,
 } from 'lucide-react';
 
@@ -199,6 +199,9 @@ const KEENICON_VIA_BI: Record<string, AppIconComponent> = {
  * Lucide has all of them, so the fallback is no longer needed for these.
  */
 const BI_DIRECT: Record<string, AppIconComponent> = {
+    // Pin-to-left / pin-to-right in the Columns sheet. Unregistered, they rendered nothing, so
+    // the per-column pin buttons were invisible.
+    'bi-layout-sidebar': PanelLeft, 'bi-layout-sidebar-reverse': PanelRight,
     'bi-camera-video': Video, 'bi-camera-video-off': VideoOff,
     'bi-chat-square-dots': MessageSquareMore, 'bi-currency-rupee': IndianRupee,
     'bi-file-earmark-zip': FileArchive, 'bi-filetype-pdf': FileText,

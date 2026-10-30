@@ -4,7 +4,7 @@ import { getContactCountByRoles } from "@services/companies";
 import CustomBarChart from "../../../projects/commonComponents/BarChart";
 import { CompanyDialogModal } from "../../companyOverview/components/CompanyDialogModal";
 import Loader from "@app/modules/common/utils/Loader";
-import { StatTile, ToolbarFilterSelect, TRIO } from "@app/modules/common/components/ui";
+import { StatTile, TRIO } from "@app/modules/common/components/ui";
 
 interface RoleDatum {
   id: string;
@@ -108,19 +108,6 @@ const ContactsOverview: React.FC = () => {
           value={rolesData.length}
           trio={TRIO.purple}
           icon="briefcase"
-        />
-      </Box>
-      <Box sx={{ ml: { sm: "auto" } }}>
-        <ToolbarFilterSelect
-          label="Gender"
-          icon="bi-people"
-          value={gender}
-          onChange={setGender}
-          minWidth={190}
-          options={[
-            { value: "ALL", label: `All genders (${totals.ALL ?? 0})` },
-            ...GENDERS.map((g) => ({ value: g.value, label: `${g.label} (${totals[g.value] ?? 0})` })),
-          ]}
         />
       </Box>
     </Box>

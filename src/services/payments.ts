@@ -218,6 +218,7 @@ export interface PaymentListParams {
   search?: string;
   projectId?: string;
   clientId?: string;
+  organizationId?: string;
   paymentStatus?: PaymentStatus | "";
   method?: ClientPaymentMethod | "";
   receivedById?: string;
@@ -244,9 +245,13 @@ const clean = (params: PaymentListParams) =>
 
 export const listPayments = async (
   params: PaymentListParams = {},
-): Promise<{ payments: PaymentListItem[]; pagination: Pagination }> => {
+): Promise<{
+  payments: PaymentListItem[];
+  organizations: Array<{ id: string; name: string }>;
+  pagination: Pagination;
+}> => {
   const { data } = await axios.get(url(PAYMENT.LIST), { params: clean(params), withCredentials: true });
-  return { payments: data.payments ?? [], pagination: data.pagination };
+  return { payments: data.payments ?? [], organizations: data.organizations ?? [], pagination: data.pagination };
 };
 
 export const getPayment = async (id: string): Promise<PaymentDetail> => {

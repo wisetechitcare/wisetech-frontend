@@ -1313,7 +1313,6 @@ export default function Maps({
   const isContact = !!contactData;
   const isProject = !companyData && !contactData;
   const currentData = contactData || companyData || projectData || [];
-  const displayTitle = isContact ? "Contact by Location" : isCompany ? "Company by Location" : "Project by Location";
   // Entity word drives the search placeholder / empty-state copy across all three maps.
   const entityWord = isContact ? "contact" : isCompany ? "company" : "project";
 
@@ -2343,47 +2342,27 @@ export default function Maps({
         }
 
         /* ── Company / Contact map header (title + search) ──────────────── */
-        .entity-map-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 0.75rem 1.5rem;
-          background-color: #f8f9fa;
-          border-bottom: 1px solid #e9ecef;
-          min-height: 4.5rem;
-        }
-        .entity-map-title {
-          font-weight: 600;
-          font-size: 1.5rem;
-          color: #2c3e50;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          min-width: 0;
-        }
-        .entity-map-search { flex-shrink: 0; }
-        .entity-map-search .map-search-wrapper { width: 260px; }
-
-        /* Map height: project map fills the wrapper; entity maps leave room for the header. */
+        /* Company / contact maps: full-height map, search floats top-right. The bar ignores
+           the mouse except on the search itself, so map drag and wheel stay responsive. */
         .map-leaflet--project { height: 100%; }
-        .map-leaflet--entity { height: calc(100% - 4.5rem); }
-        @media (max-width: 640px) {
-          .map-leaflet--entity { height: calc(100% - 7rem); }
+        .map-leaflet--entity { height: 100%; }
+        .entity-search-bar {
+          top: 16px;
+          left: auto;
+          /* Label control is 20px in + 40px wide collapsed; leave 16px between them. */
+          right: 76px;
+          transform: none;
+          animation: none;
+          backdrop-filter: none;
+          -webkit-backdrop-filter: none;
+          pointer-events: none;
         }
-        /* Anchor the dropdown to the search box's right edge on these maps */
-        .entity-map-search .map-search-dropdown { right: 0; left: auto; }
-
-        @media (max-width: 640px) {
-          .entity-map-header {
-            flex-wrap: wrap;
-            align-items: stretch;
-            padding: 0.6rem 1rem;
-            min-height: 7rem;
-          }
-          .entity-map-title { font-size: 1.15rem; width: 100%; }
-          .entity-map-search { width: 100%; }
-          .entity-map-search .map-search-wrapper { width: 100%; }
+        .entity-search-bar .filter-search-area { pointer-events: auto; }
+        /* Expanded label control is 140px wide: move the search bar left of it. */
+        .map-outer-wrapper:has(.map-control-panel.expanded) .entity-search-bar { right: 176px; }
+        /* At 900px and below the control drops to top 80px, below the search bar. */
+        @media (max-width: 900px) {
+          .map-outer-wrapper:has(.map-control-panel.expanded) .entity-search-bar { right: 16px !important; }
         }
 
         @keyframes search-marker-bounce-pulse {
@@ -2995,11 +2974,10 @@ export default function Maps({
         document.body
       )}
 
-      {/* Header for company / contact maps — title + working, responsive search */}
+      {/* Company / contact maps: the project map's search bar only, floating top-right. */}
       {!isProject && (
-        <div className="entity-map-header">
-          <div className="entity-map-title">{displayTitle}</div>
-          <div className="entity-map-search">
+        <div className="floating-filter-bar entity-search-bar" role="toolbar" aria-label={`${entityWord} search`}>
+          <div className="filter-search-area">
             {renderMapSearch()}
           </div>
         </div>

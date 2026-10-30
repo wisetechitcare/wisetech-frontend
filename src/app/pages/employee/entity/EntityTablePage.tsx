@@ -3,12 +3,8 @@ import ExportButton from "@app/modules/common/components/ExportButton";
 import TimePeriodSelector, { TimePeriodMode } from "@app/modules/common/components/TimePeriodSelector";
 import {
   Box,
-  MenuItem,
-  Select,
-  FormControl,
   useTheme,
   useMediaQuery,
-  Autocomplete,
   TextField,
   InputAdornment,
 } from "@mui/material";
@@ -677,16 +673,14 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             // filter, which matches the chart's raw-name bars 1:1.
             locality: lead?.additionalDetails?.locality || "",
             // Area home order: summed commercial work-areas first, then the
-            // technical-spec areas (project → built-up → plot), so a record with
+            // technical-spec areas (built-up → plot), so a record with
             // specs but no commercial rows still shows its area instead of blank.
             area:
               (Array.isArray(lead.commercials) && lead.commercials.length > 0
                 ? lead.commercials.reduce((acc: number, c: any) => acc + (parseFloat(c.area) || 0), 0)
                 : 0) ||
-              parseFloat(lead?.additionalDetails?.projectArea) ||
               parseFloat(lead?.additionalDetails?.builtUpArea) ||
               parseFloat(lead?.additionalDetails?.plotArea) ||
-              lead?.addresses?.[0]?.projectArea ||
               "",
             cost: commercialsTotal,
             companyId: lead.companyId || "",
@@ -726,7 +720,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             // External roster (project_external_teams) — drives the "Projects by
             // External Team" drill-down (company type / company / contact + NA).
             externalTeams: lead?.projectExternalTeams || [],
-            projectCost: parseFloat(exec?.cost ?? project?.cost) || 0,
+            projectCost: commercialsTotal,
             projectRate: parseFloat(exec?.rate ?? project?.rate) || 0,
             projectServiceId: project?.serviceId || "",
             projectCategoryId: project?.projectCategoryId || "",
@@ -1607,44 +1601,6 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   // Matches the table toolbar beside it (kit 'sm' select = 34px).
   const FILTER_HEIGHT = "34px";
 
-  const menuSx = {
-    PaperProps: {
-      sx: {
-        borderRadius: "6px",
-        mt: 0.5,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-        maxHeight: 320,
-        "& .MuiMenuItem-root": {
-          fontSize: "12px",
-          fontFamily: "Inter",
-          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
-          "&.Mui-selected": {
-            backgroundColor: "rgba(30, 58, 138,0.1)",
-            color: "#1E3A8A",
-            fontWeight: 600,
-          },
-        },
-      },
-    },
-  };
-
-  const pillSelectSx = (hasValue: boolean) => ({
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontFamily: "Inter",
-    fontWeight: 500,
-    height: FILTER_HEIGHT,
-    color: hasValue ? "#1E3A8A" : "#1E293B",
-    "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasValue ? "#1E3A8A !important" : "#E2E8F0 !important",
-      borderWidth: "1px !important",
-      borderRadius: "6px !important",
-    },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
-    "& .MuiSelect-icon": { color: hasValue ? "#1E3A8A" : "#94A3B8" },
-  });
-
   // Row tint: project phase wins for project rows, lead-status color otherwise.
   const rowBackground = (row: any) => {
     const statusColor = row?.isProject ? row?.projectStatus?.color : row?.status?.color;
@@ -1936,276 +1892,6 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                   ),
                 }}
               />
-
-              {/* Lead Status Filter */}
-              <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 140 }}>
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  displayEmpty
-                  sx={pillSelectSx(!!statusFilter)}
-                  renderValue={(val) => {
-                    if (!val) {
-                      return (
-                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                          Lead Status
-                        </span>
-                      );
-                    }
-                    const st = leadStatuses.find((s: any) => s.name === val);
-                    return (
-                      <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
-                        {st?.color && (
-                          <span style={{ width: 8, height: 8, minWidth: 8, borderRadius: "50%", backgroundColor: st.color, display: "inline-block" }} />
-                        )}
-                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                          {val}
-                        </span>
-                        <span
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setStatusFilter("");
-                          }}
-                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
-                        >
-                          ✕
-                        </span>
-                      </span>
-                    );
-                  }}
-                  MenuProps={menuSx}
-                >
-                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                    All Statuses
-                  </MenuItem>
-                  {leadStatuses.map((st: any) => (
-                    <MenuItem key={st.id} value={st.name} sx={{ fontSize: "12px" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color, display: "inline-block", flexShrink: 0 }} />
-                        {st.name}
-                        {st.isProjectTrigger && (
-                          <span style={{ marginLeft: "auto", fontSize: "9px", fontWeight: 700, color: "#0A5C2A", background: "#EDFDF3", borderRadius: "999px", padding: "1px 6px" }}>
-                            PROJECT
-                          </span>
-                        )}
-                      </span>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              {/* Project Status Filter — only in project views */}
-              {projectColumnsActive && projectStatuses.length > 0 && (
-                <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 150 }}>
-                  <Select
-                    value={projectStatusFilter}
-                    onChange={(e) => setProjectStatusFilter(e.target.value)}
-                    displayEmpty
-                    sx={pillSelectSx(!!projectStatusFilter)}
-                    renderValue={(val) => {
-                      if (!val) {
-                        return (
-                          <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                            Project Status
-                          </span>
-                        );
-                      }
-                      const st = projectStatuses.find((s: any) => s.id === val);
-                      return (
-                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
-                          {st?.name || val}
-                        </span>
-                      );
-                    }}
-                    MenuProps={menuSx}
-                  >
-                    <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                      All Project Statuses
-                    </MenuItem>
-                    {projectStatuses.map((st: any) => (
-                      <MenuItem key={st.id} value={st.id} sx={{ fontSize: "12px" }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                          <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color || "#64748B", display: "inline-block", flexShrink: 0 }} />
-                          {st.name}
-                        </span>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-
-              {/* Project Manager Filter — only in project views */}
-              {projectColumnsActive && projectManagerOptions.length > 0 && (
-                <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 160 }}>
-                  <Select
-                    value={projectManagerFilter}
-                    onChange={(e) => setProjectManagerFilter(e.target.value)}
-                    displayEmpty
-                    sx={pillSelectSx(!!projectManagerFilter)}
-                    renderValue={(val) => {
-                      if (!val) {
-                        return (
-                          <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                            Project Manager
-                          </span>
-                        );
-                      }
-                      const emp = projectManagerOptions.find((e: any) => e.employeeId === val);
-                      return (
-                        <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
-                          {emp?.employeeName || val}
-                        </span>
-                      );
-                    }}
-                    MenuProps={menuSx}
-                  >
-                    <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                      All Project Managers
-                    </MenuItem>
-                    {projectManagerOptions.map((emp: any) => (
-                      <MenuItem key={emp.employeeId} value={emp.employeeId} sx={{ fontSize: "12px" }}>
-                        {emp.employeeName}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-
-              {/* Assigned To Autocomplete */}
-              <Autocomplete
-                size="small"
-                options={assignedToOptions}
-                getOptionLabel={(emp: any) => emp.displayName || emp.employeeName}
-                value={assignedToOptions.find((e: any) => e.employeeId === assignedToFilter) ?? null}
-                onChange={(_: any, emp: any) => setAssignedToFilter(emp?.employeeId ?? "")}
-                isOptionEqualToValue={(opt: any, val: any) => opt.employeeId === val.employeeId}
-                filterOptions={(options, { inputValue }) => {
-                  const q = inputValue.toLowerCase();
-                  if (!q) return options;
-                  return options.filter((o: any) => (o.displayName || o.employeeName || "").toLowerCase().includes(q));
-                }}
-                sx={{ minWidth: isMobile ? "100%" : 180 }}
-                clearOnEscape
-                renderOption={(props, emp: any) => (
-                  <li {...props} key={emp.employeeId}>
-                    {emp.employeeId === "__NA__" ? (
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <span style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "8px", color: "#999", fontWeight: 700 }}>
-                          N/A
-                        </span>
-                        <span style={{ fontFamily: "Inter", fontSize: "12px", color: "#888" }}>
-                          N/A — UNASSIGNED
-                        </span>
-                      </span>
-                    ) : (
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <img
-                          src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}&size=32&background=random`}
-                          alt=""
-                          style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0, filter: emp.isInactive ? "grayscale(60%)" : "none" }}
-                          onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}`; }}
-                        />
-                        <span style={{ fontFamily: "Inter", fontSize: "12px" }}>
-                          {emp.isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName}
-                        </span>
-                      </span>
-                    )}
-                  </li>
-                )}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    placeholder="Assigned To"
-                    InputProps={{
-                      ...params.InputProps,
-                      startAdornment: assignedToFilter ? (
-                        <InputAdornment position="start" sx={{ ml: "4px", mr: 0 }}>
-                          {assignedToFilter === "__NA__" ? (
-                            <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#f0f0f0", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "7px", color: "#999", fontWeight: 700 }}>
-                              N/A
-                            </span>
-                          ) : (
-                            <img
-                              src={assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.employeeName || "")}&size=24&background=random`}
-                              alt=""
-                              style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", filter: assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.isInactive ? "grayscale(60%)" : "none" }}
-                            />
-                          )}
-                        </InputAdornment>
-                      ) : undefined,
-                    }}
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "6px",
-                        height: FILTER_HEIGHT,
-                        fontFamily: "Inter",
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        color: assignedToFilter ? "#1E3A8A" : "#1E293B",
-                        paddingRight: "8px !important",
-                        "& fieldset": {
-                          borderColor: assignedToFilter ? "#1E3A8A" : "#E2E8F0",
-                          borderWidth: "1px",
-                          borderRadius: "6px",
-                        },
-                        "&:hover fieldset": { borderColor: "#1E3A8A" },
-                        "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
-                      },
-                      "& .MuiOutlinedInput-input": {
-                        padding: "0 4px !important",
-                        fontFamily: "Inter",
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        color: assignedToFilter ? "#1E3A8A" : "#1E293B",
-                        "&::placeholder": {
-                          color: "#94A3B8",
-                          opacity: 1,
-                          fontFamily: "Inter",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                        },
-                      },
-                      "& .MuiAutocomplete-endAdornment": {
-                        right: "6px",
-                        "& .MuiSvgIcon-root": {
-                          color: assignedToFilter ? "#1E3A8A" : "#94A3B8",
-                          fontSize: "16px",
-                        },
-                      },
-                    }}
-                  />
-                )}
-                slotProps={{
-                  paper: {
-                    sx: {
-                      borderRadius: "8px",
-                      mt: 0.5,
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                      "& .MuiAutocomplete-listbox": {
-                        maxHeight: 280,
-                        fontFamily: "Inter",
-                        "& .MuiAutocomplete-option": {
-                          fontSize: "12px",
-                          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
-                          '&[aria-selected="true"]': {
-                            backgroundColor: "rgba(30, 58, 138,0.1)",
-                            color: "#1E3A8A",
-                            fontWeight: 600,
-                          },
-                        },
-                      },
-                    },
-                  },
-                }}
-              />
-
-              {/* Clear filters trigger */}
-              {hasAnyFilter && (
-                <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-                  ✕ Clear Filters
-                </Button>
-              )}
             </div>
 
             {/* Right side: KPI summary */}

@@ -3,11 +3,6 @@ import ExportButton from "@app/modules/common/components/ExportButton";
 import TimePeriodSelector, { TimePeriodMode } from "@app/modules/common/components/TimePeriodSelector";
 import {
   Box,
-  FormControl,
-  Select,
-  MenuItem,
-  TextField,
-  InputAdornment,
   useTheme,
   useMediaQuery,
 } from "@mui/material";
@@ -336,7 +331,6 @@ const ProjectTablePage = () => {
           // → plot), so a project with specs but no commercial rows still shows.
           const ad = lead?.additionalDetails || {};
           const fallbackArea =
-            parseFloat(ad.projectArea) ||
             parseFloat(ad.builtUpArea) ||
             parseFloat(ad.plotArea) ||
             0;
@@ -394,7 +388,7 @@ const ProjectTablePage = () => {
             projectTeamName: exec?.team?.name || project?.team?.name || "N/A",
             projectTeams: project?.projectTeams || [],
             projectCompanyMappings: project?.projectCompanyMappings || [],
-            projectCost: parseFloat(exec?.cost ?? project?.cost) || commercialsTotal || 0,
+            projectCost: commercialsTotal,
             projectRate: derivedRate || parseFloat(exec?.rate ?? project?.rate) || 0,
             projectArea: resolvedArea,
             projectServiceId: lead?.projectServiceId || project?.serviceId || "N/A",
@@ -565,46 +559,6 @@ const ProjectTablePage = () => {
     0,
   );
 
-  const FILTER_HEIGHT = "32px";
-
-  const pillSelectSx = (hasValue: boolean) => ({
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontFamily: "Inter",
-    fontWeight: 500,
-    height: FILTER_HEIGHT,
-    color: hasValue ? "#1E3A8A" : "#1E293B",
-    "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasValue ? "#1E3A8A !important" : "#E2E8F0 !important",
-      borderWidth: "1px !important",
-      borderRadius: "6px !important",
-    },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
-    "& .MuiSelect-icon": { color: hasValue ? "#1E3A8A" : "#94A3B8" },
-  });
-
-  const menuSx = {
-    PaperProps: {
-      sx: {
-        borderRadius: "6px",
-        mt: 0.5,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-        maxHeight: 320,
-        "& .MuiMenuItem-root": {
-          fontSize: "12px",
-          fontFamily: "Inter",
-          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
-          "&.Mui-selected": {
-            backgroundColor: "rgba(30, 58, 138,0.1)",
-            color: "#1E3A8A",
-            fontWeight: 600,
-          },
-        },
-      },
-    },
-  };
-
   return (
     <>
       <Box sx={{ px: { xs: 2, md: 3 }, py: 1.5, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
@@ -746,9 +700,6 @@ const ProjectTablePage = () => {
               </div>
             )}
 
-            {/* Search / Status / Manager / Clear now live inside the table's own toolbar
-                (renderTopToolbarRightActions below), next to its column picker and
-                search — same arrangement as the reimbursement tables. */}
           </div>
 
           {/* Right-side group: budget/results pill + missing-address toggle, kept together */}
@@ -816,94 +767,6 @@ const ProjectTablePage = () => {
         // discards them so latest-start-date-first applies for everyone.
         tableName="ProjectTableV4"
         defaultSorting={[{ id: "projectStartDate", desc: true }]}
-        // Returns elements, not a <FilterToolbar/> component declared in render —
-        // a fresh component type each render remounts the controls mid-interaction.
-        renderTopToolbarRightActions={() => (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {projectStatuses.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <Select
-                  value={projectStatusFilter}
-                  onChange={(e) => updateStatusFilter(e.target.value)}
-                  displayEmpty
-                  sx={pillSelectSx(!!projectStatusFilter)}
-                  renderValue={(val) => {
-                    if (!val) {
-                      return (
-                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                          Project Status
-                        </span>
-                      );
-                    }
-                    const st = projectStatuses.find((s: any) => s.id === val);
-                    return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
-                        {st?.name || val}
-                      </span>
-                    );
-                  }}
-                  MenuProps={menuSx}
-                >
-                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                    All Project Statuses
-                  </MenuItem>
-                  {projectStatuses.map((st: any) => (
-                    <MenuItem key={st.id} value={st.id} sx={{ fontSize: "12px" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color || "#64748B", display: "inline-block", flexShrink: 0 }} />
-                        {st.name}
-                      </span>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {projectManagerOptions.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <Select
-                  value={projectManagerFilter}
-                  onChange={(e) => updateManagerFilter(e.target.value)}
-                  displayEmpty
-                  sx={pillSelectSx(!!projectManagerFilter)}
-                  renderValue={(val) => {
-                    if (!val) {
-                      return (
-                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                          Project Manager
-                        </span>
-                      );
-                    }
-                    const emp = projectManagerOptions.find((e: any) => e.employeeId === val);
-                    return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
-                        {emp?.employeeName || val}
-                      </span>
-                    );
-                  }}
-                  MenuProps={menuSx}
-                >
-                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                    All Project Managers
-                  </MenuItem>
-                  {projectManagerOptions.map((emp: any) => (
-                    <MenuItem key={emp.employeeId} value={emp.employeeId} sx={{ fontSize: "12px" }}>
-                      {emp.employeeName}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {hasAnyFilter && (
-              <Button variant="link" size="xs" type="submit"
-                onClick={clearAllFilters}
-              >
-                ✕ Clear Filters
-              </Button>
-            )}
-          </Box>
-        )}
         renderExportActions={() => (
           <ExportButton
             data={quickFilteredData}

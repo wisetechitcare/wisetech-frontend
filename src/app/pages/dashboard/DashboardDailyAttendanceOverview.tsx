@@ -29,7 +29,6 @@ import { Link } from "react-router-dom";
 import { Button, buttonVariants } from "@/ds/ui/button";
 import { Item } from "@/ds/ui/item";
 import { canSection } from "@utils/can";
-import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import PeriodFilter from "@app/modules/common/components/PeriodFilter";
@@ -151,8 +150,8 @@ const DashboardDailyAttendanceOverview = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortOption, setSortOption] = useState<SortOption>('none');
   const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
-  const [branchFilter, setBranchFilter] = useStoredState<string>('filters:DashboardDailyAttendanceOverview:branchFilter', 'All');
-  const [subOrgFilter, setSubOrgFilter] = useStoredState<string>('filters:DashboardDailyAttendanceOverview:subOrgFilter', 'All');
+  const [branchFilter, setBranchFilter] = useState<string>('All');
+  const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
   const rootOrgNames = useRootOrgNames();
   const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('');
   const [graceTimeOffice, setGraceTimeOffice] = useState<string>('');
@@ -937,40 +936,6 @@ const DashboardDailyAttendanceOverview = () => {
           </h5>
 
           <div className="d-flex align-items-center gap-3 flex-wrap">
-            {/* Branch / Sub-Organization filters — scope the day's attendance to a branch or sub-org */}
-            <ToolbarFilterSelect
-              label="Branch"
-              icon="bi-geo-alt"
-              value={branchFilter}
-              onChange={setBranchFilter}
-              minWidth={150}
-              theme={branchFilter !== 'All' ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' } : undefined}
-              options={[
-                { value: 'All', label: 'All Branches' },
-                ...branchOptions.map((name) => ({ value: name, label: name })),
-              ]}
-            />
-            <ToolbarFilterSelect
-              label="Sub Organization"
-              icon="bi-building"
-              value={subOrgFilter}
-              onChange={setSubOrgFilter}
-              minWidth={190}
-              theme={subOrgFilter !== 'All' ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' } : undefined}
-              options={[
-                { value: 'All', label: 'All Sub Organizations' },
-                ...subOrgOptions.map((name) => ({ value: name, label: name })),
-              ]}
-            />
-            {hasActiveFilters && (
-              <Button
-                variant="outline"
-                onClick={() => { setBranchFilter('All'); setSubOrgFilter('All'); }}
-                title="Reset filters"
-              >
-                <AppIcon name="bi-x-lg" data-icon="inline-start" /> Reset
-              </Button>
-            )}
             {canSection("attendance.employees") &&
             <Link
               to="/employees/attendance-and-leaves"

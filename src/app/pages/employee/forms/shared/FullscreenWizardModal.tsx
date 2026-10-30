@@ -41,7 +41,10 @@ export function FullscreenWizardModal({
       className={["responsive-modal", "wt-wizard-modal", className].filter(Boolean).join(" ")}
     >
       <div className="ob-wizard-shell">
-        <Button variant="ghost" size="icon-sm" type="button" onClick={onClose} aria-label={closeLabel}>
+        {/* `ob-wizard-close` floats the X over the header's corner. Without it the button sits in
+            the flow ABOVE the wizard and pushes it down by its own height — which cropped the
+            footer off the bottom of every fullscreen wizard. */}
+        <Button variant="ghost" size="icon-sm" type="button" onClick={onClose} aria-label={closeLabel} className="ob-wizard-close">
           <KTIcon iconName="cross" className="fs-2" />
         </Button>
         <Modal.Body ref={bodyRef} style={{ padding: 0, height: "100%", overflow: "hidden" }}>

@@ -26,6 +26,14 @@ type CrmListRowOpts = {
   former?: boolean;
 };
 
+/**
+ * True when a row click came from a control inside the row (edit, delete, checkbox, menu).
+ * Those keep their own action; the row's open-on-click must not also fire.
+ */
+export function isRowAction(e: { target: EventTarget | null }) {
+  return !!(e.target as HTMLElement | null)?.closest?.("button, a, input, [role='menuitem']");
+}
+
 /** MRT `muiTableBodyRowProps` `.sx` for active / inactive / blacklisted rows. */
 export function crmListRowSx(active: boolean, opts: CrmListRowOpts = {}) {
   if (opts.blacklisted) {
