@@ -12,7 +12,12 @@ const meta = {
   component: HoverCard,
   render: (args) => (
     <HoverCard {...args}>
-      <HoverCardTrigger href="#employee" className="font-medium text-primary underline-offset-4 hover:underline">
+      {/* delay lives on the trigger (Base UI), not the root */}
+      <HoverCardTrigger
+        href="#employee"
+        delay={0}
+        className="font-medium text-primary underline-offset-4 hover:underline"
+      >
         Meera Joshi
       </HoverCardTrigger>
       <HoverCardContent className="w-72">
@@ -36,7 +41,6 @@ type Story = StoryObj<typeof meta>
 
 /** Keyboard focus opens the preview too. */
 export const Default: Story = {
-  args: { delay: 0 },
   play: async ({ canvas }) => {
     await userEvent.hover(canvas.getByRole('link', { name: 'Meera Joshi' }))
     await expect(await screen.findByText('Reports to Arjun Rao')).toBeInTheDocument()

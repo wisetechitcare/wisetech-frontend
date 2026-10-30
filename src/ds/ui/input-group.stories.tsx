@@ -18,25 +18,25 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /** Search with a leading icon and a clear button. */
+const onClearSearch = fn()
 export const Search_: Story = {
   name: 'Search',
-  args: { onClick: fn() },
-  render: (args) => (
+  render: () => (
     <InputGroup>
       <InputGroupAddon>
         <Search aria-hidden />
       </InputGroupAddon>
       <InputGroupInput aria-label="Search employees" placeholder="Search employees" defaultValue="Meera" />
       <InputGroupAddon align="inline-end">
-        <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={args.onClick}>
+        <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={onClearSearch}>
           <X aria-hidden />
         </InputGroupButton>
       </InputGroupAddon>
     </InputGroup>
   ),
-  play: async ({ args, canvas }) => {
+  play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Clear search' }))
-    await expect(args.onClick).toHaveBeenCalled()
+    await expect(onClearSearch).toHaveBeenCalled()
   },
 }
 
