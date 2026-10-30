@@ -5,6 +5,7 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { AuditApi, AuditChangeSet, AuditEntityType, AuditFieldChange } from './audit.service';
 import { fullDateTime } from './time';
 import { formatDate } from '@utils/dateFormats';
+import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 
 /**
  * How a collection row's figures moved over its revisions, shown where the data lives.
@@ -102,7 +103,32 @@ const headSx = { ...cellSx, fontSize: 11, fontWeight: 700, letterSpacing: 0.4, t
 const nowBg = (t: Theme) => (t.palette.mode === 'dark' ? 'rgba(74,222,128,0.16)' : '#DCFCE7');
 const nowFg = (t: Theme) => (t.palette.mode === 'dark' ? '#86EFAC' : '#166534');
 
-/** One work area as a grid: a row per figure, a column per moment — Originally, each revision that touched it, Now. */
+/** Money fields — the figures the page's eye toggle blurs. "Cost Type" is a label, not an amount. */
+const isMoneyField = (label: string) =>
+  /\b(rate|cost|amount|value|price|total)\b/i.test(label) && !/\btype\b/i.test(label);
+
+/**
+ * Blurs its children while the page's eye is off. Outside a SensitiveDataProvider (the form's
+ * sidebar) `cls` is empty and nothing is blurred — same rule as every other figure.
+ */
+const Masked: React.FC<{ on: boolean; children: React.ReactNode }> = ({ on, children }) => {
+  const { cls } = useSensitiveData();
+  return on && cls ? <span className={cls} style={{ display: 'inline-block' }}>{children}</span> : <>{children}</>;
+};
+
+/** "Area (SQFT): 20 · Rate: ₹20 · Calculated Cost: ₹400" with only the money segments blurred. */
+const MaskedSummary: React.FC<{ text: string }> = ({ text }) => (
+  <>
+    {text.split(' · ').map((seg, i) => (
+      <React.Fragment key={i}>
+        {i > 0 && ' · '}
+        <Masked on={isMoneyField(seg.split(':')[0])}>{seg}</Masked>
+      </React.Fragment>
+    ))}
+  </>
+);
+
+/** One work area as a grid: a row per moment — Originally, each revision that touched it, Now — and a column per figure. */
 const RowBlock: React.FC<{ r: RowTrail }> = ({ r }) => {
   const trails = [...r.fields.values()];
   const meta = new Map<number, { by: string; at: string }>();
@@ -130,46 +156,58 @@ const RowBlock: React.FC<{ r: RowTrail }> = ({ r }) => {
 
       {r.events.some((e) => e.text) && (
         <Typography sx={{ px: 2, py: 1, fontSize: 12, color: 'text.secondary', borderBottom: trails.length ? '1px solid' : 0, borderColor: 'divider' }}>
-          {r.events.find((e) => e.text)?.text}
+          <MaskedSummary text={r.events.find((e) => e.text)?.text ?? ''} />
         </Typography>
       )}
 
       {trails.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
           <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
+            {/* A moment per ROW, a figure per COLUMN: a lead revised twenty times grows the
+                table downward, where it scrolls with the page, instead of sideways. */}
             <thead>
               <tr>
-                <Box component="th" sx={{ ...headSx, textAlign: 'left' }}>Figure</Box>
-                <Box component="th" sx={{ ...headSx, textAlign: 'left' }}>Originally</Box>
-                {revs.map((n) => (
-                  <Box component="th" key={n} sx={{ ...headSx, textAlign: 'left' }} title={`${meta.get(n)?.by} · ${fullDateTime(meta.get(n)?.at)}`}>
-                    R{n}
-                    <Box component="span" sx={{ ml: 0.75, fontSize: 10.5, fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>·&nbsp;
-                      {formatDate(meta.get(n)?.at)}
-                    </Box>
-                  </Box>
+                <Box component="th" sx={{ ...headSx, textAlign: 'left' }}>Version</Box>
+                {trails.map((t) => (
+                  <Box component="th" key={t.label} sx={{ ...headSx, textAlign: 'left' }}>{t.label}</Box>
                 ))}
-                <Box component="th" sx={(t) => ({ ...headSx, textAlign: 'left', color: nowFg(t), bgcolor: nowBg(t) })}>Now</Box>
               </tr>
             </thead>
             <tbody>
-              {trails.map((t) => (
-                <tr key={t.label}>
-                  <Box component="td" sx={{ ...cellSx, fontWeight: 600 }}>{t.label}</Box>
-                  <Box component="td" sx={{ ...cellSx, color: 'text.secondary' }}>{t.original}</Box>
-                  {revs.map((n) => {
+              <tr>
+                <Box component="td" sx={{ ...cellSx, fontWeight: 600 }}>Originally</Box>
+                {trails.map((t) => (
+                  <Box component="td" key={t.label} sx={{ ...cellSx, color: 'text.secondary' }}>
+                    <Masked on={isMoneyField(t.label)}>{t.original}</Masked>
+                  </Box>
+                ))}
+              </tr>
+              {revs.map((n) => (
+                <tr key={n}>
+                  <Box component="td" sx={{ ...cellSx, fontWeight: 600 }} title={`${meta.get(n)?.by} · ${fullDateTime(meta.get(n)?.at)}`}>
+                    R{n}
+                    <Box component="span" sx={{ ml: 0.75, fontSize: 10.5, fontWeight: 500, color: 'text.secondary' }}>·&nbsp;
+                      {formatDate(meta.get(n)?.at)}
+                    </Box>
+                  </Box>
+                  {trails.map((t) => {
                     const s = t.steps.find((x) => x.rev === n);
                     return (
-                      <Box component="td" key={n} sx={{ ...cellSx, fontWeight: s ? 600 : 400, color: s ? 'text.primary' : 'text.disabled' }}>
-                        {s ? s.value : '·'}
+                      <Box component="td" key={t.label} sx={{ ...cellSx, fontWeight: s ? 600 : 400, color: s ? 'text.primary' : 'text.disabled' }}>
+                        {s ? <Masked on={isMoneyField(t.label)}>{s.value}</Masked> : '·'}
                       </Box>
                     );
                   })}
-                  <Box component="td" sx={(th) => ({ ...cellSx, fontWeight: 700, color: nowFg(th), bgcolor: nowBg(th) })}>
-                    {t.steps[t.steps.length - 1].value}
-                  </Box>
                 </tr>
               ))}
+              <tr>
+                <Box component="td" sx={(th) => ({ ...cellSx, fontWeight: 700, color: nowFg(th), bgcolor: nowBg(th), borderBottom: 0 })}>Now</Box>
+                {trails.map((t) => (
+                  <Box component="td" key={t.label} sx={(th) => ({ ...cellSx, fontWeight: 700, color: nowFg(th), bgcolor: nowBg(th), borderBottom: 0 })}>
+                    <Masked on={isMoneyField(t.label)}>{t.steps[t.steps.length - 1].value}</Masked>
+                  </Box>
+                ))}
+              </tr>
             </tbody>
           </Box>
         </Box>
