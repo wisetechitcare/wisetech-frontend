@@ -35,6 +35,7 @@ import ShoppingCartRounded from '@mui/icons-material/ShoppingCartRounded';
 import SpeedRounded from '@mui/icons-material/SpeedRounded';
 import SwapHorizRounded from '@mui/icons-material/SwapHorizRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
+import VideocamRounded from '@mui/icons-material/VideocamRounded';
 import ViewKanbanRounded from '@mui/icons-material/ViewKanbanRounded';
 import WorkRounded from '@mui/icons-material/WorkRounded';
 import { resolveReactComponent } from '@utils/resolveReactComponent';
@@ -56,6 +57,7 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-calendar-event': EventRounded,
   'bi-calendar-check': EventAvailableRounded,
   'bi-calendar2-week': CalendarMonthRounded,
+  'bi-camera-video': VideocamRounded,
   'bi-people': GroupsRounded,
   'bi-file-earmark-text': DescriptionRounded,
   'bi-folder2-open': FolderOpenRounded,

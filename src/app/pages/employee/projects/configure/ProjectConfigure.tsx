@@ -36,6 +36,8 @@ import {
 } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import ActionIconButton from '@app/modules/common/components/ui/ActionIconButton';
+import { Button } from '@/ds/ui/button';
 import ReorderableGroup, { DragHandle, type DragHandleProps } from '@app/modules/common/components/ReorderableGroup';
 
 // ─── ColorChip ────────────────────────────────────────────────────────────────
@@ -87,19 +89,9 @@ const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) 
         </span>
       </div>
       <div style={{ display: 'flex', gap: '4px', flexShrink: 0, opacity: hov ? 1 : 0.35, transition: 'opacity 0.15s ease' }}>
-        <button
-          onClick={onEdit}
-          style={{ background: hov ? '#eff6ff' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: '#4f82c4', display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
-        >
-          <AppIcon name="bi-pencil" className="fs-8" />
-        </button>
+        <ActionIconButton size="sm" title="Edit" onClick={onEdit} icon={<AppIcon name="bi-pencil" className="fs-8" />} />
         {onDelete && (
-          <button
-            onClick={onDelete}
-            style={{ background: hov ? '#fff5f8' : 'transparent', border: 'none', borderRadius: RADIUS.sm, padding: '4px 7px', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', transition: 'background 0.15s ease' }}
-          >
-            <AppIcon name="bi-trash" className="fs-8" />
-          </button>
+          <ActionIconButton size="sm" tone="danger" title="Delete" onClick={onDelete} icon={<AppIcon name="bi-trash" className="fs-8" />} />
         )}
       </div>
     </div>
@@ -138,12 +130,10 @@ const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
   const isLast = index === total - 1;
   const dotColor = color || '#cccccc';
 
-  const iconBtn = (tone: string, handler: () => void, icon: string, title: string, enabled = true): React.CSSProperties => ({
-    background: 'none', border: 'none', width: '14px', height: '14px',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: enabled ? 'pointer' : 'default',
-    color: hov ? tone : '#ddd', padding: 0, flexShrink: 0,
-    transition: 'color 0.15s ease', fontSize: '9px',
+  // Sized to the 22px pill; the glyph only takes its tone while the pill is hovered.
+  const iconBtn = (tone: string): React.CSSProperties => ({
+    width: '14px', height: '14px', padding: 0, flexShrink: 0,
+    color: hov ? tone : '#ddd', transition: 'color 0.15s ease', fontSize: '9px',
   });
 
   return (
@@ -193,14 +183,14 @@ const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
         </span>
 
         {/* Edit button */}
-        <button type="button" title="Edit" onClick={onEdit} style={iconBtn('#4f82c4', onEdit, 'bi-pencil', 'Edit', true)}>
+        <Button variant="ghost" size="icon-xs" title="Edit" aria-label="Edit" onClick={onEdit} style={iconBtn('#4f82c4')}>
           <AppIcon name="bi-pencil" className="fs-9" />
-        </button>
+        </Button>
 
         {/* Delete button */}
-        <button type="button" title="Delete" onClick={onDelete} style={iconBtn(C.danger, onDelete, 'bi-trash', 'Delete', true)}>
+        <Button variant="ghost" size="icon-xs" title="Delete" aria-label="Delete" onClick={onDelete} style={iconBtn(C.danger)}>
           <AppIcon name="bi-trash" className="fs-9" />
-        </button>
+        </Button>
       </div>
 
       {/* Connector arrow */}

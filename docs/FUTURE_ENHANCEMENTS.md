@@ -81,3 +81,7 @@ Format: **what** — evidence (file / screen) — suggested fix.
   own border, 8px corners, 11px text), `CsvUploadStep` / `MatchReviewTable` (danger text colour),
   `AddAnotherBtn` (dashed). They win over the kit by design, so they are not pills. — Replace each with a
   kit variant (`outline` / `destructive`, or a new tinted variant if approve/reject needs one) and drop the sx.
+- **Project → Billing phone layout no longer stretches the row's main action** — `ProjectBillingTree.tsx`
+  (`narrow` sx on the actions Stack) targets `.MuiButtonBase-root:not(.MuiIconButton-root)`, but the row's
+  `WtButton`s render the kit Button since #316, so the full-width rule matches nothing. — Target
+  `[data-slot="button"]:not(.billing-row-more)` and check the result on a phone.
