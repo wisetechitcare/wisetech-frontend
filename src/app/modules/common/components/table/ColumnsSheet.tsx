@@ -1,11 +1,73 @@
 import { useState } from "react";
-import { Box, Stack, Tooltip, Typography } from "@mui/material";
+import { Box, IconButton, ListItemIcon, Menu, MenuItem, Stack, Tooltip, Typography } from "@mui/material";
+import { ArrowLeftToLine, ArrowRightToLine, ChevronDown, ChevronUp, Pin, PinOff } from "lucide-react";
 import { TRIO, WtButton, WtField, WtSheet, WtSwitch } from "@app/modules/common/components/ui";
 
 /**
- * Column show / hide workspace for `MaterialTable` — the side-sheet twin of `FilterSheet`,
+ * One pin button per column; the side is picked from a menu with words in it. Two bare icons
+ * (arrows, a mini-table glyph) were tried first and nobody could tell them apart.
+ * A filled button means the column is pinned.
+ */
+const PinMenu = ({ column, name, zIndex }: { column: any; name: string; zIndex?: number }) => {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const side: false | "left" | "right" = column.getIsPinned();
+  const choose = (next: false | "left" | "right") => {
+    column.pin(next);
+    setAnchor(null);
+  };
+
+  return (
+    <>
+      <Tooltip title={side ? `Pinned ${side} — click to change` : `Pin ${name}`}>
+        <IconButton
+          size="small"
+          aria-label={`Pin options for ${name}`}
+          aria-haspopup="menu"
+          onClick={(e) => setAnchor(e.currentTarget)}
+          sx={{
+            width: 30,
+            height: 30,
+            border: "1px solid",
+            borderColor: side ? "primary.main" : "divider",
+            color: side ? "primary.contrastText" : "text.secondary",
+            bgcolor: side ? "primary.main" : "transparent",
+            "&:hover": { bgcolor: side ? "primary.dark" : "action.hover" },
+          }}
+        >
+          <Pin size={15} fill={side ? "currentColor" : "none"} />
+        </IconButton>
+      </Tooltip>
+      <Menu
+        anchorEl={anchor}
+        open={!!anchor}
+        onClose={() => setAnchor(null)}
+        // Above the sheet, which can itself be lifted over a drill-down dialog.
+        sx={{ zIndex: (zIndex ?? 1300) + 10 }}
+      >
+        <MenuItem selected={side === "left"} onClick={() => choose("left")}>
+          <ListItemIcon><ArrowLeftToLine size={16} /></ListItemIcon>
+          Pin to left
+        </MenuItem>
+        <MenuItem selected={side === "right"} onClick={() => choose("right")}>
+          <ListItemIcon><ArrowRightToLine size={16} /></ListItemIcon>
+          Pin to right
+        </MenuItem>
+        {side ? (
+          <MenuItem onClick={() => choose(false)}>
+            <ListItemIcon><PinOff size={16} /></ListItemIcon>
+            Unpin
+          </MenuItem>
+        ) : null}
+      </Menu>
+    </>
+  );
+};
+
+/**
+ * Column show / hide / pin workspace for `MaterialTable` — the side-sheet twin of `FilterSheet`,
  * replacing MRT's popover menu. Changes apply live (same as the menu did), so the saved column
- * preferences pick them up through the table's own state. Columns cannot be pinned.
+ * preferences pick them up through the table's own state. Pinned columns are listed first, in
+ * their own section; each row has a pin button that opens a Pin to left / right / Unpin menu.
  */
 export function ColumnsSheet({
   table,
@@ -39,8 +101,30 @@ export function ColumnsSheet({
 
   const q = query.trim().toLowerCase();
   const shown = q ? columns.filter((c) => label(c).toLowerCase().includes(q)) : columns;
+  // Pinned columns in the order the table draws them. That order is the pinning array's, not
+  // the column order, so moving a column up or down edits that array.
+  const pinnedOn = (side: "left" | "right"): any[] =>
+    ((table.getState().columnPinning?.[side] ?? []) as string[])
+      .map((id) => columns.find((c) => c.id === id))
+      .filter(Boolean);
+  const pinnedLeft = pinnedOn("left");
+  const pinnedRight = pinnedOn("right");
+  const matches = (c: any) => !q || label(c).toLowerCase().includes(q);
+  const others = shown.filter((c) => !c.getIsPinned());
 
-  const row = (c: any) => {
+  const move = (c: any, delta: -1 | 1) => {
+    const side = c.getIsPinned();
+    if (!side) return;
+    const ids = pinnedOn(side).map((p) => p.id);
+    const i = ids.indexOf(c.id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    table.setColumnPinning((prev: any) => ({ ...prev, [side]: ids }));
+  };
+
+  /** `order` is set for pinned rows: where the column sits among its side's pinned columns. */
+  const row = (c: any, order?: { pos: number; count: number }) => {
     const visible = c.getIsVisible();
     const lockedOn = !c.getCanHide();
 
@@ -61,6 +145,25 @@ export function ColumnsSheet({
           "&:hover": { bgcolor: "action.hover" },
         }}
       >
+        {order ? (
+          <Box
+            title={`Position ${order.pos + 1} of ${order.count}`}
+            sx={{
+              flexShrink: 0,
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              fontSize: 11.5,
+              fontWeight: 800,
+              color: "primary.main",
+              bgcolor: "action.selected",
+            }}
+          >
+            {order.pos + 1}
+          </Box>
+        ) : null}
         <Typography
           noWrap
           sx={{
@@ -74,6 +177,25 @@ export function ColumnsSheet({
         >
           {label(c)}
         </Typography>
+        {order ? (
+          <Stack direction="row" sx={{ flexShrink: 0 }}>
+            <Tooltip title="Move up">
+              <span>
+                <IconButton size="small" disabled={order.pos === 0} aria-label={`Move ${label(c)} up`} onClick={() => move(c, -1)}>
+                  <ChevronUp size={16} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Move down">
+              <span>
+                <IconButton size="small" disabled={order.pos === order.count - 1} aria-label={`Move ${label(c)} down`} onClick={() => move(c, 1)}>
+                  <ChevronDown size={16} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
+        ) : null}
+        {c.getCanPin() ? <PinMenu column={c} name={label(c)} zIndex={zIndex} /> : null}
         <Tooltip title={lockedOn ? "Always shown" : visible ? "Hide column" : "Show column"}>
           <span>
             <WtSwitch
@@ -89,7 +211,8 @@ export function ColumnsSheet({
     );
   };
 
-  const section = (title: string, list: any[]) =>
+  /** `ranked` is a whole pinned side: rows then show their place in it and can be moved. */
+  const section = (title: string, list: any[], ranked?: any[]) =>
     list.length ? (
       <Box>
         <Typography
@@ -97,7 +220,9 @@ export function ColumnsSheet({
         >
           {title} · {list.length}
         </Typography>
-        <Stack spacing={0.75}>{list.map(row)}</Stack>
+        <Stack spacing={0.75}>
+          {list.map((c) => row(c, ranked ? { pos: ranked.indexOf(c), count: ranked.length } : undefined))}
+        </Stack>
       </Box>
     ) : null;
 
@@ -111,7 +236,7 @@ export function ColumnsSheet({
       tone={TRIO.blue}
       zIndex={zIndex}
       footer={
-        <WtButton fullWidth size="medium" tone="primary" flat={false} onClick={onClose}>
+        <WtButton fullWidth size="medium" tone="accent" flat={false} onClick={onClose}>
           Done
         </WtButton>
       }
@@ -125,15 +250,27 @@ export function ColumnsSheet({
           onChange={setQuery}
           fullWidth
         />
+        {/* flex:1 + minWidth:0 on a wrapper, not fullWidth on the buttons: two width:100% buttons
+            in a row overflow the sheet and push "Hide all" off the edge. */}
         <Stack direction="row" spacing={1}>
-          <WtButton ghost fullWidth disabled={visibleCount === columns.length} onClick={() => table.toggleAllColumnsVisible(true)}>
-            Show all
-          </WtButton>
-          <WtButton ghost fullWidth onClick={() => table.toggleAllColumnsVisible(false)}>
-            Hide all
-          </WtButton>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <WtButton ghost fullWidth disabled={visibleCount === columns.length} onClick={() => table.toggleAllColumnsVisible(true)}>
+              Show all
+            </WtButton>
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <WtButton ghost fullWidth disabled={visibleCount === 0} onClick={() => table.toggleAllColumnsVisible(false)}>
+              Hide all
+            </WtButton>
+          </Box>
         </Stack>
-        {section("All columns", shown)}
+        <Typography sx={{ fontSize: 12, color: "text.secondary", px: 0.5 }}>
+          Click the pin on a column to keep it fixed to the left or right edge while you scroll sideways.
+          Pinned columns are numbered in the order they appear — use the arrows to reorder them.
+        </Typography>
+        {section("Pinned to the left", pinnedLeft.filter(matches), pinnedLeft)}
+        {section("Pinned to the right", pinnedRight.filter(matches), pinnedRight)}
+        {section(pinnedLeft.length + pinnedRight.length ? "Other columns" : "All columns", others)}
         {!shown.length ? (
           <Typography color="text.secondary" sx={{ textAlign: "center", py: 3, fontSize: 13 }}>
             No column matches “{query}”.

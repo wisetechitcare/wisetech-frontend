@@ -3,7 +3,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Box from '@mui/material/Box';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import PrivacyToggle from './PrivacyToggle';
+import { PrivacyIcon } from './PrivacyToggle';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 
 /**
@@ -107,14 +107,16 @@ export function SensitiveDataHeaderToggle() {
             aria-label={label}
             // Phone: 36px frosted cell matching MaterialHeaderTab phone tabs + Lock beside it.
             // ON = selected-tab fill; OFF = quiet cell (not transparent — bare glyphs looked lost).
-            // `[&_svg]:block` + `place-items-center`: the eye is an inline <svg> inside PrivacyToggle.
+            // `[&_svg]:block` + `place-items-center`: the eye is an inline <svg> in a `.privacy-toggle` span.
             className={`inline-flex h-[34px] shrink-0 items-center justify-center gap-2 rounded-lg! border-0! px-3.5 text-[13px] leading-none max-sm:h-9 max-sm:w-9 max-sm:px-0 max-sm:rounded-[10px]! max-sm:[&_svg]:size-5 font-semibold outline-none! transition-colors motion-reduce:transition-none focus-visible:ring-2! focus-visible:ring-white/70! [&_.privacy-toggle]:pointer-events-none [&_.privacy-toggle]:grid [&_.privacy-toggle]:place-items-center [&_svg]:block [&_svg]:size-[17px] ${
                 sensitive.visible
                     ? 'bg-white/16! text-white! shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.75)]! hover:bg-white/20! max-sm:bg-white/18! max-sm:shadow-none!'
                     : 'bg-white/8! text-white/90! shadow-none! hover:bg-white/14! max-sm:bg-white/10! max-sm:text-white! max-sm:hover:bg-white/16! active:bg-white/20!'
             }`}
         >
-            <PrivacyToggle isVisible={sensitive.visible} onToggle={sensitive.toggle} color="#ffffff" />
+            {/* The glyph only — this <button> is the control. A second button here (PrivacyToggle)
+                double-fired the toggle and cancelled it out. */}
+            <span className="privacy-toggle"><PrivacyIcon isVisible={sensitive.visible} color="#ffffff" /></span>
             <span className="max-sm:sr-only">{label}</span>
         </button>
         </Tooltip>

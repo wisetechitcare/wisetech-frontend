@@ -221,6 +221,8 @@ export interface ProjectOverviewTotals {
   receivedAmount: number;
   pendingAmount: number;
   totalBilled: number;
+  notBilledAmount: number;
+  expectedThisMonth: number;
 }
 
 export interface ProjectOverviewRow {
@@ -268,11 +270,17 @@ export interface ProjectOverviewRow {
    */
   allowedTransitions: BillingOperationStatus[];
   lastPaymentAt: string | null;
+  /** What came in on the last payment date (receipts of that day added together). Null when nothing is paid. */
+  lastPaymentAmount: number | null;
   nextFollowUpDate: string | null;
   /** Always null today — no follow-up owner exists in the schema yet. */
   followUpManagerName: string | null;
   /** Issued bills plus billing operations, summed. Cancelled rows are excluded. */
   totalBilled: number;
+  /** poValue − totalBilled: the part of the PO no bill has been raised for. Null whenever poValue is. */
+  notBilledAmount: number | null;
+  /** What is still owed on bills and operations falling due this calendar month. */
+  expectedThisMonth: number;
   bill: ProjectOverviewBill | null;
 }
 
@@ -281,7 +289,8 @@ export const PROJECT_SORT_KEYS = [
   "projectNumber", "projectName", "clientName", "poValue", "receivedAmount", "pendingAmount",
   "lastPaymentAt", "nextFollowUpDate", "projectStartDate", "organizationName", "handledByName",
   "projectStatus", "paymentStatus", "followUpManagerName", "totalBilled", "billDate", "billedStage",
-  "billNo", "billAmount", "billStatus",
+  "billNo", "billAmount", "billStatus", "notBilledAmount", "expectedThisMonth",
+  "lastPaymentAmount",
 ] as const;
 export type ProjectOverviewSort = (typeof PROJECT_SORT_KEYS)[number];
 

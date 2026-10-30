@@ -8,7 +8,7 @@ import { WtButton } from "./buttons";
  */
 export const ClearFiltersButton: React.FC<{ onClick: () => void; disabled?: boolean }> = ({ onClick, disabled }) => (
   <WtButton
-    tone="primary"
+    tone="accent"
     size="small"
     ghost
     onClick={onClick}

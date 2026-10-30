@@ -317,7 +317,7 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
             <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
               {!exact && (
                 <WtButton
-                  tone="primary" size="small" ghost onClick={autoFix}
+                  tone="accent" size="small" ghost onClick={autoFix}
                   startIcon={<KTIcon iconName="arrows-circle" className="fs-6" />}
                   sx={{ minHeight: 30, fontSize: 12.5, borderRadius: "9px" }}
                 >
@@ -342,7 +342,7 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
       })()}
 
       <WtButton
-        tone="primary" size="small" ghost onClick={addStage}
+        tone="accent" size="small" ghost onClick={addStage}
         startIcon={<KTIcon iconName="plus" className="fs-6" />}
         sx={{ mt: 1.25, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
       >

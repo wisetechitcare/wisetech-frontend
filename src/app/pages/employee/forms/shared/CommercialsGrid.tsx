@@ -179,7 +179,7 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type, title = 
     <div>
       <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} sx={{ mb: 2, pb: 1.5, borderBottom: 1, borderColor: "divider" }}>
         <Typography sx={{ fontSize: 15, fontWeight: 700, color: "text.primary" }}>{title}</Typography>
-        <WtButton tone="primary" size="small" ghost startIcon={<Add fontSize="small" />} onClick={addRow}>
+        <WtButton tone="accent" size="small" ghost startIcon={<Add fontSize="small" />} onClick={addRow}>
           Add Commercial Row
         </WtButton>
       </Stack>

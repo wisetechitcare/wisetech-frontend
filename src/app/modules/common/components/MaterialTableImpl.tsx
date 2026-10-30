@@ -16,7 +16,6 @@ import {
   Container,
   createTheme,
   Icon,
-  IconButton,
   Menu,
   MenuItem,
   ThemeProvider,
@@ -24,6 +23,7 @@ import {
   useMediaQuery,
   Skeleton,
   useTheme,
+  IconButton,
 } from "@mui/material";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -469,8 +469,7 @@ function MaterialTable({
   enableGrouping = true,
   enableColumnDragging = true,
   enableColumnResizing = true,
-  // Pinning is not offered in any table.
-  enableColumnPinning = false,
+  enableColumnPinning = true,
   enableExpandAll = true,
   enableColumnActions = true,
   enableHiding = true,
@@ -633,6 +632,10 @@ function MaterialTable({
         Header: (headerProps: any) => (
           <>
             {typeof col.Header === "function" ? col.Header(headerProps) : (col.Header ?? col.header)}
+            {headerProps.column.getIsPinned() && (
+              // Same glyph as the sidebar's pinned menu items (AsideMenuItem).
+              <Box component="i" className="bi bi-pin-angle-fill" aria-label="Pinned" sx={{ fontSize: 12, ml: 1, verticalAlign: "middle", color: "primary.main" }} />
+            )}
           </>
         ),
         };
@@ -1830,7 +1833,7 @@ function MaterialTable({
             // which is the whole reason the board stopped using native drag too.
             enableColumnDragging={false}
             enableColumnResizing={enableColumnResizing ?? false}
-            enableColumnPinning={false}
+            enableColumnPinning={isMobile ? false : (enableColumnPinning ?? true)}
             enableGrouping={enableGrouping ?? true}
             enableSorting={enableSorting ?? true}
             enableExpandAll={enableExpandAll ?? true}

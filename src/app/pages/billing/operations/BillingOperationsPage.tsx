@@ -13,7 +13,7 @@ import dayjs from "dayjs";
 import {PROJECT_SORT_KEYS, listProjectOverview,type ProjectOverviewRow, type ProjectOverviewParams, type ProjectOverviewSort,
 } from "@services/billingOperations";
 import { useBillingLabels } from "../components";
-import { TrackerStatusCell, TrackerBillPaymentCell, SolidChip } from "./TrackerCells";
+import { TrackerStatusCell, SolidChip } from "./TrackerCells";
 import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 
 /** The four chip columns sit centred, header and body alike. */
@@ -61,9 +61,9 @@ const STATUS_HINT =
   "request offers only the moves its workflow allows; one that isn't billed yet can be set to " +
   "anything, and the real status takes over later.";
 
-const BILL_PAYMENT_HINT =
-  "Configure → Bill Payment Status. How much of the issued bill has been collected. Counted " +
-  "from real payments once a bill exists; until then it can be set here.";
+const EXPECTED_HINT =
+  "What is still owed on bills and billing operations whose due date falls in the current " +
+  "calendar month. Money already received against them is not counted.";
 
 /** Column header with a tooltip. `Header` overrides the plain string in MaterialTable. */
 const HintHeader: React.FC<{ title: string; hint: string }> = ({ title, hint }) => (
@@ -238,25 +238,21 @@ const BillingOperationsPage: React.FC = () => {
       {
         accessorKey: "poValue",
         header: "PO Value",
-        size: 150,
-        Cell: ({ cell }: any) => <Money value={cell.getValue()} bold />,
-        Footer: () => <Money value={totals?.poValue} bold />,
-      },
-      {
-        accessorKey: "poStatus",
-        header: "PO Status",
-        size: 150,
-        ...CENTRED,
-        // The colour is the one configured for that PO status in Leads → Configure, the same
-        // source the lead form's dropdown uses. A name with no configured colour gets the
-        // neutral chip rather than a guessed one.
-        Cell: ({ cell }: any) => {
-          const name: string | null = cell.getValue();
+        size: 170,
+        // The amount exists only once the PO is approved (the server sends null before that).
+        // Until then the cell says where the PO stands — "PO Pending" — as a chip in the colour
+        // configured for that status in Leads → Configure, the same source the lead form's
+        // dropdown uses. A name with no configured colour gets the neutral chip.
+        Cell: ({ row }: any) => {
+          const project: ProjectOverviewRow = row.original;
+          if (project.poApproved) return <Money value={project.poValue} bold />;
+          const name = project.poStatus;
           if (!name) return DASH;
           const configured = poColorByName.get(name);
           const color = configured ? (isHexColor(configured) ? configured : tonePair(configured as SemanticTone).fg) : null;
-          return <SolidChip label={name} color={color} />;
+          return <SolidChip label={`PO ${name}`} color={color} />;
         },
+        Footer: () => <Money value={totals?.poValue} bold />,
       },
       {
         accessorKey: "totalBilled",
@@ -264,6 +260,13 @@ const BillingOperationsPage: React.FC = () => {
         size: 150,
         Cell: ({ cell }: any) => <Money value={cell.getValue()} bold />,
         Footer: () => <Money value={totals?.totalBilled} bold />,
+      },
+      {
+        accessorKey: "notBilledAmount",
+        header: "Total Not Billed",
+        size: 150,
+        Cell: ({ cell }: any) => <Money value={cell.getValue()} bold />,
+        Footer: () => <Money value={totals?.notBilledAmount} bold />,
       },
       {
         accessorKey: "receivedAmount",
@@ -308,64 +311,26 @@ const BillingOperationsPage: React.FC = () => {
         Cell: ({ cell }: any) => <DateCell value={cell.getValue()} />,
       },
       {
-        id: "billDate",
-        accessorFn: (row: ProjectOverviewRow) => row.bill?.issueDate ?? null,
-        header: "Bill Date",
-        size: 130,
-        Cell: ({ cell }: any) => <DateCell value={cell.getValue()} />,
+        accessorKey: "lastPaymentAmount",
+        header: "Last Payment Amount",
+        size: 165,
+        Cell: ({ cell }: any) => <Money value={cell.getValue()} tone="success.main" />,
       },
       {
-        id: "billedStage",
-        accessorFn: (row: ProjectOverviewRow) => row.bill?.stageName ?? null,
-        header: "Billed Stage",
-        size: 190,
-        Cell: ({ cell }: any) => {
-          const name: string | null = cell.getValue();
-          return name ? (
-            <Typography title={name} sx={{ fontSize: "inherit", fontWeight: 600, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-              {name}
-            </Typography>
-          ) : (
-            DASH
-          );
-        },
-      },
-      {
-        id: "billNo",
-        accessorFn: (row: ProjectOverviewRow) => row.bill?.documentNumber ?? null,
-        header: "Bill No",
-        size: 175,
-        Cell: ({ row }: any) => {
-          const bill: ProjectOverviewRow["bill"] = row.original.bill;
-          return bill ? (
-            <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: "inherit", fontWeight: 600 }}>{bill.documentNumber}</Typography>
-              <Typography sx={{ fontSize: 10.5, color: "text.secondary" }}>
-                {bill.kind === "TAX_INVOICE" ? "Tax Invoice" : "Proforma"}
-              </Typography>
-            </Box>
-          ) : (
-            DASH
-          );
-        },
-      },
-      {
+        // The latest issued bill's face value — the old Bill Amount column, renamed.
         id: "billAmount",
         accessorFn: (row: ProjectOverviewRow) => row.bill?.amount ?? null,
-        header: "Bill Amount",
-        size: 150,
+        header: "Current Bill Value",
+        size: 165,
         Cell: ({ cell }: any) => <Money value={cell.getValue()} />,
       },
       {
-        id: "billStatus",
-        // The resolved value, not the bill's — a project with no bill yet can carry
-        // a hand-set state, and the column has to search and export what it shows.
-        accessorFn: (row: ProjectOverviewRow) => row.billPaymentStatus ?? null,
-        header: "Bill Payment",
-        Header: () => <HintHeader title="Bill Payment" hint={BILL_PAYMENT_HINT} />,
-        size: 175,
-        ...CENTRED,
-        Cell: ({ row }: any) => <TrackerBillPaymentCell row={row.original as ProjectOverviewRow} />,
+        accessorKey: "expectedThisMonth",
+        header: "Expected Payment This Month",
+        Header: () => <HintHeader title="Expected Payment This Month" hint={EXPECTED_HINT} />,
+        size: 190,
+        Cell: ({ cell }: any) => <Money value={cell.getValue()} />,
+        Footer: () => <Money value={totals?.expectedThisMonth} bold />,
       },
     ],
     [poColorByName, totals],
@@ -377,9 +342,9 @@ const BillingOperationsPage: React.FC = () => {
       <MaterialTable
         data={projects}
         columns={columns}
-        // V2: fresh prefs bucket — a saved column order outranks the code's, so
-        // Project Start Date moving to the front would never reach existing users.
-        tableName="BillingProjectOverviewV2"
+        // V3: fresh prefs bucket — a saved column order outranks the code's, so
+        // changed columns would never reach existing users.
+        tableName="BillingProjectOverviewV3"
         isLoading={isLoading}
         showColumnFooter={true}
         searchPlaceholder="Search project number, name or client…"
