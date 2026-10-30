@@ -1,4 +1,5 @@
 import React from "react";
+import { formatBirthday, isYearless } from "@utils/birthday";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useSelector } from "react-redux";
@@ -21,6 +22,7 @@ import { toContactFormPrefill, type ContactFormPrefill, type GoogleContactCandid
 import { useServerPagination } from "@hooks/useServerPagination";
 import { fetchAllPages } from "@utils/fetchAllPages";
 import { crmListRowSx } from "../crmListRowSx";
+import { Button } from '@/ds/ui/button';
 
 /**
  * "A2O Realty", or "A&O Realty (Vashi)" for a contact filed under a sub-company. Read off the
@@ -277,8 +279,7 @@ const ClientContactsMain = ({
           const companyName = companyLabel(row.original);
 
           return (
-            <button
-              className="btn btn-link p-0 text-start text-decoration-none"
+            <Button variant="link" type="submit"
               style={{
                 color: "inherit",
                 fontWeight: "600",
@@ -295,7 +296,7 @@ const ClientContactsMain = ({
                   ({companyName})
                 </span>
               ) : null}
-            </button>
+            </Button>
           );
         },
       },
@@ -356,7 +357,8 @@ const ClientContactsMain = ({
         header: "Date of Birth",
         Cell: ({ cell }) => {
           const date = cell.getValue() as string;
-          return date ? new Date(date).toLocaleDateString() : "NA";
+          // A birthday saved without its year shows as day + month only.
+          return date ? (isYearless(date) ? formatBirthday(date) : new Date(date).toLocaleDateString()) : "NA";
         },
       },
       {
@@ -425,7 +427,7 @@ const ClientContactsMain = ({
 📧 Email: ${contact.email || "N/A"}
 📞 Phone: ${contact.phone || "N/A"}
 ${contact.phone2 ? `📱 Alternate Phone: ${contact.phone2}` : ""}
-🎂 Date of Birth: ${contact.dateOfBirth ? new Date(contact.dateOfBirth).toLocaleDateString() : "N/A"}
+🎂 Date of Birth: ${contact.dateOfBirth ? (isYearless(contact.dateOfBirth) ? formatBirthday(contact.dateOfBirth) : new Date(contact.dateOfBirth).toLocaleDateString()) : "N/A"}
 📍 Address: ${fullAddress || "N/A"}
 ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
 
@@ -439,29 +441,26 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
           return (
             <div className="d-flex align-items-center gap-2">
               {canWrite && (
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+              <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit Contact"
                 onClick={() => handleEditClick(row.original.id)}
                 title="Edit Contact"
               >
                 <KTIcon iconName="pencil" className="fs-3" />
-              </button>
+              </Button>
               )}
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-success btn-sm"
+              <Button variant="ghost" size="icon-sm" type="submit" aria-label="Share via WhatsApp"
                 onClick={handleWhatsAppShare}
                 title="Share via WhatsApp"
               >
                 <i className="fab fa-whatsapp fs-3 text-success"></i>
-              </button>
+              </Button>
               {canWrite && (
-              <button
-                className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+              <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete Contact"
                 onClick={() => handleDelete(row.original)}
                 title="Delete Contact"
               >
                 <KTIcon iconName="trash" className="fs-3" />
-              </button>
+              </Button>
               )}
             </div>
           );
@@ -514,12 +513,11 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
             </WtButton>
           )}
           {!hideNewContactButton && canWrite && (
-            <button
-              className="btn btn-primary"
+            <Button type="submit"
               onClick={() => addNewContact(true)}
             >
               Add New Contact
-            </button>
+            </Button>
           )}
         </div>
       </div>

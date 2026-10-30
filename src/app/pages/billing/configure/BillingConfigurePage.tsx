@@ -281,7 +281,6 @@ const BillingConfigurePage: React.FC = () => {
 
           <Stack direction="row" justifyContent="flex-end">
             <WtButton
-              tone="primary"
               disabled={!canSave}
               onClick={() => save.mutate()}
               sx={{ minHeight: 40, fontSize: 14, px: 3 }}

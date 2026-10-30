@@ -1,24 +1,28 @@
 {
   "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "new-york",
+  "style": "base-maia",
   "rsc": false,
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "src/main.css",
+    "css": "src/ds/styles/globals.css",
     "baseColor": "neutral",
-    "cssVariables": false,
+    "cssVariables": true,
     "prefix": ""
   },
   "iconLibrary": "lucide",
+  "rtl": false,
   "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "components": "@/ds",
+    "utils": "@/ds/lib/utils",
+    "ui": "@/ds/ui",
+    "lib": "@/ds/lib",
+    "hooks": "@/ds/hooks"
   },
+  "menuColor": "inverted-translucent",
+  "menuAccent": "subtle",
   "registries": {
-    "@react-bits": "https://reactbits.dev/r/{name}.json"
+    "@react-bits": "https://reactbits.dev/r/{name}.json",
+    "@magicui": "https://magicui.design/r/{name}.json"
   }
 }

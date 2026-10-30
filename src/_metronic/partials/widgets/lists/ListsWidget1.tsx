@@ -2,6 +2,7 @@
 import { FC } from 'react'
 import {KTIcon} from '../../../helpers'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
+import { Button } from '@/ds/ui/button';
 
 type Props = {
   className: string
@@ -19,15 +20,14 @@ const ListsWidget1: FC<Props> = ({className}) => {
 
         <div className='card-toolbar'>
           {/* begin::Menu */}
-          <button
+          <Button variant="ghost" size="icon-sm" aria-label="Category"
             type='button'
-            className='btn btn-sm btn-icon btn-color-primary btn-active-light-primary'
             data-kt-menu-trigger='click'
             data-kt-menu-placement='bottom-end'
             data-kt-menu-flip='top-end'
           >
             <KTIcon iconName='category' className='fs-2' />
-          </button>
+          </Button>
           <Dropdown1 />
           {/* end::Menu */}
         </div>

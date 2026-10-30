@@ -16,6 +16,7 @@ import {
   NotificationError,
   NotificationLoading,
 } from './NotificationStates';
+import { Button } from '@/ds/ui/button';
 
 const INITIAL_FILTERS: NotificationFilterState = {
   search: '',
@@ -87,26 +88,24 @@ export const NotificationPanel = forwardRef<HTMLDivElement>((_props, ref) => {
         <span className="wt-panel__title">Notifications</span>
         {unreadCount > 0 && <span className="wt-panel__hcount">{unreadCount}</span>}
         <span className="wt-toolbar-spacer" />
-        <button
+        <Button variant="ghost" size="icon-sm"
           type="button"
-          className="wt-iconbtn"
           title="Mark all read"
           aria-label="Mark all read"
           disabled={unreadCount === 0}
           onClick={markAllRead}
         >
           <KTIcon iconName="double-check" className="fs-4" />
-        </button>
-        <button
+        </Button>
+        <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
           type="button"
-          className="wt-iconbtn wt-iconbtn--danger"
           title="Clear all"
           aria-label="Clear all"
           disabled={notifications.length === 0}
           onClick={clearAll}
         >
           <KTIcon iconName="trash" className="fs-5" />
-        </button>
+        </Button>
         <button
           type="button"
           className={`wt-iconbtn ${showFilters ? 'wt-iconbtn--active' : ''}`}
@@ -117,15 +116,14 @@ export const NotificationPanel = forwardRef<HTMLDivElement>((_props, ref) => {
         >
           <KTIcon iconName="filter" className="fs-5" />
         </button>
-        <button
+        <Button variant="ghost" size="icon-sm"
           type="button"
-          className="wt-iconbtn wt-iconbtn--collapse"
           title="Collapse"
           aria-label="Collapse notifications"
           onClick={close}
         >
           <KTIcon iconName="down" className="fs-3" />
-        </button>
+        </Button>
       </div>
 
       {/* Filters */}

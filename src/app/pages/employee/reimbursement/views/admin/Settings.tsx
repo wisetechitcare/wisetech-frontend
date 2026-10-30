@@ -26,6 +26,7 @@ import * as Yup from "yup";
 import IconPickerModal, { SelectedIcon } from "./IconPickerModal";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -204,38 +205,16 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit
 
       {canManage && (
         <div style={{ display: "flex", gap: "4px", flexShrink: 0, opacity: hov ? 1 : 0.35, transition: "opacity 0.15s ease" }}>
-          <button
+          <Button variant="ghost" size="icon-xs" type="submit" aria-label="Edit"
             onClick={onEdit}
-            style={{
-              background: hov ? "#eff6ff" : "transparent",
-              border: "none",
-              borderRadius: RADIUS.sm,
-              padding: "4px 7px",
-              cursor: "pointer",
-              color: "#4f82c4",
-              display: "flex",
-              alignItems: "center",
-              transition: "background 0.15s ease",
-            }}
           >
             <AppIcon name="bi-pencil" className="fs-8" />
-          </button>
-          <button
+          </Button>
+          <Button variant="tinted" size="icon-xs" type="submit" aria-label="Delete" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
             onClick={onDelete}
-            style={{
-              background: hov ? "#fff5f8" : "transparent",
-              border: "none",
-              borderRadius: RADIUS.sm,
-              padding: "4px 7px",
-              cursor: "pointer",
-              color: C.danger,
-              display: "flex",
-              alignItems: "center",
-              transition: "background 0.15s ease",
-            }}
           >
             <AppIcon name="bi-trash" className="fs-8" />
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -509,7 +488,7 @@ function Settings() {
                       </label>
 
                       {/* Trigger button */}
-                      <button
+                      <button data-wt-control="select"
                         type="button"
                         onClick={() => setShowIconPicker(true)}
                         style={{
@@ -561,14 +540,9 @@ function Settings() {
                   </div>
 
                   <div className="d-flex justify-content-start mt-2">
-                    <button
+                    <Button
                       type="submit"
                       disabled={loading || !formikProps.isValid}
-                      style={{
-                        ...BTN.primary,
-                        opacity: loading || !formikProps.isValid ? 0.6 : 1,
-                        cursor: loading || !formikProps.isValid ? "not-allowed" : "pointer",
-                      }}
                     >
                       {!loading && "Submit"}
                       {loading && (
@@ -577,7 +551,7 @@ function Settings() {
                           <span className="spinner-border spinner-border-sm align-middle" />
                         </span>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </Form>
               );

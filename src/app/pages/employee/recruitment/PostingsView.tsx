@@ -200,7 +200,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                             onChange={setMode}
                         />
                         {canWrite && approved.length > 0 && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openAttach}>
+                            <WtButton size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openAttach}>
                                 New Advert
                             </WtButton>
                         )}

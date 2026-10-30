@@ -75,6 +75,8 @@ export { WtEmptyState } from './WtEmptyState';
 export type { WtEmptyStateProps, WtEmptyStateVariant } from './WtEmptyState';
 // Responsive right-side workspace shared by supporting tasks such as filters and history.
 export { WtSheet } from './WtSheet';
+export { ShadcnDrawer, ShadcnDrawerCard, ShadcnDrawerButton } from './ShadcnDrawer';
+export type { ShadcnDrawerProps } from './ShadcnDrawer';
 export type { WtSheetProps } from './WtSheet';
 export { FilterSheet, FilterSheetButton, countActiveFilters } from './FilterSheet';
 export type { FilterSheetProps } from './FilterSheet';

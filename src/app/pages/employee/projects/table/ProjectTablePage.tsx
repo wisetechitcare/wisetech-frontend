@@ -51,6 +51,7 @@ import { formatCompactCurrency, getProjectPhase, isDelayedProject, projectNumber
 import { buildProjectColumns, categoryIdsOf, serviceIdsOf, subCategoryIdsOf, projectTableProps } from "./ProjectListTable";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
 import "./ProjectTablePage.css";
+import { Button } from '@/ds/ui/button';
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -784,7 +785,7 @@ const ProjectTablePage = () => {
 
             {/* Missing-address filter: shows the count and, on click, lists ONLY the
               projects without lat/long in place — no modal. */}
-            <button
+            <button data-wt-control="toggle" aria-pressed={showMissingAddress}
               type="button"
               onClick={() => updateMissingAddress(!showMissingAddress)}
               title={showMissingAddress
@@ -894,22 +895,11 @@ const ProjectTablePage = () => {
             )}
 
             {hasAnyFilter && (
-              <button
+              <Button variant="link" size="xs" type="submit"
                 onClick={clearAllFilters}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  color: "#1E3A8A",
-                  fontWeight: 600,
-                  fontFamily: "Inter, sans-serif",
-                  padding: "2px 8px",
-                  whiteSpace: "nowrap"
-                }}
               >
                 ✕ Clear Filters
-              </button>
+              </Button>
             )}
           </Box>
         )}

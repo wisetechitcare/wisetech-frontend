@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, Paper, Stack, Typography, Chip, Skeleton, Tooltip,
-  IconButton, TextField, InputAdornment, ToggleButtonGroup, ToggleButton,
+  TextField, InputAdornment, ToggleButtonGroup, ToggleButton,
   Drawer,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
+import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import SearchIcon from '@mui/icons-material/Search';
@@ -26,6 +28,12 @@ import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch, RootState } from '@redux/store';
 import { getCurrencySymbol, getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { useStoredState } from '@app/hooks/useStoredState';
+
+/** Tones for the kit's tinted buttons (row actions and the inactive toggle). */
+const SUCCESS_TINT = { '--tint': 'var(--cta-success)' } as React.CSSProperties;
+const DANGER_TINT = { '--tint': 'var(--cta-danger)' } as React.CSSProperties;
+/** MUI's display { xs: 'none', sm: 'inline-flex' } on a kit button: hidden below the 600px sm breakpoint. */
+const HIDE_BELOW_SM = 'max-[600px]:hidden';
 
 /** Company-wide employees, loaded once into redux and shared by the picker + cards. */
 function useEmployeeOptions() {
@@ -429,9 +437,7 @@ function ComponentFormModal({
             <h5 className="modal-title fw-bold fs-5 text-gray-900">
               {isEdit ? 'Edit Component' : 'Add Component'}
             </h5>
-            <button className="btn btn-icon btn-sm btn-light ms-auto" onClick={onClose}>
-              <AppIcon name="bi-x" className="fs-4" />
-            </button>
+            <WtCloseButton className="ms-auto" onClick={onClose} />
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -795,17 +801,16 @@ function ComponentFormModal({
             </div>
 
             <div className="modal-footer border-0 px-6 pb-5 gap-2">
-              <button type="button" className="btn btn-sm btn-secondary rounded-3" onClick={onClose} disabled={saving}>
+              <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={saving}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="btn btn-sm rounded-3 text-white"
-                style={{ background: '#1E3A8A' }}
+                size="sm"
                 disabled={saving}
               >
                 {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Component'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -863,9 +868,7 @@ function CloneModal({
               <ContentCopyIcon fontSize="small" sx={{ color: '#1E3A8A' }} />
               Clone Component
             </h5>
-            <button className="btn btn-icon btn-sm btn-light ms-auto" onClick={onClose}>
-              <AppIcon name="bi-x" className="fs-4" />
-            </button>
+            <WtCloseButton className="ms-auto" onClick={onClose} />
           </div>
           <form onSubmit={handleSubmit}>
             <div className="modal-body px-5 py-4">
@@ -894,10 +897,10 @@ function CloneModal({
               </div>
             </div>
             <div className="modal-footer border-0 px-5 pb-4 gap-2">
-              <button type="button" className="btn btn-sm btn-secondary rounded-3" onClick={onClose} disabled={saving}>Cancel</button>
-              <button type="submit" className="btn btn-sm rounded-3 text-white" style={{ background: '#1E3A8A' }} disabled={saving}>
+              <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
+              <Button type="submit" size="sm" disabled={saving}>
                 {saving ? 'Cloning…' : 'Clone'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -948,10 +951,7 @@ function HistoryDrawer({
               {item?.displayName}
             </Typography>
           </Box>
-          <IconButton size="small" onClick={onClose}
-            sx={{ bgcolor: '#f1f5f9', '&:hover': { bgcolor: '#e2e8f0' } }}>
-            <AppIcon name="bi-x" className="fs-4" />
-          </IconButton>
+          <WtCloseButton onClick={onClose} />
         </Box>
 
         {/* Tabs */}
@@ -1205,25 +1205,25 @@ function ComponentCard({
         <Stack direction="row" alignItems="center" gap={{ xs: 0, sm: 0.25 }} sx={{ pr: { xs: 0.5, sm: 1.5 }, flexShrink: 0 }}>
           {/* History */}
           <Tooltip title="Audit & version history">
-            <IconButton size="small" onClick={onHistory}
-              sx={{ display: { xs: 'none', sm: 'inline-flex' }, color: '#6b7280', '&:hover': { color: '#7c3aed', bgcolor: '#faf5ff' } }}>
+            <Button variant="ghost" size="icon-sm" aria-label="Audit & version history" onClick={onHistory}
+              className={HIDE_BELOW_SM}>
               <HistoryIcon sx={{ fontSize: 16 }} />
-            </IconButton>
+            </Button>
           </Tooltip>
 
           {/* Onboarding toggle */}
           <Tooltip title={item.enableInOnboarding ? 'Remove from Onboarding' : 'Add to Onboarding'}>
-            <IconButton size="small" onClick={onToggleOnboarding}
-              sx={{
-                display: { xs: 'none', sm: 'inline-flex' },
-                color: item.enableInOnboarding ? '#059669' : '#d1d5db',
-                bgcolor: item.enableInOnboarding ? '#ecfdf5' : 'transparent',
-                border: item.enableInOnboarding ? '1px solid #6ee7b7' : '1px solid #e5e7eb',
-                borderRadius: 1.5,
-                '&:hover': { bgcolor: '#ecfdf5', color: '#059669', borderColor: '#6ee7b7' },
-              }}>
+            <Button
+              variant={item.enableInOnboarding ? 'tinted' : 'outline'}
+              size="icon-sm"
+              aria-label={item.enableInOnboarding ? 'Remove from Onboarding' : 'Add to Onboarding'}
+              aria-pressed={!!item.enableInOnboarding}
+              onClick={onToggleOnboarding}
+              className={HIDE_BELOW_SM}
+              style={item.enableInOnboarding ? SUCCESS_TINT : undefined}
+            >
               <SchoolOutlinedIcon sx={{ fontSize: 15 }} />
-            </IconButton>
+            </Button>
           </Tooltip>
 
           {/* Active toggle */}
@@ -1234,28 +1234,27 @@ function ComponentCard({
           {/* Clone */}
           {!item.isSystem && (
             <Tooltip title="Clone component">
-              <IconButton size="small" onClick={onClone}
-                sx={{ display: { xs: 'none', sm: 'inline-flex' }, color: '#6b7280', '&:hover': { color: '#0369a1', bgcolor: '#f0f9ff' } }}>
+              <Button variant="ghost" size="icon-sm" aria-label="Clone component" onClick={onClone}
+                className={HIDE_BELOW_SM}>
                 <ContentCopyIcon sx={{ fontSize: 14 }} />
-              </IconButton>
+              </Button>
             </Tooltip>
           )}
 
           {/* Edit */}
           <Tooltip title="Edit">
-            <IconButton size="small" onClick={onEdit}
-              sx={{ color: '#6b7280', '&:hover': { color: '#1a1a1a', bgcolor: '#f9fafb' } }}>
+            <Button variant="ghost" size="icon-sm" aria-label="Edit" onClick={onEdit}>
               <EditOutlinedIcon fontSize="small" />
-            </IconButton>
+            </Button>
           </Tooltip>
 
           {/* Delete — permanent deletion for all active components */}
           {item.isActive && (
             <Tooltip title="Delete permanently">
-              <IconButton size="small" onClick={onDelete}
-                sx={{ display: { xs: 'none', sm: 'inline-flex' }, color: '#ef4444', '&:hover': { bgcolor: '#fef2f2' } }}>
+              <Button variant="tinted" size="icon-sm" aria-label="Delete permanently" onClick={onDelete}
+                className={HIDE_BELOW_SM} style={DANGER_TINT}>
                 <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
+              </Button>
             </Tooltip>
           )}
         </Stack>
@@ -1440,28 +1439,24 @@ function ComponentPanel({ mode, allItems, loading, onItemsChange, allDeps, onDep
         <Stack direction="row" gap={1} sx={{ ml: { sm: 'auto' }, flexShrink: 0 }}>
           {inactiveCount > 0 && (
             <Tooltip title={showInactive ? 'Hide inactive' : `Show ${inactiveCount} inactive`}>
-              <button
-                className="btn btn-sm rounded-3 d-flex align-items-center gap-1"
-                style={{
-                  fontSize: 12, whiteSpace: 'nowrap',
-                  background: showInactive ? '#fee2e2' : '#f8fafc',
-                  border: `1px solid ${showInactive ? '#fca5a5' : '#e2e8f0'}`,
-                  color: showInactive ? '#991b1b' : '#64748b',
-                }}
+              <Button
+                variant={showInactive ? 'tinted' : 'outline'}
+                size="sm"
+                aria-pressed={showInactive}
+                style={showInactive ? DANGER_TINT : undefined}
                 onClick={() => setShowInactive(v => !v)}
               >
-                <i className={`bi bi-eye${showInactive ? '-slash' : ''}`} />
+                <span data-icon="inline-start" className="inline-flex"><i className={`bi bi-eye${showInactive ? '-slash' : ''}`} /></span>
                 {inactiveCount} inactive
-              </button>
+              </Button>
             </Tooltip>
           )}
-          <button
-            className="btn btn-sm rounded-3 d-flex align-items-center justify-content-center gap-1 text-white"
-            style={{ background: addBtnColor, fontSize: 13, whiteSpace: 'nowrap' }}
+          <Button
+            size="sm"
             onClick={() => { setEditItem(null); setModalOpen(true); }}
           >
-            <AppIcon name="bi-plus-circle" /> Add Component
-          </button>
+            <AppIcon name="bi-plus-circle" data-icon="inline-start" /> Add Component
+          </Button>
         </Stack>
       </Stack>
 
@@ -1648,22 +1643,14 @@ export default function DeductionMaster() {
             </Typography>
           </Box>
         </Box>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={handleSeed} disabled={seeding}
-          style={{
-            backgroundColor: '#fff', border: '1px solid #E1E3EA', borderRadius: '9px',
-            color: '#3F4254', padding: '7px 16px', fontFamily: 'Inter, sans-serif',
-            fontWeight: 600, fontSize: 13, cursor: seeding ? 'not-allowed' : 'pointer',
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            boxShadow: '0 1px 4px rgba(24,28,50,0.06)', transition: 'all 0.15s ease',
-            opacity: seeding ? 0.7 : 1,
-          }}
-          onMouseEnter={e => { if (!seeding) { e.currentTarget.style.borderColor = '#1E3A8A'; e.currentTarget.style.color = '#1E3A8A'; e.currentTarget.style.backgroundColor = '#EEF3FC'; } }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#E1E3EA'; e.currentTarget.style.color = '#3F4254'; e.currentTarget.style.backgroundColor = '#fff'; }}
         >
-          <SeedIcon style={{ fontSize: 15 }} />
+          <SeedIcon data-icon="inline-start" style={{ fontSize: 15 }} />
           {seeding ? 'Seeding…' : 'Seed Defaults'}
-        </button>
+        </Button>
       </Box>
 
       {/* Sub-tabs */}

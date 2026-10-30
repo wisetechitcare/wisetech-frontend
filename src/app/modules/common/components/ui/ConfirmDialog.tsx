@@ -48,7 +48,7 @@ const VARIANT_DEFAULTS: Record<
     confirmLabel: "Confirm",
     cancelLabel: "Cancel",
     iconName: "check-circle",
-    submitTone: "primary",
+    submitTone: "accent",
     mediaColor: () => T.color.brand,
   },
   delete: {
@@ -89,7 +89,7 @@ const VARIANT_DEFAULTS: Record<
     confirmLabel: "OK",
     cancelLabel: "Cancel",
     iconName: "information-5",
-    submitTone: "primary",
+    submitTone: "accent",
     mediaColor: () => TRIO.blue.c,
   },
   warning: {
@@ -97,7 +97,7 @@ const VARIANT_DEFAULTS: Record<
     confirmLabel: "OK",
     cancelLabel: "Cancel",
     iconName: "warning",
-    submitTone: "primary",
+    submitTone: "accent",
     mediaColor: () => TRIO.amber.c,
   },
 };
@@ -106,7 +106,7 @@ export interface ConfirmDialogProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  /** `confirm` = primary CTA; `delete` = danger CTA + trash media. */
+  /** `confirm` = the default CTA; `delete` = danger CTA + trash media. */
   variant?: ConfirmDialogVariant;
   /** Overrides variant default title. */
   title?: string;

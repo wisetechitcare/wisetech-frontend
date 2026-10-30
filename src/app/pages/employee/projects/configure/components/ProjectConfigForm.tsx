@@ -1,6 +1,6 @@
 import { UnsavedChangesModal as Modal, confirmDialog } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from "react";
-import { Button, Form } from "react-bootstrap";
+import { Form } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import {
@@ -20,6 +20,7 @@ import { successConfirmation } from "@utils/modal";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
 import { ConfigItem, ProjectCategory } from "@models/clientProject";
+import { Button } from '@/ds/ui/button';
 
 interface ConfigFormProps {
   show: boolean;
@@ -369,7 +370,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                         Choose Color
                       </label>
                       <div className="position-relative">
-                        <div
+                        <div data-wt-control="accordion"
                           className="d-flex align-items-center justify-content-between"
                           style={{
                             backgroundColor: '#f8f9fa',
@@ -433,7 +434,6 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
               
               <Modal.Footer style={{ borderTop: 'none', paddingTop: '0' }}>
                 <Button 
-                  variant="primary" 
                   type="submit" 
                   disabled={isSubmitting}
                   style={{

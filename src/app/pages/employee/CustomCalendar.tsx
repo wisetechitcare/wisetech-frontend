@@ -1,7 +1,7 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { safeJsonParse } from '@utils/safeJson';
 import { T as UiTokens } from '@app/modules/common/components/ui/tokens';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 import { parseWorkingDays } from '@utils/workingDays';
 import { anniversaryDateOrNull } from '@utils/anniversary';
 import { useFormik } from 'formik';
@@ -31,6 +31,8 @@ import './CustomCalendar.premium.css';
 import MeetingDialog from './MeetingDialog';
 import SmartAvatar from '@app/modules/common/components/SmartAvatar';
 import PremiumButton from '@app/modules/common/components/PremiumButton';
+import { Button } from '@/ds/ui/button';
+import { Item } from '@/ds/ui/item';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { fetchAllColors } from '@services/options';
@@ -1397,16 +1399,17 @@ function CustomCalendar() {
                                 {/* Mobile-only. On tablet+ the same legend is always visible in the
                                     side rail, so a button for it would just be a second way in. */}
                                 {isMobile && (
-                                    <button
-                                        type="button"
-                                        className={`mrd-btn mrd-btn--filter${hiddenCats.size ? ' is-active' : ''}`}
+                                    <Button
+                                        variant={hiddenCats.size ? 'tinted' : 'outline'}
+                                        size="icon"
+                                        className="relative"
                                         onClick={openFilters}
                                         aria-label="Filter what shows on the calendar"
                                         title="Filters"
                                     >
                                         <Ico n="filter" cls="sm" />
                                         {hiddenCats.size > 0 && <span className="mrd-btn__dot" />}
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
                             {/* Hidden below 760px (mrd-btn--new) — on a phone the bottom nav's
@@ -1491,7 +1494,7 @@ function CustomCalendar() {
                         {/* Backdrop for the mobile bottom-sheet variant of the panel below —
                             inert/invisible on tablet+ (CSS), tapping it closes the sheet. */}
                         {isMobile && (
-                            <div
+                            <div data-wt-control="backdrop"
                                 className={`mrd-panel-backdrop${panelSheetOpen ? ' is-open' : ''}`}
                                 onClick={() => setPanelSheetOpen(false)}
                                 aria-hidden="true"
@@ -1502,21 +1505,26 @@ function CustomCalendar() {
                             rail on tablet/laptop/desktop; an on-demand bottom sheet on mobile
                             (opened by tapping a day, or the compact bar below) so its five
                             sections don't dump a long scroll under the calendar on every phone. ---- */}
-                        <aside className={`mrd-card mrd-panel${isMobile ? ' mrd-panel--sheet' : ''}${panelSheetOpen ? ' is-open' : ''}`}>
+                        <aside
+                            className={`mrd-card mrd-panel${isMobile ? ' mrd-panel--sheet' : ''}${panelSheetOpen ? ' is-open' : ''}`}
+                            // Only the open mobile sheet is modal; the tablet+ side rail is part of the page.
+                            {...(isMobile && panelSheetOpen ? { role: 'dialog', 'aria-modal': true } : {})}
+                        >
                             <div className="mrd-panel__head">
                                 <div className="mrd-panel__top">
                                     {isMobile && <span className="mrd-panel__grabber" aria-hidden="true" />}
                                     <span className="mrd-eyebrow">{sheetFilters ? 'Filters' : panelLabel}</span>
                                     <span className="mrd-spacer" />
                                     {/* Day stepping is meaningless while the sheet is showing filters. */}
+                                    {/* max-[760px]:size-10 keeps the old touch-size growth (WCAG ~44px) on phones. */}
                                     {!sheetFilters && <>
-                                        <button type="button" className="mrd-navbtn" onClick={panelPrev} aria-label="Previous day"><Ico n="chevL" cls="sm" /></button>
-                                        <button type="button" className="mrd-navbtn" onClick={panelNext} aria-label="Next day"><Ico n="chevR" cls="sm" /></button>
+                                        <Button variant="outline" size="icon-sm" className="max-[760px]:size-10" onClick={panelPrev} aria-label="Previous day"><Ico n="chevL" cls="sm" /></Button>
+                                        <Button variant="outline" size="icon-sm" className="max-[760px]:size-10" onClick={panelNext} aria-label="Next day"><Ico n="chevR" cls="sm" /></Button>
                                     </>}
                                     {isMobile && (
-                                        <button type="button" className="mrd-navbtn" onClick={() => setPanelSheetOpen(false)} aria-label="Close">
+                                        <Button variant="outline" size="icon-sm" className="max-[760px]:size-10" onClick={() => setPanelSheetOpen(false)} aria-label="Close">
                                             <Ico n="x" cls="sm" />
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                                 <div className="mrd-panel__date">
@@ -1534,9 +1542,9 @@ function CustomCalendar() {
                                 <div className="mrd-chooser">
                                     <div className="mrd-chooser__head">
                                         <span className="mrd-sect__t">Select Event Type</span>
-                                        <button type="button" className="mrd-navbtn" onClick={() => setShowOptionsModal(false)} aria-label="Close" style={{ width: 30, height: 30 }}>
+                                        <Button variant="outline" size="icon-sm" onClick={() => setShowOptionsModal(false)} aria-label="Close">
                                             <Ico n="x" cls="sm" />
-                                        </button>
+                                        </Button>
                                     </div>
                                     {(() => {
                                         let isPastDate = false;
@@ -1544,13 +1552,13 @@ function CustomCalendar() {
                                             isPastDate = dayjs(selectedDateTimeInfo.startStr).startOf('day').isBefore(dayjs().startOf('day'));
                                         }
                                         const Opt = ({ icon, tint, color, title, sub, onClick }: any) => (
-                                            <button type="button" className="mrd-opt" onClick={onClick}>
+                                            <Item render={<button type="button" />} className="mrd-opt flex-nowrap" onClick={onClick}>
                                                 <span className="mrd-opt__ic" style={{ background: tint, color }}><Ico n={icon} /></span>
                                                 <span className="mrd-opt__txt">
                                                     <span className="mrd-opt__t">{title}</span>
                                                     <span className="mrd-opt__s">{sub}</span>
                                                 </span>
-                                            </button>
+                                            </Item>
                                         );
                                         if (isPastDate) {
                                             return (<>
@@ -1575,9 +1583,9 @@ function CustomCalendar() {
                                 {!sheetFilters && (<>
                                 {/* One clicked event, or the whole day. */}
                                 {focusedEvent && panelEvents.length > 1 && (
-                                    <button type="button" className="mrd-ghost mrd-tl__all" onClick={() => setFocusedEvent(null)}>
-                                        <Ico n="chevL" cls="xs" /> All {panelEvents.length} events on this day
-                                    </button>
+                                    <Button variant="ghost" size="sm" className="mb-2 -ml-1" onClick={() => setFocusedEvent(null)}>
+                                        <span data-icon="inline-start" className="inline-flex"><Ico n="chevL" cls="xs" /></span> All {panelEvents.length} events on this day
+                                    </Button>
                                 )}
                                 {/* Selected-day summary — timeline when busy, or a clean
                                     "no events" card with a Create Event CTA when clear. */}
@@ -1591,7 +1599,7 @@ function CustomCalendar() {
                                                     <span className="mrd-tl__node" style={{ borderColor: m.color }} />
                                                     <div className="mrd-tl__time">{evTimeOf(e) || 'All day'}</div>
                                                     <div
-                                                        className="mrd-tl__card"
+                                                        className="mrd-tl__card group/tl"
                                                         // Only meetings become a control. The other kinds have nowhere
                                                         // to go, and a cursor that changes over a birthday promises a
                                                         // destination that does not exist.
@@ -1621,14 +1629,18 @@ function CustomCalendar() {
                                                             if (!target) return null;
                                                             return (
                                                                 <Tooltip title={`Birthday card for ${target.name}`} arrow>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="mrd-tl__act"
+                                                                    {/* Quiet (55%) until the row is hovered or the button focused;
+                                                                        always full on touch, where there is no hover. */}
+                                                                    <Button
+                                                                        variant="tinted"
+                                                                        size="icon-sm"
+                                                                        className="opacity-55 group-hover/tl:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+                                                                        style={{ '--tint': 'var(--mrd-rose)' } as React.CSSProperties}
                                                                         aria-label={`Generate a birthday card for ${target.name}`}
                                                                         onClick={() => setBirthdayCardTarget(target)}
                                                                     >
                                                                         <Ico n="gift" cls="sm" />
-                                                                    </button>
+                                                                    </Button>
                                                                 </Tooltip>
                                                             );
                                                         })()}
@@ -1647,23 +1659,26 @@ function CustomCalendar() {
                                     </div>
                                 )}
 
-                                <button type="button" className="mrd-createbtn" onClick={() => openCreateFor(panelDate)}>
-                                    <span className="mrd-createbtn__main"><Ico n="plus" cls="sm" /> Create Event</span>
-                                    <span className="mrd-createbtn__chev"><Ico n="chevR" cls="xs" /></span>
-                                </button>
+                                {/* The panel's one hero action, hence the glow. The chevron points
+                                    down (rotate-90): it opens the event-type chooser. */}
+                                <Button size="lg" glow className="mt-3 mb-1 w-full" onClick={() => openCreateFor(panelDate)}>
+                                    <span data-icon="inline-start" className="inline-flex"><Ico n="plus" cls="sm" /></span>
+                                    Create Event
+                                    <span data-icon="inline-end" className="inline-flex rotate-90"><Ico n="chevR" cls="xs" /></span>
+                                </Button>
 
                                 {/* ---- Upcoming Events ---- */}
                                 <div className="mrd-sect">
                                     <div className="mrd-sect__head">
                                         <span className="mrd-sect__t">Upcoming Events</span>
-                                        <button type="button" className="mrd-sect__act" onClick={panelToday}>View All</button>
+                                        <Button variant="outline" size="xs" onClick={panelToday}>View All</Button>
                                     </div>
                                     {upcomingEvents.length ? (
                                         <div className="mrd-up">
                                             {upcomingEvents.map((e: any, i: number) => {
                                                 const m = evMeta(e);
                                                 return (
-                                                    <button type="button" className="mrd-up__row" key={i} onClick={() => showEvent(e)}>
+                                                    <Item render={<button type="button" />} className="mrd-up__row flex-nowrap" key={i} onClick={() => showEvent(e)}>
                                                         <span className="mrd-up__col">
                                                             {renderProfileOrIcon(e, 32, "circle", "mrd-up__dot", true)}
                                                         </span>
@@ -1672,7 +1687,7 @@ function CustomCalendar() {
                                                             <span className="mrd-up__s">{relLabel(evDateOf(e))}</span>
                                                         </span>
                                                         <Ico n="chevR" cls="xs" />
-                                                    </button>
+                                                    </Item>
                                                 );
                                             })}
                                         </div>
@@ -1692,7 +1707,7 @@ function CustomCalendar() {
                                     <div className="mrd-sect__head">
                                         <span className="mrd-sect__t">Show on Calendar</span>
                                         {hiddenCats.size > 0 && (
-                                            <button type="button" className="mrd-sect__act" onClick={showAllCats}>Show All</button>
+                                            <Button variant="outline" size="xs" onClick={showAllCats}>Show All</Button>
                                         )}
                                     </div>
                                     <div className="mrd-leg">
@@ -1766,7 +1781,7 @@ function CustomCalendar() {
             {/* Create Leave Request — the shared canonical ApplyLeave modal (apply mode), pre-selected
                 to the clicked calendar day. It owns its own card chrome, so we provide the backdrop. */}
             {showLeaveRequestForm && (
-                <div
+                <div data-wt-control="backdrop"
                     onClick={(e) => { if (e.target === e.currentTarget) handleCloseLeaveRequestForm(); }}
                     style={{
                         position: 'fixed', inset: 0, zIndex: 1050, background: 'rgba(15,23,42,.45)', display: 'flex',
@@ -1881,13 +1896,12 @@ function CustomCalendar() {
 
                                     <div className='card-footer d-flex justify-content-end px-9'>
                                         <div className='col-lg-12'>
-                                            <button
+                                            <Button
                                                 type='submit'
-                                                className='btn btn-primary'
                                                 disabled={loading}
                                             >
                                                 {loading ? 'Saving...' : 'Save Event'}
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>
@@ -1941,25 +1955,21 @@ function CustomCalendar() {
                         </div>
                         <div className="mrd-card__body">
                             {/* Every row here IS a meeting, so the whole list is navigable. */}
+                            {/* A real button: Enter / Space activate it natively. border-0 because a
+                                div row had no border (the divider is .mrd-row + .mrd-row's border-top);
+                                text-left because a button centres its text. */}
                             {upcomingMeetings.length ? upcomingMeetings.map((mtg: any, i: number) => (
-                                <div
-                                    className="mrd-row"
+                                <Item
+                                    render={<button type="button" />}
+                                    className="mrd-row flex-nowrap border-0 text-left"
                                     key={i}
-                                    role="button"
-                                    tabIndex={0}
                                     style={{ cursor: 'pointer' }}
                                     onClick={() => openMeetingsTab(mtg.startDate)}
-                                    onKeyDown={(ev) => {
-                                        if (ev.key === 'Enter' || ev.key === ' ') {
-                                            ev.preventDefault();
-                                            openMeetingsTab(mtg.startDate);
-                                        }
-                                    }}
                                 >
                                     <span className="mrd-av" style={{ background: 'var(--mrd-violet-tint)', color: 'var(--mrd-violet)' }}><Ico n="video" cls="sm" /></span>
                                     <div className="mrd-row__main"><div className="mrd-row__t">{mtg.title || 'Meeting'}</div><div className="mrd-row__s">{dayjs(mtg.startDate).format(`MMM D · ${getTimeTokens().TIME}`)}</div></div>
                                     <span className="mrd-tag mrd-tag--wk">{relLabel(mtg.startDate)}</span>
-                                </div>
+                                </Item>
                             )) : emptyInline('No upcoming meetings')}
                         </div>
                     </section>

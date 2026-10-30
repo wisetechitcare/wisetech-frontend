@@ -42,6 +42,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
+import { Button } from "@/ds/ui/button";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -156,26 +157,18 @@ const NavigationButtons: React.FC<{
     gap: "6px",
     width: isMobile ? "100%" : "auto"
   }}>
-    <button
-      className="btn btn-sm p-0"
-      onClick={onPrev}
-      style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", border: "none", background: "transparent", cursor: "pointer", borderRadius: "4px" }}
-    >
+    <Button variant="ghost" size="icon-xs" onClick={onPrev} aria-label="Previous">
       <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" style={{ width: "12px", height: "12px" }} />
-    </button>
+    </Button>
     <span
       className="mx-2"
       style={{ fontSize: "12px", fontFamily: "Inter, sans-serif", fontWeight: 600, color: "#1E293B", whiteSpace: "nowrap", textAlign: "center", flex: isMobile ? 1 : "none" }}
     >
       {displayText}
     </span>
-    <button
-      className="btn btn-sm p-0"
-      onClick={onNext}
-      style={{ width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", border: "none", background: "transparent", cursor: "pointer", borderRadius: "4px" }}
-    >
+    <Button variant="ghost" size="icon-xs" onClick={onNext} aria-label="Next">
       <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" style={{ width: "12px", height: "12px" }} />
-    </button>
+    </Button>
   </div>
 );
 
@@ -1721,47 +1714,22 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             width: isMobile ? '100%' : 'auto',
             marginLeft: isMobile ? '0' : 'auto',
           }}>
-            <button
-              className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+            <Button
+              variant="outline"
+              size="sm"
+              className={isMobile ? "flex-1" : undefined}
               onClick={() => setShowBulkImport(true)}
-              style={{
-                backgroundColor: "#fff",
-                color: "#1E3A8A",
-                border: "1px solid #E2E8F0",
-                boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                borderRadius: "6px",
-                padding: "0 12px",
-                fontSize: "12px",
-                height: "32px",
-                display: 'flex',
-                alignItems: 'center',
-                flex: isMobile ? 1 : 'none',
-                justifyContent: 'center'
-              }}
             >
-              <KTIcon iconName="cloud-download" className="fs-6 me-1" />
+              <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="cloud-download" className="fs-6" /></span>
               Bulk Import
-            </button>
-            <button
-              className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
+            </Button>
+            <Button
+              size="sm"
+              className={isMobile ? "flex-1" : undefined}
               onClick={() => setFormValues({ leadTemplateId: "blank" })}
-              style={{
-                backgroundColor: "#1E3A8A",
-                color: "#fff",
-                border: "none",
-                borderRadius: "6px",
-                padding: "0 12px",
-                fontSize: "12px",
-                height: "32px",
-                display: 'flex',
-                alignItems: 'center',
-                boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                flex: isMobile ? 1 : 'none',
-                justifyContent: 'center'
-              }}
             >
               + New Lead
-            </button>
+            </Button>
           </div>
         </div>
         )}
@@ -1771,7 +1739,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             would only re-slice it and surface project statuses on a lead chart (which
             is confusing). Full-page usage keeps the tabs. --- */}
         {!isDrillDown && (
-        <div style={{
+        <div role="tablist" style={{
           display: "flex",
           gap: "4px",
           marginBottom: "14px",
@@ -1784,6 +1752,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             return (
               <button
                 key={key}
+                role="tab"
+                aria-selected={active}
                 onClick={() => setView(key)}
                 style={{
                   background: "transparent",
@@ -2232,22 +2202,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
 
               {/* Clear filters trigger */}
               {hasAnyFilter && (
-                <button
-                  onClick={clearAllFilters}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: "12px",
-                    color: "#1E3A8A",
-                    fontWeight: 600,
-                    fontFamily: "Inter, sans-serif",
-                    padding: "2px 8px",
-                    whiteSpace: "nowrap"
-                  }}
-                >
+                <Button variant="ghost" size="sm" onClick={clearAllFilters}>
                   ✕ Clear Filters
-                </button>
+                </Button>
               )}
             </div>
 

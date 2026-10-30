@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import {KTIcon} from '../../../helpers'
+import {buttonVariants} from '@/ds/ui/button'
 import {ThemeModeComponent} from '../../../assets/ts/layout'
 import {ThemeModeType, useThemeMode} from './ThemeModeProvider'
 
@@ -31,7 +32,9 @@ const ThemeModeSwitcher = ({
       {/* begin::Menu toggle */}
       <a
         href='#'
-        className={clsx('btn btn-icon ', toggleBtnClass)}
+        data-slot='button'
+        className={buttonVariants({variant: 'ghost', size: 'icon', className: toggleBtnClass})}
+        aria-label='Theme mode'
         data-kt-menu-trigger={menuTrigger}
         data-kt-menu-attach='parent'
         data-kt-menu-placement={menuPlacement}

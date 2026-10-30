@@ -56,7 +56,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           # Full history so the diff base exists, but WITHOUT file contents (blob:none):
-          # `git diff --name-only` needs commits and trees only, so this is a fraction of
+          # `git diff --no-renames --name-only` needs commits and trees only, so this is a fraction of
           # a full clone. Only this job diffs; the other two take the default shallow clone.
           fetch-depth: 0
           filter: blob:none
@@ -79,17 +79,29 @@ jobs:
       # .only, oversized files) — re-run here because the hook is bypassable.
       - name: 🔐 Secret and hygiene scan
         run: |
-          files=$(git diff --name-only --diff-filter=ACM ${{ steps.base.outputs.sha }} HEAD)
+          # --no-renames: rename detection compares file CONTENTS, which this blob:none clone lacks;
+          # git then tries to fetch them with no credentials and dies (exit 128) on any push big
+          # enough to hold an add + delete pair. A renamed file still lists as added (A).
+          files=$(git diff --no-renames --name-only --diff-filter=ACM ${{ steps.base.outputs.sha }} HEAD)
           if [ -z "$files" ]; then echo "No changed files."; else echo "$files" | xargs node scripts/hooks/guard.mjs; fi
 
       - name: 🧹 Lint changed files
         run: |
-          files=$(git diff --name-only --diff-filter=ACMR ${{ steps.base.outputs.sha }} HEAD -- '*.ts' '*.tsx' | grep -v '^src/_metronic/' || true)
+          files=$(git diff --no-renames --name-only --diff-filter=ACMR ${{ steps.base.outputs.sha }} HEAD -- '*.ts' '*.tsx' | grep -v '^src/_metronic/' || true)
           if [ -z "$files" ]; then echo "No .ts/.tsx changes to lint."; else
             echo "Linting:"; echo "$files"
             echo "$files" | xargs pnpm exec eslint --quiet
           fi
 
+      # Button ratchet (docs/BUTTONS.md): every button is the kit Button / WtButton. Legacy sites are
+      # frozen per file in scripts/button-baseline.json; a file may only lose them, never gain.
+      - name: 🔘 Button ratchet
+        run: pnpm run audit:buttons:check
+
+      # This repo had 30 test files and a configured vitest, and CI ran none of them.
+      # Placed before the build deliberately: the suite finishes in about 25s and the
+      # bundle takes minutes, so a broken test should not wait on a webpack-sized build
+      # to be reported.
       - name: 🧪 Run tests
         run: pnpm run test
 

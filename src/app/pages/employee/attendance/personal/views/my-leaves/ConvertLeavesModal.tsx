@@ -14,6 +14,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import { ANNUAL_LEAVES, CASUAL_LEAVES, FLOATER_LEAVES, MATERNAL_LEAVES, SICK_LEAVES, LEAVE_MANAGEMENT_TYPE } from '@constants/statistics';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { currencyPrefix } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 interface EncashTransferLeavesModalProps {
     show: boolean;
@@ -364,7 +365,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                 <div style={{ marginBottom: '32px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {/* Encash Option */}
-                        <div
+                        <div data-wt-control="option" aria-pressed={selectedOption === 'encash'}
                             onClick={() => setSelectedOption('encash')}
                             style={{
                                 border: selectedOption === 'encash' ? '2px solid #1E3A8A' : '1px solid #c8cfda',
@@ -434,7 +435,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                         </div>
 
                         {/* Transfer Option */}
-                        <div
+                        <div data-wt-control="option" aria-pressed={selectedOption === 'transfer'}
                             onClick={() => setSelectedOption('transfer')}
                             style={{
                                 border: selectedOption === 'transfer' ? '2px solid #1E3A8A' : '1px solid #c8cfda',
@@ -879,27 +880,10 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                 ) : null}
 
                 {/* Submit Button */}
-                <button
+                <Button
                     type="button"
                     onClick={handleSubmit}
                     disabled={loading || (selectedOption === 'transfer' && getTotalTransferLeaves() === 0) || (selectedOption === 'encash' && getTotalEncashLeaves() === 0)}
-                    style={{
-                        backgroundColor: '#1E3A8A',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '10px 32px',
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        cursor: (loading || (selectedOption === 'transfer' && getTotalTransferLeaves() === 0) || (selectedOption === 'encash' && getTotalEncashLeaves() === 0)) ? 'not-allowed' : 'pointer',
-                        opacity: (loading || (selectedOption === 'transfer' && getTotalTransferLeaves() === 0) || (selectedOption === 'encash' && getTotalEncashLeaves() === 0)) ? 0.7 : 1,
-                        fontFamily: 'Inter, sans-serif',
-                        height: '40px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '10px',
-                    }}
                 >
                     {loading ? (
                         <>
@@ -909,7 +893,7 @@ const EncashTransferLeavesModal: React.FC<EncashTransferLeavesModalProps> = ({
                     ) : (
                         'Submit'
                     )}
-                </button>
+                </Button>
             </div>
         </GlassDialog>
     );

@@ -211,7 +211,7 @@ const StageNumberingFormatsEditor: React.FC = () => {
             ) : (
               <>
                 <WtButton
-                  tone="primary" size="small" ghost onClick={() => void save(f, { isDefault: true })}
+                  tone="accent" size="small" ghost onClick={() => void save(f, { isDefault: true })}
                   sx={{ minHeight: 30, fontSize: 12, borderRadius: "8px", whiteSpace: "nowrap", px: 1.5 }}
                 >
                   Set default
@@ -246,7 +246,7 @@ const StageNumberingFormatsEditor: React.FC = () => {
       ) : (
         <Box sx={{ px: 2, py: 1, borderTop: "1px solid", borderColor: "divider" }}>
           <WtButton
-            tone="primary" size="small" ghost onClick={() => setDraft(EMPTY_DRAFT)}
+            tone="accent" size="small" ghost onClick={() => setDraft(EMPTY_DRAFT)}
             startIcon={<KTIcon iconName="plus" className="fs-6" />}
             sx={{ minHeight: 30, fontSize: 12.5, borderRadius: "9px", whiteSpace: "nowrap" }}
           >

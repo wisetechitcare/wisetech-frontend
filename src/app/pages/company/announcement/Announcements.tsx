@@ -14,6 +14,7 @@ import { confirmDialog } from "@app/modules/common/components/ui";
 import { IAnnouncement } from "@models/company";
 import { canSection } from "@utils/can";
 import AnnouncementFormDialog from "./AnnouncementFormDialog";
+import { Button } from "@/ds/ui/button";
 
 const announcement: Array<PageLink> = [
     { title: "Company", path: "#", isSeparator: false, isActive: false },
@@ -204,25 +205,29 @@ function Announcements() {
                                                         {announcement.title}
                                                     </h3>
                                                     <div className="d-flex ">
-                                                        {canWrite && <div
-                                                            className="btn p-0 btn-active-color-primary btn-sm"
+                                                        {canWrite && <Button
+                                                            variant="ghost"
+                                                            size="icon-sm"
+                                                            aria-label="Edit announcement"
                                                             onClick={() => handleShowEditModal(announcement)}
                                                         >
                                                             <KTIcon
                                                                 iconName="pencil"
                                                                 className="fs-3 cursor-pointer"
                                                             />
-                                                        </div>}
+                                                        </Button>}
 
-                                                        {canWrite && <div
-                                                            className="btn p-0 btn-active-color-primary btn-sm"
+                                                        {canWrite && <Button
+                                                            variant="ghost"
+                                                            size="icon-sm"
+                                                            aria-label="Delete announcement"
                                                             onClick={() => handleConfirmDelete(announcement)}
                                                         >
                                                             <KTIcon
                                                                 iconName="trash"
                                                                 className="fs-3 cursor-pointer"
                                                             />
-                                                        </div>}
+                                                        </Button>}
                                                     </div>
                                                 </div>
                                                 <div
@@ -331,23 +336,27 @@ function Announcements() {
 
                             {announcementsList.length > itemsPerPage && (
                                 <div className="d-flex justify-content-center mt-3 gap-3">
-                                    <div
-                                        className={`fs-2 cursor-pointer ${currentPage === 0 ? "text-muted" : ""}`}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label="Previous page"
+                                        disabled={currentPage === 0}
                                         onClick={() => currentPage > 0 && handlePageChange(currentPage - 1)}
-                                        style={{ color: currentPage === 0 ? "gray" : "#000", cursor: currentPage === 0 ? "not-allowed" : "pointer" }}
                                     >
                                         <KTIcon iconName="arrow-left" className="fs-2" />
-                                    </div>
+                                    </Button>
                                     <span className="fs-5">
                                         {currentPage + 1} / {totalPages}
                                     </span>
-                                    <div
-                                        className={`fs-2 cursor-pointer ${currentPage >= totalPages - 1 ? "text-muted" : ""}`}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label="Next page"
+                                        disabled={currentPage >= totalPages - 1}
                                         onClick={() => currentPage < totalPages - 1 && handlePageChange(currentPage + 1)}
-                                        style={{ color: currentPage >= totalPages - 1 ? "gray" : "#000", cursor: currentPage >= totalPages - 1 ? "not-allowed" : "pointer" }}
                                     >
                                         <KTIcon iconName="arrow-right" className="fs-2" />
-                                    </div>
+                                    </Button>
                                 </div>
                             )}
                         </KTCardBody>

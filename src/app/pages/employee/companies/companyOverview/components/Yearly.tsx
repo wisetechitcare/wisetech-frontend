@@ -15,6 +15,7 @@ import CompaniesByLocationAndSatatus from "./CompaniesByLocationAndSatatus";
 import UpcomingContactsBirthdays from "./UpcomingContactsBirthdays";
 import TopCompaniesByRating from "./TopCompaniesByRating";
 import { CompanyDialogModal } from "./CompanyDialogModal";
+import { Button } from "@/ds/ui/button";
 import CompaniesByTypeChart from "./CompaniesByTypeChart";
 
 
@@ -248,9 +249,9 @@ const Yearly: React.FC<Props> = ({ year, endDate }) => {
       <div className="container-fluid">
         <div className="alert alert-danger">
           <strong>Error:</strong> {error}
-          <button className="btn btn-sm btn-outline-danger ms-2" onClick={fetchData}>
+          <Button variant="outline" size="sm" className="ms-2" onClick={fetchData}>
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );

@@ -31,6 +31,11 @@ const clean = (value: unknown): string => (typeof value === 'string' ? value.tri
 export const apiErrorMessage = (error: unknown, fallback = 'Something went wrong'): string => {
     const data = (error as any)?.response?.data;
 
+    // A failed request-body validation says only "Request body is not valid" in `detail`;
+    // the rule that failed ("Note can be at most 500 characters") is in `validationError`.
+    const firstRule = clean(data?.validationError?.[0]?.errors?.[0]);
+    if (firstRule) return firstRule;
+
     const detail = clean(data?.detail);
     if (detail) return detail;
 

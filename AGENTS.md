@@ -44,6 +44,21 @@ comment, or a green typecheck is not proof; check the thing itself.
 > The root cause was an index gap: the kit README covered `ui/` only, while the engine lives one
 > level up in `components/`. **When a search fails, fix the index too, not just the code.**
 
+## Design system v2 + Storybook MCP (branch `v2`)
+
+The target design system is **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`): the WiseTech kit as owned code on
+**Radix + Tailwind v4**, tokens as CSS variables in `src/ds/styles/globals.css`, components in `src/ds/ui`,
+patterns in `src/ds/patterns`. Storybook (`pnpm storybook`, port 6006) is the catalogue; its MCP server is
+registered for agents as **`wisetech-storybook`** (`http://localhost:6006/mcp`, needs Storybook running).
+
+When working on UI or stories, use the `wisetech-storybook` MCP tools first:
+- **Never assume a component's props.** Check them with `docs-list` and `docs-show` (or `docs-show-story`); use only
+  documented props or ones shown in existing stories. If a prop isn't documented, ask — don't guess from source.
+- **Before creating or editing a story**, call `get-storybook-story-instructions` and follow its conventions.
+- **After any change that affects how UI looks or behaves**, run `test-run` for the affected stories (it includes the
+  axe accessibility checks) and fix failures before calling the work done. `stories-preview` gives links to check visually.
+- Tests: `pnpm test` runs the unit suite only (CI); `pnpm test-storybook` runs every story as a browser test.
+
 ## UI standard — READ THIS BEFORE WRITING ANY UI
 
 **The standard is MUI + Tailwind, composed from the shared kit. This is not a preference to weigh against what a file already does — it is the target for all new and edited UI.** Ant Design, Mantine, react-bootstrap and raw Bootstrap markup are legacy; never reach for them, and convert what you touch.

@@ -2,7 +2,11 @@ import { useMemo, useState, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 // Professional Bootstrap Icons for clean, business-focused navigation
-import { permissionConstToUseWithHasPermission, uiControlResourceNameMapWithCamelCase } from '@constants/statistics';
+import {
+  permissionConstToUseWithHasPermission,
+  resourceNameMapWithCamelCase,
+  uiControlResourceNameMapWithCamelCase,
+} from '@constants/statistics';
 import { hasPermission } from '@utils/authAbac';
 import { can, canSection } from '@utils/can';
 import { isSectionBlocked, isSubsectionVisible, anyChildGranted } from '@utils/accessAreas';
@@ -176,6 +180,17 @@ export function useNavigation() {
         title: 'Calendar',
         fontIcon: 'bi-calendar-event',
         visible: isSubsectionVisible('calendar', hasPermission(uiControlResourceNameMapWithCamelCase.calendar, permissionConstToUseWithHasPermission.readOthers)),
+      },
+      {
+        type: 'item',
+        id: 'admin-meetings',
+        // Base path (not /overview): workspace breadcrumb longest-prefix match must cover
+        // /employees/meetings/:id detail as well as tab URLs.
+        to: '/employees/meetings',
+        title: 'Meetings',
+        fontIcon: 'bi-people',
+        // Its own section now (Access → Meetings); it used to ride on Calendar.
+        visible: isPackEnabled('psa') && canSection('meetings'),
       },
 
       // ── HR & People ───────────────────────────────────────────────────────

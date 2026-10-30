@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 import dayjs from "dayjs";
 import { LoanStatus } from "@constants/statistics";
 import { formatNumber } from "@utils/statistics";
+import { Button } from '@/ds/ui/button';
 
 
 type ApplicationRequestData = {
@@ -150,12 +151,11 @@ const LoanApplicationRequests: React.FC<MyComponentProps> = ({ resource, viewOth
               <Link to={`${row.original.id}`}>View</Link>
             </div>
             {allowEdit ? (
-              <div
+              <Button variant="success" size="sm"
                 onClick={() => approveLoan(row.original.id)}
-                style={commonButtonStyle}
               >
                 Approve
-              </div>
+              </Button>
             ):<div
             
             style={commonButtonStyle}
@@ -163,12 +163,11 @@ const LoanApplicationRequests: React.FC<MyComponentProps> = ({ resource, viewOth
             NA
           </div>}
             {allowEdit ? (
-              <div
+              <Button variant="destructive" size="sm"
                 onClick={() => rejectLoan(row.original.id)}
-                style={commonButtonStyle}
               >
                 Reject
-              </div>
+              </Button>
             ):<div
             
             style={commonButtonStyle}

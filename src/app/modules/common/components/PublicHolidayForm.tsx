@@ -14,6 +14,7 @@ import DropdownAdd from "@app/modules/common/utils/DropdownAdd";
 import { FLOATING_MENU_PROPS } from "@app/modules/common/inputs/selectMenuProps";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
+import { Button } from '@/ds/ui/button';
 
 const initialValues: IPublicHoliday = {
     date: "",
@@ -228,7 +229,7 @@ function PublicHolidayForm({ onClose, setShowNewHolidayForm }: { onClose: () => 
                                 )}
                             </div>
 
-                            <div className='col-lg-6 fv-row' onClick={getAllCountries}>
+                            <div data-wt-control="container" className='col-lg-6 fv-row' onClick={getAllCountries}>
                                 <label className='required col-lg-6 col-form-label fw-bold fs-6 mb-4'>Observed In</label>
                                 <Select
                                     {...FLOATING_MENU_PROPS}
@@ -275,7 +276,7 @@ function PublicHolidayForm({ onClose, setShowNewHolidayForm }: { onClose: () => 
                     </KTCardBody>
                 </KTCard>
                 <div className='card-footer d-flex justify-content-end py-6 px-9'>
-                    <button type='submit' className='btn btn-primary' disabled={loading || !formik.isValid}>
+                    <Button type='submit' disabled={loading || !formik.isValid}>
                         {!loading && 'Save Changes'}
                         {loading && (
                             <span className='indicator-progress' style={{ display: 'block' }}>
@@ -283,7 +284,7 @@ function PublicHolidayForm({ onClose, setShowNewHolidayForm }: { onClose: () => 
                                 <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                             </span>
                         )}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </>

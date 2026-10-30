@@ -1,5 +1,6 @@
 
 import React from 'react'
+import { Button } from '@/ds/ui/button';
 
 export function Dropdown1() {
   return (
@@ -63,17 +64,17 @@ export function Dropdown1() {
         </div>
 
         <div className='d-flex justify-content-end'>
-          <button
+          <Button variant="outline" size="sm"
             type='reset'
-            className='btn btn-sm btn-light btn-active-light-primary me-2'
+            className="me-2"
             data-kt-menu-dismiss='true'
           >
             Reset
-          </button>
+          </Button>
 
-          <button type='submit' className='btn btn-sm btn-primary' data-kt-menu-dismiss='true'>
+          <Button size="sm" type='submit' data-kt-menu-dismiss='true'>
             Apply
-          </button>
+          </Button>
         </div>
       </div>
     </div>

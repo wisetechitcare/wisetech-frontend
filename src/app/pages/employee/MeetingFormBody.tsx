@@ -2,8 +2,9 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import {
-    Alert, Autocomplete, Avatar, Box, Button, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
+    Alert, Autocomplete, Avatar, Box, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { RootState } from '@redux/store';
 import { createMeetings, updateMeeting, fetchAllEmployees, getMyMeetingReminders, setMyMeetingReminders, getMeetingsByProject } from '@services/employee';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
@@ -23,8 +24,7 @@ import {
     type MeetingMode,
 } from './meetingModes';
 import { SegmentedControl, ToneChip, WtDateField, WtSwitch } from '@app/modules/common/components/ui';
-import { ContactPicker } from '@app/modules/common/components/ui/ContactPicker';
-import { contactLabel } from '@app/modules/common/components/ui/contactLabel';
+import { ContactPicker, projectContactOptions } from '@app/modules/common/components/ui/ContactPicker';
 import { useDropdownBoundary } from '@app/modules/common/components/ui/dropdownBoundary';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { KTIcon } from '@metronic/helpers';
@@ -33,6 +33,11 @@ import { ReminderChips } from './MeetingRemindersDialog';
 import { joinAddress } from './meetingAddress';
 import { projectNumberOf } from './entity/entityUtils';
 import { TITLE_MAX_CHARS, AGENDA_MAX_WORDS, countWords } from './meetingLimits';
+import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
+import TaskPathSelect, { buildTaskPathOptions } from './tasks/components/TaskPathSelect';
+import { usePresetTasks } from './tasks/useTaskQueries';
+import { useProjectDeliverables } from './tasks/useProjectDeliverables';
+import type { PresetTask } from './tasks/taskDomain';
 
 /**
  * The meeting form's FIELDS, with no shell of its own.
@@ -205,6 +210,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [startDate, setStartDate] = useState(opening.start);
         const [endDate, setEndDate] = useState(opening.end);
         const [description, setDescription] = useState('');
+        /** Agenda picks from Task Configure presets — free text is only the joined labels. */
+        const [agendaOpen, setAgendaOpen] = useState(() => Boolean(editing?.description?.trim()));
+        const [agendaItems, setAgendaItems] = useState<Array<{ id: string; label: string }>>([]);
 
         const [companyTypes, setCompanyTypes] = useState<any[]>([]);
         const [companies, setCompanies] = useState<any[]>([]);
@@ -240,7 +248,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         useEffect(() => {
             if (!editing) return;
             setTitle(editing.title || '');
-            setDescription(editing.description || '');
+            const lines = (editing.description || '').split('\n').map((s) => s.trim()).filter(Boolean);
+            setAgendaItems(lines.map((label, i) => ({ id: `legacy:${i}`, label })));
+            setAgendaOpen(lines.length > 0);
             setMode(modeOfExisting(editing));
             setMeetingLink(editing.meetingLink || '');
             setLocation(editing.location || '');
@@ -589,44 +599,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 ? [{ value: defaultExternalParticipant.id, label: defaultExternalParticipant.name, avatar: defaultExternalParticipant.avatar ?? null }]
                 : [];
             if (!projectDetail) return fromCaller;
-            /*
-             * Labelled "Name (Company)", exactly as the CRM search labels the same person.
-             *
-             * `contactLabel` is the shared rule, so a stakeholder who is also in the address
-             * book reads identically whichever source named them — and the picker's local
-             * filter, which matches on the label, narrows the roster by company for the same
-             * "manish a2o" a server search would.
-             *
-             * The team row's own company is offered as a fallback: a roster entry carries it
-             * directly, where the contact record may not have been filled in.
-             */
-            const contactOption = (t: any) => ({
-                value: t.contact.id,
-                label: contactLabel({
-                    fullName: t.contact.fullName,
-                    company: t.contact.company ?? t.company,
-                    subCompany: t.contact.subCompany,
-                }),
-                name: t.contact.fullName || undefined,
-                // `getLeadById` includes the WHOLE contact row, so an absent email here is an
-                // absence on the record. A source that did not select the column must leave
-                // this undefined instead — see `ContactOption.hasEmail`.
-                hasEmail: 'email' in (t.contact ?? {}) ? !!t.contact.email : undefined,
-                avatar: t.contact.profilePhoto || t.contact.avatar || null,
-            });
-            const fromTeams = (projectDetail.leadTeams || [])
-                .filter((t: any) => t.contact?.id)
-                .map(contactOption);
-            const fromProjectTeams = (projectDetail.projectExternalTeams || [])
-                .filter((t: any) => t.contact?.id && t.isActive !== false)
-                .map(contactOption);
-            const fromMembers = (projectDetail.externalMembers || [])
-                .filter((m: any) => m.contactId)
-                // `externalMembers` carries a name and an id and nothing else, so whether this
-                // person has an email is NOT KNOWN here — left undefined rather than guessed.
-                .map((m: any) => ({ value: m.contactId, label: m.name || 'Unknown', name: m.name || undefined, avatar: null }));
+            // The roster rule is shared with the MoM attendees picker — see `projectContactOptions`.
             const seen = new Set<string>();
-            return [...fromTeams, ...fromProjectTeams, ...fromMembers, ...fromCaller]
+            return [...projectContactOptions(projectDetail), ...fromCaller]
                 .filter((o: Option) => !seen.has(o.value) && seen.add(o.value))
                 .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
         }, [projectDetail, defaultExternalParticipant]);
@@ -722,6 +697,54 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         }, [startDate, endDate, internal, employeeById, onScheduleChange]);
 
         const endsBeforeStart = !!startDate && !!endDate && !dayjs(endDate).isAfter(dayjs(startDate));
+
+        // Same catalogue + deliverable filter the New Task form uses — agenda items are
+        // Project Tasks, scoped to the meeting's project when one is chosen.
+        const presetsQuery = usePresetTasks('PROJECT');
+        const deliverables = useProjectDeliverables(projectId || null);
+        const presets = (presetsQuery.data?.presetTaskStatuses ?? []) as PresetTask[];
+        const { deliverableTaskIds } = deliverables;
+        const fromDeliverables = !!projectId && deliverableTaskIds.length > 0;
+        const agendaOptions = useMemo(() => {
+            if (!fromDeliverables) return buildTaskPathOptions(presets);
+            const only = new Set(agendaItems.map((a) => a.id).filter((id) => !id.startsWith('legacy:')));
+            deliverableTaskIds.forEach((id) => getPresetSubtreeIds(presets, id).forEach((n) => only.add(n)));
+            return buildTaskPathOptions(presets, only);
+        }, [presets, fromDeliverables, deliverableTaskIds, agendaItems]);
+        const agendaPickerOptions = useMemo(
+            () => agendaOptions.filter((o) => !agendaItems.some((a) => a.id === o.id)),
+            [agendaOptions, agendaItems],
+        );
+
+        useEffect(() => {
+            setDescription(agendaItems.map((a) => a.label).join('\n'));
+        }, [agendaItems]);
+
+        // Remap free-text agenda lines onto configure nodes once the tree is loaded.
+        useEffect(() => {
+            if (!agendaOptions.length) return;
+            setAgendaItems((prev) => {
+                let changed = false;
+                const next = prev.map((item) => {
+                    if (!item.id.startsWith('legacy:')) return item;
+                    const hit = agendaOptions.find((o) => o.name === item.label);
+                    if (!hit) return item;
+                    changed = true;
+                    return { id: hit.id, label: hit.name };
+                });
+                return changed ? next : prev;
+            });
+        }, [agendaOptions]);
+
+        // Drop picks that leave the deliverable set when the project changes.
+        useEffect(() => {
+            if (!fromDeliverables || !agendaOptions.length) return;
+            const allowed = new Set(agendaOptions.map((o) => o.id));
+            setAgendaItems((prev) => {
+                const next = prev.filter((a) => a.id.startsWith('legacy:') || allowed.has(a.id));
+                return next.length === prev.length ? prev : next;
+            });
+        }, [fromDeliverables, agendaOptions, projectId]);
 
         /** Recomputed per render — the agenda is short and this is cheaper than memoising it. */
         const agendaWords = countWords(description);
@@ -1302,9 +1325,10 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     </Box>
                     {internalOptions.length > 0 && internal.length < internalOptions.length && (
                         <Button
-                            size="small"
+                            variant="ghost"
+                            size="sm"
+                            className="mb-1.5"
                             onClick={() => setInternal(internalOptions.map((o) => o.value))}
-                            sx={{ textTransform: 'none', fontWeight: 600, minWidth: 0, mb: 0.75 }}
                         >
                             Add whole team
                         </Button>
@@ -1331,21 +1355,60 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 </Grid>
 
                 <L text="Agenda" icon="notepad-edit" trio={TRIO.cyan} />
-                <TextField
-                    fullWidth size="small" multiline minRows={3}
-                    placeholder="Optional"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    error={agendaWords > AGENDA_MAX_WORDS}
-                    // Words cannot be capped by `maxLength` the way characters can — you would
-                    // be cutting somebody off mid-word — so this one is counted and refused at
-                    // save, and the count appears in the last quarter so the wall is visible
-                    // before it is hit.
-                    helperText={agendaWords > AGENDA_MAX_WORDS * 0.75
-                        ? `${agendaWords} / ${AGENDA_MAX_WORDS} words`
-                        : ' '}
-                    inputProps={{ 'aria-label': 'Agenda' }}
-                />
+                {!agendaOpen && agendaItems.length === 0 ? (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mb-2 self-start font-bold"
+                        onClick={() => setAgendaOpen(true)}
+                    >
+                        <span data-icon="inline-start" className="inline-flex">
+                            <KTIcon iconName="plus" className="fs-6" />
+                        </span>
+                        Add Agenda
+                    </Button>
+                ) : (
+                    <Box sx={{ mb: 1 }}>
+                        {agendaItems.length > 0 && (
+                            <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.25 }}>
+                                {agendaItems.map((item) => (
+                                    <Chip
+                                        key={item.id}
+                                        label={item.label}
+                                        size="small"
+                                        onDelete={() => setAgendaItems((prev) => prev.filter((a) => a.id !== item.id))}
+                                        sx={{ maxWidth: '100%', height: 'auto', py: 0.5, '& .MuiChip-label': { whiteSpace: 'normal' } }}
+                                    />
+                                ))}
+                            </Stack>
+                        )}
+                        <TaskPathSelect
+                            value=""
+                            options={agendaPickerOptions}
+                            onChange={(opt) => {
+                                if (!opt) return;
+                                setAgendaItems((prev) => (
+                                    prev.some((a) => a.id === opt.id) ? prev : [...prev, { id: opt.id, label: opt.name }]
+                                ));
+                            }}
+                            label="Agenda item"
+                            placeholder={projectId
+                                ? 'Search this project’s deliverable tasks…'
+                                : 'Search, e.g. electrical load sheet'}
+                            loading={presetsQuery.isLoading || (!!projectId && deliverables.isFetching)}
+                            error={agendaWords > AGENDA_MAX_WORDS}
+                            helperText={agendaWords > AGENDA_MAX_WORDS * 0.75
+                                ? `${agendaWords} / ${AGENDA_MAX_WORDS} words`
+                                : (projectId && fromDeliverables
+                                    ? 'Only tasks on this project’s deliverables.'
+                                    : projectId
+                                        ? 'No deliverable tasks on this project yet — showing the full catalogue.'
+                                        : 'Optional. Pick from Tasks → Project Tasks.')}
+                            slotProps={dropdown.slotProps}
+                        />
+                    </Box>
+                )}
 
                 {/* ── the two things that happen after you save ──
                     This one is about YOU, the next is about them. Paired on purpose: both are

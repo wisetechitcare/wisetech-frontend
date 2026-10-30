@@ -56,7 +56,7 @@ export default function LoadErrorState({ what, onRetry }: LoadErrorStateProps) {
             </p>
 
             {onRetry && (
-                <WtButton tone="primary" size="small" onClick={onRetry}>
+                <WtButton size="small" onClick={onRetry}>
                     Try again
                 </WtButton>
             )}

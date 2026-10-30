@@ -6,6 +6,7 @@ import { DIFF, resolveValue, humanizeSummary, categoryMeta } from './tokens';
 import { diffWords } from './wordDiff';
 import './DiffViewerResponsive.css';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 export type DiffMode = 'unified' | 'sidebyside';
 
@@ -280,29 +281,14 @@ export const DiffViewer: React.FC<Props> = ({ result, mode, onModeChange, fromMe
           <ModeBtn active={mode === 'sidebyside'} onClick={() => onModeChange('sidebyside')} icon="bi bi-layout-split" label="Side by side" />
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
+          <Button variant="outline" size="sm"
             type="button"
             onClick={copy}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '6px 12px',
-              borderRadius: RADIUS.md,
-              border: `1px solid ${copied ? '#16a34a' : C.border}`,
-              backgroundColor: copied ? C.successLight : C.bgCard,
-              color: copied ? '#16a34a' : C.textSecondary,
-              fontFamily: FONT.body,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all .15s ease',
-            }}
             title="Copy this comparison as text"
           >
             <AppIcon name={copied ? 'bi-check-lg' : 'bi-clipboard'} aria-hidden />
             {copied ? 'Copied' : 'Copy'}
-          </button>
+          </Button>
           {actions}
         </div>
       </div>
@@ -329,7 +315,7 @@ export const DiffViewer: React.FC<Props> = ({ result, mode, onModeChange, fromMe
               }}
             />
           </div>
-          <button
+          <button data-wt-control="chip" aria-pressed={activeCat === null}
             type="button"
             onClick={() => setActiveCat(null)}
             style={catChipStyle(activeCat === null)}
@@ -339,7 +325,7 @@ export const DiffViewer: React.FC<Props> = ({ result, mode, onModeChange, fromMe
           {orderedCats.map((cat) => {
             const meta = categoryMeta(cat);
             return (
-              <button key={cat} type="button" onClick={() => setActiveCat(activeCat === cat ? null : cat)} style={catChipStyle(activeCat === cat)}>
+              <button data-wt-control="chip" aria-pressed={activeCat === cat} key={cat} type="button" onClick={() => setActiveCat(activeCat === cat ? null : cat)} style={catChipStyle(activeCat === cat)}>
                 <i className={meta.icon} style={{ fontSize: 10 }} aria-hidden /> {meta.label} ({catCounts.get(cat)})
               </button>
             );

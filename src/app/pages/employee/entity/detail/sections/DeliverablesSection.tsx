@@ -2,6 +2,8 @@ import React, { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, CircularProgress, Collapse, DialogActions, DialogContent, LinearProgress, Stack, TextField } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
+import { Button } from "@/ds/ui/button";
+import { Item } from "@/ds/ui/item";
 import {
   addCustomDeliverable, addCustomStage, deleteCustomDeliverable, deleteCustomStage, deliverableBoardQuery,
   type BoardDeliverable, type BoardStage, type BoardTaskStatus,
@@ -181,11 +183,14 @@ const StageRow: React.FC<{
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 2, py: 1.5, flexWrap: { xs: "wrap", md: "nowrap" } }}>
-          <button
-            type="button"
+          {/* The stage header row toggles the section. flex-col + p-0 + border-0 + text-left keep
+              the old block layout (it used all: unset). */}
+          <Item
+            render={<button type="button" />}
             onClick={onToggle}
             aria-expanded={open}
-            style={{ all: "unset", cursor: "pointer", flex: 1, minWidth: 0 }}
+            className="flex-col items-stretch gap-0 border-0 p-0 text-left"
+            style={{ cursor: "pointer", flex: 1, minWidth: 0 }}
           >
             <Stack direction="row" alignItems="center" spacing={1}>
               <span style={{ fontFamily: FONT.heading, fontSize: 15, fontWeight: 700, color: C.textPrimary }}>{stage.name}</span>
@@ -194,7 +199,7 @@ const StageRow: React.FC<{
             <div style={{ fontFamily: FONT.body, fontSize: 12, color: C.textSecondary, marginTop: 1 }}>
               {count ? `${count} deliverable${count === 1 ? "" : "s"}` : "No deliverables yet"}
             </div>
-          </button>
+          </Item>
           {count > 0 && (
             <Box sx={{ width: { xs: "100%", md: 200 }, order: { xs: 3, md: 0 } }}>
               <ProgressBar value={stage.progress} />
@@ -219,17 +224,9 @@ const StageRow: React.FC<{
             {stage.deliverables.map((d) => (
               <DeliverableRow key={`${d.source}-${d.id}`} d={d} onRemove={() => onRemoveDeliverable(d)} />
             ))}
-            <button
-              type="button"
-              onClick={onAddDeliverable}
-              style={{
-                all: "unset", boxSizing: "border-box", cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-                padding: "8px 14px", borderRadius: RADIUS.md, border: `1px dashed ${C.borderDark}`,
-                fontFamily: FONT.body, fontSize: 12.5, fontWeight: 600, color: C.textSecondary,
-              }}
-            >
-              <i className="bi bi-plus-lg" /> Add deliverable
-            </button>
+            <Button variant="outline" size="sm" className="justify-start" onClick={onAddDeliverable}>
+              <span data-icon="inline-start" className="inline-flex"><i className="bi bi-plus-lg" /></span> Add deliverable
+            </Button>
           </Stack>
         </Collapse>
       </div>
@@ -260,7 +257,7 @@ const AddStageDialog: React.FC<{ open: boolean; onClose: () => void; onSave: (na
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <WtButton ghost onClick={close} disabled={saving}>Cancel</WtButton>
-        <WtButton tone="primary" disabled={!name.trim() || saving} onClick={() => void save()}>{saving ? "Adding…" : "Add Stage"}</WtButton>
+        <WtButton disabled={!name.trim() || saving} onClick={() => void save()}>{saving ? "Adding…" : "Add Stage"}</WtButton>
       </DialogActions>
     </GlassDialog>
   );
@@ -308,7 +305,7 @@ const AddDeliverableDialog: React.FC<{
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <WtButton ghost onClick={close} disabled={saving}>Cancel</WtButton>
-        <WtButton tone="primary" disabled={!task || saving} onClick={() => void save()}>{saving ? "Adding…" : "Add Deliverable"}</WtButton>
+        <WtButton disabled={!task || saving} onClick={() => void save()}>{saving ? "Adding…" : "Add Deliverable"}</WtButton>
       </DialogActions>
     </GlassDialog>
   );
@@ -372,7 +369,7 @@ const DeliverablesSection: React.FC<{ lead: any }> = ({ lead }) => {
   };
 
   const addStageButton = (
-    <WtButton tone="primary" size="small" ghost onClick={() => setAddingStage(true)} startIcon={<KTIcon iconName="plus" className="fs-6" />}
+    <WtButton size="small" ghost onClick={() => setAddingStage(true)} startIcon={<KTIcon iconName="plus" className="fs-6" />}
       sx={{ minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}>
       Add Stage
     </WtButton>

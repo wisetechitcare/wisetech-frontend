@@ -6,6 +6,7 @@ import { EnterpriseWizardStep, WizardActionConfig, WizardReviewConfig, WizardSum
 import { GroupedWizard, type GroupedWizardProps } from "./GroupedWizard";
 import { WizardFooterActions } from "./WizardFooterActions";
 import { WtButton } from "@app/modules/common/components/ui";
+import { Button } from "@/ds/ui/button";
 import { SummarySidebar } from "../SummarySidebar/SummarySidebar";
 import { WizardSidebar } from "../WizardSidebar/WizardSidebar";
 import "@app/pages/employee/forms/shared/Workspace.css";
@@ -222,26 +223,15 @@ function StepWizard<TValues = any, TStepProps = any>({
               gap: 12,
             }}
           >
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="icon-sm"
               onClick={() => setSummaryCollapsed(false)}
               aria-label="Expand summary"
               title="Expand summary"
-              style={{
-                background: 'transparent',
-                border: '1px solid #e2e8f0',
-                borderRadius: 8,
-                width: 28,
-                height: 28,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#64748B',
-                cursor: 'pointer',
-              }}
             >
               <ChevronLeft style={{ fontSize: '1.2rem' }} />
-            </button>
+            </Button>
             <div
               style={{
                 writingMode: 'vertical-rl',
@@ -260,26 +250,15 @@ function StepWizard<TValues = any, TStepProps = any>({
         ) : (
         <aside className="wizard-summary-panel" aria-label="Lead summary" style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 8px 0' }}>
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="icon-sm"
               onClick={() => setSummaryCollapsed(true)}
               aria-label="Collapse summary"
               title="Collapse summary"
-              style={{
-                background: 'transparent',
-                border: '1px solid #e2e8f0',
-                borderRadius: 8,
-                width: 28,
-                height: 28,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#64748B',
-                cursor: 'pointer',
-              }}
             >
               <ChevronRight style={{ fontSize: '1.2rem' }} />
-            </button>
+            </Button>
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
             <SummarySidebar
@@ -295,28 +274,16 @@ function StepWizard<TValues = any, TStepProps = any>({
           {isSaveStep && (actions.exportPdf || actions.exportDocx) && (
             <div className="mt-4 p-4 bg-white rounded-3 shadow-sm border border-gray-100 d-flex gap-3 justify-content-center flex-wrap">
               {actions.exportPdf && (
-                <button
-                  type="button"
-                  className="wt-btn wt-btn-outline-primary"
-                  onClick={actions.exportPdf}
-                  title="Export to PDF"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem' }}
-                >
-                  <PictureAsPdf style={{ fontSize: "1.1rem", color: '#e2445c' }} />
-                  <span className="fw-bold">Export PDF</span>
-                </button>
+                <Button variant="outline" className="flex-1" onClick={actions.exportPdf} title="Export to PDF">
+                  <PictureAsPdf data-icon="inline-start" style={{ fontSize: "1.1rem", color: '#e2445c' }} />
+                  Export PDF
+                </Button>
               )}
               {actions.exportDocx && (
-                <button
-                  type="button"
-                  className="wt-btn wt-btn-outline-primary"
-                  onClick={actions.exportDocx}
-                  title="Export to Word Document"
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem' }}
-                >
-                  <Description style={{ fontSize: "1.1rem", color: '#2563eb' }} />
-                  <span className="fw-bold">Export DOCX</span>
-                </button>
+                <Button variant="outline" className="flex-1" onClick={actions.exportDocx} title="Export to Word Document">
+                  <Description data-icon="inline-start" style={{ fontSize: "1.1rem", color: '#2563eb' }} />
+                  Export DOCX
+                </Button>
               )}
             </div>
           )}
@@ -348,7 +315,7 @@ function StepWizard<TValues = any, TStepProps = any>({
               <WtButton inverted onClick={() => saveAfterValidation(actions.onSaveUpdate!)} disabled={actions.isSubmitting || actions.submitDisabled}>
                 {actions.isSubmitting ? "Saving…" : "Save as Update"}
               </WtButton>
-              <WtButton tone="primary" onClick={() => saveAfterValidation(actions.onSaveRevision!)} disabled={actions.isSubmitting || actions.submitDisabled}>
+              <WtButton tone="accent" onClick={() => saveAfterValidation(actions.onSaveRevision!)} disabled={actions.isSubmitting || actions.submitDisabled}>
                 {actions.isSubmitting ? "Saving…" : "Save as Revision"}
               </WtButton>
             </>

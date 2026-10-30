@@ -172,7 +172,7 @@ export default function GiftConfigOptionModal({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <WtButton ghost onClick={onClose}>Cancel</WtButton>
-        <WtButton tone="primary" disabled={!name.trim()} onClick={submit}>
+        <WtButton disabled={!name.trim()} onClick={submit}>
           Save
         </WtButton>
       </DialogActions>

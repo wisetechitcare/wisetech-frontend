@@ -1,5 +1,5 @@
 import { resolveActiveOrg } from '@utils/activeOrg';
-import { IconButton, Box, Typography, Grid, Tooltip } from "@mui/material";
+import { Box, Typography, Grid, Tooltip } from "@mui/material";
 import { Close, Add, Delete } from "@mui/icons-material";
 import React, {
   useCallback,
@@ -103,6 +103,7 @@ import { getAllLeadCancellationReasons } from "@services/lead";
 import { LeadWorkspace } from "@app/pages/employee/forms/lead/LeadWorkspace";
 import { fromLeadStages, toLeadStages, stageTotal } from "@app/pages/employee/leads/configuration/components/paymentPlanStages";
 import { useCompanyHierarchy } from "@/shared/form-engine";
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 interface LeadFormModalProps {
   leadTemplateId: string;
@@ -3092,7 +3093,7 @@ const LeadWizardModal = ({
         >
           {/* Close — absolute so it never consumes the wizard's height.
               The wizard renders its own header (title) and footer (Cancel/Save). */}
-          <IconButton
+          <WtIconButton size="medium"
             onClick={onClose}
             sx={{
               position: "absolute",
@@ -3103,7 +3104,7 @@ const LeadWizardModal = ({
             }}
           >
             <Close />
-          </IconButton>
+          </WtIconButton>
           <Modal.Body
             className="responsive-modal"
             style={{ padding: 0, height: "100%", overflow: "hidden" }}

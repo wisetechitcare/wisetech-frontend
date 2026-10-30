@@ -1,7 +1,8 @@
 ﻿
-import {useEffect, useRef, FC} from 'react'
+import {useEffect, useRef, FC, type CSSProperties} from 'react'
 import ApexCharts, {ApexOptions} from 'apexcharts'
 import {KTIcon} from '../../../helpers'
+import {Button} from '@/ds/ui/button'
 import {getCSSVariableValue} from '../../../assets/ts/_utils'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
 import {useThemeMode} from '../../layout/theme-mode/ThemeModeProvider'
@@ -49,15 +50,18 @@ const MixedWidget2: FC<Props> = ({className, chartColor, chartHeight, strokeColo
         <h3 className='card-title fw-bold text-white'>Sales Statistics</h3>
         <div className='card-toolbar'>
           {/* begin::Menu */}
-          <button
-            type='button'
-            className='btn btn-sm btn-icon btn-color-white btn-active-white btn-active-color- border-0 me-n3'
+          <Button
+            variant='tinted'
+            size='icon-sm'
+            className='me-n3'
+            style={{'--tint': 'white', '--tint-ink': 'white'} as CSSProperties}
+            aria-label='Menu'
             data-kt-menu-trigger='click'
             data-kt-menu-placement='bottom-end'
             data-kt-menu-flip='top-end'
           >
             <KTIcon iconName='category' className='fs-2' />
-          </button>
+          </Button>
           <Dropdown1 />
           {/* end::Menu */}
         </div>

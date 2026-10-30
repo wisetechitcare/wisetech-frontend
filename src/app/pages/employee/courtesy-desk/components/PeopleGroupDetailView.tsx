@@ -1,11 +1,4 @@
-import {
-  Box,
-  Button,
-  IconButton,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Box, Paper, Stack, Typography } from "@mui/material";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
 import { FormSectionHead } from "@app/pages/employee/tasks/components/primitives";
@@ -13,6 +6,7 @@ import { MemberListPanel } from "./PersonPicker";
 import GiftHistoryButton from "./GroupActivityLog";
 import PeopleGroupHeader from "./PeopleGroupHeader";
 import type { PersonRef } from "../types";
+import { WtIconButton, WtButton } from '@app/modules/common/components/ui/buttons';
 
 export default function PeopleGroupDetailView({
   title,
@@ -51,19 +45,19 @@ export default function PeopleGroupDetailView({
         mobileTrailing={
           <Stack direction="row" alignItems="center" spacing={0.25}>
             <GiftHistoryButton kind="group" id={groupId} />
-            <IconButton onClick={onEdit} aria-label="Edit" color="primary">
+            <WtIconButton color="var(--primary)" size="medium" onClick={onEdit} aria-label="Edit">
               <AppIcon name="bi-pencil" className="fs-3" />
-            </IconButton>
+            </WtIconButton>
           </Stack>
         }
         desktopActions={
           <Stack direction="row" spacing={1} alignItems="center">
-            <Button
+            <WtButton variant="text"
               startIcon={<AppIcon name="bi-arrow-left" />}
               onClick={onBack}
             >
               Back
-            </Button>
+            </WtButton>
             <GiftHistoryButton kind="group" id={groupId} />
             <PremiumButton icon="bi-pencil" onClick={onEdit}>
               Edit

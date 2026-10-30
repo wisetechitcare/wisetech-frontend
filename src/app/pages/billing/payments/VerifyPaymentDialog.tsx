@@ -121,8 +121,7 @@ const VerifyPaymentDialog: React.FC<VerifyPaymentDialogProps> = ({
           >
             Reject
           </WtButton>
-          <WtButton
-            tone="primary" size="small" disabled={decide.isPending}
+          <WtButton size="small" disabled={decide.isPending}
             onClick={() => decide.mutate("VERIFIED")}
             sx={{ minHeight: 36, fontSize: 13 }}
           >

@@ -331,8 +331,7 @@ const ProformaDetailPage: React.FC<ProformaDetailPageProps> = ({ documentId, onB
                   InputLabelProps={{ shrink: true }}
                   helperText="The current version becomes Superseded — never edited, never removed."
                 />
-                <WtButton
-                  tone="primary" size="small"
+                <WtButton size="small"
                   disabled={revisionReason.trim().length < 3 || revise.isPending}
                   onClick={() => revise.mutate()}
                   sx={{ minHeight: 34, borderRadius: "10px", fontSize: 12.5 }}

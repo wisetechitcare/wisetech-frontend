@@ -7,6 +7,8 @@ import Loader from '@app/modules/common/utils/Loader';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { ToneChip } from '@app/modules/common/components/ui';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { Button } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 interface AdminFolderListProps {
   admins: AdminFolder[];
@@ -23,7 +25,7 @@ const AdminFolderList: React.FC<AdminFolderListProps> = ({ admins }) => {
       accessorKey: 'name',
       header: 'Admin Name',
       Cell: ({ row }: any) => (
-        <div className="cursor-pointer text-break" onClick={() => navigate(`/company/media/${row.original.id}`)}>
+        <div data-wt-control="row" {...pressableProps(() => navigate(`/company/media/${row.original.id}`))} className="cursor-pointer text-break" onClick={() => navigate(`/company/media/${row.original.id}`)}>
           <div className="d-flex align-items-center">
             <AppIcon name="folder" className="fs-2x fs-sm-2x text-primary me-2 me-sm-3" />
             <div className="fw-bold text-gray-800 text-hover-primary fs-7 fs-sm-6">
@@ -46,13 +48,12 @@ const AdminFolderList: React.FC<AdminFolderListProps> = ({ admins }) => {
       accessorKey: 'actions',
       header: 'Action',
       Cell: ({ row }: any) => (
-        <button
-          className="btn btn-sm btn-light-primary fs-8 fs-sm-7 px-2 px-sm-3"
+        <Button variant="tinted" size="sm" type="submit"
           onClick={() => navigate(`/company/media/${row.original.id}`)}
         >
           <span className="d-none d-sm-inline">Open Folder</span>
           <span className="d-inline d-sm-none">Open</span>
-        </button>
+        </Button>
       ),
     },
   ], [navigate]);

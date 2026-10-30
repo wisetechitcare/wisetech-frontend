@@ -1,6 +1,7 @@
 ﻿
 import {FC} from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+import {buttonVariants} from '@/ds/ui/button'
 
 const Item5: FC = () => {
   return (
@@ -44,7 +45,7 @@ const Item5: FC = () => {
               </div>
 
               <div className='overlay-layer bg-dark bg-opacity-10 rounded'>
-                <a href='#' className='btn btn-sm btn-primary btn-shadow'>
+                <a href='#' data-slot='button' className={buttonVariants({variant: 'default', size: 'sm'})}>
                   Explore
                 </a>
               </div>
@@ -60,7 +61,7 @@ const Item5: FC = () => {
               </div>
 
               <div className='overlay-layer bg-dark bg-opacity-10 rounded'>
-                <a href='#' className='btn btn-sm btn-primary btn-shadow'>
+                <a href='#' data-slot='button' className={buttonVariants({variant: 'default', size: 'sm'})}>
                   Explore
                 </a>
               </div>
@@ -76,7 +77,7 @@ const Item5: FC = () => {
               </div>
 
               <div className='overlay-layer bg-dark bg-opacity-10 rounded'>
-                <a href='#' className='btn btn-sm btn-primary btn-shadow'>
+                <a href='#' data-slot='button' className={buttonVariants({variant: 'default', size: 'sm'})}>
                   Explore
                 </a>
               </div>

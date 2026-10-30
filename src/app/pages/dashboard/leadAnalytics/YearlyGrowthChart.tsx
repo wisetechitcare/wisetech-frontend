@@ -36,6 +36,7 @@ const TogglePill: React.FC<{
 }> = ({ active, color, onClick, children }) => (
   <button
     type="button"
+    aria-pressed={active}
     onClick={onClick}
     style={{
       border: "none",

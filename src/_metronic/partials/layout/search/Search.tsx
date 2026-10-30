@@ -1,6 +1,16 @@
 ﻿import React, {FC, useEffect, useRef, useState} from 'react'
 import {SearchComponent} from '../../../assets/ts/components'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+import {Button, buttonVariants} from '@/ds/ui/button'
+
+// Face of a btn-check radio: the native radio (class `peer`) is the control and carries the
+// semantics; this span is only its kit-styled label, coloured while the radio is checked.
+const radioFace = buttonVariants({
+  variant: 'ghost',
+  size: 'sm',
+  className:
+    'peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--ring)',
+})
 
 const Search: FC = () => {
   const [menuState, setMenuState] = useState<'main' | 'advanced' | 'preferences'>('main')
@@ -97,12 +107,15 @@ const Search: FC = () => {
           </span>
           {/*end::Spinner*/}
           {/*begin::Reset*/}
-          <span
-            className='btn btn-flush btn-active-color-primary position-absolute top-50 end-0 translate-middle-y lh-0 me-4 d-none'
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            className='position-absolute top-50 end-0 translate-middle-y me-4 d-none'
             data-kt-search-element='clear'
+            aria-label='Clear search'
           >
             <KTIcon iconName='cross' className=' fs-2 text-lg-1 me-0' />
-          </span>
+          </Button>
           {/*end::Reset*/}
         </form>
 
@@ -122,33 +135,36 @@ const Search: FC = () => {
               {/*begin::Toolbar*/}
               <div className='d-flex' data-kt-search-element='toolbar'>
                 {/*begin::Preferences toggle*/}
-                <div
+                <Button
+                  variant='ghost'
+                  size='icon-xs'
                   data-kt-search-element='preferences-show'
-                  className='btn btn-icon w-20px btn-sm btn-active-color-primary me-2 data-bs-toggle='
+                  className='me-2'
                   title='Show search preferences'
+                  aria-label='Show search preferences'
                   onClick={() => {
                     setMenuState('preferences')
                   }}
                 >
                   <KTIcon iconName='setting-2' className='fs-1' />
-                </div>
+                </Button>
                 {/*end::Preferences toggle*/}
                 {/*begin::Advanced search toggle*/}
-                <div
+                <Button
+                  variant='ghost'
+                  size='icon-xs'
                   data-kt-search-element='advanced-options-form-show'
-                  className='btn btn-icon w-20px btn-sm btn-active-color-primary me-n1'
+                  className='me-n1'
                   data-bs-toggle='tooltip'
                   title=''
                   data-bs-original-title='Show more search options'
+                  aria-label='Show more search options'
                   onClick={() => {
                     setMenuState('advanced')
                   }}
                 >
-                  <KTIcon
-                    iconName='down'
-                    className='btn btn-icon w-20px btn-sm btn-active-color-primary me-n'
-                  />
-                </div>
+                  <KTIcon iconName='down' className='fs-2' />
+                </Button>
                 {/*end::Advanced search toggle*/}
               </div>
               {/*end::Toolbar*/}
@@ -548,33 +564,33 @@ const Search: FC = () => {
                 <label>
                   <input
                     type='radio'
-                    className='btn-check'
+                    className='btn-check peer'
                     name='type'
                     value='has'
                     defaultChecked
                   />
-                  <span className='btn btn-sm btn-color-muted btn-active btn-active-primary'>
+                  <span data-slot='button' className={radioFace}>
                     All
                   </span>
                 </label>
 
                 <label>
-                  <input type='radio' className='btn-check' name='type' value='users' />
-                  <span className='btn btn-sm btn-color-muted btn-active btn-active-primary px-4'>
+                  <input type='radio' className='btn-check peer' name='type' value='users' />
+                  <span data-slot='button' className={radioFace}>
                     Users
                   </span>
                 </label>
 
                 <label>
-                  <input type='radio' className='btn-check' name='type' value='orders' />
-                  <span className='btn btn-sm btn-color-muted btn-active btn-active-primary px-4'>
+                  <input type='radio' className='btn-check peer' name='type' value='orders' />
+                  <span data-slot='button' className={radioFace}>
                     Orders
                   </span>
                 </label>
 
                 <label>
-                  <input type='radio' className='btn-check' name='type' value='projects' />
-                  <span className='btn btn-sm btn-color-muted btn-active btn-active-primary px-4'>
+                  <input type='radio' className='btn-check peer' name='type' value='projects' />
+                  <span data-slot='button' className={radioFace}>
                     Projects
                   </span>
                 </label>
@@ -604,19 +620,19 @@ const Search: FC = () => {
                 <label>
                   <input
                     type='radio'
-                    className='btn-check'
+                    className='btn-check peer'
                     name='attachment'
                     value='has'
                     defaultChecked
                   />
-                  <span className='btn btn-sm btn-color-muted btn-active btn-active-primary'>
+                  <span data-slot='button' className={radioFace}>
                     Has attachment
                   </span>
                 </label>
 
                 <label>
-                  <input type='radio' className='btn-check' name='attachment' value='any' />
-                  <span className='btn btn-sm btn-color-muted btn-active btn-active-primary px-4'>
+                  <input type='radio' className='btn-check peer' name='attachment' value='any' />
+                  <span data-slot='button' className={radioFace}>
                     Any
                   </span>
                 </label>
@@ -665,19 +681,23 @@ const Search: FC = () => {
             </div>
 
             <div className='d-flex justify-content-end'>
-              <button
+              <Button
+                type='submit'
+                variant='outline'
+                size='sm'
                 onClick={(e) => {
                   e.preventDefault()
                   setMenuState('main')
                 }}
-                className='btn btn-sm btn-light fw-bolder btn-active-light-primary me-2'
+                className='me-2'
               >
                 Cancel
-              </button>
+              </Button>
 
               <a
                 href='/#'
-                className='btn btn-sm fw-bolder btn-primary'
+                data-slot='button'
+                className={buttonVariants({size: 'sm'})}
                 data-kt-search-element='advanced-options-form-search'
               >
                 Search
@@ -733,16 +753,21 @@ const Search: FC = () => {
             </div>
 
             <div className='d-flex justify-content-end pt-7'>
-              <button
+              <Button
+                type='submit'
+                variant='outline'
+                size='sm'
                 onClick={(e) => {
                   e.preventDefault()
                   setMenuState('main')
                 }}
-                className='btn btn-sm btn-light fw-bolder btn-active-light-primary me-2'
+                className='me-2'
               >
                 Cancel
-              </button>
-              <button className='btn btn-sm fw-bolder btn-primary'>Save Changes</button>
+              </Button>
+              <Button type='submit' size='sm'>
+                Save Changes
+              </Button>
             </div>
           </form>
         </div>

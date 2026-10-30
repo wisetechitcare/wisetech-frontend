@@ -15,6 +15,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/ds/ui/button';
 
 // Syncs the selected installment into the skip/custom-payment form. A real
 // component (not code inside Formik's render prop) so the hook obeys the
@@ -294,9 +295,8 @@ function PaymentChangeRequest({ completeLoanData }: { completeLoanData: any[] })
 
                                     <div className="row px-3 mb-0 my-3">
                                         <div className="col-lg-12 text-start mb-5">
-                                            <button
+                                            <Button size="lg"
                                                 type="submit"
-                                                className="btn btn-lg btn-primary"
                                                 disabled={loading}
                                             >
                                                 {loading ? (
@@ -307,7 +307,7 @@ function PaymentChangeRequest({ completeLoanData }: { completeLoanData: any[] })
                                                 ) : (
                                                     isUpdate ? "Update" : "Send Request"
                                                 )}
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
 

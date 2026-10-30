@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { IconButton, Menu, MenuItem, ListItemText, Divider, TextField, Box, Tooltip } from "@mui/material";
+import { Menu, MenuItem, ListItemText, Divider, TextField, Box, Tooltip } from "@mui/material";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { Button } from "@/ds/ui/button";
 import { WtButton } from "@app/modules/common/components/ui";
 import type { SavedFilter } from "./useSavedFilters";
 
@@ -19,12 +20,12 @@ const SavedFiltersMenu = <T,>({
   return (
     <>
       <Tooltip title="Saved filters">
-        <IconButton
-          size="small" onClick={(e) => setAnchorEl(e.currentTarget)}
-          sx={{ border: "1px solid", borderColor: "divider", borderRadius: "10px" }}
+        <Button
+          variant="outline" size="icon-sm" aria-label="Saved filters"
+          onClick={(e) => setAnchorEl(e.currentTarget)}
         >
           <BookmarkIcon sx={{ fontSize: 18 }} />
-        </IconButton>
+        </Button>
       </Tooltip>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
         <Box sx={{ px: 1.5, py: 1 }}>
@@ -49,9 +50,9 @@ const SavedFiltersMenu = <T,>({
               onClick={() => { onApply(s.values); setAnchorEl(null); }}
               sx={{ cursor: "pointer" }}
             />
-            <IconButton size="small" onClick={() => onRemove(s.name)}>
+            <Button variant="ghost" size="icon-xs" aria-label={`Delete ${s.name}`} onClick={() => onRemove(s.name)}>
               <DeleteOutlineIcon sx={{ fontSize: 16 }} />
-            </IconButton>
+            </Button>
           </MenuItem>
         ))}
       </Menu>

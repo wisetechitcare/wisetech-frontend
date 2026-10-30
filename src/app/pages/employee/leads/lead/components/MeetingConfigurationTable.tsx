@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Table, Form, Button } from "react-bootstrap";
+import { Table, Form } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
+import { Button } from '@/ds/ui/button';
 
 interface Props {
   meetings: any[];
@@ -124,11 +125,9 @@ const MeetingConfigurationTable: React.FC<Props> = ({
           <KTIcon iconName="timer" className="text-warning me-2 fs-2" />
           {title || "Meetings & Durations"}
         </h6>
-        <Button
-          variant="light-warning"
-          size="sm"
+        <Button variant="tinted" size="icon-xs" aria-label="Add"
           onClick={handleAddRow}
-          className="btn-icon w-25px h-25px"
+          className="[--tint:var(--warning)]"
         >
           <KTIcon iconName="plus" className="fs-3" />
         </Button>
@@ -190,9 +189,8 @@ const MeetingConfigurationTable: React.FC<Props> = ({
                   />
                 </td>
                 <td className="text-end pe-4">
-                  <Button
-                    variant="icon"
-                    className="btn btn-icon btn-light-danger btn-sm w-25px h-25px"
+                  <Button variant="tinted" size="icon-xs" aria-label="Delete"
+                    className="[--tint:var(--cta-danger)]"
                     onClick={() => handleRemoveRow(idx)}
                   >
                     <KTIcon iconName="trash" className="fs-6" />

@@ -7,6 +7,7 @@ import { ResetModal } from './ResetModal';
 import { initials, displayActor } from './tokens';
 import { fromNow, fullDateTime } from './time';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 /**
  * Version History — the default, business-user experience.
@@ -40,7 +41,7 @@ const CompareDrawer: React.FC<{
   }, [onClose]);
 
   return (
-    <div
+    <div data-wt-control="backdrop"
       onClick={onClose}
       style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.45)', zIndex: 1080, display: 'flex', justifyContent: 'flex-end' }}
     >
@@ -56,9 +57,9 @@ const CompareDrawer: React.FC<{
             <AppIcon name="bi-arrow-left-right" color={C.primary} style={{ marginRight: 8 }} aria-hidden />
             Version {from} vs Current (Version {to})
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" style={{ ...BTN.ghost, padding: 6, fontSize: 16 }}>
+          <Button variant="ghost" size="icon-sm" type="button" onClick={onClose} aria-label="Close">
             <AppIcon name="bi-x-lg" aria-hidden />
-          </button>
+          </Button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
           {diff.isLoading ? (
@@ -153,27 +154,21 @@ const VersionCard: React.FC<{
           {/* Actions */}
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             {!isCurrent && (
-              <button
+              <Button variant="outline" size="sm"
                 type="button"
                 onClick={onCompare}
-                style={{ ...BTN.outline, padding: '5px 12px', fontSize: 12 }}
               >
                 <AppIcon name="bi-arrow-left-right" aria-hidden /> Compare
-              </button>
+              </Button>
             )}
             {canReset && (
-              <button
+              <Button variant="tinted" size="sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                 type="button"
                 onClick={onReset}
                 title="Reset the record to this version"
-                style={{
-                  background: 'transparent', color: C.danger, border: `1px solid ${C.danger}55`,
-                  borderRadius: RADIUS.md, padding: '5px 12px', fontFamily: FONT.body, fontSize: 12, fontWeight: 600,
-                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5,
-                }}
               >
                 <AppIcon name="bi-arrow-counterclockwise" aria-hidden /> Reset To This Version
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -198,7 +193,7 @@ export const VersionHistory: React.FC<Props> = ({ type, id, isAdmin }) => {
     return (
       <div style={{ textAlign: 'center', padding: '40px 0', color: C.textMuted, fontFamily: FONT.body, fontSize: 13 }}>
         Couldn't load version history.
-        <div><button type="button" style={{ ...BTN.outline, marginTop: 14 }} onClick={() => query.refetch()}><AppIcon name="bi-arrow-clockwise" aria-hidden /> Retry</button></div>
+        <div><Button variant="outline" size="sm" style={{ marginTop: 14 }} type="button" onClick={() => query.refetch()}><AppIcon name="bi-arrow-clockwise" aria-hidden /> Retry</Button></div>
       </div>
     );
   }
@@ -253,9 +248,9 @@ export const VersionHistory: React.FC<Props> = ({ type, id, isAdmin }) => {
         <span style={{ fontFamily: FONT.body, fontSize: 11.5, color: C.textMuted }}>
           {versionsWithSystem.length} version{versionsWithSystem.length === 1 ? '' : 's'}
         </span>
-        <button type="button" onClick={() => query.refetch()} disabled={query.isFetching} style={{ ...BTN.ghost, padding: '5px 10px', fontSize: 12 }} title="Refresh">
+        <Button variant="ghost" size="sm" type="button" onClick={() => query.refetch()} disabled={query.isFetching} title="Refresh">
           <i className={`bi bi-arrow-clockwise ${query.isFetching ? 'ci-spin' : ''}`} aria-hidden /> Refresh
-        </button>
+        </Button>
       </div>
 
       {versionsWithSystem.map((v, i) => (
@@ -277,13 +272,13 @@ export const VersionHistory: React.FC<Props> = ({ type, id, isAdmin }) => {
 
       {query.hasNextPage && (
         <div style={{ textAlign: 'center', paddingTop: 4 }}>
-          <button type="button" style={{ ...BTN.secondary }} disabled={query.isFetchingNextPage} onClick={() => query.fetchNextPage()}>
+          <Button variant="secondary" size="sm" type="button" disabled={query.isFetchingNextPage} onClick={() => query.fetchNextPage()}>
             {query.isFetchingNextPage ? (
               <><AppIcon name="bi-arrow-repeat" className="ci-spin" aria-hidden /> Loading…</>
             ) : (
               <><AppIcon name="bi-arrow-down-circle" aria-hidden /> Show older versions</>
             )}
-          </button>
+          </Button>
         </div>
       )}
     </div>
