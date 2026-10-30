@@ -46,7 +46,7 @@ function PickerPopover({ children }: { children: React.ReactNode }) {
       placement="bottom start"
       // 4px below the pill, like popover.tsx: it anchors to the Group, 1px inside the pill's border.
       offset={5}
-      className={cn(popoverSurfaceClassName, "z-50 origin-(--trigger-anchor-point)")}
+      className={cn(popoverSurfaceClassName, "z-[1400] origin-(--trigger-anchor-point)")}
     >
       <Dialog className="outline-none">{children}</Dialog>
     </Popover>

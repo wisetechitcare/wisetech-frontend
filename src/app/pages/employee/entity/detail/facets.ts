@@ -7,8 +7,8 @@ import {
   sumProjectCommercials,
   DASH,
   type CommercialTotals,
-} from './entityViewModel';
-import type { DensityMode } from './density';
+} from "./entityViewModel";
+import type { DensityMode } from "./density";
 
 /**
  * Unified Entity view-model. There is ONE entity: the Lead is the master; the
@@ -54,7 +54,7 @@ export interface AddressVM {
   lat?: any;
   lng?: any;
   /** Whether this address belongs to the lead itself or a project site. */
-  kind?: 'lead' | 'project';
+  kind?: "lead" | "project";
 }
 export interface PointVM {
   heading: string;
@@ -106,24 +106,28 @@ export interface EntityVM {
 }
 
 const uniq = (arr: any[]): string[] => Array.from(new Set(arr.filter(Boolean)));
-const areaText = (v?: string, unit?: string) => (v ? `${v}${unit ? ` ${unit}` : ''}` : undefined);
+const areaText = (v?: string, unit?: string) =>
+  v ? `${v}${unit ? ` ${unit}` : ""}` : undefined;
 
 export const buildEntityVM = (lead: any): EntityVM => {
-  const isProject = !!lead?.status?.isProjectTrigger || !!lead?.project || !!lead?.projectId;
+  const isProject =
+    !!lead?.status?.isProjectTrigger || !!lead?.project || !!lead?.projectId;
   const p = lead?.project || {};
   const ad = lead?.additionalDetails || {};
 
   // ── CLIENT (lead is master; project branches/addresses merged, deduped) ──
-  const companies: ClientCompanyVM[] = (lead?.leadTeams || []).map((t: any) => ({
-    name: t?.company?.companyName || t?.subCompany?.subCompanyName || DASH,
-    type: t?.companyType?.name,
-    subCompany: t?.subCompany?.subCompanyName,
-    contact: t?.contact?.fullName,
-    contactId: t?.contact?.id,
-    phone: t?.contact?.phone || t?.company?.phone,
-    email: t?.contact?.email || t?.company?.email,
-    href: t?.company?.id ? `/companies/${t.company.id}` : undefined,
-  }));
+  const companies: ClientCompanyVM[] = (lead?.leadTeams || []).map(
+    (t: any) => ({
+      name: t?.company?.companyName || t?.subCompany?.subCompanyName || DASH,
+      type: t?.companyType?.name,
+      subCompany: t?.subCompany?.subCompanyName,
+      contact: t?.contact?.fullName,
+      contactId: t?.contact?.id,
+      phone: t?.contact?.phone || t?.company?.phone,
+      email: t?.contact?.email || t?.company?.email,
+      href: t?.company?.id ? `/companies/${t.company.id}` : undefined,
+    }),
+  );
   if (companies.length === 0 && (lead?.company || p?.company)) {
     const c = lead?.company || p?.company;
     companies.push({
@@ -136,7 +140,7 @@ export const buildEntityVM = (lead: any): EntityVM => {
   }
 
   const referrals: ReferralVM[] = (lead?.referrals || []).map((r: any) => ({
-    type: r?.referralType?.name || 'Referral',
+    type: r?.referralType?.name || "Referral",
     by:
       employeeUserName(r?.referredByEmployee) ||
       r?.referredByContact?.fullName ||
@@ -157,7 +161,7 @@ export const buildEntityVM = (lead: any): EntityVM => {
           name: b?.name || DASH,
           phone: b?.phone,
           email: b?.email,
-          address: [b?.address, b?.city, b?.state].filter(Boolean).join(', '),
+          address: [b?.address, b?.city, b?.state].filter(Boolean).join(", "),
           lat: b?.latitude,
           lng: b?.longitude,
         });
@@ -166,30 +170,34 @@ export const buildEntityVM = (lead: any): EntityVM => {
   const addresses: AddressVM[] = [];
   if (ad.city || ad.projectAddress || ad.locality) {
     addresses.push({
-      title: 'Lead Address',
+      title: "Lead Address",
       full: ad.projectAddress,
-      area: [ad.locality, ad.city, ad.state, ad.country].filter(Boolean).join(', '),
+      area: [ad.locality, ad.city, ad.state, ad.country]
+        .filter(Boolean)
+        .join(", "),
       zip: ad.zipCode,
       lat: ad.latitude,
       lng: ad.longitude,
-      kind: 'lead',
+      kind: "lead",
     });
   }
   (p?.addresses || []).forEach((a: any) => {
     addresses.push({
-      title: a?.isPrimary ? 'Project Site (Primary)' : 'Project Site',
+      title: a?.isPrimary ? "Project Site (Primary)" : "Project Site",
       full: a?.fullAddress,
-      area: [a?.locality, a?.city, a?.state, a?.country].filter(Boolean).join(', '),
+      area: [a?.locality, a?.city, a?.state, a?.country]
+        .filter(Boolean)
+        .join(", "),
       zip: a?.zipcode,
       lat: a?.latitude,
       lng: a?.longitude,
-      kind: 'project',
+      kind: "project",
     });
   });
   // dedup identical lead/project addresses
   const seenAddr = new Set<string>();
-  const dedupAddresses = addresses.filter(a => {
-    const k = `${a.full || ''}|${a.area || ''}`;
+  const dedupAddresses = addresses.filter((a) => {
+    const k = `${a.full || ""}|${a.area || ""}`;
     if (seenAddr.has(k)) return false;
     seenAddr.add(k);
     return true;
@@ -208,45 +216,68 @@ export const buildEntityVM = (lead: any): EntityVM => {
   ]);
   const subcategories = uniq([
     ...(lead?.leadSubCategories || []).map((c: any) => c?.subcategory?.name),
-    ...(p?.projectSubCategoryMappings || []).map((c: any) => c?.subcategory?.name),
+    ...(p?.projectSubCategoryMappings || []).map(
+      (c: any) => c?.subcategory?.name,
+    ),
     p?.subCategory?.name,
   ]);
 
   const areaRows: KV[] = [
-    { label: 'Plot Area', value: areaText(ad.plotArea || p.plotArea, ad.plotAreaUnit || p.plotAreaUnit) },
-    { label: 'Built-Up Area', value: areaText(ad.builtUpArea || p.builtUpArea, ad.builtUpAreaUnit || p.builtUpAreaUnit) },
-    { label: 'Building Detail', value: ad.buildingDetail || p.buildingDetail },
-    { label: 'Type', value: ad.type, minLevel: 'detailed' },
-    { label: 'No. of Pages', value: ad.numberOfPages, minLevel: 'detailed' },
+    {
+      label: "Plot Area",
+      value: areaText(
+        ad.plotArea || p.plotArea,
+        ad.plotAreaUnit || p.plotAreaUnit,
+      ),
+    },
+    {
+      label: "Built-Up Area",
+      value: areaText(
+        ad.builtUpArea || p.builtUpArea,
+        ad.builtUpAreaUnit || p.builtUpAreaUnit,
+      ),
+    },
+    { label: "Building Detail", value: ad.buildingDetail || p.buildingDetail },
+    { label: "Project Area", value: ad.projectArea || p.projectArea },
+    { label: "Type", value: ad.type, minLevel: "detailed" },
+    { label: "No. of Pages", value: ad.numberOfPages, minLevel: "detailed" },
   ];
 
   const pointMap = new Map<string, PointVM>();
   [...(lead?.projectPointValues || []), ...(p?.projectPointValues || [])]
     .filter((pt: any) => pt?.heading || pt?.description)
     .forEach((pt: any) => {
-      const key = `${pt.heading || ''}|${pt.description || ''}`;
-      if (!pointMap.has(key)) pointMap.set(key, { heading: pt.heading || 'Point', description: pt.description || DASH });
+      const key = `${pt.heading || ""}|${pt.description || ""}`;
+      if (!pointMap.has(key))
+        pointMap.set(key, {
+          heading: pt.heading || "Point",
+          description: pt.description || DASH,
+        });
     });
 
   // ── COMMERCIALS (lead quote + project contract, both visible, no dup card) ──
-  const leadLines: CommercialLineVM[] = (lead?.commercials || []).map((c: any) => ({
+  const leadLines: CommercialLineVM[] = (lead?.commercials || []).map(
+    (c: any) => ({
+      label: c.label || DASH,
+      area: c.area || DASH,
+      costType: c.costType || "RATE",
+      rate: c.rate,
+      cost: c.cost,
+    }),
+  );
+  const projectLines: CommercialLineVM[] = (
+    p?.projectCommercialMappings || []
+  ).map((c: any) => ({
     label: c.label || DASH,
     area: c.area || DASH,
-    costType: c.costType || 'RATE',
-    rate: c.rate,
-    cost: c.cost,
-  }));
-  const projectLines: CommercialLineVM[] = (p?.projectCommercialMappings || []).map((c: any) => ({
-    label: c.label || DASH,
-    area: c.area || DASH,
-    costType: c.costType || 'RATE',
+    costType: c.costType || "RATE",
     rate: c.rate,
     cost: c.totalCost ?? c.rateCost ?? c.lumpsumCost,
   }));
 
   // ── DOCUMENTS (lead lineage; single home) ──
   const documents: DocVM[] = (lead?.generatedProposals || []).map((d: any) => ({
-    name: d.fileName || 'Proposal',
+    name: d.fileName || "Proposal",
     template: d.template?.templateName,
     revision: d.revisionNumber,
     date: d.createdAt ? fmtDate(d.createdAt) : undefined,
@@ -262,17 +293,37 @@ export const buildEntityVM = (lead: any): EntityVM => {
   };
   const fileLocation = {
     path: lead?.fileLocation || undefined,
-    company: lead?.fileLocationCompanyName || lead?.fileLocationCompany || undefined,
-    companyType: lead?.fileLocationCompanyTypeName || lead?.fileLocationCompanyType || undefined,
+    company:
+      lead?.fileLocationCompanyName || lead?.fileLocationCompany || undefined,
+    companyType:
+      lead?.fileLocationCompanyTypeName ||
+      lead?.fileLocationCompanyType ||
+      undefined,
   };
 
   // ── SYSTEM (pure record metadata only — operational flags live in Execution,
   //    file location lives in Documents, so they are NOT duplicated here) ──
   const systemRows: KV[] = [
-    { label: 'Created By', value: employeeUserName(lead?.createdBy), minLevel: 'detailed' },
-    { label: 'Created', value: fmtDateTime(lead?.createdAt), minLevel: 'detailed' },
-    { label: 'Last Edited By', value: employeeUserName(lead?.updatedBy), minLevel: 'detailed' },
-    { label: 'Last Edited', value: fmtDateTime(lead?.updatedAt), minLevel: 'detailed' },
+    {
+      label: "Created By",
+      value: employeeUserName(lead?.createdBy),
+      minLevel: "detailed",
+    },
+    {
+      label: "Created",
+      value: fmtDateTime(lead?.createdAt),
+      minLevel: "detailed",
+    },
+    {
+      label: "Last Edited By",
+      value: employeeUserName(lead?.updatedBy),
+      minLevel: "detailed",
+    },
+    {
+      label: "Last Edited",
+      value: fmtDateTime(lead?.updatedAt),
+      minLevel: "detailed",
+    },
   ];
 
   // Project edits flow through the lead (Lead-as-master), so the project's own
@@ -280,20 +331,49 @@ export const buildEntityVM = (lead: any): EntityVM => {
   // read from the Lead Record. createdBy is stamped on auto-create, so it stays.
   const projectSystemRows: KV[] | undefined = isProject
     ? [
-        { label: 'Created By', value: employeeUserName(p?.createdBy), minLevel: 'detailed' },
-        { label: 'Created', value: fmtDateTime(p?.createdAt), minLevel: 'detailed' },
-        { label: 'Last Edited By', value: employeeUserName(p?.updatedBy || lead?.updatedBy), minLevel: 'detailed' },
-        { label: 'Last Edited', value: fmtDateTime(p?.updatedAt), minLevel: 'detailed' },
+        {
+          label: "Created By",
+          value: employeeUserName(p?.createdBy),
+          minLevel: "detailed",
+        },
+        {
+          label: "Created",
+          value: fmtDateTime(p?.createdAt),
+          minLevel: "detailed",
+        },
+        {
+          label: "Last Edited By",
+          value: employeeUserName(p?.updatedBy || lead?.updatedBy),
+          minLevel: "detailed",
+        },
+        {
+          label: "Last Edited",
+          value: fmtDateTime(p?.updatedAt),
+          minLevel: "detailed",
+        },
       ]
     : undefined;
 
   return {
     isProject,
-    client: { companies, referrals, branches: Array.from(branchMap.values()), addresses: dedupAddresses },
-    scope: { services, categories, subcategories, areaRows, points: Array.from(pointMap.values()) },
+    client: {
+      companies,
+      referrals,
+      branches: Array.from(branchMap.values()),
+      addresses: dedupAddresses,
+    },
+    scope: {
+      services,
+      categories,
+      subcategories,
+      areaRows,
+      points: Array.from(pointMap.values()),
+    },
     commercials: {
       lead: { lines: leadLines, totals: sumLeadCommercials(lead) },
-      ...(isProject && projectLines.length ? { project: { lines: projectLines, totals: sumProjectCommercials(p) } } : {}),
+      ...(isProject && projectLines.length
+        ? { project: { lines: projectLines, totals: sumProjectCommercials(p) } }
+        : {}),
     },
     documents,
     notes,
@@ -318,16 +398,52 @@ export interface TabDef {
 }
 
 export const ENTITY_TABS: TabDef[] = [
-  { key: 'leads', label: 'Leads', icon: 'bi bi-person-lines-fill' },
-  { key: 'projects', label: 'Projects', icon: 'bi bi-kanban', projectOnly: true },
-  { key: 'commercial', label: 'Commercial', icon: 'bi bi-cash-stack' },
-  { key: 'tasks', label: 'Tasks', icon: 'bi bi-check2-square', projectOnly: true },
-  { key: 'deliverables', label: 'Deliverables', icon: 'bi bi-list-check', projectOnly: true },
-  { key: 'timesheet', label: 'Timesheet', icon: 'bi bi-stopwatch', projectOnly: true },
-  { key: 'reimbursement', label: 'Reimbursement', icon: 'bi bi-wallet2', projectOnly: true },
-  { key: 'documents', label: 'Documents', icon: 'bi bi-file-earmark-text' },
-  { key: 'audit', label: 'Audit', icon: 'bi bi-file-earmark-diff' },
-  { key: 'teams', label: 'Teams', icon: 'bi bi-people', projectOnly: true },
-  { key: 'meetings', label: 'Meetings', icon: 'bi bi-camera-video', projectOnly: true },
-  { key: 'billing', label: 'Billing', icon: 'bi bi-receipt', projectOnly: true },
+  { key: "leads", label: "Leads", icon: "bi bi-person-lines-fill" },
+  {
+    key: "projects",
+    label: "Projects",
+    icon: "bi bi-kanban",
+    projectOnly: true,
+  },
+  { key: "commercial", label: "Commercial", icon: "bi bi-cash-stack" },
+  {
+    key: "tasks",
+    label: "Tasks",
+    icon: "bi bi-check2-square",
+    projectOnly: true,
+  },
+  {
+    key: "deliverables",
+    label: "Deliverables",
+    icon: "bi bi-list-check",
+    projectOnly: true,
+  },
+  {
+    key: "timesheet",
+    label: "Timesheet",
+    icon: "bi bi-stopwatch",
+    projectOnly: true,
+  },
+  {
+    key: "reimbursement",
+    label: "Reimbursement",
+    icon: "bi bi-wallet2",
+    projectOnly: true,
+  },
+  { key: "documents", label: "Documents", icon: "bi bi-file-earmark-text" },
+  { key: "teams", label: "Teams", icon: "bi bi-people", projectOnly: true },
+  {
+    key: "meetings",
+    label: "Meetings",
+    icon: "bi bi-camera-video",
+    projectOnly: true,
+  },
+  {
+    key: "billing",
+    label: "Billing",
+    icon: "bi bi-receipt",
+    projectOnly: true,
+  },
+  { key: "gallery", label: "Gallery", icon: "bi bi-images", projectOnly: true },
+  { key: "audit", label: "Audit", icon: "bi bi-file-earmark-diff" },
 ];

@@ -24,10 +24,10 @@
 /* v2 kit buttons opt out of Bootstrap Reboot. Reboot's unlayered `button { border-radius: 0;
    font-size: inherit; line-height: inherit; ... }` outranks every layered Tailwind utility, so a kit
    Button would render square, at the parent's font size. `revert-layer` hands every property back
-   to the layered styles (Preflight + the button's own utilities). Scoped to data-slot="button", which
-   only kit buttons carry, so no unmigrated button changes (the objection in the note below). A
+   to the layered styles (Preflight + the button's own utilities). Scoped to [data-slot], which
+   only kit elements carry (Button, but also Dialog/Menu triggers and closes that render one), so no unmigrated button changes (the objection in the note below). A
    caller's MUI `sx` still wins: WtButton raises it to (0,2,0) with '&&'. */
-:is(button, a)[data-slot="button"] {
+:is(button, a)[data-slot] {
   all: revert-layer;
 }
 

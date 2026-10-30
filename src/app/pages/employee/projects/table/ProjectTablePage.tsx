@@ -353,6 +353,7 @@ const ProjectTablePage = () => {
             id: lead.id,
             prefix: lead?.prefix || "N/A",
             projectName: lead.title || "N/A",
+            coverImageUrl: lead.coverImageUrl || null,
             totalCost: commercialsTotal || lead.budget || 0,
             client:
               lead?.company?.companyName ||
