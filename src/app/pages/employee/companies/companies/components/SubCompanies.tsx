@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchSubCompaniesByCompanyId, deleteSubCompany } from "@services/company";
 import SubCompanyForm from "./SubCompanryForm";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { isRowAction } from "../../crmListRowSx";
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import { Button } from "@/ds/ui/button";
@@ -334,6 +335,14 @@ const SubCompanies = ({
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        muiTableProps={{
+          muiTableBodyRowProps: ({ row }: any) => ({
+            onClick: (e: React.MouseEvent) => {
+              if (!isRowAction(e)) handleEditSubCompany(row.original.id);
+            },
+            sx: { cursor: "pointer" },
+          }),
+        }}
       />
 
       <SubCompanyForm

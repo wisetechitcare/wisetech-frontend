@@ -21,7 +21,7 @@ import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
-import { crmListRowSx } from "../crmListRowSx";
+import { crmListRowSx, isRowAction } from "../crmListRowSx";
 
 interface ProcessedCompany extends Company {
   companyTypeName: string;
@@ -593,6 +593,10 @@ const ClientCompaniesMain = ({
         muiTableProps={{
 
           muiTableBodyRowProps: ({ row }) => ({
+            // Row click opens the edit form, same as the pencil in the Actions column.
+            onClick: (e: React.MouseEvent) => {
+              if (!isRowAction(e)) handleEditClick(row.original.id);
+            },
             // ACTIVE → soft green; CLOSED (Inactive) → soft slate. Blacklist still wins.
             sx: crmListRowSx(row.original.status === "ACTIVE", {
               blacklisted: !!row.original.blacklisted,
