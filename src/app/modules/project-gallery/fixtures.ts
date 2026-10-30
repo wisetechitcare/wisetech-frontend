@@ -1,5 +1,5 @@
 /** Demo data for the Media Gallery Storybook prototype only — fictional people and files, no tenant data. */
-import type { Albums, MediaItem, MediaKind, UploadSource } from "./media"
+import type { Albums, MediaItem, MediaKind } from "./media"
 
 export const PROJECT = {
   code: "#WT/PROJECT/26-27/789",
@@ -226,14 +226,3 @@ export function demoMedia(): MediaItem[] {
     src: scene(sc, i + 1),
   }))
 }
-
-/** Files the upload dialog can add without real files: one too big, one unsupported, one that fails once. */
-export const demoSamples = (seed: number): UploadSource[] =>
-  [
-    { name: "IMG_20261029_101540.jpg", mb: 4.2, mime: "image/jpeg", sc: "ceiling" as SceneName },
-    { name: "IMG_20261029_103012.jpg", mb: 3.6, mime: "image/jpeg", sc: "hvac" as SceneName, failOnce: true },
-    { name: "VID_20261029_110455.mp4", mb: 86, mime: "video/mp4", sc: "fire" as SceneName },
-    { name: "IMG_20261029_114220.jpg", mb: 5.1, mime: "image/jpeg", sc: "panel" as SceneName },
-    { name: "Panel_DB3_fullres.jpg", mb: 22.4, mime: "image/jpeg" },
-    { name: "BOQ_revision_2.pdf", mb: 1.2, mime: "application/pdf" },
-  ].map(({ sc, ...f }, i) => ({ ...f, src: sc ? scene(sc, seed + i) : null }))

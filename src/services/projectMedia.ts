@@ -1,6 +1,6 @@
 import axios from "axios";
 import { FILE } from "@constants/api-endpoint";
-import type { GalleryView, MediaItem, UploadMeta, UploadSource } from "@app/modules/project-gallery/media";
+import type { GalleryView, MediaItem, UploadMeta } from "@app/modules/project-gallery/media";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || "";
 const base = (leadId: string) => `${API_BASE_URL}/api/projects/${leadId}`;
@@ -18,6 +18,7 @@ export interface ProjectMediaRow {
   zone: string | null;
   discipline: string | null;
   takenAt: string;
+  createdAt: string;
   uploadedByName: string | null;
 }
 
@@ -32,6 +33,7 @@ export const toMediaItem = (r: ProjectMediaRow): MediaItem => ({
   discipline: r.discipline ?? undefined,
   by: r.uploadedByName ?? "—",
   at: r.takenAt,
+  uploadedAt: r.createdAt,
   size: (r.sizeBytes ?? 0) / 1048576,
   src: r.url,
 });
@@ -80,9 +82,7 @@ const putToS3 = (url: string, file: File, contentType: string, onProgress: (pct:
  * Store one file and add it to the gallery. Photos go through the shared pipeline (content check,
  * WebP); videos are PUT directly to S3 and the server verifies the stored object when registering.
  */
-export const uploadProjectMedia = async (leadId: string, source: UploadSource, meta: UploadMeta, onProgress: (pct: number) => void) => {
-  const file = source.file;
-  if (!file) throw new Error("No file to upload.");
+export const uploadProjectMedia = async (leadId: string, file: File, meta: UploadMeta, onProgress: (pct: number) => void) => {
   const isVideo = /\.(mp4|mov)$/i.test(file.name);
   let url: string;
   const sizeBytes = file.size;

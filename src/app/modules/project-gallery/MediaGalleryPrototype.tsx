@@ -20,11 +20,12 @@ import { Badge } from "@/ds/ui/badge"
 import { Button } from "@/ds/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/ds/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ds/ui/table"
-import { Tabs, TabsList, TabsTrigger } from "@/ds/ui/tabs"
+import { Tabs, TabsTrigger } from "@/ds/ui/tabs"
+import { TOGGLE_TAB, ToggleList } from "./GalleryDialogs"
 import { ProjectAvatar } from "./ProjectAvatar"
 import { MediaGalleryScreen, type GalleryLayout } from "./MediaGalleryScreen"
-import { DEFAULT_ALBUMS, NOW, PROJECT, demoMedia, demoSamples, scene } from "./fixtures"
-import { isoLocal, type Albums, type GalleryApi, type GalleryView, type MediaItem } from "./media"
+import { DEFAULT_ALBUMS, NOW, PROJECT, demoMedia, scene } from "./fixtures"
+import { DEMO_SERVICES, isoLocal, type Albums, type GalleryApi, type GalleryView, type MediaItem } from "./media"
 
 const TABS = [
   { id: "leads", label: "Leads", icon: <Users /> },
@@ -35,11 +36,11 @@ const TABS = [
   { id: "timesheet", label: "Timesheet", icon: <Clock /> },
   { id: "reimbursement", label: "Reimbursement", icon: <Receipt /> },
   { id: "documents", label: "Documents", icon: <FileText /> },
-  { id: "gallery", label: "Gallery", icon: <ImageIcon /> },
-  { id: "audit", label: "Audit", icon: <ScrollText /> },
   { id: "teams", label: "Teams", icon: <Users /> },
   { id: "meetings", label: "Meetings", icon: <Video /> },
   { id: "billing", label: "Billing", icon: <Banknote /> },
+  { id: "audit", label: "Audit", icon: <ScrollText /> },
+  { id: "gallery", label: "Gallery", icon: <ImageIcon /> },
 ]
 
 
@@ -86,27 +87,28 @@ export function MediaGalleryPrototype({
           </Badge>
         </div>
 
-        {/* Workspace tabs: only Gallery is built in this prototype */}
+        {/* Workspace tabs: only Gallery is built in this prototype. Mirrors the app's pill tab bar
+            (UnderlineTabs in common/components/ui/patterns.tsx), which needs MUI so can't render here. */}
         <Tabs value="gallery" onValueChange={(v) => v !== "gallery" && toast.info("Only the Gallery tab is part of this prototype.")}>
-          <TabsList variant="line" aria-label="Project workspace" className="w-full justify-start overflow-x-auto">
+          <ToggleList aria-label="Project workspace" className="max-w-full justify-start overflow-x-auto">
             {TABS.map((t) => (
-              <TabsTrigger key={t.id} value={t.id} className="flex-none">
+              <TabsTrigger key={t.id} value={t.id} className={`${TOGGLE_TAB} flex-none`}>
                 {t.icon} {t.label}
               </TabsTrigger>
             ))}
-          </TabsList>
+          </ToggleList>
         </Tabs>
 
         <MediaGalleryScreen
           items={items}
           albums={albums}
+          services={DEMO_SERVICES}
           coverId={coverId}
           project={PROJECT}
           api={api}
           now={NOW}
           initialView={initialView}
           initialLayout={initialLayout}
-          demoSamples={demoSamples}
         />
       </div>
 
@@ -115,14 +117,13 @@ export function MediaGalleryPrototype({
   )
 }
 
-/** Storybook stand-in for the real API: local state, simulated upload progress, one forced failure to show Retry. */
+/** Storybook stand-in for the real API: local state and simulated upload progress. */
 function mockApi(
   setItems: Dispatch<SetStateAction<MediaItem[]>>,
   setCoverId: Dispatch<SetStateAction<string | null>>,
   setAlbums: Dispatch<SetStateAction<Albums>>,
 ): GalleryApi {
   let added = 0
-  const failedOnce = new Set<string>()
   return {
     setCover: async (id) => setCoverId(id),
     remove: async (ids) => {
@@ -131,38 +132,33 @@ function mockApi(
     },
     saveDetails: async (id, patch) => setItems((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m))),
     createAlbum: async (view, name) => setAlbums((prev) => ({ ...prev, [view]: [...prev[view], name] })),
-    upload: (source, meta, onProgress) =>
-      new Promise((resolve, reject) => {
+    upload: (file, meta, onProgress) =>
+      new Promise((resolve) => {
         let pct = 0
-        const speed = source.mime.startsWith("video") ? 4 + Math.random() * 4 : 9 + Math.random() * 12
+        const video = file.type.startsWith("video")
+        const speed = video ? 4 + Math.random() * 4 : 9 + Math.random() * 12
         const timer = setInterval(() => {
           pct = Math.min(100, pct + speed)
           onProgress(pct)
-          if (source.failOnce && !failedOnce.has(source.name) && pct >= 58) {
-            clearInterval(timer)
-            failedOnce.add(source.name)
-            return reject(new Error("Connection dropped at 58%. Your other files weren't affected."))
-          }
           if (pct < 100) return
           clearInterval(timer)
           const id = `up-${Date.now()}-${++added}`
-          const video = source.mime.startsWith("video")
           setItems((prev) => [
             ...prev,
             {
               id,
               view: meta.view,
               kind: video ? "video" : "image",
-              name: source.name,
+              name: file.name,
               caption: "",
               album: meta.album,
               
               discipline: meta.discipline || undefined,
               by: "Mustafa Khan",
               at: isoLocal(new Date(NOW.getTime() + added * 60000)),
-              size: source.mb,
+              size: file.size / 1048576,
               duration: video ? "0:36" : undefined,
-              src: source.src ?? scene(meta.view === "site" ? "ceiling" : "exterior", 950 + added),
+              src: video ? scene(meta.view === "site" ? "ceiling" : "exterior", 950 + added) : URL.createObjectURL(file),
             },
           ])
           resolve()

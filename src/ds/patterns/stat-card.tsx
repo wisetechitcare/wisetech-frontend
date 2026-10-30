@@ -1,7 +1,7 @@
 import * as React from "react"
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { Badge } from "@/ds/ui/badge"
-import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ds/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ds/ui/card"
 import { cn } from "@/ds/lib/utils"
 
 /** Card accent: drives the corner glow, icon tile and sparkline. Trend colour stays semantic (good/bad), never the tone. */
@@ -48,7 +48,10 @@ function Sparkline({ values }: { values: number[] }) {
 
 /**
  * KPI tile on shadcn's Card: label, big tabular number, tinted icon, optional trend, hint and sparkline.
- * Status is never colour-only: the trend carries an arrow and text.
+ * Status is never colour-only: the trend carries an arrow and text. `children` render between the
+ * header and the footer (e.g. a thumbnail and actions).
+ * Motion (all `motion-safe`, transform-only): the icon pops in and the value rises on mount; on hover
+ * the card lifts, its glow brightens, the icon wiggles and a tone bar sweeps along the bottom edge.
  */
 export function StatCard({
   label,
@@ -59,7 +62,9 @@ export function StatCard({
   sparkline,
   tone = "brand",
   className,
-}: {
+  children,
+  ...props
+}: React.ComponentProps<"div"> & {
   label: React.ReactNode
   value: React.ReactNode
   icon?: React.ReactNode
@@ -69,27 +74,39 @@ export function StatCard({
   /** Recent values, oldest first; drawn as a small area chart. */
   sparkline?: number[]
   tone?: StatTone
-  className?: string
 }) {
   const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp
   const hasFooter = trend || hint || (sparkline && sparkline.length > 1)
   return (
-    <Card className={cn("relative gap-4 transition-shadow hover:shadow-md", className)} style={TONES[tone]}>
+    <Card
+      {...props}
+      className={cn(
+        "group/stat relative gap-4 overflow-hidden transition-[box-shadow,translate] duration-300 ease-spring hover:shadow-md motion-safe:hover:-translate-y-0.5",
+        className,
+      )}
+      style={{ ...TONES[tone], ...props.style }}
+    >
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-20 -right-20 size-52 rounded-full bg-(--tone) opacity-[0.13] blur-3xl dark:opacity-[0.2]"
+        className="pointer-events-none absolute -top-20 -right-20 size-52 rounded-full bg-(--tone) opacity-[0.13] blur-3xl transition-[opacity,scale] duration-500 group-hover/stat:scale-125 group-hover/stat:opacity-[0.22] dark:opacity-[0.2] dark:group-hover/stat:opacity-[0.3]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-(--tone) transition-transform duration-500 ease-spring group-hover/stat:scale-x-100"
       />
       <CardHeader className="relative">
         <CardDescription>{label}</CardDescription>
-        <CardTitle className="tabular text-3xl font-semibold">{value}</CardTitle>
+        {/* min-w-0: lets a long text value truncate instead of widening the card. */}
+        <CardTitle className="tabular min-w-0 text-3xl font-semibold motion-safe:animate-stat-rise">{value}</CardTitle>
         {icon && (
           <CardAction>
-            <span className="grid size-11 place-items-center rounded-2xl bg-[color-mix(in_oklch,var(--tone)_14%,transparent)] text-(--tone-ink) ring-1 ring-[color-mix(in_oklch,var(--tone)_22%,transparent)] [&>svg]:size-5">
+            <span className="grid size-11 place-items-center rounded-2xl bg-[color-mix(in_oklch,var(--tone)_14%,transparent)] text-(--tone-ink) ring-1 ring-[color-mix(in_oklch,var(--tone)_22%,transparent)] transition-[scale,box-shadow] duration-300 group-hover/stat:scale-110 group-hover/stat:shadow-[0_8px_18px_-8px_var(--tone)] motion-safe:animate-stat-pop motion-safe:group-hover/stat:*:animate-stat-wiggle [&>svg]:size-5">
               {icon}
             </span>
           </CardAction>
         )}
       </CardHeader>
+      {children && <CardContent className="relative">{children}</CardContent>}
       {hasFooter && (
         <CardFooter className="relative items-end justify-between gap-3 text-xs">
           <div className="flex min-w-0 flex-wrap items-center gap-2">

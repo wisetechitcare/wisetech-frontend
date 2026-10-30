@@ -13,6 +13,7 @@ import {
   updateProjectMedia,
   uploadProjectMedia,
 } from "@services/projectMedia"
+import { getAllProjectServices } from "@services/projects"
 import { MediaGalleryScreen } from "./MediaGalleryScreen"
 import { initialsOf, type Albums, type GalleryApi, type MediaItem } from "./media"
 
@@ -51,6 +52,14 @@ export default function ProjectGalleryTab({
     void load()
   }, [load])
 
+  // The Service picker lists Leads → Configure → Services; without them it still shows services already on media.
+  const [services, setServices] = useState<string[]>([])
+  useEffect(() => {
+    getAllProjectServices()
+      .then((r) => setServices((r?.services ?? []).map((s: { name: string }) => s.name).filter(Boolean)))
+      .catch(() => undefined)
+  }, [])
+
   const changeCover = useCallback(
     (url: string | null) => {
       setCoverUrl(url)
@@ -75,8 +84,8 @@ export default function ProjectGalleryTab({
         await createProjectMediaAlbum(leadId, view, name)
         setAlbums((prev) => ({ ...prev, [view]: [...prev[view], name] }))
       },
-      upload: async (source, meta, onProgress) => {
-        const row = await uploadProjectMedia(leadId, source, meta, onProgress)
+      upload: async (file, meta, onProgress) => {
+        const row = await uploadProjectMedia(leadId, file, meta, onProgress)
         setItems((prev) => [...(prev ?? []), toMediaItem(row)])
       },
     }),
@@ -92,6 +101,7 @@ export default function ProjectGalleryTab({
     <MediaGalleryScreen
       items={items}
       albums={albums}
+      services={services}
       coverId={items.find((m) => m.src === coverUrl)?.id ?? null}
       project={{ name: projectName, initials: initialsOf(projectName) }}
       api={api}

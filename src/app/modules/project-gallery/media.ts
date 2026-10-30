@@ -12,8 +12,11 @@ export interface MediaItem {
   album: string
   /** Site View only */
   zone?: string
+  /** Shown as "Service": a project service name from Leads → Configure (stored as `discipline`). */
   discipline?: string
   by: string
+  /** When it was uploaded (real items only) */
+  uploadedAt?: string
   /** When it was taken (ISO or local "YYYY-MM-DDTHH:mm") */
   at: string
   /** Megabytes */
@@ -35,18 +38,6 @@ export interface UploadMeta {
   discipline: string
 }
 
-/** One file in the upload dialog: a real File, or a demo stand-in in Storybook. */
-export interface UploadSource {
-  name: string
-  mb: number
-  mime: string
-  file?: File
-  /** Preview for the file list (object URL or demo image) */
-  src?: string | null
-  /** Demo only: fail the first attempt to show Retry */
-  failOnce?: boolean
-}
-
 /** Everything the gallery changes goes through here — the API in the app, local state in Storybook. */
 export interface GalleryApi {
   setCover: (id: string | null) => Promise<void>
@@ -54,10 +45,11 @@ export interface GalleryApi {
   saveDetails: (id: string, patch: Partial<Pick<MediaItem, "caption" | "album" | "zone" | "discipline">>) => Promise<void>
   createAlbum: (view: GalleryView, name: string) => Promise<void>
   /** Uploads and registers one file; resolves once it is in the gallery. */
-  upload: (source: UploadSource, meta: UploadMeta, onProgress: (pct: number) => void) => Promise<void>
+  upload: (file: File, meta: UploadMeta, onProgress: (pct: number) => void) => Promise<void>
 }
 
-export const DISCIPLINES = ["MEP", "HVAC", "Electrical", "Plumbing", "Fire Fighting", "Interiors"]
+/** Storybook's stand-in for the project services configured under Leads → Configure → Services. */
+export const DEMO_SERVICES = ["MEP", "HVAC", "Electrical", "Plumbing", "Fire Fighting", "Interiors"]
 /** Images go through the shared upload pipeline, which caps every file at 10 MB (multer + nginx). */
 export const IMAGE_MAX_MB = 10
 /** Videos are PUT straight to S3; the server refuses anything bigger. */

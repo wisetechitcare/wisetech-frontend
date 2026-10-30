@@ -8,10 +8,13 @@ import {
   MoreHorizontal,
   Pencil,
   Play,
+  Share2,
   Star,
   Trash2,
   Video,
 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/ds/ui/badge";
 import { Button } from "@/ds/ui/button";
 import { Card } from "@/ds/ui/card";
@@ -92,13 +95,64 @@ export function MediaTags({ item }: { item: MediaItem }) {
   );
 }
 
-/** Image thumbnail; a stored video shows its first frame (the browser reads just the metadata). */
-export function MediaThumb({ item, className }: { item: Pick<MediaItem, "kind" | "src">; className?: string }) {
+/**
+ * Image thumbnail; a stored video shows its first frame (the browser reads just the metadata).
+ * A video the browser can't decode (e.g. HEVC from a phone) falls back to a video icon.
+ */
+export function MediaThumb({
+  item,
+  className,
+}: {
+  item: Pick<MediaItem, "kind" | "src">;
+  className?: string;
+}) {
+  const [unplayable, setUnplayable] = useState(false);
+  if (isRealVideo(item) && unplayable) {
+    return (
+      <span
+        className={cn(
+          "grid place-items-center bg-muted text-muted-foreground",
+          className,
+        )}
+      >
+        <Video className="size-8" aria-hidden />
+      </span>
+    );
+  }
   return isRealVideo(item) ? (
-    <video src={`${item.src}#t=0.1`} preload="metadata" muted playsInline className={className} />
+    <video
+      src={`${item.src}#t=0.1`}
+      preload="metadata"
+      muted
+      playsInline
+      onError={() => setUnplayable(true)}
+      onLoadedMetadata={(e) =>
+        !e.currentTarget.videoWidth && setUnplayable(true)
+      }
+      className={className}
+    />
   ) : (
     <img src={item.src} alt="" className={className} />
   );
+}
+
+/** Native share sheet where the device has one (phones), else copy the public link. */
+export async function shareMedia(item: MediaItem) {
+  const title = mediaLabel(item);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, url: item.src });
+    } catch {
+      /* user closed the share sheet */
+    }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(item.src);
+    toast.success("Link copied", { description: title });
+  } catch {
+    toast.error("Couldn't copy the link");
+  }
 }
 
 export function CoverBadge({
@@ -150,6 +204,9 @@ function MediaActionsMenu({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => actions.download(item.id)}>
           <Download /> Download
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => shareMedia(item)}>
+          <Share2 /> Share
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => actions.edit(item.id)}>
           <Pencil /> Edit caption &amp; details
@@ -235,7 +292,8 @@ export function MediaCard({
               <Play className="ml-0.5 size-5 fill-current" aria-hidden />
             </span>
             <span className="tabular pointer-events-none absolute right-2.5 bottom-2.5 inline-flex items-center gap-1 rounded-md bg-black/75 px-2 py-0.5 text-xs font-semibold text-white">
-              <Video className="size-3.5" aria-hidden /> {item.duration ?? "Video"}
+              <Video className="size-3.5" aria-hidden />{" "}
+              {item.duration ?? "Video"}
             </span>
           </>
         )}
@@ -260,7 +318,12 @@ export function MediaCard({
           ) : (
             <ImageIcon className="size-3.5 shrink-0" aria-label="Photo" />
           )}
-          <span className="truncate">{item.name}</span>
+          {/* Without a caption the title already is the file name, so show type and size instead. */}
+          <span className="truncate">
+            {item.caption
+              ? item.name
+              : `${item.kind === "video" ? "Video" : "Photo"} · ${formatSize(item.size)}`}
+          </span>
         </p>
         <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           <CalendarDays className="size-3.5 shrink-0" aria-hidden />
@@ -328,7 +391,7 @@ export function MediaTable({
             <TableHead className="w-24">Preview</TableHead>
             <TableHead>Caption / file</TableHead>
             <TableHead>Type</TableHead>
-            <TableHead>{site ? "Discipline · Zone" : "Album"}</TableHead>
+            <TableHead>{site ? "Service · Zone" : "Album"}</TableHead>
             {site && <TableHead>Album</TableHead>}
             <TableHead>Uploaded by</TableHead>
             <TableHead>Date &amp; time</TableHead>

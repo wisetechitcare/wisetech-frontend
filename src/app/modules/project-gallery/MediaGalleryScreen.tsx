@@ -27,7 +27,7 @@ import {
   InputGroupInput,
 } from "@/ds/ui/input-group";
 import { Item, ItemActions, ItemContent, ItemTitle } from "@/ds/ui/item";
-import { Tabs, TabsList, TabsTrigger } from "@/ds/ui/tabs";
+import { Tabs, TabsTrigger } from "@/ds/ui/tabs";
 import { EmptyState } from "@/ds/patterns/empty-state";
 import { StatCard } from "@/ds/patterns/stat-card";
 import { apiErrorMessage } from "@utils/apiError";
@@ -39,16 +39,16 @@ import {
   type MediaRenderState,
 } from "./MediaCard";
 import { MediaViewer } from "./MediaViewer";
-import { UploadMediaDialog, type UploadResult } from "./UploadMediaDialog";
+import { UploadPanel, type UploadResult } from "./UploadPanel";
 import {
   ConfirmDeleteDialog,
   CoverPickerDialog,
   CreateAlbumDialog,
-  EditDetailsDialog,
   GallerySelect,
+  ToggleList,
+  TOGGLE_TAB,
 } from "./GalleryDialogs";
 import {
-  DISCIPLINES,
   dayKey,
   formatDay,
   mediaLabel,
@@ -58,17 +58,19 @@ import {
   type GalleryView,
   type MediaItem,
   type ProjectInfo,
-  type UploadSource,
 } from "./media";
 
 export type GalleryLayout = "grid" | "list";
 type TypeFilter = "all" | "image" | "video";
 const ALL = "all";
+// Toolbar toggles: the shared pill look, compact so they sit level with search and sort.
+const BAR_TAB = cn(TOGGLE_TAB, "px-3 py-1");
 
 /** The Gallery tab of the project workspace: Project View / Site View, filters, upload, preview and one shared project cover. */
 export function MediaGalleryScreen({
   items,
   albums,
+  services: configuredServices,
   coverId,
   project,
   api,
@@ -76,21 +78,21 @@ export function MediaGalleryScreen({
   now: nowProp,
   initialView = "project",
   initialLayout = "grid",
-  demoSamples,
 }: {
   items: MediaItem[];
   albums: Albums;
+  /** Project service names (Leads → Configure → Services) a Site View item can be tagged with. */
+  services: string[];
   coverId: string | null;
   project: ProjectInfo;
   /** Every change goes through here; the screen only shows the result. */
   api: GalleryApi;
   /** Without Projects write access the upload/album/cover controls are hidden (the API refuses them anyway). */
   canEdit?: boolean;
-  /** Reference "now" for date filters and Today/Yesterday (fixed in Storybook). */
+  /** Reference "now" for Today/Yesterday headings (fixed in Storybook). */
   now?: Date;
   initialView?: GalleryView;
   initialLayout?: GalleryLayout;
-  demoSamples?: (seed: number) => UploadSource[];
 }) {
   const [now] = useState(() => nowProp ?? new Date());
   const [view, setView] = useState<GalleryView>(initialView);
@@ -108,8 +110,8 @@ export function MediaGalleryScreen({
   const [viewer, setViewer] = useState<{
     list: MediaItem[];
     index: number;
+    editing: boolean;
   } | null>(null);
-  const [editId, setEditId] = useState<string | null>(null);
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
   const [albumDialog, setAlbumDialog] = useState(false);
   const [picker, setPicker] = useState(false);
@@ -129,6 +131,17 @@ export function MediaGalleryScreen({
         ...new Set(items.map((m) => m.zone).filter((z): z is string => !!z)),
       ].sort(),
     [items],
+  );
+  // Configured services plus any already on media (a renamed/removed service still filters and edits).
+  const services = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...configuredServices,
+          ...items.map((m) => m.discipline).filter((d): d is string => !!d),
+        ]),
+      ],
+    [configuredServices, items],
   );
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -227,11 +240,11 @@ export function MediaGalleryScreen({
       return n;
     });
 
-  const openViewer = (id: string) => {
+  const openViewer = (id: string, editing = false) => {
     const source = list.some((m) => m.id === id)
       ? list
       : items.filter((m) => m.id === id);
-    setViewer({ list: source, index: source.findIndex((m) => m.id === id) });
+    setViewer({ list: source, index: source.findIndex((m) => m.id === id), editing });
   };
 
   const download = (id: string) => {
@@ -242,9 +255,10 @@ export function MediaGalleryScreen({
   };
 
   const actions: MediaActions = {
-    preview: openViewer,
+    preview: (id) => openViewer(id),
     download,
-    edit: setEditId,
+    // Editing happens in the preview's side panel, not a separate modal.
+    edit: (id) => openViewer(id, true),
     setCover: (id) => void setCover(id),
     remove: setDeleteIds,
     toggleSelect,
@@ -260,7 +274,7 @@ export function MediaGalleryScreen({
       const rest = viewer.list.filter((m) => !ids.includes(m.id));
       setViewer(
         rest.length
-          ? { list: rest, index: Math.min(viewer.index, rest.length - 1) }
+          ? { ...viewer, list: rest, index: Math.min(viewer.index, rest.length - 1) }
           : null,
       );
     }
@@ -295,6 +309,10 @@ export function MediaGalleryScreen({
 
   const renderState: MediaRenderState = { coverId, selected, poppedId, newIds };
   const photos = items.filter((m) => m.kind === "image").length;
+  const splitByView = (kind: MediaItem["kind"]) => {
+    const of = (v: GalleryView) => items.filter((m) => m.kind === kind && m.view === v).length;
+    return `${of("project")} in Project View · ${of("site")} in Site View`;
+  };
   const viewerItems =
     viewer?.list.map((m) => items.find((x) => x.id === m.id) ?? m) ?? [];
 
@@ -326,6 +344,10 @@ export function MediaGalleryScreen({
         )}
       </div>
 
+      {upload && (
+        <UploadPanel initialView={view} initialAlbum={upload.album} albums={albums} services={services} api={api} onClose={onUploaded} />
+      )}
+
       {/* Cover + summary */}
       <div className="grid gap-4 border-b px-5 py-4 md:grid-cols-2 xl:grid-cols-[minmax(320px,1.2fr)_1fr_1fr]">
         <CoverCard
@@ -336,33 +358,47 @@ export function MediaGalleryScreen({
           onChange={() => setPicker(true)}
           onRemove={() => void removeCover()}
         />
-        <StatCard label="Photos" value={photos} tone="info" icon={<ImageIcon aria-hidden />} />
-        <StatCard label="Videos" value={items.length - photos} tone="warning" icon={<Video aria-hidden />} />
+        <StatCard
+          label="Photos"
+          value={photos}
+          tone="info"
+          icon={<ImageIcon aria-hidden />}
+          hint={splitByView("image")}
+        />
+        {/* brand, not warning: the cover card beside it is the amber one (matching its badge). */}
+        <StatCard
+          label="Videos"
+          value={items.length - photos}
+          tone="brand"
+          icon={<Video aria-hidden />}
+          hint={splitByView("video")}
+        />
       </div>
 
-      {/* View toggle + site */}
+      {/* View toggle and that view's albums share one row; albums wrap below on narrow screens and
+          scroll sideways when there are many. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 pt-4">
-        <Tabs value={view} onValueChange={(v) => switchView(v as GalleryView)}>
-          <TabsList aria-label="Gallery view" className="h-10">
-            <TabsTrigger value="project" className="px-4">
+        <Tabs value={view} onValueChange={(v) => switchView(v as GalleryView)} className="shrink-0">
+          <ToggleList aria-label="Gallery view">
+            <TabsTrigger value="project" className={TOGGLE_TAB}>
               <Building2 /> Project View
               <Badge variant="neutral" className="tabular">
                 {items.filter((m) => m.view === "project").length}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="site" className="px-4">
+            <TabsTrigger value="site" className={TOGGLE_TAB}>
               <HardHat /> Site View
               <Badge variant="neutral" className="tabular">
                 {items.filter((m) => m.view === "site").length}
               </Badge>
             </TabsTrigger>
-          </TabsList>
+          </ToggleList>
         </Tabs>
-      </div>
+        <span className="hidden h-8 w-px shrink-0 bg-border md:block" aria-hidden />
 
-      {/* Albums */}
       <div
-        className="flex gap-2 overflow-x-auto px-5 pt-3 pb-1"
+        // p-0.5: room for the selected chip's ring, which the sideways scroll would clip.
+        className="flex min-w-64 flex-1 gap-2 overflow-x-auto p-0.5"
         role="group"
         aria-label="Albums"
       >
@@ -384,6 +420,7 @@ export function MediaGalleryScreen({
             count={inView.filter((m) => m.album === a).length}
           />
         ))}
+      </div>
       </div>
 
       {/* Toolbar or bulk bar */}
@@ -431,11 +468,11 @@ export function MediaGalleryScreen({
               />
             </InputGroup>
             <Tabs value={type} onValueChange={(v) => setType(v as TypeFilter)}>
-              <TabsList aria-label="Media type">
-                <TabsTrigger value="all">All media</TabsTrigger>
-                <TabsTrigger value="image">Photos</TabsTrigger>
-                <TabsTrigger value="video">Videos</TabsTrigger>
-              </TabsList>
+              <ToggleList aria-label="Media type" className="p-0.5">
+                <TabsTrigger value="all" className={BAR_TAB}>All media</TabsTrigger>
+                <TabsTrigger value="image" className={BAR_TAB}>Photos</TabsTrigger>
+                <TabsTrigger value="video" className={BAR_TAB}>Videos</TabsTrigger>
+              </ToggleList>
             </Tabs>
             {view === "site" && (
               <>
@@ -452,15 +489,15 @@ export function MediaGalleryScreen({
                   ]}
                 />
                 <GallerySelect
-                  label="Discipline"
+                  label="Service"
                   hideLabel
                   size="sm"
                   className="w-40"
                   value={discipline}
                   onChange={setDiscipline}
                   options={[
-                    { value: ALL, label: "All disciplines" },
-                    ...DISCIPLINES.map((d) => ({ value: d, label: d })),
+                    { value: ALL, label: "All services" },
+                    ...services.map((d) => ({ value: d, label: d })),
                   ]}
                 />
               </>
@@ -482,14 +519,14 @@ export function MediaGalleryScreen({
                 value={layout}
                 onValueChange={(v) => setLayout(v as GalleryLayout)}
               >
-                <TabsList aria-label="Layout">
-                  <TabsTrigger value="grid">
+                <ToggleList aria-label="Layout" className="p-0.5">
+                  <TabsTrigger value="grid" className={BAR_TAB}>
                     <LayoutGrid /> Grid
                   </TabsTrigger>
-                  <TabsTrigger value="list">
+                  <TabsTrigger value="list" className={BAR_TAB}>
                     <List /> List
                   </TabsTrigger>
-                </TabsList>
+                </ToggleList>
               </Tabs>
             </div>
           </div>
@@ -610,27 +647,20 @@ export function MediaGalleryScreen({
         coverId={coverId}
         coverLabel={cover ? mediaLabel(cover) : null}
         actions={actions}
-        onIndexChange={(i) => setViewer((v) => (v ? { ...v, index: i } : v))}
-        onClose={() => setViewer(null)}
-      />
-      <EditDetailsDialog
-        item={items.find((m) => m.id === editId) ?? null}
-        albums={albums}
-        zones={zones}
-        onClose={() => setEditId(null)}
-        onSave={async (patch) => {
-          const id = editId;
-          if (!id) return;
-          if (
-            await attempt(
-              () => api.saveDetails(id, patch),
-              "Couldn't save the details",
-            )
-          ) {
-            setEditId(null);
-            toast.success("Details saved");
-          }
+        edit={{
+          editing: !!viewer?.editing,
+          albums,
+          zones,
+          services,
+          onSave: async (id, patch) => {
+            const ok = await attempt(() => api.saveDetails(id, patch), "Couldn't save the details");
+            if (ok) toast.success("Details saved");
+            return ok;
+          },
+          onEditingChange: (editing) => setViewer((v) => (v ? { ...v, editing } : v)),
         }}
+        onIndexChange={(i) => setViewer((v) => (v ? { ...v, index: i, editing: false } : v))}
+        onClose={() => setViewer(null)}
       />
       <ConfirmDeleteDialog
         items={items.filter((m) => deleteIds.includes(m.id))}
@@ -668,16 +698,6 @@ export function MediaGalleryScreen({
           void setCover(id);
         }}
       />
-      <UploadMediaDialog
-        open={!!upload}
-        initialView={view}
-        initialAlbum={upload?.album}
-        albums={albums}
-        projectName={project.name}
-        api={api}
-        demoSamples={demoSamples}
-        onClose={onUploaded}
-      />
     </Card>
   );
 }
@@ -706,58 +726,63 @@ function CoverCard({
   onChange: () => void;
   onRemove: () => void;
 }) {
+  // A StatCard like Photos / Videos beside it: same shell, glow and animated icon; the cover's
+  // thumbnail, source and actions sit in its body.
   return (
-    <Card
-      size="sm"
-      className="flex-row items-center gap-4 bg-muted/40 px-3 py-3"
+    <StatCard
       aria-label="Project cover"
-    >
-      {cover ? (
-        <Button
-          variant="ghost"
-          className="h-18 w-26 shrink-0 overflow-hidden rounded-xl p-0"
-          onClick={() => onPreview(cover.id)}
-          aria-label={`Preview cover: ${mediaLabel(cover)}`}
-        >
-          <img src={cover.src} alt="" className="size-full object-cover" />
-        </Button>
-      ) : (
-        <span className="grid h-18 w-26 shrink-0 place-items-center rounded-xl bg-accent text-xl font-semibold text-accent-foreground">
-          {initials}
-        </span>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-warning-foreground uppercase">
-          <Star className="size-3 fill-current" aria-hidden />{" "}
-          {cover ? "Project cover" : "No project cover"}
-        </p>
-        <p className="truncate font-semibold" data-testid="cover-title">
+      tone="warning"
+      label={cover ? "Project cover" : "No project cover"}
+      value={
+        <span className="block truncate text-xl" data-testid="cover-title">
           {cover ? mediaLabel(cover) : "Initials are shown across WISETECH"}
-        </p>
-        <p className="truncate text-xs text-muted-foreground">
-          {cover
-            ? `From ${mediaSource(cover)}`
-            : "Pick any uploaded image as the cover."}
-        </p>
-        <div
-          className={cn("mt-2 flex flex-wrap gap-1.5", !canEdit && "hidden")}
-        >
+        </span>
+      }
+      icon={<Star className="fill-current" aria-hidden />}
+    >
+      <div className="flex items-center gap-3">
+        {cover ? (
           <Button
-            size="xs"
-            variant={cover ? "outline" : "default"}
-            onClick={onChange}
+            variant="ghost"
+            className="h-16 w-24 shrink-0 overflow-hidden rounded-xl p-0 ring-1 ring-border"
+            onClick={() => onPreview(cover.id)}
+            aria-label={`Preview cover: ${mediaLabel(cover)}`}
           >
-            <ImageIcon data-icon="inline-start" />{" "}
-            {cover ? "Change Cover" : "Choose Cover"}
+            <img
+              src={cover.src}
+              alt=""
+              className="size-full object-cover transition-transform duration-500 group-hover/stat:scale-110"
+            />
           </Button>
-          {cover && (
-            <Button size="xs" variant="ghost" onClick={onRemove}>
-              Remove
+        ) : (
+          <span className="grid h-16 w-24 shrink-0 place-items-center rounded-xl bg-accent text-xl font-semibold text-accent-foreground">
+            {initials}
+          </span>
+        )}
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="truncate text-xs text-muted-foreground">
+            {cover
+              ? `From ${mediaSource(cover)}`
+              : "Pick any uploaded image as the cover."}
+          </p>
+          <div className={cn("flex flex-wrap gap-1.5", !canEdit && "hidden")}>
+            <Button
+              size="xs"
+              variant={cover ? "outline" : "default"}
+              onClick={onChange}
+            >
+              <ImageIcon data-icon="inline-start" />{" "}
+              {cover ? "Change Cover" : "Choose Cover"}
             </Button>
-          )}
+            {cover && (
+              <Button size="xs" variant="destructive" onClick={onRemove}>
+                Remove
+              </Button>
+            )}
+          </div>
         </div>
       </div>
-    </Card>
+    </StatCard>
   );
 }
 

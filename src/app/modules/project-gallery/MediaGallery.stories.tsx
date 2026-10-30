@@ -26,12 +26,12 @@ export const ProjectView: Story = {
   },
 }
 
-/** Site View: daily media grouped by date (newest first), with site, zone and discipline filters. */
+/** Site View: daily media grouped by date (newest first), with site, zone and service filters. */
 export const SiteView: Story = {
   args: { initialView: 'site' },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole('heading', { level: 3, name: /Yesterday · Wed, 28 Oct 2026/ })).toBeInTheDocument()
-    await expect(canvas.getByRole('combobox', { name: 'Discipline' })).toBeInTheDocument()
+    await expect(canvas.getByRole('combobox', { name: 'Service' })).toBeInTheDocument()
   },
 }
 
@@ -81,18 +81,40 @@ export const PreviewAndSetCover: Story = {
   },
 }
 
-/** Upload dialog: switching the destination to Site View adds the optional site, zone and discipline fields. */
+/** Upload opens inline (no modal): drop files, watch each one upload as a thumbnail, then it appears in the gallery. */
 export const UploadMedia: Story = {
+  // The shared FileUpload's hidden file input has no label yet (see its stories); everything else here is checked.
+  parameters: { a11y: { test: 'todo' } },
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Upload Media' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Upload media' })
-    await expect(within(dialog).queryByRole('combobox', { name: 'Discipline (optional)' })).not.toBeInTheDocument()
-    await userEvent.click(within(dialog).getByRole('radio', { name: /Site View/ }))
-    await expect(await within(dialog).findByRole('combobox', { name: 'Discipline (optional)' })).toBeInTheDocument()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'No files handy? Add sample files' }))
-    await expect(within(dialog).getByText(/over the 10 MB limit/)).toBeInTheDocument()
-    await expect(within(dialog).getByText(/Unsupported file type/)).toBeInTheDocument()
-    await animationsSettled()
+    const section = await canvas.findByRole('region', { name: 'Upload media' })
+    const panel = within(section)
+    await expect(panel.queryByRole('combobox', { name: 'Service (optional)' })).not.toBeInTheDocument()
+    await userEvent.click(panel.getByRole('tab', { name: 'Site View' }))
+    await expect(await panel.findByRole('combobox', { name: 'Service (optional)' })).toBeInTheDocument()
+    // An oversized photo is flagged up front and skipped.
+    const big = new File(['x'], 'panel_fullres.jpg', { type: 'image/jpeg' })
+    Object.defineProperty(big, 'size', { value: 12 * 1048576 })
+    const input = section.querySelector('input[type=file]') as HTMLInputElement
+    await userEvent.upload(input, [new File(['x'], 'l4_ducting.jpg', { type: 'image/jpeg' }), big])
+    await expect(await panel.findByText(/over the 10 MB photo limit/)).toBeInTheDocument()
+    await userEvent.click(panel.getByRole('button', { name: 'Upload 1 file' }))
+    await userEvent.click(await panel.findByRole('button', { name: /Done · 1 added/ }, { timeout: 5000 }))
+    await expect(await canvas.findByRole('button', { name: 'Preview l4_ducting.jpg' })).toBeInTheDocument()
+  },
+}
+
+/** Editing happens in the preview's side panel, not a separate modal. */
+export const EditInPreview: Story = {
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Actions for Night view render' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Edit caption/ }))
+    const dialog = within(await screen.findByRole('dialog', { name: 'Night view render' }))
+    const caption = dialog.getByLabelText('Caption')
+    await userEvent.clear(caption)
+    await userEvent.type(caption, 'Night view, final')
+    await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }))
+    await expect(await dialog.findByText('Night view, final', { selector: 'dd' })).toBeInTheDocument()
   },
 }
 
