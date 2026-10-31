@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { AlertCircle, Building2, Check, HardHat, RefreshCw, Upload, Video, X } from "lucide-react"
+import { useEffect, useState } from "react"
+import { AlertCircle, Check, Images, RefreshCw, Upload, Video, X } from "lucide-react"
 import { Button } from "@/ds/ui/button"
 import { Progress } from "@/ds/ui/progress"
 import { Tabs, TabsTrigger } from "@/ds/ui/tabs"
@@ -7,7 +7,7 @@ import { cn } from "@/ds/lib/utils"
 import FileUpload from "@app/modules/common/components/FileUpload"
 import { apiErrorMessage } from "@utils/apiError"
 import { GallerySelect, NONE, TOGGLE_TAB, ToggleList, optionsWithNone } from "./GalleryDialogs"
-import { IMAGE_MAX_MB, VIDEO_MAX_MB, formatSize, type Albums, type GalleryApi, type GalleryView } from "./media"
+import { IMAGE_MAX_MB, VIDEO_MAX_MB, formatSize, viewLabel, type Albums, type GalleryApi, type GalleryView } from "./media"
 
 export interface UploadResult {
   dest: GalleryView
@@ -41,6 +41,7 @@ export function UploadPanel({
   initialView,
   initialAlbum,
   albums,
+  views,
   services,
   api,
   onClose,
@@ -48,12 +49,13 @@ export function UploadPanel({
   initialView: GalleryView
   initialAlbum?: string
   albums: Albums
+  views: GalleryView[]
   services: string[]
   api: Pick<GalleryApi, "upload">
   onClose: (result: UploadResult) => void
 }) {
   const [dest, setDest] = useState<GalleryView>(initialView)
-  const [album, setAlbum] = useState(initialAlbum && albums[initialView].includes(initialAlbum) ? initialAlbum : NONE)
+  const [album, setAlbum] = useState(initialAlbum && albums[initialView]?.includes(initialAlbum) ? initialAlbum : NONE)
   const [discipline, setDiscipline] = useState(NONE)
   const [picked, setPicked] = useState<File[]>([])
   const [jobs, setJobs] = useState<Job[] | null>(null)
@@ -68,7 +70,7 @@ export function UploadPanel({
 
   const run = (file: File, i: number) => {
     patch(i, { status: "uploading", pct: 0, error: undefined })
-    const meta = { view: dest, album: clean(album), discipline: dest === "site" ? clean(discipline) : "" }
+    const meta = { view: dest, album: clean(album), discipline: clean(discipline) }
     api
       .upload(file, meta, (pct) => patch(i, { pct: Math.min(99, Math.round(pct)) }))
       .then(() => patch(i, { status: "done", pct: 100 }))
@@ -81,6 +83,13 @@ export function UploadPanel({
   }
 
   const close = () => onClose({ dest, album: clean(album), count: done })
+
+  // Everything uploaded: close by itself. Any failure keeps the panel open for Retry.
+  const allDone = !!jobs?.length && done === jobs.length
+  useEffect(() => {
+    if (allDone) close()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once, when the last upload lands
+  }, [allDone])
 
   return (
     <section aria-label="Upload media" className="space-y-4 border-b bg-muted/30 px-5 py-5">
@@ -100,21 +109,25 @@ export function UploadPanel({
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1.5">
           <p className="text-sm font-medium">Upload to</p>
-          <Tabs value={dest} onValueChange={(v) => !jobs && setDest(v as GalleryView)}>
+          <Tabs
+            value={dest}
+            onValueChange={(v) => {
+              if (jobs) return
+              setDest(v as GalleryView)
+              setAlbum(NONE) // albums belong to one view
+            }}
+          >
             <ToggleList aria-label="Upload to">
-              <TabsTrigger value="project" disabled={!!jobs} className={TOGGLE_TAB}>
-                <Building2 /> Project View
-              </TabsTrigger>
-              <TabsTrigger value="site" disabled={!!jobs} className={TOGGLE_TAB}>
-                <HardHat /> Site View
-              </TabsTrigger>
+              {views.map((v) => (
+                <TabsTrigger key={v} value={v} disabled={!!jobs} className={TOGGLE_TAB}>
+                  <Images /> {viewLabel(v)}
+                </TabsTrigger>
+              ))}
             </ToggleList>
           </Tabs>
         </div>
-        <GallerySelect className="w-56" label="Album (optional)" value={album} onChange={setAlbum} options={optionsWithNone("No album", albums[dest])} disabled={!!jobs} />
-        {dest === "site" && (
-          <GallerySelect className="w-56" label="Service (optional)" value={discipline} onChange={setDiscipline} options={optionsWithNone("Not set", services)} disabled={!!jobs} />
-        )}
+        <GallerySelect className="w-56" label="Album (optional)" value={album} onChange={setAlbum} options={optionsWithNone("No album", albums[dest] ?? [])} disabled={!!jobs} />
+        <GallerySelect className="w-56" label="Service (optional)" value={discipline} onChange={setDiscipline} options={optionsWithNone("Not set", services)} disabled={!!jobs} />
       </div>
 
       {!jobs ? (

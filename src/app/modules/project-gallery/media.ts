@@ -1,7 +1,12 @@
 /** Project Gallery: shared types, limits and formatting (used by the real tab and the Storybook prototype). */
-export type GalleryView = "project" | "site"
+/** "project" | "site" (built in) or the name of a view added under Projects → Configure → Gallery Views. */
+export type GalleryView = string
 export type MediaKind = "image" | "video"
+/** Album names per view; a view without albums may be missing. */
 export type Albums = Record<GalleryView, string[]>
+
+export const BUILTIN_VIEWS: GalleryView[] = ["project", "site"]
+export const viewLabel = (v: GalleryView) => (v === "project" ? "Project View" : v === "site" ? "Site View" : v)
 
 export interface MediaItem {
   id: string
@@ -82,8 +87,10 @@ export function formatDay(day: string, now: Date) {
 
 export const formatSize = (mb: number) => (mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(mb * 1024))} KB`)
 export const mediaLabel = (m: MediaItem) => m.caption || m.name
-export const mediaSource = (m: MediaItem) =>
-  m.view === "project" ? `Project View${m.album ? ` · ${m.album}` : ""}` : `Site View${m.zone ? ` · ${m.zone}` : ""}`
+export const mediaSource = (m: MediaItem) => {
+  const detail = m.view === "site" ? m.zone : m.album
+  return `${viewLabel(m.view)}${detail ? ` · ${detail}` : ""}`
+}
 /** A stored video file (Storybook's demo videos are still images). */
 export const isRealVideo = (m: Pick<MediaItem, "kind" | "src">) => m.kind === "video" && !m.src.startsWith("data:")
 

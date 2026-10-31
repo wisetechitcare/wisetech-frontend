@@ -17,8 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/ds/ui/tabs";
 import { cn } from "@/ds/lib/utils";
 import { CoverBadge } from "./MediaCard";
-import { mediaLabel, type GalleryView, type MediaItem } from "./media";
-
+import { mediaLabel, viewLabel, type GalleryView, type MediaItem } from "./media";
 /**
  * Every toggle in the gallery (Project/Site View, Upload to, media type, Grid/List): the same pill bar
  * as the project page's tabs (UnderlineTabs) — outlined capsule track, active tab a filled brand pill.
@@ -212,7 +211,7 @@ export function CreateAlbumDialog({
         <DialogHeader>
           <DialogTitle>Create album</DialogTitle>
           <DialogDescription>
-            New album in {view === "project" ? "Project View" : "Site View"}.
+            New album in {viewLabel(view)}.
             Add media to it when uploading or from Edit details.
           </DialogDescription>
         </DialogHeader>
@@ -226,9 +225,9 @@ export function CreateAlbumDialog({
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder={
-              view === "project"
-                ? "e.g. Client presentation"
-                : "e.g. Level 4 progress"
+              view === "site"
+                ? "e.g. Level 4 progress"
+                : "e.g. Client presentation"
             }
           />
           {error && <FieldError>{error}</FieldError>}
@@ -284,23 +283,25 @@ function CoverPicker({
   const shown = images.filter((m) => tab === "all" || m.view === tab);
   const count = (v: "all" | GalleryView) =>
     images.filter((m) => v === "all" || m.view === v).length;
+  // Built-in views always; configured ones only once they hold a photo.
+  const views = [...new Set(["project", "site", ...images.map((m) => m.view)])];
   return (
     <>
       <DialogHeader>
         <DialogTitle>Choose project cover</DialogTitle>
         <DialogDescription>
-          Pick any uploaded photo from Project View or Site View. Videos
-          can&apos;t be covers.
+          Pick any uploaded photo from any view. Videos can&apos;t be covers.
         </DialogDescription>
       </DialogHeader>
       <div className="flex min-h-0 flex-col gap-4">
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList aria-label="Photos from">
             <TabsTrigger value="all">All photos ({count("all")})</TabsTrigger>
-            <TabsTrigger value="project">
-              Project View ({count("project")})
-            </TabsTrigger>
-            <TabsTrigger value="site">Site View ({count("site")})</TabsTrigger>
+            {views.map((v) => (
+              <TabsTrigger key={v} value={v}>
+                {viewLabel(v)} ({count(v)})
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
         <div
@@ -326,7 +327,7 @@ function CoverPicker({
                 className="aspect-4/3 w-full object-cover"
               />
               <span className="absolute top-1.5 left-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                {m.view === "project" ? "Project" : "Site"}
+                {viewLabel(m.view).replace(/ View$/, "")}
               </span>
               {m.id === coverId && (
                 <span className="absolute top-1.5 right-1.5">
