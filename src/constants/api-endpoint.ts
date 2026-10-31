@@ -113,6 +113,8 @@ export const USERS = {
     UPDATE_USER: "api/users/:userId",
     FETCH_USER_BY_ID: "api/users/:userId",
     GET_ALL_USERS: "api/users",
+    // Names of colleagues whose birthday is today — Calendar read, not People access.
+    GET_TODAY_BIRTHDAYS: "api/users/birthdays/today",
     SAVE_USER_TABLE_PREFERENCES: '/api/users/table-preferences',
     GET_USER_TABLE_PREFERENCES: '/api/users/table-preferences/:employeeId/:tableName',
     SAVE_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',

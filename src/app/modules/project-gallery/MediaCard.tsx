@@ -76,7 +76,7 @@ export function MediaTags({ item }: { item: MediaItem }) {
   if (!item.discipline && !item.zone && !item.album) return null;
   return (
     <div className="flex flex-wrap gap-1">
-      {item.view === "site" && item.discipline && (
+      {item.discipline && (
         <Badge variant={DISCIPLINE_VARIANT[item.discipline] ?? "neutral"}>
           {item.discipline}
         </Badge>
@@ -391,8 +391,8 @@ export function MediaTable({
             <TableHead className="w-24">Preview</TableHead>
             <TableHead>Caption / file</TableHead>
             <TableHead>Type</TableHead>
-            <TableHead>{site ? "Service · Zone" : "Album"}</TableHead>
-            {site && <TableHead>Album</TableHead>}
+            <TableHead>{site ? "Service · Zone" : "Service"}</TableHead>
+            <TableHead>Album</TableHead>
             <TableHead>Uploaded by</TableHead>
             <TableHead>Date &amp; time</TableHead>
             <TableHead className="w-10">
@@ -454,19 +454,17 @@ export function MediaTable({
                   {m.kind === "video" ? "Video" : "Photo"}
                 </TableCell>
                 <TableCell>
-                  {site ? (
+                  {m.discipline || m.zone ? (
                     <MediaTags item={{ ...m, album: "" }} />
                   ) : (
-                    m.album || <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                {site && (
-                  <TableCell>
-                    {m.album || (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                )}
+                <TableCell>
+                  {m.album || (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-muted-foreground">{m.by}</TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">
                   {formatDateTime(m.at)}

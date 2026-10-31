@@ -32,8 +32,9 @@
 }
 
 /* socicon (style.react.scss) prints any [data-icon] attribute as an icon-font glyph; the kit uses
-   data-icon="inline-start|inline-end" to mark icon slots, which must not render as text. */
-[data-slot] [data-icon]::before {
+   data-icon="inline-start|inline-end" to mark icon slots, which must not render as text — also on
+   plain links styled with buttonVariants, which carry no data-slot. */
+:is([data-slot] [data-icon], [data-icon="inline-start"], [data-icon="inline-end"])::before {
   content: none;
 }
 

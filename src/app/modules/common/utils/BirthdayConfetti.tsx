@@ -1,27 +1,27 @@
 import React, { useEffect, useState } from "react";
 import { celebrate } from "@/ds/effects/celebrate";
-import { fetchAllUsers } from "@services/users";
-import dayjs from "dayjs";
+import { fetchTodayBirthdays } from "@services/users";
+import { canSection } from "@utils/can";
+import { useSelector } from "react-redux";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
 
 const BirthdayCelebration = () => {
   const [birthdayUsers, setBirthdayUsers] = useState<any[]>([]);
+  // Re-evaluated when access loads: the header can mount before it, and a one-shot check
+  // made then would read "no access" and never celebrate.
+  const canSeeBirthdays = useSelector(() => canSection("calendar", "read"));
 
   useEffect(() => {
     const getAllUsers = async () => {
+      // Birthdays belong to the Calendar: Read on it is enough to see the celebration. It used
+      // to load the whole user list, which needs People access — so ordinary employees, the
+      // birthday person included, got a silent 403 and no confetti.
+      if (!canSeeBirthdays) return;
       try {
-        const allUsers = await fetchAllUsers();
-        const usersList = allUsers?.data?.users || [];
-        const today = dayjs();
-
-        const todayBirthdayUsers = usersList.filter((user: any) => {
-          // Both flags, not just the first: `isActive` is the LOGIN ACCOUNT, which an
-          // exit does not touch. Someone who has left keeps an active account, so the
-          // account flag alone kept firing confetti for people who no longer work here.
-          if (!user.isActive || !user.hasActiveEmployee) return false;
-          const dob = dayjs(user.dateOfBirth);
-          return dob.date() === today.date() && dob.month() === today.month();
-        });
+        // The server already picks today's birthdays (same India clock as the greeting email)
+        // and only current employees, so there is nothing left to filter here.
+        const res = await fetchTodayBirthdays();
+        const todayBirthdayUsers = res?.data?.users || [];
 
         setBirthdayUsers(todayBirthdayUsers);
 
@@ -49,7 +49,7 @@ const BirthdayCelebration = () => {
     };
 
     getAllUsers();
-  }, []);
+  }, [canSeeBirthdays]);
 
   const MAX_INLINE = 1;
   const inlineNames = birthdayUsers.slice(0, MAX_INLINE).map((u) => `${u.firstName} ${u.lastName}`);

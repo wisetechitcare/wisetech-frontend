@@ -8,7 +8,7 @@ import { Separator } from "@/ds/ui/separator"
 import { cn } from "@/ds/lib/utils"
 import { GallerySelect, NONE, ZoneField, optionsWithNone } from "./GalleryDialogs"
 import { MediaTags, shareMedia, type MediaActions } from "./MediaCard"
-import { formatDateTime, formatSize, isRealVideo, mediaLabel, type Albums, type GalleryApi, type MediaItem } from "./media"
+import { formatDateTime, formatSize, isRealVideo, mediaLabel, viewLabel, type Albums, type GalleryApi, type MediaItem } from "./media"
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`
 
@@ -209,7 +209,7 @@ function ViewerBody({
       <aside className="flex min-h-0 flex-col overflow-y-auto bg-popover">
         <div className="space-y-2 border-b p-5">
           <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-            {item.kind === "video" ? "Video" : "Photo"} · {item.view === "project" ? "Project View" : "Site View"}
+            {item.kind === "video" ? "Video" : "Photo"} · {viewLabel(item.view)}
           </p>
           <DialogTitle className="text-left text-base">{label}</DialogTitle>
           <DialogDescription className="sr-only">Preview and details for {item.name}</DialogDescription>
@@ -245,12 +245,8 @@ function ViewerBody({
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
               <Row k="Caption" v={item.caption || <span className="font-normal text-muted-foreground">No caption</span>} />
               <Row k="Album" v={item.album || "—"} />
-              {item.view === "site" && (
-                <>
-                  <Row k="Zone" v={item.zone || "—"} />
-                  <Row k="Service" v={item.discipline || "—"} />
-                </>
-              )}
+              {item.view === "site" && <Row k="Zone" v={item.zone || "—"} />}
+              <Row k="Service" v={item.discipline || "—"} />
               <Row k="Taken" v={formatDateTime(item.at)} />
               <Row k="Uploaded" v={item.uploadedAt ? formatDateTime(item.uploadedAt) : "—"} />
               <Row k="Uploaded by" v={item.by} />
@@ -294,7 +290,7 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
   )
 }
 
-/** Inline edit form in the side panel: caption, album, and for Site View zone and service. */
+/** Inline edit form in the side panel: caption, album, service, and for Site View the zone. */
 function EditDetails({ item, edit: { albums, zones, services, onSave, onEditingChange } }: { item: MediaItem; edit: ViewerEdit }) {
   const onCancel = () => onEditingChange(false)
   const [caption, setCaption] = useState(item.caption)
@@ -307,7 +303,7 @@ function EditDetails({ item, edit: { albums, zones, services, onSave, onEditingC
 
   const save = async () => {
     setSaving(true)
-    const ok = await onSave(item.id, { caption: caption.trim(), album: clean(album), ...(site ? { zone: zone.trim(), discipline: clean(discipline) } : {}) })
+    const ok = await onSave(item.id, { caption: caption.trim(), album: clean(album), discipline: clean(discipline), ...(site ? { zone: zone.trim() } : {}) })
     setSaving(false)
     if (ok) onCancel()
   }
@@ -319,9 +315,9 @@ function EditDetails({ item, edit: { albums, zones, services, onSave, onEditingC
         <FieldLabel htmlFor="edit-caption">Caption</FieldLabel>
         <Input id="edit-caption" autoFocus maxLength={255} value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="e.g. L3 corridor ducting complete" />
       </Field>
-      <GallerySelect label="Album" value={album} onChange={setAlbum} options={optionsWithNone("No album", albums[item.view])} />
+      <GallerySelect label="Album" value={album} onChange={setAlbum} options={optionsWithNone("No album", albums[item.view] ?? [])} />
       {site && <ZoneField id="edit-zone" value={zone} onChange={setZone} zones={zones} />}
-      {site && <GallerySelect label="Service" value={discipline} onChange={setDiscipline} options={optionsWithNone("Not set", services)} />}
+      <GallerySelect label="Service" value={discipline} onChange={setDiscipline} options={optionsWithNone("Not set", services)} />
       <div className="mt-auto flex gap-3 pt-2 *:flex-1">
         <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel

@@ -22,8 +22,11 @@ const YEARS: WtSelectOption[] = Array.from({ length: THIS_YEAR - 1900 + 1 }, (_,
  * DropdownInput does). Writes the form's `YYYY-MM-DD` string; an unknown year is the
  * placeholder year from `@utils/birthday`, so greetings (day + month) keep working and every
  * screen shows such a birthday without a year.
+ *
+ * `label` names the date ("Birth" → "Birth day / month / year"); the anniversary uses the
+ * same control with "Anniversary".
  */
-export default function BirthdayField({ name }: { name: string }) {
+export default function BirthdayField({ name, label = "Birth" }: { name: string; label?: string }) {
   const [field, , helpers] = useField<string>(name);
   const initial = fromBirthdayValue(field.value);
   const [day, setDay] = useState<number | null>(initial.day);
@@ -80,36 +83,36 @@ export default function BirthdayField({ name }: { name: string }) {
           },
         }}
       >
-        <FloatingLabelFrame label="Birth day" filled={!!day}>
+        <FloatingLabelFrame label={`${label} day`} filled={!!day}>
           <WtSelect
             options={days}
             value={pick(days, day)}
             isClearable
             isSearchable
             placeholder="Day"
-            ariaLabel="Birth day"
+            ariaLabel={`${label} day`}
             onChange={(o) => write(num(o), month, year)}
           />
         </FloatingLabelFrame>
-        <FloatingLabelFrame label="Birth month" filled={!!month}>
+        <FloatingLabelFrame label={`${label} month`} filled={!!month}>
           <WtSelect
             options={MONTHS}
             value={pick(MONTHS, month)}
             isClearable
             isSearchable
             placeholder="Month"
-            ariaLabel="Birth month"
+            ariaLabel={`${label} month`}
             onChange={(o) => write(day, num(o), year)}
           />
         </FloatingLabelFrame>
-        <FloatingLabelFrame label="Birth year" filled={!!year}>
+        <FloatingLabelFrame label={`${label} year`} filled={!!year}>
           <WtSelect
             options={YEARS}
             value={pick(YEARS, year)}
             isClearable
             isSearchable
             placeholder="Year"
-            ariaLabel="Birth year (optional)"
+            ariaLabel={`${label} year (optional)`}
             onChange={(o) => write(day, month, num(o))}
           />
         </FloatingLabelFrame>

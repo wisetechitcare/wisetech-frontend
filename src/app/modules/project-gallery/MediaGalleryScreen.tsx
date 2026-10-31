@@ -1,13 +1,13 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
-  Building2,
   ChevronRight,
   Download,
   Folder,
   FolderPlus,
   HardHat,
   Image as ImageIcon,
+  Images,
   LayoutGrid,
   List,
   Search,
@@ -49,7 +49,9 @@ import {
   TOGGLE_TAB,
 } from "./GalleryDialogs";
 import {
+  BUILTIN_VIEWS,
   dayKey,
+  viewLabel,
   formatDay,
   mediaLabel,
   mediaSource,
@@ -66,10 +68,11 @@ const ALL = "all";
 // Toolbar toggles: the shared pill look, compact so they sit level with search and sort.
 const BAR_TAB = cn(TOGGLE_TAB, "px-3 py-1");
 
-/** The Gallery tab of the project workspace: Project View / Site View, filters, upload, preview and one shared project cover. */
+/** The Gallery tab of the project workspace: Project View / Site View (+ configured views), filters, upload, preview and one shared project cover. */
 export function MediaGalleryScreen({
   items,
   albums,
+  views = BUILTIN_VIEWS,
   services: configuredServices,
   coverId,
   project,
@@ -81,7 +84,9 @@ export function MediaGalleryScreen({
 }: {
   items: MediaItem[];
   albums: Albums;
-  /** Project service names (Leads → Configure → Services) a Site View item can be tagged with. */
+  /** Tabs in order: the built-in views, then those added under Projects → Configure → Gallery Views. */
+  views?: GalleryView[];
+  /** Project service names (Leads → Configure → Services) any item can be tagged with. */
   services: string[];
   coverId: string | null;
   project: ProjectInfo;
@@ -152,9 +157,8 @@ export function MediaGalleryScreen({
           (!needle ||
             `${m.name} ${m.caption}`.toLowerCase().includes(needle)) &&
           (album === ALL || m.album === album) &&
-          (view === "project" ||
-            ((zone === ALL || m.zone === zone) &&
-              (discipline === ALL || m.discipline === discipline))),
+          (discipline === ALL || m.discipline === discipline) &&
+          (view !== "site" || zone === ALL || m.zone === zone),
       )
       .sort((a, b) => {
         const d = new Date(b.at).getTime() - new Date(a.at).getTime();
@@ -296,7 +300,7 @@ export function MediaGalleryScreen({
     setSort("new");
     setSelected(new Set());
     toast.success(
-      `${r.count} item${r.count > 1 ? "s" : ""} added to ${r.dest === "project" ? "Project" : "Site"} View`,
+      `${r.count} item${r.count > 1 ? "s" : ""} added to ${viewLabel(r.dest)}`,
       {
         description:
           "Marked NEW in the gallery. Open any photo to set it as the project cover.",
@@ -309,10 +313,6 @@ export function MediaGalleryScreen({
 
   const renderState: MediaRenderState = { coverId, selected, poppedId, newIds };
   const photos = items.filter((m) => m.kind === "image").length;
-  const splitByView = (kind: MediaItem["kind"]) => {
-    const of = (v: GalleryView) => items.filter((m) => m.kind === kind && m.view === v).length;
-    return `${of("project")} in Project View · ${of("site")} in Site View`;
-  };
   const viewerItems =
     viewer?.list.map((m) => items.find((x) => x.id === m.id) ?? m) ?? [];
 
@@ -345,7 +345,7 @@ export function MediaGalleryScreen({
       </div>
 
       {upload && (
-        <UploadPanel initialView={view} initialAlbum={upload.album} albums={albums} services={services} api={api} onClose={onUploaded} />
+        <UploadPanel initialView={view} initialAlbum={upload.album} albums={albums} views={views} services={services} api={api} onClose={onUploaded} />
       )}
 
       {/* Cover + summary */}
@@ -363,7 +363,6 @@ export function MediaGalleryScreen({
           value={photos}
           tone="info"
           icon={<ImageIcon aria-hidden />}
-          hint={splitByView("image")}
         />
         {/* brand, not warning: the cover card beside it is the amber one (matching its badge). */}
         <StatCard
@@ -371,7 +370,6 @@ export function MediaGalleryScreen({
           value={items.length - photos}
           tone="brand"
           icon={<Video aria-hidden />}
-          hint={splitByView("video")}
         />
       </div>
 
@@ -380,18 +378,14 @@ export function MediaGalleryScreen({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 pt-4">
         <Tabs value={view} onValueChange={(v) => switchView(v as GalleryView)} className="shrink-0">
           <ToggleList aria-label="Gallery view">
-            <TabsTrigger value="project" className={TOGGLE_TAB}>
-              <Building2 /> Project View
-              <Badge variant="neutral" className="tabular">
-                {items.filter((m) => m.view === "project").length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="site" className={TOGGLE_TAB}>
-              <HardHat /> Site View
-              <Badge variant="neutral" className="tabular">
-                {items.filter((m) => m.view === "site").length}
-              </Badge>
-            </TabsTrigger>
+            {views.map((v) => (
+              <TabsTrigger key={v} value={v} className={TOGGLE_TAB}>
+                <Images /> {viewLabel(v)}
+                <Badge variant="neutral" className="tabular">
+                  {items.filter((m) => m.view === v).length}
+                </Badge>
+              </TabsTrigger>
+            ))}
           </ToggleList>
         </Tabs>
         <span className="hidden h-8 w-px shrink-0 bg-border md:block" aria-hidden />
@@ -409,7 +403,7 @@ export function MediaGalleryScreen({
           label="All media"
           count={inView.length}
         />
-        {albums[view].map((a) => (
+        {(albums[view] ?? []).map((a) => (
           <AlbumChip
             key={a}
             active={album === a}
@@ -475,33 +469,31 @@ export function MediaGalleryScreen({
               </ToggleList>
             </Tabs>
             {view === "site" && (
-              <>
-                <GallerySelect
-                  label="Zone"
-                  hideLabel
-                  size="sm"
-                  className="w-36"
-                  value={zone}
-                  onChange={setZone}
-                  options={[
-                    { value: ALL, label: "All zones" },
-                    ...zones.map((z) => ({ value: z, label: z })),
-                  ]}
-                />
-                <GallerySelect
-                  label="Service"
-                  hideLabel
-                  size="sm"
-                  className="w-40"
-                  value={discipline}
-                  onChange={setDiscipline}
-                  options={[
-                    { value: ALL, label: "All services" },
-                    ...services.map((d) => ({ value: d, label: d })),
-                  ]}
-                />
-              </>
+              <GallerySelect
+                label="Zone"
+                hideLabel
+                size="sm"
+                className="w-36"
+                value={zone}
+                onChange={setZone}
+                options={[
+                  { value: ALL, label: "All zones" },
+                  ...zones.map((z) => ({ value: z, label: z })),
+                ]}
+              />
             )}
+            <GallerySelect
+              label="Service"
+              hideLabel
+              size="sm"
+              className="w-40"
+              value={discipline}
+              onChange={setDiscipline}
+              options={[
+                { value: ALL, label: "All services" },
+                ...services.map((d) => ({ value: d, label: d })),
+              ]}
+            />
             <div className="ml-auto flex items-center gap-2">
               <GallerySelect
                 label="Sort"
@@ -541,12 +533,12 @@ export function MediaGalleryScreen({
             title={
               view === "site"
                 ? "No site media for this site yet"
-                : "No project media yet"
+                : `Nothing in ${viewLabel(view)} yet`
             }
             description={
               view === "site"
                 ? "Daily site photos and videos will appear here, grouped by the day they were taken."
-                : "Upload renders, building photos and handover images. Any image can become the project cover."
+                : "Upload photos and videos into this view. Any image can become the project cover."
             }
             action={
               <Button onClick={() => openUpload()}>
@@ -585,7 +577,7 @@ export function MediaGalleryScreen({
               }
             />
           )
-        ) : view === "project" ? (
+        ) : view !== "site" ? (
           layout === "grid" ? (
             <MediaGrid items={list} state={renderState} actions={actions} />
           ) : (
@@ -671,7 +663,7 @@ export function MediaGalleryScreen({
       <CreateAlbumDialog
         open={albumDialog}
         view={view}
-        existing={albums[view]}
+        existing={albums[view] ?? []}
         onClose={() => setAlbumDialog(false)}
         onCreate={async (name) => {
           if (
