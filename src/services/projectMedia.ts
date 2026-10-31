@@ -40,7 +40,20 @@ export const toMediaItem = (r: ProjectMediaRow): MediaItem => ({
 
 export const getProjectMedia = async (leadId: string) => {
   const { data } = await axios.get(`${base(leadId)}/media`);
-  return data as { media: ProjectMediaRow[]; albums: Array<{ view: GalleryView; name: string }>; coverImageUrl: string | null };
+  return data as { media: ProjectMediaRow[]; albums: Array<{ view: GalleryView; name: string }>; views: GalleryView[]; coverImageUrl: string | null };
+};
+
+/* Gallery views beside Project View / Site View, shared by every project (Projects → Configure). */
+export interface MediaViewRow {
+  id: string;
+  name: string;
+}
+const viewsUrl = `${API_BASE_URL}/api/projects/media-views`;
+export const getProjectMediaViews = async () => (await axios.get(viewsUrl)).data.views as MediaViewRow[];
+export const createProjectMediaView = async (name: string) => (await axios.post(viewsUrl, { name })).data.view as MediaViewRow;
+export const renameProjectMediaView = async (id: string, name: string) => (await axios.patch(`${viewsUrl}/${id}`, { name })).data.view as MediaViewRow;
+export const deleteProjectMediaView = async (id: string) => {
+  await axios.delete(`${viewsUrl}/${id}`);
 };
 
 export const setProjectCover = async (leadId: string, mediaId: string | null) => {

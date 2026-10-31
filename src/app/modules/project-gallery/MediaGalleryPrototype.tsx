@@ -131,7 +131,7 @@ function mockApi(
       setCoverId((c) => (c && ids.includes(c) ? null : c))
     },
     saveDetails: async (id, patch) => setItems((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m))),
-    createAlbum: async (view, name) => setAlbums((prev) => ({ ...prev, [view]: [...prev[view], name] })),
+    createAlbum: async (view, name) => setAlbums((prev) => ({ ...prev, [view]: [...(prev[view] ?? []), name] })),
     upload: (file, meta, onProgress) =>
       new Promise((resolve) => {
         let pct = 0

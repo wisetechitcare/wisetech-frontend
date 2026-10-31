@@ -15,7 +15,7 @@ import {
 } from "@services/projectMedia"
 import { getAllProjectServices } from "@services/projects"
 import { MediaGalleryScreen } from "./MediaGalleryScreen"
-import { initialsOf, type Albums, type GalleryApi, type MediaItem } from "./media"
+import { BUILTIN_VIEWS, initialsOf, type Albums, type GalleryApi, type GalleryView, type MediaItem } from "./media"
 
 /** The project detail page's Gallery tab: the Media Gallery screen wired to the API. */
 export default function ProjectGalleryTab({
@@ -29,7 +29,8 @@ export default function ProjectGalleryTab({
   onCoverChange: (url: string | null) => void
 }) {
   const [items, setItems] = useState<MediaItem[] | null>(null)
-  const [albums, setAlbums] = useState<Albums>({ project: [], site: [] })
+  const [albums, setAlbums] = useState<Albums>({})
+  const [views, setViews] = useState<GalleryView[]>(BUILTIN_VIEWS)
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -38,10 +39,10 @@ export default function ProjectGalleryTab({
     try {
       const data = await getProjectMedia(leadId)
       setItems(data.media.map(toMediaItem))
-      setAlbums({
-        project: data.albums.filter((a) => a.view === "project").map((a) => a.name),
-        site: data.albums.filter((a) => a.view === "site").map((a) => a.name),
-      })
+      const byView: Albums = {}
+      for (const a of data.albums) (byView[a.view] ??= []).push(a.name)
+      setAlbums(byView)
+      setViews(data.views)
       setCoverUrl(data.coverImageUrl)
     } catch (err) {
       setError(apiErrorMessage(err, "Couldn't load the gallery."))
@@ -82,7 +83,7 @@ export default function ProjectGalleryTab({
       },
       createAlbum: async (view, name) => {
         await createProjectMediaAlbum(leadId, view, name)
-        setAlbums((prev) => ({ ...prev, [view]: [...prev[view], name] }))
+        setAlbums((prev) => ({ ...prev, [view]: [...(prev[view] ?? []), name] }))
       },
       upload: async (file, meta, onProgress) => {
         const row = await uploadProjectMedia(leadId, file, meta, onProgress)
@@ -101,6 +102,7 @@ export default function ProjectGalleryTab({
     <MediaGalleryScreen
       items={items}
       albums={albums}
+      views={views}
       services={services}
       coverId={items.find((m) => m.src === coverUrl)?.id ?? null}
       project={{ name: projectName, initials: initialsOf(projectName) }}

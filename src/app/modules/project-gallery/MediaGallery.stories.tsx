@@ -89,9 +89,8 @@ export const UploadMedia: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Upload Media' }))
     const section = await canvas.findByRole('region', { name: 'Upload media' })
     const panel = within(section)
-    await expect(panel.queryByRole('combobox', { name: 'Service (optional)' })).not.toBeInTheDocument()
+    await expect(panel.getByRole('combobox', { name: 'Service (optional)' })).toBeInTheDocument()
     await userEvent.click(panel.getByRole('tab', { name: 'Site View' }))
-    await expect(await panel.findByRole('combobox', { name: 'Service (optional)' })).toBeInTheDocument()
     // An oversized photo is flagged up front and skipped.
     const big = new File(['x'], 'panel_fullres.jpg', { type: 'image/jpeg' })
     Object.defineProperty(big, 'size', { value: 12 * 1048576 })
@@ -99,8 +98,9 @@ export const UploadMedia: Story = {
     await userEvent.upload(input, [new File(['x'], 'l4_ducting.jpg', { type: 'image/jpeg' }), big])
     await expect(await panel.findByText(/over the 10 MB photo limit/)).toBeInTheDocument()
     await userEvent.click(panel.getByRole('button', { name: 'Upload 1 file' }))
-    await userEvent.click(await panel.findByRole('button', { name: /Done · 1 added/ }, { timeout: 5000 }))
-    await expect(await canvas.findByRole('button', { name: 'Preview l4_ducting.jpg' })).toBeInTheDocument()
+    // All uploads succeeded, so the panel closes by itself.
+    await expect(await canvas.findByRole('button', { name: 'Preview l4_ducting.jpg' }, { timeout: 5000 })).toBeInTheDocument()
+    await expect(canvas.queryByRole('region', { name: 'Upload media' })).not.toBeInTheDocument()
   },
 }
 
@@ -143,6 +143,6 @@ export const NoCover: Story = {
 export const EmptyGallery: Story = {
   args: { empty: true },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('No project media yet')).toBeInTheDocument()
+    await expect(canvas.getByText('Nothing in Project View yet')).toBeInTheDocument()
   },
 }

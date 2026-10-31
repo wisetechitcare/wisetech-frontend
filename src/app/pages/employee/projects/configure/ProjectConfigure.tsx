@@ -19,6 +19,7 @@ import { deleteConfirmation } from "@utils/modal";
 import ProjectConfigForm from "./components/ProjectConfigForm";
 import PaymentPlansSection from "../../leads/configuration/components/PaymentPlansSection";
 import StageNumberingFormatsEditor from "./components/StageNumberingFormatsEditor";
+import GalleryViewsSection from "@app/modules/project-gallery/GalleryViewsSection";
 import { ProjectItem } from "@models/clientProject";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
@@ -530,6 +531,9 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
                 )
               }
             </ConfigSectionCard>
+
+            {/* 5. Gallery Views — extra tabs in every project's Gallery (owns its fetch and dialogs). */}
+            <GalleryViewsSection />
           </div>
   );
 
