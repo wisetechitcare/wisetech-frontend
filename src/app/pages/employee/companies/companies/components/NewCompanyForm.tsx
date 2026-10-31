@@ -1,3 +1,4 @@
+import { toast } from "react-toastify";
 import {
   createClientCompany,
   getAllCompanyTypes,
@@ -165,6 +166,25 @@ const schemaFor = (sections: IFormSection[]) =>
         })
     )
   );
+
+/**
+ * Required CUSTOM fields left empty, as { fieldId: message }.
+ *
+ * Custom fields only: a built-in (Company Name…) keeps its value in Formik, not on `f.value`,
+ * so including it reported it empty every time and silently blocked EVERY save — fixed twice
+ * already, the second time after a merge undid it (see NewCompanyForm.test). Built-ins are
+ * enforced by `schemaFor`; hidden fields cannot be filled in, so they never block.
+ */
+export const missingCustomFields = (sections: IFormSection[]): Record<string, string> => {
+  const errs: Record<string, string> = {};
+  sections.forEach((sec) =>
+    sec.fields.forEach((f) => {
+      if (f.isSystem || f.hidden) return;
+      if (f.required && !String(f.value ?? "").trim()) errs[f.id] = `${f.label} is required`;
+    })
+  );
+  return errs;
+};
 
 const NewCompanyForm: React.FC<Props> = ({
   show,
@@ -715,15 +735,12 @@ const NewCompanyForm: React.FC<Props> = ({
 
   const validateCustomFields = (): boolean => {
     const errs: Record<string, string> = {};
-    formSections.forEach((sec) =>
-      sec.fields.forEach((f) => {
-        if (f.required && !String(f.value ?? "").trim()) {
-          errs[f.id] = `${f.label} is required`;
-        }
-      })
-    );
+    Object.assign(errs, missingCustomFields(formSections));
     setCustomErrors(errs);
-    return Object.keys(errs).length === 0;
+    const missing = Object.values(errs);
+    // Say so: the inline errors sit on their own step, which may not be the one on screen.
+    if (missing.length) toast.error(missing.join(", "));
+    return missing.length === 0;
   };
 
   // Renders a single admin-defined custom field (text / number / date / file).
