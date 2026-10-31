@@ -375,6 +375,9 @@ const YearlySalary: React.FC<YearlySalaryProps> = ({ year, fiscalYear, employees
           tableName="YearlySalaryEmployeeData"
           employeeId={employeeIdCurrent}
           enableColumnSpecificSearch={true}
+          renderTopToolbarRightActions={() => (
+            <SalaryFilterToolbar filters={filters} onStatusChange={onStatusFilterChange} />
+          )}
           renderExportActions={() => (
             <ExportButton
               data={tableData}
