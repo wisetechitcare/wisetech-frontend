@@ -308,6 +308,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
       {/* No heading: the period tabs right above already say Monthly. */}
       <div className="mt-4">
         <MaterialTable
+          renderTopToolbarRightActions={() => (
+            <SalaryFilterToolbar filters={filters} onStatusChange={onStatusFilterChange} />
+          )}
           renderExportActions={() => (
             <ExportButton
               data={tableData}
