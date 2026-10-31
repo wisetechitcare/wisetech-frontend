@@ -38,7 +38,7 @@ ${contact?.phone2 ? `• Phone 2: ${contact.phone2}` : ''}
 • Gender: ${contact?.gender || 'N/A'}
 • Date of Birth: ${fmtBirthday(contact?.dateOfBirth)}
 • Role: ${contact?.roleInCompany || 'N/A'}
-• Anniversary: ${fmt(contact?.anniversary)}
+• Anniversary: ${fmtBirthday(contact?.anniversary)}
 • Address: ${joinAddress(contact) || 'N/A'}
 • Status: ${statusName}
 • Primary Contact: ${contact?.isPrimaryContact ? 'Yes' : 'No'}
@@ -73,7 +73,7 @@ ${company?.phone2 ? `• Phone 2: ${company.phone2}` : ''}
         <DetailRow label="Full Name" value={contact?.fullName || DASH} />
         <DetailRow label="Gender" value={contact?.gender || DASH} />
         <DetailRow label="Date of Birth" value={fmtBirthday(contact?.dateOfBirth)} />
-        <DetailRow label="Anniversary" value={fmt(contact?.anniversary)} />
+        <DetailRow label="Anniversary" value={fmtBirthday(contact?.anniversary)} />
         <DetailRow label="Role in Company" value={contact?.roleInCompany || DASH} />
         <DetailRow label="Primary Contact" value={contact?.isPrimaryContact ? <ToneChip dense tone="warning" label="Primary" /> : "No"} />
         <DetailRow label="Status" value={<ToneChip dense tone="success" color={statusColor} label={statusName} />} />

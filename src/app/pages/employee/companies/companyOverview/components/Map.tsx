@@ -23,7 +23,6 @@ import {
   Phone as PhoneIcon,
   Email as MailIcon,
   Work as BriefcaseIcon,
-  CurrencyRupee as RupeeIcon,
   Business as CompanyIcon,
   PushPin as PinIcon,
   Navigation as NavigationIcon,
@@ -35,8 +34,6 @@ import { Form } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
 import { mapStyles } from "./mapTheme";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { currencyPrefix } from '@utils/currency';
-import { canViewCommercial } from '@utils/can';
 import { Button } from '@/ds/ui/button';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
@@ -845,13 +842,7 @@ const LocationMarker = React.memo(({
               )}
 
               <div className="info-grid">
-                {isProject && loc.item?.cost && canViewCommercial('projects') && (
-                  <div className="info-item">
-                    <RupeeIcon className="info-icon" />
-                    <span className="info-text highlight">{currencyPrefix()}{loc.item.cost.toLocaleString()}</span>
-                  </div>
-                )}
-
+                {/* The project's value is deliberately NOT shown on the map, for anyone. */}
                 {isProject && projectClientName && (
                   <div className="info-item">
                     <CompanyIcon className="info-icon" />

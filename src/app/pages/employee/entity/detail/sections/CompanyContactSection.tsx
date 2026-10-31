@@ -1,3 +1,4 @@
+import { formatBirthday, isYearless } from "@utils/birthday";
 import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import { DetailCard, DetailRow, DetailLink, DetailMapLink, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
@@ -14,6 +15,8 @@ import { getAllClientBranches } from '@services/lead';
  */
 
 const fmtDate = (d?: any) => (d ? dayjs(d).format('DD MMM YYYY') : undefined);
+// Birthday / anniversary: a date saved without its year shows as "2 Mar", never "… 1904".
+const fmtDay = (d?: any) => (d && isYearless(d) ? formatBirthday(d) : fmtDate(d));
 const joinAddr = (o: any) =>
   [o?.address, o?.area, o?.city, o?.state, o?.country, o?.zipCode || o?.zipcode]
     .filter(Boolean)
@@ -120,8 +123,8 @@ const ContactCard: React.FC<{ contact: any; fallback?: any }> = ({ contact, fall
       <Row label="Phone" value={c?.phone} />
       <Row label="Alt. Phone" value={c?.phone2} />
       <Row label="Email" value={c?.email && <DetailLink href={`mailto:${c.email}`}>{c.email}</DetailLink>} />
-      <Row label="Date of Birth" value={fmtDate(c?.dateOfBirth)} />
-      <Row label="Anniversary" value={fmtDate(c?.anniversary)} />
+      <Row label="Date of Birth" value={fmtDay(c?.dateOfBirth)} />
+      <Row label="Anniversary" value={fmtDay(c?.anniversary)} />
       <Row label="Address" value={addr} />
       <Row label="GMB" value={gmb && <DetailLink href={gmb} external>View</DetailLink>} />
       <Row label="Location" value={lat && lng ? <DetailMapLink lat={lat} lng={lng} /> : undefined} />

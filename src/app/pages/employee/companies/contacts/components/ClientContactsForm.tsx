@@ -33,7 +33,6 @@ import {
   fetchAllCities,
 } from "@services/options";
 import { uploadCompanyAsset } from "@services/uploader";
-import DateInput from "@app/modules/common/inputs/DateInput";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { ContactFormValues, Branch, ContactRoleType, ContactChannel, ContactCompanyStint } from "@models/companies";
@@ -807,13 +806,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   </FloatingLabelFrame>
                                 </Col>
                                 <Col md={6} className="crm-date-field">
-                                  <DateInput
-                                    formikField="anniversary"
-                                    isRequired={false}
-                                    formikProps={formikProps}
-                                    inputLabel="Anniversary date"
-                                    placeHolder="1/3/2025"
-                                  />
+                                  {/* Same control as the birthday: day + month, year optional. */}
+                                  <BirthdayField name="anniversary" label="Anniversary" />
                                 </Col>
                               </Row>
                             </div>
