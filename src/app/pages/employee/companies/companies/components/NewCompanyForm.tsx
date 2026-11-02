@@ -34,7 +34,8 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { getRatingByCompanyId } from "@services/projects";
 import SubCompanyForm from "./SubCompanryForm";
-import { fetchAllEmployees } from "@services/employee";
+import { fetchAllEmployeesSelectedData } from "@services/employee";
+import { getAvatar } from "@utils/avatar";
 import MultiSelectWithInlineCreate, { Option } from "@app/modules/common/components/MultiSelectWithInlineCreate";
 import { transformToOptions, createNewCompanyService, createNewCompanyType, createNewServiceUnderType } from "@app/modules/common/components/InlineCreateHelpers";
 import { fetchSubCompanies } from "@services/company";
@@ -308,12 +309,22 @@ const NewCompanyForm: React.FC<Props> = ({
     () => new Map<string, any>(contacts.map((c: any) => [c.id, c])),
     [contacts],
   );
+  // Active-only (same roster/shape as EmployeePickerField's useEmployeeDirectory),
+  // with avatar so the Referral Contact dropdown shows a photo like every other
+  // avatar dropdown in this form instead of a bare name.
   const employeeOptions = useMemo(
     () =>
-      allEmployees.map((e: any) => ({
-        label: `${e.users?.firstName} ${e.users?.lastName}`,
-        value: e.id,
-      })),
+      allEmployees
+        .filter((e: any) => e?.isActive !== false)
+        .map((e: any) => ({
+          label: `${e.users?.firstName} ${e.users?.lastName}`,
+          value: e.id,
+          avatar: getAvatar(e.avatar || "", e.gender ?? 0),
+        })),
+    [allEmployees],
+  );
+  const employeeById = useMemo(
+    () => new Map<string, any>(allEmployees.map((e: any) => [e.id, e])),
     [allEmployees],
   );
   const companyOptions = useMemo(
@@ -365,7 +376,7 @@ const NewCompanyForm: React.FC<Props> = ({
 
   useEffect(() => {
     const allEmployeesDropdown = async () => {
-      const { data } = await fetchAllEmployees();
+      const { data } = await fetchAllEmployeesSelectedData();
       setAllEmployees(data.employees);
     };
     allEmployeesDropdown();
@@ -1196,7 +1207,28 @@ const NewCompanyForm: React.FC<Props> = ({
                                               formikField={`referenceType.${index}.internalReferenceEmployeeId`}
                                               inputLabel="Referral Contact"
                                               isRequired={false}
-                                              options={employeeOptions}
+                                              options={(() => {
+                                                // Safety net (same pattern as the external contact dropdown
+                                                // below): a previously-saved referrer who has since gone
+                                                // inactive is still surfaced, so editing an existing
+                                                // reference never shows an empty dropdown.
+                                                const savedId = reference.internalReferenceEmployeeId;
+                                                if (savedId && !employeeOptions.some((o) => o.value === savedId)) {
+                                                  const saved = employeeById.get(savedId);
+                                                  if (saved) {
+                                                    return [
+                                                      {
+                                                        label: `${saved.users?.firstName} ${saved.users?.lastName}`,
+                                                        value: saved.id,
+                                                        avatar: getAvatar(saved.avatar || "", saved.gender ?? 0),
+                                                      },
+                                                      ...employeeOptions,
+                                                    ];
+                                                  }
+                                                }
+                                                return employeeOptions;
+                                              })()}
+                                              showAvatar={true}
                                             />
                                           </div>
                                         )}
