@@ -121,7 +121,8 @@ export function hasPermission(resource: string, action: string, data?: any): boo
   if (resource.toLowerCase() === "approvals") return can(`approvals.${others ? "view.team" : "view.self"}`);
 
   const tableSection = TABLE_SECTION[resource.toLowerCase()];
-  if (tableSection) return canSection(tableSection, lowerAction.startsWith("read") ? "read" : "write");
+  const deleting = lowerAction.includes("delete");
+  if (tableSection) return canSection(tableSection, lowerAction.startsWith("read") ? "read" : deleting ? "delete" : "write");
 
   let section = sectionFor(resource);
   if (!section) return false;
@@ -136,7 +137,8 @@ export function hasPermission(resource: string, action: string, data?: any): boo
     // Your own records need only Read: editing or deleting your own row, and creating one where
     // what you create is your own (a leave, a claim, a loan application, a meeting).
     const ownRecord = lowerAction.includes("own") || (lowerAction === "create" && SELF_SERVICE.has(resource.toLowerCase()));
-    return canSection(section, ownRecord ? "read" : "write");
+    // Anyone else's: deleting needs Delete (a Super Admin's grant), not just Write.
+    return canSection(section, ownRecord ? "read" : deleting ? "delete" : "write");
   }
   // Looking at other people's records is what a "manage" view does (Configure, Employee Increment,
   // …), so it needs Write — except on a tab that IS the everyone view, where Read is the point.

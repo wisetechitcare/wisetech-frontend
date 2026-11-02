@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { IfCanDelete } from '@app/modules/common/components/ui/DeleteSection';
 import { getAllPaymentPlans, deletePaymentPlan } from '@services/paymentPlan';
 import { getAllProjectCategories, getAllProjectSubcategories } from '@services/projects';
 import { useEventBus } from '@hooks/useEventBus';
@@ -104,6 +105,7 @@ const PaymentPlanChip: React.FC<{
                     >
                         <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
                     </Button>
+                    <IfCanDelete>
                     <Button
                         variant="tinted"
                         size="icon-xs"
@@ -113,6 +115,7 @@ const PaymentPlanChip: React.FC<{
                     >
                         <i className="bi bi-trash" style={{ fontSize: '11px' }} />
                     </Button>
+                    </IfCanDelete>
                 </div>
             </div>
         </div>

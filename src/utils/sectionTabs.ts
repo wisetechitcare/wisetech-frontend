@@ -133,6 +133,20 @@ export const tabSlug = (title: string) => title.toLowerCase().replace(/[^a-z0-9]
 export const tabKey = (section: string, tab: string) => `${section}/${tab}`;
 
 /**
+ * Sections where something can be deleted or archived — everywhere else the Delete box is greyed
+ * out (and the server refuses it). Mirrors DELETABLE_SECTIONS in the backend's
+ * constants/permissions.ts — keep the two in sync.
+ */
+export const DELETABLE_SECTIONS: ReadonlySet<string> = new Set([
+  'users', 'attendance.employees', 'timesheets.employees', 'meetings', 'calendar',
+  'crm.leads', 'crm.companies', 'crm.contacts', 'projects', 'tasks', 'recruitment', 'gift-management',
+  'finance.loans', 'finance.reimbursements', 'finance.salary', 'finance.increment',
+  'billing.configure', 'billing.requests', 'billing.proformas', 'billing.invoices', 'billing.payments',
+  'settings.profile', 'settings.announcements', 'settings.teams', 'settings.employeeLevel',
+]);
+export const NOTHING_TO_DELETE = "There's nothing to delete in this section, so Delete doesn't apply here.";
+
+/**
  * For a section's page: the tabs this person gets, in page order. Subscribes to access so a live
  * change applies at once. Pages map the active tab through this list, never through fixed indexes.
  */

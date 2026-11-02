@@ -19,6 +19,7 @@ import {
   getAllTimeSheetsByStartDateEndDate,
 } from "@services/tasks";
 import { deleteConfirmation } from "@utils/modal";
+import { canDelete } from "@utils/can";
 import { toast } from "react-toastify";
 import { getAllEmployeeWithMonthDailyHourlySalary } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
@@ -298,6 +299,7 @@ const MyEmployeesTimeSheetPorject = ({
             >
               <KTIcon iconName="pencil" className="fs-2" />
             </Button>
+            {canDelete("timesheets.employees") && (
             <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
               onClick={(e) => {
                 e.stopPropagation();
@@ -306,6 +308,7 @@ const MyEmployeesTimeSheetPorject = ({
             >
               <KTIcon iconName="trash" className="fs-2" />
             </Button>
+            )}
           </div>
         ),
       },

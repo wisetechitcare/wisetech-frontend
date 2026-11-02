@@ -10,7 +10,7 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import { useNavigate } from "react-router-dom";
 import { showSuccess, showError, showWarning } from "@utils/modal";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import PercentageConfigurationTable from "./PercentageConfigurationTable";
 import MeetingConfigurationTable from "./MeetingConfigurationTable";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
@@ -283,7 +283,7 @@ const ProposalConfigurationPage: React.FC = () => {
         </div>
         {canWrite && (
         <div className="d-flex gap-3">
-          {selectedConfig?.id && (
+          {selectedConfig?.id && canDelete("crm.leads") && (
             <KitButton variant="tinted"
               className="[--tint:var(--cta-danger)]"
               onClick={() => setShowDeleteModal(true)}

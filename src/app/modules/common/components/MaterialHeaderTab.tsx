@@ -5,7 +5,7 @@ import { T } from './ui/tokens';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
-import { isTabTurnedOff } from '@utils/can';
+import { canSection, isTabTurnedOff } from '@utils/can';
 import { tabSlug } from '@utils/sectionTabs';
 
 export type TabItem = {
@@ -295,9 +295,15 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
         }
     }, [activeTab]);
 
-    // Tabs turned off for this person (Access → Advanced). Re-renders on a live access change.
+    // Tabs turned off for this person (Access → Advanced), and Configure without Write on the
+    // section. Re-renders on a live access change.
     useSelector((s: RootState) => (s as any).authz?.deniedTabs);
-    const shown = (item: TabItem) => !accessSection || !isTabTurnedOff(accessSection, tabSlug(item.title));
+    useSelector((s: RootState) => (s as any).authz?.access);
+    const shown = (item: TabItem) => {
+        if (!accessSection) return true;
+        const slug = tabSlug(item.title);
+        return !isTabTurnedOff(accessSection, slug) && (slug !== 'configure' || canSection(accessSection, 'write'));
+    };
     // Standing on a tab that just got turned off: move to the first one still open.
     useEffect(() => {
         if (!accessSection || !tabItems[value] || shown(tabItems[value])) return;

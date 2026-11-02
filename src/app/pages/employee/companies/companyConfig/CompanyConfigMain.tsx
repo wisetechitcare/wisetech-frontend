@@ -1,4 +1,5 @@
 import { ActionIconButton, AppIcon } from '@app/modules/common/components/ui';
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import { deleteCompanyType, getAllCompanyTypes, getAllRatingFactors, deleteRatingFactor, getAllCompanyServices, deleteCompanyService } from "@services/companies";
 import { useEffect, useState } from "react";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
@@ -501,4 +502,4 @@ const CompanyConfigMain = () => {
   );
 };
 
-export default CompanyConfigMain;
+export default withDeleteSection('crm.companies', CompanyConfigMain);

@@ -7,7 +7,7 @@ import { getTaskList, getAllTasksWithMetrics, getAvailableProjects, deleteTask }
 import { WtTooltip, confirmDialog } from "@app/modules/common/components/ui";
 import dayjs from "dayjs";
 import { Link } from "react-router-dom";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import { usePermission } from "@hooks/usePermission";
 import { getTimeTokens } from '@utils/timeFormat';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
@@ -344,7 +344,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
       Cell: ({ row }: any) => {
         // Write on Tasks, the same as on the Tasks page. Which tasks you may touch is the server's call.
         const hasEditPermission = canSection("tasks", "write");
-        const hasDeletePermission = hasEditPermission;
+        const hasDeletePermission = canDelete("tasks");
 
         if (!hasEditPermission && !hasDeletePermission) {
           return <span style={{ fontSize: "12px", color: "#7a8597" }}>Not Allowed</span>;

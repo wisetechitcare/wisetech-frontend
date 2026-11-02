@@ -15,7 +15,8 @@ export interface BranchCardProps {
   onManageDevices: () => void;
   onPromote: () => void;
   onEdit: () => void;
-  onDelete: () => void;
+  /** Omitted when the user lacks Delete — the trash button is hidden. */
+  onDelete?: () => void;
 }
 
 /**
@@ -114,12 +115,14 @@ export default function BranchCard({
               onClick={onPromote}
             />
             <ActionIconButton iconName="pencil" title="Edit branch" onClick={onEdit} />
-            <ActionIconButton
-              iconName="trash"
-              title="Delete branch"
-              tone="danger"
-              onClick={onDelete}
-            />
+            {onDelete && (
+              <ActionIconButton
+                iconName="trash"
+                title="Delete branch"
+                tone="danger"
+                onClick={onDelete}
+              />
+            )}
           </Stack>
         )}
       </Stack>

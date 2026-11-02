@@ -1,4 +1,5 @@
 import { apiErrorMessage } from '@utils/apiError';
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -55,7 +56,7 @@ function byNameAz<T extends { name: string }>(rows: T[]): T[] {
 /**
  * Meetings → Configure: calendar appearance, agenda statuses, purposes.
  */
-export default function MeetingsConfigureTab() {
+function MeetingsConfigureTab() {
   const [statuses, setStatuses] = useState<any[]>([]);
   const [purposes, setPurposes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -406,3 +407,5 @@ export default function MeetingsConfigureTab() {
     </Box>
   );
 }
+
+export default withDeleteSection('meetings', MeetingsConfigureTab);
