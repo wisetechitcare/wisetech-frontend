@@ -182,6 +182,7 @@ export const COMPANY = {
     UPDATE_ANNOUNCEMENT_BY_ID: "api/company/announcement",
     ARCHIVE_ANNOUNCEMENT_BY_ID: "api/company/announcement",
     GET_ALL_ANNOUNCEMENTS: "api/company/announcements",
+    REORDER_ANNOUNCEMENTS: "api/company/announcements/reorder",
     UPDATE_ANNOUNCEMENT: "api/company/announcements",
     EMAIL_SALARY_SLIP: "api/employee/email-salary-slip",
     GET_LEAVE_OPTIONS: "api/company/leave-options",
