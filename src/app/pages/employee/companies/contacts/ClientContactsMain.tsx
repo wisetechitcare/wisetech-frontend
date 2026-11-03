@@ -1,4 +1,5 @@
 import React from "react";
+import { formatBirthday, isYearless } from "@utils/birthday";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useSelector } from "react-redux";
@@ -14,7 +15,7 @@ import { getAllClientBranches } from "@services/lead";
 import eventBus from "@utils/EventBus";
 import { useNavigate } from "react-router-dom";
 import dayjs, { Dayjs } from "dayjs";
-import { can, canSection } from "@utils/can";
+import { can, canDelete, canSection } from "@utils/can";
 import { SegmentedControl, WtButton } from "@app/modules/common/components/ui";
 import GoogleContactsImportDialog from "./components/GoogleContactsImportDialog";
 import { toContactFormPrefill, type ContactFormPrefill, type GoogleContactCandidate } from "./components/googleContactPrefill";
@@ -356,7 +357,8 @@ const ClientContactsMain = ({
         header: "Date of Birth",
         Cell: ({ cell }) => {
           const date = cell.getValue() as string;
-          return date ? new Date(date).toLocaleDateString() : "NA";
+          // A birthday saved without its year shows as day + month only.
+          return date ? (isYearless(date) ? formatBirthday(date) : new Date(date).toLocaleDateString()) : "NA";
         },
       },
       {
@@ -425,7 +427,7 @@ const ClientContactsMain = ({
 📧 Email: ${contact.email || "N/A"}
 📞 Phone: ${contact.phone || "N/A"}
 ${contact.phone2 ? `📱 Alternate Phone: ${contact.phone2}` : ""}
-🎂 Date of Birth: ${contact.dateOfBirth ? new Date(contact.dateOfBirth).toLocaleDateString() : "N/A"}
+🎂 Date of Birth: ${contact.dateOfBirth ? (isYearless(contact.dateOfBirth) ? formatBirthday(contact.dateOfBirth) : new Date(contact.dateOfBirth).toLocaleDateString()) : "N/A"}
 📍 Address: ${fullAddress || "N/A"}
 ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
 
@@ -452,7 +454,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
               >
                 <i className="fab fa-whatsapp fs-3 text-success"></i>
               </Button>
-              {canWrite && (
+              {canDelete("crm.contacts") && (
               <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete Contact"
                 onClick={() => handleDelete(row.original)}
                 title="Delete Contact"

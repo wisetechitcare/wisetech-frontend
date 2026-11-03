@@ -4,11 +4,12 @@ import { Avatar, AvatarFallback } from './avatar'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './hover-card'
 
 /**
- * A preview on hover or focus — a person's card behind their name in a table or feed. Supplementary
- * only: everything in it must also be reachable by opening the record.
+ * Not a card: a floating preview that appears on hover or focus — a person's details behind their name in
+ * a table or feed (shadcn calls it HoverCard). Supplementary only: everything in it must also be reachable
+ * by opening the record. For a card on the page, use Card.
  */
 const meta = {
-  title: 'Components/HoverCard',
+  title: 'Components/Hover Preview',
   component: HoverCard,
   render: (args) => (
     <HoverCard {...args}>

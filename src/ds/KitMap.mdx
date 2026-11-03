@@ -29,6 +29,14 @@ existing API (the way `WtButton` now renders the v2 Button).
 
 ## Surfaces, dialogs and panels
 
+**One card, one benchmark.** Everything card-shaped renders `Components/Card`, and every card carries the
+Stat Card design by default — tone glow, accent bar, spring lift, 44px icon tile with pop and wiggle — as
+decoration, clickable or not. The only exception is `variant="panel"`, the frame around a Data Table (lifting
+it would fight scrolling). The compact Stat Card is the same design at a smaller size. Card also owns focus, selected and
+disabled. **Icons: cards right, rows left, dialogs left** (see Introduction). Stat Card, Entity Card and Choice Cards are content layouts *on* Card, not
+separate cards; rows in a list use `Item`. Hover Preview is a popover, not a card. The consistency test fails
+the build on a hand-drawn card (`bg-card` with a border or radius).
+
 | Live | v2 | |
 | --- | --- | --- |
 | `GlassCard`, `GlassSurface`, `KTCard`, Bootstrap `.card` | Components/Card | ✅ |
@@ -52,7 +60,7 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `DetailCard`, `KeyValueList`, `KeyValueRow`, `DetailGrid`, `SectionDivider` | Patterns/Description List (+ Card + Section Header = the `DetailCard` look) | ✅ |
 | `EntityIdentityHeader`, `EmployeeIdentityCell` | Patterns/Person (`PersonHeader`, `PersonCell`) | ✅ |
 | `EntityCard` | Patterns/Entity Card | ✅ |
-| `NavCard` | Patterns/Nav Card | ✅ |
+| `NavCard` | Patterns/Entity Card with `href` (one tile for records and navigation) | ✅ |
 | `MaterialTable` / `MaterialTableImpl` (106 screens) | Patterns/Data Table (TanStack) — sort, search, column show/hide, selection, paging, density, loading / empty / error / no-match | ✅ design · ⏳ swap is last (see below) |
 | `TableSelectionBar` | Patterns/Data Table — selection bar | ✅ |
 

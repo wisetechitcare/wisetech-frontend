@@ -6,6 +6,7 @@ import { useMediaQuery, useTheme } from '@mui/material';
 import { PayrollTableRow } from '../../types/payroll.types';
 import { formatMoneyRounded } from '../../utils/payrollFormatters';
 import { Button as KitButton } from '@/ds/ui/button';
+import { canDelete } from '@utils/can';
 
 interface PaymentDetailsTableProps {
     tableRows: PayrollTableRow[];
@@ -229,9 +230,11 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                                 <KitButton variant="tinted" size="icon-sm" aria-label="Edit" onClick={() => onEditPayment(row)}>
                                                     <KTIcon iconName="pencil" className="fs-4" />
                                                 </KitButton>
+                                                {canDelete('finance.salary') && (
                                                 <KitButton variant="tinted" size="icon-sm" aria-label="Delete" className="[--tint:var(--cta-danger)]" onClick={() => onDeletePayment(row)}>
                                                     <KTIcon iconName="trash" className="fs-4" />
                                                 </KitButton>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -327,12 +330,14 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                                         >
                                                             <KTIcon iconName="pencil" className="fs-3" />
                                                         </KitButton>
+                                                        {canDelete('finance.salary') && (
                                                         <KitButton variant="tinted" size="icon-sm" aria-label="Delete" 
                                                             className="[--tint:var(--cta-danger)]"
                                                             onClick={() => onDeletePayment(row)}
                                                         >
                                                             <KTIcon iconName="trash" className="fs-3" />
                                                         </KitButton>
+                                                        )}
                                                     </>
                                                 ) : (
                                                     <span className="text-muted">--</span>

@@ -4,6 +4,7 @@ import {
 import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
 import { CrmWorkspace } from "../../forms/CrmWorkspace";
 import { CrmSection } from "../../forms/CrmSection";
+import { ContactAddressSection } from "../../forms/ContactAddressSection";
 import { COMPANY_STATUS_OPTIONS } from "../../crmListRowSx";
 import { getAllClientCompanies, getAllCompanyTypes, getAllCompanyServices, createCompanyService } from "@services/companies";
 import { uploadCompanyAsset } from "@services/uploader";
@@ -461,15 +462,6 @@ const SubCompanyForm: React.FC<Props> = ({
     }
   };
 
-  const viewLocation = (latitude: string, longitude: string) => {
-    if (latitude && longitude) {
-      const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-      window.open(googleMapsUrl, '_blank');
-    } else {
-      errorConfirmation('Please enter latitude and longitude first');
-    }
-  };
-
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
       const file = e.target.files[0];
@@ -734,95 +726,18 @@ const SubCompanyForm: React.FC<Props> = ({
                       fields: ["address", "country", "state", "city", "area", "zipCode", "googleMapsLink", "gmbProfileUrl", "latitude", "longitude"],
                       icon: "bi-geo-alt",
                       content: (
-                        <>
-                          <CrmSection title="Address">
-                            <div className="row g-4">
-                              <div className="col-12">
-                                <TextInput formikField="address" label="Address" isRequired={false} />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <DropDownInput
-                                  formikField="country"
-                                  inputLabel="Country"
-                                  isRequired={false}
-                                  options={countries.map((c) => ({ label: c.name, value: c.id }))}
-                                  onChange={(option: any) => {
-                                    setFieldValue("country", option?.value || "");
-                                    setFieldValue("state", "");
-                                    setFieldValue("city", "");
-                                    if (option?.value) {
-                                      handleCountryChange(option.value);
-                                    } else {
-                                      setStates([]);
-                                      setCities([]);
-                                    }
-                                  }}
-                                  value={values.country ? { label: countries.find((c) => c.id === values.country)?.name, value: values.country } : null}
-                                />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <DropDownInput
-                                  formikField="state"
-                                  inputLabel="State"
-                                  isRequired={false}
-                                  options={values.country ? states.map((s) => ({ label: s.name, value: s.id })) : []}
-                                  placeholder={!values.country ? "Please select country first" : "Select State"}
-                                  onChange={(option: any) => {
-                                    setFieldValue("state", option?.value || "");
-                                    setFieldValue("city", "");
-                                    if (option?.value) {
-                                      handleStateChange(values.country, option.value);
-                                    } else {
-                                      setCities([]);
-                                    }
-                                  }}
-                                  value={values.state ? { label: states.find((s) => s.id === values.state)?.name, value: values.state } : null}
-                                  disabled={!values.country}
-                                />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <DropDownInput
-                                  formikField="city"
-                                  inputLabel="City"
-                                  isRequired={false}
-                                  options={values.state ? cities.map((ci) => ({ label: ci.name, value: ci.id })) : []}
-                                  placeholder={!values.state ? "Please select state first" : "Select City"}
-                                  onChange={(option: any) => setFieldValue("city", option?.value || "")}
-                                  value={values.city ? { label: cities.find((c) => c.id === values.city)?.name, value: values.city } : null}
-                                  disabled={!values.state}
-                                />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <TextInput formikField="area" label="Locality" isRequired={false} />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <TextInput formikField="zipCode" label="Zip Code" isRequired={false} />
-                              </div>
-                            </div>
-                          </CrmSection>
-                          <CrmSection title="Location on Map" className="mt-5">
-                            <div className="row g-4">
-                              <div className="col-12 col-lg-6">
-                                <TextInput formikField="googleMapsLink" label="Google Map Link" isRequired={false} />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <TextInput formikField="gmbProfileUrl" label="Google Business Link" isRequired={false} />
-                              </div>
-                              <div className="col-12 col-sm-6">
-                                <TextInput formikField="latitude" label="Latitude" isRequired={false} inputValidation="signed-decimal" />
-                              </div>
-                              <div className="col-12 col-sm-6">
-                                <TextInput formikField="longitude" label="Longitude" isRequired={false} inputValidation="signed-decimal" />
-                              </div>
-                            </div>
-                            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-                              <WtButton ghost startIcon={<AppIcon name="bi-geo-alt" />}
-                                onClick={() => viewLocation(values.latitude || "", values.longitude || "")}>
-                                View location on map
-                              </WtButton>
-                            </Box>
-                          </CrmSection>
-                        </>
+                        <ContactAddressSection
+                          countries={countries}
+                          states={states}
+                          cities={cities}
+                          selectedCountry={values.country}
+                          selectedState={values.state}
+                          setSelectedCountry={() => {}}
+                          setSelectedState={() => {}}
+                          handleCountryChange={handleCountryChange}
+                          handleStateChange={handleStateChange}
+                          fields={{googleMapLink: "googleMapsLink", gmbLink: "gmbProfileUrl"}}
+                        />
                       ),
                     },
                     {

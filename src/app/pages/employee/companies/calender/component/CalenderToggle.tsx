@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { formatBirthday, isYearless } from "@utils/birthday";
 import { toAbsoluteUrl } from '@metronic/helpers';
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
@@ -70,7 +71,8 @@ const CalenderToggle = () => {
                     }
                 }
 
-                return dayjs(actualDate).format('DD MMM YYYY');
+                // A birthday saved without its year shows day + month only.
+                return isYearless(actualDate) ? formatBirthday(actualDate) : dayjs(actualDate).format('DD MMM YYYY');
             },
           },
         {

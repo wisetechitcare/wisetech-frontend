@@ -245,73 +245,6 @@
   background-color: #ffffff;
 }
 
-/* Zoho Commercial Matrix Grid */
-.commercials-grid-card {
-  border: 1px solid var(--workspace-border);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-}
-
-.commercials-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.commercials-thead {
-  background-color: var(--wt-gray-50);
-  border-bottom: 2px solid var(--workspace-border);
-}
-
-.commercials-th {
-  padding: 0.75rem 1rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--workspace-text-muted);
-  text-align: left;
-  letter-spacing: 0.05em;
-}
-
-.commercials-tr {
-  border-bottom: 1px solid var(--workspace-border);
-  transition: var(--premium-transition);
-}
-
-.commercials-tr:hover {
-  background-color: var(--wt-gray-50);
-}
-
-.commercials-td {
-  padding: 0.75rem 1rem;
-  vertical-align: middle;
-}
-
-.commercials-input {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--workspace-border);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  transition: var(--premium-transition);
-}
-
-.commercials-input:focus {
-  outline: none;
-  border-color: hsl(var(--workspace-primary-hsl));
-  box-shadow: 0 0 0 3px hsla(var(--workspace-primary-hsl), 0.15);
-}
-
-.commercials-summary {
-  background-color: var(--wt-gray-50);
-  padding: 1rem;
-  border-top: 2px solid var(--workspace-border);
-  display: flex;
-  justify-content: flex-end;
-  gap: 2rem;
-  font-weight: 600;
-}
-
 /* Summary Panel Widgets */
 .glass-summary-card {
   background: var(--workspace-card-bg);
@@ -1801,7 +1734,9 @@
     z-index: 100;
     flex-wrap: wrap;
     gap: 0.5rem;
-    padding: 0.625rem 1rem;
+    /* The buttons wrap to two rows here; a fixed 68px pushed the second row off-screen. */
+    height: auto;
+    padding: 0.625rem 1rem max(0.625rem, env(safe-area-inset-bottom));
   }
   /* Keep the footer's two button clusters on one line each, wrapping only
      between them, and let the buttons share the width on small phones. */
@@ -1867,15 +1802,46 @@
    overflow-y:visible for the inline page usage, which would clip content
    here). Also pad the bottom so the last field clears the fixed footer bar. */
 @media (max-width: 768px) {
+  /* 100vh on a phone includes the strip behind the browser's own toolbar, which hid the
+     footer's last row; dvh is the height actually visible (100vh stays as the fallback). */
+  .lead-wizard-modal .modal-dialog,
+  .wt-wizard-modal .modal-dialog,
+  .lead-wizard-modal .modal-content,
+  .wt-wizard-modal .modal-content,
+  .lead-wizard-modal .modal-body,
+  .wt-wizard-modal .modal-body,
+  .lead-wizard-modal .enterprise-wizard,
+  .wt-wizard-modal .enterprise-wizard {
+    height: 100dvh !important;
+    min-height: 0 !important;
+  }
   .lead-wizard-modal .enterprise-wizard,
   .wt-wizard-modal .enterprise-wizard {
     overflow: hidden !important;
   }
+  /* Header, step strip and canvas share the height ABOVE the footer… */
+  .lead-wizard-modal .wizard-layout,
+  .wt-wizard-modal .wizard-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
   .lead-wizard-modal .wizard-step-canvas,
   .wt-wizard-modal .wizard-step-canvas {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    padding-bottom: 5rem;
+  }
+  .lead-wizard-modal .wt-step-body,
+  .wt-wizard-modal .wt-step-body {
+    padding-bottom: 1.25rem;
+  }
+  /* …and the footer takes its own rows at the bottom instead of floating over the form. */
+  .lead-wizard-modal .wizard-footer-bar,
+  .wt-wizard-modal .wizard-footer-bar {
+    position: static;
+    flex-shrink: 0;
   }
 }
 

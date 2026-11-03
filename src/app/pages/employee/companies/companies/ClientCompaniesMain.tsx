@@ -16,12 +16,12 @@ import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
-import { canSection, canViewCommercial } from "@utils/can";
+import { canDelete, canSection, canViewCommercial } from "@utils/can";
 import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
-import { crmListRowSx } from "../crmListRowSx";
+import { crmListRowSx, isRowAction } from "../crmListRowSx";
 
 interface ProcessedCompany extends Company {
   companyTypeName: string;
@@ -485,6 +485,7 @@ const ClientCompaniesMain = ({
                   >
                     <KTIcon iconName="pencil" className="fs-3" />
                   </Button>
+                  {canDelete("crm.companies") && (
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -493,6 +494,7 @@ const ClientCompaniesMain = ({
                   >
                     <KTIcon iconName="trash" className="fs-3" />
                   </Button>
+                  )}
                 </div>
               ),
             },
@@ -593,6 +595,10 @@ const ClientCompaniesMain = ({
         muiTableProps={{
 
           muiTableBodyRowProps: ({ row }) => ({
+            // Row click opens the edit form, same as the pencil in the Actions column.
+            onClick: (e: React.MouseEvent) => {
+              if (!isRowAction(e)) handleEditClick(row.original.id);
+            },
             // ACTIVE → soft green; CLOSED (Inactive) → soft slate. Blacklist still wins.
             sx: crmListRowSx(row.original.status === "ACTIVE", {
               blacklisted: !!row.original.blacklisted,

@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    Alert, Box, DialogActions, DialogContent, Divider, IconButton, InputAdornment, Menu, MenuItem,
+    Alert, Box, DialogActions, DialogContent, Divider, InputAdornment, Menu, MenuItem,
     Stack, TextField, Tooltip, Typography,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { KTIcon } from "@metronic/helpers";
+import { Button } from "@/ds/ui/button";
 import {
-    GlassCard, GlassDialog, GlassHeader, WtButton, toast,
+    GlassCard, GlassDialog, GlassHeader, WtButton, WtIconButton, toast,
     AutoGrid,  TRIO,  CurrencySymbol,
 } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
@@ -338,8 +339,10 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
         // The ⋮ carries the bill's secondary actions: documents, TDS, cancel.
         const more = (
             <Tooltip title="More actions">
-                <IconButton
+                <WtIconButton
                     size="small"
+                    // ProjectBillingTree sizes this up on phones by this class.
+                    className="billing-row-more"
                     aria-label={`More actions for ${row.stageName}`}
                     onClick={(event) => {
                         event.stopPropagation();
@@ -352,7 +355,7 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     }}
                 >
                     <KTIcon iconName="dots-vertical" className="fs-5" />
-                </IconButton>
+                </WtIconButton>
             </Tooltip>
         );
 
@@ -577,9 +580,9 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                             ),
                             endAdornment: searchQuery ? (
                                 <InputAdornment position="end">
-                                    <IconButton size="small" aria-label="Clear search" onClick={() => setSearchQuery("")}>
+                                    <Button variant="ghost" size="icon-xs" aria-label="Clear search" onClick={() => setSearchQuery("")}>
                                         <KTIcon iconName="cross" className="fs-7" />
-                                    </IconButton>
+                                    </Button>
                                 </InputAdornment>
                             ) : null,
                             sx: { height: { xs: 40, sm: 34 }, fontSize: 12.5, bgcolor: "background.paper" },

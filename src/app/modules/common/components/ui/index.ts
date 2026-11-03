@@ -10,6 +10,7 @@
 export { T, tonePair, label, glassTokens } from './tokens';
 export type { SemanticTone, VividTone, GlassVariant, ThemeMode, LabelTier } from './tokens';
 export * from './buttons';
+export * from './ClearFiltersButton';
 // Canonical app-wide toggle — the single source of truth for switches (replaces per-file
 // tintedSwitch sx, raw <Switch>, and Bootstrap form-switch).
 export { WtSwitch, WtSwitchField, wtSwitchSx } from './switch';
@@ -184,6 +185,7 @@ export { WeightSliderList } from './WeightSliderList';
 export type { WeightSliderListProps, WeightSliderField } from './WeightSliderList';
 // Compact configure value row (colour rail + name + hover actions). Theme-token surfaces.
 export { ConfigColorChip, ConfigChipGrid } from './ConfigColorChip';
+export { DeleteSection, IfCanDelete, useCanDeleteHere, withDeleteSection } from './DeleteSection';
 export type { ConfigColorChipProps, ConfigChipAction } from './ConfigColorChip';
 // Drag-to-reorder list — neighbor living next to ui; re-exported so Rule zero finds it
 // on the kit barrel (README: Reorder → ReorderableGroup + DragHandle).

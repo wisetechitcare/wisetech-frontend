@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchSubCompaniesByCompanyId, deleteSubCompany } from "@services/company";
 import SubCompanyForm from "./SubCompanryForm";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { isRowAction } from "../../crmListRowSx";
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import { Button } from "@/ds/ui/button";
@@ -10,7 +11,7 @@ import { RootState } from "@redux/store";
 import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import { deleteConfirmation } from "@utils/modal";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import Loader from "@app/modules/common/utils/Loader";
 import { ToneChip } from "@app/modules/common/components/ui";
 
@@ -300,6 +301,7 @@ const SubCompanies = ({
             >
               <KTIcon iconName="pencil" className="fs-3" />
             </Button>
+            {canDelete("crm.companies") && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -309,6 +311,7 @@ const SubCompanies = ({
             >
               <KTIcon iconName="trash" className="fs-3" />
             </Button>
+            )}
           </div>
         ),
       }] : []),
@@ -334,6 +337,14 @@ const SubCompanies = ({
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        muiTableProps={{
+          muiTableBodyRowProps: ({ row }: any) => ({
+            onClick: (e: React.MouseEvent) => {
+              if (!isRowAction(e)) handleEditSubCompany(row.original.id);
+            },
+            sx: { cursor: "pointer" },
+          }),
+        }}
       />
 
       <SubCompanyForm

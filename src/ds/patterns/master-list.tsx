@@ -6,6 +6,7 @@ import { cn } from "@/ds/lib/utils"
 import { Badge } from "@/ds/ui/badge"
 import { Button } from "@/ds/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/ds/ui/input-group"
+import { Item } from "@/ds/ui/item"
 
 export type MasterItem = {
   id: string
@@ -84,13 +85,18 @@ function Row({
       )}
     </>
   )
-  const rowClass = "group/row flex items-center gap-3 rounded-xl border bg-card px-2 py-2"
-  return reorderable ? (
-    <Reorder.Item value={item} dragListener={false} dragControls={controls} className={rowClass}>
+  // Rows are the kit's row surface (Item), not a hand-drawn box — same as every other list row.
+  return (
+    <Item
+      variant="outline"
+      size="sm"
+      className={cn("group/row flex-nowrap gap-3 py-2", reorderable ? "pl-2" : "pl-3")}
+      render={
+        reorderable ? <Reorder.Item value={item} dragListener={false} dragControls={controls} /> : <li />
+      }
+    >
       {body}
-    </Reorder.Item>
-  ) : (
-    <li className={cn(rowClass, "pl-3")}>{body}</li>
+    </Item>
   )
 }
 

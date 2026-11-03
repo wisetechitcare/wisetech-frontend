@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { canDelete } from "@utils/can";
 import {
   Box, Paper, Stack, Typography, Chip, Skeleton, Tooltip,
   TextField, InputAdornment, ToggleButtonGroup, ToggleButton,
@@ -1249,7 +1250,7 @@ function ComponentCard({
           </Tooltip>
 
           {/* Delete — permanent deletion for all active components */}
-          {item.isActive && (
+          {item.isActive && canDelete('finance.salary') && (
             <Tooltip title="Delete permanently">
               <Button variant="tinted" size="icon-sm" aria-label="Delete permanently" onClick={onDelete}
                 className={HIDE_BELOW_SM} style={DANGER_TINT}>

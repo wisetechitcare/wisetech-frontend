@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { KTCard, KTCardBody } from '@metronic/helpers';
-import { 
-    fetchAllAddonLeavesAllowances, 
+import {
+    fetchAllAddonLeavesAllowances,
     upsertAddonLeavesAllowances,
     IAddonLeavesAllowance,
-    IAddonLeavesAllowanceCreate 
+    IAddonLeavesAllowanceCreate
 } from "@services/addonLeavesAllowance";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
@@ -115,17 +115,17 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                 ];
 
                 const result = await upsertAddonLeavesAllowances(allowancesToUpsert);
-                
+
                 if (result.success) {
                     const createdCount = result.data.filter(item => item.action === 'created').length;
                     const updatedCount = result.data.filter(item => item.action === 'updated').length;
                     const errorCount = result.data.filter(item => item.action === 'error').length;
-                    
+
                     const message = 'Add-on leave allowances saved.';
                     // if (createdCount > 0) message += ` Created: ${createdCount}.`;
                     // if (updatedCount > 0) message += ` Updated: ${updatedCount}.`;
                     // if (errorCount > 0) message += ` Errors: ${errorCount}.`;
-                    
+
                     await successConfirmation(message);
 
                     // Notify every subscriber (card, rules page, balances, etc.) to reload
@@ -141,8 +141,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
             } catch (error: any) {
                 console.error('Error saving addon leaves allowances:', error);
                 await errorConfirmation(
-                    error?.response?.data?.message || 
-                    error?.message || 
+                    error?.response?.data?.message ||
+                    error?.message ||
                     'Failed to save addon leaves allowances'
                 );
             } finally {
@@ -155,11 +155,11 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
         try {
             const response = await fetchAllAddonLeavesAllowances();
             console.log("responseresponsone:: ", response);
-            
+
             if (!response.hasError && response.data?.addonLeavesAllowances) {
                 const allowances = response.data.addonLeavesAllowances;
                 setExistingAllowances(allowances);
-                
+
                 // Pre-populate form with existing values
                 const formValues: FormValues = {
                     experience1: allowances.find((a: IAddonLeavesAllowance) => a.experienceInCompany === 1)?.addonLeavesCount || 0,
@@ -174,7 +174,7 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                     experience10: allowances.find((a: IAddonLeavesAllowance) => a.experienceInCompany === 10)?.addonLeavesCount || 0,
                     experiencePlus10: allowances.find((a: IAddonLeavesAllowance) => a.experienceInCompany === 11)?.addonLeavesCount || 0,
                 };
-                
+
                 formik.setValues(formValues);
             }
         } catch (error) {
@@ -213,9 +213,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experience1 && formik.errors.experience1 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experience1 && formik.errors.experience1 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 1 year experience"
                                     {...formik.getFieldProps('experience1')}
                                 />
@@ -239,9 +238,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experience2 && formik.errors.experience2 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experience2 && formik.errors.experience2 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 2 years experience"
                                     {...formik.getFieldProps('experience2')}
                                 />
@@ -265,9 +263,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experience3 && formik.errors.experience3 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experience3 && formik.errors.experience3 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 3 years experience"
                                     {...formik.getFieldProps('experience3')}
                                 />
@@ -291,9 +288,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experience4 && formik.errors.experience4 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experience4 && formik.errors.experience4 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 4 years experience"
                                     {...formik.getFieldProps('experience4')}
                                 />
@@ -317,9 +313,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experience5 && formik.errors.experience5 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experience5 && formik.errors.experience5 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 5 years experience"
                                     {...formik.getFieldProps('experience5')}
                                 />
@@ -343,9 +338,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experience6 && formik.errors.experience6 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experience6 && formik.errors.experience6 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 6 years experience"
                                     {...formik.getFieldProps('experience6')}
                                 />
@@ -369,9 +363,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experience7 && formik.errors.experience7 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experience7 && formik.errors.experience7 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 7 years experience"
                                     {...formik.getFieldProps('experience7')}
                                 />
@@ -395,9 +388,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experience8 && formik.errors.experience8 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experience8 && formik.errors.experience8 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 8 years experience"
                                     {...formik.getFieldProps('experience8')}
                                 />
@@ -421,9 +413,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experience9 && formik.errors.experience9 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experience9 && formik.errors.experience9 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 9 years experience"
                                     {...formik.getFieldProps('experience9')}
                                 />
@@ -447,9 +438,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experience10 && formik.errors.experience10 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experience10 && formik.errors.experience10 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 10 years experience"
                                     {...formik.getFieldProps('experience10')}
                                 />
@@ -473,9 +463,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                                 </label>
                                 <input
                                     type="number"
-                                    className={`form-control form-control-lg form-control-solid ${
-                                        formik.touched.experiencePlus10 && formik.errors.experiencePlus10 ? 'is-invalid' : ''
-                                    }`}
+                                    className={`form-control form-control-lg form-control-solid ${formik.touched.experiencePlus10 && formik.errors.experiencePlus10 ? 'is-invalid' : ''
+                                        }`}
                                     placeholder="Enter addon leaves for 10+ years experience"
                                     {...formik.getFieldProps('experiencePlus10')}
                                 />
@@ -496,8 +485,8 @@ function AddonLeavesAllowanceForm({ onClose }: { onClose?: () => void }) {
                         <div className="d-flex flex-column">
                             <h4 className="mb-1 text-dark">How It Works</h4>
                             <span>
-                                The system will automatically create new records for experience levels that don't exist, 
-                                and update existing records. Each employee's addon leaves will be calculated based on 
+                                The system will automatically create new records for experience levels that don't exist,
+                                and update existing records. Each employee's addon leaves will be calculated based on
                                 their years of experience in the company.
                             </span>
                         </div>

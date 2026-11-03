@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useState } from 'react'
 import * as Yup from 'yup'
-import Flatpickr from "react-flatpickr";
+import Flatpickr from "@app/modules/common/inputs/Flatpickr";
 import { isEmpty } from 'lodash';
 import { Form, Formik } from 'formik'
 import { fetchEmployeeProfileData, updateEmployee } from '@services/employee'

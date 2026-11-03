@@ -650,8 +650,8 @@ export interface UnderlineTabItem<K extends string = string> {
 }
 
 /**
- * The app's primary detail-page tab bar: a hairline rule with the active tab
- * carrying a brand underline.
+ * The app's primary detail-page tab bar: the active tab is a filled brand pill.
+ * (Named for its original underline look; kept so the six call sites didn't churn.)
  *
  * This is the *primary* level of navigation. Where a screen also needs a second
  * level inside a tab, that one is `SegmentedControl` — the two read as a
@@ -740,112 +740,133 @@ export function UnderlineTabs<K extends string>({
         ] as SxProps<Theme>
       }
     >
-      {/* The rule moves to this row so the tabs and the actions share one baseline. The
-          tablist keeps the scrolling; the actions stay put at the end of the row rather
+      {/* The tablist keeps the scrolling; the actions stay put at the end of the row rather
           than scrolling away with a long set of tabs. */}
       <Box
         sx={{
           display: "flex",
-          alignItems: "stretch",
+          alignItems: "center",
           gap: 1,
-          borderBottom: 1,
-          borderColor: "divider",
+          py: 0.75,
         }}
       >
+        {/* The track: a bordered capsule hugging the tabs. The fade mask sits on the inner
+            list so the track's border stays crisp while the tabs scroll under it. */}
         <Box
-          ref={listRef}
-          role="tablist"
-          aria-label={ariaLabel}
           sx={{
             display: "flex",
-            flexWrap: "nowrap",
-            gap: 0.5,
-            flex: 1,
+            flex: "0 1 auto",
             minWidth: 0,
-            mb: "-1px",
-            overflowX: "auto",
-            // The scrollbar under a tab bar is chrome nobody needs; the row still scrolls.
-            scrollbarWidth: "none",
-            "&::-webkit-scrollbar": { display: "none" },
-            ...((more.start || more.end) && { maskImage: fade, WebkitMaskImage: fade }),
+            p: 0.5,
+            border: 1,
+            borderColor: "divider",
+            borderRadius: 999,
+            bgcolor: "action.hover",
+            boxShadow: "inset 0 1px 2px rgba(15, 23, 42, 0.06)",
           }}
         >
-          {tabs.map((tab) => {
-            const isActive = tab.key === value;
-            const count = tab.count ?? 0;
-            return (
-              <Box
-                key={tab.key}
-                component="button"
-                ref={(node: HTMLButtonElement | null) => {
-                  if (node) tabRefs.current.set(tab.key, node);
-                  else tabRefs.current.delete(tab.key);
-                }}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => onChange(tab.key)}
-                sx={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 1,
-                  px: 1.5,
-                  pt: 1,
-                  pb: 1.25,
-                  mb: "-1px",
-                  border: 0,
-                  background: "transparent",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  fontSize: "13.5px",
-                  fontWeight: isActive ? 700 : 500,
-                  color: isActive ? "primary.main" : "text.secondary",
-                  borderBottom: "2px solid",
-                  borderBottomColor: isActive ? "primary.main" : "transparent",
-                  transition: "color .15s ease, border-color .15s ease",
-                  "&:hover": {
-                    color: isActive ? "primary.main" : "text.primary",
-                  },
-                  "&:focus-visible": {
-                    outline: "2px solid",
-                    outlineColor: "primary.main",
-                    outlineOffset: -2,
-                  },
-                }}
-              >
-                {tab.icon && (
-                  <i
-                    className={
-                      tab.icon.startsWith("bi ") ? tab.icon : `bi ${tab.icon}`
-                    }
-                  />
-                )}
-                {tab.label}
-                {count > 0 && (
-                  <Box
-                    component="span"
-                    sx={{
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      borderRadius: 999,
-                      minWidth: 18,
-                      height: 18,
-                      px: 0.625,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: isActive
-                        ? "primary.contrastText"
-                        : "text.secondary",
-                      bgcolor: isActive ? "primary.main" : "action.selected",
-                    }}
-                  >
-                    {count}
-                  </Box>
-                )}
-              </Box>
-            );
-          })}
+          <Box
+            ref={listRef}
+            role="tablist"
+            aria-label={ariaLabel}
+            sx={{
+              display: "flex",
+              flexWrap: "nowrap",
+              gap: 0.5,
+              flex: 1,
+              minWidth: 0,
+              // Room for the active pill's shadow and focus ring, which overflow would clip.
+              p: 0.25,
+              overflowX: "auto",
+              // The scrollbar under a tab bar is chrome nobody needs; the row still scrolls.
+              scrollbarWidth: "none",
+              "&::-webkit-scrollbar": { display: "none" },
+              ...((more.start || more.end) && { maskImage: fade, WebkitMaskImage: fade }),
+            }}
+          >
+            {tabs.map((tab) => {
+              const isActive = tab.key === value;
+              const count = tab.count ?? 0;
+              return (
+                <Box
+                  key={tab.key}
+                  component="button"
+                  ref={(node: HTMLButtonElement | null) => {
+                    if (node) tabRefs.current.set(tab.key, node);
+                    else tabRefs.current.delete(tab.key);
+                  }}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => onChange(tab.key)}
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 1,
+                    px: 1.75,
+                    py: 0.875,
+                    border: 0,
+                    borderRadius: 999,
+                    bgcolor: isActive ? "primary.main" : "transparent",
+                    boxShadow: isActive ? 1 : "none",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    fontSize: "13.5px",
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? "primary.contrastText" : "text.secondary",
+                    // Only hover animates. Fading into the active state ran the hover's blue text into the
+                    // pill's blue background, hiding the label for a moment on click.
+                    transition: isActive ? "none" : "color .15s ease, background-color .15s ease",
+                    "&:hover": isActive
+                      ? {}
+                      : {
+                          color: "primary.main",
+                          bgcolor: (t: Theme) => alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.2 : 0.1),
+                        },
+                    // Icons follow the tab's text colour (white on the active pill); !important beats
+                    // global theme rules that colour <i> icons inside buttons.
+                    "& i": { color: "inherit !important" },
+                    "&:focus-visible": {
+                      outline: "2px solid",
+                      outlineColor: "primary.main",
+                      outlineOffset: 1,
+                    },
+                  }}
+                >
+                  {tab.icon && (
+                    <i
+                      className={
+                        tab.icon.startsWith("bi ") ? tab.icon : `bi ${tab.icon}`
+                      }
+                    />
+                  )}
+                  {tab.label}
+                  {count > 0 && (
+                    <Box
+                      component="span"
+                      sx={{
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        borderRadius: 999,
+                        minWidth: 18,
+                        height: 18,
+                        px: 0.625,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: isActive
+                          ? "primary.main"
+                          : "text.secondary",
+                        bgcolor: isActive ? "primary.contrastText" : "action.selected",
+                      }}
+                    >
+                      {count}
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
         </Box>
         {actions && (
           <Box
@@ -854,6 +875,7 @@ export function UnderlineTabs<K extends string>({
               alignItems: "center",
               gap: 0.5,
               flexShrink: 0,
+              ml: "auto",
               pb: 0.25,
             }}
           >

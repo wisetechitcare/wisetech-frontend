@@ -10,9 +10,6 @@ import {
   ToggleButtonGroup,
   useTheme,
   useMediaQuery,
-  Autocomplete,
-  TextField,
-  InputAdornment,
 } from "@mui/material";
 import { getAllLeads } from "@services/leads";
 import { fetchAllPages } from "@utils/fetchAllPages";
@@ -66,7 +63,7 @@ import MeetingDialog from "@pages/employee/MeetingDialog";
 import { LeadStatusPill, leadRowSx, leadTableSx, UNASSIGNED_ORG_LABEL } from "./leadTableStyle";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { canSection, canViewCommercial } from "@utils/can";
-import { useStickyFilters } from "@app/hooks/useStickyFilters";
+import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 
 /**
  * Leads created before organizations existed carry no organizationId. They are
@@ -204,8 +201,6 @@ const toLeadRow = (lead: any) => {
       (Array.isArray(lead.commercials) && lead.commercials.length > 0
         ? lead.commercials[0]?.area
         : null) ||
-      lead?.additionalDetails?.projectArea ||
-      lead?.addresses?.[0]?.projectArea ||
       "",
     cost:
       Array.isArray(lead.commercials) && lead.commercials.length > 0
@@ -281,6 +276,8 @@ const LeadNewLead: React.FC = () => {
   const [alignment, setAlignment] = useState<DateMode>("monthly");
   // The table's search box, debounced by the table and applied by the server.
   const [search, setSearch] = useState("");
+  // Per-column filters from the table's filter row. See `columnFiltering` below.
+  const [columnFilters, setColumnFilters] = useState<Array<{ id: string; value: unknown }>>([]);
   // Seeded with the table's default sort, so the first request is already in that order.
   const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([{ id: "inquiryDate", desc: true }]);
 
@@ -328,10 +325,9 @@ const LeadNewLead: React.FC = () => {
   // Empty = all organizations; UNASSIGNED_ORG_VALUE = leads that predate them.
   const organizationFilter = searchParams.get("org") || "";
   const assignedToFilter = searchParams.get("assignee") || "";
-  // …and they stick: leaving for another section (or logging out) and coming back
-  // restores them, exactly like the Daily/Weekly/Monthly selector. Clear Filters clears
-  // them for good — see useStickyFilters.
-  useStickyFilters("leadFilters", LEAD_FILTER_KEYS);
+  // Not restored from storage any more: the toolbar dropdowns that set and cleared these
+  // were removed, so a remembered value would filter the list with no control to undo it.
+  // A link that carries ?status= (a dashboard drill-down) still applies.
   const setFilterParam = useCallback(
     (key: string, value: string) => {
       setSearchParams(
@@ -591,6 +587,35 @@ const LeadNewLead: React.FC = () => {
     [fetchPage, withRowExtras],
   );
 
+  /**
+   * Column filtering works on the WHOLE result set, not the page on screen.
+   *
+   * The moment any column filter has a value, every lead matching the toolbar filters (period,
+   * status, organization, assignee, search) is loaded — the same path Export uses — and the
+   * table filters, sorts and pages them itself. That is what lets every column filter,
+   * including the ones computed in the browser (area, cost, file location), and makes the
+   * answer independent of which page you were on. Clearing the filters returns to server paging.
+   */
+  const columnFiltering = columnFilters.some(({ value }) =>
+    Array.isArray(value) ? value.some((v) => v !== undefined && v !== null && v !== "") : value !== undefined && value !== null && value !== "",
+  );
+  const [allRows, setAllRows] = useState<any[] | null>(null);
+  const [allRowsLoading, setAllRowsLoading] = useState(false);
+  useEffect(() => {
+    if (!columnFiltering) {
+      setAllRows(null);
+      return;
+    }
+    let cancelled = false;
+    setAllRowsLoading(true);
+    fetchAllRows()
+      .then((rows) => { if (!cancelled) setAllRows(rows); })
+      .catch(() => { if (!cancelled) setAllRows(null); })
+      .finally(() => { if (!cancelled) setAllRowsLoading(false); });
+    return () => { cancelled = true; };
+  }, [columnFiltering, fetchAllRows]);
+  const localMode = columnFiltering && allRows !== null;
+
   // Only the first ever load blanks the screen; later fetches keep the rows up.
   const loading = isInitialLoading;
 
@@ -788,6 +813,15 @@ const LeadNewLead: React.FC = () => {
     return map;
   }, [projectSubcategories]);
 
+  const poStatusOptions = usePoStatusOptions();
+  const poStatusColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    poStatusOptions.forEach((opt) => {
+      if (opt.value && opt.color) map.set(opt.value.toLowerCase(), opt.color);
+    });
+    return map;
+  }, [poStatusOptions]);
+
   // ── Columns ──────────────────────────────────────────────────────────────────
   // Memoized so the array keeps a stable identity across renders. An unstable identity
   // makes useTablePreferences recompute its defaults + re-run the column-order reset
@@ -958,7 +992,7 @@ const LeadNewLead: React.FC = () => {
       accessorKey: "client",
       header: "Client",
       size: 150,
-      meta: { defaultVisible: false },
+      meta: { defaultVisible: false, filterText: (r: any) => (typeof r.client === "object" ? r.client?.name : r.client) || "" },
       Cell: ({ cell }: { cell: any }) => {
         const v = cell.getValue();
         return typeof v === "object" ? v.name || "N/A" : v || "N/A";
@@ -967,6 +1001,8 @@ const LeadNewLead: React.FC = () => {
     {
       accessorKey: "organization",
       header: "Organization",
+      // The filter dropdown lists what the cell shows (MaterialTable meta.filterText).
+      meta: { filterText: (r: any) => r.organization || UNASSIGNED_ORG_LABEL },
       size: 170,
       Cell: ({ cell }: { cell: any }) => {
         const name = cell.getValue() as string;
@@ -982,7 +1018,7 @@ const LeadNewLead: React.FC = () => {
       accessorKey: "service",
       header: "Service",
       size: 150,
-      meta: { defaultVisible: false },
+      meta: { defaultVisible: false, filterText: (r: any) => serviceMap.get(r.service) || "" },
       Cell: ({ cell }: { cell: any }) =>
         serviceMap.get(cell.getValue()) || "N/A",
     },
@@ -990,7 +1026,7 @@ const LeadNewLead: React.FC = () => {
       accessorKey: "category",
       header: "Category",
       size: 150,
-      meta: { defaultVisible: false },
+      meta: { defaultVisible: false, filterText: (r: any) => categoryMap.get(r.category) || "" },
       Cell: ({ cell }: { cell: any }) =>
         categoryMap.get(cell.getValue()) || "N/A",
     },
@@ -998,13 +1034,15 @@ const LeadNewLead: React.FC = () => {
       accessorKey: "subCategory",
       header: "Sub Category",
       size: 150,
-      meta: { defaultVisible: false },
+      meta: { defaultVisible: false, filterText: (r: any) => subCategoryMap.get(r.subCategory) || "" },
       Cell: ({ cell }: { cell: any }) =>
         subCategoryMap.get(cell.getValue()) || "N/A",
     },
     {
       accessorKey: "status",
       header: "Lead Status",
+      // The filter dropdown lists what the cell shows (MaterialTable meta.filterText).
+      meta: { filterText: (r: any) => r.status?.name || "" },
       size: 150,
       Cell: ({ row }: any) => <LeadStatusPill status={row?.original?.status} />,
     },
@@ -1022,24 +1060,20 @@ const LeadNewLead: React.FC = () => {
       accessorKey: "poStatus",
       header: "PO Status",
       size: 130,
-      meta: { defaultVisible: false },
+      meta: { defaultVisible: false, filterText: (r: any) => r.poStatus || "" },
       Cell: ({ row }: any) => {
         const poStatus = row?.original?.poStatus;
         if (row?.original?.status?.name !== "Received" || !poStatus)
           return <span>N/A</span>;
-        return (
-          <ToneChip
-            dense
-            tone={poStatus === "Received" ? "success" : "warning"}
-            label={poStatus}
-            solid={poStatus === "Received"}
-          />
-        );
+        const color = poStatusColorMap.get(poStatus.toLowerCase()) || (poStatus === "Received" ? "#107e3e" : "#ffc107");
+        return <LeadStatusPill status={{ name: poStatus, color }} />;
       },
     },
     {
       accessorKey: "assignedTo",
       header: "Assigned To",
+      // The filter dropdown lists what the cell shows (MaterialTable meta.filterText).
+      meta: { filterText: (r: any) => employeeMap.get(r.assignedTo) || "" },
       size: 160,
       Cell: ({ cell }: { cell: any }) =>
         employeeMap.get(cell.getValue()) || "N/A",
@@ -1085,7 +1119,7 @@ const LeadNewLead: React.FC = () => {
       accessorKey: "createdBy",
       header: "Created By",
       size: 150,
-      meta: { defaultVisible: false },
+      meta: { defaultVisible: false, filterText: (r: any) => employeeMap.get(r.createdBy) || "" },
       Cell: ({ cell }: { cell: any }) =>
         employeeMap.get(cell.getValue()) || "N/A",
     },
@@ -1093,7 +1127,7 @@ const LeadNewLead: React.FC = () => {
       accessorKey: "updatedBy",
       header: "Edited By",
       size: 140,
-      meta: { defaultVisible: false },
+      meta: { defaultVisible: false, filterText: (r: any) => employeeMap.get(r.updatedBy) || "" },
       Cell: ({ cell }: { cell: any }) =>
         employeeMap.get(cell.getValue()) || "N/A",
     },
@@ -1101,21 +1135,21 @@ const LeadNewLead: React.FC = () => {
       accessorKey: "country",
       header: "Country",
       size: 120,
-      meta: { defaultVisible: false },
+      meta: { defaultVisible: false, filterText: (r: any) => r.country || "" },
       Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
     },
     {
       accessorKey: "city",
       header: "City",
       size: 110,
-      meta: { defaultVisible: false },
+      meta: { defaultVisible: false, filterText: (r: any) => r.city || "" },
       Cell: ({ row }: { row: any }) => row.original.city || "N/A",
     },
     {
       accessorKey: "state",
       header: "State",
       size: 110,
-      meta: { defaultVisible: false },
+      meta: { defaultVisible: false, filterText: (r: any) => r.state || "" },
       Cell: ({ row }: { row: any }) => row.original.state || "N/A",
     },
     {
@@ -1184,6 +1218,7 @@ const LeadNewLead: React.FC = () => {
     categoryMap,
     subCategoryMap,
     employeeMap,
+    poStatusColorMap,
     // Stable via useCallback, so listing it never rebuilds the column model — it only stops
     // the reminder cell closing over a stale writer if that ever changes.
     patchCachedRow,
@@ -1259,53 +1294,6 @@ const LeadNewLead: React.FC = () => {
     return `${currencyPrefix()}${amount.toLocaleString(getCurrencyLocale())}`;
   };
 
-  // ── Shared heights ─────────────────────────────────────────────────────────
-  // Matches the table toolbar beside it (kit 'sm' select = 34px).
-  const FILTER_HEIGHT = "34px";
-
-  // ── Menu styling for selects ─────────────────────────────────────────────────
-  const menuSx = {
-    PaperProps: {
-      sx: {
-        borderRadius: "6px",
-        mt: 0.5,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-        maxHeight: 320,
-        "& .MuiMenuItem-root": {
-          fontSize: "12px",
-          fontFamily: "Inter",
-          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
-          "&.Mui-selected": {
-            backgroundColor: "rgba(30, 58, 138,0.1)",
-            color: "#1E3A8A",
-            fontWeight: 600,
-          },
-        },
-      },
-    },
-  };
-
-  // ── Pill select sx for Status & Assigned ──────────────────────────────────────
-  const pillSelectSx = (hasValue: boolean) => ({
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontFamily: "Inter",
-    fontWeight: 500,
-    height: FILTER_HEIGHT,
-    color: hasValue ? "#1E3A8A" : "#1E293B",
-    "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasValue ? "#1E3A8A !important" : "#E2E8F0 !important",
-      borderWidth: "1px !important",
-      borderRadius: "6px !important",
-    },
-    "&:hover .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#1E3A8A !important",
-    },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#1E3A8A !important",
-    },
-    "& .MuiSelect-icon": { color: hasValue ? "#1E3A8A" : "#94A3B8" },
-  });
 
   return (
     <>
@@ -1514,270 +1502,25 @@ const LeadNewLead: React.FC = () => {
       <Box sx={{ "& > .pt-6": { paddingTop: "8px !important" } }}>
         <MaterialTable
           columns={columns}
-          data={tableData}
+          data={localMode ? allRows! : tableData}
           tableName="LeadsTablesMainV2"
           defaultSorting={[{ id: "inquiryDate", desc: true }]}
-          // The server owns paging, sorting and search — all three together, or one of them
-          // would act on the single page the browser holds while implying every lead.
-          manualPagination
-          manualSorting
-          manualFiltering
-          rowCount={totalRecords}
-          paginationState={pagination}
-          onPaginationChange={setPagination}
+          // Normally the server owns paging, sorting and search — all three together, or one
+          // would act on the single page the browser holds while implying every lead. While a
+          // column filter is set the table holds EVERY matching lead (see columnFiltering), so
+          // it filters, sorts and pages them itself.
+          manualPagination={!localMode}
+          manualSorting={!localMode}
+          manualFiltering={!localMode}
+          rowCount={localMode ? undefined : totalRecords}
+          paginationState={localMode ? undefined : pagination}
+          onPaginationChange={localMode ? undefined : setPagination}
           onSortingChange={setSorting}
           onSearchChange={setSearch}
-          isLoading={pageLoading}
-          // Per-column filters and grouping would act on one page only.
-          enableFilters={false}
+          isLoading={pageLoading || allRowsLoading}
+          onColumnFiltersChange={setColumnFilters}
+          // Grouping would act on one page only.
           enableGrouping={false}
-          // Returns elements, not a <FilterToolbar/> component declared in render —
-          // a fresh component type each render remounts the controls mid-interaction
-          // (the Assigned To autocomplete would lose focus on every keystroke).
-          renderTopToolbarRightActions={() => (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                {/* Status Filter */}
-                <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 140 }}>
-                  <Select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    displayEmpty
-                    sx={pillSelectSx(!!statusFilter)}
-                    renderValue={(val) => {
-                      if (!val) {
-                        return (
-                          <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                            Select Status
-                          </span>
-                        );
-                      }
-                      const st = leadStatuses.find((s: any) => s.name === val);
-                      return (
-                        <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
-                          {st?.color && (
-                            <span style={{ width: 8, height: 8, minWidth: 8, borderRadius: "50%", backgroundColor: st.color, display: "inline-block" }} />
-                          )}
-                          <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                            {val}
-                          </span>
-                          <span
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setStatusFilter("");
-                            }}
-                            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
-                          >
-                            ✕
-                          </span>
-                        </span>
-                      );
-                    }}
-                    MenuProps={menuSx}
-                  >
-                    <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                      All Statuses
-                    </MenuItem>
-                    {leadStatuses.map((st: any) => (
-                      <MenuItem key={st.id} value={st.name} sx={{ fontSize: "12px" }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                          <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color, display: "inline-block", flexShrink: 0 }} />
-                          {st.name}
-                        </span>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                {/* Organization Filter — same pill treatment as Status. Hidden when
-                    there is only one organization and nothing legacy to separate. */}
-                {organizationFilterOptions.length > 1 && (
-                  <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 170 }}>
-                    <Select
-                      value={organizationFilter}
-                      onChange={(e) => setOrganizationFilter(e.target.value)}
-                      displayEmpty
-                      sx={pillSelectSx(!!organizationFilter)}
-                      renderValue={(val) => {
-                        if (!val) {
-                          return (
-                            <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                              Organization
-                            </span>
-                          );
-                        }
-                        const label =
-                          organizationFilterOptions.find((o) => o.value === val)?.label ?? val;
-                        return (
-                          <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
-                            <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                              {label}
-                            </span>
-                            <span
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setOrganizationFilter("");
-                              }}
-                              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
-                            >
-                              ✕
-                            </span>
-                          </span>
-                        );
-                      }}
-                      MenuProps={menuSx}
-                    >
-                      <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                        All Organizations
-                      </MenuItem>
-                      {organizationFilterOptions.map((option) => (
-                        <MenuItem key={option.value} value={option.value} sx={{ fontSize: "12px" }}>
-                          {option.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-
-                {/* Assigned To Autocomplete */}
-                <Autocomplete
-                  size="small"
-                  options={assignedToOptions}
-                  getOptionLabel={(emp: any) => emp.displayName || emp.employeeName}
-                  value={assignedToOptions.find((e: any) => e.employeeId === assignedToFilter) ?? null}
-                  onChange={(_: any, emp: any) => setAssignedToFilter(emp?.employeeId ?? "")}
-                  isOptionEqualToValue={(opt: any, val: any) => opt.employeeId === val.employeeId}
-                  filterOptions={(options, { inputValue }) => {
-                    const q = inputValue.toLowerCase();
-                    if (!q) return options;
-                    return options.filter((o: any) => (o.displayName || o.employeeName || "").toLowerCase().includes(q));
-                  }}
-                  sx={{ minWidth: isMobile ? "100%" : 180 }}
-                  clearOnEscape
-                  renderOption={(props, emp: any) => (
-                    <li {...props} key={emp.employeeId}>
-                      {emp.employeeId === "__NA__" ? (
-                        <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                          <span style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "8px", color: "#999", fontWeight: 700 }}>
-                            N/A
-                          </span>
-                          <span style={{ fontFamily: "Inter", fontSize: "12px", color: "#888" }}>
-                            N/A — UNASSIGNED
-                          </span>
-                        </span>
-                      ) : (
-                        <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                          <img
-                            src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}&size=32&background=random`}
-                            alt=""
-                            style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0, filter: emp.isInactive ? "grayscale(60%)" : "none" }}
-                            onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}`; }}
-                          />
-                          <span style={{ fontFamily: "Inter", fontSize: "12px" }}>
-                            {emp.isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName}
-                          </span>
-                        </span>
-                      )}
-                    </li>
-                  )}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder="Assigned To"
-                      InputProps={{
-                        ...params.InputProps,
-                        startAdornment: assignedToFilter ? (
-                          <InputAdornment position="start" sx={{ ml: "4px", mr: 0 }}>
-                            {assignedToFilter === "__NA__" ? (
-                              <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#f0f0f0", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "7px", color: "#999", fontWeight: 700 }}>
-                                N/A
-                              </span>
-                            ) : (
-                              <img
-                                src={assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.employeeName || "")}&size=24&background=random`}
-                                alt=""
-                                style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", filter: assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.isInactive ? "grayscale(60%)" : "none" }}
-                              />
-                            )}
-                          </InputAdornment>
-                        ) : undefined,
-                      }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: "6px",
-                          height: FILTER_HEIGHT,
-                          fontFamily: "Inter",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          color: assignedToFilter ? "#1E3A8A" : "#1E293B",
-                          paddingRight: "8px !important",
-                          "& fieldset": {
-                            borderColor: assignedToFilter ? "#1E3A8A" : "#E2E8F0",
-                            borderWidth: "1px",
-                            borderRadius: "6px",
-                          },
-                          "&:hover fieldset": { borderColor: "#1E3A8A" },
-                          "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
-                        },
-                        "& .MuiOutlinedInput-input": {
-                          padding: "0 4px !important",
-                          fontFamily: "Inter",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          color: assignedToFilter ? "#1E3A8A" : "#1E293B",
-                          "&::placeholder": {
-                            color: "#94A3B8",
-                            opacity: 1,
-                            fontFamily: "Inter",
-                            fontSize: "12px",
-                            fontWeight: 500,
-                          },
-                        },
-                        "& .MuiAutocomplete-endAdornment": {
-                          right: "6px",
-                          "& .MuiSvgIcon-root": {
-                            color: assignedToFilter ? "#1E3A8A" : "#94A3B8",
-                            fontSize: "16px",
-                          },
-                        },
-                      }}
-                    />
-                  )}
-                  slotProps={{
-                    paper: {
-                      sx: {
-                        borderRadius: "8px",
-                        mt: 0.5,
-                        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                        "& .MuiAutocomplete-listbox": {
-                          maxHeight: 280,
-                          fontFamily: "Inter",
-                          "& .MuiAutocomplete-option": {
-                            fontSize: "12px",
-                            "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
-                            '&[aria-selected="true"]': {
-                              backgroundColor: "rgba(30, 58, 138,0.1)",
-                              color: "#1E3A8A",
-                              fontWeight: 600,
-                            },
-                          },
-                        },
-                      },
-                    },
-                  }}
-                />
-
-
-
-                {/* Clear filters trigger */}
-                {hasAnyFilter && (
-                  <Button variant="link" size="xs" onClick={clearAllFilters}>
-                    ✕ Clear Filters
-                  </Button>
-                )}
-            </Box>
-          )}
           renderExportActions={() => (
             <ExportButton
               data={tableData}

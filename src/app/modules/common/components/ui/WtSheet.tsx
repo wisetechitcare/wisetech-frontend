@@ -14,6 +14,8 @@ export interface WtSheetProps {
   children: ReactNode;
   footer?: ReactNode;
   width?: number;
+  /** Stacking override — e.g. a sheet opened from a table inside a drill-down dialog. */
+  zIndex?: number;
 }
 
 /** Responsive right-side workspace for filters, history, and other supporting tasks. */
@@ -27,6 +29,7 @@ export function WtSheet({
   children,
   footer,
   width = 420,
+  zIndex,
 }: WtSheetProps) {
   const titleId = useId();
 
@@ -35,6 +38,7 @@ export function WtSheet({
       anchor="right"
       open={open}
       onClose={onClose}
+      sx={zIndex === undefined ? undefined : { zIndex }}
       ModalProps={{ keepMounted: true }}
       PaperProps={{
         role: "dialog",

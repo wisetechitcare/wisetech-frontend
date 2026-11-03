@@ -1,4 +1,5 @@
 import { safeJsonParse } from '@utils/safeJson';
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Grid } from '@mui/material';
 import { LeaveTypesBalanceModal } from './component/LeaveTypesBalance';
@@ -856,4 +857,4 @@ const AttendanceConfig: React.FC = () => {
   );
 };
 
-export default AttendanceConfig;
+export default withDeleteSection('attendance.employees', AttendanceConfig);

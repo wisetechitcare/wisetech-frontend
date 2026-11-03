@@ -307,7 +307,7 @@ export function DataTable<T>({
         )}
       </div>
 
-      <Card className="gap-0 overflow-x-auto py-0">
+      <Card variant="panel" className="gap-0 overflow-x-auto py-0">
         <Table style={{ minWidth }} aria-busy={loading || undefined}>
           <TableCaption className="sr-only">{caption}</TableCaption>
           <TableHeader className="sticky top-0 z-10 bg-card">

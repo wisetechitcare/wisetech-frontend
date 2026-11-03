@@ -1,6 +1,8 @@
 import * as React from "react"
 import { cn } from "@/ds/lib/utils"
+import { Card } from "@/ds/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/ds/ui/radio-group"
+import { IconBox } from "./icon-box"
 
 export type ChoiceOption<T extends string> = {
   value: T
@@ -53,27 +55,25 @@ export function ChoiceCards<T extends string>({
         {options.map((o) => {
           const id = `${labelId}-${o.value}`
           return (
-            <label
-              key={o.value}
-              htmlFor={id}
-              className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-2xl border bg-card p-4 transition-colors hover:bg-muted/50",
-                "has-data-checked:border-primary has-data-checked:bg-accent/40 has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
-                o.disabled && "cursor-not-allowed opacity-70 hover:bg-card",
-              )}
-            >
-              <RadioGroupItem id={id} value={o.value} disabled={o.disabled} className="mt-0.5" />
-              <span className="min-w-0 flex-1 space-y-1">
-                <span className="flex items-center gap-2 text-sm font-medium [&>svg]:size-4 [&>svg]:text-muted-foreground">
-                  {o.icon}
-                  {o.label}
+            // The option is a card: radio leads (where form controls go), icon tile top-right (the card rule); the
+            // label makes the whole card select the radio.
+            <label key={o.value} htmlFor={id} className="block">
+              <Card
+                interactive
+                aria-disabled={o.disabled || undefined}
+                className="h-full flex-row items-start gap-3 px-(--card-spacing)"
+              >
+                <RadioGroupItem id={id} value={o.value} disabled={o.disabled} className="mt-0.5" />
+                <span className="min-w-0 flex-1 space-y-1">
+                  <span className="block text-sm font-medium">{o.label}</span>
+                  {(o.description || (o.disabled && o.disabledReason)) && (
+                    <span className="block text-sm text-muted-foreground">
+                      {o.disabled && o.disabledReason ? o.disabledReason : o.description}
+                    </span>
+                  )}
                 </span>
-                {(o.description || (o.disabled && o.disabledReason)) && (
-                  <span className="block text-sm text-muted-foreground">
-                    {o.disabled && o.disabledReason ? o.disabledReason : o.description}
-                  </span>
-                )}
-              </span>
+                {o.icon && <IconBox icon={o.icon} size="lg" />}
+              </Card>
             </label>
           )
         })}

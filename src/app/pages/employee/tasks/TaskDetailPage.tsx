@@ -29,6 +29,7 @@ import { Button } from '@/ds/ui/button';
 import { KTIcon } from '@metronic/helpers';
 import { confirmDialog, toast, WhatsAppIcon } from '@app/modules/common/components/ui';
 import { formatDate } from '@utils/dateFormats';
+import { canDelete } from '@utils/can';
 import { PATH_SEPARATOR } from '@utils/presetTaskHierarchy';
 import {
     TaskRow, apiErrorMessage, shortTaskId, isTaskOverdue, clampProgress, subtaskProgress,
@@ -428,7 +429,7 @@ export const TaskDetailPage = () => {
                         </span>
                         {canEdit ? 'Edit' : 'Update progress'}
                     </Button>
-                    {canEdit && (
+                    {canEdit && canDelete('tasks') && (
                         <Tooltip title="Delete this task">
                             {/* Neutral until reached for: destructive controls should not shout from a
                                 page you are only reading. */}

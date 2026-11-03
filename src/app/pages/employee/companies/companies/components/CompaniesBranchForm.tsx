@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Formik, Form as FormikForm, type FormikProps } from "formik";
-import { AppIcon, FloatingLabels, WtButton, useDiscardConfirm } from "@app/modules/common/components/ui";
+import { FloatingLabels, useDiscardConfirm } from "@app/modules/common/components/ui";
 import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
 import { CrmWorkspace } from "../../forms/CrmWorkspace";
 import { CrmSection } from "../../forms/CrmSection";
+import { ContactAddressSection } from "../../forms/ContactAddressSection";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -24,7 +25,6 @@ import {
 } from "@services/options";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
-import { Box } from "@mui/material";
 
 // Default empty form values
 const defaultValues = {
@@ -51,13 +51,9 @@ const defaultValues = {
 const validationSchema = Yup.object().shape({
   companyId: Yup.string().required("Company is required"),
   name: Yup.string().required("Branch name is required"),
-  type: Yup.string(),
-  address: Yup.string(),
-  country: Yup.string(),
-  state: Yup.string(),
-  city: Yup.string(),
-  email: Yup.string().email("Invalid email format"),
-  phone: Yup.string(),
+  // Everything else is optional. Plain Yup.string() rules on those rejected the nulls a saved
+  // branch comes back with ("address cannot be null"), blocking every edit of an old branch.
+  email: Yup.string().nullable().email("Invalid email format"),
 });
 
 interface CompaniesBranchFormProps {
@@ -316,15 +312,6 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
     }
   };
 
-  const viewLocation = (latitude: string, longitude: string) => {
-    if (latitude && longitude) {
-      const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-      window.open(googleMapsUrl, '_blank');
-    } else {
-      errorConfirmation("Please enter latitude and longitude first");
-    }
-  };
-
   const isEdit = !!editingBranchId;
 
   return (
@@ -443,88 +430,17 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                       fields: ["address", "country", "state", "city", "area", "zipCode", "googleMapLink", "gmbLink", "latitude", "longitude"],
                       icon: "bi-geo-alt",
                       content: (
-                        <>
-                          <CrmSection title="Address">
-                            <div className="row g-4">
-                              <div className="col-12">
-                                <TextInput formikField="address" label="Address" isRequired={false} />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <DropDownInput
-                                  formikField="country"
-                                  inputLabel="Country"
-                                  options={countries.map((c) => ({ label: c.name, value: c.id }))}
-                                  isRequired={false}
-                                  onChange={(option: any) => {
-                                    setFieldValue("country", option?.value || "");
-                                    setFieldValue("state", "");
-                                    setFieldValue("city", "");
-                                    if (option?.value) handleCountryChange(option.value);
-                                  }}
-                                  value={values.country ? { label: countries.find((c) => c.id === values.country)?.name || "", value: values.country } : null}
-                                />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <DropDownInput
-                                  formikField="state"
-                                  inputLabel="State"
-                                  options={values.country ? states.map((s) => ({ label: s.name, value: s.id })) : []}
-                                  placeholder={!values.country ? "Please select country first" : "Select State"}
-                                  isRequired={false}
-                                  onChange={(option: any) => {
-                                    setFieldValue("state", option?.value || "");
-                                    setFieldValue("city", "");
-                                    if (option?.value && values.country) handleStateChange(values.country, option.value);
-                                  }}
-                                  value={values.state ? { label: states.find((s) => s.id === values.state)?.name || "", value: values.state } : null}
-                                />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <DropDownInput
-                                  formikField="city"
-                                  inputLabel="City"
-                                  options={values.state ? [
-                                    ...cities.map((c) => ({ label: c.name, value: c.id })),
-                                    // Add custom city if it's not in the list
-                                    ...(values.city && !cities.find((c) => c.id === values.city) ? [{ label: values.city, value: values.city }] : []),
-                                  ] : []}
-                                  placeholder={!values.state ? "Please select state first" : "Select City"}
-                                  isRequired={false}
-                                  onChange={(option: any) => setFieldValue("city", option?.value || "")}
-                                  value={values.city ? { label: cities.find((c) => c.id === values.city)?.name || values.city, value: values.city } : null}
-                                />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <TextInput formikField="area" label="Locality" isRequired={false} />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <TextInput formikField="zipCode" label="ZipCode" isRequired={false} />
-                              </div>
-                            </div>
-                          </CrmSection>
-                          <CrmSection title="Location on Map" className="mt-5">
-                            <div className="row g-4">
-                              <div className="col-12 col-lg-6">
-                                <TextInput formikField="googleMapLink" label="Google Map Link" isRequired={false} />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <TextInput formikField="gmbLink" label="Google Business Link" isRequired={false} />
-                              </div>
-                              <div className="col-12 col-sm-6">
-                                <TextInput formikField="latitude" label="Latitude" isRequired={false} inputValidation="signed-decimal" />
-                              </div>
-                              <div className="col-12 col-sm-6">
-                                <TextInput formikField="longitude" label="Longitude" isRequired={false} inputValidation="signed-decimal" />
-                              </div>
-                            </div>
-                            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-                              <WtButton ghost startIcon={<AppIcon name="bi-geo-alt" />}
-                                onClick={() => viewLocation(values.latitude || "", values.longitude || "")}>
-                                View location on map
-                              </WtButton>
-                            </Box>
-                          </CrmSection>
-                        </>
+                        <ContactAddressSection
+                          countries={countries}
+                          states={states}
+                          cities={cities}
+                          selectedCountry={values.country}
+                          selectedState={values.state}
+                          setSelectedCountry={() => {}}
+                          setSelectedState={() => {}}
+                          handleCountryChange={handleCountryChange}
+                          handleStateChange={handleStateChange}
+                        />
                       ),
                     },
                   ]}

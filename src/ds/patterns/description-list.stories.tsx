@@ -40,7 +40,7 @@ export const Default: Story = {
 export const InCard: Story = {
   render: () => (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card>
+      <Card tone="blue">
         <CardHeader>
           <SectionHeader icon={<UserRound />} tone="blue" title="Personal details" action={<Button size="sm" variant="ghost">Edit</Button>} />
         </CardHeader>
@@ -55,7 +55,7 @@ export const InCard: Story = {
           />
         </CardContent>
       </Card>
-      <Card>
+      <Card tone="green">
         <CardHeader>
           <SectionHeader icon={<Landmark />} tone="green" title="Bank account" description="Salary is credited here" />
         </CardHeader>

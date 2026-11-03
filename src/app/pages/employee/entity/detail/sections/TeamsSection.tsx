@@ -966,7 +966,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                     )}
                     {rows.map((m, i) => (
                       <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
-                        <div style={{ flex: 2, minWidth: COL.employee }}><SearchableSelectEditor value={m.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" formatOptionLabel={formatEmployeeOption} /></div>
+                        <div style={{ flex: 2, minWidth: COL.employee }}><SearchableSelectEditor value={m.employeeId} options={employeeOptions.filter(o => !rows.some((other, oIdx) => oIdx !== i && String(other.employeeId) === String(o.value)))} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" formatOptionLabel={formatEmployeeOption} /></div>
                         <div style={{ flex: 1, minWidth: COL.date }}><DateEditor value={m.startDate} onChange={v => update(i, { startDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: COL.date }}><DateEditor value={m.endDate} onChange={v => update(i, { endDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: COL.status }}><ToggleEditor value={m.isActive !== false} onChange={v => applyStatusToggle(v, m, patch => update(i, patch))} onLabel="Active" offLabel="Inactive" /></div>
@@ -1270,9 +1270,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         )}
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                           <div style={{ flex: 1, minWidth: 140 }}><SearchableSelectEditor value={t.companyTypeId} options={companyTypeOptions} onChange={v => update(i, { companyTypeId: v })} placeholder="Select type" /></div>
-                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" showColor /></div>
+                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId).filter(o => !rows.some((other, oIdx) => oIdx !== i && String(other.companyId) === String(o.value) && !other.contactId))} onChange={v => onCompanyChange(i, v)} placeholder="Select company" showColor /></div>
                           <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
-                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" showColor /></div>
+                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId).filter(o => !rows.some((other, oIdx) => oIdx !== i && String(other.contactId) === String(o.value)))} onChange={v => onContactChange(i, v)} placeholder="Select contact" showColor /></div>
                           <div style={{ flex: 1, minWidth: 130 }}>
                             {/* Auto-fetched from the selected contact's Role in Company. */}
                             <div

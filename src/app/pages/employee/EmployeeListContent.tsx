@@ -132,9 +132,9 @@ const EmployeeListContent = () => {
   });
   const [selectedStatus, setSelectedStatus] = useState<StatusType>("active");
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ all: 0, active: 0, inactive: 0 });
-  const [branchFilter, setBranchFilter] = useStoredState<string>('filters:EmployeeListContent:branchFilter', 'All');
-  const [subOrgFilter, setSubOrgFilter] = useStoredState<string>('filters:EmployeeListContent:subOrgFilter', 'All');
-  const [payTypeFilter, setPayTypeFilter] = useStoredState<string>('filters:EmployeeListContent:payTypeFilter', 'All');
+  const [branchFilter, setBranchFilter] = useState<string>('All');
+  const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
+  const [payTypeFilter, setPayTypeFilter] = useState<string>('All');
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const rootOrgNames = useRootOrgNames();
   // Which employee's ID card is on screen. Held as {id, name} rather than a boolean
@@ -730,63 +730,6 @@ const EmployeeListContent = () => {
         </Box>
       </Box>
 
-      {/* Row 2. A GRID, not a wrapping flex row: `minWidth` on the selects made
-          them three different widths that reflowed into a ragged second line the
-          moment a branch name grew. Equal tracks, one column on a phone. */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr)) auto' },
-          gap: 1.5,
-          alignItems: 'center',
-        }}
-      >
-      <ToolbarFilterSelect
-        label="Branch"
-        icon="bi-geo-alt"
-        value={branchFilter}
-        onChange={setBranchFilter}
-        theme={branchFilter !== 'All' ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' } : undefined}
-        options={[
-          { value: 'All', label: 'All Branches' },
-          ...branchOptions.map((name) => ({ value: name, label: name })),
-        ]}
-      />
-      <ToolbarFilterSelect
-        label="Sub Organization"
-        icon="bi-building"
-        value={subOrgFilter}
-        onChange={setSubOrgFilter}
-        theme={subOrgFilter !== 'All' ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' } : undefined}
-        options={[
-          { value: 'All', label: 'All Sub Organizations' },
-          ...subOrgOptions.map((name) => ({ value: name, label: name })),
-        ]}
-      />
-      <ToolbarFilterSelect
-        label="Pay Type"
-        icon="bi-briefcase"
-        value={payTypeFilter}
-        onChange={setPayTypeFilter}
-        theme={payTypeFilter === 'Salary Based' ? { icon: '#16a34a', border: '#bbf7d0', bg: '#f0fdf4', text: '#166534', ring: 'rgba(22, 163, 74, 0.12)' } : payTypeFilter === 'Contract Based' ? { icon: '#7c3aed', border: '#ddd6fe', bg: '#f5f3ff', text: '#5b21b6', ring: 'rgba(124, 58, 237, 0.12)' } : undefined}
-        options={[
-          { value: 'All', label: 'All Pay Types' },
-          { value: 'Salary Based', label: 'Salary Based' },
-          { value: 'Contract Based', label: 'Contract Based' },
-        ]}
-      />
-      {hasActiveFilters && (
-        <Button
-          variant="tinted"
-          style={{ '--tint': 'var(--cta-danger)' } as CSSProperties}
-          onClick={() => { setBranchFilter('All'); setSubOrgFilter('All'); setPayTypeFilter('All'); }}
-          title="Reset filters"
-        >
-          <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrow-counterclockwise" className="fs-7" /></span>
-          Reset
-        </Button>
-      )}
-      </Box>
     </GlassSurface>
 
     {/* No refetch overlay here on purpose. `dataLoading` is true on EVERY fetch, not just the

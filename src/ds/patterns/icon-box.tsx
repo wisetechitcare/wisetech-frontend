@@ -10,7 +10,8 @@ const iconBoxVariants = cva(
       size: {
         sm: "size-8 rounded-lg [&>svg]:size-4",
         default: "size-10 rounded-xl [&>svg]:size-5",
-        lg: "size-12 rounded-2xl [&>svg]:size-6",
+        // The benchmark (Stat Card) icon tile: 44px, 20px glyph.
+        lg: "size-11 rounded-2xl [&>svg]:size-5",
       },
     },
     defaultVariants: { size: "default" },

@@ -10,7 +10,6 @@ import {
   Alert,
   Autocomplete,
   Box,
-  Button,
   DialogActions,
   DialogContent,
   Link,
@@ -24,6 +23,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
+import { Button, buttonVariants } from "@/ds/ui/button";
 import { toast } from "react-toastify";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import {
@@ -32,6 +32,7 @@ import {
 } from "@app/modules/common/inputs/ColorInDropdwon";
 import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
 import { apiErrorMessage } from "@utils/apiError";
+import { canDelete } from "@utils/can";
 import { MRT_ColumnDef } from "material-react-table";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@redux/store";
@@ -410,6 +411,7 @@ export default function DriveDetail() {
 
   const deliveryStatuses = desk.config.deliveryStatuses;
   const giftRunStatuses = desk.config.giftRunStatuses;
+  const canRemove = canDelete("gift-management");
   const deliveryModes = desk.config.deliveryModes;
   const [filters, setFilters] = useState<GiftRunFilters>(
     EMPTY_GIFT_RUN_FILTERS,
@@ -1104,13 +1106,13 @@ export default function DriveDetail() {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="warning">{GIFT_RUN_LABEL} not found.</Alert>
-        <Button
-          sx={{ mt: 2 }}
-          startIcon={<AppIcon name="bi-arrow-left" />}
-          onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/drives`)}
+        <RouterLink
+          to={`${GIFT_MANAGEMENT_BASE}/drives`}
+          className={buttonVariants({ variant: "ghost", className: "mt-4" })}
         >
+          <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrow-left" /></span>
           Back
-        </Button>
+        </RouterLink>
       </Box>
     );
   }
@@ -1279,15 +1281,13 @@ export default function DriveDetail() {
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       {confirmDialog}
       {promptDialog}
-      <Button
-        size="small"
-        variant="text"
-        startIcon={<AppIcon name="bi-arrow-left" />}
-        onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/drives`)}
-        sx={{ mb: 1, alignSelf: "flex-start", px: 0 }}
+      <RouterLink
+        to={`${GIFT_MANAGEMENT_BASE}/drives`}
+        className={buttonVariants({ variant: "ghost", size: "sm", className: "mb-2" })}
       >
+        <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrow-left" /></span>
         Back to Gift Runs
-      </Button>
+      </RouterLink>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Box sx={{ minWidth: 0 }}>
@@ -1312,7 +1312,8 @@ export default function DriveDetail() {
               <SolidChipPickMenu
                 valueId={drive.status}
                 heading="SET GIFT RUN STATUS"
-                options={giftRunStatuses}
+                // Archiving is a delete-level action; without Delete the option is hidden (unless already archived).
+                options={canRemove ? giftRunStatuses : giftRunStatuses.filter((s) => s.id !== "ARCHIVED" || drive.status === "ARCHIVED")}
                 onPick={(status) => {
                   const needsConfirm =
                     status === "COMPLETED" ||
@@ -1343,27 +1344,18 @@ export default function DriveDetail() {
                 }}
               />
               {runEditable ? (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<AppIcon name="bi-pencil" />}
-                  onClick={() => setEditOpen(true)}
-                >
+                <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+                  <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-pencil" /></span>
                   Edit
                 </Button>
               ) : null}
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<AppIcon name="bi-gift" />}
-                onClick={() => setCreateFromRunOpen(true)}
-              >
+              <Button size="sm" variant="outline" onClick={() => setCreateFromRunOpen(true)}>
+                <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-gift" /></span>
                 Add
               </Button>
               <Button
-                size="small"
-                variant="outlined"
-                startIcon={<AppIcon name="bi-copy" />}
+                size="sm"
+                variant="outline"
                 onClick={() => {
                   void askText({
                     title: `Clone ${GIFT_RUN_LABEL}`,
@@ -1383,15 +1375,15 @@ export default function DriveDetail() {
                   });
                 }}
               >
+                <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-copy" /></span>
                 Clone
               </Button>
               {drive.status === "ARCHIVED" ? (
                 <>
                   <Button
-                    size="small"
-                    variant="outlined"
-                    color="success"
-                    startIcon={<AppIcon name="bi-arrow-counterclockwise" />}
+                    size="sm"
+                    variant="tinted"
+                    style={{ "--tint": "var(--cta-success)" } as React.CSSProperties}
                     onClick={() => {
                       void ask({
                         variant: "confirm",
@@ -1409,13 +1401,14 @@ export default function DriveDetail() {
                       });
                     }}
                   >
+                    <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrow-counterclockwise" /></span>
                     Unarchive
                   </Button>
+                  {canRemove && (
                   <Button
-                    size="small"
-                    variant="outlined"
-                    color="error"
-                    startIcon={<AppIcon name="bi-trash" />}
+                    size="sm"
+                    variant="tinted"
+                    style={{ "--tint": "var(--cta-danger)" } as React.CSSProperties}
                     onClick={() => {
                       void ask({
                         variant: "delete",
@@ -1434,8 +1427,10 @@ export default function DriveDetail() {
                       });
                     }}
                   >
+                    <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-trash" /></span>
                     Delete
                   </Button>
+                  )}
                 </>
               ) : null}
               <GiftHistoryButton kind="drive" id={drive.id} />
@@ -1625,20 +1620,11 @@ export default function DriveDetail() {
                   ))}
                 </TextField>
               )}
-              <Button
-                size="medium"
-                variant="contained"
-                onClick={applyBulkFields}
-              >
+              <Button onClick={applyBulkFields}>
                 {selectedRows.length > 0 ? "Apply to selected" : "Apply to all"}
               </Button>
-              {selectedRows.length > 0 ? (
-                <Button
-                  size="medium"
-                  color="error"
-                  variant="contained"
-                  onClick={removeSelectedFromRun}
-                >
+              {selectedRows.length > 0 && canRemove ? (
+                <Button variant="destructive" onClick={removeSelectedFromRun}>
                   Remove from Gift Run
                 </Button>
               ) : null}

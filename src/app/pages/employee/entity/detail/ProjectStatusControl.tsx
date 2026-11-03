@@ -104,7 +104,8 @@ const ProjectStatusControl: React.FC<{
 
   return (
     <>
-      <button
+      <button data-wt-control="select"
+        aria-haspopup="dialog"
         disabled={saving || !canWrite}
         onClick={handleOpen}
         onMouseEnter={() => canWrite && setHover(true)}

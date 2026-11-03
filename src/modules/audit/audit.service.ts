@@ -48,6 +48,11 @@ export interface AuditFieldChange {
 
 export interface AuditChangeSet {
   id: string;
+  /** Set on a combined (company) timeline: which record this entry belongs to. */
+  entityType?: string;
+  entityId?: string;
+  /** The sub-company / branch name, for entries that are not the company itself. */
+  entityLabel?: string | null;
   revisionNumber: number;
   changedAt: string;
   changedByEmployeeId: string;

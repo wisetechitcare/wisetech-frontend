@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import { parseWorkingDays } from '@utils/workingDays';
 import { anniversaryDateOrNull } from '@utils/anniversary';
 import { useFormik } from 'formik';
-import Flatpickr from "react-flatpickr";
+import Flatpickr from "@app/modules/common/inputs/Flatpickr";
 
 import dayjs from 'dayjs';
 import FullCalendar from '@fullcalendar/react';

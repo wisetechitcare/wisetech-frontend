@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import * as Yup from 'yup';
 import Select from 'react-select';
 import { useFormik } from 'formik';
-import Flatpickr from "react-flatpickr";
+import Flatpickr from "@app/modules/common/inputs/Flatpickr";
 import { PageLink, PageTitle } from '@metronic/layout/core'
 import { KTIcon } from '@metronic/helpers'
 import { IPublicHoliday, IPublicHolidayUpdate } from "@models/company";
@@ -352,7 +352,7 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
 
                     {/* ── SECTION 2 · Name ──────────────────────────────────────────────── */}
                     <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '20px', marginBottom: '14px', border: '1px solid #e9edf2', borderTop: `3px solid ${T.color.brand}` }}>
-                        <SectionHeading icon="text" label="Holiday Name" />
+                        <SectionHeading icon="text-align-left" label="Holiday Name" />
                         <label className="fs-7 fw-bold text-gray-700 d-block mb-2">
                             Name <span className="text-danger">*</span>
                         </label>
@@ -408,7 +408,6 @@ function PublicHoliday({ onClose, setShowNewHolidayForm, isEditMode = false, edi
                                     altFormat: "F j, Y",
                                     enableTime: false,
                                 }}
-                                style={{ borderRadius: '8px', border: '1.5px solid #dde2ec', minHeight: '42px', fontSize: '14px' }}
                             />
                             <AppIcon name="bi-calendar3" className="fs-4 position-absolute" color={T.color.brand} style={{ right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                         </div>

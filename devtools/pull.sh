@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Pull the latest changes into the current branch.   Run: pnpm pull   (or: bash devtools/pull.sh)
 #
-# Pulls from this branch's remote copy, origin/main or origin/dev (you choose). With uncommitted
+# Pulls from this branch's remote copy, origin/main, origin/dev, or any other branch on origin
+# (the same picker as pnpm push's "another branch"; you choose). With uncommitted
 # changes it offers to stage and commit them first (never pushing), then pulls.
 
 DEVTOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -46,15 +47,22 @@ tool_pull() {
   for r in main dev; do
     git rev-parse -q --verify "origin/$r" >/dev/null && [ "$r" != "$b" ] && [[ " ${src[*]:-} " != *" $r "* ]] && src+=("$r")
   done
-  [ ${#src[@]} -gt 0 ] || { warn "nothing to pull from — origin has no $b, main or dev"; return; }
   local items=() tag; for r in "${src[@]}"; do
     tag=""; [ "$r" = "$b" ] && tag="  ${D}← your current branch${N}"
     items+=("origin/$r$tag")
   done
-  items+=("← Back")
-  menu "Pull into $b from" items || return
-  [ "$MENU_IDX" -eq ${#src[@]} ] && return
-  r=${src[MENU_IDX]}
+  items+=("Pull from another branch… (pick any branch on origin)" "← Back")
+  while :; do
+    menu "Pull into $b from" items || return
+    if [ "$MENU_IDX" -lt ${#src[@]} ]; then r=${src[MENU_IDX]}; break; fi
+    [ "$MENU_IDX" -eq $((${#src[@]} + 1)) ] && return                   # ← Back
+    branch_select "$b" existing                                          # same picker as pnpm push, origin branches only
+    case "$BRANCH_ACTION" in
+      pick) r=$BRANCH_RESULT; break ;;
+      back) continue ;;                                                  # back to the pull menu
+      *) return ;;
+    esac
+  done
   if spin "Pulling origin/$r into $b" git pull --no-rebase --no-edit origin "$r"; then
     sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g' "$LOG" | tail -n 8 | sed 's/^/    /'
     echo; ok "done"

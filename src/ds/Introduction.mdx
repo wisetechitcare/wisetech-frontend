@@ -20,6 +20,11 @@ Decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
   motion; only the colour roles (navy brand, status set, per-tenant brand) are ours.
 - **Accessible by default.** Base UI and React Aria primitives, visible focus, keyboard-complete; every story is checked
   with axe and fails on a violation.
+- **One surface per job.** Card for every tile, panel and selectable option (it owns hover, focus, selected
+  and disabled); Item for rows in a list. Patterns are layouts on them, never new surfaces.
+- **Icons: cards right, rows left, dialogs left.** In a card the icon tile sits top-right, in the tone-glow corner
+  (Stat Card is the benchmark), so titles share one left edge. In a list row the icon or avatar leads on the
+  left, where the eye scans. In a dialog header it leads too — the top-right corner belongs to Close.
 - **Status is never colour alone.** Badges carry text (and a dot); trends carry an arrow.
 
 ## Where we differ from stock shadcn
@@ -36,6 +41,10 @@ changes, each marked in the file:
   "Clear", "Remove …").
 - **Slider** — `aria-label` / `aria-labelledby` go to each thumb (what assistive tech focuses); a range names
   its ends "… minimum" / "… maximum".
+- **Card** — the Stat Card benchmark is every card's default look (tone glow, accent bar, spring lift, icon motion;
+  `tone`); `variant="panel"` only for a table frame;
+  `interactive` (hover, focus, selected via a checked control inside, `aria-disabled`) and `CardLink`
+  (the whole card as one link): the states every card-shaped pattern shares.
 - **Pagination** — page links are real links styled with `buttonVariants()`; shadcn's Button-rendered link
   carried `role="button"`.
 - **Button** — the live app's WtButton recipe: the CTA gradient from a brighter brand to the brand with an

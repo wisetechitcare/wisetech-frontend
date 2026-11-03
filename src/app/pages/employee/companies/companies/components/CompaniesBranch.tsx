@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { deleteClientBranch, getAllClientBranches, getClientBranchesByCompanyId } from "@services/lead";
 import CompaniesBranchForm from "./CompaniesBranchForm";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { isRowAction } from "../../crmListRowSx";
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import { Button } from "@/ds/ui/button";
@@ -10,7 +11,7 @@ import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import { fetchAllCountries, fetchAllStates, fetchAllCities } from "@services/options";
 import { deleteConfirmation } from "@utils/modal";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import { getAllClientContacts } from "@services/companies";
 import Loader from "@app/modules/common/utils/Loader";
 
@@ -177,6 +178,7 @@ const CompaniesBranch = ({
             >
               <KTIcon iconName="pencil" className="fs-3" />
             </Button>
+            {canDelete("crm.companies") && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -185,6 +187,7 @@ const CompaniesBranch = ({
             >
               <KTIcon iconName="trash" className="fs-3" />
             </Button>
+            )}
           </div>
         ),
       }] : []),
@@ -211,6 +214,14 @@ const CompaniesBranch = ({
         viewOwn={true}
         viewOthers={true}
         checkOwnWithOthers={true}
+        muiTableProps={{
+          muiTableBodyRowProps: ({ row }: any) => ({
+            onClick: (e: React.MouseEvent) => {
+              if (!isRowAction(e)) handleEditBranch(row.original.id);
+            },
+            sx: { cursor: "pointer" },
+          }),
+        }}
       />
 
       <CompaniesBranchForm

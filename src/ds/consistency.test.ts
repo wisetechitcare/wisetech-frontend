@@ -18,7 +18,8 @@ const RULES: Array<[RegExp, string]> = [
     [/<textarea\b/, 'raw <textarea> — use Textarea'],
     [/<select\b/, 'raw <select> — use Select'],
     [/<kbd\b/, 'raw <kbd> — use Kbd'],
-    [/className="[^"]*\bborder\b[^"]*\bbg-card\b|className="[^"]*\bbg-card\b[^"]*\bborder\b/, 'hand-built card — use Card'],
+    // A card-shaped surface drawn by hand (bg-card with a border or radius), in className="…" or inside cn("…").
+    [/["'`][^"'`]*\bbg-card\b[^"'`]*\b(border|rounded-\w+)\b|["'`][^"'`]*\b(border|rounded-\w+)\b[^"'`]*\bbg-card\b/, 'hand-built card — use Card (rows: Item)'],
     [/duration-\[var\(/, 'arbitrary duration variable — use a Tailwind duration'],
     [/from ['"]@(base-ui|animate-ui)\//, 'primitive imported directly — compose from src/ds/ui (it carries the Animate UI motion and kit styling)'],
 ];

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { isYearless } from "@utils/birthday";
 import { Card } from 'react-bootstrap';
 import dayjs from 'dayjs';
 import './upcomingContactsBirthdays.css';
@@ -53,7 +54,8 @@ const filterDataHandler = (e: SelectChangeEvent<string>) => {
       name: contact.name,
       company: contact.company,
       companyLogo: contact.companyLogo,
-      age: isAnniversary ? 0 : calculateAge(contact.dateOfBirth),
+      // No age for a birthday saved without its year (it would read as ~120).
+      age: isAnniversary ? 0 : isYearless(contact.dateOfBirth) ? '—' : calculateAge(contact.dateOfBirth),
       dateOfBirth: isAnniversary ? 0 : contact.dateOfBirth,
     })),
     [data, isAnniversary],

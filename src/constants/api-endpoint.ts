@@ -113,6 +113,8 @@ export const USERS = {
     UPDATE_USER: "api/users/:userId",
     FETCH_USER_BY_ID: "api/users/:userId",
     GET_ALL_USERS: "api/users",
+    // Names of colleagues whose birthday is today — Calendar read, not People access.
+    GET_TODAY_BIRTHDAYS: "api/users/birthdays/today",
     SAVE_USER_TABLE_PREFERENCES: '/api/users/table-preferences',
     GET_USER_TABLE_PREFERENCES: '/api/users/table-preferences/:employeeId/:tableName',
     SAVE_LEAD_PERIOD_PREFERENCE: '/api/users/lead-period-preference',
@@ -180,6 +182,7 @@ export const COMPANY = {
     UPDATE_ANNOUNCEMENT_BY_ID: "api/company/announcement",
     ARCHIVE_ANNOUNCEMENT_BY_ID: "api/company/announcement",
     GET_ALL_ANNOUNCEMENTS: "api/company/announcements",
+    REORDER_ANNOUNCEMENTS: "api/company/announcements/reorder",
     UPDATE_ANNOUNCEMENT: "api/company/announcements",
     EMAIL_SALARY_SLIP: "api/employee/email-salary-slip",
     GET_LEAVE_OPTIONS: "api/company/leave-options",
@@ -493,6 +496,7 @@ export const ROLES = {
     ADD_EMPLOYEE_TO_ROLE: "api/roles/:id/employees",
     REMOVE_EMPLOYEE_FROM_ROLE: "api/roles/:id/employees/:employeeId",
     GET_ROLE_ACCESS: "api/roles/:id/access",
+    GET_ROLE_OVERRIDES: "api/roles/:id/overrides",
     SET_ROLE_SECTION_ACCESS: "api/roles/:id/access/section",
     SET_ROLE_TAB_ACCESS: "api/roles/:id/access/tab",
 }

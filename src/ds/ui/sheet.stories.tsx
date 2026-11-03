@@ -61,7 +61,8 @@ export const FilterPanel: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Filters' }))
     const sheet = await screen.findByRole('dialog', { name: 'Filter leave requests' })
-    await expect(sheet).toBeVisible()
+    // The sheet slides in; judge it once the animation has landed.
+    await waitFor(() => expect(sheet).toBeVisible())
     await expect(screen.getByRole('checkbox', { name: 'Pending' })).toBeChecked()
     await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())

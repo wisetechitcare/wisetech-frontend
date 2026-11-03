@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useBillingOrgId } from "../BillingLayout";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Alert, Box, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Box, Typography } from "@mui/material";
 import { WtButton, TRIO } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
@@ -23,27 +24,6 @@ import { KTIcon } from "@metronic/helpers";
  * Operations uses.
  */
 
-const STATUS_OPTIONS = [
-  { value: "", label: "All statuses" },
-  { value: "PENDING", label: "Pending" },
-  { value: "PARTIALLY_PAID", label: "Partially Paid" },
-  { value: "FULLY_PAID", label: "Fully Paid" },
-  { value: "OVERPAID", label: "Overpaid" },
-  { value: "CANCELLED", label: "Cancelled" },
-];
-
-const DUE_OPTIONS = [
-  { value: "", label: "Any due state" },
-  { value: "OVERDUE", label: "Overdue" },
-  { value: "DUE_TODAY", label: "Due Today" },
-  { value: "UPCOMING", label: "Upcoming" },
-];
-
-const FILTERS = [
-  { key: "paymentStatus", label: "Payment Status", options: STATUS_OPTIONS },
-  { key: "dueState", label: "Due", options: DUE_OPTIONS },
-];
-
 /**
  * The whole (capped) set in one request.
  *
@@ -64,6 +44,8 @@ const PaymentCollectionPage: React.FC = () => {
   });
   const [amounts, setAmounts] = useState({ minAmount: "", maxAmount: "" });
   const [page, setPage] = useState(1);
+  const organizationId = useBillingOrgId();
+  useEffect(() => setPage(1), [organizationId]);
   const [recordTarget, setRecordTarget] = useState<PaymentListItem | null>(null);
   /**
    * The period the whole screen is scoped to.
@@ -92,6 +74,8 @@ const PaymentCollectionPage: React.FC = () => {
     paymentStatus: (filters.paymentStatus || undefined) as PaymentListParams["paymentStatus"],
     dueState: (filters.dueState || undefined) as PaymentListParams["dueState"],
     readyForInvoice: filters.readyForInvoice === "true" ? true : undefined,
+    // The organization chosen in the Billing tab bar — one filter for the whole module.
+    organizationId,
     ...period,
     sortBy: "lastPaymentAt",
     page,
@@ -106,6 +90,20 @@ const PaymentCollectionPage: React.FC = () => {
 
 
   const payments = data?.payments ?? [];
+
+
+  // Footer sums over every loaded payment row, the same way payroll totals its table.
+  // The rows are all in memory (PAGE_SIZE covers the set), so the sum is exact.
+  const columnTotals = useMemo(() => {
+    const sum = (pick: (p: PaymentListItem) => number | null | undefined) =>
+      Math.round(payments.reduce((s, p) => s + (pick(p) ?? 0), 0) * 100) / 100;
+    return {
+      basicPortion: sum((p) => p.breakdown?.basicPortion),
+      gstAmount: sum((p) => p.breakdown?.gstAmount),
+      faceValue: sum((p) => p.breakdown?.faceValue),
+      tdsAmount: sum((p) => p.breakdown?.tdsAmount),
+    };
+  }, [payments]);
 
   /**
    * The settlement chip for ONE component.
@@ -151,6 +149,7 @@ const PaymentCollectionPage: React.FC = () => {
       id: "documentDate",
       header: "Bill Date",
       size: 120,
+      Footer: () => <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: "#1E3A8A" }}>TOTAL</Typography>,
       Cell: ({ row }: any) => (
         <Typography sx={{ fontSize: 12.5 }}>
           {row.original.documentDate ? formatDate(row.original.documentDate) : "—"}
@@ -230,10 +229,11 @@ const PaymentCollectionPage: React.FC = () => {
       size: 180,
     },
     {
-      accessorFn: (row: PaymentListItem) => row.breakdown.basicPortion,
+      accessorFn: (row: PaymentListItem) => row.breakdown?.basicPortion,
       id: "basicPortion",
       header: "Bill Amount",
       size: 160,
+      Footer: () => money(columnTotals.basicPortion),
       /**
        * The basic NET OF THE TDS withheld from it — the part that actually
        * arrives as cash.
@@ -253,10 +253,11 @@ const PaymentCollectionPage: React.FC = () => {
       },
     },
     {
-      accessorFn: (row: PaymentListItem) => row.breakdown.gstAmount,
+      accessorFn: (row: PaymentListItem) => row.breakdown?.gstAmount,
       id: "gstAmount",
       header: "GST",
       size: 140,
+      Footer: () => money(columnTotals.gstAmount),
       Cell: ({ row }: any) => {
         const b = (row.original as PaymentListItem).breakdown;
         return (
@@ -271,10 +272,11 @@ const PaymentCollectionPage: React.FC = () => {
       },
     },
     {
-      accessorFn: (row: PaymentListItem) => row.breakdown.faceValue,
+      accessorFn: (row: PaymentListItem) => row.breakdown?.faceValue,
       id: "faceValue",
       header: "Bill Value",
       size: 140,
+      Footer: () => money(columnTotals.faceValue),
       /**
        * Basic + GST, the face value of the document.
        *
@@ -310,10 +312,11 @@ const PaymentCollectionPage: React.FC = () => {
       },
     },
     {
-      accessorFn: (row: PaymentListItem) => row.breakdown.tdsAmount ?? -1,
+      accessorFn: (row: PaymentListItem) => row.breakdown?.tdsAmount ?? -1,
       id: "tdsAmount",
       header: "TDS",
       size: 150,
+      Footer: () => money(columnTotals.tdsAmount),
       /**
        * Withheld by the client and deposited with the government on our behalf.
        * The DEPOSIT is the part worth watching — a deduction with no deposit is
@@ -377,7 +380,7 @@ const PaymentCollectionPage: React.FC = () => {
         </WtButton>
       ),
     },
-  ], []);
+  ], [columnTotals]);
 
   return (
     <Box sx={{ pb: 4 }}>
@@ -475,44 +478,10 @@ const PaymentCollectionPage: React.FC = () => {
         searchPlaceholder="Search proforma, bill, project, client…"
         defaultSorting={[{ id: "lastPaymentAt", desc: true }]}
         enableColumnResizing
+        showColumnFooter
         layoutMode="semantic"
         muiTableContainerProps={{ sx: { maxHeight: "700px", overflowX: "auto" } }}
         muiTableProps={{ sx: { minWidth: "1800px" } }}
-        renderTopToolbarRightActions={() => (
-          // Every control that narrows the table lives IN the table's toolbar.
-          // Two of them floating above it read as page furniture rather than as
-          // filters, and nothing tied them to the rows they were changing.
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-            <TextField
-              size="small" label="Min amount" type="number" value={amounts.minAmount}
-              onChange={(event) => setAmounts((p) => ({ ...p, minAmount: event.target.value }))}
-              InputLabelProps={{ shrink: true }} sx={{ width: 130 }}
-            />
-            <TextField
-              size="small" label="Max amount" type="number" value={amounts.maxAmount}
-              onChange={(event) => setAmounts((p) => ({ ...p, maxAmount: event.target.value }))}
-              InputLabelProps={{ shrink: true }} sx={{ width: 130 }}
-            />
-            {FILTERS.map((filter) => (
-              <TextField
-                key={filter.key}
-                select size="small" label={filter.label}
-                value={filters[filter.key] ?? ""}
-                onChange={(event) => {
-                  setFilters((prev) => ({ ...prev, [filter.key]: event.target.value }));
-                  setPage(1);
-                }}
-                sx={{ minWidth: 150 }}
-              >
-                {filter.options.map((option) => (
-                  <MenuItem key={option.value} value={option.value} sx={{ fontSize: 13 }}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            ))}
-          </Stack>
-        )}
         muiTablePaperStyle={{ boxShadow: "none", marginTop: 0 }}
       />
 

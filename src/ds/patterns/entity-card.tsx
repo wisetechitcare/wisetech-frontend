@@ -1,14 +1,17 @@
 import * as React from "react"
+import { ChevronRight } from "lucide-react"
 import type { Tone } from "@/ds/lib/tone"
 import { cn } from "@/ds/lib/utils"
-import { Card, CardContent, CardFooter, CardHeader } from "@/ds/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardLink } from "@/ds/ui/card"
 import { IconBox } from "./icon-box"
 
 /**
- * A record as a tile in a collection — roles, adverts, candidates, projects. Replaces the live kit's
- * `EntityCard`. Packed for dense grids: title, muted meta, a two-line description, actions pinned to the
- * bottom so tiles in a row line up. With `href` the whole tile is a link (the title carries the name; the
- * tile's actions stay separately clickable).
+ * A tile in a collection — a record (role, advert, candidate, project) or a place to go (a settings hub, a
+ * module launcher). Replaces the live kit's `EntityCard` AND `NavCard`: both are the same Card, so they look
+ * the same. Packed for dense grids: title, muted meta, a two-line description, actions pinned to the bottom.
+ *
+ * With `href` the whole tile is one link (named by its title) and shows a chevron; its own buttons stay
+ * separately clickable. `disabled` keeps it visible but not clickable — say why in `status`.
  */
 export function EntityCard({
   title,
@@ -20,6 +23,7 @@ export function EntityCard({
   meta,
   actions,
   href,
+  disabled = false,
   children,
   className,
 }: {
@@ -29,40 +33,45 @@ export function EntityCard({
   description?: React.ReactNode
   icon?: React.ReactNode
   tone?: Tone | (string & {})
-  /** Status badge(s), top right. */
+  /** Badge(s) leading the meta line: a status, a count, "Not set up". */
   status?: React.ReactNode
   /** Small facts as badges or text: "3 openings", "Since 2024". */
   meta?: React.ReactNode
   actions?: React.ReactNode
   href?: string
+  disabled?: boolean
   children?: React.ReactNode
   className?: string
 }) {
+  const linked = !!href && !disabled
   return (
+    // The benchmark tile (same as Stat Card): glow, accent bar, lift and icon motion come from Card.
     <Card
       data-slot="entity-card"
-      size="sm"
-      className={cn("relative h-full gap-3", href && "transition-shadow hover:shadow-md has-[a:focus-visible]:ring-3 has-[a:focus-visible]:ring-ring/50", className)}
+      tone={tone}
+      interactive={linked || disabled}
+      aria-disabled={disabled || undefined}
+      className={cn("h-full gap-3", className)}
     >
+      {/* Icon top-right, in the glow corner — the card rule (Stat Card is the benchmark). */}
       <CardHeader className="flex items-start gap-3">
-        {icon && <IconBox icon={icon} tone={tone} />}
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-base leading-snug font-medium">
-            {href ? (
-              <a href={href} className="outline-none after:absolute after:inset-0 after:content-['']">
-                {title}
-              </a>
-            ) : (
-              title
-            )}
+          <h3 className="flex items-center gap-1 text-base leading-snug font-medium">
+            <span className="truncate">{linked ? <CardLink href={href}>{title}</CardLink> : title}</span>
+            {linked && <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />}
           </h3>
           {subtitle && <p className="truncate text-sm text-muted-foreground">{subtitle}</p>}
         </div>
-        {status && <div className="flex shrink-0 gap-1">{status}</div>}
+        {icon && <IconBox icon={icon} tone={tone} size="lg" />}
       </CardHeader>
-      {(meta || description || children) && (
+      {(status || meta || description || children) && (
         <CardContent className="space-y-2">
-          {meta && <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">{meta}</div>}
+          {(status || meta) && (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              {status}
+              {meta}
+            </div>
+          )}
           {description && <p className="line-clamp-2 text-sm text-muted-foreground">{description}</p>}
           {children}
         </CardContent>

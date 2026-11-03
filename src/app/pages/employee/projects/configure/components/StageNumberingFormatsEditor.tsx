@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { IfCanDelete } from '@app/modules/common/components/ui/DeleteSection';
 import { Box, MenuItem, TextField, Tooltip, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { WtButton, WtIconButton, ToneChip, confirmDialog, toast } from "@app/modules/common/components/ui";
@@ -216,9 +217,11 @@ const StageNumberingFormatsEditor: React.FC = () => {
                 >
                   Set default
                 </WtButton>
+                <IfCanDelete>
                 <WtIconButton title="Delete format" color="#C0392B" onClick={() => void remove(f)} sx={{ width: 30, height: 30, borderRadius: "8px" }}>
                   <KTIcon iconName="trash" className="fs-6" />
                 </WtIconButton>
+                </IfCanDelete>
               </>
             )}
           </Box>

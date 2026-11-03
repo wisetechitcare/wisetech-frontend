@@ -80,7 +80,46 @@ export const toContactOption = (c: any): ContactOption => ({
     caption: [c.phone, c.email].filter(Boolean).join('  ·  ') || undefined,
 });
 
-const fetchPage = async (query: string, page: number) => {
+/**
+ * A project's external roster, as contact options: the lead form's Address To (`leadTeams`),
+ * the Teams tab's own roster (`projectExternalTeams`, inactive rows dropped) and
+ * `externalMembers`. Deduped and sorted. `projectDetail` is `getLeadById`'s lead.
+ */
+export const projectContactOptions = (projectDetail: any): ContactOption[] => {
+    if (!projectDetail) return [];
+    const contactOption = (t: any): ContactOption => ({
+        value: t.contact.id,
+        // "Name (Company)", exactly as the CRM search labels the same person. The team row's
+        // own company is the fallback: a roster entry carries it where the contact may not.
+        label: contactLabel({
+            fullName: t.contact.fullName,
+            company: t.contact.company ?? t.company,
+            subCompany: t.contact.subCompany,
+        }),
+        name: t.contact.fullName || undefined,
+        // `getLeadById` includes the WHOLE contact row, so an absent email here is an absence
+        // on the record. See `ContactOption.hasEmail`.
+        hasEmail: 'email' in (t.contact ?? {}) ? !!t.contact.email : undefined,
+        avatar: t.contact.profilePhoto || t.contact.avatar || null,
+    });
+    const fromTeams = (projectDetail.leadTeams || [])
+        .filter((t: any) => t.contact?.id)
+        .map(contactOption);
+    const fromProjectTeams = (projectDetail.projectExternalTeams || [])
+        .filter((t: any) => t.contact?.id && t.isActive !== false)
+        .map(contactOption);
+    const fromMembers = (projectDetail.externalMembers || [])
+        .filter((m: any) => m.contactId)
+        // `externalMembers` carries a name and an id and nothing else, so email is NOT KNOWN.
+        .map((m: any) => ({ value: m.contactId, label: m.name || 'Unknown', name: m.name || undefined, avatar: null }));
+    const seen = new Set<string>();
+    return [...fromTeams, ...fromProjectTeams, ...fromMembers]
+        .filter((o) => !seen.has(o.value) && !!seen.add(o.value))
+        .sort((a, b) => a.label.localeCompare(b.label));
+};
+
+/** One server-searched page of the address book. */
+export const fetchPage = async (query: string, page: number) => {
     const res: any = await getAllClientContacts({
         search: query.trim() || undefined,
         pageSize: PAGE_SIZE,

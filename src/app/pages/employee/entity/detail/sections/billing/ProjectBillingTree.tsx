@@ -2,12 +2,12 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-    Box, Collapse, IconButton, Popover, Slider, Stack, Table, TableBody, TableCell, TableRow,
+    Box, Collapse, Popover, Slider, Stack, Table, TableBody, TableCell, TableRow,
     TextField, Tooltip, Typography, useMediaQuery,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { KTIcon } from "@metronic/helpers";
-import { SegmentedControl, WtButton, isHexColor, toast } from "@app/modules/common/components/ui";
+import { SegmentedControl, WtButton, WtIconButton, isHexColor, toast } from "@app/modules/common/components/ui";
 import { tonePair } from "@app/theme/tokens";
 import { SolidChip } from "@pages/billing/operations/TrackerCells";
 import { useBillingLabels } from "@pages/billing/components";
@@ -402,7 +402,7 @@ const StageName: React.FC<{ name: string; fontSize: number }> = ({ name, fontSiz
 };
 
 const Chevron: React.FC<{ open: boolean; label: string; onClick: () => void }> = ({ open, label, onClick }) => (
-    <IconButton
+    <WtIconButton
         size="small"
         aria-expanded={open}
         aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
@@ -418,7 +418,7 @@ const Chevron: React.FC<{ open: boolean; label: string; onClick: () => void }> =
         }}
     >
         <KTIcon iconName="right" className="fs-6" />
-    </IconButton>
+    </WtIconButton>
 );
 
 // ── the workspace ───────────────────────────────────────────────────────────
@@ -912,14 +912,14 @@ const WorkList: React.FC<{
             );
             const remarksButton = (
                 <Tooltip title={d.remarks ? "Edit remarks" : "Add remarks"}>
-                    <IconButton
+                    <WtIconButton
                         size="small"
                         aria-label={`${d.remarks ? "Edit" : "Add"} remarks for ${d.name}`}
                         onClick={() => onEditRemarks(d)}
                         sx={{ width: 32, height: 32, borderRadius: "8px", color: d.remarks ? "primary.main" : "text.secondary" }}
                     >
                         <KTIcon iconName="notepad-edit" className="fs-5" />
-                    </IconButton>
+                    </WtIconButton>
                 </Tooltip>
             );
             const name = (
@@ -1070,7 +1070,8 @@ const StageCard: React.FC<StageViewProps & { narrow: boolean }> = (props) => {
                     "& .MuiStack-root > *": { marginLeft: "0 !important" },
                     "& .MuiButtonBase-root:not(.MuiIconButton-root)": { flex: 1, minHeight: 40, fontSize: 13 },
                     "& span:has(> .MuiButtonBase-root:not(.MuiIconButton-root))": { flex: 1, display: "flex" },
-                    "& .MuiIconButton-root": { width: 40, height: 40, border: "1px solid", borderColor: "divider" },
+                    // The row's ⋮ (ProjectBillingWorkspace). `&&` outranks the button's own raised sx.
+                    "&& .billing-row-more": { width: 40, height: 40, border: "1px solid", borderColor: "divider" },
                 }),
             }}
             onClick={(e) => e.stopPropagation()}

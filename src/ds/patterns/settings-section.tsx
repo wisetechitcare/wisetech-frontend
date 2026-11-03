@@ -34,7 +34,7 @@ export function SettingsSection({
   className?: string
 }) {
   return (
-    <Card className={className}>
+    <Card tone={tone} className={className}>
       <CardHeader>
         <SectionHeader
           icon={icon}

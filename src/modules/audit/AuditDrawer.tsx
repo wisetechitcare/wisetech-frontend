@@ -80,15 +80,43 @@ const visibleChangeSets = (sets: AuditChangeSet[]) =>
 export const isCreate = (cs: AuditChangeSet, createdAt?: string | null) =>
   !!createdAt && Math.abs(dayjs(cs.changedAt).diff(dayjs(createdAt), "second")) <= 60;
 
+/** Which part of a company an entry belongs to — its own colour, so the section reads at a glance. */
+const SECTION: Record<string, { label: string; color: string }> = {
+  COMPANY: { label: "Company", color: "#2563eb" },
+  SUB_COMPANY: { label: "Sub-company", color: "#7c3aed" },
+  CLIENT_BRANCH: { label: "Branch", color: "#0d9488" },
+};
+/** A sub-company / branch's name is only ever set when it is created. */
+const NAME_FIELDS = new Set(["subCompanyName", "name"]);
+export const isChildCreate = (cs: AuditChangeSet) =>
+  cs.changes.some((c) => NAME_FIELDS.has(c.fieldName) && c.changeType === "ADDED");
+
 const ChangeCard: React.FC<{ cs: AuditChangeSet; createdAt?: string | null }> = ({ cs, createdAt }) => {
-  const created = isCreate(cs, createdAt);
+  // Section tags only on a combined (company) timeline; a contact's entries carry no entityType.
+  const section = cs.entityType ? SECTION[cs.entityType] : undefined;
+  const isChild = !!cs.entityType && cs.entityType !== "COMPANY";
+  const created = isChild ? isChildCreate(cs) : isCreate(cs, createdAt);
   return (
-    <ShadcnDrawerCard>
+    <ShadcnDrawerCard sx={section ? { borderLeft: `3px solid ${section.color}` } : undefined}>
+      {section && (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.75, minWidth: 0 }}>
+          <ToneChip dense color={section.color} label={section.label} />
+          {isChild && cs.entityLabel && (
+            <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: section.color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {cs.entityLabel}
+            </Typography>
+          )}
+        </Box>
+      )}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
         <Typography sx={{ fontSize: 14.5, fontWeight: 700, color: "text.primary" }}>
           {displayActor(cs.changedByFirstName, cs.changedByLastName)}
         </Typography>
-        <ToneChip dense tone={created ? "success" : "neutral"} label={created ? "Created" : `${cs.changes.length} change${cs.changes.length === 1 ? "" : "s"}`} />
+        <ToneChip
+          dense
+          tone={created ? "success" : "neutral"}
+          label={created ? (isChild ? "Added" : "Created") : `${cs.changes.length} change${cs.changes.length === 1 ? "" : "s"}`}
+        />
       </Box>
       <Typography sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.25, fontVariantNumeric: "tabular-nums" }}>
         {stamp(cs.changedAt)}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { FormActionsProps } from './types';
 import { Button } from '@/ds/ui/button';
+import { canDelete } from '@utils/can';
 
 const FormActions: React.FC<FormActionsProps> = ({
   mode,
@@ -44,7 +45,7 @@ const FormActions: React.FC<FormActionsProps> = ({
         {getSubmitText()}
       </Button>
 
-      {(mode === 'editLevel' || mode === 'editEmployee') && onDelete && (
+      {(mode === 'editLevel' || mode === 'editEmployee') && onDelete && canDelete('settings.employeeLevel') && (
         <Button variant="ghost"
           type="button"
           style={{

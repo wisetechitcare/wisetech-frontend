@@ -12,6 +12,7 @@ import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
 import { PATH_SEPARATOR } from "@utils/presetTaskHierarchy";
 import { getTimeTokens } from '@utils/timeFormat';
+import { canDelete } from '@utils/can';
 import { Button as KitButton } from '@/ds/ui/button';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 
@@ -298,6 +299,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
                     >
                         <KTIcon iconName="pencil" className="fs-2" />
                     </KitButton>
+                    {canDelete('tasks') && (
                     <KitButton variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
                         onClick={e => {
                             e.stopPropagation();
@@ -306,6 +308,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
                     >
                         <KTIcon iconName="trash" className="fs-2" />
                     </KitButton>
+                    )}
                 </div>
             ),
         },
