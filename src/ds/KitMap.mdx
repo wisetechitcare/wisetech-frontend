@@ -35,10 +35,11 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `GlassDialog` + `GlassHeader` + `GlassDialogActions`, `ConfigureFormDialog`, `UnsavedChangesModal`, `ConfirmDiscardDialog` | Patterns/Form Dialog | ✅ |
 | `WtFormDialog` (long form with section nav) | Patterns/Form Dialog + section nav | 🔨 |
 | `WtSheet`, `ShadcnDrawer` | Components/Sheet; Components/Drawer (phones) | ✅ |
-| `FilterSheet`, `FilterSheetButton` | Patterns/Filter Sheet (draft → Apply, count on the button) | 🔨 |
+| `FilterSheet`, `FilterSheetButton` | Patterns/Filter Sheet (draft → Apply, count on the button) | ✅ |
 | `DrillDownDialog` | Components/Dialog (large) | 🔨 |
 | `OptionPickerDialog` | Components/Combobox — a single value is never a dialog | ✅ |
-| `WtWizardDialog`, `WtStepper` | Patterns/Stepper + Wizard | 🔨 |
+| `WtStepper` | Patterns/Stepper | ✅ |
+| `WtWizardDialog` | Patterns/Stepper inside Form Dialog | 🔨 |
 
 ## Data display
 
@@ -50,8 +51,8 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `Graphs`, ApexCharts, Nivo | Components/Chart (Recharts on `--chart-*`) | ✅ |
 | `DetailCard`, `KeyValueList`, `KeyValueRow`, `DetailGrid`, `SectionDivider` | Patterns/Description List (+ Card + Section Header = the `DetailCard` look) | ✅ |
 | `EntityIdentityHeader`, `EmployeeIdentityCell` | Patterns/Person (`PersonHeader`, `PersonCell`) | ✅ |
-| `EntityCard` | Patterns/Entity Card | 🔨 |
-| `NavCard` | Components/Item (link row) / Patterns/Nav Card | 🔨 |
+| `EntityCard` | Patterns/Entity Card | ✅ |
+| `NavCard` | Patterns/Nav Card | ✅ |
 | `MaterialTable` / `MaterialTableImpl` (106 screens) | Patterns/Data Table (TanStack) | ⏳ last — largest swap |
 | `TableSelectionBar` | Patterns/Data Table — selection bar | ⏳ with the table |
 
@@ -66,7 +67,7 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `FiscalYearRangeField` | Components/DatePicker — range | ✅ |
 | `WtSwitch`, `WtSwitchField` | Components/Switch (+ Field horizontal) | ✅ |
 | `WtCheckbox`, `WtCheckboxField`, `WtControlLabel` | Components/Checkbox (+ Field) | ✅ |
-| `WtChoice`, `WtChoiceField` | Components/RadioGroup; Patterns/Choice Cards | 🔨 |
+| `WtChoice`, `WtChoiceField` | Patterns/Choice Cards (`cards`); Switch (`switch`); ToggleGroup (`segmented`) | ✅ |
 | `SegmentedControl`, `ViewModeSwitch` (+ 6 presets), `PeriodTabs` | Components/ToggleGroup | ✅ |
 | `PinInput` | Components/InputOTP | ✅ |
 | `WeightSliderList` | Components/Slider | ✅ |
@@ -85,7 +86,7 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `UnderlineTabs`, `MaterialHeaderTab` | Components/Tabs (`line` variant) | ✅ |
 | `Pager` | Components/Pagination | ✅ |
 | `PeriodNavigator` | Patterns/Period Navigator (‹ October 2026 ›) | ✅ |
-| `AutoGrid` | Patterns/Auto Grid | 🔨 |
+| `AutoGrid` | Patterns/Auto Grid | ✅ |
 | `SettingsSection`, `MasterListSection`, `ReorderableGroup` + `DragHandle`, `ConfigColorChip` | Patterns/Settings Section, Master List | 🔨 |
 | `OrgFilterToolbar` | Patterns/Filter Toolbar | 🔨 |
 | Metronic aside + header | Components/Sidebar; Screens/App shell | ✅ part · shell is Wave 2 |
