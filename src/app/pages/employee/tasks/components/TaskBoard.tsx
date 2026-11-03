@@ -22,6 +22,7 @@
  *
  * Touch devices get a per-card stage menu, because HTML5 DnD does not fire on touch.
  */
+import { canDelete } from "@utils/can";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Box, Chip, GlobalStyles, Menu, MenuItem, Stack, TextField, Tooltip, Typography,
@@ -573,7 +574,7 @@ export const TaskBoard = ({
                                 {/* Only this project's OWN lanes carry a delete. A company-wide
                                     stage has no × here at all — not a disabled one — because the
                                     action does not exist on this screen for it. */}
-                                {onDeleteList && column.status.leadId && (
+                                {onDeleteList && column.status.leadId && canDelete('tasks') && (
                                     <Tooltip title="Delete this list">
                                         <Box
                                             component="button" type="button"

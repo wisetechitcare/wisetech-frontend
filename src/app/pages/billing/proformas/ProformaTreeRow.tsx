@@ -5,6 +5,7 @@ import { KTIcon } from "@metronic/helpers";
 import { ToneChip } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
+import { canDelete } from "@utils/can";
 import { BillingStatusBadge } from "../components";
 import type { ProformaNode, ProformaVersion } from "@services/proformas";
 
@@ -169,7 +170,7 @@ const ProformaTreeRow: React.FC<ProformaTreeRowProps> = ({
         onClose={() => setMenu(null)}
         slotProps={{ paper: { sx: { minWidth: 200 } } }}
       >
-        {ACTIONS.filter((action) => action.key !== "delete" || menu?.version.canDelete).map((action) => (
+        {ACTIONS.filter((action) => action.key !== "delete" || (menu?.version.canDelete && canDelete("billing.proformas"))).map((action) => (
           <MenuItem
             key={action.key}
             sx={{ fontSize: 12.5, gap: 1 }}

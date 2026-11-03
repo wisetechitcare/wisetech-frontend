@@ -10,7 +10,7 @@ import {
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { deleteConfirmation, successConfirmation, errorConfirmation } from "@utils/modal";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import {
   createReimbursementType,
   deleteReimbursementTypeByItsId,
@@ -135,7 +135,8 @@ interface CategoryChipProps {
   category: IReimbursementTypeFetch;
   canManage: boolean;
   onEdit: () => void;
-  onDelete: () => void;
+  /** Omitted without Delete access — the trash button is hidden. */
+  onDelete?: () => void;
 }
 
 const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit, onDelete }) => {
@@ -210,11 +211,13 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit
           >
             <AppIcon name="bi-pencil" className="fs-8" />
           </Button>
+          {onDelete && (
           <Button variant="tinted" size="icon-xs" type="submit" aria-label="Delete" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
             onClick={onDelete}
           >
             <AppIcon name="bi-trash" className="fs-8" />
           </Button>
+          )}
         </div>
       )}
     </div>
@@ -388,7 +391,7 @@ function Settings() {
                 category={category}
                 canManage={canWrite}
                 onEdit={() => handleEdit(category)}
-                onDelete={() => handleDelete(category)}
+                onDelete={canDelete("finance.reimbursements") ? () => handleDelete(category) : undefined}
               />
             ))}
           </ChipGrid>

@@ -5,7 +5,7 @@ import type { RootState } from '@redux/store';
 import { ConfigSectionCard } from '@app/modules/configuration';
 import { ToneChip, WtButton } from '@app/modules/common/components/ui';
 import { deleteConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
-import { canSection } from '@utils/can';
+import { canDelete, canSection } from '@utils/can';
 import {
   fetchQueryTopics,
   createQueryTopic,
@@ -163,9 +163,11 @@ function QueryTopics() {
                 <WtIconButton size="small" onClick={() => handleEdit(topic)} aria-label={`Edit ${topic.label}`}>
                   <i className="bi bi-pencil" style={{ fontSize: 12 }} />
                 </WtIconButton>
+                {canDelete('finance.reimbursements') && (
                 <WtIconButton color="var(--cta-danger)" size="small" onClick={() => handleDelete(topic)} aria-label={`Delete ${topic.label}`}>
                   <i className="bi bi-trash" style={{ fontSize: 12 }} />
                 </WtIconButton>
+                )}
               </>
             )}
           </Stack>

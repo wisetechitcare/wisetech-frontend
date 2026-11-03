@@ -11,7 +11,7 @@ import { RootState } from "@redux/store";
 import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import { deleteConfirmation } from "@utils/modal";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import Loader from "@app/modules/common/utils/Loader";
 import { ToneChip } from "@app/modules/common/components/ui";
 
@@ -301,6 +301,7 @@ const SubCompanies = ({
             >
               <KTIcon iconName="pencil" className="fs-3" />
             </Button>
+            {canDelete("crm.companies") && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -310,6 +311,7 @@ const SubCompanies = ({
             >
               <KTIcon iconName="trash" className="fs-3" />
             </Button>
+            )}
           </div>
         ),
       }] : []),

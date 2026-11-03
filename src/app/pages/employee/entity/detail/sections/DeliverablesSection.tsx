@@ -9,6 +9,7 @@ import {
   type BoardDeliverable, type BoardStage, type BoardTaskStatus,
 } from "@services/projectExecution";
 import { stageSrNo } from "@utils/stageNumbering";
+import { canDelete } from "@utils/can";
 import {
   GlassDialog, GlassHeader, WtButton, WtEmptyState, WtIconButton, confirmDialog, toast, toneAlpha, tonePair,
 } from "@app/modules/common/components/ui";
@@ -137,7 +138,7 @@ const DeliverableRow: React.FC<{ d: BoardDeliverable; onRemove: () => void }> = 
     <Box sx={{ gridArea: "progress", minWidth: 0 }}><ProgressBar value={d.progress} /></Box>
     <Box sx={{ gridArea: "status" }}><StatusBadge status={d.taskStatus} /></Box>
     <Box sx={{ gridArea: "action", justifySelf: "end" }}>
-      {d.source === "project" && (
+      {d.source === "project" && canDelete("projects") && (
         <WtIconButton title="Remove from this project" color="#C0392B" onClick={onRemove} sx={{ width: 30, height: 30, borderRadius: "8px" }}>
           <KTIcon iconName="trash" className="fs-6" />
         </WtIconButton>
@@ -206,7 +207,7 @@ const StageRow: React.FC<{
             </Box>
           )}
           {count > 0 && <Badge fg={state.fg} glyph={state.glyph} label={state.label} />}
-          {stage.source === "project" && (
+          {stage.source === "project" && canDelete("projects") && (
             <WtIconButton title="Remove stage from this project" color="#C0392B" onClick={onRemoveStage} sx={{ width: 30, height: 30, borderRadius: "8px" }}>
               <KTIcon iconName="trash" className="fs-6" />
             </WtIconButton>

@@ -3,7 +3,7 @@ import { Skeleton } from "@/ds/ui/skeleton"
 import { EmptyState } from "@/ds/patterns/empty-state"
 import { Button } from "@/ds/ui/button"
 import { apiErrorMessage } from "@utils/apiError"
-import { canSection } from "@utils/can"
+import { canDelete, canSection } from "@utils/can"
 import {
   createProjectMediaAlbum,
   deleteProjectMedia,
@@ -108,6 +108,7 @@ export default function ProjectGalleryTab({
       project={{ name: projectName, initials: initialsOf(projectName) }}
       api={api}
       canEdit={canSection("projects", "write")}
+      canDelete={canDelete("projects")}
     />
   )
 }

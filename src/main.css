@@ -892,3 +892,71 @@ thead.MuiTableHead-root th {
     opacity: 1;
   }
 }
+
+/* One checkbox shape app-wide: raw <input type="checkbox"> (Bootstrap/Metronic .form-check-input too)
+   matches src/ds/ui/checkbox.tsx. MUI checkboxes get it from WtCheckbox's theme icons, ds ones from
+   the component. Each exclusion is its own :not() so the selector outranks Metronic's .form-check-*
+   rules without !important. Skipped: switches, MUI/Base UI hidden inputs, .btn-check toggles. */
+input[type="checkbox"]:not([role="switch"]):not([aria-hidden="true"]):not(.PrivateSwitchBase-input):not(.btn-check):not(.form-switch *) {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid color-mix(in oklch, var(--muted-foreground) 45%, transparent);
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  transition: box-shadow 150ms ease;
+
+  &::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    background: var(--primary-foreground);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat;
+    opacity: 0;
+  }
+  &:checked, &:indeterminate {
+    background: var(--primary);
+    border-color: var(--primary);
+    &::before { opacity: 1; }
+  }
+  &:indeterminate::before {
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");
+  }
+  &:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+  &[aria-invalid="true"] {
+    border-color: var(--destructive);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 20%, transparent);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .dark &:not(:checked, :indeterminate) {
+    background: color-mix(in oklch, var(--input) 30%, transparent);
+  }
+}
+
+/* Toggle bounce for non-ds checkboxes; data-bounce comes from installCheckboxBounce (ui/checkbox.tsx). */
+@media (prefers-reduced-motion: no-preference) {
+  input[type="checkbox"][data-bounce="in"],
+  .MuiCheckbox-root[data-bounce="in"] [data-wt-cb] {
+    animation: checkbox-bounce-in 440ms ease;
+  }
+  input[type="checkbox"][data-bounce="out"],
+  .MuiCheckbox-root[data-bounce="out"] [data-wt-cb] {
+    animation: checkbox-bounce-out 440ms ease;
+  }
+  input[type="checkbox"][data-bounce="in"]::before,
+  .MuiCheckbox-root[data-bounce="in"] [data-wt-cb] svg {
+    animation: checkbox-tick-pop 300ms ease-out;
+  }
+}

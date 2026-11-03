@@ -78,6 +78,7 @@ export function MediaGalleryScreen({
   project,
   api,
   canEdit = true,
+  canDelete = true,
   now: nowProp,
   initialView = "project",
   initialLayout = "grid",
@@ -94,6 +95,8 @@ export function MediaGalleryScreen({
   api: GalleryApi;
   /** Without Projects write access the upload/album/cover controls are hidden (the API refuses them anyway). */
   canEdit?: boolean;
+  /** Without Projects delete access the delete controls are hidden. */
+  canDelete?: boolean;
   /** Reference "now" for Today/Yesterday headings (fixed in Storybook). */
   now?: Date;
   initialView?: GalleryView;
@@ -264,7 +267,7 @@ export function MediaGalleryScreen({
     // Editing happens in the preview's side panel, not a separate modal.
     edit: (id) => openViewer(id, true),
     setCover: (id) => void setCover(id),
-    remove: setDeleteIds,
+    remove: canDelete ? setDeleteIds : undefined,
     toggleSelect,
   };
 
@@ -445,7 +448,7 @@ export function MediaGalleryScreen({
             }}
             // ponytail: one tab per file (the browser may ask to allow pop-ups); add a server ZIP if people bulk-download often.
             onDownload={() => selected.forEach(download)}
-            onDelete={() => setDeleteIds([...selected])}
+            onDelete={canDelete ? () => setDeleteIds([...selected]) : undefined}
             onClear={() => setSelected(new Set())}
           />
         ) : (
@@ -837,7 +840,7 @@ function BulkBar({
   onToggleAll: () => void;
   onCover: (id: string) => void;
   onDownload: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   onClear: () => void;
 }) {
   return (
@@ -871,14 +874,16 @@ function BulkBar({
         <Button size="sm" variant="outline" onClick={onDownload}>
           <Download data-icon="inline-start" /> Download{count > 1 && " (ZIP)"}
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="text-destructive"
-          onClick={onDelete}
-        >
-          <Trash2 data-icon="inline-start" /> Delete
-        </Button>
+        {onDelete && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 data-icon="inline-start" /> Delete
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"

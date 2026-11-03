@@ -1,7 +1,7 @@
 import { fetchAllEmployees } from '@services/employee'
 import { deleteMember, getAllTeamsMember, updateMemberRole, deleteTeam, createTeam, updateTeam, createMultipleTeamMembers, createTeamWithMembers } from '@services/projects'
 import { deleteConfirmation, removeConfirmation, successConfirmation } from '@utils/modal'
-import { canSection } from '@utils/can'
+import { canDelete, canSection } from '@utils/can'
 import React, { useState, useEffect } from 'react'
 import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui'
 import { Button } from '@/ds/ui/button'
@@ -43,6 +43,8 @@ interface TeamFormProps {
 
 const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelete }) => {
     const canWrite = canSection('settings.teams', 'write')
+    // Deleting a saved team or its member rows needs Delete; members of an unsaved team are just form state.
+    const canRemove = canDelete('settings.teams')
     const [employees, setEmployees] = useState<any[]>([]);
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [allEmployees, setAllEmployees] = useState<any[]>([]);
@@ -704,7 +706,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                         Make Team Leader
                                                                     </Button>
                                                                 )}
-                                                                {canWrite && <Button
+                                                                {canWrite && (!isEditMode || canRemove) && <Button
                                                                     type="button"
                                                                     variant="link"
                                                                     size="sm"
@@ -1087,7 +1089,7 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                 Save
                             </Button>}
 
-                            {canWrite && isEditMode && (
+                            {canRemove && isEditMode && (
                                 <Button
                                     type="button"
                                     variant="outline"

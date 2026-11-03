@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from "react";
+import { IfCanDelete } from '@app/modules/common/components/ui/DeleteSection';
 import { Tooltip } from "@mui/material";
 import { PresetTreeNode, buildPresetTree } from "@utils/presetTaskHierarchy";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -306,7 +307,7 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                   <IconBtn icon="bi-diagram-3" title={`Add a ${labels.noun} under "${node.name}"`} color={ACTION.addChild} onClick={() => onAddChild(node.id)} />
                   <IconBtn icon="bi-pencil" title={`Edit ${labels.noun}`} color={ACTION.edit} onClick={() => onEditTask(node.entity)} />
-                  <IconBtn icon="bi-trash" title={`Delete ${labels.noun}`} color={ACTION.remove} onClick={() => onDeleteTask(node.id)} />
+                  <IfCanDelete><IconBtn icon="bi-trash" title={`Delete ${labels.noun}`} color={ACTION.remove} onClick={() => onDeleteTask(node.id)} /></IfCanDelete>
                 </div>
               </div>
             );

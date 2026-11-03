@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
 import { useDMS } from '../store/DmsContext';
-import { canSection } from '@utils/can';
+import { canDelete, canSection } from '@utils/can';
 import * as dmsService from '../services/dmsService';
 import { formatBytes, formatDate, getStatusConfig, getExportTypeConfig } from '../utils/dmsUtils';
 import { successConfirmation, errorConfirmation, rejectConfirmation } from '@utils/modal';
@@ -183,6 +183,8 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
           },
           ...(canWrite ? [
           { icon: 'pencil', label: 'Rename', action: () => setIsRenaming(true) },
+          ] : []),
+          ...(canDelete('crm.leads') ? [
           { icon: 'trash', label: 'Delete', action: handleDelete, danger: true },
           ] : []),
         ].map(a => (

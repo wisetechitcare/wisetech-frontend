@@ -12,7 +12,7 @@ import CreateAnnouncementButton from "@pages/dashboard/views/CreateAnnouncementB
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import { confirmDialog, DragHandle, ReorderableGroup, toast, type DragHandleProps } from "@app/modules/common/components/ui";
 import { IAnnouncement } from "@models/company";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import AnnouncementFormDialog from "./AnnouncementFormDialog";
 import { Button } from "@/ds/ui/button";
 import { Typography } from "@mui/material";
@@ -246,7 +246,7 @@ function Announcements() {
                                                             />
                                                         </Button>}
 
-                                                        {canWrite && <Button
+                                                        {canDelete("settings.announcements") && <Button
                                                             variant="ghost"
                                                             size="icon-sm"
                                                             aria-label="Delete announcement"

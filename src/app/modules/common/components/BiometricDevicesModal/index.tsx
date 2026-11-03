@@ -28,6 +28,7 @@ import {
 import { tonePair, type SemanticTone } from '@app/theme/tokens';
 import dayjs from 'dayjs';
 import { DATE_FORMATS, formatDateTime } from '@utils/dateFormats';
+import { canDelete } from '@utils/can';
 import { T } from '@app/modules/common/components/ui/tokens';
 
 interface Props {
@@ -487,8 +488,8 @@ export default function BiometricDevicesModal({ show, branchId, branchName, onCl
         {item('time', 'Sync History', () => openHistory(d))}
         {item('pencil', 'Edit Device', () => openEdit(d))}
         {item('switch', d.isActive ? 'Deactivate Device' : 'Activate Device', () => handleToggle(d))}
-        <Divider sx={{ my: 0.5 }} />
-        {item('trash', 'Delete Device', () => handleDelete(d), true)}
+        {canDelete('attendance.employees') && <Divider sx={{ my: 0.5 }} />}
+        {canDelete('attendance.employees') && item('trash', 'Delete Device', () => handleDelete(d), true)}
       </Menu>
     );
   };

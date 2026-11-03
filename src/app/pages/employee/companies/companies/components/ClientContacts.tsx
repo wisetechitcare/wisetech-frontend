@@ -11,7 +11,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { MRT_ColumnDef } from "material-react-table";
 import { deleteConfirmation } from "@utils/modal";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import { getAllClientBranches } from "@services/lead";
 import dayjs from "dayjs";
 import { Box } from "@mui/material";
@@ -196,7 +196,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         Cell: ({ row }: any) => row.original.__former ? null : (
           <div className="d-flex align-items-center gap-2">
             <ActionIconButton iconName="pencil" title="Edit" size="sm" onClick={() => handleEditClick(row.original.id)} />
-            <ActionIconButton iconName="trash" title="Delete" size="sm" tone="danger" onClick={() => handleDelete(row.original)} />
+            {canDelete("crm.contacts") && <ActionIconButton iconName="trash" title="Delete" size="sm" tone="danger" onClick={() => handleDelete(row.original)} />}
           </div>
         ),
       }] : []),

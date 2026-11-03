@@ -6,6 +6,7 @@ import { T } from './tokens';
 import { TRIO, type Trio } from './patterns';
 import { KT_ICON_FULL } from './buttons';
 import WtTooltip from './WtTooltip';
+import { useCanDeleteHere } from './DeleteSection';
 
 export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success' | 'onBrand';
 
@@ -95,6 +96,10 @@ export default function ActionIconButton({
   label,
   fullWidth = false,
 }: ActionIconButtonProps) {
+  // A trash button inside a DeleteSection shows only with Delete on that section.
+  const canDeleteHere = useCanDeleteHere();
+  const isDelete = iconName === 'trash' || (tone === 'danger' && /^delete\b/i.test(String(title ?? '')));
+  if (isDelete && !canDeleteHere) return null;
   const color = TONE_COLOR[tone];
   const px = SIZE_PX[size];
   const glyph = icon ?? <KTIcon iconName={iconName ?? ''} className={SIZE_ICON_CLASS[size]} />;

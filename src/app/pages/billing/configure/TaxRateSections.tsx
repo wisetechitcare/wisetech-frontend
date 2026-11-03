@@ -6,6 +6,7 @@ import {
   GlassDialog, GlassHeader, WtButton, WtCheckboxField, WtField, ConfigColorChip,
 } from "@app/modules/common/components/ui";
 import { confirmDialog, toast } from "@app/modules/common/components/ui/feedback";
+import { canDelete } from "@utils/can";
 import {
   getBillingTaxRates, saveGstSlab, deleteGstSlab, saveTdsSection, deleteTdsSection,
   type TaxRateRow, type BillingTaxConfig,
@@ -236,14 +237,14 @@ const TaxRateSections: React.FC = () => {
             badge={row.isDefault ? "Default" : row.isActive ? undefined : "Retired"}
             disabled={busy}
             onEdit={() => setDraft(toDraft(kind, row))}
-            action={{
+            action={canDelete("billing.configure") ? {
               icon: "bi-trash",
               title: row.billCount > 0
                 ? `${row.billCount} bill(s) use this — retire it instead`
                 : `Delete ${row.name}`,
               danger: true,
               onClick: () => confirmDelete(kind, row),
-            }}
+            } : undefined}
           />
         ))}
       </RateGrid>
