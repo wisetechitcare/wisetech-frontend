@@ -20,7 +20,7 @@ in the app, and exports it as a PDF.
 | Design source | **Fixed design**: the slides are the app's own React layouts. No PowerPoint template (parked; may be revisited later). |
 | Export format | **PDF, 16:9** (1280 × 720 page), always light theme. |
 | Deck size | **Capped at 20 slides** (`MAX_SLIDES`). The default deck is 18. |
-| Hardcoded slides | Cover, About us, Who we are (vision / mission / values), Scope of services, Contact. Text lives in code. |
+| Hardcoded slides | Cover (brand, tagline, four pillars; no numbers), About us (with live totals), Who we are (vision / mission / values), Contact. Text lives in code. |
 | Fetched slides | Everything else comes from the app, and shows **only what the user picked**. |
 | Project images | Only a project's **Gallery cover** (`Lead.coverImageUrl`). A project without a cover cannot be placed on a slide. |
 | Services | From CRM: **`ProjectService`** (with `LeadService` for "N projects" per service). |
@@ -34,6 +34,7 @@ in the app, and exports it as a PDF.
 
 **Builder screen**
 - Section list: drag to reorder (shared `ReorderableGroup` + `DragHandle`, arrow keys also work), show / hide, edit, remove.
+- A section that spans several slides (projects, the client logo wall) lists each slide under it; each can be hidden on its own (e.g. hide High-rise 3 of 5).
 - "Add projects" and "Add logos" buttons.
 - "N of 20 slides" badge; turning on a section, saving a picker, or adding is refused past 20.
 - Stage with previous / next, slide filmstrip, keyboard navigation (arrows, Home / End, Page Up / Down).
@@ -44,14 +45,13 @@ in the app, and exports it as a PDF.
 
 | Slide | Source | What the user picks | Limit |
 |---|---|---|---|
-| Cover | Hardcoded text + live totals | — | — |
+| Cover | Hardcoded text (no counts) | — | — |
 | About us | Hardcoded text + **live** numbers (projects, completed, clients, years, team) | — | — |
 | Who we are | Hardcoded | — | — |
 | Services | CRM `ProjectService` + project counts | Which services, in order | 12 |
-| Scope of services | Hardcoded | — | — |
-| Project slides (any number of sections) | Projects + Gallery cover | Group by typology / tag / city / client / architect; which projects (order = slide order, #1 = hero); 3, 5 or 7 per slide; caption fields (architect, client, area, size) | Splits into several slides; counts against the 20 cap |
-| Client logos / Architect logos | Companies (logo + company type) | Which companies; type filter | 24 |
-| Repeat clients | Companies + project counts | Which companies (same picker, "Repeat chart" mode) | 10 |
+| Project slides (any number of sections) | Projects + Gallery cover | Group by typology / tag / city / client / architect; which projects (order = slide order, #1 = hero); at least 5 projects; up to 9 per slide (tall hero + portrait tiles in two rows), spread evenly so no slide has fewer than 5 (10 → 5 + 5, 19 → 7 + 6 + 6); caption fields (architect, client, area, size) | Splits into several slides; counts against the 20 cap |
+| Our Clients (logo wall) | Companies (logo + company type); architects are one of the groups, no separate slide | Which companies; type filter; group order follows pick order | No cap: groups shelve side by side and overflow onto further slides |
+| Repeat clients | Companies + project counts, as a ranked bar chart (logo, count, share of all projects) | Which companies (same picker, "Repeat chart" mode) | 10 |
 | India map | Project locations, by city | Which cities get a pin | 40 |
 | World map | Project locations, by country (India highlighted) | Which countries get a pin | 40 |
 | Contact | Hardcoded | — | — |
@@ -189,7 +189,7 @@ Gallery (same kit) is live in `EntityDetailPage`, so this is wiring, not porting
 Tasks
 - `src/services/companyProfile.ts` (axios) and a React Query hook; types from `profile.ts`.
 - `content.ts`: the hardcoded copy (`OrgProfile`: legal name, tagline, about, vision, mission, values,
-  scope, address, phone, website, hero image) taken from the brochure.
+  pillars, address, phone, website, hero image) taken from the brochure.
 - `defaultSections(data)`: the default 18-slide deck, moved out of `fixtures.ts` (same logic:
   `autoPick` for projects, top companies for logos and chart, top places for maps). `fixtures.ts`
   stays for Storybook only.

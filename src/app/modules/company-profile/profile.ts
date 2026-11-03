@@ -39,18 +39,25 @@ export type ProfileService = { id: string; name: string; projects: number }
 export type OrgProfile = {
   legalName: string
   initials: string
-  tagline: string
+  /** Two-tone brand name, e.g. ["WISE", "TECH"]. */
+  wordmark: [string, string]
+  /** Second half prints in the accent colour. */
+  tagline: [string, string]
+  slogan: string
   edition: string
   about: string[]
   foundedIn: number
   vision: string
   mission: string
   values: Array<{ label: string; text: string }>
-  scope: string[]
+  /** The cover's four pillars. */
+  pillars: Array<{ title: string; text: string }>
   address: string
   phone: string
   website: string
   hero: string
+  /** Contact slide photo. */
+  site: string
 }
 
 export type ProfileData = {
@@ -82,12 +89,14 @@ export const CAPTION_FIELDS: Array<{ id: CaptionField; label: string }> = [
   { id: "metric", label: "Size" },
 ]
 
-/** Projects per slide; the layout is one hero plus (n - 1) tiles in two rows. */
-export const PER_SLIDE = [3, 5, 7] as const
-export type PerSlide = (typeof PER_SLIDE)[number]
+/** Projects per slide: up to 9 (one tall hero + 8 portrait tiles). Sections are spread evenly, so with at
+ * least MIN_PROJECTS picked no slide ever holds fewer than 5. */
+export const MAX_PER_SLIDE = 9
+export const MIN_PROJECTS = 5
 
-type Base = { id: string; title: string; enabled: boolean }
-export type StaticKind = "cover" | "about" | "vision" | "scope" | "contact"
+/** `hidden`: numbers (1-based) of this section's own slides that are switched off, e.g. page 3 of High-rise. */
+type Base = { id: string; title: string; enabled: boolean; hidden?: number[] }
+export type StaticKind = "cover" | "about" | "vision" | "contact"
 export type StaticSection = Base & { kind: StaticKind }
 export type ProjectSection = Base & {
   kind: "projects"
@@ -95,7 +104,6 @@ export type ProjectSection = Base & {
   value: string
   /** Chosen projects, in display order. The first one is the hero of the first slide. */
   projectIds: string[]
-  perSlide: PerSlide
   captions: CaptionField[]
 }
 export type ServicesSection = Base & { kind: "services"; ids: string[] }
@@ -104,8 +112,8 @@ export type MapSection = Base & { kind: "map"; region: "india" | "world"; ids: s
 export type PickSection = ServicesSection | CompaniesSection | MapSection
 export type Section = StaticSection | ProjectSection | PickSection
 
-/** Most items one picked slide can hold before it stops reading as a slide. */
-export const PICK_LIMIT = { services: 12, logos: 24, chart: 10, map: 40 } as const
+/** Most items one picked slide can hold before it stops reading as a slide. Logo walls have no cap: they flow onto more slides. */
+export const PICK_LIMIT = { services: 12, logos: Infinity, chart: 10, map: 40 } as const
 export const pickLimit = (s: PickSection) => (s.kind === "companies" ? PICK_LIMIT[s.display] : PICK_LIMIT[s.kind])
 
 export function matches(p: ProfileProject, facet: Facet, value: string) {
@@ -161,14 +169,70 @@ export function places(projects: ProfileProject[], region: "india" | "world"): P
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
 }
 
-export function chunk<T>(items: T[], size: number): T[][] {
+/** As few slides of at most `max` as possible, filled evenly (larger first): 10 → 5 + 5, 19 → 7 + 6 + 6. */
+export function spread<T>(items: T[], max: number): T[][] {
+  const k = Math.ceil(items.length / max)
   const out: T[][] = []
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  for (let i = 0, start = 0; i < k; i++) {
+    const n = Math.ceil((items.length - start) / (k - i))
+    out.push(items.slice(start, start + n))
+    start += n
+  }
   return out
 }
 
-/** How many slides a section contributes when switched on. */
-export const slideCount = (s: Section) => (!s.enabled ? 0 : s.kind === "projects" ? Math.ceil(s.projectIds.length / s.perSlide) : 1)
+export type Group<T> = { name: string; items: T[] }
+
+/** Plate rows a group label costs. */
+const LABEL_ROWS = 0.5
+
+/**
+ * Logo-wall pagination. Groups sit side by side on a shelf while their widths (min(n, cols) plates) fit
+ * the row; a shelf is as tall as its tallest group; a page holds `rows` plate rows, labels included.
+ * A group taller than the room left is split and continues on the next page. Returns page → shelf → group.
+ */
+export function paginateGroups<T>(groups: Group<T>[], cols: number, rows: number): Group<T>[][][] {
+  const pages: Group<T>[][][] = [[]]
+  const queue = [...groups]
+  let used = 0
+  let shelf: Group<T>[] = []
+  let width = 0
+  let height = 0
+  const close = () => {
+    if (shelf.length) {
+      pages[pages.length - 1].push(shelf)
+      used += height + LABEL_ROWS
+    }
+    shelf = []
+    width = 0
+    height = 0
+  }
+  while (queue.length) {
+    const g = queue[0]
+    const w = Math.min(g.items.length, cols)
+    const h = Math.ceil(g.items.length / cols)
+    if (width + w > cols) close()
+    const room = Math.floor(rows - used - LABEL_ROWS)
+    if (Math.max(height, h) <= room) {
+      shelf.push(g)
+      width += w
+      height = Math.max(height, h)
+      queue.shift()
+    } else if (shelf.length) close()
+    else {
+      if (room > 0) {
+        shelf.push({ name: g.name, items: g.items.slice(0, room * cols) })
+        height = room
+        queue[0] = { name: g.name, items: g.items.slice(room * cols) }
+        close()
+      }
+      pages.push([])
+      used = 0
+    }
+  }
+  close()
+  return pages
+}
 
 /** Area the way the industry quotes it: lakh sq ft from 1,00,000 up, plain sq ft below. */
 export function formatArea(sqft: number) {

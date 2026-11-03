@@ -7,7 +7,8 @@ import { Input } from "@/ds/ui/input"
 import {
   CAPTION_FIELDS,
   FACETS,
-  PER_SLIDE,
+  MAX_PER_SLIDE,
+  MIN_PROJECTS,
   autoPick,
   facetValues,
   formatArea,
@@ -51,14 +52,16 @@ export function ProjectPicker({
   const set = (patch: Partial<ProjectSection>) => setDraft((d) => ({ ...d, ...patch }))
 
   const values = facetValues(projects, draft.facet)
-  const pickValue = (facet: Facet, value: string) => set({ facet, value, title: value, projectIds: autoPick(projects, facet, value, draft.perSlide) })
+  const pickValue = (facet: Facet, value: string) => set({ facet, value, title: value, projectIds: autoPick(projects, facet, value, MAX_PER_SLIDE) })
   const inSection = projects.filter((p) => matches(p, draft.facet, draft.value))
   const withCover = inSection.filter((p) => p.cover).length
   const q = query.trim().toLowerCase()
   const shown = inSection.filter((p) => (!coverOnly || p.cover) && (!q || `${p.name} ${p.city} ${p.client ?? ""} ${p.architect ?? ""}`.toLowerCase().includes(q)))
   const toggle = (id: string) =>
     set({ projectIds: draft.projectIds.includes(id) ? draft.projectIds.filter((x) => x !== id) : [...draft.projectIds, id] })
-  const slides = Math.ceil(draft.projectIds.length / draft.perSlide)
+  const picked = draft.projectIds.length
+  const slides = Math.ceil(picked / MAX_PER_SLIDE)
+  const few = picked < MIN_PROJECTS
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -66,7 +69,7 @@ export function ProjectPicker({
         <DialogHeader>
           <DialogTitle>Choose projects</DialogTitle>
           <DialogDescription>
-            {inSection.length} projects in “{draft.value}”, {withCover} with a Gallery cover. Selection order is slide order; #1 is the hero.
+            {inSection.length} projects in “{draft.value}”, {withCover} with a Gallery cover. Selection order is slide order; #1 is the hero. Pick at least {MIN_PROJECTS}; each slide shows up to {MAX_PER_SLIDE}.
           </DialogDescription>
         </DialogHeader>
 
@@ -142,16 +145,8 @@ export function ProjectPicker({
 
         <DialogFooter className="flex-wrap items-center gap-3 sm:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
-            <div className="flex items-center gap-1.5" role="group" aria-label="Projects per slide">
-              <span className="text-sm font-semibold">Per slide</span>
-              {PER_SLIDE.map((n) => (
-                <Chip key={n} on={draft.perSlide === n} onClick={() => set({ perSlide: n })}>
-                  {n}
-                </Chip>
-              ))}
-            </div>
             <div className="flex items-center gap-1.5" role="group" aria-label="Caption shows">
-              <span className="ml-2 text-sm font-semibold">Caption</span>
+              <span className="text-sm font-semibold">Caption</span>
               {CAPTION_FIELDS.map((c) => (
                 <Chip
                   key={c.id}
@@ -165,13 +160,13 @@ export function ProjectPicker({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground" data-testid="picker-summary">
-              {draft.projectIds.length} selected · {slides} {slides === 1 ? "slide" : "slides"}
-              {slides > budget ? ` · only ${budget} left in the deck` : ""}
+              {picked} selected · {few ? `pick at least ${MIN_PROJECTS}` : `${slides} ${slides === 1 ? "slide" : "slides"}`}
+              {!few && slides > budget ? ` · only ${budget} left in the deck` : ""}
             </span>
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={() => onSave(draft)} disabled={!draft.projectIds.length || !draft.title.trim() || slides > budget}>
+            <Button onClick={() => onSave(draft)} disabled={few || !draft.title.trim() || slides > budget}>
               Save section
             </Button>
           </div>

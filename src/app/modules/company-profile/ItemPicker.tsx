@@ -43,7 +43,7 @@ export function ItemPicker({
         <DialogHeader>
           <DialogTitle>{heading}</DialogTitle>
           <DialogDescription>
-            {items.length} available from the app. Pick up to {max}; selection order is slide order.
+            {items.length} available from the app. {Number.isFinite(max) ? `Pick up to ${max}` : "Pick as many as you like: extra slides are added as the wall fills"}; selection order is slide order.
           </DialogDescription>
         </DialogHeader>
 
@@ -121,7 +121,7 @@ export function ItemPicker({
 
         <DialogFooter className="items-center gap-3 sm:justify-between">
           <span className="text-sm text-muted-foreground" data-testid="picker-summary">
-            {ids.length} of {max} selected
+            {Number.isFinite(max) ? `${ids.length} of ${max} selected` : `${ids.length} selected`}
           </span>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={onClose}>

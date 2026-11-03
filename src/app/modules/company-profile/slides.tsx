@@ -1,98 +1,128 @@
-import type { ReactNode } from "react"
-import { Eye, Globe, HeartHandshake, MapPin, Phone, Target } from "lucide-react"
-import { Progress } from "@/ds/ui/progress"
+import { createContext, useContext, type ReactNode } from "react"
+import { BadgeCheck, Building2, Cog, Handshake, Lightbulb, ShieldCheck, Users } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
 import { INDIA, WORLD, WORLD_INDIA, type DotGrid } from "./mapGrid"
-import {
-  countBy,
-  formatArea,
-  plus,
-  projectsOf,
-  type CaptionField,
-  type OrgProfile,
-  type PerSlide,
-  type Place,
-  type ProfileCompany,
-  type ProfileData,
-  type ProfileProject,
-  type ProfileService,
-} from "./profile"
+import { formatArea, initialsOf, plus, type CaptionField, type Facet, type Group, type Place, type ProfileCompany, type ProfileData, type ProfileProject, type ProfileService } from "./profile"
 
-/* Sizes are container units (cqw) so one slide renders identically as stage, thumbnail, fullscreen and PDF page. */
+/*
+ * Sizes are container units (cqw) so one slide renders identically as stage, thumbnail, fullscreen and PDF page.
+ * Slides are print artwork (the PDF page), not app chrome: they keep the brochure's light palette in both
+ * themes, the way the logo plates always did. One palette from cover to contact: navy #1b2a4e ink, red #c62828
+ * accent; the logo's blue #2b5797 appears only in the wordmark.
+ */
 
-function Frame({ children, className }: { children: ReactNode; className?: string }) {
+/** Set by the deck per slide: the page number and the two-tone wordmark the footer prints. */
+export const SlideContext = createContext<{ page: number; wordmark: [string, string] }>({ page: 0, wordmark: ["", ""] })
+
+function Wordmark() {
+  const [a, b] = useContext(SlideContext).wordmark
   return (
-    <div className="@container aspect-video w-full overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm">
-      <div className={cn("relative flex size-full flex-col p-[4cqw]", className)}>{children}</div>
+    <span className="font-extrabold tracking-wide">
+      <span className="text-[#2b5797]">{a}</span>
+      <span className="text-[#c62828]">{b}</span>
+    </span>
+  )
+}
+
+function Frame({ children, className, footer = true }: { children: ReactNode; className?: string; footer?: boolean }) {
+  const { page } = useContext(SlideContext)
+  return (
+    <div className="@container aspect-video w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm">
+      <div className={cn("relative flex size-full flex-col", footer && "px-[4.4cqw] pt-[3.4cqw] pb-[2cqw]")}>
+        <div className={cn("flex min-h-0 flex-1 flex-col", className)}>{children}</div>
+        {footer && (
+          <footer className="relative mt-[1.6cqw] flex items-center justify-between border-t border-slate-200 pt-[1.1cqw] text-[1.25cqw]">
+            <Wordmark />
+            <span className="text-slate-500 tabular-nums">{String(page).padStart(2, "0")}</span>
+          </footer>
+        )}
+      </div>
     </div>
   )
 }
 
-function Eyebrow({ children }: { children: ReactNode }) {
-  return <p className="text-[1.2cqw] font-semibold tracking-[0.18em] text-primary uppercase">{children}</p>
-}
-
-function Title({ children }: { children: ReactNode }) {
-  return <h3 className="mt-[0.4cqw] text-[3.2cqw] leading-tight font-bold tracking-tight">{children}</h3>
-}
-
-function Logo({ initials, className }: { initials: string; className?: string }) {
-  return <div className={cn("grid aspect-square shrink-0 place-items-center rounded-[1cqw] bg-primary font-black text-primary-foreground", className)}>{initials}</div>
-}
-
-/** The brochure's laurel: a ringed count that says "this many". */
-function CountBadge({ n, label }: { n: number | string; label: string }) {
+/** A slide title under a red rule, or under a red letter-spaced eyebrow when one is given. */
+function Heading({ children, eyebrow, className }: { children: ReactNode; eyebrow?: string; className?: string }) {
   return (
-    <div className="grid aspect-square w-[7cqw] shrink-0 place-content-center rounded-full border-[0.35cqw] border-primary text-center">
-      <span className="text-[2.4cqw] leading-none font-black text-primary tabular-nums">{n}</span>
-      <span className="text-[0.9cqw] font-semibold tracking-wider text-muted-foreground uppercase">{label}</span>
+    <div className={className}>
+      {eyebrow ? (
+        <p className="text-[1.15cqw] font-bold tracking-[0.3em] text-[#c62828] uppercase">{eyebrow}</p>
+      ) : (
+        <span aria-hidden className="block h-[0.35cqw] w-[3cqw] bg-[#c62828]" />
+      )}
+      <h3 className="mt-[0.8cqw] text-[3.2cqw] leading-tight font-bold tracking-tight text-[#1b2a4e]">{children}</h3>
     </div>
   )
 }
 
-/** A full-bleed photo with a dark scrim, so white text reads in both themes. */
-function Backdrop({ src, children, className }: { src: string; children: ReactNode; className?: string }) {
+/** A big blue figure over its label. */
+function Figure({ n, label }: { n: ReactNode; label: string }) {
   return (
-    <Frame className="p-0">
-      <img src={src} alt="" className="absolute inset-0 size-full object-cover" />
-      <div className={cn("relative flex size-full flex-col text-white", className)}>{children}</div>
-    </Frame>
+    <p className="text-[1.4cqw] text-slate-600">
+      <span className="block text-[4.6cqw] leading-none font-bold text-[#c62828] tabular-nums">{n}</span>
+      {label}
+    </p>
   )
 }
 
-function Bars({ rows }: { rows: Array<{ name: string; count: number }> }) {
-  const max = Math.max(1, ...rows.map((r) => r.count))
-  return (
-    <ul className="flex flex-col gap-[1.1cqw]">
-      {rows.map((r) => (
-        <li key={r.name} className="grid grid-cols-[20cqw_minmax(0,1fr)_4cqw] items-center gap-[1.4cqw] text-[1.4cqw]">
-          <span className="truncate font-semibold">{r.name}</span>
-          <Progress value={(r.count / max) * 100} aria-label={`${r.name}: ${r.count} projects`} />
-          <span className="text-right font-bold tabular-nums">{r.count}</span>
-        </li>
-      ))}
-    </ul>
-  )
+function Card({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("rounded-[1cqw] bg-slate-100 p-[2.4cqw] text-[1.45cqw] leading-relaxed text-slate-600", className)}>{children}</div>
 }
 
 /* ---------- Hardcoded slides (copy lives in OrgProfile; About's numbers are live) ---------- */
 
+const PILLAR_ICONS = [Building2, Cog, Handshake, ShieldCheck]
+
 export function CoverSlide({ data }: { data: ProfileData }) {
-  const { org, totals } = data
+  const { org } = data
+  const [tag, tagAccent] = org.tagline
   return (
-    <Backdrop src={org.hero} className="justify-between bg-linear-to-r from-black/85 via-black/55 to-black/10 p-[5cqw]">
-      <div className="flex items-center gap-[1.4cqw]">
-        <Logo initials={org.initials} className="w-[5.5cqw] text-[2cqw]" />
-        <span className="text-[1.5cqw] font-semibold tracking-[0.2em] uppercase">{org.legalName}</span>
+    <Frame footer={false}>
+      <img src={org.hero} alt="" className="absolute top-[16%] left-[10%] h-[72%] w-[52%] object-cover [mask-image:radial-gradient(ellipse_at_center,black_45%,transparent_75%)]" />
+      <div className="relative flex items-center gap-[1.4cqw] p-[3cqw]">
+        <span className="grid size-[7cqw] place-items-center rounded-full border-[0.6cqw] border-slate-400 text-[2.6cqw] font-black italic">
+          <span>
+            <span className="text-[#2b5797]">{org.initials[0]}</span>
+            <span className="text-[#c62828]">{org.initials.slice(1)}</span>
+          </span>
+        </span>
+        <div>
+          <p className="text-[3.8cqw] leading-none tracking-[0.12em]">
+            <Wordmark />
+          </p>
+          <p className="mt-[0.4cqw] text-[1.25cqw] font-bold tracking-[0.18em] text-slate-500 uppercase">{org.legalName.replace(/^\S+\s/, "")}</p>
+        </div>
       </div>
-      <div className="max-w-[62%]">
-        <p className="text-[1.3cqw] font-semibold tracking-[0.2em] uppercase opacity-80">{org.edition}</p>
-        <h3 className="mt-[1cqw] text-[4.8cqw] leading-[1.05] font-black tracking-tight">{org.tagline}</h3>
-      </div>
-      <p className="text-[1.4cqw] opacity-85">
-        {plus(totals.projects)} projects · {plus(totals.clients)} clients · since {org.foundedIn}
+      <p className="relative -mt-[1cqw] px-[3cqw] text-[1.9cqw] font-bold text-[#1b2a4e]">
+        {tag} <span className="text-[#c62828]">{tagAccent}</span>
       </p>
-    </Backdrop>
+      <div className="absolute top-[7%] right-[4cqw] w-[32%]">
+        <h3 className="text-[4.6cqw] leading-none font-bold text-[#1b2a4e]">
+          Company <span className="text-[#c62828]">Profile</span>
+        </h3>
+        <span aria-hidden className="mt-[1.2cqw] block h-[0.45cqw] w-[16cqw] bg-[#1b2a4e]" />
+        <ul className="mt-[5cqw] flex flex-col gap-[1.6cqw]">
+          {org.pillars.map((p, i) => {
+            const Icon = PILLAR_ICONS[i % PILLAR_ICONS.length]
+            return (
+              <li key={p.title} className="flex gap-[1.6cqw]">
+                <span className={cn("grid size-[4.4cqw] shrink-0 place-items-center rounded-full text-white [&>svg]:size-[2cqw]", i % 2 ? "bg-[#c62828]" : "bg-[#1b2a4e]")}>
+                  <Icon />
+                </span>
+                <div>
+                  <p className="text-[1.45cqw] font-bold text-[#1b2a4e] uppercase">{p.title}</p>
+                  <p className="text-[1.2cqw] leading-snug text-slate-600">{p.text}</p>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+      <div className="absolute inset-x-0 bottom-0 flex h-[9%] items-end justify-between bg-[#1b2a4e] px-[3cqw] pb-[1.2cqw] text-[1.25cqw] text-white [clip-path:polygon(0_35%,100%_0,100%_100%,0_100%)]">
+        <span>{org.edition}</span>
+        <span className="font-bold">{org.slogan}</span>
+      </div>
+    </Frame>
   )
 }
 
@@ -102,30 +132,26 @@ export function AboutSlide({ data }: { data: ProfileData }) {
     [plus(totals.projects), "Projects"],
     [plus(totals.completed), "Completed"],
     [plus(totals.clients), "Clients"],
-    [plus(new Date().getFullYear() - org.foundedIn), "Years"],
+    [plus(new Date().getFullYear() - org.foundedIn), "Years of experience"],
     [plus(totals.team), "Team"],
   ]
   return (
-    <Frame className="gap-[2.6cqw]">
-      <ul className="grid grid-cols-5 gap-[1.2cqw]">
-        {stats.map(([value, label]) => (
-          <li key={label} className="rounded-[1cqw] bg-primary px-[1.4cqw] py-[1.2cqw] text-primary-foreground">
-            <p className="text-[3cqw] leading-none font-black tabular-nums">{value}</p>
-            <p className="mt-[0.4cqw] text-[1.1cqw] font-semibold tracking-wider uppercase opacity-90">{label}</p>
-          </li>
-        ))}
-      </ul>
-      <div>
-        <Eyebrow>About us</Eyebrow>
-        <Title>{org.legalName}</Title>
-      </div>
-      <div className="grid grid-cols-2 gap-[3cqw]">
+    <Frame>
+      <Heading>About us</Heading>
+      <div className="mt-[2.2cqw] grid grid-cols-2 gap-[3cqw]">
         {org.about.map((t) => (
-          <p key={t} className="text-[1.45cqw] leading-relaxed text-muted-foreground">
+          <p key={t} className="text-[1.45cqw] leading-relaxed text-slate-600">
             {t}
           </p>
         ))}
       </div>
+      <ul className="mt-auto grid grid-cols-5 divide-x divide-slate-200 rounded-[1cqw] bg-slate-100 py-[2cqw]">
+        {stats.map(([value, label]) => (
+          <li key={label} className="px-[2cqw]">
+            <Figure n={value} label={label} />
+          </li>
+        ))}
+      </ul>
     </Frame>
   )
 }
@@ -133,79 +159,61 @@ export function AboutSlide({ data }: { data: ProfileData }) {
 export function VisionSlide({ data }: { data: ProfileData }) {
   const { org } = data
   const cols = [
-    { icon: <Eye />, title: "Vision", body: <p>{org.vision}</p> },
-    { icon: <Target />, title: "Mission", body: <p>{org.mission}</p> },
+    { icon: <Lightbulb />, title: "Vision", body: <p>{org.vision}</p> },
+    { icon: <BadgeCheck />, title: "Mission", body: <p>{org.mission}</p> },
     {
-      icon: <HeartHandshake />,
+      icon: <Users />,
       title: "Values",
       body: (
-        <dl className="flex flex-col gap-[0.8cqw]">
+        <div className="flex flex-col gap-[1cqw]">
           {org.values.map((v) => (
-            <div key={v.label}>
-              <dt className="font-bold text-primary">{v.label}</dt>
-              <dd>{v.text}</dd>
-            </div>
+            <p key={v.label}>
+              <b className="text-[#1b2a4e]">{v.label}:</b> {v.text}
+            </p>
           ))}
-        </dl>
+        </div>
       ),
     },
   ]
   return (
     <Frame>
-      <Eyebrow>Who we are</Eyebrow>
-      <Title>Vision, mission &amp; values</Title>
-      <div className="mt-[2.4cqw] grid flex-1 grid-cols-3 gap-[1.8cqw]">
-        {cols.map((c) => (
-          <div key={c.title} className="flex flex-col gap-[1.2cqw] rounded-[1.2cqw] border border-border bg-background p-[2.2cqw] text-[1.45cqw] leading-snug">
-            <div className="grid size-[5cqw] place-items-center rounded-full bg-accent text-accent-foreground [&>svg]:size-[2.4cqw]">{c.icon}</div>
-            <p className="text-[2cqw] font-bold">{c.title}</p>
+      <Heading>Who we are</Heading>
+      <div className="mt-[2.4cqw] grid min-h-0 flex-1 grid-cols-3 gap-[1.4cqw]">
+        {cols.map((c, i) => (
+          <Card key={c.title}>
+            <span className={cn("grid size-[4.4cqw] place-items-center rounded-full text-white [&>svg]:size-[2cqw]", i % 2 ? "bg-[#c62828]" : "bg-[#1b2a4e]")}>{c.icon}</span>
+            <p className="mt-[1.4cqw] mb-[1.2cqw] text-[2.1cqw] font-bold text-[#1b2a4e]">{c.title}</p>
             {c.body}
-          </div>
+          </Card>
         ))}
       </div>
     </Frame>
   )
 }
 
-export function ScopeSlide({ data }: { data: ProfileData }) {
-  return (
-    <Frame>
-      <Eyebrow>From concept to handover</Eyebrow>
-      <Title>Scope of services</Title>
-      <ol className="mt-[2.4cqw] grid flex-1 auto-rows-min grid-flow-col grid-cols-3 grid-rows-8 gap-x-[2.4cqw] gap-y-[0.9cqw] text-[1.3cqw]">
-        {data.org.scope.map((s, i) => (
-          <li key={s} className="flex items-baseline gap-[0.8cqw]">
-            <span className="w-[2.2cqw] shrink-0 text-right font-bold text-primary tabular-nums">{String(i + 1).padStart(2, "0")}</span>
-            <span>{s}</span>
-          </li>
-        ))}
-      </ol>
-    </Frame>
-  )
-}
-
 export function ContactSlide({ data }: { data: ProfileData }) {
   const { org } = data
+  const rows: Array<[string, ReactNode]> = [
+    ["Address", org.address],
+    ["Telephone", org.phone],
+    ["Website", <span className="text-[#1b2a4e] underline">{org.website}</span>],
+  ]
   return (
-    <Backdrop src={org.hero} className="justify-center bg-black/72 p-[6cqw]">
-      <Logo initials={org.initials} className="w-[6cqw] text-[2.2cqw]" />
-      <p className="mt-[2cqw] text-[1.3cqw] font-semibold tracking-[0.2em] uppercase opacity-80">Reach us at · Head office</p>
-      <h3 className="mt-[0.6cqw] text-[4cqw] leading-tight font-black">{org.legalName}</h3>
-      <ul className="mt-[2cqw] flex flex-col gap-[1cqw] text-[1.5cqw]">
-        {(
-          [
-            [<MapPin key="a" />, org.address],
-            [<Phone key="p" />, org.phone],
-            [<Globe key="w" />, org.website],
-          ] as const
-        ).map(([icon, text]) => (
-          <li key={text} className="flex items-center gap-[1.2cqw] [&>svg]:size-[1.8cqw] [&>svg]:shrink-0">
-            {icon}
-            {text}
-          </li>
-        ))}
-      </ul>
-    </Backdrop>
+    <Frame>
+      <img src={org.site} alt="" className="absolute top-0 right-0 h-[calc(100%-5.2cqw)] w-[46%] object-cover" />
+      <div className="w-[46%]">
+        <Heading>Reach us at · Head office</Heading>
+        <p className="mt-[2.2cqw] text-[2cqw] font-semibold text-[#1b2a4e]">{org.legalName}</p>
+        <dl className="mt-[1.4cqw] divide-y divide-slate-200">
+          {rows.map(([label, value]) => (
+            <div key={label} className="py-[1.4cqw]">
+              <dt className="text-[1.2cqw] font-semibold text-slate-500">{label}</dt>
+              <dd className="mt-[0.4cqw] text-[1.5cqw] leading-relaxed text-slate-600">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </Frame>
   )
 }
 
@@ -214,13 +222,14 @@ export function ContactSlide({ data }: { data: ProfileData }) {
 export function ServicesSlide({ title, services }: { title: string; services: ProfileService[] }) {
   return (
     <Frame>
-      <Eyebrow>What we do</Eyebrow>
-      <Title>{title}</Title>
+      <Heading>{title}</Heading>
       <ul className="mt-auto grid grid-cols-4 gap-[1.4cqw]">
         {services.map((s) => (
-          <li key={s.id} className="flex min-h-[9cqw] flex-col justify-between rounded-[1.2cqw] border border-border bg-background p-[1.6cqw]">
-            <p className="text-[1.7cqw] leading-tight font-bold">{s.name}</p>
-            <p className="text-[1.25cqw] font-semibold text-primary">{s.projects} projects</p>
+          <li key={s.id}>
+            <Card className="flex min-h-[9cqw] flex-col justify-between p-[1.6cqw]">
+              <p className="text-[1.7cqw] leading-tight font-bold text-[#1b2a4e]">{s.name}</p>
+              <p className="text-[1.25cqw] font-semibold text-[#c62828]">{s.projects} projects</p>
+            </Card>
           </li>
         ))}
       </ul>
@@ -228,104 +237,180 @@ export function ServicesSlide({ title, services }: { title: string; services: Pr
   )
 }
 
-const GRID: Record<PerSlide, string> = { 3: "grid-cols-3", 5: "grid-cols-4", 7: "grid-cols-5" }
+/** Tile columns beside the hero. */
+const COLS = ["", "grid-cols-1", "grid-cols-2", "grid-cols-3", "grid-cols-4"]
 
-function ProjectTile({ p, captions, hero }: { p: ProfileProject; captions: CaptionField[]; hero: boolean }) {
+const EYEBROW: Record<Facet, string> = { typology: "Project category", tag: "Project category", city: "Projects in", client: "Projects for", architect: "Designed with" }
+
+function ProjectTile({ p, captions, hero }: { p: ProfileProject; captions: CaptionField[]; hero?: boolean }) {
   const line = [
     captions.includes("architect") && p.architect && `Arch. ${p.architect}`,
     captions.includes("client") && p.client,
     captions.includes("area") && p.areaSqft && formatArea(p.areaSqft),
   ].filter(Boolean)
   return (
-    <li className={cn("relative min-h-0 overflow-hidden rounded-[1cqw]", hero && "col-span-2 row-span-2")}>
+    <div className="relative size-full min-h-0 overflow-hidden rounded-[0.4cqw] border border-slate-300 bg-slate-100">
       {p.cover && <img src={p.cover} alt="" className="absolute inset-0 size-full object-cover" />}
       {captions.includes("metric") && p.metric && (
-        <span className={cn("absolute top-[0.8cqw] right-[0.8cqw] rounded-full bg-black/65 px-[0.9cqw] py-[0.3cqw] font-bold text-white", hero ? "text-[1.3cqw]" : "text-[0.95cqw]")}>
+        <span className={cn("absolute top-[0.8cqw] right-[0.8cqw] rounded-full bg-[#1b2a4e]/85 px-[0.9cqw] py-[0.3cqw] font-bold text-white", hero ? "text-[1.2cqw]" : "text-[0.9cqw]")}>
           {p.metric}
         </span>
       )}
-      <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/85 via-black/55 to-transparent p-[1cqw] pt-[3cqw] text-white">
-        <p className={cn("leading-tight font-bold", hero ? "text-[1.9cqw]" : "truncate text-[1.15cqw]")}>{p.name}</p>
-        <p className={cn("truncate opacity-90", hero ? "text-[1.3cqw]" : "text-[0.95cqw]")}>{[p.city, ...line].join(" · ")}</p>
+      <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-[#1b2a4e] via-[#1b2a4e]/70 to-transparent p-[1cqw] pt-[3cqw] text-white">
+        <p className={cn("leading-tight font-bold", hero ? "text-[1.7cqw]" : "line-clamp-2 text-[1.1cqw]")}>{p.name}</p>
+        <p className={cn("truncate opacity-90", hero ? "text-[1.2cqw]" : "text-[0.9cqw]")}>{[p.city, ...line].join(" · ")}</p>
       </div>
-    </li>
+    </div>
   )
 }
 
 export function ProjectsSlide({
   title,
+  facet,
   items,
   total,
   part,
   parts,
-  perSlide,
   captions,
-  repeat,
 }: {
   title: string
+  facet: Facet
   items: ProfileProject[]
   /** Every project in this section's typology / tag / city, not just the ones on show. */
   total: number
   part: number
   parts: number
-  perSlide: PerSlide
   captions: CaptionField[]
-  repeat?: { name: string; count: number }
 }) {
+  const [hero, ...rest] = items
+  // The grid fits however many tiles this slide has (4 to 8 beside the hero): two rows, and with an odd
+  // count the first tile runs both rows, so no cell is ever left empty.
+  const cols = Math.ceil(rest.length / 2)
+  const tall = rest.length % 2 === 1
   return (
-    <Frame className="gap-[1.8cqw] p-[3cqw]">
-      <header className="flex items-center gap-[1.6cqw]">
-        <CountBadge n={total} label="projects" />
-        <div className="min-w-0">
-          <Eyebrow>Portfolio{parts > 1 && ` · ${part} of ${parts}`}</Eyebrow>
-          <Title>{title}</Title>
-        </div>
-        {repeat && (
-          <p className="ml-auto rounded-full bg-accent px-[1.4cqw] py-[0.6cqw] text-[1.2cqw] font-semibold text-accent-foreground">
-            {repeat.count} repeat projects · {repeat.name}
-          </p>
+    <Frame className="grid grid-cols-[minmax(0,0.95fr)_minmax(0,2fr)] grid-rows-[minmax(0,1fr)] gap-[3.4cqw]">
+      <div className="flex min-h-0 flex-col">
+        <Heading eyebrow={`${EYEBROW[facet]}${parts > 1 ? ` · ${part} / ${parts}` : ""}`}>{title}</Heading>
+        <p className="mt-[0.8cqw] flex items-center gap-[1.4cqw]">
+          <span className="text-[5.4cqw] leading-none font-bold text-[#c62828] tabular-nums">{total}</span>
+          <span className="text-[1.15cqw] font-bold tracking-[0.25em] text-slate-500 uppercase">Projects</span>
+        </p>
+        {hero && (
+          <div className="mt-[2cqw] min-h-0 flex-1">
+            <ProjectTile p={hero} captions={captions} hero />
+          </div>
         )}
-      </header>
-      <ul className={cn("grid min-h-0 flex-1 grid-rows-2 gap-[1cqw]", GRID[perSlide])}>
-        {items.map((p, i) => (
-          <ProjectTile key={p.id} p={p} captions={captions} hero={i === 0} />
-        ))}
-      </ul>
+      </div>
+      {cols > 0 && (
+        <ul className={cn("grid min-h-0 grid-rows-2 gap-[1.4cqw]", COLS[cols])}>
+          {rest.map((p, i) => (
+            <li key={p.id} className={cn("min-h-0", tall && i === 0 && "row-span-2")}>
+              <ProjectTile p={p} captions={captions} />
+            </li>
+          ))}
+        </ul>
+      )}
     </Frame>
   )
 }
 
-/** Logo wall grouped by company type (the brochure's Hotel / Stores / Hospital / Builder rows), or a repeat-projects chart. */
-export function CompaniesSlide({ title, companies, display, projects }: { title: string; companies: ProfileCompany[]; display: "logos" | "chart"; projects: ProfileProject[] }) {
-  if (display === "chart")
-    return (
-      <Frame>
-        <Eyebrow>Trust, measured</Eyebrow>
-        <Title>{title}</Title>
-        <div className="mt-auto">
-          <Bars rows={companies.map((c) => ({ name: c.name, count: projectsOf(projects, c.name) })).sort((a, b) => b.count - a.count)} />
-        </div>
-      </Frame>
-    )
-  const groups = countBy(companies.map((c) => c.types[0] ?? "Other")).map((g) => ({ ...g, items: companies.filter((c) => (c.types[0] ?? "Other") === g.name) }))
+/** Logo-wall geometry, shared with the deck's pagination: plates per row and plate rows per slide. */
+export const LOGO_COLS = 6
+export const LOGO_ROWS = 7
+
+const PLATE_COLS = ["", "grid-cols-[repeat(1,13.4cqw)]", "grid-cols-[repeat(2,13.4cqw)]", "grid-cols-[repeat(3,13.4cqw)]", "grid-cols-[repeat(4,13.4cqw)]", "grid-cols-[repeat(5,13.4cqw)]", "grid-cols-[repeat(6,13.4cqw)]"]
+
+/** Client logo wall: company-type groups side by side on shelves; what does not fit flows onto the next slide. */
+export function ClientsSlide({ title, shelves }: { title: string; shelves: Group<ProfileCompany>[][] }) {
   return (
     <Frame>
-      <Eyebrow>Working with</Eyebrow>
-      <Title>{title}</Title>
-      <div className="mt-[2.4cqw] flex flex-wrap content-start gap-x-[2.4cqw] gap-y-[1.6cqw]">
-        {groups.map((g) => (
-          <section key={g.name} className="flex flex-col gap-[0.8cqw]">
-            <p className="text-[1.15cqw] font-semibold tracking-wider text-muted-foreground uppercase">{g.name}</p>
-            <ul className="flex max-w-[86cqw] flex-wrap gap-[0.9cqw]">
-              {g.items.map((c) => (
-                // White plate on purpose: company logos are artwork drawn for a light background, in either theme.
-                <li key={c.id} className="grid h-[5.6cqw] w-[13cqw] place-items-center overflow-hidden rounded-[0.9cqw] border border-border bg-white p-[0.6cqw] text-center text-[1.2cqw] font-bold text-slate-800">
-                  {c.logo ? <img src={c.logo} alt={c.name} className="max-h-full max-w-full object-contain" /> : c.name}
-                </li>
-              ))}
-            </ul>
-          </section>
+      <Heading>{title}</Heading>
+      <div className="mt-[2cqw] flex flex-col gap-[1.2cqw]">
+        {shelves.map((shelf) => (
+          <div key={shelf.map((g) => g.name).join()} className="flex gap-[2.2cqw]">
+            {shelf.map((g) => (
+              <section key={g.name}>
+                <p className="mb-[0.6cqw] text-[1.1cqw] font-bold tracking-[0.2em] text-[#c62828] uppercase">{g.name}</p>
+                <ul className={cn("grid gap-[0.8cqw]", PLATE_COLS[Math.min(g.items.length, LOGO_COLS)])}>
+                  {g.items.map((c) => (
+                    <li key={c.id} className="grid h-[4.8cqw] place-items-center overflow-hidden rounded-[0.7cqw] border border-slate-200 bg-white px-[0.8cqw] text-center text-[1.2cqw] font-bold text-slate-800">
+                      {c.logo ? <img src={c.logo} alt={c.name} className="max-h-full max-w-full object-contain" /> : c.name}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
         ))}
+      </div>
+    </Frame>
+  )
+}
+
+/** 1, 2 or 5 × 10ⁿ: about five gridlines whatever the range. */
+function niceStep(max: number) {
+  const raw = max / 5
+  const p = 10 ** Math.floor(Math.log10(raw))
+  return Math.max(1, [1, 2, 5, 10].map((m) => m * p).find((s) => s >= raw) ?? p * 10)
+}
+
+/** Bar with only its data end rounded, so it stays anchored to the baseline. */
+const barPath = (x0: number, x1: number, y: number, h: number) => {
+  const r = Math.min(4, x1 - x0, h / 2)
+  return `M${x0} ${y}H${x1 - r}a${r} ${r} 0 0 1 ${r} ${r}V${y + h - r}a${r} ${r} 0 0 1 ${-r} ${r}H${x0}Z`
+}
+
+/** Repeat clients: projects per client, ranked, with logo and share of the whole portfolio. */
+export function RepeatSlide({ title, rows, total }: { title: string; rows: Array<{ company: ProfileCompany; count: number }>; total: number }) {
+  const W = 1000
+  const ROW = 42
+  const AXIS = 30
+  const X0 = 400
+  const X1 = 880
+  const H = rows.length * ROW + AXIS
+  const step = niceStep(Math.max(1, ...rows.map((r) => r.count)))
+  const top = Math.ceil(Math.max(1, ...rows.map((r) => r.count)) / step) * step
+  const x = (v: number) => X0 + (v / top) * (X1 - X0)
+  return (
+    <Frame>
+      <Heading>{title}</Heading>
+      <p className="mt-[0.6cqw] text-[1.3cqw] text-slate-500">Ranked by projects with us · share of all {total} projects</p>
+      <div className="mt-[1.6cqw] min-h-0 flex-1">
+        <svg viewBox={`0 0 ${W} ${H}`} className="size-full" preserveAspectRatio="xMidYMin meet" role="img" aria-label={`${title}: ${rows.map((r) => `${r.company.name} ${r.count}`).join(", ")}`}>
+          {Array.from({ length: top / step + 1 }, (_, i) => i * step).map((t) => (
+            <g key={t}>
+              <line x1={x(t)} x2={x(t)} y1={0} y2={H - AXIS} className="stroke-slate-200" />
+              <text x={x(t)} y={H - 8} textAnchor="middle" fontSize={14} className="fill-slate-500">
+                {t}
+              </text>
+            </g>
+          ))}
+          {rows.map(({ company: c, count }, i) => {
+            const cy = ROW * (i + 0.5)
+            return (
+              <g key={c.id}>
+                <rect x={X0 - 86} y={cy - 16} width={72} height={32} rx={5} className="fill-white stroke-slate-200" />
+                {c.logo ? (
+                  <image href={c.logo} x={X0 - 82} y={cy - 13} width={64} height={26} preserveAspectRatio="xMidYMid meet" />
+                ) : (
+                  <text x={X0 - 50} y={cy + 5} textAnchor="middle" fontSize={14} fontWeight={800} className="fill-slate-700">
+                    {initialsOf(c.name)}
+                  </text>
+                )}
+                <text x={X0 - 100} y={cy + 6} textAnchor="end" fontSize={17} fontWeight={600} className="fill-slate-700">
+                  {c.name.length > 22 ? `${c.name.slice(0, 21)}…` : c.name}
+                </text>
+                <path d={barPath(X0, x(count), cy - 11, 22)} className="fill-[#1b2a4e]" />
+                <text x={x(count) + 10} y={cy + 6} fontSize={16} className="fill-slate-600">
+                  <tspan fontWeight={700} className="fill-slate-700">
+                    {count}
+                  </tspan>
+                  {` · ${+((count / Math.max(1, total)) * 100).toFixed(1)}%`}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
       </div>
     </Frame>
   )
@@ -358,17 +443,16 @@ function DotMap({ grid, highlight, pins, label }: { grid: DotGrid; highlight?: D
   })
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="size-full" role="img" aria-label={label}>
-      <path d={dotsPath(grid)} className="text-muted-foreground/35" stroke="currentColor" strokeWidth={0.62} strokeLinecap="round" />
-      {highlight && <path d={dotsPath(highlight)} className="text-primary/55" stroke="currentColor" strokeWidth={0.62} strokeLinecap="round" />}
+      <path d={dotsPath(grid)} className="text-slate-300" stroke="currentColor" strokeWidth={0.62} strokeLinecap="round" />
+      {highlight && <path d={dotsPath(highlight)} className="text-[#1b2a4e]" stroke="currentColor" strokeWidth={0.62} strokeLinecap="round" />}
       {pins.map((p, i) => {
         const [x, y] = at(p)
-        const r = unit * (0.7 + Math.min(p.count, 40) / 40)
+        const r = unit * (0.6 + Math.min(p.count, 40) / 40)
         return (
           <g key={p.id}>
-            <circle cx={x} cy={y} r={r * 2.2} className="fill-primary/20" />
-            <circle cx={x} cy={y} r={r} className="fill-primary stroke-card" strokeWidth={unit * 0.3} />
+            <circle cx={x} cy={y} r={r} className="fill-[#1b2a4e] stroke-white" strokeWidth={unit * 0.25} />
             {showLabel[i] && (
-              <text x={x + r * 1.8} y={y + unit * 0.7} fontSize={unit * 2} fontWeight={700} className="fill-foreground stroke-card" strokeWidth={unit * 0.5} paintOrder="stroke">
+              <text x={x + r * 1.7} y={y + unit * 0.7} fontSize={unit * 2} fontWeight={600} className="fill-slate-700 stroke-white" strokeWidth={unit * 0.5} paintOrder="stroke">
                 {p.name}
               </text>
             )}
@@ -379,28 +463,24 @@ function DotMap({ grid, highlight, pins, label }: { grid: DotGrid; highlight?: D
   )
 }
 
+/** Most places the list beside the map shows; the map itself pins every picked one. */
+const LIST_MAX = 20
+
 export function MapSlide({ title, region, pins, projects }: { title: string; region: "india" | "world"; pins: Place[]; projects: number }) {
   const unit = region === "india" ? "cities" : "countries"
   return (
-    <Frame className="grid grid-cols-[minmax(0,0.75fr)_minmax(0,2fr)] grid-rows-[minmax(0,1fr)] gap-[2cqw]">
+    <Frame className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.6fr)] grid-rows-[auto_minmax(0,1fr)] gap-x-[3cqw]">
+      <Heading className="col-span-2">{title}</Heading>
       <div className="flex min-w-0 flex-col">
-        <Eyebrow>{region === "india" ? "Pan India" : "Worldwide"}</Eyebrow>
-        <Title>{title}</Title>
-        <div className="mt-[2cqw] flex gap-[2.4cqw]">
-          {[
-            [pins.length, unit],
-            [projects, "projects"],
-          ].map(([n, l]) => (
-            <p key={l} className="text-[1.3cqw] font-semibold">
-              <span className="block text-[4.6cqw] leading-none font-black text-primary tabular-nums">{n}</span>
-              {l}
-            </p>
-          ))}
+        <div className="mt-[2cqw] flex gap-[5cqw]">
+          <Figure n={pins.length} label={unit} />
+          {region === "india" && <Figure n={projects} label="projects" />}
         </div>
-        <ul className="mt-auto columns-2 gap-[1.4cqw] text-[1.1cqw] leading-relaxed">
-          {pins.slice(0, 24).map((p) => (
-            <li key={p.id} className="truncate">
-              <span className="font-semibold">{p.name}</span> <span className="text-muted-foreground tabular-nums">{p.count}</span>
+        <ul className="mt-[2cqw] columns-2 gap-[1.6cqw] text-[1.15cqw]">
+          {pins.slice(0, LIST_MAX).map((p) => (
+            <li key={p.id} className="flex break-inside-avoid justify-between gap-[0.6cqw] border-b border-slate-200 py-[0.45cqw]">
+              <span className="truncate text-slate-600">{p.name}</span>
+              <span className="font-bold text-[#1b2a4e] tabular-nums">{p.count}</span>
             </li>
           ))}
         </ul>

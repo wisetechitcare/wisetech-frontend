@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { autoPick, chunk, facetValues, formatArea, places, plus, repeatPartners, slideCount, type ProfileProject, type ProjectSection } from "./profile"
+import { autoPick, facetValues, spread, formatArea, paginateGroups, places, plus, repeatPartners, type ProfileProject } from "./profile"
 
 const p = (id: string, x: Partial<ProfileProject>): ProfileProject => ({
   id,
@@ -43,10 +43,16 @@ describe("company profile", () => {
     ])
     expect(places(projects, "world").map((x) => [x.name, x.count])).toEqual([["India", 3], ["Iraq", 1]])
   })
-  it("splits project sections into slides and counts them against the deck budget", () => {
-    expect(chunk([1, 2, 3, 4, 5, 6, 7], 5)).toEqual([[1, 2, 3, 4, 5], [6, 7]])
-    const s = { kind: "projects", enabled: true, projectIds: ["a", "b", "c", "d", "e", "f"], perSlide: 5 } as ProjectSection
-    expect(slideCount(s)).toBe(2)
-    expect(slideCount({ ...s, enabled: false })).toBe(0)
+  it("spreads project sections evenly over slides of at most 9, never below 5", () => {
+    const sizes = (n: number) => spread(Array.from({ length: n }, (_, i) => i), 9).map((s) => s.length)
+    expect([sizes(9), sizes(10), sizes(19), sizes(28)]).toEqual([[9], [5, 5], [7, 6, 6], [7, 7, 7, 7]])
+    for (let n = 5; n <= 90; n++) expect(Math.min(...sizes(n))).toBeGreaterThanOrEqual(5)
+  })
+  it("shelves logo groups side by side and flows the rest onto new pages", () => {
+    const g = (name: string, n: number) => ({ name, items: Array.from({ length: n }, (_, i) => i) })
+    const shape = (pages: ReturnType<typeof paginateGroups<number>>) => pages.map((p) => p.map((shelf) => shelf.map((x) => `${x.name}${x.items.length}`)))
+    expect(shape(paginateGroups([g("A", 8), g("B", 3), g("C", 3), g("D", 2), g("E", 1)], 6, 7))).toEqual([[["A8"], ["B3", "C3"], ["D2", "E1"]]])
+    // A group taller than the room left is split across pages.
+    expect(shape(paginateGroups([g("A", 20)], 6, 3))).toEqual([[["A12"]], [["A8"]]])
   })
 })

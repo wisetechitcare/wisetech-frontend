@@ -3,7 +3,7 @@
  * from WISETECH MEP's own published brochure (Rev.27); photos and logos are generated placeholders.
  */
 import { scene, type SceneName } from "../project-gallery/fixtures"
-import { PICK_LIMIT, autoPick, places, projectsOf, type OrgProfile, type PerSlide, type ProfileCompany, type ProfileData, type ProfileProject, type ProfileService, type Section } from "./profile"
+import { PICK_LIMIT, autoPick, places, projectsOf, type OrgProfile, type ProfileCompany, type ProfileData, type ProfileProject, type ProfileService, type Section } from "./profile"
 
 const SCENE: Record<string, SceneName[]> = {
   Residential: ["exterior", "night"],
@@ -235,7 +235,9 @@ export const DEMO_SERVICES: ProfileService[] = [
 const DEMO_ORG: OrgProfile = {
   legalName: "WISETECH MEP Consultants Pvt. Ltd.",
   initials: "WT",
-  tagline: "MEPF design consultants for buildings in India and abroad",
+  wordmark: ["WISE", "TECH"],
+  tagline: ["Engineering Solutions.", "Building Tomorrow."],
+  slogan: "Built on Trust. Driven by Innovation.",
   edition: "Company Profile · Rev. 28",
   foundedIn: 2005,
   about: [
@@ -249,34 +251,17 @@ const DEMO_ORG: OrgProfile = {
     { label: "Team", text: "We build the most technical and knowledgeable team." },
     { label: "Working", text: "We do business on business ethics." },
   ],
-  scope: [
-    "Feasibility study",
-    "Master planning",
-    "Design concept",
-    "Preliminary design report & budget estimates",
-    "Detailed planning & design",
-    "Working drawings",
-    "Technical specifications",
-    "Schedule of quantities & cost estimates",
-    "Peer review of designs",
-    "Notice inviting tender",
-    "Comparative statement for tenders",
-    "Techno-commercial recommendation",
-    "Verification & approval of shop drawings",
-    "Periodic site supervision",
-    "Testing & commissioning participation",
-    "3rd party testing & commissioning",
-    "As-built drawings",
-    "Design review",
-    "Repair work",
-    "Site visit",
-    "PR review",
-    "Old project MEP services audit",
+  pillars: [
+    { title: "MEP Design", text: "Innovative, efficient & sustainable design solutions." },
+    { title: "Engineering Excellence", text: "Delivering precision-engineered systems across industries." },
+    { title: "Collaborate", text: "Partnering with clients to turn ideas into impactful realities." },
+    { title: "Commitment", text: "Dedicated to quality, safety and long-term value." },
   ],
   address: "1st Floor, Loonawat Compound, Ghaswala Estate, next to Millat Hospital, SV Road, Jogeshwari (W), Mumbai 400102",
   phone: "+91 22 4673 2679",
   website: "www.wisetech-mep.com",
-  hero: scene("night", 999),
+  hero: scene("hvac", 999),
+  site: scene("ceiling", 998),
 }
 
 export const DEMO_DATA: ProfileData = {
@@ -287,10 +272,10 @@ export const DEMO_DATA: ProfileData = {
   services: DEMO_SERVICES,
 }
 
-/* ---------- The default deck: 18 of 20 slides, every fetched one pre-picked ---------- */
+/* ---------- The default deck: every fetched slide pre-picked; the logo wall holds every client and architect ---------- */
 
-const fixed = (kind: "cover" | "about" | "vision" | "scope" | "contact", title: string): Section => ({ id: kind, kind, title, enabled: true })
-const projects = (id: string, facet: "typology" | "tag", value: string, count: number, perSlide: PerSlide = 5): Section => ({
+const fixed = (kind: "cover" | "about" | "vision" | "contact", title: string): Section => ({ id: kind, kind, title, enabled: true })
+const projects = (id: string, facet: "typology" | "tag", value: string, count: number): Section => ({
   id,
   kind: "projects",
   title: value,
@@ -298,7 +283,6 @@ const projects = (id: string, facet: "typology" | "tag", value: string, count: n
   facet,
   value,
   projectIds: autoPick(DEMO_PROJECTS, facet, value, count),
-  perSlide,
   captions: ["architect", "client", "area", "metric"],
 })
 const topCompanies = (type: (types: string[]) => boolean, k: number) =>
@@ -313,15 +297,13 @@ export const DEMO_SECTIONS: Section[] = [
   fixed("about", "About us"),
   fixed("vision", "Who we are"),
   { id: "services", kind: "services", title: "Services we offer", enabled: true, ids: DEMO_SERVICES.slice(0, 8).map((s) => s.id) },
-  fixed("scope", "Scope of services"),
   projects("high-rise", "tag", HR, 10),
   projects("commercial", "typology", "Commercial", 5),
-  projects("hospitality", "typology", "Hospitality", 5),
+  projects("hospitality", "typology", "Hospitality", 9),
   projects("healthcare", "typology", "Healthcare", 5),
   projects("institutional", "typology", "Institutional", 5),
-  projects("heritage", "tag", HER, 3, 3),
-  { id: "clients", kind: "companies", title: "Clients", enabled: true, display: "logos", ids: topCompanies(isClient, 18) },
-  { id: "architects", kind: "companies", title: "Architects", enabled: true, display: "logos", ids: topCompanies((t) => t.includes("Architect"), 18) },
+  projects("heritage", "tag", HER, 5),
+  { id: "clients", kind: "companies", title: "Our Clients", enabled: true, display: "logos", ids: [...topCompanies(isClient, Infinity), ...topCompanies((t) => t.includes("Architect"), Infinity)] },
   { id: "repeat", kind: "companies", title: "Repeat clients", enabled: true, display: "chart", ids: topCompanies(isClient, 8) },
   { id: "india", kind: "map", title: "Our projects across India", enabled: true, region: "india", ids: places(DEMO_PROJECTS, "india").slice(0, PICK_LIMIT.map).map((p) => p.id) },
   { id: "world", kind: "map", title: "Our projects worldwide", enabled: true, region: "world", ids: places(DEMO_PROJECTS, "world").map((p) => p.id) },
