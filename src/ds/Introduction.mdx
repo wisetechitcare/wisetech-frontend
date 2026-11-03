@@ -14,6 +14,8 @@ Decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
   `src/ds/styles/globals.css` — never a hex value.
 - **One meaning per colour.** A single status set (success, warning, danger, info), each with a solid,
   a soft fill and readable text, in light and dark.
+- **Hues are identity, not meaning.** Seven category hues tell leave types, departments and modules apart;
+  a hue never signals good or bad. Patterns take either through one `tone` prop (`src/ds/lib/tone.ts`).
 - **shadcn's design, our colours.** Components come from the shadcn CLI unchanged in shape, type and
   motion; only the colour roles (navy brand, status set, per-tenant brand) are ours.
 - **Accessible by default.** Base UI and React Aria primitives, visible focus, keyboard-complete; every story is checked
@@ -25,7 +27,9 @@ Decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
 Everything in `src/ds/ui` comes from the shadcn CLI (`components.json`, style `base-maia`). Our only
 changes, each marked in the file:
 
-- **Badge** — the WiseTech status set (`success`, `warning`, `danger`, `info`, `brand`, `neutral`) and `dot`.
+- **Badge** — the WiseTech status set (`success`, `warning`, `danger`, `info`, `brand`, `neutral`) and `dot`; the
+  seven category hues (`blue`, `green`, `amber`, `rose`, `purple`, `cyan`, `slate`); and `custom` for an
+  admin-configured colour (`style={{ '--tone': hex }}`).
 - **Alert** — the same status set (`success`, `warning`, `danger`, `info`) as soft fills, beside shadcn's `default`
   and `destructive`.
 - **Combobox** — the icon-only trigger, clear and chip-remove buttons carry accessible names ("Show options",

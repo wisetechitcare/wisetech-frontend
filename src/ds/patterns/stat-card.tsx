@@ -3,17 +3,11 @@ import { TrendingDown, TrendingUp } from "lucide-react"
 import { Badge } from "@/ds/ui/badge"
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ds/ui/card"
 import { cn } from "@/ds/lib/utils"
+import { toneStyle, type Tone } from "@/ds/lib/tone"
+import { IconBox } from "./icon-box"
 
 /** Card accent: drives the corner glow, icon tile and sparkline. Trend colour stays semantic (good/bad), never the tone. */
-export type StatTone = "brand" | "success" | "warning" | "info" | "danger"
-
-const TONES: Record<StatTone, React.CSSProperties> = {
-  brand: { "--tone": "var(--primary)", "--tone-ink": "var(--accent-foreground)" } as React.CSSProperties,
-  success: { "--tone": "var(--success)", "--tone-ink": "var(--success-foreground)" } as React.CSSProperties,
-  warning: { "--tone": "var(--warning)", "--tone-ink": "var(--warning-foreground)" } as React.CSSProperties,
-  info: { "--tone": "var(--info)", "--tone-ink": "var(--info-foreground)" } as React.CSSProperties,
-  danger: { "--tone": "var(--destructive)", "--tone-ink": "var(--destructive-foreground)" } as React.CSSProperties,
-}
+export type StatTone = Tone
 
 /** Smooth path through the points (Catmull-Rom → cubic Bézier) in a 100×32 box. */
 function sparkPath(values: number[]) {
@@ -58,6 +52,7 @@ export function StatCard({
   hint,
   sparkline,
   tone = "brand",
+  size = "default",
   className,
 }: {
   label: React.ReactNode
@@ -68,13 +63,33 @@ export function StatCard({
   hint?: React.ReactNode
   /** Recent values, oldest first; drawn as a small area chart. */
   sparkline?: number[]
-  tone?: StatTone
+  /** A status, a category hue, or an admin-configured hex colour. */
+  tone?: StatTone | (string & {})
+  /** `sm`: compact horizontal tile (icon, label, value) for dense rows — the live kit's StatTile. */
+  size?: "default" | "sm"
   className?: string
 }) {
   const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp
   const hasFooter = trend || hint || (sparkline && sparkline.length > 1)
+  if (size === "sm") {
+    return (
+      <Card size="sm" className={cn("flex-row items-center gap-3 px-3.5", className)} style={toneStyle(tone)}>
+        {icon && <IconBox icon={icon} tone={tone} />}
+        <div className="min-w-0">
+          <p className="truncate text-xs text-muted-foreground">{label}</p>
+          <p className="tabular text-lg leading-tight font-semibold">{value}</p>
+        </div>
+        {trend && (
+          <Badge variant={trend.good ? "success" : "danger"} className="ml-auto">
+            <TrendIcon data-icon="inline-start" aria-hidden />
+            {trend.value}
+          </Badge>
+        )}
+      </Card>
+    )
+  }
   return (
-    <Card className={cn("relative gap-4 transition-shadow hover:shadow-md", className)} style={TONES[tone]}>
+    <Card className={cn("relative gap-4 transition-shadow hover:shadow-md", className)} style={toneStyle(tone)}>
       <div
         aria-hidden
         className="pointer-events-none absolute -top-20 -right-20 size-52 rounded-full bg-(--tone) opacity-[0.13] blur-3xl dark:opacity-[0.2]"
@@ -84,9 +99,7 @@ export function StatCard({
         <CardTitle className="tabular text-3xl font-semibold">{value}</CardTitle>
         {icon && (
           <CardAction>
-            <span className="grid size-11 place-items-center rounded-2xl bg-[color-mix(in_oklch,var(--tone)_14%,transparent)] text-(--tone-ink) ring-1 ring-[color-mix(in_oklch,var(--tone)_22%,transparent)] [&>svg]:size-5">
-              {icon}
-            </span>
+            <IconBox icon={icon} tone={tone} size="lg" className="size-11 [&>svg]:size-5" />
           </CardAction>
         )}
       </CardHeader>
