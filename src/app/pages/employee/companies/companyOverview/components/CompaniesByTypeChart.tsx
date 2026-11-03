@@ -433,7 +433,7 @@ const CompaniesByTypeChart: React.FC<Props> = ({
                     const on = selectedTypes.has(t.id);
                     return (
                       <label key={t.id} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 8px", borderRadius: 6, cursor: "pointer", fontSize: 13, background: on ? "#fbf3f3" : "transparent" }}>
-                        <input type="checkbox" checked={on} onChange={() => setSelectedTypes((prev) => { const n = new Set(prev); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })} style={{ accentColor: ACCENT, width: 15, height: 15 }} />
+                        <input type="checkbox" checked={on} onChange={() => setSelectedTypes((prev) => { const n = new Set(prev); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })} />
                         <span style={{ width: 9, height: 9, borderRadius: "50%", background: t.color, flex: "none" }} />
                         <span style={{ flex: 1, fontWeight: on ? 600 : 400, color: on ? ACCENT : "#1f2733" }}>{t.name}</span>
                         <span style={{ color: "#aab2bd", fontSize: 12 }}>{t.count}</span>

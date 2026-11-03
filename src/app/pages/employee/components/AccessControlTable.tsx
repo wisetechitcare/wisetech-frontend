@@ -5,6 +5,7 @@ import { sectionAccent } from "@components/navigation/NavContainers/navTheme";
 import { navIcon } from "@components/navigation/NavContainers/navIcons";
 import { AppIcon, WtButton, WtIconButton, WtTooltip } from "@app/modules/common/components/ui";
 import { Item } from "@/ds/ui/item";
+import { Checkbox as DsCheckbox } from "@/ds/ui/checkbox";
 import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
 import { atLeastWrite, type EffLevel } from "./accessControlTypes";
@@ -18,19 +19,10 @@ const ACCENT = "#1E3A8A";
 const CELL = 84;
 const ACTION = 28;
 
-/** A bare checkbox — its column heading names it. */
+/** A bare checkbox — its column heading names it. `wrap` keeps the tooltip on disabled boxes. */
 const Checkbox: React.FC<{ checked: boolean; onChange: () => void; disabled?: boolean; title?: string }> = ({ checked, onChange, disabled, title }) => (
-  <WtTooltip title={title}>
-    <label style={{ display: "inline-flex", alignItems: "center", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, margin: 0 }}>
-      <input
-        type="checkbox"
-        aria-label={title}
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-        style={{ width: 17, height: 17, accentColor: ACCENT, cursor: "inherit", margin: 0 }}
-      />
-    </label>
+  <WtTooltip title={title} wrap>
+    <DsCheckbox aria-label={title} checked={checked} onCheckedChange={() => onChange()} disabled={disabled} />
   </WtTooltip>
 );
 

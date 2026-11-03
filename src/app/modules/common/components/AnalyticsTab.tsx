@@ -1,12 +1,15 @@
 import React, { useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { Box, Typography, type Theme } from "@mui/material";
-import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import PeriodFilter, {
+  PeriodRange,
+} from "@app/modules/common/components/PeriodFilter";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import LeadReferralAnalytics, {
   type AnalyticsRow,
   type ChartMetric,
 } from "@app/pages/employee/companies/companies/components/LeadReferralAnalytics";
+import { PeriodMode } from "@constants/common";
 
 /**
  * A relationship tab: period filter on top, chart, then the tab's own table.
@@ -39,9 +42,17 @@ interface AnalyticsTabProps<T> {
   children: (filtered: T[]) => React.ReactNode;
 }
 
-function AnalyticsTab<T>({ items, toRow, title, icon, noun, storageKey, children }: AnalyticsTabProps<T>) {
+function AnalyticsTab<T>({
+  items,
+  toRow,
+  title,
+  icon,
+  noun,
+  storageKey,
+  children,
+}: AnalyticsTabProps<T>) {
   const [range, setRange] = useState<PeriodRange>({
-    mode: "allyear",
+    mode: PeriodMode.ALL_YEAR,
     start: null,
     end: null,
     label: "All time",
@@ -53,12 +64,15 @@ function AnalyticsTab<T>({ items, toRow, title, icon, noun, storageKey, children
   // can never disagree about which period a record falls in.
   const paired = useMemo(
     () => (items || []).map((item) => ({ item, row: toRow(item) })),
-    [items, toRow]
+    [items, toRow],
   );
 
   // Judged over every record, not the period, so the toggle does not blink in and out
   // as the period changes. Datasets with no money (company referrals) never show it.
-  const hasValue = useMemo(() => paired.some(({ row }) => Number(row.value) > 0), [paired]);
+  const hasValue = useMemo(
+    () => paired.some(({ row }) => Number(row.value) > 0),
+    [paired],
+  );
 
   const kept = useMemo(() => {
     if (!range.start || !range.end) return paired; // "All Time" → everything
@@ -73,12 +87,40 @@ function AnalyticsTab<T>({ items, toRow, title, icon, noun, storageKey, children
 
   return (
     <Box>
-      <Box sx={{ mb: 2, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
-        <PeriodFilter onChange={setRange} initialMode="allyear" storageKey={storageKey} />
+      <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 1.5,
+        }}
+      >
+        <PeriodFilter
+          onChange={setRange}
+          initialMode={PeriodMode.ALL_YEAR}
+          storageKey={storageKey}
+        />
         {hasValue && (
           // Same look and right-end placement as the Leads Overview toggle.
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: "auto", height: 40 }}>
-            <Typography sx={{ fontFamily: "Inter, sans-serif", fontSize: 11.5, fontWeight: 600, color: "#94A3B8", whiteSpace: "nowrap" }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              ml: "auto",
+              height: 40,
+            }}
+          >
+            <Typography
+              sx={{
+                fontFamily: "Inter, sans-serif",
+                fontSize: 11.5,
+                fontWeight: 600,
+                color: "#94A3B8",
+                whiteSpace: "nowrap",
+              }}
+            >
               Graph based on
             </Typography>
             <PeriodTabs
@@ -97,9 +139,13 @@ function AnalyticsTab<T>({ items, toRow, title, icon, noun, storageKey, children
                 border: "none",
                 p: "3px",
                 borderRadius: "10px",
-                "& .MuiToggleButtonGroup-grouped": { px: 2.2, borderRadius: "8px !important" },
+                "& .MuiToggleButtonGroup-grouped": {
+                  px: 2.2,
+                  borderRadius: "8px !important",
+                },
                 "& .Mui-selected": {
-                  bgcolor: (t: Theme) => `${t.palette.background.paper} !important`,
+                  bgcolor: (t: Theme) =>
+                    `${t.palette.background.paper} !important`,
                   color: "#1E3A8A !important",
                   boxShadow: "0 1px 3px rgba(15,23,42,0.10)",
                   "&::after": { display: "none" },

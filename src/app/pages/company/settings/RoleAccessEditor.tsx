@@ -8,6 +8,7 @@ import { setSectionAccessLevel, setTabAccess } from "@services/employeeAccess";
 import { SECTION_TABS } from "@utils/sectionTabs";
 import { formatDate } from "@utils/dateFormats";
 import { InlineNotice, SettingsSection, TRIO, WtButton, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { Checkbox } from "@/ds/ui/checkbox";
 
 interface Props {
   roleId: string;
@@ -226,13 +227,16 @@ const RoleAccessEditor: React.FC<Props> = ({ roleId, roleName, setRefetch }) => 
                 const checked = toReset.has(key);
                 const tab = o.section.includes("/");
                 const roleGives = tab ? (deniedTabs.has(o.section) ? "off" : "on") : levels[o.section] || "none";
+                const toggle = () => setToReset((prev) => {
+                  const n = new Set(prev);
+                  if (n.has(key)) n.delete(key); else n.add(key);
+                  return n;
+                });
                 return (
-                  <tr key={key} style={{ cursor: "pointer" }} onClick={() => setToReset((prev) => {
-                    const n = new Set(prev);
-                    if (n.has(key)) n.delete(key); else n.add(key);
-                    return n;
-                  })}>
-                    <td><input type="checkbox" readOnly checked={checked} aria-label={`Reset ${o.name}'s ${labelOf(o.section)} to the role`} /></td>
+                  <tr key={key} style={{ cursor: "pointer" }} onClick={toggle}>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <Checkbox checked={checked} onCheckedChange={toggle} aria-label={`Reset ${o.name}'s ${labelOf(o.section)} to the role`} />
+                    </td>
                     <td className="fw-semibold">{o.name || "—"}</td>
                     <td>{labelOf(o.section)}</td>
                     <td>

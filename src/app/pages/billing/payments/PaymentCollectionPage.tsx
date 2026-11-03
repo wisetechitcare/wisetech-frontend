@@ -6,14 +6,25 @@ import { Alert, Box, Typography } from "@mui/material";
 import { WtButton, TRIO } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
-import { listPayments, type PaymentListItem, type PaymentListParams } from "@services/payments";
-import { BillingStatusBadge, ProjectFilterBanner, BillingPageHeader } from "../components";
+import {
+  listPayments,
+  type PaymentListItem,
+  type PaymentListParams,
+} from "@services/payments";
+import {
+  BillingStatusBadge,
+  ProjectFilterBanner,
+  BillingPageHeader,
+} from "../components";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import PeriodFilter, { type PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import PeriodFilter, {
+  type PeriodRange,
+} from "@app/modules/common/components/PeriodFilter";
 import { DATE_FORMATS } from "@utils/dateFormats";
 import { DueChip } from "../operations/operationUi";
 import RecordPaymentDialog from "./RecordPaymentDialog";
 import { KTIcon } from "@metronic/helpers";
+import { PeriodMode } from "@/constants/common";
 
 /**
  * Payment Collection — the finance team's workspace.
@@ -40,13 +51,17 @@ const PAGE_SIZE = 500;
 const PaymentCollectionPage: React.FC = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<Record<string, string>>({
-    paymentStatus: "", dueState: "", readyForInvoice: "",
+    paymentStatus: "",
+    dueState: "",
+    readyForInvoice: "",
   });
   const [amounts, setAmounts] = useState({ minAmount: "", maxAmount: "" });
   const [page, setPage] = useState(1);
   const organizationId = useBillingOrgId();
   useEffect(() => setPage(1), [organizationId]);
-  const [recordTarget, setRecordTarget] = useState<PaymentListItem | null>(null);
+  const [recordTarget, setRecordTarget] = useState<PaymentListItem | null>(
+    null,
+  );
   /**
    * The period the whole screen is scoped to.
    *
@@ -71,7 +86,8 @@ const PaymentCollectionPage: React.FC = () => {
 
   const params: PaymentListParams = {
     projectId,
-    paymentStatus: (filters.paymentStatus || undefined) as PaymentListParams["paymentStatus"],
+    paymentStatus: (filters.paymentStatus ||
+      undefined) as PaymentListParams["paymentStatus"],
     dueState: (filters.dueState || undefined) as PaymentListParams["dueState"],
     readyForInvoice: filters.readyForInvoice === "true" ? true : undefined,
     // The organization chosen in the Billing tab bar — one filter for the whole module.
@@ -87,10 +103,7 @@ const PaymentCollectionPage: React.FC = () => {
     queryFn: () => listPayments(params),
   });
 
-
-
   const payments = data?.payments ?? [];
-
 
   // Footer sums over every loaded payment row, the same way payroll totals its table.
   // The rows are all in memory (PAGE_SIZE covers the set), so the sum is exact.
@@ -122,9 +135,14 @@ const PaymentCollectionPage: React.FC = () => {
    * null is not false — an operation does not track components at all, and saying
    * "Awaited" about a question it cannot answer would be a claim, not a blank.
    */
-  const settlementChip = (component: "BASIC" | "GST" | "TDS", settled: boolean | null) =>
+  const settlementChip = (
+    component: "BASIC" | "GST" | "TDS",
+    settled: boolean | null,
+  ) =>
     settled == null ? null : (
-      <BillingStatusBadge status={`${component}_${settled ? "PAID" : "UNPAID"}`} />
+      <BillingStatusBadge
+        status={`${component}_${settled ? "PAID" : "UNPAID"}`}
+      />
     );
 
   const money = (value: number | null | undefined, muted = false) =>
@@ -143,244 +161,295 @@ const PaymentCollectionPage: React.FC = () => {
    * `project` — the engine's search, sort and export all read the accessor, so a
    * column that only renders in `Cell` would be invisible to every one of them.
    */
-  const columns = useMemo(() => [
-    {
-      accessorFn: (row: PaymentListItem) => row.documentDate ?? "",
-      id: "documentDate",
-      header: "Bill Date",
-      size: 120,
-      Footer: () => <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: "#1E3A8A" }}>TOTAL</Typography>,
-      Cell: ({ row }: any) => (
-        <Typography sx={{ fontSize: 12.5 }}>
-          {row.original.documentDate ? formatDate(row.original.documentDate) : "—"}
-        </Typography>
-      ),
-    },
-    {
-      accessorFn: (row: PaymentListItem) =>
-        [row.proformaNumber, row.invoiceNumber].filter(Boolean).join(" → ") || "—",
-      id: "billNo",
-      header: "Bill No",
-      size: 230,
-      /**
-       * The two numbers the CLIENT holds. The internal record numbers — BR, BO and
-       * the per-stage BILL — are deliberately not shown: four series on one
-       * row is noise, and "BILL/2026/0001" reads as the bill while the actual bill
-       * is the tax invoice beside it.
-       */
-      Cell: ({ row }: any) => {
-        const item = row.original as PaymentListItem;
-        return (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
-            <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>
-              {item.proformaNumber ?? "—"}
-            </Typography>
-            {item.invoiceNumber && (
-              <>
-                <Typography sx={{ fontSize: 11, color: "text.disabled" }}>→</Typography>
-                <Typography sx={{ fontSize: 12.5, fontWeight: 700 }} noWrap>
-                  {item.invoiceNumber}
-                </Typography>
-              </>
-            )}
-          </Box>
-        );
+  const columns = useMemo(
+    () => [
+      {
+        accessorFn: (row: PaymentListItem) => row.documentDate ?? "",
+        id: "documentDate",
+        header: "Bill Date",
+        size: 120,
+        Footer: () => (
+          <Typography
+            sx={{ fontSize: 12.5, fontWeight: 800, color: "#1E3A8A" }}
+          >
+            TOTAL
+          </Typography>
+        ),
+        Cell: ({ row }: any) => (
+          <Typography sx={{ fontSize: 12.5 }}>
+            {row.original.documentDate
+              ? formatDate(row.original.documentDate)
+              : "—"}
+          </Typography>
+        ),
       },
-    },
-    {
-      // Number and name as separate columns: each is sorted, searched, hidden and
-      // exported on its own, which a two-line cell cannot do for either of them.
-      accessorFn: (row: PaymentListItem) => row.project?.projectNumber ?? "—",
-      id: "projectNumber",
-      header: "Project No",
-      size: 180,
-      Cell: ({ row }: any) => (
-        <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>
-          {row.original.project?.projectNumber ?? "—"}
-        </Typography>
-      ),
-    },
-    {
-      accessorFn: (row: PaymentListItem) =>
-        row.project?.projectName ?? row.projectName ?? "—",
-      id: "projectName",
-      header: "Project Name",
-      size: 220,
-    },
-    {
-      accessorFn: (row: PaymentListItem) => row.project?.clientName ?? row.clientName ?? "—",
-      id: "clientName",
-      header: "Client Company",
-      size: 180,
-    },
-    {
-      // Who runs the WORK.
-      accessorFn: (row: PaymentListItem) => row.project?.managerName ?? "—",
-      id: "managerName",
-      header: "Project Manager",
-      size: 170,
-    },
-    {
-      // Who chases the MONEY. Often not the project manager, which is exactly why
-      // it is its own column rather than a fallback.
-      accessorFn: (row: PaymentListItem) => row.project?.followUpManagerName ?? "—",
-      id: "followUpManagerName",
-      header: "Follow-up Manager",
-      size: 180,
-    },
-    {
-      accessorFn: (row: PaymentListItem) => row.breakdown?.basicPortion,
-      id: "basicPortion",
-      header: "Bill Amount",
-      size: 160,
-      Footer: () => money(columnTotals.basicPortion),
-      /**
-       * The basic NET OF THE TDS withheld from it — the part that actually
-       * arrives as cash.
-       *
-       * Not the gross taxable value: the TDS is already broken out in its own
-       * column, so showing the gross here would count it twice and the three
-       * components would no longer add up to the Bill Value beside them.
-       */
-      Cell: ({ row }: any) => {
-        const b = (row.original as PaymentListItem).breakdown;
-        return (
-          <Box>
-            {money(b.basicPortion)}
-            {settlementChip("BASIC", b.basicPaid)}
-          </Box>
-        );
-      },
-    },
-    {
-      accessorFn: (row: PaymentListItem) => row.breakdown?.gstAmount,
-      id: "gstAmount",
-      header: "GST",
-      size: 140,
-      Footer: () => money(columnTotals.gstAmount),
-      Cell: ({ row }: any) => {
-        const b = (row.original as PaymentListItem).breakdown;
-        return (
-          <Box>
-            {money(b.gstAmount)}
-            {b.gstRate ? (
-              <Typography sx={{ fontSize: 10.5, color: "text.secondary" }}>{b.gstRate}%</Typography>
-            ) : null}
-            {settlementChip("GST", b.gstPaid)}
-          </Box>
-        );
-      },
-    },
-    {
-      accessorFn: (row: PaymentListItem) => row.breakdown?.faceValue,
-      id: "faceValue",
-      header: "Bill Value",
-      size: 140,
-      Footer: () => money(columnTotals.faceValue),
-      /**
-       * Basic + GST, the face value of the document.
-       *
-       * NOT net of TDS. The TDS is withheld FROM this figure and remitted on our
-       * behalf — it is a component of the bill, not a discount on it, so the total
-       * stays what the client was billed. Using the net figure here is what made
-       * the breakdown line below disagree with the number above it.
-       *
-       * The second line is the reconciliation somebody actually does, and it adds
-       * back to exactly this total: basic-net-of-TDS + TDS + GST.
-       */
-      Cell: ({ row }: any) => {
-        const item = row.original as PaymentListItem;
-        const b = item.breakdown;
-        return (
-          <Box>
-            {money(b.faceValue)}
-            {b.tdsAmount != null && b.tdsAmount > 0 && (
-              <Typography sx={{ fontSize: 10.5, color: "text.secondary" }} noWrap>
-                {formatCurrencyDecimal(b.basicPortion)} + {formatCurrencyDecimal(b.tdsAmount)} TDS
-                {" + "}{formatCurrencyDecimal(b.gstAmount)} GST
+      {
+        accessorFn: (row: PaymentListItem) =>
+          [row.proformaNumber, row.invoiceNumber].filter(Boolean).join(" → ") ||
+          "—",
+        id: "billNo",
+        header: "Bill No",
+        size: 230,
+        /**
+         * The two numbers the CLIENT holds. The internal record numbers — BR, BO and
+         * the per-stage BILL — are deliberately not shown: four series on one
+         * row is noise, and "BILL/2026/0001" reads as the bill while the actual bill
+         * is the tax invoice beside it.
+         */
+        Cell: ({ row }: any) => {
+          const item = row.original as PaymentListItem;
+          return (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                minWidth: 0,
+              }}
+            >
+              <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>
+                {item.proformaNumber ?? "—"}
               </Typography>
-            )}
-            {/*
+              {item.invoiceNumber && (
+                <>
+                  <Typography sx={{ fontSize: 11, color: "text.disabled" }}>
+                    →
+                  </Typography>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 700 }} noWrap>
+                    {item.invoiceNumber}
+                  </Typography>
+                </>
+              )}
+            </Box>
+          );
+        },
+      },
+      {
+        // Number and name as separate columns: each is sorted, searched, hidden and
+        // exported on its own, which a two-line cell cannot do for either of them.
+        accessorFn: (row: PaymentListItem) => row.project?.projectNumber ?? "—",
+        id: "projectNumber",
+        header: "Project No",
+        size: 180,
+        Cell: ({ row }: any) => (
+          <Typography sx={{ fontSize: 12.5, fontWeight: 600 }} noWrap>
+            {row.original.project?.projectNumber ?? "—"}
+          </Typography>
+        ),
+      },
+      {
+        accessorFn: (row: PaymentListItem) =>
+          row.project?.projectName ?? row.projectName ?? "—",
+        id: "projectName",
+        header: "Project Name",
+        size: 220,
+      },
+      {
+        accessorFn: (row: PaymentListItem) =>
+          row.project?.clientName ?? row.clientName ?? "—",
+        id: "clientName",
+        header: "Client Company",
+        size: 180,
+      },
+      {
+        // Who runs the WORK.
+        accessorFn: (row: PaymentListItem) => row.project?.managerName ?? "—",
+        id: "managerName",
+        header: "Project Manager",
+        size: 170,
+      },
+      {
+        // Who chases the MONEY. Often not the project manager, which is exactly why
+        // it is its own column rather than a fallback.
+        accessorFn: (row: PaymentListItem) =>
+          row.project?.followUpManagerName ?? "—",
+        id: "followUpManagerName",
+        header: "Follow-up Manager",
+        size: 180,
+      },
+      {
+        accessorFn: (row: PaymentListItem) => row.breakdown?.basicPortion,
+        id: "basicPortion",
+        header: "Bill Amount",
+        size: 160,
+        Footer: () => money(columnTotals.basicPortion),
+        /**
+         * The basic NET OF THE TDS withheld from it — the part that actually
+         * arrives as cash.
+         *
+         * Not the gross taxable value: the TDS is already broken out in its own
+         * column, so showing the gross here would count it twice and the three
+         * components would no longer add up to the Bill Value beside them.
+         */
+        Cell: ({ row }: any) => {
+          const b = (row.original as PaymentListItem).breakdown;
+          return (
+            <Box>
+              {money(b.basicPortion)}
+              {settlementChip("BASIC", b.basicPaid)}
+            </Box>
+          );
+        },
+      },
+      {
+        accessorFn: (row: PaymentListItem) => row.breakdown?.gstAmount,
+        id: "gstAmount",
+        header: "GST",
+        size: 140,
+        Footer: () => money(columnTotals.gstAmount),
+        Cell: ({ row }: any) => {
+          const b = (row.original as PaymentListItem).breakdown;
+          return (
+            <Box>
+              {money(b.gstAmount)}
+              {b.gstRate ? (
+                <Typography sx={{ fontSize: 10.5, color: "text.secondary" }}>
+                  {b.gstRate}%
+                </Typography>
+              ) : null}
+              {settlementChip("GST", b.gstPaid)}
+            </Box>
+          );
+        },
+      },
+      {
+        accessorFn: (row: PaymentListItem) => row.breakdown?.faceValue,
+        id: "faceValue",
+        header: "Bill Value",
+        size: 140,
+        Footer: () => money(columnTotals.faceValue),
+        /**
+         * Basic + GST, the face value of the document.
+         *
+         * NOT net of TDS. The TDS is withheld FROM this figure and remitted on our
+         * behalf — it is a component of the bill, not a discount on it, so the total
+         * stays what the client was billed. Using the net figure here is what made
+         * the breakdown line below disagree with the number above it.
+         *
+         * The second line is the reconciliation somebody actually does, and it adds
+         * back to exactly this total: basic-net-of-TDS + TDS + GST.
+         */
+        Cell: ({ row }: any) => {
+          const item = row.original as PaymentListItem;
+          const b = item.breakdown;
+          return (
+            <Box>
+              {money(b.faceValue)}
+              {b.tdsAmount != null && b.tdsAmount > 0 && (
+                <Typography
+                  sx={{ fontSize: 10.5, color: "text.secondary" }}
+                  noWrap
+                >
+                  {formatCurrencyDecimal(b.basicPortion)} +{" "}
+                  {formatCurrencyDecimal(b.tdsAmount)} TDS
+                  {" + "}
+                  {formatCurrencyDecimal(b.gstAmount)} GST
+                </Typography>
+              )}
+              {/*
               Bill Value's status IS the payment status — what the client has
               settled against the whole document. It lives here rather than in a
               column of its own so each amount sits with the status that describes
               it, and so the same fact is not printed twice.
             */}
-            <BillingStatusBadge status={item.paymentStatus} />
-          </Box>
-        );
+              <BillingStatusBadge status={item.paymentStatus} />
+            </Box>
+          );
+        },
       },
-    },
-    {
-      accessorFn: (row: PaymentListItem) => row.breakdown?.tdsAmount ?? -1,
-      id: "tdsAmount",
-      header: "TDS",
-      size: 150,
-      Footer: () => money(columnTotals.tdsAmount),
-      /**
-       * Withheld by the client and deposited with the government on our behalf.
-       * The DEPOSIT is the part worth watching — a deduction with no deposit is
-       * money simply lost, and nothing else on this screen would show it going.
-       *
-       * An operation reports null rather than zero: that path stores one lump tax
-       * and does not track TDS, and "—" is the honest answer to a question it
-       * cannot answer.
-       */
-      Cell: ({ row }: any) => {
-        const b = (row.original as PaymentListItem).breakdown;
-        if (b.tdsAmount == null) {
-          return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
-        }
-        if (b.tdsAmount <= 0) {
-          return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>No TDS</Typography>;
-        }
-        return (
+      {
+        accessorFn: (row: PaymentListItem) => row.breakdown?.tdsAmount ?? -1,
+        id: "tdsAmount",
+        header: "TDS",
+        size: 150,
+        Footer: () => money(columnTotals.tdsAmount),
+        /**
+         * Withheld by the client and deposited with the government on our behalf.
+         * The DEPOSIT is the part worth watching — a deduction with no deposit is
+         * money simply lost, and nothing else on this screen would show it going.
+         *
+         * An operation reports null rather than zero: that path stores one lump tax
+         * and does not track TDS, and "—" is the honest answer to a question it
+         * cannot answer.
+         */
+        Cell: ({ row }: any) => {
+          const b = (row.original as PaymentListItem).breakdown;
+          if (b.tdsAmount == null) {
+            return (
+              <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>
+                —
+              </Typography>
+            );
+          }
+          if (b.tdsAmount <= 0) {
+            return (
+              <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>
+                No TDS
+              </Typography>
+            );
+          }
+          return (
+            <Box>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>
+                {formatCurrencyDecimal(b.tdsAmount)}
+                {b.tdsRate ? (
+                  <Typography
+                    component="span"
+                    sx={{ fontSize: 10.5, color: "text.secondary" }}
+                  >
+                    {" "}
+                    ({b.tdsRate}%)
+                  </Typography>
+                ) : null}
+              </Typography>
+              {settlementChip("TDS", b.tdsDeposited)}
+            </Box>
+          );
+        },
+      },
+      {
+        accessorFn: (row: PaymentListItem) => row.lastPaymentAt ?? "",
+        id: "lastPaymentAt",
+        header: "Payment Date",
+        size: 150,
+        Cell: ({ row }: any) => (
           <Box>
-            <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>
-              {formatCurrencyDecimal(b.tdsAmount)}
-              {b.tdsRate ? (
-                <Typography component="span" sx={{ fontSize: 10.5, color: "text.secondary" }}>
-                  {" "}({b.tdsRate}%)
-                </Typography>
-              ) : null}
+            <Typography sx={{ fontSize: 12.5 }}>
+              {row.original.lastPaymentAt
+                ? formatDateTime(row.original.lastPaymentAt)
+                : "—"}
             </Typography>
-            {settlementChip("TDS", b.tdsDeposited)}
+            <DueChip due={row.original.due} />
           </Box>
-        );
+        ),
       },
-    },
-    {
-      accessorFn: (row: PaymentListItem) => row.lastPaymentAt ?? "",
-      id: "lastPaymentAt",
-      header: "Payment Date",
-      size: 150,
-      Cell: ({ row }: any) => (
-        <Box>
-          <Typography sx={{ fontSize: 12.5 }}>
-            {row.original.lastPaymentAt ? formatDateTime(row.original.lastPaymentAt) : "—"}
-          </Typography>
-          <DueChip due={row.original.due} />
-        </Box>
-      ),
-    },
-    {
-      accessorKey: "id",
-      header: "Action",
-      size: 150,
-      enableSorting: false,
-      enableColumnFilter: false,
-      Cell: ({ row }: any) => (
-        <WtButton
-          ghost size="small"
-          disabled={Number(row.original.outstandingAmount) <= 0 && row.original.paymentStatus !== "PENDING"}
-          onClick={(event: React.MouseEvent) => { event.stopPropagation(); setRecordTarget(row.original); }}
-          sx={{ minHeight: 28, fontSize: 11.5 }}
-        >
-          Record Payment
-        </WtButton>
-      ),
-    },
-  ], [columnTotals]);
+      {
+        accessorKey: "id",
+        header: "Action",
+        size: 150,
+        enableSorting: false,
+        enableColumnFilter: false,
+        Cell: ({ row }: any) => (
+          <WtButton
+            ghost
+            size="small"
+            disabled={
+              Number(row.original.outstandingAmount) <= 0 &&
+              row.original.paymentStatus !== "PENDING"
+            }
+            onClick={(event: React.MouseEvent) => {
+              event.stopPropagation();
+              setRecordTarget(row.original);
+            }}
+            sx={{ minHeight: 28, fontSize: 11.5 }}
+          >
+            Record Payment
+          </WtButton>
+        ),
+      },
+    ],
+    [columnTotals],
+  );
 
   return (
     <Box sx={{ pb: 4 }}>
@@ -391,7 +460,8 @@ const PaymentCollectionPage: React.FC = () => {
         description="Record, verify and track client payments against every issued proforma."
         action={
           <WtButton
-            ghost size="small"
+            ghost
+            size="small"
             onClick={() => navigate("/billing/tracker")}
             startIcon={<KTIcon iconName="chart-simple" className="fs-6" />}
             sx={{ minHeight: 36, borderRadius: "10px", fontSize: 13 }}
@@ -405,7 +475,9 @@ const PaymentCollectionPage: React.FC = () => {
         <ProjectFilterBanner
           projectName={payments[0]?.projectName}
           onClear={clearProjectFilter}
-          onBackToProject={() => navigate(`/employee/lead/${projectId}?tab=billing`)}
+          onBackToProject={() =>
+            navigate(`/employee/lead/${projectId}?tab=billing`)
+          }
         />
       )}
 
@@ -415,27 +487,33 @@ const PaymentCollectionPage: React.FC = () => {
           variant="filled"
           sx={{
             borderRadius: 3,
-            backgroundColor: 'error.main',
-            color: 'error.contrastText',
-            fontSize: '15px',
+            backgroundColor: "error.main",
+            color: "error.contrastText",
+            fontSize: "15px",
             fontWeight: 600,
-            padding: '20px 24px',
-            display: 'flex',
-            alignItems: 'center',
+            padding: "20px 24px",
+            display: "flex",
+            alignItems: "center",
             gap: 3,
-            border: '2px solid rgba(255, 255, 255, 0.2)',
+            border: "2px solid rgba(255, 255, 255, 0.2)",
             // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
-            backdropFilter: 'blur(8px)',
-            '& .MuiAlert-icon': {
-              fontSize: '28px',
-              marginRight: '8px'
-            }
+            backdropFilter: "blur(8px)",
+            "& .MuiAlert-icon": {
+              fontSize: "28px",
+              marginRight: "8px",
+            },
           }}
           icon={<span>🚨</span>}
         >
           <Box>
-            <strong style={{ display: 'block', marginBottom: '4px' }}>Development Mode - Data Not Available</strong>
-            <span style={{ opacity: 0.95 }}>This page is still in development. The data table will not display any records at this time. This is for testing and development purposes only.</span>
+            <strong style={{ display: "block", marginBottom: "4px" }}>
+              Development Mode - Data Not Available
+            </strong>
+            <span style={{ opacity: 0.95 }}>
+              This page is still in development. The data table will not display
+              any records at this time. This is for testing and development
+              purposes only.
+            </span>
           </Box>
         </Alert>
       </Box>
@@ -448,19 +526,20 @@ const PaymentCollectionPage: React.FC = () => {
       {/* Tight to the table it scopes — a gap here reads as two unrelated blocks. */}
       <Box sx={{ mb: 0.75 }}>
         <PeriodFilter
-          initialMode="allyear"
+          initialMode={PeriodMode.ALL_YEAR}
           storageKey="paymentCollectionPeriod"
           useFiscalYear
           onChange={(range: PeriodRange) => {
             setPeriod({
-              from: range.start ? range.start.format(DATE_FORMATS.WIRE) : undefined,
+              from: range.start
+                ? range.start.format(DATE_FORMATS.WIRE)
+                : undefined,
               to: range.end ? range.end.format(DATE_FORMATS.WIRE) : undefined,
             });
             setPage(1);
           }}
         />
       </Box>
-
 
       {/*
         The SHARED table engine, as every other list in the app uses. Moving off
@@ -480,7 +559,9 @@ const PaymentCollectionPage: React.FC = () => {
         enableColumnResizing
         showColumnFooter
         layoutMode="semantic"
-        muiTableContainerProps={{ sx: { maxHeight: "700px", overflowX: "auto" } }}
+        muiTableContainerProps={{
+          sx: { maxHeight: "700px", overflowX: "auto" },
+        }}
         muiTableProps={{ sx: { minWidth: "1800px" } }}
         muiTablePaperStyle={{ boxShadow: "none", marginTop: 0 }}
       />

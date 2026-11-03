@@ -13,11 +13,12 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/components/TimePeriodDropdown";
+import TimePeriodDropdown from "@app/modules/common/components/TimePeriodDropdown";
 import Monthly from "./components/Monthly";
 import Yearly from "./components/Yearly";
 import Custom from "./components/Custom";
 import Weekly from "./components/Weekly";
+import { PeriodMode } from "@/constants/common";
 
 export type ToggleItemsCallBackFunctions = {
   weekly: (date: Dayjs, endDate: Dayjs) => void;
@@ -32,7 +33,6 @@ interface MaterialToggleProps {
   dateSettingsEnabled?: boolean;
 }
 
-
 const TaskOverviewToggle = ({
   toggleItemsActions,
   fromAdmin = false,
@@ -44,21 +44,21 @@ const TaskOverviewToggle = ({
   const [alignment, setAlignment] = usePersistedState(
     "taskOverviewPeriodMode",
     "weekly",
-    ["weekly", "monthly", "yearly", "custom"] as const
+    ["weekly", "monthly", "yearly", "custom"] as const,
   );
 
   const [day, setDay] = useState(today);
   // week should be start from monday to sunday
   const [weekStart, setWeekStart] = useState(
-    today.startOf("week").add(1, "day")
+    today.startOf("week").add(1, "day"),
   );
   const [weekEnd, setWeekEnd] = useState(
-    dateSettingsEnabled ? today : today.endOf("week").add(1, "day")
+    dateSettingsEnabled ? today : today.endOf("week").add(1, "day"),
   );
 
   const [monthStart, setMonthStart] = useState(today.startOf("month"));
   const [monthEnd, setMonthEnd] = useState(
-    dateSettingsEnabled ? today : today.endOf("month")
+    dateSettingsEnabled ? today : today.endOf("month"),
   );
 
   const [yearStart, setYearStart] = useState<Dayjs | null>(null);
@@ -67,16 +67,16 @@ const TaskOverviewToggle = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(
-    undefined
+    undefined,
   );
   const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(
-    undefined
+    undefined,
   );
   const [showModal, setShowModal] = useState(false);
 
   const isCurrentFiscalYear = (
     fiscalStart: Dayjs,
-    fiscalEnd: Dayjs
+    fiscalEnd: Dayjs,
   ): boolean => {
     return (
       today.isSameOrAfter(fiscalStart, "day") &&
@@ -92,9 +92,8 @@ const TaskOverviewToggle = ({
     if (!today) return;
 
     async function calculateFiscalYear() {
-      const { startDate, endDate } = await generateFiscalYearFromGivenYear(
-        today
-      );
+      const { startDate, endDate } =
+        await generateFiscalYearFromGivenYear(today);
       const fiscalStart = dayjs(startDate);
       const fiscalEnd =
         isCurrentFiscalYear(fiscalStart, dayjs(endDate)) && dateSettingsEnabled
@@ -104,9 +103,7 @@ const TaskOverviewToggle = ({
       setYearStart(fiscalStart);
       setYearEnd(fiscalEnd);
       setFiscalYearDisplay(
-        `${fiscalStart.format("YYYY")} - ${fiscalEnd.format(
-          "YYYY"
-        )}`
+        `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`,
       );
 
       if (alignment === "yearly" && toggleItemsActions?.yearly) {
@@ -119,7 +116,7 @@ const TaskOverviewToggle = ({
 
   const handleChange = (
     event: React.MouseEvent<HTMLElement>,
-    newAlignment: string
+    newAlignment: string,
   ) => {
     if (!newAlignment) return;
 
@@ -176,9 +173,8 @@ const TaskOverviewToggle = ({
     const base = yearStart ?? today;
     const newFiscalYearDate = base.add(offset, "year");
 
-    const { startDate, endDate } = await generateFiscalYearFromGivenYear(
-      newFiscalYearDate
-    );
+    const { startDate, endDate } =
+      await generateFiscalYearFromGivenYear(newFiscalYearDate);
     const fiscalStart = dayjs(startDate);
     const fiscalEnd =
       isCurrentFiscalYear(fiscalStart, dayjs(endDate)) && dateSettingsEnabled
@@ -188,13 +184,10 @@ const TaskOverviewToggle = ({
     setYearStart(fiscalStart);
     setYearEnd(fiscalEnd);
     setFiscalYearDisplay(
-      `${fiscalStart.format("YYYY")} - ${fiscalEnd.format(
-        "YYYY"
-      )}`
+      `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`,
     );
     toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
   };
-
 
   return (
     <>
@@ -213,22 +206,21 @@ const TaskOverviewToggle = ({
 
       <div className="d-flex flex-row justify-content-between align-items-center mb-6 ">
         <div className="d-flex flex-column align-items-center d-md-block">
-
           {isMobile ? (
             <TimePeriodDropdown
               value={alignment}
               onChange={(e) => handleChange(e as any, e.target.value)}
               fullWidth
-              modes={["weekly", "monthly", "yearly"]}
+              modes={[PeriodMode.WEEKLY, PeriodMode.MONTHLY, PeriodMode.YEARLY]}
             />
           ) : (
             <PeriodTabs
               value={alignment}
               options={[
-                { label: 'Weekly', value: 'weekly' },
-                { label: 'Monthly', value: 'monthly' },
-                { label: 'Yearly', value: 'yearly' },
-                { label: 'Custom', value: 'custom' },
+                { label: "Weekly", value: "weekly" },
+                { label: "Monthly", value: "monthly" },
+                { label: "Yearly", value: "yearly" },
+                { label: "Custom", value: "custom" },
               ]}
               onChange={(v) => handleChange(null as any, v)}
               ariaLabel="view selection"
@@ -285,16 +277,18 @@ const TaskOverviewToggle = ({
               pickValue={yearStart.format("YYYY-MM-DD")}
               onPickDate={async (v) => {
                 const base = dayjs(`${dayjs(v).year()}-04-01`);
-                const { startDate, endDate } = await generateFiscalYearFromGivenYear(base);
+                const { startDate, endDate } =
+                  await generateFiscalYearFromGivenYear(base);
                 const fiscalStart = dayjs(startDate);
                 const fiscalEnd =
-                  isCurrentFiscalYear(fiscalStart, dayjs(endDate)) && dateSettingsEnabled
+                  isCurrentFiscalYear(fiscalStart, dayjs(endDate)) &&
+                  dateSettingsEnabled
                     ? today
                     : dayjs(endDate);
                 setYearStart(fiscalStart);
                 setYearEnd(fiscalEnd);
                 setFiscalYearDisplay(
-                  `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`
+                  `${fiscalStart.format("YYYY")} - ${fiscalEnd.format("YYYY")}`,
                 );
                 toggleItemsActions?.yearly(fiscalStart, fiscalEnd);
               }}
@@ -335,17 +329,29 @@ const TaskOverviewToggle = ({
       </div>
 
       {alignment === "weekly" && (
-        <Weekly startDate={weekStart.format("DD MMM, YYYY")} endDate={weekEnd.format("DD MMM, YYYY")} />
+        <Weekly
+          startDate={weekStart.format("DD MMM, YYYY")}
+          endDate={weekEnd.format("DD MMM, YYYY")}
+        />
       )}
       {alignment === "monthly" && (
-        <Monthly month={monthStart.format("DD MMM, YYYY")} endDate={monthEnd.format("DD MMM, YYYY")} />
+        <Monthly
+          month={monthStart.format("DD MMM, YYYY")}
+          endDate={monthEnd.format("DD MMM, YYYY")}
+        />
       )}
       {alignment === "yearly" && yearStart && yearEnd && (
-        <Yearly startDate={yearStart.format("DD MMM, YYYY")} endDate={yearEnd.format("DD MMM, YYYY")} />
+        <Yearly
+          startDate={yearStart.format("DD MMM, YYYY")}
+          endDate={yearEnd.format("DD MMM, YYYY")}
+        />
       )}
       {alignment === "custom" ? (
         customStartDate && customEndDate ? (
-          <Custom startDate={customStartDate.format("DD MMM, YYYY")} endDate={customEndDate.format("DD MMM, YYYY")} />
+          <Custom
+            startDate={customStartDate.format("DD MMM, YYYY")}
+            endDate={customEndDate.format("DD MMM, YYYY")}
+          />
         ) : (
           <Container
             className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
