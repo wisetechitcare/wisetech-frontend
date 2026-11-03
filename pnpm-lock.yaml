@@ -112,6 +112,9 @@ importers:
       '@tanstack/react-query-devtools':
         specifier: ^5.100.9
         version: 5.101.0(@tanstack/react-query@5.101.0(react@19.3.1))(react@19.3.1)
+      '@tanstack/react-table':
+        specifier: 8.20.6
+        version: 8.20.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@types/react-window':
         specifier: ^1.8.8
         version: 1.8.8
@@ -3504,6 +3507,13 @@ packages:
 
   '@tanstack/react-table@8.20.5':
     resolution: {integrity: sha512-WEHopKw3znbUZ61s9i0+i9g8drmDo6asTWbrQh8Us63DAk/M0FkmIqERew6P71HI75ksZ2Pxyuf4vvKh9rAkiA==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      react: '>=16.8'
+      react-dom: '>=16.8'
+
+  '@tanstack/react-table@8.20.6':
+    resolution: {integrity: sha512-w0jluT718MrOKthRcr2xsjqzx+oEM7B7s/XXyfs19ll++hlId3fjTm+B2zrR3ijpANpkzBAr15j1XGVOMxpggQ==}
     engines: {node: '>=12'}
     peerDependencies:
       react: '>=16.8'
@@ -10918,6 +10928,12 @@ snapshots:
       react: 19.3.1
 
   '@tanstack/react-table@8.20.5(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@tanstack/table-core': 8.20.5
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
+
+  '@tanstack/react-table@8.20.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@tanstack/table-core': 8.20.5
       react: 19.3.1

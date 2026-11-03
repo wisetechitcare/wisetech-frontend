@@ -53,8 +53,8 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `EntityIdentityHeader`, `EmployeeIdentityCell` | Patterns/Person (`PersonHeader`, `PersonCell`) | ✅ |
 | `EntityCard` | Patterns/Entity Card | ✅ |
 | `NavCard` | Patterns/Nav Card | ✅ |
-| `MaterialTable` / `MaterialTableImpl` (106 screens) | Patterns/Data Table (TanStack) | ⏳ last — largest swap |
-| `TableSelectionBar` | Patterns/Data Table — selection bar | ⏳ with the table |
+| `MaterialTable` / `MaterialTableImpl` (106 screens) | Patterns/Data Table (TanStack) — sort, search, column show/hide, selection, paging, density, loading / empty / error / no-match | ✅ design · ⏳ swap is last (see below) |
+| `TableSelectionBar` | Patterns/Data Table — selection bar | ✅ |
 
 ## Inputs and forms
 
@@ -92,6 +92,20 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `OrgFilterToolbar`, `ToolbarFilterSelect` | Patterns/Filter Toolbar | ✅ |
 | Metronic aside + header | Components/Sidebar; Screens/App shell | ✅ part · shell is Wave 2 |
 | `AppIcon` (KT names → Lucide), `bi-*` | Lucide icons directly | ✅ |
+
+### Data Table: what the live table has that v2 must gain before the swap
+
+The design above covers the core. These live `MaterialTableImpl` features (counted by how many screens enable
+them) are built into Data Table during the swap, so no screen loses one — a hand-written table that dropped
+them is how the recruitment drill-down regressed:
+
+| Feature | Screens | | Feature | Screens |
+| --- | --- | --- | --- | --- |
+| Per-column search / filters | 22 | | Column resizing | 4 |
+| Column pinning | 6 | | Grouping | 4 |
+| Row virtualisation (long lists) | 5 | | Expandable rows | 4 |
+| Column drag-reorder | 5 | | Saved column preferences | all |
+| Full-screen toggle | 5 | | Export (Excel / PDF) | many |
 
 ## Design decisions to confirm
 
