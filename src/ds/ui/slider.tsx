@@ -7,6 +7,8 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
   ...props
 }: SliderPrimitive.Root.Props) {
   const _values = Array.isArray(value)
@@ -40,6 +42,12 @@ function Slider({
           <SliderPrimitive.Thumb
             data-slot="slider-thumb"
             key={index}
+            // WiseTech: the thumb is what assistive tech focuses, so it carries the slider's name.
+            // A range names its ends ("… minimum" / "… maximum").
+            aria-label={
+              ariaLabel && _values.length === 2 ? `${ariaLabel} ${index === 0 ? "minimum" : "maximum"}` : ariaLabel
+            }
+            aria-labelledby={ariaLabelledBy}
             className="block size-4 shrink-0 rounded-4xl border border-primary bg-white shadow-sm ring-ring/50 transition-colors select-none hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
           />
         ))}

@@ -27,6 +27,8 @@ function ComboboxTrigger({
   return (
     <ComboboxPrimitive.Trigger
       data-slot="combobox-trigger"
+      // WiseTech: icon-only buttons need a name (axe button-name). Callers may override.
+      aria-label="Show options"
       className={cn("[&_svg:not([class*='size-'])]:size-4", className)}
       {...props}
     >
@@ -40,6 +42,7 @@ function ComboboxClear({ className, ...props }: ComboboxPrimitive.Clear.Props) {
   return (
     <ComboboxPrimitive.Clear
       data-slot="combobox-clear"
+      aria-label="Clear"
       render={<InputGroupButton variant="ghost" size="icon-xs" />}
       className={cn(className)}
       {...props}
@@ -255,6 +258,7 @@ function ComboboxChip({
           render={<Button variant="ghost" size="icon-xs" />}
           className="-ml-1 opacity-50 hover:opacity-100"
           data-slot="combobox-chip-remove"
+          aria-label={typeof children === "string" ? `Remove ${children}` : "Remove"}
         >
           <XIcon className="pointer-events-none" />
         </ComboboxPrimitive.ChipRemove>
