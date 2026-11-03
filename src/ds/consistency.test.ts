@@ -45,6 +45,19 @@ describe('v2 kit consistency', () => {
         expect(hits).toEqual([]);
     });
 
+    // A command list's rows sit inside CommandGroup: its inset keeps each row's rounded highlight fully visible
+    // (rows placed straight in CommandList ran flush against the search box — the phone field's country list).
+    it('command rows are grouped', () => {
+        const hits = SCANNED.flatMap((d) => tsxFiles(join(DS, d)))
+            .filter((file) => !file.endsWith('.stories.tsx'))
+            .filter((file) => {
+                const src = readFileSync(file, 'utf8');
+                return /<CommandItem\b/.test(src) && !/<CommandGroup\b/.test(src);
+            })
+            .map((file) => relative(DS, file));
+        expect(hits).toEqual([]);
+    });
+
     // Tokens retired when the kit moved to shadcn's type/shadow scale: a leftover class silently does nothing.
     it('nothing in src/ds uses a retired design token', () => {
         const RETIRED = /\b(text-(display|headline|title|body|label)|shadow-e[123]|subtle-foreground|duration-(fast|base|slow)|ease-standard)\b/;

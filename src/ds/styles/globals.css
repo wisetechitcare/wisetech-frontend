@@ -128,6 +128,24 @@
   }
 }
 
+/* ── Options: one look for a selectable row in every list (Select, Combobox, Command) ─────────────────
+ * Highlighted (pointer or arrow keys) is a neutral fill; the CHOSEN value is a brand tint, medium weight and the
+ * check — so the current value reads at a glance and the two never look alike. Each engine names the states
+ * differently (Base UI: data-highlighted / data-selected; cmdk: data-selected="true" is the highlight, and
+ * the kit passes data-checked for the value), so the mapping lives here once. Unlayered: wins over utilities. */
+:is([data-slot="select-item"], [data-slot="combobox-item"], [data-slot="command-item"]) {
+  border-radius: 0.75rem;
+}
+:is([data-slot="select-item"][data-highlighted], [data-slot="combobox-item"][data-highlighted], [data-slot="command-item"][data-selected="true"]) {
+  background-color: var(--color-muted);
+  color: var(--color-foreground);
+}
+:is([data-slot="select-item"][data-selected], [data-slot="combobox-item"][data-selected], [data-slot="command-item"][data-checked="true"]) {
+  background-color: var(--color-accent);
+  color: var(--color-accent-foreground);
+  font-weight: 500;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

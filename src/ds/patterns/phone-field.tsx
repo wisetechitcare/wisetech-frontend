@@ -1,8 +1,7 @@
 import * as React from "react"
-import { Check } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { defaultCountries, FlagImage, parseCountry, usePhoneInput, type CountryIso2 } from "react-international-phone"
-import { cn } from "@/ds/lib/utils"
-import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/ds/ui/command"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/ds/ui/command"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/ds/ui/input-group"
 import { Popover, PopoverContent, PopoverTrigger } from "@/ds/ui/popover"
 
@@ -79,28 +78,33 @@ export function PhoneField({
           >
             <Flag iso2={country.iso2} />
             <span className="tabular text-base font-normal text-muted-foreground md:text-sm">+{country.dialCode}</span>
+            <ChevronDown aria-hidden className="size-3.5 text-muted-foreground" />
           </PopoverTrigger>
           <PopoverContent align="start" sideOffset={8} className="w-80 p-0">
             <Command>
               <CommandInput placeholder="Search country or code" />
               <CommandList>
                 <CommandEmpty>No country found.</CommandEmpty>
-                {/* The current country first, so the choice is visible without scrolling. */}
-                {[country, ...COUNTRIES.filter((x) => x.iso2 !== country.iso2)].map((c) => (
-                  <CommandItem
-                    key={c.iso2}
-                    value={`${c.name} +${c.dialCode} ${c.iso2}`}
-                    onSelect={() => {
-                      setCountry(c.iso2, { focusOnInput: true })
-                      setOpen(false)
-                    }}
-                  >
-                    <Flag iso2={c.iso2} />
-                    <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                    <span className="tabular w-12 text-right text-muted-foreground">+{c.dialCode}</span>
-                    <Check aria-hidden className={cn("size-4 text-primary", c.iso2 === country.iso2 ? "opacity-100" : "opacity-0")} />
-                  </CommandItem>
-                ))}
+                {/* Items live in a CommandGroup like every kit command list: its inset keeps each row's rounded
+                    highlight clear of the search box and the panel edge. */}
+                <CommandGroup>
+                  {/* The current country first, so the choice is visible without scrolling. */}
+                  {[country, ...COUNTRIES.filter((x) => x.iso2 !== country.iso2)].map((c) => (
+                    <CommandItem
+                      key={c.iso2}
+                      data-checked={c.iso2 === country.iso2}
+                      value={`${c.name} +${c.dialCode} ${c.iso2}`}
+                      onSelect={() => {
+                        setCountry(c.iso2, { focusOnInput: true })
+                        setOpen(false)
+                      }}
+                    >
+                      <Flag iso2={c.iso2} />
+                      <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                      <span className="tabular w-12 text-right text-muted-foreground">+{c.dialCode}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
               </CommandList>
             </Command>
           </PopoverContent>
