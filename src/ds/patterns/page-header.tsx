@@ -22,9 +22,9 @@ export function PageHeader({
     <header className={cn("flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", className)}>
       <div className="min-w-0 space-y-1">
         {eyebrow && (
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{eyebrow}</p>
+          <p className="heading-case text-xs font-medium text-muted-foreground">{eyebrow}</p>
         )}
-        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+        <h1 className="heading-case text-2xl font-semibold text-foreground">{title}</h1>
         {description && <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}

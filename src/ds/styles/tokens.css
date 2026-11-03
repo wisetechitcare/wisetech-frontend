@@ -341,6 +341,15 @@
 }
 
 /* Numbers in tables, money and dates line up. */
+/* WiseTech house style: a STRUCTURAL heading (a title naming a region of the screen — dialog, page, section,
+   settings card, column header, stat caption, eyebrow) is uppercase. CSS over a title-cased string, so the
+   accessible name stays real words. Buttons, input labels, content titles (a person, a record) and sentences
+   are never uppercased. The v2 twin of the live kit's HEADING_CASE_SX — one constant, reversible here. */
+@utility heading-case {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }

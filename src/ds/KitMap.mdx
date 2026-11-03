@@ -115,16 +115,16 @@ them is how the recruitment drill-down regressed:
 | Column drag-reorder | 5 | | Saved column preferences | all |
 | Full-screen toggle | 5 | | Export (Excel / PDF) | many |
 
-## Design decisions to confirm
+## Design decisions (decided 2026-11-03)
 
-These differ from the live app on purpose. Each needs your yes before the live swap.
-
-1. **Labels sit above fields.** The live kit's floating labels (inside the border) are replaced by shadcn's stacked
-   label. It removes the notch bug class `WtField` was rebuilt to fight.
-2. **Heading case.** The live house style uppercases structural headings (`HEADING_CASE_SX`); shadcn and the v2
-   prototypes use sentence case. Keep uppercase, or move to sentence case?
-3. **Category hues.** Seven identity hues (Foundations → Category hues) beside the status set, for leave types,
-   departments and modules.
-4. **One chart engine:** Recharts via Components/Chart, replacing four chart libraries.
-5. **A single value is never a dialog.** `OptionPickerDialog` becomes a Combobox; dialogs remain only for
-   multi-select (e.g. picking many employees).
+1. **Floating labels**, app-wide: the label rests inside an empty field and floats onto the border on focus or
+   once there is a value. (Today's app floats only where a screen opts in; v2 makes it the standard.) — v2 Field
+   is being updated to match.
+2. **Structural headings stay UPPERCASE** — dialog, page, section, settings card, column header, stat caption,
+   eyebrow — via the `heading-case` utility (the twin of `HEADING_CASE_SX`). Buttons, input labels, content
+   titles and sentences keep their case.
+3. **Colours stay admin-configurable.** The seven hues are the preset swatches of the colour picker — the same
+   seven names as the live `KIT_SWATCHES` — not fixed assignments; an admin's own hex works everywhere (`custom`).
+4. **One chart engine: Recharts** (Components/Chart). Existing charts move over as their screens are rebuilt.
+5. **A single value is never a dialog** (standing rule): `OptionPickerDialog` becomes a Combobox; dialogs remain
+   for multi-select.

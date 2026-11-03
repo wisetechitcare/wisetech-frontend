@@ -28,7 +28,7 @@ export function SectionHeader({
   return (
     <div data-slot="section-header" className={cn("flex items-center gap-3", className)}>
       <div className="min-w-0 flex-1">
-        <Heading className="truncate text-base leading-snug font-medium">{title}</Heading>
+        <Heading className="heading-case truncate text-base leading-snug font-medium">{title}</Heading>
         {description && <p className="truncate text-sm text-muted-foreground">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}

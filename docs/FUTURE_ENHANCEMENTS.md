@@ -93,9 +93,13 @@ Format: **what** — evidence (file / screen) — suggested fix.
 - **Imperative confirm API for v2** — the live `showDialog()` / `confirmDialog()` / `alertDialog()` (and the
   SweetAlert shim, 82 sites) render through `DialogServiceHost`. v2 has the `ConfirmDialog` component only. — At the
   Wave 1 swap, point `DialogServiceHost` at the v2 ConfirmDialog so the 82 imperative call sites change with no edits.
-- **Leave-type colours onto the kit's category hues** — `utils/leaveTypeColors.ts` holds its own palette; v2 has
-  seven `--tone-*` hues (Foundations → Category hues) and `Badge variant="custom"` for admin hex colours. — Map
-  the defaults onto the hues so leave chips, calendars and charts share one palette in light and dark.
+- **Configurable colours resolve through one helper in v2** — colours stay admin-configurable (decided
+  2026-11-03). The live picker stores a swatch NAME (`KIT_SWATCHES`, from `TRIO`) or a hex; v2's `toneStyle()`
+  resolves the same seven names plus any hex. — At each swap, read the stored value through `toneStyle()` /
+  `Badge variant="custom"` instead of `TRIO` lookups, so stored colours keep rendering unchanged.
+- **Charts onto Recharts** (decided 2026-11-03: one engine) — four libraries in use today (`Graphs`, ApexCharts,
+  Nivo, Recharts). — Move each chart to Components/Chart when its screen is rebuilt; drop each library when its
+  last chart has moved.
 - **Live `StatTile` users get a bigger tile** — the v2 compact Stat Card (its replacement) now follows the benchmark:
   44px icon, 24px value, glow and lift (decided 2026-11-03). — Re-check the 11 `StatTile` screens' row density at
   the swap.

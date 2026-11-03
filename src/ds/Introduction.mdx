@@ -22,6 +22,9 @@ Decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
   with axe and fails on a violation.
 - **One surface per job.** Card for every tile, panel and selectable option (it owns hover, focus, selected
   and disabled); Item for rows in a list. Patterns are layouts on them, never new surfaces.
+- **Structural headings are UPPERCASE** (`heading-case`): titles that name a region — dialog, page, section,
+  settings card, column header, stat caption, eyebrow. Buttons, input labels, content titles (a person, a record)
+  and sentences keep their case. CSS only, so screen readers still read words.
 - **Icons: cards right, rows left, dialogs left.** In a card the icon tile sits top-right, in the tone-glow corner
   (Stat Card is the benchmark), so titles share one left edge. In a list row the icon or avatar leads on the
   left, where the eye scans. In a dialog header it leads too — the top-right corner belongs to Close.
@@ -45,6 +48,8 @@ changes, each marked in the file:
   `tone`); `variant="panel"` only for a table frame;
   `interactive` (hover, focus, selected via a checked control inside, `aria-disabled`) and `CardLink`
   (the whole card as one link): the states every card-shaped pattern shares.
+- **Dialog, AlertDialog, Sheet and Drawer titles, and TableHead** — `heading-case` (structural headings are
+  uppercase).
 - **Pagination** — page links are real links styled with `buttonVariants()`; shadcn's Button-rendered link
   carried `role="button"`.
 - **Button** — the live app's WtButton recipe: the CTA gradient from a brighter brand to the brand with an
