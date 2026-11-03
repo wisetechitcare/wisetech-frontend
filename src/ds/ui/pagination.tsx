@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cn } from "cn"
 
-import { Button } from "@/ds/ui/button"
+import { Button, buttonVariants } from "@/ds/ui/button"
 import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from "lucide-react"
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
@@ -44,20 +44,15 @@ function PaginationLink({
   size = "icon",
   ...props
 }: PaginationLinkProps) {
+  // WiseTech: a real link styled as a button. Base UI's Button with nativeButton={false} adds
+  // role="button", so screen readers announced every page link as a button.
   return (
-    <Button
-      variant={isActive ? "outline" : "ghost"}
-      size={size}
-      className={cn(className)}
-      nativeButton={false}
-      render={
-        <a
-          aria-current={isActive ? "page" : undefined}
-          data-slot="pagination-link"
-          data-active={isActive}
-          {...props}
-        />
-      }
+    <a
+      aria-current={isActive ? "page" : undefined}
+      data-slot="pagination-link"
+      data-active={isActive}
+      className={buttonVariants({ variant: isActive ? "outline" : "ghost", size, className })}
+      {...props}
     />
   )
 }

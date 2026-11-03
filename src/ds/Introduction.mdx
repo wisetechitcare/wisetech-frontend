@@ -26,6 +26,14 @@ Everything in `src/ds/ui` comes from the shadcn CLI (`components.json`, style `b
 changes, each marked in the file:
 
 - **Badge** — the WiseTech status set (`success`, `warning`, `danger`, `info`, `brand`, `neutral`) and `dot`.
+- **Alert** — the same status set (`success`, `warning`, `danger`, `info`) as soft fills, beside shadcn's `default`
+  and `destructive`.
+- **Combobox** — the icon-only trigger, clear and chip-remove buttons carry accessible names ("Show options",
+  "Clear", "Remove …").
+- **Slider** — `aria-label` / `aria-labelledby` go to each thumb (what assistive tech focuses); a range names
+  its ends "… minimum" / "… maximum".
+- **Pagination** — page links are real links styled with `buttonVariants()`; shadcn's Button-rendered link
+  carried `role="button"`.
 - **Button** — the live app's WtButton recipe: the CTA gradient from a brighter brand to the brand with an
   own-colour glow, an `inverted` variant (brand text on white, the "Choose Image" pill), bold labels with tight
   tracking, 1px lift on hover, press to 0.975, spring easing. See Components/Button → States.
