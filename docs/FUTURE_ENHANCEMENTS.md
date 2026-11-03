@@ -108,3 +108,17 @@ Format: **what** — evidence (file / screen) — suggested fix.
   (`narrow` sx on the actions Stack) targets `.MuiButtonBase-root:not(.MuiIconButton-root)`, but the row's
   `WtButton`s render the kit Button since #316, so the full-width rule matches nothing. — Target
   `[data-slot="button"]:not(.billing-row-more)` and check the result on a phone.
+- **Every live calendar onto the one v2 calendar engine** (decided 2026-11-03: one engine, customised through
+  `getDayState` / `rangeStyle` / `size`; guarded in `src/ds/consistency.test.ts`). The live app has six calendar
+  systems: MUI X date pickers (20 files, mostly via `ui/dates.tsx`, `inputs/DateInput.tsx`,
+  `inputs/PlainDatePicker.tsx`, `TimePickerField.tsx`, `PeriodNavigator.tsx`), `FiscalYearRangeField` (9 users),
+  Apply Leave's own `LeaveCalendar`, `inputs/Flatpickr.tsx`, native `type="date"`/`"month"` inputs (4 files) and
+  FullCalendar (`CustomCalendar`, `MeetingFormBody`, `tw/MonthGrid`). — Swap the shared wrappers first (each one
+  converts its screens at once), then Apply Leave (Storybook Screens/Apply Leave is the target), then the native
+  inputs. FullCalendar is an event scheduler, not a date picker: keep it until a v2 scheduler is designed, but
+  give it the engine's tones.
+- **A generic File Field for attachments** — the kit has `ImageField` (one image) only; Apply Leave's "Attach
+  Document" is a plain button in Storybook. — Build a kit `FileField` (several files, any type, preview, remove,
+  type/size checks) from `ImageField`'s logic and use it in Apply Leave, documents and claims.
+- **Dates read through the tenant date format** — Apply Leave (Storybook) formats dates with a fixed
+  `en-GB` `DateFormatter` (marked TODO). — Route it through the per-tenant date-format setting once it is built.

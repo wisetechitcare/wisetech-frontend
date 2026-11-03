@@ -135,7 +135,8 @@ export function FormDialog({
             ) : (
               <>
                 <div className="hidden sm:block">{footerStart}</div>
-                <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                {/* DialogFooter stretches its children; the group pins the buttons to the right edge. */}
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button variant="outline" disabled={submitting} onClick={requestClose}>
                     {formId ? cancelLabel : "Close"}
                   </Button>
