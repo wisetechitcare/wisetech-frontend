@@ -24,7 +24,7 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `PageLoader`, `Skeleton` (common) | Components/Skeleton, Components/Spinner | ✅ |
 | `WtEmptyState` | Patterns/Empty State (`empty`, `no-match`, `error`) | ✅ |
 | `ExportButton` | Components/ButtonGroup + DropdownMenu | ✅ |
-| `StatusCyclePill` | Badge + DropdownMenu | 🔨 |
+| `StatusCyclePill` | ToggleGroup with counts (in Patterns/Filter Toolbar) | ✅ |
 | `SensitiveData` (masked value) | Patterns/Sensitive Value | ✅ |
 
 ## Surfaces, dialogs and panels
@@ -87,8 +87,9 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `Pager` | Components/Pagination | ✅ |
 | `PeriodNavigator` | Patterns/Period Navigator (‹ October 2026 ›) | ✅ |
 | `AutoGrid` | Patterns/Auto Grid | ✅ |
-| `SettingsSection`, `MasterListSection`, `ReorderableGroup` + `DragHandle`, `ConfigColorChip` | Patterns/Settings Section, Master List | 🔨 |
-| `OrgFilterToolbar` | Patterns/Filter Toolbar | 🔨 |
+| `SettingsSection` | Patterns/Settings Section (+ `SettingsRow`) | ✅ |
+| `MasterListSection`, `ReorderableGroup` + `DragHandle`, `ConfigColorChip`, `ConfigChipGrid` | Patterns/Master List (drag or arrow-key reorder) | ✅ |
+| `OrgFilterToolbar`, `ToolbarFilterSelect` | Patterns/Filter Toolbar | ✅ |
 | Metronic aside + header | Components/Sidebar; Screens/App shell | ✅ part · shell is Wave 2 |
 | `AppIcon` (KT names → Lucide), `bi-*` | Lucide icons directly | ✅ |
 
