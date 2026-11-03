@@ -81,6 +81,24 @@ Format: **what** — evidence (file / screen) — suggested fix.
   own border, 8px corners, 11px text), `CsvUploadStep` / `MatchReviewTable` (danger text colour),
   `AddAnotherBtn` (dashed). They win over the kit by design, so they are not pills. — Replace each with a
   kit variant (`outline` / `destructive`, or a new tinted variant if approve/reject needs one) and drop the sx.
+- **Data Table must reach MaterialTable parity before the swap** — the v2 design (Storybook Patterns/Data Table,
+  2026-11-03) covers sort, search, column show/hide, selection bar, paging, density and the load/empty/error states.
+  The live `MaterialTableImpl` also has per-column filters (22 screens), column pinning (6), row virtualisation (5),
+  column drag (5), full screen (5), resizing (4), grouping (4), expandable rows (4), saved column preferences
+  (`useTablePreferences`, all screens) and export. — Build each into the kit Data Table before any screen moves,
+  so no screen silently loses one (Kit Map lists them).
+- **Phone Field flags show as letters on Windows** — `src/ds/patterns/phone-field.tsx` draws flags as regional-
+  indicator emoji (no CDN), which Windows renders as "IN", "AE". — Ship a local SVG flag set (no network) or show
+  the ISO code deliberately; keep the country name as the accessible label.
+- **Imperative confirm API for v2** — the live `showDialog()` / `confirmDialog()` / `alertDialog()` (and the
+  SweetAlert shim, 82 sites) render through `DialogServiceHost`. v2 has the `ConfirmDialog` component only. — At the
+  Wave 1 swap, point `DialogServiceHost` at the v2 ConfirmDialog so the 82 imperative call sites change with no edits.
+- **Leave-type colours onto the kit's category hues** — `utils/leaveTypeColors.ts` holds its own palette; v2 has
+  seven `--tone-*` hues (Foundations → Category hues) and `Badge variant="custom"` for admin hex colours. — Map
+  the defaults onto the hues so leave chips, calendars and charts share one palette in light and dark.
+- **Live `StatTile` users get a bigger tile** — the v2 compact Stat Card (its replacement) now follows the benchmark:
+  44px icon, 24px value, glow and lift (decided 2026-11-03). — Re-check the 11 `StatTile` screens' row density at
+  the swap.
 - **Project → Billing phone layout no longer stretches the row's main action** — `ProjectBillingTree.tsx`
   (`narrow` sx on the actions Stack) targets `.MuiButtonBase-root:not(.MuiIconButton-root)`, but the row's
   `WtButton`s render the kit Button since #316, so the full-width rule matches nothing. — Target
