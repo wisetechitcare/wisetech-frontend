@@ -15,6 +15,7 @@ import { getAllProjects } from '@services/projects';
 // permissions and offered ones they are not really on.
 import { getMeetingProjects } from '@services/employee';
 import { getLeadById } from '@services/leadService';
+import { getCompanyMeetingPurposes, createCompanyMeetingPurpose } from '@services/meetingAgendaMom';
 import { openingRange, type SelectedDateTimeInfo } from './meetingOpening';
 import {
     MEETING_KINDS, MEETING_KIND_META, kindOfExisting, validateMeetingKind, type MeetingKind,
@@ -23,7 +24,7 @@ import {
     MEETING_MODES, MEETING_MODE_META, isOnlineFor, modeHasLink, modeHasPlace, modeOfExisting,
     type MeetingMode,
 } from './meetingModes';
-import { SegmentedControl, ToneChip, WtDateField, WtSwitch } from '@app/modules/common/components/ui';
+import { SegmentedControl, ToneChip, WtDateField, WtSwitch, toast } from '@app/modules/common/components/ui';
 import { ContactPicker, projectContactOptions } from '@app/modules/common/components/ui/ContactPicker';
 import { useDropdownBoundary } from '@app/modules/common/components/ui/dropdownBoundary';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
@@ -145,6 +146,10 @@ interface Option {
 /** The location picker's "Other location" row — picking it empties the field to type into. */
 const OTHER_LOCATION = 'other';
 const filterAddresses = createFilterOptions<Option>({ stringify: (o) => `${o.label} ${o.value}` });
+
+/** Title suggestions: a configured meeting purpose, or the "add what I typed as a purpose" row. */
+interface TitleOption { label: string; add?: boolean }
+const filterTitles = createFilterOptions<TitleOption>();
 
 /** The two halves the pickers speak: a wire date and a 24h clock time, off one ISO value. */
 const datePart = (iso: string) => (iso ? dayjs(iso).format('YYYY-MM-DD') : '');
@@ -285,6 +290,37 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [remindersSent, setRemindersSent] = useState<number[]>([]);
 
         const [touched, setTouched] = useState(false);
+
+        /**
+         * Title suggestions come from Meetings → Configure → Meeting purposes.
+         *
+         * Free text stays allowed (`freeSolo`): a title that is not a purpose is still a title.
+         * The extra "Add … to meeting purposes" row is for when it SHOULD be one — it writes to
+         * the same company list Configure edits, so the next person gets it as a suggestion.
+         * "Other (please specify)" is left out: typing your own title already is that.
+         * Best-effort — a failed read leaves a plain text box, never blocks the form.
+         */
+        const [purposes, setPurposes] = useState<Array<{ name: string; isActive: boolean; requiresOther: boolean }>>([]);
+        useEffect(() => {
+            getCompanyMeetingPurposes()
+                .then((res: any) => setPurposes(res?.purposes || []))
+                .catch(() => setPurposes([]));
+        }, []);
+        const titleOptions: TitleOption[] = useMemo(
+            () => purposes.filter((p) => p.isActive && !p.requiresOther).map((p) => ({ label: p.name })),
+            [purposes],
+        );
+        const addPurpose = async (name: string) => {
+            setTitle(name);
+            try {
+                const res = await createCompanyMeetingPurpose({ name });
+                if (res?.purpose) setPurposes((prev) => [...prev, res.purpose]);
+                toast({ icon: 'success', title: `“${name}” added to meeting purposes` });
+            } catch (e: any) {
+                // The title is already set; only the shared list missed out.
+                toast({ icon: 'error', title: 'Could not add purpose', text: e?.response?.data?.message });
+            }
+        };
 
         /**
          * The caller's default project, for a NEW meeting only.
@@ -1008,21 +1044,64 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
 
                 {/* TITLE FIRST, and big. It is the meeting's identifier — the string every list,
                     invite and calendar cell shows — so it leads rather than sharing a row. */}
-                <TextField
-                    fullWidth
-                    placeholder="Meeting title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    error={touched && !title.trim()}
-                    // The count only appears once it is worth knowing about. A counter sitting
-                    // under an empty field is a limit announced before anyone has approached
-                    // it, and `maxLength` means most people never see this at all — typing
-                    // simply stops, which is a kinder ceiling than an error after the fact.
-                    helperText={title.length >= TITLE_MAX_CHARS - 5
-                        ? `${title.length} / ${TITLE_MAX_CHARS} characters`
-                        : ' '}
-                    inputProps={{ 'aria-label': 'Meeting title', maxLength: TITLE_MAX_CHARS }}
-                    sx={{ '& .MuiInputBase-input': { fontSize: 15, fontWeight: 600, py: 1.25 } }}
+                <Autocomplete<TitleOption, false, false, true>
+                    freeSolo fullWidth
+                    slotProps={dropdown.slotProps}
+                    options={titleOptions}
+                    // Always null: the TEXT is the value. Selections land in `title` via onChange.
+                    value={null}
+                    inputValue={title}
+                    // 'reset' is MUI echoing a selection's label — onChange already handled it,
+                    // and for the "Add" row that label is not the title.
+                    onInputChange={(_, v, reason) => { if (reason !== 'reset') setTitle(v); }}
+                    onChange={(_, picked) => {
+                        if (!picked) return;
+                        if (typeof picked === 'string') setTitle(picked);
+                        else if (picked.add) void addPurpose(picked.label);
+                        else setTitle(picked.label);
+                    }}
+                    getOptionLabel={(o) => (typeof o === 'string' ? o : o.label)}
+                    filterOptions={(opts, state) => {
+                        const out = filterTitles(opts, state);
+                        const typed = state.inputValue.trim();
+                        // Offer to add only a genuinely new name — inactive ones count, so a
+                        // retired purpose is reactivated in Configure rather than duplicated.
+                        if (typed && !purposes.some((p) => p.name.trim().toLowerCase() === typed.toLowerCase())) {
+                            out.push({ label: typed, add: true });
+                        }
+                        return out;
+                    }}
+                    ListboxProps={{ sx: menuOptionSx }}
+                    renderOption={(props, o) => (
+                        <Box component="li" {...props} key={o.add ? '__add__' : o.label} sx={{ gap: 1 }}>
+                            {o.add ? (
+                                <>
+                                    <KTIcon iconName="plus" className="fs-6" />
+                                    <Typography variant="body2" noWrap>
+                                        Add “{o.label}” to meeting purposes
+                                    </Typography>
+                                </>
+                            ) : (
+                                <Typography variant="body2" noWrap>{o.label}</Typography>
+                            )}
+                        </Box>
+                    )}
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            placeholder="Meeting title — pick a purpose or type your own"
+                            error={touched && !title.trim()}
+                            // The count only appears once it is worth knowing about. A counter sitting
+                            // under an empty field is a limit announced before anyone has approached
+                            // it, and `maxLength` means most people never see this at all — typing
+                            // simply stops, which is a kinder ceiling than an error after the fact.
+                            helperText={title.length >= TITLE_MAX_CHARS - 5
+                                ? `${title.length} / ${TITLE_MAX_CHARS} characters`
+                                : ' '}
+                            inputProps={{ ...params.inputProps, 'aria-label': 'Meeting title', maxLength: TITLE_MAX_CHARS }}
+                            sx={{ '& .MuiInputBase-input': { fontSize: 15, fontWeight: 600, py: 1.25 } }}
+                        />
+                    )}
                 />
 
                 {/* The project — or the LEAD — stated rather than asked, when the screen already

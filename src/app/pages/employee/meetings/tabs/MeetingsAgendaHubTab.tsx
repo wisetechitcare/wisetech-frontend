@@ -52,17 +52,25 @@ import {
   WtDateField,
   WtIconButton,
   WtSelect,
+  toast,
   type WtSelectOption,
 } from '@app/modules/common/components/ui';
 import { useEmployeeDirectory } from '@app/modules/common/components/EmployeePickerField';
 import MeetingDialog from '../../MeetingDialog';
-import MomAttendees from '../MomAttendees';
+import MomAttendees, { type MomAttendee } from '../MomAttendees';
 import TaskPathSelect, { buildTaskPathOptions } from '../../tasks/components/TaskPathSelect';
 import { usePresetTasks } from '../../tasks/useTaskQueries';
 import { useProjectDeliverables } from '../../tasks/useProjectDeliverables';
 import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
 import type { PresetTask } from '../../tasks/taskDomain';
 import { getProjectTeam } from '@services/tasks';
+import { getLeadById } from '@services/leadService';
+import { projectContactOptions, type ContactOption } from '@app/modules/common/components/ui/ContactPicker';
+import { sectioned } from '../momAttendeeOptions';
+import { useAgendaStatusOptions } from '../useAgendaStatusOptions';
+
+/** Assignee option values for external contacts carry this prefix, so the two id spaces never collide. */
+const EXT = 'contact:';
 import {
   assignMomTasks,
   convertAgendaToMom,
@@ -72,11 +80,11 @@ import {
   deleteAgendaItem,
   downloadMeetingMinutesPdf,
   getAgendaItems,
-  getCompanyAgendaStatuses,
   getMeetingDetail,
   getMeetingMinutes,
   getMeetingsAgendaHub,
   updateAgendaItem,
+  updateMeetingMinutesDraft,
   updateMeetingPurpose,
 } from '@services/meetingAgendaMom';
 
@@ -259,6 +267,29 @@ export default function MeetingsAgendaHubTab() {
   cacheRef.current = cache;
   const abortRef = useRef<AbortController | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * The hub fills the viewport exactly: from where it starts down to the app footer.
+   * Measured, not guessed — the old `100vh - 220px` came up ~65px short and left an empty band
+   * above the footer. Re-measured on resize; a callback ref because the grid mounts after loading.
+   */
+  const [hubHeight, setHubHeight] = useState('calc(100vh - 220px)');
+  const hubEl = useRef<HTMLDivElement | null>(null);
+  const fitHub = useCallback(() => {
+    const el = hubEl.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    const footer = document.getElementById('kt_footer')?.offsetHeight ?? 0;
+    setHubHeight(`${Math.max(420, Math.floor(window.innerHeight - top - footer))}px`);
+  }, []);
+  const hubRef = useCallback((el: HTMLDivElement | null) => {
+    hubEl.current = el;
+    if (el) fitHub();
+  }, [fitHub]);
+  useEffect(() => {
+    window.addEventListener('resize', fitHub);
+    return () => window.removeEventListener('resize', fitHub);
+  }, [fitHub]);
 
   const loadHub = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) {
@@ -476,13 +507,14 @@ export default function MeetingsAgendaHubTab() {
 
   return (
     <Box
+      ref={hubRef}
       sx={{
         display: 'grid',
         // minmax(0, 1fr): a `1fr` track won't shrink below its content, so long one-line
         // addresses pushed the phone list past the screen edge.
         gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(320px, 380px) minmax(0, 1fr)' },
         gap: 0,
-        minHeight: { lg: 'calc(100vh - 220px)' },
+        minHeight: { lg: hubHeight },
         borderTop: `1px solid ${C.line}`,
         bgcolor: C.page,
         position: 'relative',
@@ -506,7 +538,7 @@ export default function MeetingsAgendaHubTab() {
           display: showList ? 'flex' : 'none',
           flexDirection: 'column',
           minHeight: 0,
-          maxHeight: { lg: 'calc(100vh - 220px)' },
+          maxHeight: { lg: hubHeight },
         }}
       >
         <Stack
@@ -714,7 +746,7 @@ export default function MeetingsAgendaHubTab() {
           minWidth: 0,
           alignSelf: { lg: 'start' },
           width: '100%',
-          maxHeight: { lg: 'calc(100vh - 220px)' },
+          maxHeight: { lg: hubHeight },
           overflowY: 'auto',
           bgcolor: C.page,
           p: { xs: 1.5, md: 2 },
@@ -1674,28 +1706,7 @@ function MomPanel({
   const [adding, setAdding] = useState(false);
   const [teamIds, setTeamIds] = useState<Set<string> | null>(null);
   // Company statuses from Configure → Agenda statuses, A–Z.
-  const [statusOptions, setStatusOptions] = useState<WtSelectOption[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    getCompanyAgendaStatuses()
-      .then((res) => {
-        if (cancelled) return;
-        setStatusOptions(
-          (res?.statuses || [])
-            .filter((st: any) => st.isActive !== false && st.code)
-            .map((st: any) => ({ value: st.code, label: st.name || st.code, color: st.color || '#64748B' }))
-            .sort((a: WtSelectOption, b: WtSelectOption) =>
-              a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
-            ),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setStatusOptions([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const statusOptions = useAgendaStatusOptions();
   const { data: directory = [], isLoading: directoryLoading } = useEmployeeDirectory();
   const momItems = useMemo(() => items.filter((it: any) => it.inMom), [items]);
   const { options: taskOptions, loading: topicOptionsLoading } = useAgendaTaskOptions(
@@ -1717,15 +1728,41 @@ function MomPanel({
   const [assigning, setAssigning] = useState(false);
 
   /** One MoM line's fields — shared by the desktop table and the phone cards. */
-  const lineFields = (item: any) => {
-    const rowBusy = rowBusyId === item.id;
+  const lineFields = (saved: any) => {
+    // What the row shows = saved values + anything staged and not saved yet.
+    const draft = drafts[saved.id];
+    const item = draft ? { ...saved, ...draft.display } : saved;
+    const rowBusy = rowBusyId === item.id || saving;
     // Once a line is a task, its assignee and due date live on the task.
     const lineEditable = rowsEditable && !item.taskId;
     const dueVal = item.targetCompletionDate ? dayjs(item.targetCompletionDate).format('YYYY-MM-DD') : '';
+    // A topic added here (not on the agenda) can be swapped here too, from the same list it was
+    // picked from. Its own option is put back in — `topicOptions` leaves out what is already used.
+    const currentTopic = item.addedInMom && lineEditable
+      ? taskOptions.find((o) => o.name === item.description)
+      : undefined;
     return {
       title: (
         <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-          <Box component="span" sx={{ fontWeight: 600, fontSize: 13, color: C.ink }}>{item.description}</Box>
+          {currentTopic ? (
+            <Box sx={{ width: '100%' }}>
+              <TaskPathSelect
+                value={currentTopic.id}
+                options={[currentTopic, ...topicOptions]}
+                disabled={rowBusy}
+                loading={topicOptionsLoading}
+                label=""
+                placeholder="Change topic"
+                onChange={(opt) => {
+                  // Clearing would leave a nameless line; only a real pick changes it.
+                  if (!opt || opt.name === item.description) return;
+                  stageItem(item.id, { description: opt.name });
+                }}
+              />
+            </Box>
+          ) : (
+            <Box component="span" sx={{ fontWeight: 600, fontSize: 13, color: C.ink }}>{item.description}</Box>
+          )}
           {item.addedInMom && (
             <Chip
               size="small"
@@ -1747,7 +1784,7 @@ function MomPanel({
           <WtSelect
             size="sm"
             options={assigneeOptions}
-            value={assigneeOptions.find((a) => a.value === item.responsibleUserId) || null}
+            value={assigneeValue(item)}
             isDisabled={rowBusy}
             isLoading={directoryLoading}
             isClearable
@@ -1755,9 +1792,18 @@ function MomPanel({
             optionVariant="avatar"
             placeholder="Assignee"
             ariaLabel={`Assignee for ${item.description}`}
+            // Measure against the window, not the table's scroll port — inside the table the
+            // menu only got the sliver below the row (~3 people).
+            menuBoundary={null}
             onChange={(next) => {
               const opt = next as WtSelectOption | null;
-              void patchItem(item.id, { responsibleUserId: opt?.value || null }, { responsibleName: opt?.label || null });
+              const v = opt?.value || null;
+              const contactId = v?.startsWith(EXT) ? v.slice(EXT.length) : null;
+              stageItem(
+                item.id,
+                { responsibleUserId: contactId ? null : v, responsibleContactId: contactId },
+                { responsibleName: opt?.label || null },
+              );
             }}
           />
         </Box>
@@ -1770,7 +1816,7 @@ function MomPanel({
           value={dueVal}
           disabled={rowBusy}
           onChange={(v) => {
-            void patchItem(item.id, { targetCompletionDate: v || null });
+            stageItem(item.id, { targetCompletionDate: v || null });
           }}
         />
       ) : (
@@ -1789,7 +1835,7 @@ function MomPanel({
           onChange={(next) => {
             const opt = next as WtSelectOption | null;
             if (!opt) return;
-            void patchItem(item.id, { status: opt.value }, { statusLabel: opt.label, statusColor: opt.color });
+            stageItem(item.id, { status: opt.value }, { statusLabel: opt.label, statusColor: opt.color });
           }}
         />
       ) : (
@@ -1813,7 +1859,7 @@ function MomPanel({
           onBlur={(e) => {
             const remarks = e.target.value.trim() || null;
             if (remarks === (item.remarks || null)) return;
-            void patchItem(item.id, { remarks });
+            stageItem(item.id, { remarks });
           }}
           sx={{ '& .MuiInputBase-root': { fontSize: 13 } }}
         />
@@ -1885,11 +1931,56 @@ function MomPanel({
     };
   }, [projectId, rowsEditable]);
 
+  // The MoM's attendees as they stand on screen — seeded from the saved minutes, then kept current
+  // by MomAttendees so an attendee added a moment ago is assignable without a reload.
+  const savedAttendeesKey = JSON.stringify(minutes?.attendees || []);
+  const [liveAttendees, setLiveAttendees] = useState<MomAttendee[]>(() => minutes?.attendees || []);
+  useEffect(() => {
+    setLiveAttendees(JSON.parse(savedAttendeesKey));
+  }, [savedAttendeesKey]);
+  const attendeesDirty = JSON.stringify(liveAttendees) !== savedAttendeesKey;
+
+  // Unsaved line edits, per agenda item. Reset when a different meeting is opened.
+  const [drafts, setDrafts] = useState<Record<string, { payload: Record<string, unknown>; display: Record<string, unknown> }>>({});
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    setDrafts({});
+  }, [meetingId]);
+  const dirtyCount = Object.keys(drafts).length + (attendeesDirty ? 1 : 0);
+  const dirty = dirtyCount > 0;
+  // A tab close or reload would drop the drafts silently — let the browser ask first.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  // The project's external team (client stakeholders) — same roster rule as the MoM attendees picker.
+  const [externalRoster, setExternalRoster] = useState<ContactOption[]>([]);
+  useEffect(() => {
+    if (!projectId || !rowsEditable) {
+      setExternalRoster([]);
+      return;
+    }
+    let cancelled = false;
+    getLeadById(projectId)
+      .then((res: any) => {
+        if (!cancelled) setExternalRoster(projectContactOptions(res?.data?.data?.lead ?? res?.data?.lead));
+      })
+      .catch(() => {
+        if (!cancelled) setExternalRoster([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, rowsEditable]);
+
   const assigneeOptions: WtSelectOption[] = useMemo(() => {
     const list = projectId && teamIds
       ? directory.filter((e) => teamIds.has(e.id))
       : directory;
-    return list
+    const internal = list
       .map((e) => ({
         value: e.id,
         label: e.name,
@@ -1897,24 +1988,68 @@ function MomPanel({
         description: e.designation,
       }))
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
-  }, [directory, projectId, teamIds]);
+    // External = the project's external team PLUS whoever is recorded as an external attendee of
+    // this MoM (a general meeting has no project roster at all). Typed-in names with no contact
+    // record have no id to assign to, so they are left out.
+    const seen = new Set<string>();
+    const external = [
+      ...externalRoster.map((c) => ({ id: c.value, label: c.label, avatar: c.avatar ?? null })),
+      ...liveAttendees
+        .filter((a) => a.side === 'EXTERNAL' && a.contactId)
+        .map((a) => ({ id: a.contactId as string, label: a.name, avatar: a.avatar ?? null })),
+    ]
+      .filter((c) => !seen.has(c.id) && !!seen.add(c.id))
+      .map((c) => ({ value: `${EXT}${c.id}`, label: c.label, avatar: c.avatar, description: 'External team' }));
+    return external.length
+      ? sectioned([['Internal team', internal], ['External team', external]])
+      : internal;
+  }, [directory, projectId, teamIds, externalRoster, liveAttendees]);
 
-  /** Optimistic row update — avoid full hub reload (that spun the whole page). */
-  const patchItem = async (
-    itemId: string,
-    payload: Record<string, unknown>,
-    displayPatch?: Record<string, unknown>,
-  ) => {
-    setRowBusyId(itemId);
-    onPatchItem(meetingId, itemId, { ...payload, ...displayPatch });
+  /** The row's current assignee — kept visible even if they have since left the roster. */
+  const assigneeValue = (item: any): WtSelectOption | null => {
+    const v = item.responsibleContactId ? `${EXT}${item.responsibleContactId}` : item.responsibleUserId;
+    if (!v) return null;
+    return assigneeOptions.find((a) => a.value === v)
+      || (item.responsibleName ? { value: v, label: item.responsibleName } : null);
+  };
+
+  /**
+   * Line edits are STAGED, not saved: they show in place and wait for Save. `payload` is what the
+   * API gets; `display` only paints the row (names, colours) until the reload after Save.
+   * Kept out of the shared cache on purpose — switching meetings must not show unsaved values as saved.
+   */
+  const stageItem = (itemId: string, payload: Record<string, unknown>, display?: Record<string, unknown>) =>
+    setDrafts((d) => ({
+      ...d,
+      [itemId]: {
+        payload: { ...d[itemId]?.payload, ...payload },
+        display: { ...d[itemId]?.display, ...payload, ...display },
+      },
+    }));
+
+  /** Writes every staged line + the attendees, then reloads so every view of this meeting agrees. */
+  const saveAll = async () => {
+    setSaving(true);
     try {
-      await updateAgendaItem(meetingId, itemId, payload);
-    } catch (e) {
-      onError(errMsg(e));
+      // One at a time: each write rebuilds the MoM lines server-side, so parallel writes would race.
+      for (const [itemId, d] of Object.entries(drafts)) {
+        await updateAgendaItem(meetingId, itemId, d.payload);
+        setDrafts(({ [itemId]: _done, ...rest }) => rest);
+      }
+      if (attendeesDirty) await updateMeetingMinutesDraft(meetingId, { attendees: liveAttendees });
       await onRefresh();
+      toast({ icon: 'success', title: 'MoM saved' });
+    } catch (e) {
+      // Lines already written are gone from `drafts`; the rest stay staged for another try.
+      onError(errMsg(e));
     } finally {
-      setRowBusyId(null);
+      setSaving(false);
     }
+  };
+
+  const discardAll = () => {
+    setDrafts({});
+    setLiveAttendees(JSON.parse(savedAttendeesKey));
   };
 
   /** A topic discussed in the meeting that was never on the agenda. */
@@ -1935,6 +2070,8 @@ function MomPanel({
     setRowBusyId(itemId);
     try {
       await deleteAgendaItem(meetingId, itemId);
+      // Its unsaved edits go with it — Save would otherwise write to a row that no longer exists.
+      setDrafts(({ [itemId]: _gone, ...rest }) => rest);
       await onRefresh();
     } catch (e) {
       onError(errMsg(e));
@@ -2020,7 +2157,9 @@ function MomPanel({
               <Tooltip
                 arrow
                 title={
-                  allAssigned
+                  dirty
+                    ? 'Save your changes first.'
+                    : allAssigned
                     ? 'Tasks have already been assigned. Each person can see theirs on their task board.'
                     : !meetingOver
                       ? 'Available once the meeting has ended.'
@@ -2035,7 +2174,8 @@ function MomPanel({
                     size="small"
                     inverted
                     fullWidth={isPhone}
-                    disabled={assigning || allAssigned || !meetingOver || !readyToAssign}
+                    // Assigning reads the SAVED lines — with edits pending it would assign stale ones.
+                    disabled={dirty || assigning || allAssigned || !meetingOver || !readyToAssign}
                     onClick={assignTasks}
                     startIcon={allAssigned ? <CheckRounded /> : undefined}
                   >
@@ -2049,9 +2189,13 @@ function MomPanel({
               </Tooltip>
             )}
             {canExport && (
-              <WtButton size="small" disabled={busy} onClick={exportPdf} sx={{ whiteSpace: { xs: 'nowrap', sm: 'normal' } }}>
-                Download PDF
-              </WtButton>
+              <Tooltip arrow title={dirty ? 'Save your changes first — the PDF is built from the saved MoM.' : ''}>
+                <Box component="span" sx={{ display: { xs: 'flex', sm: 'inline' } }}>
+                  <WtButton size="small" disabled={busy || dirty} onClick={exportPdf} sx={{ whiteSpace: { xs: 'nowrap', sm: 'normal' } }}>
+                    Download PDF
+                  </WtButton>
+                </Box>
+              </Tooltip>
             )}
           </Stack>
         </Stack>
@@ -2060,10 +2204,12 @@ function MomPanel({
       <MomAttendees
         meetingId={meetingId}
         projectId={projectId}
-        attendees={minutes.attendees || []}
-        editable={rowsEditable}
+        attendees={liveAttendees}
+        editable={rowsEditable && !saving}
         teamIds={teamIds}
         onError={onError}
+        onChange={setLiveAttendees}
+        deferSave
       />
 
       <Box sx={{ bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5, overflow: 'hidden' }}>
@@ -2114,10 +2260,10 @@ function MomPanel({
                     </Stack>
                     {/* Due date + Status share a row when each gets 150px; on the narrowest phones they stack. */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', columnGap: 1.25, rowGap: 1.5, mt: 1.75 }}>
+                      <MomField label="Note" wide>{f.note}</MomField>
                       <MomField label="Assignee" wide>{f.assignee}</MomField>
                       <MomField label="Due date">{f.due}</MomField>
                       <MomField label="Status">{f.status}</MomField>
-                      <MomField label="Note" wide>{f.note}</MomField>
                     </Box>
                   </Box>
                 );
@@ -2128,7 +2274,7 @@ function MomPanel({
             <Box component="table" sx={agendaTableSx}>
               <Box component="thead">
                 <Box component="tr">
-                  {['#', 'Agenda item', 'Assignee', 'Due date', 'Status', 'Note'].map((h) => (
+                  {['#', 'Agenda item', 'Note', 'Assignee', 'Due date', 'Status'].map((h) => (
                     <Box component="th" key={h}>
                       {h}
                     </Box>
@@ -2142,11 +2288,11 @@ function MomPanel({
                   return (
                     <Box component="tr" key={item.id}>
                       <Box component="td" sx={{ color: C.mute, width: 36 }}>{idx + 1}</Box>
-                      <Box component="td" sx={{ minWidth: 180 }}>{f.title}</Box>
+                      <Box component="td" sx={{ minWidth: 220 }}>{f.title}</Box>
+                      <Box component="td" sx={{ minWidth: 220 }}>{f.note}</Box>
                       <Box component="td" sx={{ minWidth: 200 }}>{f.assignee}</Box>
                       <Box component="td" sx={{ whiteSpace: 'nowrap', minWidth: 150 }}>{f.due}</Box>
                       <Box component="td" sx={{ minWidth: 160 }}>{f.status}</Box>
-                      <Box component="td" sx={{ minWidth: 220 }}>{f.note}</Box>
                       {rowsEditable && <Box component="td" sx={{ textAlign: 'center' }}>{f.remove}</Box>}
                     </Box>
                   );
@@ -2176,6 +2322,45 @@ function MomPanel({
           </Box>
         )}
       </Box>
+
+      {/* Always there for an editable MoM, so Save is never hunted for; enabled once something
+          changes. Sticky, so it is reachable from anywhere in a long MoM. */}
+      {rowsEditable && (
+        <Stack
+          direction="row"
+          alignItems="center"
+          gap={1.5}
+          role="region"
+          aria-label="Unsaved MoM changes"
+          sx={{
+            position: 'sticky',
+            bottom: 12,
+            zIndex: 2,
+            px: 2,
+            py: 1.25,
+            bgcolor: C.paper,
+            border: `1px solid ${C.line}`,
+            borderRadius: 2.5,
+            // Lifts only while there is something to save — the shadow is the "act on me" cue.
+            boxShadow: dirty ? '0 6px 20px rgba(15, 23, 42, 0.12)' : 'none',
+          }}
+        >
+          <Typography
+            aria-live="polite"
+            sx={{ fontSize: 13, color: dirty ? C.ink : C.mute, fontWeight: 600, flex: 1, minWidth: 0 }}
+          >
+            {dirty ? `${dirtyCount} unsaved change${dirtyCount === 1 ? '' : 's'}` : 'All changes saved'}
+          </Typography>
+          {dirty && (
+            <WtButton size="small" inverted disabled={saving} onClick={discardAll}>
+              Discard
+            </WtButton>
+          )}
+          <WtButton size="small" disabled={saving || !dirty} onClick={() => void saveAll()}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </WtButton>
+        </Stack>
+      )}
     </Stack>
   );
 }

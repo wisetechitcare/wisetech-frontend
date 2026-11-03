@@ -63,6 +63,8 @@ export default function MomAttendees({
   editable,
   teamIds,
   onError,
+  onChange,
+  deferSave = false,
 }: {
   meetingId: string;
   projectId: string | null;
@@ -71,6 +73,10 @@ export default function MomAttendees({
   /** Project's internal team (employee ids), when the meeting has a project. */
   teamIds: Set<string> | null;
   onError: (m: string) => void;
+  /** The list as it now stands — so a sibling (the MoM assignee picker) sees an add without a reload. */
+  onChange?: (list: MomAttendee[]) => void;
+  /** Report changes through `onChange` only; the parent saves them (the MoM's Save button). */
+  deferSave?: boolean;
 }) {
   const [list, setList] = useState<MomAttendee[]>(attendees);
   const savedKey = JSON.stringify(attendees);
@@ -81,10 +87,13 @@ export default function MomAttendees({
   const save = async (next: MomAttendee[]) => {
     const prev = list;
     setList(next);
+    onChange?.(next);
+    if (deferSave) return;
     try {
       await updateMeetingMinutesDraft(meetingId, { attendees: next });
     } catch (e: any) {
       setList(prev);
+      onChange?.(prev);
       onError(apiErrorMessage(e, 'Could not save attendees'));
     }
   };
