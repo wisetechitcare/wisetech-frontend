@@ -41,7 +41,7 @@ export const Default: Story = {
 export const DialCodeMatchesNumber: Story = {
   play: async ({ canvas, canvasElement }) => {
     const input = canvas.getByLabelText('Mobile')
-    const code = [...canvasElement.querySelectorAll<HTMLElement>('[data-slot="input-group-addon"] button span')].find((el) => el.textContent === '+91')!
+    const code = [...canvasElement.querySelectorAll<HTMLElement>('[data-slot="combobox-trigger"] span')].find((el) => el.textContent === '+91')!
     await expect(code).toBeDefined()
     const a = getComputedStyle(code)
     const b = getComputedStyle(input)
@@ -54,13 +54,30 @@ export const DialCodeMatchesNumber: Story = {
 /** Changing country by searching for it. */
 export const ChangeCountry: Story = {
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: '+91 India, country code' }))
-    await userEvent.type(await screen.findByPlaceholderText('Search country or code'), 'United Arab')
+    await userEvent.click(canvas.getByRole('combobox', { name: '+91 India, country code' }))
+    // The search box takes focus when the list opens; type into it as a person would (no extra click).
+    await waitFor(() => expect(screen.getByPlaceholderText('Search country or code')).toHaveFocus())
+    await userEvent.keyboard('United Arab')
     await userEvent.click(await screen.findByRole('option', { name: /United Arab Emirates/ }))
-    await waitFor(() => expect(canvas.getByRole('button', { name: '+971 United Arab Emirates, country code' })).toBeInTheDocument())
+    await waitFor(() => expect(canvas.getByRole('combobox', { name: '+971 United Arab Emirates, country code' })).toBeInTheDocument())
     await animationsSettled()
   },
 }
 
 /** An existing number. */
 export const Prefilled: Story = { args: { value: '+971501234567' } }
+
+/** Every gap in the row is equal: flag · code · arrow · separator · number. Measured, so it cannot drift. */
+export const EvenSpacing: Story = {
+  args: { value: '+971501234567' },
+  play: async ({ canvasElement }) => {
+    const R = (el: Element) => el.getBoundingClientRect()
+    const trigger = canvasElement.querySelector('[data-slot="combobox-trigger"]')!
+    const [flag, code, arrow] = [trigger.querySelector('img')!, trigger.querySelector('span')!, trigger.querySelector('svg')!]
+    const sep = canvasElement.querySelector('[data-slot="phone-field-separator"]')!
+    const input = canvasElement.querySelector<HTMLInputElement>('input[type="tel"]')!
+    const numberStart = R(input).left + parseFloat(getComputedStyle(input).paddingLeft)
+    const gaps = [R(code).left - R(flag).right, R(arrow).left - R(code).right, R(sep).left - R(arrow).right, numberStart - R(sep).right]
+    for (const g of gaps) await expect(Math.abs(g - gaps[0]), `gaps ${gaps.map((x) => x.toFixed(1)).join(' / ')}`).toBeLessThan(1)
+  },
+}

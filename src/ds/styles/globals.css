@@ -129,21 +129,42 @@
 }
 
 /* ── Options: one look for a selectable row in every list (Select, Combobox, Command) ─────────────────
- * Highlighted (pointer or arrow keys) is a neutral fill; the CHOSEN value is a brand tint, medium weight and the
+ * Action menus (DropdownMenu) share the highlighted look. Highlighted (pointer or arrow keys) is a neutral fill; the CHOSEN value is a brand tint, medium weight and the
  * check — so the current value reads at a glance and the two never look alike. Each engine names the states
  * differently (Base UI: data-highlighted / data-selected; cmdk: data-selected="true" is the highlight, and
  * the kit passes data-checked for the value), so the mapping lives here once. Unlayered: wins over utilities. */
 :is([data-slot="select-item"], [data-slot="combobox-item"], [data-slot="command-item"]) {
   border-radius: 0.75rem;
 }
-:is([data-slot="select-item"][data-highlighted], [data-slot="combobox-item"][data-highlighted], [data-slot="command-item"][data-selected="true"]) {
+:is([data-slot="select-item"][data-highlighted], [data-slot="combobox-item"][data-highlighted], [data-slot="command-item"][data-selected="true"], [data-slot^="dropdown-menu-"][data-slot$="item"][data-highlighted]:not([data-variant="destructive"])) {
   background-color: var(--color-muted);
   color: var(--color-foreground);
 }
+/* The chosen tint is a layer behind the row's content, not the row's background: Animate UI pins each row's
+   background to transparent (inline !important) and draws its own highlight that glides between rows — the
+   smooth hover. A pseudo-element keeps the chosen value tinted underneath that motion. */
 :is([data-slot="select-item"][data-selected], [data-slot="combobox-item"][data-selected], [data-slot="command-item"][data-checked="true"]) {
-  background-color: var(--color-accent);
+  isolation: isolate;
   color: var(--color-accent-foreground);
   font-weight: 500;
+}
+:is([data-slot="select-item"][data-selected], [data-slot="combobox-item"][data-selected], [data-slot="command-item"][data-checked="true"])::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-color: var(--color-accent);
+}
+
+/* ── Dropdown arrows point down when closed and flip up while their list is open ─────────────────────────
+ * Every trigger that opens a list or menu (aria-haspopup) — Select, Combobox, DropdownMenu, the Phone Field's
+ * country — inherits this; none rotates its own arrow. */
+[aria-haspopup] svg.lucide-chevron-down {
+  transition: rotate 200ms var(--ease-spring);
+}
+[aria-haspopup][aria-expanded="true"] svg.lucide-chevron-down {
+  rotate: 180deg;
 }
 
 @layer base {

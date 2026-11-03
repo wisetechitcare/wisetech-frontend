@@ -1,9 +1,16 @@
 import * as React from "react"
-import { ChevronDown } from "lucide-react"
-import { defaultCountries, FlagImage, parseCountry, usePhoneInput, type CountryIso2 } from "react-international-phone"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/ds/ui/command"
+import { defaultCountries, FlagImage, parseCountry, usePhoneInput, type CountryIso2, type ParsedCountry } from "react-international-phone"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  useComboboxAnchor,
+} from "@/ds/ui/combobox"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/ds/ui/input-group"
-import { Popover, PopoverContent, PopoverTrigger } from "@/ds/ui/popover"
 
 const COUNTRIES = defaultCountries.map(parseCountry)
 
@@ -48,7 +55,7 @@ export function PhoneField({
   "aria-describedby"?: string
   className?: string
 }) {
-  const [open, setOpen] = React.useState(false)
+  const anchor = useComboboxAnchor()
   const { inputValue, handlePhoneValueChange, inputRef, country, setCountry } = usePhoneInput({
     defaultCountry,
     value,
@@ -57,12 +64,27 @@ export function PhoneField({
     onChange: (data) => onChange?.(data.phone, data.country),
   })
 
+  // Built once per chosen country (a new array each render would reset the combobox's filtering).
+  const countries = React.useMemo(() => [country, ...COUNTRIES.filter((c) => c.iso2 !== country.iso2)], [country])
+
   return (
-    <InputGroup className={className} data-disabled={disabled || undefined}>
+    <InputGroup ref={anchor} className={className} data-disabled={disabled || undefined}>
       <InputGroupAddon>
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger
-            disabled={disabled}
+        {/* The country list IS the kit Combobox (search in the popup, highlighted and chosen rows, check,
+            flipping arrow) — inherited, not rebuilt. The list opens under the whole field. */}
+        <Combobox
+          items={countries}
+          value={country}
+          onValueChange={(c: ParsedCountry | null) => c && setCountry(c.iso2, { focusOnInput: true })}
+          itemToStringLabel={(c: ParsedCountry | null) => c?.name ?? ""}
+          isItemEqualToValue={(a: ParsedCountry, b: ParsedCountry) => a.iso2 === b.iso2}
+          filter={(c: ParsedCountry, query: string) => {
+            const q = query.trim().toLowerCase().replace(/^\+/, "")
+            return !q || c.name.toLowerCase().includes(q) || c.dialCode.startsWith(q) || c.iso2 === q
+          }}
+          disabled={disabled}
+        >
+          <ComboboxTrigger
             render={
               <InputGroupButton
                 variant="ghost"
@@ -70,47 +92,33 @@ export function PhoneField({
                 // Flag and code as one group, nothing drawn around them: no fill, no hover box. The code takes
                 // the input's typography so "+971 50 123 4567" reads as one number; only keyboard focus shows
                 // an outline (required for accessibility).
-                className="gap-1.5 px-1 tracking-normal hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
-                // Starts with the visible text, so voice control ("click +91") finds it.
-                aria-label={`+${country.dialCode} ${country.name}, country code`}
+                className="gap-2 border-0 pr-0 pl-1 tracking-normal hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
               />
             }
+            // On the trigger itself (it sets its own default name): starts with the visible text, so voice
+            // control ("click +91") finds it.
+            aria-label={`+${country.dialCode} ${country.name}, country code`}
           >
             <Flag iso2={country.iso2} />
             <span className="tabular text-base font-normal text-muted-foreground md:text-sm">+{country.dialCode}</span>
-            <ChevronDown aria-hidden className="size-3.5 text-muted-foreground" />
-          </PopoverTrigger>
-          <PopoverContent align="start" sideOffset={8} className="w-80 p-0">
-            <Command>
-              <CommandInput placeholder="Search country or code" />
-              <CommandList>
-                <CommandEmpty>No country found.</CommandEmpty>
-                {/* Items live in a CommandGroup like every kit command list: its inset keeps each row's rounded
-                    highlight clear of the search box and the panel edge. */}
-                <CommandGroup>
-                  {/* The current country first, so the choice is visible without scrolling. */}
-                  {[country, ...COUNTRIES.filter((x) => x.iso2 !== country.iso2)].map((c) => (
-                    <CommandItem
-                      key={c.iso2}
-                      data-checked={c.iso2 === country.iso2}
-                      value={`${c.name} +${c.dialCode} ${c.iso2}`}
-                      onSelect={() => {
-                        setCountry(c.iso2, { focusOnInput: true })
-                        setOpen(false)
-                      }}
-                    >
-                      <Flag iso2={c.iso2} />
-                      <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                      <span className="tabular w-12 text-right text-muted-foreground">+{c.dialCode}</span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-        {/* Separator between the flag + code group and the number. */}
-        <span aria-hidden data-slot="phone-field-separator" className="ml-1 h-5 w-px bg-border" />
+          </ComboboxTrigger>
+          <ComboboxContent anchor={anchor} align="start" className="w-80">
+            <ComboboxInput showTrigger={false} placeholder="Search country or code" />
+            <ComboboxEmpty>No country found.</ComboboxEmpty>
+            <ComboboxList>
+              {(c: ParsedCountry) => (
+                <ComboboxItem key={c.iso2} value={c}>
+                  <Flag iso2={c.iso2} />
+                  <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                  <span className="tabular w-12 text-right text-muted-foreground">+{c.dialCode}</span>
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+        {/* Separator between the flag + code group and the number. Every gap in the row is the same 8px: flag ·
+            code · arrow · separator · number (the addon's gap-2 on the left, the input's pl-2 on the right). */}
+        <span aria-hidden data-slot="phone-field-separator" className="h-5 w-px shrink-0 bg-border" />
       </InputGroupAddon>
       <InputGroupInput
         id={id}
@@ -121,6 +129,7 @@ export function PhoneField({
         onChange={handlePhoneValueChange}
         disabled={disabled}
         placeholder={example(country.format)}
+        className="pl-2!"
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
       />
