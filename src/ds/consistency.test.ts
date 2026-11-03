@@ -20,6 +20,7 @@ const RULES: Array<[RegExp, string]> = [
     [/<kbd\b/, 'raw <kbd> — use Kbd'],
     [/className="[^"]*\bborder\b[^"]*\bbg-card\b|className="[^"]*\bbg-card\b[^"]*\bborder\b/, 'hand-built card — use Card'],
     [/duration-\[var\(/, 'arbitrary duration variable — use a Tailwind duration'],
+    [/from ['"]@(base-ui|animate-ui)\//, 'primitive imported directly — compose from src/ds/ui (it carries the Animate UI motion and kit styling)'],
 ];
 
 function tsxFiles(dir: string): string[] {

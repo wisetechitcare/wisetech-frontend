@@ -2,6 +2,7 @@ import * as React from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test'
 import { animationsSettled } from '@/ds/lib/motion'
+import { Button } from './button'
 import { Label } from './label'
 import {
   Combobox,
@@ -129,5 +130,63 @@ export const Multiple: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByText('Pune')).toBeInTheDocument()
     await expect(canvas.getByText('Dubai')).toBeInTheDocument()
+  },
+}
+
+const DESIGNATIONS = ['MEP Engineer', 'Site Supervisor', 'Draughtsman', 'HR Executive']
+
+function WithCreate() {
+  const [items, setItems] = React.useState(DESIGNATIONS)
+  const [value, setValue] = React.useState<string | null>(null)
+  const [query, setQuery] = React.useState('')
+  const exists = items.some((i) => i.toLowerCase() === query.trim().toLowerCase())
+  return (
+    <div className="grid w-72 gap-1.5">
+      <Label htmlFor="designation">Designation</Label>
+      <Combobox items={items} value={value} onValueChange={setValue} inputValue={query} onInputValueChange={setQuery}>
+        <ComboboxInput id="designation" placeholder="Search or add" />
+        <ComboboxContent>
+          <ComboboxEmpty>
+            {query.trim() && !exists ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={() => {
+                  const next = query.trim()
+                  setItems((xs) => [...xs, next])
+                  setValue(next)
+                }}
+              >
+                + Add “{query.trim()}”
+              </Button>
+            ) : (
+              'No designation matches.'
+            )}
+          </ComboboxEmpty>
+          <ComboboxList>
+            {(item: string) => (
+              <ComboboxItem key={item} value={item}>
+                {item}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+    </div>
+  )
+}
+
+/** Inline "+ Add": when nothing matches, offer to create it (live `WtAddOption` / `MultiSelectWithInlineCreate`). */
+export const InlineCreate: Story = {
+  render: () => <WithCreate />,
+  play: async ({ canvas }) => {
+    // Keep the element: while the popup is open the page is hidden from assistive tech, so role queries miss it.
+    const input = canvas.getByRole('combobox', { name: 'Designation' })
+    await userEvent.type(input, 'Quantity Surveyor')
+    await userEvent.click(await screen.findByRole('button', { name: /Add “Quantity Surveyor”/ }))
+    await waitFor(() => expect(input).toHaveValue('Quantity Surveyor'))
+    await userEvent.keyboard('{Escape}')
+    await animationsSettled()
   },
 }

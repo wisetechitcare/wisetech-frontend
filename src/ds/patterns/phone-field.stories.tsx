@@ -1,0 +1,52 @@
+import type { Meta, StoryObj } from '@storybook/react-vite'
+import { expect, fn, screen, userEvent, waitFor } from 'storybook/test'
+import { animationsSettled } from '@/ds/lib/motion'
+import { Field, FieldDescription, FieldLabel } from '@/ds/ui/field'
+import { PhoneField } from './phone-field'
+
+const onChange = fn()
+
+/**
+ * International phone: searchable country + a number that formats as you type. Replaces the live
+ * `WtPhoneField` (same engine). `onChange` gives E.164 — store that.
+ */
+const meta = {
+  title: 'Patterns/Phone Field',
+  component: PhoneField,
+  args: { id: 'mobile', onChange, 'aria-describedby': 'mobile-hint' },
+  render: (args) => (
+    <Field className="max-w-sm">
+      <FieldLabel htmlFor="mobile">Mobile</FieldLabel>
+      <PhoneField {...args} />
+      <FieldDescription id="mobile-hint">Used for OTP sign-in and payslip alerts.</FieldDescription>
+    </Field>
+  ),
+  beforeEach: () => {
+    onChange.mockReset()
+  },
+} satisfies Meta<typeof PhoneField>
+
+export default meta
+type Story = StoryObj<typeof meta>
+
+/** Typing a number reports E.164 with the country's dial code. */
+export const Default: Story = {
+  play: async ({ canvas }) => {
+    await userEvent.type(canvas.getByLabelText('Mobile'), '9800000210')
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith('+919800000210', expect.objectContaining({ iso2: 'in' })))
+  },
+}
+
+/** Changing country by searching for it. */
+export const ChangeCountry: Story = {
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /Country code: India/ }))
+    await userEvent.type(await screen.findByPlaceholderText('Search country or code'), 'United Arab')
+    await userEvent.click(await screen.findByRole('option', { name: /United Arab Emirates/ }))
+    await waitFor(() => expect(canvas.getByRole('button', { name: /Country code: United Arab Emirates \+971/ })).toBeInTheDocument())
+    await animationsSettled()
+  },
+}
+
+/** An existing number. */
+export const Prefilled: Story = { args: { value: '+971501234567' } }

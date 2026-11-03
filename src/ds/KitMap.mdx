@@ -61,7 +61,7 @@ existing API (the way `WtButton` now renders the v2 Button).
 | Live | v2 | |
 | --- | --- | --- |
 | `WtField`, `WtFieldFormik`, `FloatingLabels` | Components/Field + Input / Textarea / Select | ✅ |
-| `WtSelect` (engine), `DropdownInput`, `ToolbarFilterSelect`, `MultiSelectWithInlineCreate` | Components/Select (short lists), Components/Combobox (search, multi) | ✅ (inline "+ Add" 🔨) |
+| `WtSelect` (engine), `DropdownInput`, `ToolbarFilterSelect`, `MultiSelectWithInlineCreate` | Components/Select (short lists), Components/Combobox (search, multi) | ✅ (inline "+ Add": Combobox → Inline Create) |
 | `WtMoneyField`, `CurrencySymbol` | Components/NumberField (currency) | ✅ |
 | `WtDateField`, `WtDateTimeField`, `TimePickerField`, `DateInput` | Components/DatePicker, DateField, TimeField | ✅ |
 | `FiscalYearRangeField` | Components/DatePicker — range | ✅ |
@@ -72,10 +72,10 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `PinInput` | Components/InputOTP | ✅ |
 | `WeightSliderList` | Components/Slider | ✅ |
 | `FormSection`, `WtFormSection` | Components/Field — FieldSet + FieldLegend | ✅ |
-| `WtPhoneField` | Patterns/Phone Field | 🔨 |
-| `WtImageField` | Patterns/Image Field (upload) | 🔨 |
-| `WtColorPicker`, `IconPicker`, `SwatchPicker` | Patterns/Colour Picker, Icon Picker | 🔨 |
-| `EmployeePickerField`, `AllEmployeesSearchDropdown`, `EmployeeSelectionDialog` | Patterns/Person Picker (combobox with avatars; dialog only for multi-select) | 🔨 |
+| `WtPhoneField`, `WtPhoneFieldFormik` | Patterns/Phone Field | ✅ |
+| `WtImageField` | Patterns/Image Field (upload) | ✅ |
+| `WtColorPicker`, `IconPicker`, `SwatchPicker` | Patterns/Pickers (`ColorPicker`, `IconPicker`) | ✅ |
+| `EmployeePickerField`, `AllEmployeesSearchDropdown`, `EmployeeSelectionDialog` | Patterns/Person Picker (single and multiple, by name or code) | ✅ |
 
 ## Layout and navigation
 
