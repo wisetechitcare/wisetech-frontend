@@ -56,7 +56,8 @@ const fieldVariants = cva(
   {
     variants: {
       orientation: {
-        vertical: "flex-col *:w-full [&>.sr-only]:w-auto",
+        // WiseTech: `field-floating` — every vertical field floats its label (rules: styles/globals.css).
+        vertical: "field-floating flex-col *:w-full [&>.sr-only]:w-auto",
         horizontal:
           "flex-row items-center has-[>[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px",
         responsive:

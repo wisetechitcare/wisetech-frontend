@@ -1,6 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, userEvent } from 'storybook/test'
+import { expect, userEvent, waitFor } from 'storybook/test'
+import { Search } from 'lucide-react'
+import { Card, CardContent } from './card'
 import { Checkbox } from './checkbox'
+import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from './combobox'
+import { DatePicker } from './date-picker'
+import { InputGroup, InputGroupAddon, InputGroupInput } from './input-group'
+import { NumberField } from './number-field'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select'
 import { Input } from './input'
 import { Switch } from './switch'
 import { Textarea } from './textarea'
@@ -91,5 +98,103 @@ export const FormSection: Story = {
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Half day' }))
     await expect(canvas.getByRole('checkbox', { name: 'Half day' })).toBeChecked()
     await expect(canvas.getByRole('switch', { name: 'Tell my team' })).toBeChecked()
+  },
+}
+
+const DEPTS = [
+  { value: 'eng', label: 'Engineering' },
+  { value: 'people', label: 'People' },
+]
+const BRANCHES = ['Mumbai — Andheri', 'Pune', 'Dubai']
+
+/** The label's vertical position inside its field: ~20px resting in the control, 0 floated on its border. */
+const labelTop = (el: HTMLElement) => parseFloat(getComputedStyle(el.closest('[data-slot="field"]')!.querySelector('[data-slot="field-label"]')!).top)
+
+/**
+ * Floating labels (decided 2026-11-03, app-wide): the label rests inside an empty control and floats onto its
+ * border on focus or once there is a value — for every control type, from one rule (styles/globals.css).
+ * A control with a leading icon keeps its label up. Inside a Card the label masks the border with the card.
+ */
+export const FloatingLabels: Story = {
+  decorators: [(Story) => <div className="w-[min(48rem,calc(100vw-2rem))]"><Story /></div>],
+  render: () => (
+    <Card>
+      <CardContent>
+        <FieldGroup className="grid gap-6 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="fl-name">Full name</FieldLabel>
+            <Input id="fl-name" />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="fl-code">Employee code</FieldLabel>
+            <Input id="fl-code" defaultValue="WT-0042" />
+          </Field>
+          <Field>
+            <FieldLabel id="fl-dept-label">Department</FieldLabel>
+            <Select items={DEPTS}>
+              <SelectTrigger className="w-full" aria-labelledby="fl-dept-label">
+                <SelectValue placeholder="Choose a department" />
+              </SelectTrigger>
+              <SelectContent>
+                {DEPTS.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="fl-branch">Branch</FieldLabel>
+            <Combobox items={BRANCHES}>
+              <ComboboxInput id="fl-branch" placeholder="Search branches" />
+              <ComboboxContent>
+                <ComboboxEmpty>No branch matches.</ComboboxEmpty>
+                <ComboboxList>{(b: string) => <ComboboxItem key={b} value={b}>{b}</ComboboxItem>}</ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+          </Field>
+          <DatePicker label="Date of joining" />
+          <NumberField label="Notice period (days)" />
+          <Field>
+            <FieldLabel htmlFor="fl-search">Reporting manager</FieldLabel>
+            <InputGroup>
+              <InputGroupAddon>
+                <Search aria-hidden />
+              </InputGroupAddon>
+              <InputGroupInput id="fl-search" placeholder="Search people" />
+            </InputGroup>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="fl-notes">Remarks</FieldLabel>
+            <Textarea id="fl-notes" />
+          </Field>
+        </FieldGroup>
+      </CardContent>
+    </Card>
+  ),
+  play: async ({ canvas }) => {
+    const name = canvas.getByLabelText('Full name')
+    // Empty and unfocused: the label rests inside the control.
+    await expect(labelTop(name)).toBeGreaterThan(10)
+    // Focus floats it onto the border; it stays there once there is a value.
+    await userEvent.click(name)
+    await waitFor(() => expect(labelTop(name)).toBe(0))
+    await userEvent.type(name, 'Meera Joshi')
+    await userEvent.tab()
+    await waitFor(() => expect(labelTop(name)).toBe(0))
+    // A prefilled field and a field with a leading icon start floated.
+    await expect(labelTop(canvas.getByLabelText('Employee code'))).toBe(0)
+    await expect(labelTop(canvas.getByLabelText('Reporting manager'))).toBe(0)
+    // The label stays the field's accessible name.
+    await expect(canvas.getByRole('textbox', { name: 'Remarks' })).toBeInTheDocument()
+  },
+}
+
+/** Dark theme: the floated label masks the border with the dark card surface; contrast is checked by axe. */
+export const FloatingLabelsDark: Story = {
+  ...FloatingLabels,
+  globals: { mode: 'dark' },
+  play: async ({ canvas }) => {
+    await expect(document.documentElement).toHaveClass('dark')
+    await expect(labelTop(canvas.getByLabelText('Employee code'))).toBe(0)
   },
 }

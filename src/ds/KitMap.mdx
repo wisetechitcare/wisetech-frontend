@@ -118,8 +118,8 @@ them is how the recruitment drill-down regressed:
 ## Design decisions (decided 2026-11-03)
 
 1. **Floating labels**, app-wide: the label rests inside an empty field and floats onto the border on focus or
-   once there is a value. (Today's app floats only where a screen opts in; v2 makes it the standard.) — v2 Field
-   is being updated to match.
+   once there is a value. (Today's app floats only where a screen opts in; v2 makes it the standard.) — Done:
+   every field built from `fieldVariants()` floats (Components/Field → Floating Labels).
 2. **Structural headings stay UPPERCASE** — dialog, page, section, settings card, column header, stat caption,
    eyebrow — via the `heading-case` utility (the twin of `HEADING_CASE_SX`). Buttons, input labels, content
    titles and sentences keep their case.
