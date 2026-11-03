@@ -160,6 +160,12 @@ export const createMeetingMinutesDraft = async (meetingId: string) => {
   return data;
 };
 
+/** Freeze the current MoM as history and open the next revision (R00 → R01). */
+export const reviseMeetingMinutes = async (meetingId: string) => {
+  const { data } = await axios.post(`${base(meetingId)}/minutes/revise`);
+  return data;
+};
+
 export const updateMeetingMinutesDraft = async (
   meetingId: string,
   payload: Record<string, unknown>,

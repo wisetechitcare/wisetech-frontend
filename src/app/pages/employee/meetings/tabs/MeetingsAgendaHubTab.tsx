@@ -40,7 +40,7 @@ import dayjs from 'dayjs';
 import { hasPermission } from '@utils/authAbac';
 import { apiErrorMessage } from '@utils/apiError';
 import { Button } from '@/ds/ui/button';
-import { successConfirmation } from '@utils/modal';
+import { customConfirmation, successConfirmation } from '@utils/modal';
 import {
   permissionConstToUseWithHasPermission,
   resourceNameMapWithCamelCase,
@@ -84,6 +84,7 @@ import {
   getMeetingMinutes,
   getMeetingsAgendaHub,
   updateAgendaItem,
+  reviseMeetingMinutes,
   updateMeetingMinutesDraft,
   updateMeetingPurpose,
 } from '@services/meetingAgendaMom';
@@ -2029,8 +2030,16 @@ function MomPanel({
 
   /** Writes every staged line + the attendees, then reloads so every view of this meeting agrees. */
   const saveAll = async () => {
+    // Same choice as saving a lead. A revision is opened FIRST, so the edits below land on the
+    // new revision and the previous one stays exactly as it was — that is the history record.
+    const mode = await customConfirmation('Save Revision', 'Update Only', {
+      title: 'Update Minutes of Meeting',
+      noun: 'these minutes',
+    });
+    if (mode === 'cancelled') return;
     setSaving(true);
     try {
+      if (mode === 'revision') await reviseMeetingMinutes(meetingId);
       // One at a time: each write rebuilds the MoM lines server-side, so parallel writes would race.
       for (const [itemId, d] of Object.entries(drafts)) {
         await updateAgendaItem(meetingId, itemId, d.payload);
@@ -2038,7 +2047,7 @@ function MomPanel({
       }
       if (attendeesDirty) await updateMeetingMinutesDraft(meetingId, { attendees: liveAttendees });
       await onRefresh();
-      toast({ icon: 'success', title: 'MoM saved' });
+      toast({ icon: 'success', title: mode === 'revision' ? 'New MoM revision saved' : 'MoM saved' });
     } catch (e) {
       // Lines already written are gone from `drafts`; the rest stay staged for another try.
       onError(errMsg(e));
