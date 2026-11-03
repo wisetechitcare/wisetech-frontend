@@ -44,9 +44,9 @@ type Story = StoryObj<typeof meta>
 /** Opens as a labelled dialog; a footer button closes it. */
 export const MobileCheckIn: Story = {
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Check in' }))
-    await expect(await screen.findByRole('dialog', { name: 'Check in at Andheri office' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Not now' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Check In' }))
+    await expect(await screen.findByRole('dialog', { name: 'Check in at Andheri Office' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Not Now' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await animationsSettled()
   },

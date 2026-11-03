@@ -1,4 +1,5 @@
 import * as React from "react";
+import { titleCaseChildren } from "@/ds/lib/text"
 import { Dialog as SheetPrimitive } from "@animate-ui/react/primitives/base-ui/dialog";
 import { cn } from "cn";
 
@@ -97,7 +98,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
+function SheetTitle({ className, children, ...props }: SheetPrimitive.Title.Props) {
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
@@ -106,6 +107,7 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
         className,
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   );
 }

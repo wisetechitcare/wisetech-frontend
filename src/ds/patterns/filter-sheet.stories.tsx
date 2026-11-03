@@ -80,9 +80,9 @@ type Story = StoryObj<typeof meta>
 export const ApplyFilters: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Filters' }))
-    await screen.findByRole('dialog', { name: 'Filter leave requests' })
+    await screen.findByRole('dialog', { name: 'Filter Leave Requests' })
     await userEvent.click(screen.getByRole('checkbox', { name: 'Pending' }))
-    await userEvent.click(screen.getByRole('switch', { name: 'Only my team' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Only My Team' }))
     await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await expect(onApply).toHaveBeenCalledWith({ statuses: ['Pending'], mineOnly: true })

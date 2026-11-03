@@ -1,4 +1,5 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 import { Loader2 } from "lucide-react"
@@ -98,7 +99,7 @@ function Button({
       className={buttonVariants({ variant, size, glow, className })}
       {...props}
     >
-      {loading && iconOnly ? spinner : <>{loading && spinner}{children}</>}
+      {loading && iconOnly ? spinner : <>{loading && spinner}{titleCaseChildren(children)}</>}
     </ButtonPrimitive>
   )
 }

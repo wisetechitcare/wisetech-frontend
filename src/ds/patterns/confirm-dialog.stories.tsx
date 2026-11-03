@@ -51,10 +51,10 @@ export const Delete: Story = {
     />
   ),
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Delete employee' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Delete Employee' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Delete Meera Joshi?' })
     await expect(dialog).toHaveAccessibleDescription(/cannot be undone/)
-    await userEvent.click(screen.getAllByRole('button', { name: 'Delete employee' }).at(-1)!)
+    await userEvent.click(screen.getAllByRole('button', { name: 'Delete Employee' }).at(-1)!)
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     await expect(onConfirm).toHaveBeenCalledTimes(1)
     await animationsSettled()
@@ -77,12 +77,12 @@ export const AsyncFailureStaysOpen: Story = {
     />
   ),
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Run payroll' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Run Payroll' }))
     await screen.findByRole('alertdialog')
-    await userEvent.click(screen.getAllByRole('button', { name: 'Run payroll' }).at(-1)!)
+    await userEvent.click(screen.getAllByRole('button', { name: 'Run Payroll' }).at(-1)!)
     await waitFor(() => expect(onConfirm).toHaveBeenCalled())
     await expect(screen.getByRole('alertdialog')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Run payroll' }).at(-1)).toBeEnabled())
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Run Payroll' }).at(-1)).toBeEnabled())
     await animationsSettled()
   },
 }
@@ -129,8 +129,8 @@ export const Notices: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Show success' }))
-    await expect(await screen.findByRole('alertdialog', { name: 'Payslips sent' })).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole('button', { name: 'Show Success' }))
+    await expect(await screen.findByRole('alertdialog', { name: 'Payslips Sent' })).toBeInTheDocument()
     await expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Done' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())

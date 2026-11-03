@@ -31,7 +31,7 @@ type Story = StoryObj<typeof meta>
 /** Two columns from tablet up; a missing value shows an em dash. */
 export const Default: Story = {
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Date of birth').tagName).toBe('DT')
+    await expect(canvas.getByText('Date of Birth').tagName).toBe('DT')
     await expect(canvas.getByText('—')).toBeInTheDocument()
   },
 }

@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { Badge } from "@/ds/ui/badge"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardLink, CardTitle } from "@/ds/ui/card"
@@ -95,7 +96,7 @@ export function StatCard({
     return (
       <Card size="sm" tone={tone} interactive={!!href} className={cn("flex-row items-center gap-3 px-(--card-spacing)", className)}>
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="heading-case truncate text-sm text-muted-foreground">{href ? <CardLink href={href}>{label}</CardLink> : label}</p>
+          <p className="heading-case truncate text-sm text-muted-foreground">{href ? <CardLink href={href}>{titleCaseChildren(label)}</CardLink> : titleCaseChildren(label)}</p>
           <p className="tabular text-2xl leading-tight font-semibold motion-safe:animate-stat-rise">{value}</p>
         </div>
         {trend && (
@@ -114,7 +115,7 @@ export function StatCard({
     // drawn there once, so every tile in the kit matches this one.
     <Card {...props} variant="tile" tone={tone} interactive={!!href} className={cn("gap-4", className)}>
       <CardHeader>
-        <CardDescription className="heading-case">{href ? <CardLink href={href}>{label}</CardLink> : label}</CardDescription>
+        <CardDescription className="heading-case">{href ? <CardLink href={href}>{titleCaseChildren(label)}</CardLink> : titleCaseChildren(label)}</CardDescription>
         {/* min-w-0: lets a long text value truncate instead of widening the card. */}
         <CardTitle className="tabular min-w-0 text-3xl font-semibold motion-safe:animate-stat-rise">{value}</CardTitle>
         {icon && (

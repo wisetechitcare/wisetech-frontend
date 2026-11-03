@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCase } from "@/ds/lib/text"
 import { ChevronRight } from "lucide-react"
 import type { Tone } from "@/ds/lib/tone"
 import { cn } from "@/ds/lib/utils"
@@ -56,8 +57,8 @@ export function EntityCard({
       {/* Icon top-right, in the glow corner — the card rule (Stat Card is the benchmark). */}
       <CardHeader className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="flex items-center gap-1 text-base leading-snug font-medium">
-            <span className="truncate">{linked ? <CardLink href={href}>{title}</CardLink> : title}</span>
+          <h3 data-slot="entity-title" className="flex items-center gap-1 text-base leading-snug">
+            <span className="truncate">{linked ? <CardLink href={href}>{titleCase(title)}</CardLink> : titleCase(title)}</span>
             {linked && <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />}
           </h3>
           {subtitle && <p className="truncate text-sm text-muted-foreground">{subtitle}</p>}

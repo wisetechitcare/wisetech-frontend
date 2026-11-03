@@ -44,7 +44,7 @@ export const Default: Story = {
     await expect(link).toHaveAttribute('href', '#role-1')
     // The link's click area is the whole card: it is positioned against the card, not a header inside it.
     await expect((link as HTMLElement).offsetParent).toBe(link.closest('[data-interactive]'))
-    await userEvent.click(canvas.getByRole('button', { name: 'Share advert' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Share Advert' }))
     await expect(onShare).toHaveBeenCalled()
   },
 }

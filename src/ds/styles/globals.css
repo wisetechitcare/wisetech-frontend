@@ -167,6 +167,13 @@
   rotate: 180deg;
 }
 
+/* ── Titles are bold — every one, from one rule ──────────────────────────────────────────────────────────
+ * Each kit title component also Title-Cases its text (src/ds/lib/text.ts), so a title is written once,
+ * any way, and always renders "Employee Onboarding", bold. */
+:is([data-slot="card-title"], [data-slot="dialog-title"], [data-slot="alert-dialog-title"], [data-slot="sheet-title"], [data-slot="drawer-title"], [data-slot="alert-title"], [data-slot="empty-title"], [data-slot="item-title"], [data-slot="popover-title"], [data-slot="field-legend"], [data-slot="page-title"], [data-slot="section-title"], [data-slot="entity-title"]) {
+  font-weight: 600;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -22,6 +22,9 @@ Decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
   with axe and fails on a violation.
 - **One surface per job.** Card for every tile, panel and selectable option (it owns hover, focus, selected
   and disabled); Item for rows in a list. Patterns are layouts on them, never new surfaces.
+- **Titles are Title Case and bold.** Every kit title component (CardTitle, DialogTitle, Label, Button, TableHead,
+  PageHeader, SectionHeader…) applies `titleCase()` (`src/ds/lib/text.ts`, the live kit's rule: minor words stay
+  lowercase, any word with a capital is untouched) and one rule in `globals.css` makes titles bold.
 - **Structural headings are UPPERCASE** (`heading-case`): titles that name a region — dialog, page, section,
   settings card, column header, stat caption, eyebrow. Buttons, input labels, content titles (a person, a record)
   and sentences keep their case. CSS only, so screen readers still read words.

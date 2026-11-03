@@ -81,7 +81,7 @@ export const Default: Story = {
     await expect(canvas.getByRole('toolbar', { name: 'Filters' })).toBeInTheDocument()
     await expect(canvas.queryByRole('button', { name: /Clear filters/ })).not.toBeInTheDocument()
     await userEvent.click(canvas.getByRole('button', { name: /Inactive/ }))
-    const clear = await canvas.findByRole('button', { name: 'Clear filters (1)' })
+    const clear = await canvas.findByRole('button', { name: 'Clear Filters (1)' })
     await userEvent.click(clear)
     await waitFor(() => expect(canvas.getByRole('button', { name: /Active 37/ })).toHaveAttribute('aria-pressed', 'true'))
   },

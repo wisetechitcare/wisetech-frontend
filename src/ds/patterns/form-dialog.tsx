@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCase } from "@/ds/lib/text"
 import { cva, type VariantProps } from "class-variance-authority"
 import type { Tone } from "@/ds/lib/tone"
 import { cn } from "@/ds/lib/utils"
@@ -119,7 +120,7 @@ export function FormDialog({
                         className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 [&>svg]:size-4"
                       >
                         {sec.icon}
-                        {sec.label}
+                        {titleCase(sec.label)}
                       </a>
                     </li>
                   ))}

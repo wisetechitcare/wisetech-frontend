@@ -1,4 +1,5 @@
 "use client"
+import { titleCaseChildren } from "@/ds/lib/text"
 
 import * as React from "react"
 import { AlertDialog as AlertDialogPrimitive } from "@animate-ui/react/primitives/base-ui/alert-dialog"
@@ -109,8 +110,7 @@ function AlertDialogMedia({
   )
 }
 
-function AlertDialogTitle({
-  className,
+function AlertDialogTitle({ className, children,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
   return (
@@ -121,6 +121,7 @@ function AlertDialogTitle({
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

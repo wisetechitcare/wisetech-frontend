@@ -22,7 +22,7 @@ type Story = StoryObj<typeof meta>
 /** A section title is an h2. */
 export const Default: Story = {
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('heading', { level: 2, name: 'Leave policy' })).toBeInTheDocument()
+    await expect(canvas.getByRole('heading', { level: 2, name: 'Leave Policy' })).toBeInTheDocument()
   },
 }
 

@@ -1,4 +1,5 @@
 "use client"
+import { titleCaseChildren } from "@/ds/lib/text"
 
 import { useMemo } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -20,8 +21,7 @@ function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
   )
 }
 
-function FieldLegend({
-  className,
+function FieldLegend({ className, children,
   variant = "legend",
   ...props
 }: React.ComponentProps<"legend"> & { variant?: "legend" | "label" }) {
@@ -34,6 +34,7 @@ function FieldLegend({
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }
@@ -116,7 +117,7 @@ function FieldLabel({
   )
 }
 
-function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
+function FieldTitle({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="field-label"
@@ -125,6 +126,7 @@ function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

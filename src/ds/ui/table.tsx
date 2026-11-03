@@ -1,4 +1,5 @@
 "use client"
+import { titleCaseChildren } from "@/ds/lib/text"
 
 import * as React from "react"
 import { cn } from "cn"
@@ -64,7 +65,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+function TableHead({ className, children, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
@@ -73,6 +74,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

@@ -57,7 +57,7 @@ export const KpiRow: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Open leads')).toBeInTheDocument()
+    await expect(canvas.getByText('Open Leads')).toBeInTheDocument()
     await expect(canvas.getByText('21.77%')).toBeInTheDocument()
   },
 }
@@ -74,6 +74,6 @@ export const CompactTiles: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Overdue approvals')).toBeInTheDocument()
+    await expect(canvas.getByText('Overdue Approvals')).toBeInTheDocument()
   },
 }

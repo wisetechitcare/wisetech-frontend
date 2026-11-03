@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCase } from "@/ds/lib/text"
 import { Check, CircleAlert } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
 import { Button } from "@/ds/ui/button"
@@ -75,7 +76,7 @@ export function Stepper({
           const text = (
             <span className="min-w-0 text-left">
               <span className={cn("block text-sm font-medium", state === "todo" && "text-muted-foreground")}>
-                {step.label}
+                {titleCase(step.label)}
                 {state === "done" && <span className="sr-only"> (completed)</span>}
               </span>
               {step.error && step.errorText ? (

@@ -51,7 +51,7 @@ type Story = StoryObj<typeof meta>
 /** Search by code; the choice is reported as an id. */
 export const SearchByCode: Story = {
   play: async ({ canvas }) => {
-    await userEvent.type(canvas.getByRole('combobox', { name: 'Reporting manager' }), 'WT-0091')
+    await userEvent.type(canvas.getByRole('combobox', { name: 'Reporting Manager' }), 'WT-0091')
     await userEvent.click(await screen.findByRole('option', { name: /WT-0091/ }))
     await waitFor(() => expect(canvas.getByTestId('chosen')).toHaveTextContent('91'))
     await animationsSettled()
@@ -61,7 +61,7 @@ export const SearchByCode: Story = {
 /** Two people with the same name are told apart by code and role. */
 export const Namesakes: Story = {
   play: async ({ canvas }) => {
-    await userEvent.type(canvas.getByRole('combobox', { name: 'Reporting manager' }), 'Tara')
+    await userEvent.type(canvas.getByRole('combobox', { name: 'Reporting Manager' }), 'Tara')
     await expect(await screen.findByRole('option', { name: /WT-0088 · HR Executive/ })).toBeInTheDocument()
     await expect(screen.getByRole('option', { name: /WT-0091 · Site Supervisor/ })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')

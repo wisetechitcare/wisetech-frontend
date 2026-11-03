@@ -33,6 +33,6 @@ export const Default: Story = {
     </Empty>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Nothing waiting for you')).toBeInTheDocument()
+    await expect(canvas.getByText('Nothing Waiting for You')).toBeInTheDocument()
   },
 }

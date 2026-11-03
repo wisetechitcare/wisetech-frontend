@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCase } from "@/ds/lib/text"
 import { cn } from "@/ds/lib/utils"
 import { Card } from "@/ds/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/ds/ui/radio-group"
@@ -42,7 +43,7 @@ export function ChoiceCards<T extends string>({
   return (
     <div className={cn("grid gap-2", className)}>
       <p id={labelId} className="text-sm font-medium">
-        {label}
+        {titleCase(label)}
       </p>
       <RadioGroup
         aria-labelledby={labelId}
@@ -65,7 +66,7 @@ export function ChoiceCards<T extends string>({
               >
                 <RadioGroupItem id={id} value={o.value} disabled={o.disabled} className="mt-0.5" />
                 <span className="min-w-0 flex-1 space-y-1">
-                  <span className="block text-sm font-medium">{o.label}</span>
+                  <span className="block text-sm font-medium">{titleCase(o.label)}</span>
                   {(o.description || (o.disabled && o.disabledReason)) && (
                     <span className="block text-sm text-muted-foreground">
                       {o.disabled && o.disabledReason ? o.disabledReason : o.description}

@@ -48,7 +48,7 @@ export const WithHint: Story = {
     </Field>
   ),
   play: async ({ canvas }) => {
-    const input = canvas.getByLabelText('Work email')
+    const input = canvas.getByLabelText('Work Email')
     await userEvent.type(input, 'meera@wisetech.in')
     await expect(input).toHaveValue('meera@wisetech.in')
     await expect(input).toHaveAccessibleDescription('Payslips and approvals are sent here.')
@@ -96,9 +96,9 @@ export const FormSection: Story = {
     </FieldSet>
   ),
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'Half day' }))
-    await expect(canvas.getByRole('checkbox', { name: 'Half day' })).toBeChecked()
-    await expect(canvas.getByRole('switch', { name: 'Tell my team' })).toBeChecked()
+    await userEvent.click(canvas.getByRole('checkbox', { name: 'Half Day' }))
+    await expect(canvas.getByRole('checkbox', { name: 'Half Day' })).toBeChecked()
+    await expect(canvas.getByRole('switch', { name: 'Tell My Team' })).toBeChecked()
   },
 }
 
@@ -193,7 +193,7 @@ export const FloatingLabels: Story = {
     </Card>
   ),
   play: async ({ canvas, canvasElement }) => {
-    const name = canvas.getByLabelText('Full name')
+    const name = canvas.getByLabelText('Full Name')
     // Empty and unfocused: the label rests inside the control.
     await expect(labelTop(name)).toBeGreaterThan(10)
     // Focus floats it onto the border; it stays there once there is a value.
@@ -203,8 +203,8 @@ export const FloatingLabels: Story = {
     await userEvent.tab()
     await waitFor(() => expect(labelTop(name)).toBe(0))
     // A prefilled field and a field with a leading icon start floated.
-    await expect(labelTop(canvas.getByLabelText('Employee code'))).toBe(0)
-    await expect(labelTop(canvas.getByLabelText('Reporting manager'))).toBe(0)
+    await expect(labelTop(canvas.getByLabelText('Employee Code'))).toBe(0)
+    await expect(labelTop(canvas.getByLabelText('Reporting Manager'))).toBe(0)
     // The label stays the field's accessible name.
     await expect(canvas.getByRole('textbox', { name: 'Remarks' })).toBeInTheDocument()
     // Floated labels never cover a rounded corner — check a pill and a textarea.
@@ -219,6 +219,6 @@ export const FloatingLabelsDark: Story = {
   globals: { mode: 'dark' },
   play: async ({ canvas }) => {
     await expect(document.documentElement).toHaveClass('dark')
-    await expect(labelTop(canvas.getByLabelText('Employee code'))).toBe(0)
+    await expect(labelTop(canvas.getByLabelText('Employee Code'))).toBe(0)
   },
 }

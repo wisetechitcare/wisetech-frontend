@@ -1,4 +1,5 @@
 "use client"
+import { titleCaseChildren } from "@/ds/lib/text"
 
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "@animate-ui/react/primitives/base-ui/drawer"
@@ -186,7 +187,7 @@ function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function DrawerTitle({ className, ...props }: DrawerPrimitive.Title.Props) {
+function DrawerTitle({ className, children, ...props }: DrawerPrimitive.Title.Props) {
   return (
     <DrawerPrimitive.Title
       data-slot="drawer-title"
@@ -195,6 +196,7 @@ function DrawerTitle({ className, ...props }: DrawerPrimitive.Title.Props) {
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

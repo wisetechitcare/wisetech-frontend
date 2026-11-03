@@ -33,11 +33,11 @@ type Story = StoryObj<typeof meta>
 /** Opens on click; Escape returns focus to the trigger. */
 export const Default: Story = {
   play: async ({ canvas }) => {
-    const trigger = canvas.getByRole('button', { name: 'Set reminder' })
+    const trigger = canvas.getByRole('button', { name: 'Set Reminder' })
     await userEvent.click(trigger)
-    await expect(await screen.findByLabelText('Remind after (days)')).toBeInTheDocument()
+    await expect(await screen.findByLabelText('Remind After (Days)')).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByLabelText('Remind after (days)')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByLabelText('Remind After (Days)')).not.toBeInTheDocument())
     await animationsSettled()
   },
 }

@@ -40,9 +40,9 @@ type Story = StoryObj<typeof meta>
 /** Clicking anywhere on a card selects it; a disabled card says why. */
 export const Default: Story = {
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('radiogroup', { name: 'How is this reimbursement paid?' })).toBeInTheDocument()
-    await userEvent.click(canvas.getByText('Bank transfer'))
-    await waitFor(() => expect(canvas.getByRole('radio', { name: /Bank transfer/ })).toBeChecked())
+    await expect(canvas.getByRole('radiogroup', { name: 'How Is This Reimbursement Paid?' })).toBeInTheDocument()
+    await userEvent.click(canvas.getByText('Bank Transfer'))
+    await waitFor(() => expect(canvas.getByRole('radio', { name: /Bank Transfer/ })).toBeChecked())
     await expect(onValueChange).toHaveBeenCalledWith('bank')
     await expect(canvas.getByText(/switched off for this branch/)).toBeVisible()
   },

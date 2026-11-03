@@ -53,8 +53,8 @@ type Story = StoryObj<typeof meta>
 export const Default: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByRole('heading', { level: 2, name: /Attendance/ })).toBeInTheDocument()
-    await expect(canvas.getByLabelText('Grace period')).toHaveValue('10')
-    const waiver = canvas.getByRole('switch', { name: 'Late-night waiver' })
+    await expect(canvas.getByLabelText('Grace Period')).toHaveValue('10')
+    const waiver = canvas.getByRole('switch', { name: 'Late-night Waiver' })
     await userEvent.click(waiver)
     await waitFor(() => expect(waiver).toBeChecked())
   },

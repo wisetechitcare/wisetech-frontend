@@ -35,8 +35,8 @@ type Story = StoryObj<typeof meta>
 /** Picking an option checks it and reports the value. */
 export const Default: Story = {
   play: async ({ args, canvas }) => {
-    await userEvent.click(canvas.getByRole('radio', { name: 'Second half' }))
-    await waitFor(() => expect(canvas.getByRole('radio', { name: 'Second half' })).toBeChecked())
+    await userEvent.click(canvas.getByRole('radio', { name: 'Second Half' }))
+    await waitFor(() => expect(canvas.getByRole('radio', { name: 'Second Half' })).toBeChecked())
     await expect(args.onValueChange).toHaveBeenCalledWith('second', expect.anything())
   },
 }

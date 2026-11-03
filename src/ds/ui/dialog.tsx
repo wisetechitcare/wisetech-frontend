@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { Dialog as DialogPrimitive } from "@animate-ui/react/primitives/base-ui/dialog"
 import { cn } from "cn"
 
@@ -116,7 +117,7 @@ function DialogFooter({
   )
 }
 
-function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
+function DialogTitle({ className, children, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
@@ -125,6 +126,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

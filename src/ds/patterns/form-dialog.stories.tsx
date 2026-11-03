@@ -83,11 +83,11 @@ type Story = StoryObj<typeof meta>
 /** Fill in and Save: the form submits through the footer button. */
 export const Submit: Story = {
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Add branch' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Add branch' })
+    await userEvent.click(canvas.getByRole('button', { name: 'Add Branch' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add Branch' })
     await waitFor(() => expect(dialog).toBeVisible())
-    await userEvent.type(screen.getByLabelText('Branch name'), 'Pune')
-    await userEvent.click(screen.getAllByRole('button', { name: 'Add branch' }).at(-1)!)
+    await userEvent.type(screen.getByLabelText('Branch Name'), 'Pune')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Add Branch' }).at(-1)!)
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Pune'))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await animationsSettled()
@@ -97,14 +97,14 @@ export const Submit: Story = {
 /** Closing with unsaved changes asks first; "Keep editing" keeps what was typed. */
 export const DirtyCloseAsks: Story = {
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Add branch' }))
-    await screen.findByRole('dialog', { name: 'Add branch' })
-    await userEvent.type(screen.getByLabelText('Branch name'), 'Pune')
+    await userEvent.click(canvas.getByRole('button', { name: 'Add Branch' }))
+    await screen.findByRole('dialog', { name: 'Add Branch' })
+    await userEvent.type(screen.getByLabelText('Branch Name'), 'Pune')
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    await expect(await screen.findByRole('alertdialog', { name: 'Discard unsaved changes?' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+    await expect(await screen.findByRole('alertdialog', { name: 'Discard Unsaved Changes?' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Keep Editing' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
-    await expect(screen.getByLabelText('Branch name')).toHaveValue('Pune')
+    await expect(screen.getByLabelText('Branch Name')).toHaveValue('Pune')
     await animationsSettled()
   },
 }
@@ -112,8 +112,8 @@ export const DirtyCloseAsks: Story = {
 /** Clean form: Cancel closes straight away. */
 export const CleanCloseIsImmediate: Story = {
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Add branch' }))
-    await screen.findByRole('dialog', { name: 'Add branch' })
+    await userEvent.click(canvas.getByRole('button', { name: 'Add Branch' }))
+    await screen.findByRole('dialog', { name: 'Add Branch' })
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
@@ -166,7 +166,7 @@ export const LongFormWithSections: Story = {
     </OpenButton>
   ),
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Edit employee' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Edit Employee' }))
     const nav = await screen.findByRole('navigation', { name: 'Form sections' })
     await expect(nav).toBeInTheDocument()
     await expect(screen.getByRole('link', { name: 'Bank' })).toHaveAttribute('href', '#sec-bank')
@@ -213,13 +213,13 @@ function OfferWizard() {
 export const Wizard: Story = {
   render: () => <OfferWizard />,
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Make an offer' }))
-    await screen.findByRole('dialog', { name: 'Make an offer' })
+    await userEvent.click(canvas.getByRole('button', { name: 'Make an Offer' }))
+    await screen.findByRole('dialog', { name: 'Make an Offer' })
     await userEvent.click(screen.getByRole('button', { name: 'Next' }))
     await expect(screen.getByText(/Step content for “Offer”/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    await expect(await screen.findByRole('alertdialog', { name: 'Discard unsaved changes?' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+    await expect(await screen.findByRole('alertdialog', { name: 'Discard Unsaved Changes?' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Keep Editing' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     await animationsSettled()
   },
@@ -244,8 +244,8 @@ export const ReadOnlyDrillDown: Story = {
     </OpenButton>
   ),
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'View breakdown' }))
-    await screen.findByRole('dialog', { name: 'Late arrivals — October' })
+    await userEvent.click(canvas.getByRole('button', { name: 'View Breakdown' }))
+    await screen.findByRole('dialog', { name: 'Late Arrivals — October' })
     await expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     await userEvent.click(screen.getAllByRole('button', { name: 'Close' }).at(-1)!)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())

@@ -47,10 +47,10 @@ type Story = StoryObj<typeof meta>
 /** Opening shows a labelled dialog; "Keep editing" closes it. */
 export const DiscardPrompt: Story = {
   play: async ({ args, canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Close wizard' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Discard unsaved changes?' })
+    await userEvent.click(canvas.getByRole('button', { name: 'Close Wizard' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Discard Unsaved Changes?' })
     await expect(dialog).toHaveAccessibleDescription("Your changes to this employee haven't been saved.")
-    await userEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Keep Editing' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await expect(args.onOpenChange).toHaveBeenLastCalledWith(false, expect.anything())
   },
@@ -59,7 +59,7 @@ export const DiscardPrompt: Story = {
 /** Escape dismisses the dialog. */
 export const EscapeCloses: Story = {
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Close wizard' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Close Wizard' }))
     await screen.findByRole('dialog')
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())

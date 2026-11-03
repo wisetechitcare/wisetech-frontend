@@ -34,7 +34,7 @@ export const WithAction: Story = {
     onAdd.mockClear()
   },
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Add candidate' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Add Candidate' }))
     await expect(onAdd).toHaveBeenCalledTimes(1)
   },
 }
@@ -64,7 +64,7 @@ export const LoadFailed: Story = {
     ),
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('alert')).toHaveTextContent("Couldn't load candidates")
+    await expect(canvas.getByRole('alert')).toHaveTextContent("Couldn't Load Candidates")
   },
 }
 

@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { cn } from "cn"
 import { toneStyle, type Tone } from "@/ds/lib/tone"
 
@@ -97,12 +98,13 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+function CardTitle({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-title"
       className={cn("font-heading text-base font-medium", className)}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

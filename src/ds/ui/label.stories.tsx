@@ -25,8 +25,8 @@ export const WithInput: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByText('Employee code'))
-    await expect(canvas.getByLabelText('Employee code')).toHaveFocus()
+    await userEvent.click(canvas.getByText('Employee Code'))
+    await expect(canvas.getByLabelText('Employee Code')).toHaveFocus()
   },
 }
 

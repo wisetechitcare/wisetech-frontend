@@ -27,7 +27,7 @@ export const Default: Story = {
     </Alert>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('alert')).toHaveTextContent('Leave year runs April to March')
+    await expect(canvas.getByRole('alert')).toHaveTextContent('Leave Year Runs April to March')
   },
 }
 

@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
@@ -41,7 +42,7 @@ function Alert({
   )
 }
 
-function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
+function AlertTitle({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="alert-title"
@@ -50,6 +51,7 @@ function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

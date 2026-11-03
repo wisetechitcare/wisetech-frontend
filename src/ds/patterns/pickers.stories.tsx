@@ -49,7 +49,7 @@ export const Colour: Story = {
 /** A custom hex replaces the palette choice. */
 export const CustomHex: Story = {
   play: async ({ canvas }) => {
-    await userEvent.type(canvas.getByLabelText('Custom colour (hex)'), '#DB2777')
+    await userEvent.type(canvas.getByLabelText('Custom Colour (Hex)'), '#DB2777')
     await waitFor(() => expect(canvas.getByRole('button', { name: 'Blue' })).toHaveAttribute('aria-pressed', 'false'))
   },
 }

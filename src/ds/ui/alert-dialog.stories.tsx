@@ -69,10 +69,10 @@ export const ConfirmDelete: Story = {
   args: { onOpenChange: fn() },
   render: (args) => <DeleteEmployee onConfirm={args.onOpenChange as () => void} />,
   play: async ({ args, canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Delete employee' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Delete Employee' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Delete Meera Joshi?' })
     await expect(dialog).toHaveAccessibleDescription(/cannot be undone/)
-    await userEvent.click(screen.getAllByRole('button', { name: 'Delete employee' }).at(-1)!)
+    await userEvent.click(screen.getAllByRole('button', { name: 'Delete Employee' }).at(-1)!)
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     await expect(args.onOpenChange).toHaveBeenCalledTimes(1)
     await animationsSettled()
@@ -84,9 +84,9 @@ export const Cancel: Story = {
   args: { onOpenChange: fn() },
   render: (args) => <DeleteEmployee onConfirm={args.onOpenChange as () => void} />,
   play: async ({ args, canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Delete employee' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Delete Employee' }))
     await screen.findByRole('alertdialog')
-    await userEvent.click(screen.getByRole('button', { name: 'Keep employee' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Keep Employee' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     await expect(args.onOpenChange).not.toHaveBeenCalled()
     await animationsSettled()

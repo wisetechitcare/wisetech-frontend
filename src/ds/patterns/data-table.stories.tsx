@@ -140,8 +140,8 @@ export const Search: Story = {
     await waitFor(() => expect(canvas.getByText(/of 8$/)).toBeInTheDocument())
     await userEvent.clear(box)
     await userEvent.type(box, 'zzz')
-    await expect(await canvas.findByText('Nothing matches “zzz”')).toBeInTheDocument()
-    await userEvent.click(canvas.getByRole('button', { name: 'Clear search' }))
+    await expect(await canvas.findByText('Nothing Matches “Zzz”')).toBeInTheDocument()
+    await userEvent.click(canvas.getByRole('button', { name: 'Clear Search' }))
     await waitFor(() => expect(canvas.getByText('1–10 of 34')).toBeInTheDocument())
   },
 }
@@ -161,7 +161,7 @@ export const BulkSelection: Story = {
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Select row 1' }))
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Select row 2' }))
     await expect(canvas.getByRole('region', { name: 'Selection' })).toHaveTextContent('2 selected')
-    await userEvent.click(canvas.getByRole('button', { name: 'Send payslips' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Send Payslips' }))
     await expect(onBulk).toHaveBeenCalledWith(['1', '2'])
     await waitFor(() => expect(canvas.queryByRole('region', { name: 'Selection' })).not.toBeInTheDocument())
   },
@@ -226,6 +226,6 @@ export const Empty: Story = {
 export const LoadFailed: Story = {
   args: { data: [], error: 'The server did not respond. Your filters are kept.', onRetry: fn() },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('alert')).toHaveTextContent("Couldn't load this table")
+    await expect(canvas.getByRole('alert')).toHaveTextContent("Couldn't Load This Table")
   },
 }

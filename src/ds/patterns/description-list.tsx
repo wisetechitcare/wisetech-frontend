@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { cn } from "@/ds/lib/utils"
 
 export type DescriptionRow = {
@@ -38,7 +39,7 @@ export function DescriptionList({
         const empty = row.value === null || row.value === undefined || row.value === ""
         return (
           <div key={i} className={cn("min-w-0 space-y-1", row.wide && "sm:col-span-2")}>
-            <dt className="text-muted-foreground">{row.label}</dt>
+            <dt className="text-muted-foreground">{titleCaseChildren(row.label)}</dt>
             <dd
               className={cn(
                 "break-words",

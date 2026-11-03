@@ -28,7 +28,7 @@ type Story = StoryObj<typeof meta>
  */
 export const DayFirst: Story = {
   play: async ({ args, canvas }) => {
-    const group = canvas.getByRole('group', { name: 'Date of joining' })
+    const group = canvas.getByRole('group', { name: 'Date of Joining' })
     await expect(group).toHaveTextContent('dd/mm/yyyy')
     await userEvent.click(canvas.getAllByRole('spinbutton')[0])
     await userEvent.keyboard('28102026')
@@ -71,8 +71,8 @@ export const TimeHourCycle: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    const twelve = canvas.getByRole('group', { name: 'Shift starts (12-hour)' })
-    const twentyFour = canvas.getByRole('group', { name: 'Shift starts (24-hour)' })
+    const twelve = canvas.getByRole('group', { name: 'Shift Starts (12-hour)' })
+    const twentyFour = canvas.getByRole('group', { name: 'Shift Starts (24-hour)' })
     // React Aria wraps the time in bidi isolates, hence \W around the digits.
     await expect(twelve).toHaveTextContent(/^\W*2:30\W*pm$/i)
     await expect(twentyFour).toHaveTextContent(/^\W*14:30\W*$/)

@@ -49,7 +49,7 @@ type Story = StoryObj<typeof meta>
 /** Typing six digits completes the code. */
 export const Default: Story = {
   play: async ({ args, canvas }) => {
-    await userEvent.type(canvas.getByLabelText(/Code sent to/), '482913')
+    await userEvent.type(canvas.getByLabelText(/Code Sent to/), '482913')
     await waitFor(() => expect(args.onComplete).toHaveBeenCalledWith('482913'))
   },
 }

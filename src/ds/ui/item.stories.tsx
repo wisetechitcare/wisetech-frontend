@@ -95,6 +95,6 @@ export const LinkRow: Story = {
     </Item>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('link', { name: /Leave policy/ })).toHaveAttribute('href', '#leave-policy')
+    await expect(canvas.getByRole('link', { name: /Leave Policy/ })).toHaveAttribute('href', '#leave-policy')
   },
 }
