@@ -33,13 +33,13 @@ existing API (the way `WtButton` now renders the v2 Button).
 | --- | --- | --- |
 | `GlassCard`, `GlassSurface`, `KTCard`, Bootstrap `.card` | Components/Card | ✅ |
 | `GlassDialog` + `GlassHeader` + `GlassDialogActions`, `ConfigureFormDialog`, `UnsavedChangesModal`, `ConfirmDiscardDialog` | Patterns/Form Dialog | ✅ |
-| `WtFormDialog` (long form with section nav) | Patterns/Form Dialog + section nav | 🔨 |
+| `WtFormDialog` (long form with section nav) | Patterns/Form Dialog `sections` | ✅ |
 | `WtSheet`, `ShadcnDrawer` | Components/Sheet; Components/Drawer (phones) | ✅ |
 | `FilterSheet`, `FilterSheetButton` | Patterns/Filter Sheet (draft → Apply, count on the button) | ✅ |
-| `DrillDownDialog` | Components/Dialog (large) | 🔨 |
+| `DrillDownDialog` | Patterns/Form Dialog — read-only, `size="xl"` | ✅ |
 | `OptionPickerDialog` | Components/Combobox — a single value is never a dialog | ✅ |
 | `WtStepper` | Patterns/Stepper | ✅ |
-| `WtWizardDialog` | Patterns/Stepper inside Form Dialog | 🔨 |
+| `WtWizardDialog` | Patterns/Form Dialog `subheader` (Stepper) + `footer` (Back / Next) | ✅ |
 
 ## Data display
 

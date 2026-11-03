@@ -1,13 +1,15 @@
 import * as React from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, screen, userEvent, waitFor } from 'storybook/test'
-import { Building2 } from 'lucide-react'
+import { BarChart3, Briefcase, Building2, IdCard, Landmark, UserRound, UserPlus } from 'lucide-react'
 import { animationsSettled } from '@/ds/lib/motion'
 import { Button } from '@/ds/ui/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
 import { Textarea } from '@/ds/ui/textarea'
+import { DescriptionList } from './description-list'
 import { FormDialog } from './form-dialog'
+import { Stepper } from './stepper'
 
 const onSave = fn()
 
@@ -83,7 +85,7 @@ export const Submit: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Add branch' }))
     const dialog = await screen.findByRole('dialog', { name: 'Add branch' })
-    await expect(dialog).toBeVisible()
+    await waitFor(() => expect(dialog).toBeVisible())
     await userEvent.type(screen.getByLabelText('Branch name'), 'Pune')
     await userEvent.click(screen.getAllByRole('button', { name: 'Add branch' }).at(-1)!)
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('Pune'))
@@ -115,6 +117,138 @@ export const CleanCloseIsImmediate: Story = {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    await animationsSettled()
+  },
+}
+
+function OpenButton({ label, children }: { label: string; children: (open: boolean, setOpen: (o: boolean) => void) => React.ReactNode }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>{label}</Button>
+      {children(open, setOpen)}
+    </>
+  )
+}
+
+const SECTIONS = [
+  { id: 'sec-personal', label: 'Personal', icon: <UserRound aria-hidden /> },
+  { id: 'sec-job', label: 'Job', icon: <Briefcase aria-hidden /> },
+  { id: 'sec-identity', label: 'Identity', icon: <IdCard aria-hidden /> },
+  { id: 'sec-bank', label: 'Bank', icon: <Landmark aria-hidden /> },
+]
+
+/** Long form (live `WtFormDialog`): a section rail on wide screens jumps to each part. */
+export const LongFormWithSections: Story = {
+  render: () => (
+    <OpenButton label="Edit employee">
+      {(open, setOpen) => (
+        <FormDialog open={open} onOpenChange={setOpen} title="Edit employee" icon={<UserRound />} size="lg" formId="edit-emp" sections={SECTIONS}>
+          <form id="edit-emp" onSubmit={(e) => e.preventDefault()} className="space-y-8">
+            {SECTIONS.map((sec) => (
+              <section key={sec.id} id={sec.id} aria-labelledby={`${sec.id}-h`} className="scroll-mt-4 space-y-4">
+                <h3 id={`${sec.id}-h`} className="text-base font-medium">{sec.label}</h3>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor={`${sec.id}-a`}>{sec.label} field one</FieldLabel>
+                    <Input id={`${sec.id}-a`} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`${sec.id}-b`}>{sec.label} field two</FieldLabel>
+                    <Input id={`${sec.id}-b`} />
+                  </Field>
+                </FieldGroup>
+              </section>
+            ))}
+          </form>
+        </FormDialog>
+      )}
+    </OpenButton>
+  ),
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Edit employee' }))
+    const nav = await screen.findByRole('navigation', { name: 'Form sections' })
+    await expect(nav).toBeInTheDocument()
+    await expect(screen.getByRole('link', { name: 'Bank' })).toHaveAttribute('href', '#sec-bank')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await animationsSettled()
+  },
+}
+
+const WIZARD = [{ label: 'Candidate' }, { label: 'Offer' }, { label: 'Review' }]
+
+function OfferWizard() {
+  const [open, setOpen] = React.useState(false)
+  const [step, setStep] = React.useState(0)
+  const last = step === WIZARD.length - 1
+  return (
+    <>
+      <Button onClick={() => { setStep(0); setOpen(true) }}>Make an offer</Button>
+      <FormDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Make an offer"
+        icon={<UserPlus />}
+        tone="purple"
+        dirty={step > 0}
+        subheader={<Stepper steps={WIZARD} activeStep={step} />}
+        footer={(requestClose) => (
+          <>
+            <Button variant="ghost" onClick={requestClose}>Cancel</Button>
+            <div className="flex gap-2">
+              {step > 0 && <Button variant="outline" onClick={() => setStep(step - 1)}>Back</Button>}
+              <Button onClick={() => (last ? setOpen(false) : setStep(step + 1))}>{last ? 'Send offer' : 'Next'}</Button>
+            </div>
+          </>
+        )}
+      >
+        <p className="text-sm text-muted-foreground">Step content for “{WIZARD[step].label}”.</p>
+      </FormDialog>
+    </>
+  )
+}
+
+/** Wizard (live `WtWizardDialog`): Stepper above, Back / Next / Finish below; closing mid-way asks first. */
+export const Wizard: Story = {
+  render: () => <OfferWizard />,
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Make an offer' }))
+    await screen.findByRole('dialog', { name: 'Make an offer' })
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await expect(screen.getByText(/Step content for “Offer”/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await expect(await screen.findByRole('alertdialog', { name: 'Discard unsaved changes?' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await animationsSettled()
+  },
+}
+
+/** Read-only, large (live `DrillDownDialog`): no `formId`, one Close button. */
+export const ReadOnlyDrillDown: Story = {
+  render: () => (
+    <OpenButton label="View breakdown">
+      {(open, setOpen) => (
+        <FormDialog open={open} onOpenChange={setOpen} title="Late arrivals — October" description="By branch" icon={<BarChart3 />} tone="amber" size="xl">
+          <DescriptionList
+            rows={[
+              { label: 'Mumbai — Andheri', value: '41' },
+              { label: 'Pune', value: '18' },
+              { label: 'Dubai', value: '7' },
+              { label: 'Total', value: '66', strong: true },
+            ]}
+          />
+        </FormDialog>
+      )}
+    </OpenButton>
+  ),
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'View breakdown' }))
+    await screen.findByRole('dialog', { name: 'Late arrivals — October' })
+    await expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getAllByRole('button', { name: 'Close' }).at(-1)!)
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await animationsSettled()
   },
 }
