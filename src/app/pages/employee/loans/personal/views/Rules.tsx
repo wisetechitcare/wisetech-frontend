@@ -1,4 +1,5 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { canDelete } from "@utils/can";
 import {
   safeJsonParse } from '@utils/safeJson';
 import { KTIcon } from '@metronic/helpers';
@@ -145,7 +146,7 @@ const LoanRules = ({ fromAdmin = false }: { fromAdmin?: boolean }) => {
                                                 <KTIcon iconName="pencil" className="fs-3" />
                                             </Button>
                                         )}
-                                        {fromAdmin && hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.editOthers) && (
+                                        {fromAdmin && canDelete('finance.loans') && (
                                             <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
                                                 className="pr-0"
                                                 onClick={() => handleDelete({ name, value })}

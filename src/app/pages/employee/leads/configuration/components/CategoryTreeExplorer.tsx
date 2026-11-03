@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
+import { IfCanDelete } from '@app/modules/common/components/ui/DeleteSection';
 import { ProjectItem } from '@models/clientProject';
 import { C, FONT, SP, RADIUS } from '@app/modules/configuration';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
@@ -113,7 +114,7 @@ const SubRow: React.FC<{
       </div>
       <div className="cte-actions" style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
         <IconBtn icon="bi-pencil" title="Edit subcategory" color="#4f82c4" onClick={onEdit} />
-        <IconBtn icon="bi-trash" title="Delete subcategory" color={C.danger} onClick={onDelete} />
+        <IfCanDelete><IconBtn icon="bi-trash" title="Delete subcategory" color={C.danger} onClick={onDelete} /></IfCanDelete>
       </div>
     </div>
   );
@@ -188,7 +189,7 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
         <div className="cte-actions" style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
           <IconBtn icon="bi-plus-lg" title="Add subcategory" color="#16a34a" onClick={() => onAddSubcategory(category.id)} />
           <IconBtn icon="bi-pencil" title="Edit category" color="#4f82c4" onClick={onCategoryEdit} />
-          <IconBtn icon="bi-trash" title="Delete category" color={C.danger} onClick={onCategoryDelete} />
+          <IfCanDelete><IconBtn icon="bi-trash" title="Delete category" color={C.danger} onClick={onCategoryDelete} /></IfCanDelete>
         </div>
       </div>
 

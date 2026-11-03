@@ -7,6 +7,7 @@ import { WtButton, WtIconButton, toast, confirmDialog } from "@app/modules/commo
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
 import { apiErrorMessage } from "@utils/apiError";
+import { canDelete } from "@utils/can";
 import {
   listBillingRequests, submitBillingRequest, deleteBillingRequest,
   cancelBillingRequest, duplicateBillingRequest,
@@ -232,7 +233,7 @@ const BillingRequestsPage: React.FC = () => {
             <KTIcon iconName="cross-circle" className="fs-6" />
           </WtIconButton>
         )}
-        {r.canDelete && r.status === "DRAFT" && (
+        {r.canDelete && r.status === "DRAFT" && canDelete("billing.requests") && (
           <WtIconButton title="Delete" color="#C0392B" onClick={() => void remove(r)} sx={{ width: 28, height: 28, borderRadius: "8px" }} disabled={busy}>
             <KTIcon iconName="trash" className="fs-6" />
           </WtIconButton>

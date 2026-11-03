@@ -11,6 +11,7 @@ import {
   getAllStakeholders,
   deleteStakeholderService,
 } from "@services/projects";
+import { useCanDeleteHere, withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import React, { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -128,6 +129,7 @@ const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
   index, total, name, color, handleProps, onNudge, onEdit, onDelete, disabled,
 }) => {
   const [hov, setHov] = useState(false);
+  const canDeleteHere = useCanDeleteHere();
   const isLast = index === total - 1;
   const dotColor = color || '#cccccc';
 
@@ -189,9 +191,11 @@ const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
         </Button>
 
         {/* Delete button */}
+        {canDeleteHere && (
         <Button variant="ghost" size="icon-xs" title="Delete" aria-label="Delete" onClick={onDelete} style={iconBtn(C.danger)}>
           <AppIcon name="bi-trash" className="fs-9" />
         </Button>
+        )}
       </div>
 
       {/* Connector arrow */}
@@ -607,4 +611,4 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
   );
 };
 
-export default ProjectConfiguration;
+export default withDeleteSection<ProjectConfigurationProps>('projects', ProjectConfiguration);

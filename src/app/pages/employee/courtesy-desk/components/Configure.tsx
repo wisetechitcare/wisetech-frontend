@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import { toast } from "react-toastify";
 import {
   ConfigPageLayout,
@@ -34,7 +35,7 @@ const runConfig = (p: Promise<unknown>, ok: string) =>
 
 type ModalKind = "occasion" | "status" | "giftRunStatus" | "mode" | "unit" | null;
 
-export default function Configure() {
+function Configure() {
   const desk = useCourtesyDesk();
   const { ask, dialog: confirmDialog } = useConfirmDialog();
   const [modal, setModal] = useState<ModalKind>(null);
@@ -338,3 +339,5 @@ export default function Configure() {
     </>
   );
 }
+
+export default withDeleteSection('gift-management', Configure);

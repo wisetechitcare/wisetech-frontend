@@ -32,6 +32,7 @@ import {
 } from "@app/modules/common/inputs/ColorInDropdwon";
 import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
 import { apiErrorMessage } from "@utils/apiError";
+import { canDelete } from "@utils/can";
 import { MRT_ColumnDef } from "material-react-table";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@redux/store";
@@ -410,6 +411,7 @@ export default function DriveDetail() {
 
   const deliveryStatuses = desk.config.deliveryStatuses;
   const giftRunStatuses = desk.config.giftRunStatuses;
+  const canRemove = canDelete("gift-management");
   const deliveryModes = desk.config.deliveryModes;
   const [filters, setFilters] = useState<GiftRunFilters>(
     EMPTY_GIFT_RUN_FILTERS,
@@ -1310,7 +1312,8 @@ export default function DriveDetail() {
               <SolidChipPickMenu
                 valueId={drive.status}
                 heading="SET GIFT RUN STATUS"
-                options={giftRunStatuses}
+                // Archiving is a delete-level action; without Delete the option is hidden (unless already archived).
+                options={canRemove ? giftRunStatuses : giftRunStatuses.filter((s) => s.id !== "ARCHIVED" || drive.status === "ARCHIVED")}
                 onPick={(status) => {
                   const needsConfirm =
                     status === "COMPLETED" ||
@@ -1401,6 +1404,7 @@ export default function DriveDetail() {
                     <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrow-counterclockwise" /></span>
                     Unarchive
                   </Button>
+                  {canRemove && (
                   <Button
                     size="sm"
                     variant="tinted"
@@ -1426,6 +1430,7 @@ export default function DriveDetail() {
                     <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-trash" /></span>
                     Delete
                   </Button>
+                  )}
                 </>
               ) : null}
               <GiftHistoryButton kind="drive" id={drive.id} />
@@ -1618,7 +1623,7 @@ export default function DriveDetail() {
               <Button onClick={applyBulkFields}>
                 {selectedRows.length > 0 ? "Apply to selected" : "Apply to all"}
               </Button>
-              {selectedRows.length > 0 ? (
+              {selectedRows.length > 0 && canRemove ? (
                 <Button variant="destructive" onClick={removeSelectedFromRun}>
                   Remove from Gift Run
                 </Button>

@@ -16,7 +16,7 @@ import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
-import { canSection, canViewCommercial } from "@utils/can";
+import { canDelete, canSection, canViewCommercial } from "@utils/can";
 import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
@@ -485,6 +485,7 @@ const ClientCompaniesMain = ({
                   >
                     <KTIcon iconName="pencil" className="fs-3" />
                   </Button>
+                  {canDelete("crm.companies") && (
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -493,6 +494,7 @@ const ClientCompaniesMain = ({
                   >
                     <KTIcon iconName="trash" className="fs-3" />
                   </Button>
+                  )}
                 </div>
               ),
             },

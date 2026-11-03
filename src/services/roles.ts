@@ -120,7 +120,7 @@ export const removeEmployeeFromRole = async (roleId: string, employeeId: string)
  * @api "api/roles/:id/access"
  */
 // `fullAccess` is true for Super Admin and Admin: every section, not editable.
-export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Record<string, 'view' | 'edit'>; deniedTabs?: string[]; fullAccess?: boolean; editable?: boolean; code?: string | null; isSystem?: boolean; name?: string }> => {
+export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Record<string, 'view' | 'edit' | 'delete'>; deniedTabs?: string[]; fullAccess?: boolean; editable?: boolean; code?: string | null; isSystem?: boolean; name?: string }> => {
     const endpoint = `${API_BASE_URL}/${ROLES.GET_ROLE_ACCESS.replace(":id", roleId)}`;
     const { data } = await axios.get(endpoint);
     return data?.data;
@@ -130,7 +130,7 @@ export const getRoleAccess = async (roleId: string): Promise<{ sectionLevels: Re
  * Set one section's access level for the whole role. level ∈ none | view | edit.
  * @api "api/roles/:id/access/section"
  */
-export const setRoleSectionAccess = async (roleId: string, module: string, level: 'none' | 'view' | 'edit') => {
+export const setRoleSectionAccess = async (roleId: string, module: string, level: 'none' | 'view' | 'edit' | 'delete') => {
     const endpoint = `${API_BASE_URL}/${ROLES.SET_ROLE_SECTION_ACCESS.replace(":id", roleId)}`;
     const { data } = await axios.put(endpoint, { module, level });
     invalidateRequestCache('roles');
@@ -146,4 +146,25 @@ export const setRoleTabAccess = async (roleId: string, section: string, tab: str
     const { data } = await axios.put(endpoint, { section, tab, allowed });
     invalidateRequestCache('roles');
     return data?.data;
+}
+/** A role member's own setting, which beats the role: a section level, or a tab ('on' / 'off'). */
+export interface RoleMemberOverride {
+    employeeId: string;
+    name: string;
+    avatar?: string | null;
+    /** A section, or `<section>/<tab>`. */
+    section: string;
+    level: 'none' | 'view' | 'edit' | 'delete' | 'on' | 'off';
+    expiresAt: string | null;
+}
+
+/**
+ * Members of the role (in your organization) with their own settings — asked on save whether to
+ * keep them or send them back to the role.
+ * @api "api/roles/:id/overrides"
+ */
+export const getRoleOverrides = async (roleId: string): Promise<RoleMemberOverride[]> => {
+    const endpoint = `${API_BASE_URL}/${ROLES.GET_ROLE_OVERRIDES.replace(":id", roleId)}`;
+    const { data } = await axios.get(endpoint);
+    return data?.data || [];
 }

@@ -11,7 +11,7 @@ import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import { fetchAllCountries, fetchAllStates, fetchAllCities } from "@services/options";
 import { deleteConfirmation } from "@utils/modal";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import { getAllClientContacts } from "@services/companies";
 import Loader from "@app/modules/common/utils/Loader";
 
@@ -178,6 +178,7 @@ const CompaniesBranch = ({
             >
               <KTIcon iconName="pencil" className="fs-3" />
             </Button>
+            {canDelete("crm.companies") && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -186,6 +187,7 @@ const CompaniesBranch = ({
             >
               <KTIcon iconName="trash" className="fs-3" />
             </Button>
+            )}
           </div>
         ),
       }] : []),

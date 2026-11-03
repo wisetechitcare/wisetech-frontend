@@ -30,6 +30,7 @@ import {
 import { T } from "@app/modules/common/components/ui/tokens";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
+import { canDelete } from "@utils/can";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
@@ -175,7 +176,7 @@ export default function PeopleGroupsList() {
                   });
                 }}
               />
-              {g.status === "ACTIVE" ? (
+              {g.status === "ACTIVE" ? canDelete("gift-management") && (
                 <ActionIconButton
                   icon={<ArchiveOutlinedIcon sx={{ fontSize: 18 }} />}
                   title="Archive group"
@@ -222,6 +223,7 @@ export default function PeopleGroupsList() {
                         )
                     }
                   />
+                  {canDelete("gift-management") && (
                   <ActionIconButton
                     iconName="trash"
                     title={
@@ -251,6 +253,7 @@ export default function PeopleGroupsList() {
                       });
                     }}
                   />
+                  )}
                 </>
               )}
               <ActionIconButton

@@ -48,7 +48,8 @@ export interface MediaActions {
   download: (id: string) => void;
   edit: (id: string) => void;
   setCover: (id: string) => void;
-  remove: (ids: string[]) => void;
+  /** Absent without Projects delete access. */
+  remove?: (ids: string[]) => void;
   toggleSelect: (id: string) => void;
 }
 
@@ -225,13 +226,17 @@ function MediaActionsMenu({
             <Star /> Set as Project Cover
           </DropdownMenuItem>
         )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          onClick={() => actions.remove([item.id])}
-        >
-          <Trash2 /> Delete
-        </DropdownMenuItem>
+        {actions.remove && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => actions.remove?.([item.id])}
+            >
+              <Trash2 /> Delete
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

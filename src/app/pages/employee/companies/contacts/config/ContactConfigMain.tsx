@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
 import FormerContactsSetting from "./FormerContactsSetting";
 import AuditWindowSetting from "../../AuditWindowSetting";
@@ -147,4 +148,4 @@ const ContactConfigMain = () => {
   );
 };
 
-export default ContactConfigMain;
+export default withDeleteSection('crm.contacts', ContactConfigMain);

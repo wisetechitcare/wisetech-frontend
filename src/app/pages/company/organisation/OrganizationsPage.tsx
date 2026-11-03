@@ -6,6 +6,7 @@ import { safeHtml } from '@app/modules/common/components/ui/safeHtml';
 import { IOrgNode, IOrgStats, IOrgBranchNode } from '@models/company';
 import { fetchOrganizationTree, fetchOrganizationStats, deleteOrganizationById } from '@services/company';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
+import { canDelete } from '@utils/can';
 import OrgTree, { ORG_TONES } from '@app/modules/common/components/OrgTree';
 import { CountUp } from '@/ds/effects/count-up';
 import OrganizationFormModal from './OrganizationFormModal';
@@ -227,7 +228,7 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
                   ? (parent) => setModal({ show: true, parent: { id: parent.id, name: parent.name } })
                   : undefined
               }
-              onDeleteOrg={handleDelete}
+              onDeleteOrg={canDelete('settings.profile') ? handleDelete : undefined}
               onViewBranchEmployees={(branch) => setEmpModal({ show: true, branch })}
             />
           )}

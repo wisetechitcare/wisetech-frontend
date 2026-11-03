@@ -7,8 +7,9 @@ import { AppIcon, WtButton, WtIconButton, WtTooltip } from "@app/modules/common/
 import { Item } from "@/ds/ui/item";
 import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
-import type { EffLevel } from "./accessControlTypes";
-import { SECTION_TABS } from "@utils/sectionTabs";
+import { atLeastWrite, type EffLevel } from "./accessControlTypes";
+import { isFullAccess } from "@utils/can";
+import { DELETABLE_SECTIONS, NOTHING_TO_DELETE, SECTION_TABS } from "@utils/sectionTabs";
 import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS, SupportAccessPolicyChip } from "@app/modules/common/components/SecurityPin";
 
 const ACCENT = "#1E3A8A";
@@ -96,7 +97,7 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
   const allCollapsed = open.size === 0;
   const isOpenLevel = (m: string) => (levels[m] || "none") !== "none";
 
-  const columns = employee ? ["Read", "Read all", "Write", "Commercials"] : ["Read", "Write"];
+  const columns = employee ? ["Read", "Read all", "Write", "Delete", "Commercials"] : ["Read", "Write", "Delete"];
   const rowPad = (depth: number): React.CSSProperties => ({ padding: "7px 10px", paddingLeft: 10 + depth * 22 });
   const chevron = (isOpen: boolean, visible = true) => (
     <span style={{ width: 16, textAlign: "center", flexShrink: 0, color: "#8893a0", transition: "transform .18s ease", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", visibility: visible ? "visible" : "hidden" }}>
@@ -109,8 +110,10 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
     // Read / Write set them all.
     const level = kids ? compositeLevel(kids, levels) : levels[module] || "none";
     const setLevel = (l: EffLevel) => (kids ? setCompositeLevel(kids, l, onSetLevel) : onSetLevel(module, l));
-    const read = level === "view" || level === "edit";
-    const write = level === "edit";
+    const read = level !== "none";
+    const write = atLeastWrite(level);
+    const del = level === "delete";
+    const deletable = kids ? kids.some((c) => DELETABLE_SECTIONS.has(c.module)) : DELETABLE_SECTIONS.has(module);
     const isCustom = !kids && (customModules?.has(module) ?? false);
     const rec = recordCells?.[module];
     return (
@@ -118,6 +121,7 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
         <Cell><Checkbox title={`Read ${label}`} checked={read} disabled={readOnly} onChange={() => setLevel(read ? "none" : "view")} /></Cell>
         {employee && <Cell>{rec && <Checkbox {...rec.readAll} disabled={readOnly || rec.readAll.disabled} />}</Cell>}
         <Cell><Checkbox title={`Write ${label}`} checked={write} disabled={readOnly} onChange={() => setLevel(write ? "view" : "edit")} /></Cell>
+        <Cell><Checkbox title={!deletable ? NOTHING_TO_DELETE : `${isFullAccess() ? "Delete" : "Only a Super Admin can give Delete on"} ${label}`} checked={del && deletable} disabled={readOnly || !deletable || !isFullAccess()} onChange={() => setLevel(del ? "edit" : "delete")} /></Cell>
         {employee && <Cell>{rec && <Checkbox {...rec.commercial} disabled={readOnly || rec.commercial.disabled} />}</Cell>}
         {employee && (
           <Cell width={ACTION}>

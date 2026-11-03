@@ -11,6 +11,7 @@ import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
 import UnarchiveOutlinedIcon from "@mui/icons-material/UnarchiveOutlined";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
+import { canDelete } from "@utils/can";
 import { MRT_ColumnDef } from "material-react-table";
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
@@ -313,6 +314,7 @@ export default function DrivesList() {
                       });
                     }}
                   />
+                  {canDelete("gift-management") && (
                   <ActionIconButton
                     iconName="trash"
                     title={`Delete ${GIFT_RUN_LABEL}`}
@@ -339,8 +341,9 @@ export default function DrivesList() {
                       });
                     }}
                   />
+                  )}
                 </>
-              ) : (
+              ) : canDelete("gift-management") && (
                 <ActionIconButton
                   icon={<ArchiveOutlinedIcon sx={{ fontSize: 18 }} />}
                   title={`Archive ${GIFT_RUN_LABEL}`}

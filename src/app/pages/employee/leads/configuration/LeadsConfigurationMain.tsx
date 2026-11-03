@@ -1,4 +1,5 @@
 import { getAllLeadStatus, deleteLeadStatus, getAllLeadReferralType, deleteLeadReferralType, getAllLeadDirectSource, deleteLeadDirectSource, getAllLeadCancellationReasons, deleteLeadCancellationReason, getAllLeadPoStatuses, deleteLeadPoStatus } from "@services/lead";
+import { useCanDeleteHere, withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import { getAllMeetingSchedules, deleteMeetingSchedule } from "@services/meetingSchedule";
 import MeetingScheduleModal from "./components/MeetingScheduleModal";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
@@ -132,6 +133,7 @@ const MeetingScheduleChip: React.FC<{
   onDelete: () => void;
 }> = ({ schedule, onEdit, onDelete }) => {
   const [hov, setHov] = useState(false);
+  const canDeleteHere = useCanDeleteHere();
   const bracketCount = schedule.brackets?.length || 0;
 
   return (
@@ -182,6 +184,7 @@ const MeetingScheduleChip: React.FC<{
           >
             <AppIcon name="bi-pencil" className="fs-8" />
           </Button>
+          {canDeleteHere && (
           <Button
             variant="tinted"
             size="icon-xs"
@@ -191,6 +194,7 @@ const MeetingScheduleChip: React.FC<{
           >
             <AppIcon name="bi-trash" className="fs-8" />
           </Button>
+          )}
         </div>
       </div>
     </div>
@@ -1060,4 +1064,4 @@ const LeadsConfigurationMain = () => {
   );
 };
 
-export default LeadsConfigurationMain;
+export default withDeleteSection('crm.leads', LeadsConfigurationMain);
