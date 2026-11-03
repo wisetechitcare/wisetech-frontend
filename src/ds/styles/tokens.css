@@ -179,6 +179,12 @@
     50% { transform: rotate(9deg) scale(1.12); }
     75% { transform: rotate(-5deg) scale(1.06); }
   }
+  /* Checkbox (src/ds/ui/checkbox.tsx): bounce feedback on toggle, movin.design's
+     "Bounce" checkbox style. Triggered via data-bounce, not on initial mount.
+     Keyframes live at the bottom of this file so plain CSS (main.css) can use them too. */
+  --animate-checkbox-bounce-in: checkbox-bounce-in 440ms ease;
+  --animate-checkbox-bounce-out: checkbox-bounce-out 440ms ease;
+
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
 
   --color-background: var(--background);
@@ -268,4 +274,25 @@
 /* Numbers in tables, money and dates line up. */
 @utility tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Checkbox bounce (see --animate-checkbox-*). Top-level, not in @theme, so they are always emitted. */
+@keyframes checkbox-bounce-in {
+  0% { transform: scale(1); }
+  25% { transform: scale(0.8); }
+  55% { transform: scale(1.22); }
+  75% { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+@keyframes checkbox-bounce-out {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.14); }
+  65% { transform: scale(0.93); }
+  100% { transform: scale(1); }
+}
+/* CSS twin of animate-ui's "pop" tick (scale 0.5 + 2px blur, underdamped spring) for non-ds checkboxes. */
+@keyframes checkbox-tick-pop {
+  0% { transform: scale(0.5); filter: blur(2px); opacity: 0; }
+  60% { transform: scale(1.08); filter: blur(0); opacity: 1; }
+  100% { transform: scale(1); }
 }

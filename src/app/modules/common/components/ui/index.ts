@@ -15,7 +15,7 @@ export * from './ClearFiltersButton';
 // tintedSwitch sx, raw <Switch>, and Bootstrap form-switch).
 export { WtSwitch, WtSwitchField, wtSwitchSx } from './switch';
 export type { WtSwitchProps, WtSwitchFieldProps, WtSwitchSize } from './switch';
-// Canonical checkbox — same brand tint / size contract as WtSwitch.
+// Canonical checkbox — same shape as the ds/Storybook checkbox (src/ds/ui/checkbox.tsx).
 // Theme `MuiCheckbox` defaultProps also apply this look app-wide (see wisetechTheme).
 export {
   WtCheckbox,
@@ -25,6 +25,7 @@ export {
   wtCheckboxIcons,
   wtCheckboxThemeDefaultProps,
   wtCheckboxThemeRootSx,
+  installCheckboxBounce,
 } from './checkbox';
 export type { WtCheckboxProps, WtCheckboxFieldProps, WtCheckboxSize } from './checkbox';
 export { ToneChip, toneAlpha } from './chips';
