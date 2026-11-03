@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, ChevronDown } from "lucide-react"
+import { Check } from "lucide-react"
 import { defaultCountries, FlagImage, parseCountry, usePhoneInput, type CountryIso2 } from "react-international-phone"
 import { cn } from "@/ds/lib/utils"
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/ds/ui/command"
@@ -14,16 +14,7 @@ const COUNTRIES = defaultCountries.map(parseCountry)
  * Decorative: the country name and dial code next to it carry the meaning.
  */
 function Flag({ iso2, size = 20 }: { iso2: string; size?: number }) {
-  // The hairline ring keeps white flags (Japan, Cyprus) visible on a white surface.
-  return (
-    <FlagImage
-      iso2={iso2}
-      size={`${size}px`}
-      alt=""
-      aria-hidden
-      className="shrink-0 rounded-[3px] ring-1 ring-foreground/10"
-    />
-  )
+  return <FlagImage iso2={iso2} size={`${size}px`} alt="" aria-hidden className="shrink-0" />
 }
 
 /** An example number in the country's own grouping ("50 123 4567"), shown as the placeholder hint. */
@@ -77,13 +68,17 @@ export function PhoneField({
               <InputGroupButton
                 variant="ghost"
                 size="sm"
-                className="gap-1 px-1.5"
-                aria-label={`Country: ${country.name} (+${country.dialCode})`}
+                // Flag and code as one group, nothing drawn around them: no fill, no hover box. The code takes
+                // the input's typography so "+971 50 123 4567" reads as one number; only keyboard focus shows
+                // an outline (required for accessibility).
+                className="gap-1.5 px-1 tracking-normal hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
+                // Starts with the visible text, so voice control ("click +91") finds it.
+                aria-label={`+${country.dialCode} ${country.name}, country code`}
               />
             }
           >
             <Flag iso2={country.iso2} />
-            <ChevronDown aria-hidden className="size-3.5 text-muted-foreground" />
+            <span className="tabular text-base font-normal text-muted-foreground md:text-sm">+{country.dialCode}</span>
           </PopoverTrigger>
           <PopoverContent align="start" sideOffset={8} className="w-80 p-0">
             <Command>
@@ -110,11 +105,8 @@ export function PhoneField({
             </Command>
           </PopoverContent>
         </Popover>
-        {/* The dial code reads as the start of the number: the input's own typography, not the button's. */}
-        <span aria-hidden className="h-5 w-px bg-border" />
-        <span aria-hidden className="tabular text-base font-normal text-muted-foreground md:text-sm">
-          +{country.dialCode}
-        </span>
+        {/* Separator between the flag + code group and the number. */}
+        <span aria-hidden data-slot="phone-field-separator" className="ml-1 h-5 w-px bg-border" />
       </InputGroupAddon>
       <InputGroupInput
         id={id}
