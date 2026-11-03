@@ -62,7 +62,7 @@ const preview: Preview = {
       test: 'error',
     },
     options: {
-      storySort: { order: ['Introduction', 'Foundations', 'Components', 'Patterns', 'Effects', 'Screens'] },
+      storySort: { order: ['Introduction', 'Kit Map', 'Foundations', 'Components', 'Patterns', 'Effects', 'Screens'] },
     },
   },
 }

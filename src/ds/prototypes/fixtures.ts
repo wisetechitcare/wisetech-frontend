@@ -33,9 +33,5 @@ export const STATUS_META: Record<Status, { label: string; variant: "success" | "
   remote: { label: "Remote", variant: "brand" },
 }
 
-export const initials = (name: string) =>
-  name
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
+// The kit's one initials helper (Patterns/Person); re-exported so the prototypes keep their import.
+export { initials } from "@/ds/patterns/person"
