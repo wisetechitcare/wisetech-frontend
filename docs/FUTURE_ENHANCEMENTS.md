@@ -87,9 +87,10 @@ Format: **what** — evidence (file / screen) — suggested fix.
   column drag (5), full screen (5), resizing (4), grouping (4), expandable rows (4), saved column preferences
   (`useTablePreferences`, all screens) and export. — Build each into the kit Data Table before any screen moves,
   so no screen silently loses one (Kit Map lists them).
-- **Phone Field flags show as letters on Windows** — `src/ds/patterns/phone-field.tsx` draws flags as regional-
-  indicator emoji (no CDN), which Windows renders as "IN", "AE". — Ship a local SVG flag set (no network) or show
-  the ISO code deliberately; keep the country name as the accessible label.
+- **Self-host the phone flags** — v2 Phone Field (fixed 2026-11-03: emoji flags rendered as letters on Windows)
+  now uses `react-international-phone`'s `FlagImage`, like the live `WtPhoneField`; both load Twemoji SVGs from
+  cdnjs. — Serve the SVGs from our own origin (pass `src` to `FlagImage`) so the field needs no third-party
+  request (CSP, offline, privacy).
 - **Imperative confirm API for v2** — the live `showDialog()` / `confirmDialog()` / `alertDialog()` (and the
   SweetAlert shim, 82 sites) render through `DialogServiceHost`. v2 has the `ConfirmDialog` component only. — At the
   Wave 1 swap, point `DialogServiceHost` at the v2 ConfirmDialog so the 82 imperative call sites change with no edits.

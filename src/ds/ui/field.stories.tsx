@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, userEvent, waitFor } from 'storybook/test'
 import { Search } from 'lucide-react'
+import { animationsSettled } from '@/ds/lib/motion'
 import { Card, CardContent } from './card'
 import { Checkbox } from './checkbox'
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from './combobox'
@@ -107,6 +108,26 @@ const DEPTS = [
 ]
 const BRANCHES = ['Mumbai — Andheri', 'Pune', 'Dubai']
 
+/**
+ * Every floated label must leave its control's rounded corner fully visible: the label's box (its masking
+ * background) has to start at or after the point where the top-left curve ends. Reads the real radius, so it
+ * holds for pills, textareas and anything added later.
+ */
+async function expectCornersVisible(root: HTMLElement) {
+  await animationsSettled()
+  const floated = [...root.querySelectorAll<HTMLElement>('[data-slot="field-label"]')].filter((l) => parseFloat(getComputedStyle(l).top) === 0)
+  for (const label of floated) {
+    const control = label.parentElement!.querySelector<HTMLElement>(
+      ':scope > :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])',
+    )!
+    const c = control.getBoundingClientRect()
+    const curve = Math.min(parseFloat(getComputedStyle(control).borderTopLeftRadius), c.height / 2)
+    const labelLeft = label.getBoundingClientRect().left - c.left
+    await expect(labelLeft, `"${label.textContent}" covers its control's rounded corner`).toBeGreaterThanOrEqual(curve)
+  }
+  return floated.length
+}
+
 /** The label's vertical position inside its field: ~20px resting in the control, 0 floated on its border. */
 const labelTop = (el: HTMLElement) => parseFloat(getComputedStyle(el.closest('[data-slot="field"]')!.querySelector('[data-slot="field-label"]')!).top)
 
@@ -171,7 +192,7 @@ export const FloatingLabels: Story = {
       </CardContent>
     </Card>
   ),
-  play: async ({ canvas }) => {
+  play: async ({ canvas, canvasElement }) => {
     const name = canvas.getByLabelText('Full name')
     // Empty and unfocused: the label rests inside the control.
     await expect(labelTop(name)).toBeGreaterThan(10)
@@ -186,6 +207,9 @@ export const FloatingLabels: Story = {
     await expect(labelTop(canvas.getByLabelText('Reporting manager'))).toBe(0)
     // The label stays the field's accessible name.
     await expect(canvas.getByRole('textbox', { name: 'Remarks' })).toBeInTheDocument()
+    // Floated labels never cover a rounded corner — check a pill and a textarea.
+    await userEvent.click(canvas.getByRole('textbox', { name: 'Remarks' }))
+    await expect(await expectCornersVisible(canvasElement)).toBeGreaterThanOrEqual(4)
   },
 }
 

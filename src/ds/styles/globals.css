@@ -85,7 +85,8 @@
   pointer-events: none;
   font-weight: 400;
   color: var(--color-muted-foreground);
-  transition: top 200ms var(--ease-spring), scale 200ms var(--ease-spring), color 150ms;
+  transition: top 200ms var(--ease-spring), scale 200ms var(--ease-spring), inset-inline-start 200ms var(--ease-spring),
+    color 150ms;
 }
 .field-floating:has([data-slot="number-field-decrement"]) > [data-slot="field-label"] {
   max-width: calc(100% - 5.5rem); /* resting: clear of the − / + steppers */
@@ -96,10 +97,19 @@
 .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
   top: 0;
   scale: 0.85;
-  max-width: calc(100% - 1.5rem);
+  /* Start after the control's rounded end so the whole curve stays visible (a 40px pill curves for 20px):
+     the label's masking box begins 2px past it. */
+  inset-inline-start: 1.625rem;
+  max-width: calc(100% - 2.5rem);
   font-weight: 500;
   color: var(--color-foreground);
   background: linear-gradient(to bottom, var(--field-surface) 55%, transparent 55%);
+}
+.field-floating:has(> [data-slot="textarea"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
+  inset-inline-start: 1.125rem; /* textarea corners are 12px */
+}
+.field-floating:has(> [data-slot="combobox-chips"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
+  inset-inline-start: 2.375rem; /* the chips box grows taller and reaches its full 2rem radius */
 }
 .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):focus-within > [data-slot="field-label"] {
   color: var(--color-primary);

@@ -1,9 +1,15 @@
 import { useLayoutEffect, type ReactNode } from 'react'
 import type { Decorator, Preview } from '@storybook/react-vite'
+import { configure } from 'storybook/test'
 import '../src/ds/styles/globals.css'
 import { KitProvider } from '../src/ds/provider'
 import { Toaster } from '../src/ds/ui/sonner'
 import { applyAppearance, BRAND_PRESETS, type Density, type Mode, type Surface } from '../src/ds/lib/appearance'
+
+// Story tests wait for animated overlays (Animate UI springs) to open and close. Testing Library's default
+// 1s wait was too tight on a loaded machine running the whole suite in parallel, so stories timed out at
+// random. One setting for every story instead of a timeout sprinkled into each.
+configure({ asyncUtilTimeout: 4000 })
 
 /**
  * WiseTech v2 appearance: the four axes the product exposes (theme, surface, density, tenant
