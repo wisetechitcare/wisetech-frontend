@@ -127,6 +127,8 @@ export const Sort: Story = {
     await expect(canvas.getByRole('columnheader', { name: /Joined/ })).toHaveAttribute('aria-sort', 'ascending')
     await expect(bodyRows(table)[0]).toHaveTextContent('2018.01.01')
     await expect(canvas.getByText('1–10 of 34')).toBeInTheDocument()
+    // Narrow screens scroll the table inside its frame, never the page.
+    await expect(getComputedStyle(table.closest('[data-slot="card"]')!).overflowX).toBe('auto')
   },
 }
 

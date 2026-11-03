@@ -18,6 +18,7 @@ import { useLocale } from "react-aria-components"
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Columns3, Rows3, Search } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
 import { Button } from "@/ds/ui/button"
+import { Card } from "@/ds/ui/card"
 import { Checkbox } from "@/ds/ui/checkbox"
 import {
   DropdownMenu,
@@ -306,7 +307,7 @@ export function DataTable<T>({
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border bg-card">
+      <Card className="gap-0 overflow-x-auto py-0">
         <Table style={{ minWidth }} aria-busy={loading || undefined}>
           <TableCaption className="sr-only">{caption}</TableCaption>
           <TableHeader className="sticky top-0 z-10 bg-card">
@@ -329,7 +330,7 @@ export function DataTable<T>({
           </TableHeader>
           <TableBody>{body}</TableBody>
         </Table>
-      </div>
+      </Card>
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <p aria-live="polite" className="tabular">
