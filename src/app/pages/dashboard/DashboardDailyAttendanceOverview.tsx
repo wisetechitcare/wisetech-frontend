@@ -1,14 +1,24 @@
-import { safeJsonParse } from '@utils/safeJson';
+import { safeJsonParse } from "@utils/safeJson";
 import { useCallback, useEffect, useState, useMemo, memo } from "react";
 import { Avatar, Box, CircularProgress } from "@mui/material";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { RootState } from "@redux/store";
 import { parseWorkingDays } from "@utils/workingDays";
-import { fetchAllEmployees, fetchEmployeesOnLeaveToday } from "@services/employee";
+import {
+  fetchAllEmployees,
+  fetchEmployeesOnLeaveToday,
+} from "@services/employee";
 import { fetchEmpsAttendance } from "@pages/employee/attendance/admin/views/overview/DailyAttendance";
-import { saveTotalEmployeeCount, saveEmployeesAttendance } from "@redux/slices/attendance";
+import {
+  saveTotalEmployeeCount,
+  saveEmployeesAttendance,
+} from "@redux/slices/attendance";
 import { Attendance } from "@models/employee";
-import { EARLY_CHECKOUT, EXTRA_DAYS, onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
+import {
+  EARLY_CHECKOUT,
+  EXTRA_DAYS,
+  onSiteAndHolidayWeekendSettingsOnOffName,
+} from "@constants/statistics";
 import { donutaDataLabel } from "@utils/statistics";
 import {
   serverIsNonWorkingDay,
@@ -37,24 +47,43 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 // drifts from StatDetailModal's menu the moment an option is added there.
 type SortOption = StatSortOption;
 
-
 // Modal shell and the employee card grid are shared with the admin Attendance
 // Overview - see the two components below, not a local copy.
-import StatDetailModal, { type StatSortOption } from '@app/modules/common/components/StatDetailModal';
-import { EmployeeStatGrid, StatEmptyState, type EmployeeStatItem } from '@app/modules/common/components/EmployeeStatGrid';
-import { ToneChip, AppIcon, WtTooltip, InlineNotice, TRIO } from '@app/modules/common/components/ui';
-import AttendanceDayTimes from '@app/modules/common/components/AttendanceDayTimes';
-import { getTimeTokens } from '@utils/timeFormat';
-import { useStoredState } from '@app/hooks/useStoredState';
+import StatDetailModal, {
+  type StatSortOption,
+} from "@app/modules/common/components/StatDetailModal";
+import {
+  EmployeeStatGrid,
+  StatEmptyState,
+  type EmployeeStatItem,
+} from "@app/modules/common/components/EmployeeStatGrid";
+import {
+  ToneChip,
+  AppIcon,
+  WtTooltip,
+  InlineNotice,
+  TRIO,
+} from "@app/modules/common/components/ui";
+import AttendanceDayTimes from "@app/modules/common/components/AttendanceDayTimes";
+import { getTimeTokens } from "@utils/timeFormat";
+import { useStoredState } from "@app/hooks/useStoredState";
+import { PeriodMode } from "@/constants/common";
 
-type ModalType = 'working' | 'leave' | 'late' | 'early' | 'extra' | 'absent' | null;
+type ModalType =
+  | "working"
+  | "leave"
+  | "late"
+  | "early"
+  | "extra"
+  | "absent"
+  | null;
 
 /**
  * The stat cards open their modal from a real <button> (kit Item rendered as one), so they are
  * reachable by keyboard. These classes undo the Item's own row layout (flex, border, padding) so
  * the card reads exactly as the plain block it was: content stacked, left-aligned, 1rem-ish inset.
  */
-const CARD_TRIGGER = 'block border-0 text-start p-3';
+const CARD_TRIGGER = "block border-0 text-start p-3";
 
 interface EmployeeWithAttendance {
   _id: string;
@@ -87,8 +116,8 @@ interface EmployeeWithAttendance {
  */
 const LEAVE_COLUMNS = [
   {
-    accessorKey: 'employeeName',
-    header: 'Employee',
+    accessorKey: "employeeName",
+    header: "Employee",
     Cell: ({ row }: any) => (
       <div className="d-flex align-items-center">
         <Avatar
@@ -98,26 +127,30 @@ const LEAVE_COLUMNS = [
           imgProps={{
             onError: (e) => {
               const target = e.target as HTMLImageElement;
-              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+              target.src = toAbsoluteUrl("media/svg/avatars/043-boy-18.svg");
             },
           }}
         />
         <div>
-          <div className="fw-bold">{row.original.employeeName || 'Unnamed Employee'}</div>
+          <div className="fw-bold">
+            {row.original.employeeName || "Unnamed Employee"}
+          </div>
           <small className="text-muted">{row.original.employeeCode}</small>
         </div>
       </div>
     ),
   },
-  { accessorKey: 'designation', header: 'Designation' },
+  { accessorKey: "designation", header: "Designation" },
   {
-    accessorKey: 'leaveType',
-    header: 'Leave Type',
-    Cell: ({ cell }: any) => <ToneChip dense tone="warning" label={String(cell.getValue() ?? '')} />,
+    accessorKey: "leaveType",
+    header: "Leave Type",
+    Cell: ({ cell }: any) => (
+      <ToneChip dense tone="warning" label={String(cell.getValue() ?? "")} />
+    ),
   },
   {
-    accessorKey: 'duration',
-    header: 'Duration',
+    accessorKey: "duration",
+    header: "Duration",
     Cell: ({ cell }: any) => (
       <div className="d-flex align-items-center">
         <AppIcon name="bi-calendar3" className="me-2" />
@@ -126,14 +159,19 @@ const LEAVE_COLUMNS = [
     ),
   },
   {
-    accessorKey: 'reason',
-    header: 'Reason',
-    Cell: ({ cell }: any) => (cell.getValue() ? (
-      <div className="text-truncate" style={{ maxWidth: '200px' }} title={cell.getValue()}>
-        <AppIcon name="bi-chat-square-text" className="me-1" />
-        {cell.getValue()}
-      </div>
-    ) : null),
+    accessorKey: "reason",
+    header: "Reason",
+    Cell: ({ cell }: any) =>
+      cell.getValue() ? (
+        <div
+          className="text-truncate"
+          style={{ maxWidth: "200px" }}
+          title={cell.getValue()}
+        >
+          <AppIcon name="bi-chat-square-text" className="me-1" />
+          {cell.getValue()}
+        </div>
+      ) : null,
   },
 ];
 
@@ -145,92 +183,130 @@ const DashboardDailyAttendanceOverview = () => {
   const [employeesOnLeave, setEmployeesOnLeave] = useState<any[]>([]);
   const [employesLeaveDatas, setEmployesLeaveDatas] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
-  const [allEmployees, setAllEmployees] = useState<EmployeeWithAttendance[]>([]);
+  const [allEmployees, setAllEmployees] = useState<EmployeeWithAttendance[]>(
+    [],
+  );
   const [showModal, setShowModal] = useState<ModalType>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [sortOption, setSortOption] = useState<SortOption>('none');
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortOption, setSortOption] = useState<SortOption>("none");
   const [dayWiseShifts, setDayWiseShifts] = useState<any[]>([]);
-  const [branchFilter, setBranchFilter] = useState<string>('All');
-  const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
+  const [branchFilter, setBranchFilter] = useState<string>("All");
+  const [subOrgFilter, setSubOrgFilter] = useState<string>("All");
   const rootOrgNames = useRootOrgNames();
-  const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>('');
-  const [graceTimeOffice, setGraceTimeOffice] = useState<string>('');
-  const [lunchTime, setLunchTime] = useState<string>('');
-  const [isOnSiteSettingsOn, setIsOnSiteSettingsOn] = useState<string>('0');
+  const [graceTimeOnSite, setGraceTimeOnSite] = useState<string>("");
+  const [graceTimeOffice, setGraceTimeOffice] = useState<string>("");
+  const [lunchTime, setLunchTime] = useState<string>("");
+  const [isOnSiteSettingsOn, setIsOnSiteSettingsOn] = useState<string>("0");
 
-  const { employeePresent, totalEmployee } = useSelector((state: RootState) => ({
-    employeePresent: state.attendance.employeesAttendance?.length || 0,
-    totalEmployee: state.attendance.totalEmployee || 0,
-  }), shallowEqual);
+  const { employeePresent, totalEmployee } = useSelector(
+    (state: RootState) => ({
+      employeePresent: state.attendance.employeesAttendance?.length || 0,
+      totalEmployee: state.attendance.totalEmployee || 0,
+    }),
+    shallowEqual,
+  );
 
-  const currentUserId = useSelector((state: RootState) => state.auth?.currentUser?.id);
+  const currentUserId = useSelector(
+    (state: RootState) => state.auth?.currentUser?.id,
+  );
   const appSettings = useSelector((state: RootState) => state.appSettings);
   const graceTimeFromStore = appSettings.graceTime;
-  const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
-
-  const employeesPresentAttendance = useSelector((state: RootState) =>
-    state.attendance.employeesAttendance || [], shallowEqual
+  const allHolidays = useSelector(
+    (state: RootState) => state?.attendanceStats?.publicHolidays,
   );
-  const workingLocationColors = useSelector((state: RootState) => state?.customColors?.workingLocation, shallowEqual);
+
+  const employeesPresentAttendance = useSelector(
+    (state: RootState) => state.attendance.employeesAttendance || [],
+    shallowEqual,
+  );
+  const workingLocationColors = useSelector(
+    (state: RootState) => state?.customColors?.workingLocation,
+    shallowEqual,
+  );
   // Only check if rolesAndPermissions is loaded, not the entire object
-  const rolesAndPermissionsLoaded = useSelector((state: RootState) =>
-    state.rolesAndPermissions && Object.keys(state.rolesAndPermissions).length > 0
+  const rolesAndPermissionsLoaded = useSelector(
+    (state: RootState) =>
+      state.rolesAndPermissions &&
+      Object.keys(state.rolesAndPermissions).length > 0,
   );
 
   // Get current employee to access weekend configuration
-  const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee, shallowEqual);
+  const currentEmployee = useSelector(
+    (state: RootState) => state.employee.currentEmployee,
+    shallowEqual,
+  );
 
   // Extract only the weekendConfig to prevent unnecessary re-renders
-  const weekendConfig = parseWorkingDays(currentEmployee?.branches?.workingAndOffDays);
+  const weekendConfig = parseWorkingDays(
+    currentEmployee?.branches?.workingAndOffDays,
+  );
 
   // ── Branch / Sub-Organization filters ───────────────────────────────────────
   // Options come from the FULL employee set; the root org is excluded from the
   // sub-org list (employees directly under the root carry its name otherwise).
   const branchOptions = useMemo(() => {
     const names = new Set<string>();
-    allEmployees.forEach((e) => { if (e.branchName) names.add(e.branchName); });
+    allEmployees.forEach((e) => {
+      if (e.branchName) names.add(e.branchName);
+    });
     return Array.from(names).sort();
   }, [allEmployees]);
 
   const subOrgOptions = useMemo(() => {
     const names = new Set<string>();
-    allEmployees.forEach((e) => { if (e.subOrgName && !rootOrgNames.has(e.subOrgName)) names.add(e.subOrgName); });
+    allEmployees.forEach((e) => {
+      if (e.subOrgName && !rootOrgNames.has(e.subOrgName))
+        names.add(e.subOrgName);
+    });
     return Array.from(names).sort();
   }, [allEmployees, rootOrgNames]);
 
   // Everything below the cards is computed from the VISIBLE (filtered) set so the
   // counts, lists and modals all reflect the selected branch / sub-org.
-  const visibleEmployees = useMemo(() => allEmployees.filter((e) =>
-    (branchFilter === 'All' || e.branchName === branchFilter) &&
-    (subOrgFilter === 'All' || e.subOrgName === subOrgFilter)
-  ), [allEmployees, branchFilter, subOrgFilter]);
-
-  const visibleIds = useMemo(() => new Set(visibleEmployees.map((e) => e._id)), [visibleEmployees]);
-
-  const visibleAttendance = useMemo(
-    () => attendance.filter((a) => a.employeeId && visibleIds.has(a.employeeId)),
-    [attendance, visibleIds]
+  const visibleEmployees = useMemo(
+    () =>
+      allEmployees.filter(
+        (e) =>
+          (branchFilter === "All" || e.branchName === branchFilter) &&
+          (subOrgFilter === "All" || e.subOrgName === subOrgFilter),
+      ),
+    [allEmployees, branchFilter, subOrgFilter],
   );
 
-  const visibleLeaveDatas = useMemo(() => employesLeaveDatas.filter((l: any) => {
-    const id = l?.employee?.id || l?.employeeId || l?.employee?._id;
-    return id ? visibleIds.has(id) : true;
-  }), [employesLeaveDatas, visibleIds]);
+  const visibleIds = useMemo(
+    () => new Set(visibleEmployees.map((e) => e._id)),
+    [visibleEmployees],
+  );
 
-  const hasActiveFilters = branchFilter !== 'All' || subOrgFilter !== 'All';
+  const visibleAttendance = useMemo(
+    () =>
+      attendance.filter((a) => a.employeeId && visibleIds.has(a.employeeId)),
+    [attendance, visibleIds],
+  );
+
+  const visibleLeaveDatas = useMemo(
+    () =>
+      employesLeaveDatas.filter((l: any) => {
+        const id = l?.employee?.id || l?.employeeId || l?.employee?._id;
+        return id ? visibleIds.has(id) : true;
+      }),
+    [employesLeaveDatas, visibleIds],
+  );
+
+  const hasActiveFilters = branchFilter !== "All" || subOrgFilter !== "All";
 
   // Helper functions for dynamic shift-based calculations
   const getShiftForDate = (date: Date) => {
-    const dayName = dayjs(date).format('dddd');
-    return dayWiseShifts.find(s => s.day === dayName) || null;
+    const dayName = dayjs(date).format("dddd");
+    return dayWiseShifts.find((s) => s.day === dayName) || null;
   };
 
   function parseGraceTime(graceTime: string | null) {
     if (!graceTime) {
       return { hours: 0, minutes: 0, seconds: 0 };
     }
-    const timePart = graceTime.replace(' Hrs', '').trim();
-    const [hoursStr, minutesStr, secondsStr] = timePart.split(':');
+    const timePart = graceTime.replace(" Hrs", "").trim();
+    const [hoursStr, minutesStr, secondsStr] = timePart.split(":");
     return {
       hours: parseInt(hoursStr, 10) || 0,
       minutes: parseInt(minutesStr, 10) || 0,
@@ -239,11 +315,12 @@ const DashboardDailyAttendanceOverview = () => {
   }
 
   const checkIfWeekendOrHoliday = (attendanceDate: Date) => {
-    const dayName = dayjs(attendanceDate).format('dddd');
-    const isConfiguredWeekend = weekendConfig && weekendConfig[dayName.toLowerCase()] === '0';
-    const formattedDate = dayjs(attendanceDate).format('DD/MM/YYYY');
-    const isPublicHoliday = allHolidays?.some((h: any) =>
-      dayjs(h.date).format('DD/MM/YYYY') === formattedDate
+    const dayName = dayjs(attendanceDate).format("dddd");
+    const isConfiguredWeekend =
+      weekendConfig && weekendConfig[dayName.toLowerCase()] === "0";
+    const formattedDate = dayjs(attendanceDate).format("DD/MM/YYYY");
+    const isPublicHoliday = allHolidays?.some(
+      (h: any) => dayjs(h.date).format("DD/MM/YYYY") === formattedDate,
     );
     return isConfiguredWeekend || isPublicHoliday;
   };
@@ -252,8 +329,8 @@ const DashboardDailyAttendanceOverview = () => {
   const timeToMinutes = (timeStr: string): number => {
     if (!timeStr) return 0;
     // Handle format "1:00 Hrs" or "1:00"
-    const cleanTime = timeStr.replace(' Hrs', '').trim();
-    const [hoursStr, minutesStr] = cleanTime.split(':');
+    const cleanTime = timeStr.replace(" Hrs", "").trim();
+    const [hoursStr, minutesStr] = cleanTime.split(":");
     const hours = parseInt(hoursStr, 10) || 0;
     const minutes = parseInt(minutesStr, 10) || 0;
     return hours * 60 + minutes;
@@ -288,27 +365,33 @@ const DashboardDailyAttendanceOverview = () => {
 
     // Get shift for this date (the API rows carry `check_in`; `checkIn` is the legacy name)
     const shift = getShiftForDate(attendanceDate);
-    const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
+    const shiftCheckIn =
+      (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
 
     if (!shiftCheckIn) return false;
 
     // Use on-site grace time for on-site employees, office grace time for others
-    const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
+    const workingMethod = att.workingMethod?.type
+      ?.replace(" ", "")
+      ?.replace("-", "")
+      ?.replace("_", "")
+      ?.toLowerCase();
     const isOnSite = workingMethod?.includes("onsite");
 
     // Master switch — all three legs (on-site, holiday, weekend), as the server applies it.
-    if (isOnSiteSettingsOn === '1' && (isOnSite || isNonWorkingRow(att))) return false;
+    if (isOnSiteSettingsOn === "1" && (isOnSite || isNonWorkingRow(att)))
+      return false;
     const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
     const graceTime = parseGraceTime(graceTimeStr);
 
     // Create expected check-in time with grace period for the attendance date
     const expectedCheckIn = dayjs(att.checkIn)
-      .startOf('day')
-      .add(dayjs(shiftCheckIn, 'h:mm A').hour(), 'hour')
-      .add(dayjs(shiftCheckIn, 'h:mm A').minute(), 'minute')
-      .add(graceTime.hours, 'hour')
-      .add(graceTime.minutes, 'minute')
-      .add(graceTime.seconds, 'second');
+      .startOf("day")
+      .add(dayjs(shiftCheckIn, "h:mm A").hour(), "hour")
+      .add(dayjs(shiftCheckIn, "h:mm A").minute(), "minute")
+      .add(graceTime.hours, "hour")
+      .add(graceTime.minutes, "minute")
+      .add(graceTime.seconds, "second");
 
     const actualCheckIn = dayjs(att.checkIn);
 
@@ -331,21 +414,26 @@ const DashboardDailyAttendanceOverview = () => {
     if (isNonWorkingRow(att)) return false;
 
     // If on-site settings is ON, skip on-site employees from early check-out
-    const workingMethod = att.workingMethod?.type?.replace(" ", "")?.replace("-", "")?.replace("_", "")?.toLowerCase();
+    const workingMethod = att.workingMethod?.type
+      ?.replace(" ", "")
+      ?.replace("-", "")
+      ?.replace("_", "")
+      ?.toLowerCase();
     const isOnSite = workingMethod?.includes("onsite");
-    if (isOnSiteSettingsOn === '1' && isOnSite) return false;
+    if (isOnSiteSettingsOn === "1" && isOnSite) return false;
 
     // Get shift for this date (the API rows carry `check_out`; `checkOut` is the legacy name)
     const shift = getShiftForDate(attendanceDate);
-    const shiftCheckOut = (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
+    const shiftCheckOut =
+      (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
 
     if (!shiftCheckOut) return false;
 
     // Create expected check-out time for the attendance date
     const expectedCheckOut = dayjs(att.checkOut)
-      .startOf('day')
-      .add(dayjs(shiftCheckOut, 'h:mm A').hour(), 'hour')
-      .add(dayjs(shiftCheckOut, 'h:mm A').minute(), 'minute');
+      .startOf("day")
+      .add(dayjs(shiftCheckOut, "h:mm A").hour(), "hour")
+      .add(dayjs(shiftCheckOut, "h:mm A").minute(), "minute");
 
     const actualCheckOut = dayjs(att.checkOut);
 
@@ -362,7 +450,7 @@ const DashboardDailyAttendanceOverview = () => {
     .map((a: any) => a.dayKind as string | undefined)
     .filter(Boolean) as string[];
   const isNonWorkingDay = dashboardDayKinds.length
-    ? dashboardDayKinds.every((k) => k !== 'working')
+    ? dashboardDayKinds.every((k) => k !== "working")
     : checkIfWeekendOrHoliday(date.toDate());
 
   // Modal handlers
@@ -372,19 +460,26 @@ const DashboardDailyAttendanceOverview = () => {
 
   const handleCloseModal = () => {
     setShowModal(null);
-    setSearchQuery('');
-    setSortOption('none');
+    setSearchQuery("");
+    setSortOption("none");
   };
 
   const getModalTitle = () => {
     switch (showModal) {
-      case 'working': return 'Working Employees';
-      case 'leave': return 'Employees on Leave';
-      case 'late': return 'Late Check-ins';
-      case 'early': return 'Early Check-outs';
-      case 'extra': return 'Extra Day Working';
-      case 'absent': return 'Absent Employees';
-      default: return '';
+      case "working":
+        return "Working Employees";
+      case "leave":
+        return "Employees on Leave";
+      case "late":
+        return "Late Check-ins";
+      case "early":
+        return "Early Check-outs";
+      case "extra":
+        return "Extra Day Working";
+      case "absent":
+        return "Absent Employees";
+      default:
+        return "";
     }
   };
 
@@ -393,7 +488,7 @@ const DashboardDailyAttendanceOverview = () => {
     if (!searchQuery.trim()) return employees;
 
     const query = searchQuery.toLowerCase();
-    return employees.filter(emp => {
+    return employees.filter((emp) => {
       const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
       return fullName.includes(query);
     });
@@ -403,42 +498,51 @@ const DashboardDailyAttendanceOverview = () => {
     if (!searchQuery.trim()) return leaveData;
 
     const query = searchQuery.toLowerCase();
-    return leaveData.filter(emp => {
+    return leaveData.filter((emp) => {
       const employeeData = emp.employee || {};
       const user = employeeData.users || emp.users || {};
-      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
+      const fullName =
+        `${user.firstName || ""} ${user.lastName || ""}`.toLowerCase();
       return fullName.includes(query);
     });
   };
 
   // Sort functions
   const sortEmployees = (employees: EmployeeWithAttendance[]) => {
-    if (sortOption === 'none') return employees;
+    if (sortOption === "none") return employees;
 
     const sorted = [...employees];
     switch (sortOption) {
-      case 'name-asc':
+      case "name-asc":
         return sorted.sort((a, b) => {
           const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
           const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
           return nameA.localeCompare(nameB);
         });
-      case 'name-desc':
+      case "name-desc":
         return sorted.sort((a, b) => {
           const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
           const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
           return nameB.localeCompare(nameA);
         });
-      case 'checkin-asc':
+      case "checkin-asc":
         return sorted.sort((a, b) => {
-          const timeA = a.attendance?.checkIn ? new Date(a.attendance.checkIn).getTime() : 0;
-          const timeB = b.attendance?.checkIn ? new Date(b.attendance.checkIn).getTime() : 0;
+          const timeA = a.attendance?.checkIn
+            ? new Date(a.attendance.checkIn).getTime()
+            : 0;
+          const timeB = b.attendance?.checkIn
+            ? new Date(b.attendance.checkIn).getTime()
+            : 0;
           return timeA - timeB;
         });
-      case 'checkin-desc':
+      case "checkin-desc":
         return sorted.sort((a, b) => {
-          const timeA = a.attendance?.checkIn ? new Date(a.attendance.checkIn).getTime() : 0;
-          const timeB = b.attendance?.checkIn ? new Date(b.attendance.checkIn).getTime() : 0;
+          const timeA = a.attendance?.checkIn
+            ? new Date(a.attendance.checkIn).getTime()
+            : 0;
+          const timeB = b.attendance?.checkIn
+            ? new Date(b.attendance.checkIn).getTime()
+            : 0;
           return timeB - timeA;
         });
       default:
@@ -447,28 +551,32 @@ const DashboardDailyAttendanceOverview = () => {
   };
 
   const sortLeaveData = (leaveData: any[]) => {
-    if (sortOption === 'none') return leaveData;
+    if (sortOption === "none") return leaveData;
 
     const sorted = [...leaveData];
     switch (sortOption) {
-      case 'name-asc':
+      case "name-asc":
         return sorted.sort((a, b) => {
-          const userA = (a.employee?.users || a.users) || {};
-          const userB = (b.employee?.users || b.users) || {};
-          const nameA = `${userA.firstName || ''} ${userA.lastName || ''}`.toLowerCase();
-          const nameB = `${userB.firstName || ''} ${userB.lastName || ''}`.toLowerCase();
+          const userA = a.employee?.users || a.users || {};
+          const userB = b.employee?.users || b.users || {};
+          const nameA =
+            `${userA.firstName || ""} ${userA.lastName || ""}`.toLowerCase();
+          const nameB =
+            `${userB.firstName || ""} ${userB.lastName || ""}`.toLowerCase();
           return nameA.localeCompare(nameB);
         });
-      case 'name-desc':
+      case "name-desc":
         return sorted.sort((a, b) => {
-          const userA = (a.employee?.users || a.users) || {};
-          const userB = (b.employee?.users || b.users) || {};
-          const nameA = `${userA.firstName || ''} ${userA.lastName || ''}`.toLowerCase();
-          const nameB = `${userB.firstName || ''} ${userB.lastName || ''}`.toLowerCase();
+          const userA = a.employee?.users || a.users || {};
+          const userB = b.employee?.users || b.users || {};
+          const nameA =
+            `${userA.firstName || ""} ${userA.lastName || ""}`.toLowerCase();
+          const nameB =
+            `${userB.firstName || ""} ${userB.lastName || ""}`.toLowerCase();
           return nameB.localeCompare(nameA);
         });
-      case 'checkin-asc':
-      case 'checkin-desc':
+      case "checkin-asc":
+      case "checkin-desc":
         return sorted;
       default:
         return sorted;
@@ -478,10 +586,10 @@ const DashboardDailyAttendanceOverview = () => {
   // Get FULL employees for each category (used by both cards and modals)
   const getAllWorkingEmployees = () => {
     return visibleEmployees
-      .filter(emp => visibleAttendance.some(a => a.employeeId === emp._id))
-      .map(emp => ({
+      .filter((emp) => visibleAttendance.some((a) => a.employeeId === emp._id))
+      .map((emp) => ({
         ...emp,
-        attendance: visibleAttendance.find(a => a.employeeId === emp._id)
+        attendance: visibleAttendance.find((a) => a.employeeId === emp._id),
       }));
   };
 
@@ -500,7 +608,9 @@ const DashboardDailyAttendanceOverview = () => {
   }, [visibleAttendance]);
 
   /** Visible employees whose day row satisfies `predicate`, with that row attached. */
-  const employeesWhere = (predicate: (att: any) => boolean): EmployeeWithAttendance[] =>
+  const employeesWhere = (
+    predicate: (att: any) => boolean,
+  ): EmployeeWithAttendance[] =>
     visibleEmployees.flatMap((emp) => {
       const att = attendanceByEmployee.get(emp._id);
       return att && predicate(att) ? [{ ...emp, attendance: att }] : [];
@@ -512,35 +622,42 @@ const DashboardDailyAttendanceOverview = () => {
     if (isNonWorkingDay) return [];
 
     const presentEmployeeIds = new Set(
-      (visibleAttendance || []).map(a => a.employeeId)
+      (visibleAttendance || []).map((a) => a.employeeId),
     );
 
-    const safeEmployeesOnLeave = Array.isArray(employeesOnLeave) ? employeesOnLeave : [];
+    const safeEmployeesOnLeave = Array.isArray(employeesOnLeave)
+      ? employeesOnLeave
+      : [];
     const onLeaveIds = new Set(
-      safeEmployeesOnLeave.map(e => {
-        return e?.employee?.id || e?.employeeId || e?.employee?._id || e?.id;
-      }).filter(Boolean)
+      safeEmployeesOnLeave
+        .map((e) => {
+          return e?.employee?.id || e?.employeeId || e?.employee?._id || e?.id;
+        })
+        .filter(Boolean),
     );
 
     visibleLeaveDatas.forEach((leave: any) => {
-      const empId = leave?.employee?.id || leave?.employeeId || leave?.employee?._id;
+      const empId =
+        leave?.employee?.id || leave?.employeeId || leave?.employee?._id;
       if (empId) {
         onLeaveIds.add(empId);
       }
     });
 
-    return (visibleEmployees || [])
-      .filter(emp =>
+    return (visibleEmployees || []).filter(
+      (emp) =>
         emp?._id &&
         !presentEmployeeIds.has(emp._id) &&
-        !onLeaveIds.has(emp._id)
-      );
+        !onLeaveIds.has(emp._id),
+    );
   };
 
   // Extra day = a complete punch (in AND out) on a non-working day for THIS employee —
   // judged by their own branch calendar (`dayKind`), not the viewing admin's.
   const getAllExtraDayEmployees = () =>
-    employeesWhere((att) => Boolean(att.checkIn && att.checkOut) && isNonWorkingRow(att));
+    employeesWhere(
+      (att) => Boolean(att.checkIn && att.checkOut) && isNonWorkingRow(att),
+    );
 
   const getAllLateCheckInEmployees = () => employeesWhere(isLateRow);
 
@@ -555,39 +672,59 @@ const DashboardDailyAttendanceOverview = () => {
 
     try {
       switch (showModal) {
-        case 'working':
+        case "working":
           employees = getAllWorkingEmployees();
           break;
 
-        case 'leave':
+        case "leave":
           const allLeaveData = getAllLeaveEmployees();
 
           if (allLeaveData.length === 0) {
-            return <div className="p-3 text-muted">No employees on leave today</div>;
+            return (
+              <div className="p-3 text-muted">No employees on leave today</div>
+            );
           }
 
           const filteredLeaveData = filterLeaveDataBySearch(allLeaveData);
           const sortedLeaveData = sortLeaveData(filteredLeaveData);
 
           if (sortedLeaveData.length === 0) {
-            return <div className="p-3 text-muted">No employees found matching "{searchQuery}"</div>;
+            return (
+              <div className="p-3 text-muted">
+                No employees found matching "{searchQuery}"
+              </div>
+            );
           }
 
           const leaveRows = sortedLeaveData.map((emp: any) => {
             const employeeData = emp.employee || {};
             const user = employeeData.users || emp.users || {};
-            const startDate = emp.duration?.startDate ? dayjs(emp.duration.startDate).format('MMM D, YYYY') : 'N/A';
-            const endDate = emp.duration?.endDate ? dayjs(emp.duration.endDate).format('MMM D, YYYY') : 'N/A';
+            const startDate = emp.duration?.startDate
+              ? dayjs(emp.duration.startDate).format("MMM D, YYYY")
+              : "N/A";
+            const endDate = emp.duration?.endDate
+              ? dayjs(emp.duration.endDate).format("MMM D, YYYY")
+              : "N/A";
 
             return {
               id: emp.id,
-              employeeName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-              employeeCode: employeeData.employeeCode || emp.employeeCode || '',
-              avatarSrc: employeeData.avatar || emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg'),
-              designation: employeeData.designations?.role || emp.designations?.role || 'N/A',
-              leaveType: emp.leaveType || 'Leave',
-              duration: startDate === endDate ? startDate : `${startDate} to ${endDate}`,
-              reason: emp.reason || '',
+              employeeName:
+                `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+              employeeCode: employeeData.employeeCode || emp.employeeCode || "",
+              avatarSrc:
+                employeeData.avatar ||
+                emp.avatar ||
+                toAbsoluteUrl("media/svg/avatars/043-boy-18.svg"),
+              designation:
+                employeeData.designations?.role ||
+                emp.designations?.role ||
+                "N/A",
+              leaveType: emp.leaveType || "Leave",
+              duration:
+                startDate === endDate
+                  ? startDate
+                  : `${startDate} to ${endDate}`,
+              reason: emp.reason || "",
             };
           });
 
@@ -603,79 +740,95 @@ const DashboardDailyAttendanceOverview = () => {
             />
           );
 
-        case 'late':
+        case "late":
           employees = getAllLateCheckInEmployees();
 
           // Add additional info for late check-ins
-          employees.forEach(emp => {
+          employees.forEach((emp) => {
             // The server's verdict carries the minutes payroll uses — show those.
             const serverMinutes = serverLateMinutes(emp.attendance);
             if (emp.attendance?.checkIn && serverMinutes !== undefined) {
-              additionalInfo[emp._id] = `Late by ${formatVerdictMinutes(serverMinutes)} (Checked in at ${dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)})`;
+              additionalInfo[emp._id] =
+                `Late by ${formatVerdictMinutes(serverMinutes)} (Checked in at ${dayjs(emp.attendance.checkIn).format(getTimeTokens().TIME)})`;
               return;
             }
             if (emp.attendance?.checkIn) {
               const attendanceDate = new Date(emp.attendance.checkIn);
               const shift = getShiftForDate(attendanceDate);
-              const shiftCheckIn = (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
+              const shiftCheckIn =
+                (shift?.check_in ?? shift?.checkIn) || appSettings.checkinTime;
 
               if (shiftCheckIn) {
                 // Use on-site grace time for on-site employees, office grace time for others
-                const isOnSite = emp.attendance.workingMethod?.type === 'On-site';
-                const graceTimeStr = isOnSite ? graceTimeOnSite : graceTimeOffice;
+                const isOnSite =
+                  emp.attendance.workingMethod?.type === "On-site";
+                const graceTimeStr = isOnSite
+                  ? graceTimeOnSite
+                  : graceTimeOffice;
                 const graceTime = parseGraceTime(graceTimeStr);
 
                 const expectedCheckIn = dayjs(emp.attendance.checkIn)
-                  .startOf('day')
-                  .add(dayjs(shiftCheckIn, 'h:mm A').hour(), 'hour')
-                  .add(dayjs(shiftCheckIn, 'h:mm A').minute(), 'minute')
-                  .add(graceTime.hours, 'hour')
-                  .add(graceTime.minutes, 'minute')
-                  .add(graceTime.seconds, 'second');
+                  .startOf("day")
+                  .add(dayjs(shiftCheckIn, "h:mm A").hour(), "hour")
+                  .add(dayjs(shiftCheckIn, "h:mm A").minute(), "minute")
+                  .add(graceTime.hours, "hour")
+                  .add(graceTime.minutes, "minute")
+                  .add(graceTime.seconds, "second");
 
                 const actualCheckIn = dayjs(emp.attendance.checkIn);
-                const lateByMinutes = actualCheckIn.diff(expectedCheckIn, 'minute');
-                additionalInfo[emp._id] = `Late by ${formatVerdictMinutes(lateByMinutes)} (Checked in at ${actualCheckIn.format(getTimeTokens().TIME)})`;
+                const lateByMinutes = actualCheckIn.diff(
+                  expectedCheckIn,
+                  "minute",
+                );
+                additionalInfo[emp._id] =
+                  `Late by ${formatVerdictMinutes(lateByMinutes)} (Checked in at ${actualCheckIn.format(getTimeTokens().TIME)})`;
               }
             }
           });
           break;
 
-        case 'early':
+        case "early":
           employees = getAllEarlyCheckOutEmployees();
 
           // Add additional info for early check-outs
-          employees.forEach(emp => {
+          employees.forEach((emp) => {
             // The server's verdict carries the minutes payroll uses — show those.
             const serverMinutes = serverEarlyMinutes(emp.attendance);
             if (emp.attendance?.checkOut && serverMinutes !== undefined) {
-              additionalInfo[emp._id] = `Early by ${formatVerdictMinutes(serverMinutes)} (Checked out at ${dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)})`;
+              additionalInfo[emp._id] =
+                `Early by ${formatVerdictMinutes(serverMinutes)} (Checked out at ${dayjs(emp.attendance.checkOut).format(getTimeTokens().TIME)})`;
               return;
             }
             if (emp.attendance?.checkOut) {
               const attendanceDate = new Date(emp.attendance.checkOut);
               const shift = getShiftForDate(attendanceDate);
-              const shiftCheckOut = (shift?.check_out ?? shift?.checkOut) || appSettings.checkoutTime;
+              const shiftCheckOut =
+                (shift?.check_out ?? shift?.checkOut) ||
+                appSettings.checkoutTime;
 
               if (shiftCheckOut) {
                 const expectedCheckOut = dayjs(emp.attendance.checkOut)
-                  .startOf('day')
-                  .add(dayjs(shiftCheckOut, 'h:mm A').hour(), 'hour')
-                  .add(dayjs(shiftCheckOut, 'h:mm A').minute(), 'minute');
+                  .startOf("day")
+                  .add(dayjs(shiftCheckOut, "h:mm A").hour(), "hour")
+                  .add(dayjs(shiftCheckOut, "h:mm A").minute(), "minute");
 
                 const actualCheckOut = dayjs(emp.attendance.checkOut);
-                const earlyByMinutes = expectedCheckOut.diff(actualCheckOut, 'minute');
-                additionalInfo[emp._id] = `Early by ${formatVerdictMinutes(earlyByMinutes)} (Checked out at ${actualCheckOut.format(getTimeTokens().TIME)})`;
+                const earlyByMinutes = expectedCheckOut.diff(
+                  actualCheckOut,
+                  "minute",
+                );
+                additionalInfo[emp._id] =
+                  `Early by ${formatVerdictMinutes(earlyByMinutes)} (Checked out at ${actualCheckOut.format(getTimeTokens().TIME)})`;
               }
             }
           });
           break;
 
-        case 'absent':
+        case "absent":
           employees = getAllAbsentEmployees();
           break;
 
-        case 'extra':
+        case "extra":
           employees = getAllExtraDayEmployees();
           break;
 
@@ -695,48 +848,69 @@ const DashboardDailyAttendanceOverview = () => {
       // renders identically to the admin Attendance Overview. Only the meta content —
       // check-in/out colouring, working method — is computed here, because it depends
       // on this page's shifts, grace times and on-site settings.
-      const statItems: EmployeeStatItem[] = sortedEmployees.map(emp => {
+      const statItems: EmployeeStatItem[] = sortedEmployees.map((emp) => {
         const hasMeta = Boolean(
-          additionalInfo[emp._id] || emp.attendance?.checkIn || emp.attendance?.checkOut,
+          additionalInfo[emp._id] ||
+          emp.attendance?.checkIn ||
+          emp.attendance?.checkOut,
         );
         return {
           key: emp._id,
-          name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown',
+          name:
+            `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown",
           avatarUrl: emp.avatar,
           designation: emp.designation,
           meta: hasMeta ? (
-                <>
-                  {additionalInfo[emp._id] && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, color: 'primary.main', fontSize: '0.8125rem' }}>
-                      <AppIcon name="bi-info-circle" className="fs-7" />
-                      {additionalInfo[emp._id]}
-                    </Box>
-                  )}
-                  {!additionalInfo[emp._id] && emp.attendance?.checkIn && (
-                    // One rule for the colours (AttendanceDayTimes): check-in red ONLY for a
-                    // late mark, check-out red only for an early check-out, and the DURATION
-                    // red when the shift is short — never the check-in for a short day.
-                    <AttendanceDayTimes
-                      checkIn={emp.attendance.checkIn}
-                      checkOut={emp.attendance.checkOut}
-                      isLate={isLateRow(emp.attendance)}
-                      isEarly={isEarlyRow(emp.attendance)}
-                      skipDurationHighlight={isNonWorkingRow(emp.attendance)}
-                      trailing={showModal === 'working' && emp.attendance?.workingMethod ? (
-                        <Box
-                          component="span"
-                          sx={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            fontWeight: 600,
-                            color:
-                              emp.attendance.workingMethod.type === 'Office' ? workingLocationColors?.officeColor :
-                              emp.attendance.workingMethod.type === 'Hybrid' ? workingLocationColors?.remoteColor :
-                              emp.attendance.workingMethod.type === 'On-site' ? workingLocationColors?.onSiteColor : 'text.secondary',
-                          }}
-                        >
-                          {emp.attendance.workingMethod.type}
-                          {emp.attendance.workingMethod.type === 'On-site' && emp.attendance.checkInLocation && emp.attendance.latitude && emp.attendance.longitude && (
+            <>
+              {additionalInfo[emp._id] && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    mt: 0.5,
+                    color: "primary.main",
+                    fontSize: "0.8125rem",
+                  }}
+                >
+                  <AppIcon name="bi-info-circle" className="fs-7" />
+                  {additionalInfo[emp._id]}
+                </Box>
+              )}
+              {!additionalInfo[emp._id] && emp.attendance?.checkIn && (
+                // One rule for the colours (AttendanceDayTimes): check-in red ONLY for a
+                // late mark, check-out red only for an early check-out, and the DURATION
+                // red when the shift is short — never the check-in for a short day.
+                <AttendanceDayTimes
+                  checkIn={emp.attendance.checkIn}
+                  checkOut={emp.attendance.checkOut}
+                  isLate={isLateRow(emp.attendance)}
+                  isEarly={isEarlyRow(emp.attendance)}
+                  skipDurationHighlight={isNonWorkingRow(emp.attendance)}
+                  trailing={
+                    showModal === "working" && emp.attendance?.workingMethod ? (
+                      <Box
+                        component="span"
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          fontWeight: 600,
+                          color:
+                            emp.attendance.workingMethod.type === "Office"
+                              ? workingLocationColors?.officeColor
+                              : emp.attendance.workingMethod.type === "Hybrid"
+                                ? workingLocationColors?.remoteColor
+                                : emp.attendance.workingMethod.type ===
+                                    "On-site"
+                                  ? workingLocationColors?.onSiteColor
+                                  : "text.secondary",
+                        }}
+                      >
+                        {emp.attendance.workingMethod.type}
+                        {emp.attendance.workingMethod.type === "On-site" &&
+                          emp.attendance.checkInLocation &&
+                          emp.attendance.latitude &&
+                          emp.attendance.longitude && (
                             <WtTooltip title={emp.attendance.checkInLocation}>
                               <Box
                                 component="a"
@@ -744,40 +918,61 @@ const DashboardDailyAttendanceOverview = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 aria-label={`Open check-in location in Google Maps: ${emp.attendance.checkInLocation}`}
-                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                                sx={{ ml: 0.75, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
+                                onClick={(e: React.MouseEvent) =>
+                                  e.stopPropagation()
+                                }
+                                sx={{
+                                  ml: 0.75,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  textDecoration: "none",
+                                }}
                               >
-                                <Box component="img" src={locationIcon} alt="" sx={{ width: 20, height: 20, objectFit: 'contain', display: 'block' }} />
+                                <Box
+                                  component="img"
+                                  src={locationIcon}
+                                  alt=""
+                                  sx={{
+                                    width: 20,
+                                    height: 20,
+                                    objectFit: "contain",
+                                    display: "block",
+                                  }}
+                                />
                               </Box>
                             </WtTooltip>
                           )}
-                        </Box>
-                      ) : undefined}
-                    />
-                  )}
-                </>
+                      </Box>
+                    ) : undefined
+                  }
+                />
+              )}
+            </>
           ) : null,
         };
       });
 
       return <EmployeeStatGrid items={statItems} />;
-
     } catch (err) {
-      console.error('Error in getModalContent:', err);
-      return <div className="p-3 text-danger">Error loading data. Please try again.</div>;
+      console.error("Error in getModalContent:", err);
+      return (
+        <div className="p-3 text-danger">
+          Error loading data. Please try again.
+        </div>
+      );
     }
   };
 
   const incrementDate = useCallback(() => {
-    setDate(prevDate => prevDate.add(1, 'day'));
+    setDate((prevDate) => prevDate.add(1, "day"));
   }, []);
 
   const decrementDate = useCallback(() => {
-    setDate(prevDate => prevDate.subtract(1, 'day'));
+    setDate((prevDate) => prevDate.subtract(1, "day"));
   }, []);
 
   // Convert date to string to prevent unnecessary re-renders
-  const dateString = date.format('YYYY-MM-DD');
+  const dateString = date.format("YYYY-MM-DD");
 
   // Fetch day-wise shifts
   useEffect(() => {
@@ -797,22 +992,27 @@ const DashboardDailyAttendanceOverview = () => {
   useEffect(() => {
     async function fetchTimeConfiguration() {
       try {
-        const { data: { configuration } } = await fetchConfiguration('leave management');
-        const leaveConfig = safeJsonParse(configuration?.configuration || '{}');
-        const graceTimeOfficeStr = leaveConfig?.['Grace Time'] || '00:30:00 Hrs';
-        const graceTimeOnSiteStr = leaveConfig?.['Grace Time - On Site'] || '00:10:00 Hrs';
-        const lunchTimeStr = leaveConfig?.['Lunch Time'] || '1:00 Hrs';
-        const onSiteSettingsValue = leaveConfig?.[onSiteAndHolidayWeekendSettingsOnOffName] || '0';
-        setGraceTimeOffice(graceTimeOfficeStr.replace(' Hrs', '').trim());
-        setGraceTimeOnSite(graceTimeOnSiteStr.replace(' Hrs', '').trim());
+        const {
+          data: { configuration },
+        } = await fetchConfiguration("leave management");
+        const leaveConfig = safeJsonParse(configuration?.configuration || "{}");
+        const graceTimeOfficeStr =
+          leaveConfig?.["Grace Time"] || "00:30:00 Hrs";
+        const graceTimeOnSiteStr =
+          leaveConfig?.["Grace Time - On Site"] || "00:10:00 Hrs";
+        const lunchTimeStr = leaveConfig?.["Lunch Time"] || "1:00 Hrs";
+        const onSiteSettingsValue =
+          leaveConfig?.[onSiteAndHolidayWeekendSettingsOnOffName] || "0";
+        setGraceTimeOffice(graceTimeOfficeStr.replace(" Hrs", "").trim());
+        setGraceTimeOnSite(graceTimeOnSiteStr.replace(" Hrs", "").trim());
         setLunchTime(lunchTimeStr);
         setIsOnSiteSettingsOn(onSiteSettingsValue);
       } catch (error) {
-        console.error('Failed to fetch time configuration:', error);
-        setGraceTimeOffice('00:30:00');
-        setGraceTimeOnSite('00:10:00');
-        setLunchTime('1:00 Hrs');
-        setIsOnSiteSettingsOn('0');
+        console.error("Failed to fetch time configuration:", error);
+        setGraceTimeOffice("00:30:00");
+        setGraceTimeOnSite("00:10:00");
+        setLunchTime("1:00 Hrs");
+        setIsOnSiteSettingsOn("0");
       }
     }
     fetchTimeConfiguration();
@@ -820,64 +1020,74 @@ const DashboardDailyAttendanceOverview = () => {
 
   // Reload the day's employees + attendance. `silent` skips the loading spinner —
   // used by the realtime refetch so live updates don't flash the whole board.
-  const reloadAttendance = useCallback(async (silent = false) => {
-    if (!rolesAndPermissionsLoaded) return;
-    try {
-      if (!silent) setIsLoading(true);
-      setError(null);
+  const reloadAttendance = useCallback(
+    async (silent = false) => {
+      if (!rolesAndPermissionsLoaded) return;
+      try {
+        if (!silent) setIsLoading(true);
+        setError(null);
 
-      // Scoped to the viewed day, server-side.
-      //
-      // This asked for EVERY employee and then treated the whole list as the
-      // roster, so anyone who had ever left was still counted — and shown
-      // absent — on this board. The server scopes by the employment TIMELINE
-      // (dates plus rejoin history), which is authoritative, rather than by the
-      // `isActive` flag, which is a manual switch that drifts whenever an exit
-      // is recorded without someone also unticking Active.
-      const { data: { employees } } = await fetchAllEmployees(true, dateString, dateString);
-      const response = await fetchEmployeesOnLeaveToday(dateString);
-      const employeesOnLeave = response?.data?.employeesOnLeave || [];
-      const employesLeaveData = response?.data?.employeeLeaveDetails || [];
-      const allAttendance = await fetchEmpsAttendance(dayjs(dateString));
+        // Scoped to the viewed day, server-side.
+        //
+        // This asked for EVERY employee and then treated the whole list as the
+        // roster, so anyone who had ever left was still counted — and shown
+        // absent — on this board. The server scopes by the employment TIMELINE
+        // (dates plus rejoin history), which is authoritative, rather than by the
+        // `isActive` flag, which is a manual switch that drifts whenever an exit
+        // is recorded without someone also unticking Active.
+        const {
+          data: { employees },
+        } = await fetchAllEmployees(true, dateString, dateString);
+        const response = await fetchEmployeesOnLeaveToday(dateString);
+        const employeesOnLeave = response?.data?.employeesOnLeave || [];
+        const employesLeaveData = response?.data?.employeeLeaveDetails || [];
+        const allAttendance = await fetchEmpsAttendance(dayjs(dateString));
 
-      // Transform employees to match EmployeeWithAttendance interface
-      const transformedEmployees = employees.map((emp: any) => ({
-        _id: emp.id || '',
-        firstName: emp.users?.firstName || 'Unknown',
-        lastName: emp.users?.lastName || 'Employee',
-        designation: emp.designations?.role || 'No designation',
-        avatar: emp.avatar || null,
-        isActive: emp.isActive ?? true,  // Default to true if not specified
-        branchName: emp.branches?.name || '',
-        subOrgName: emp.companyOverview?.name || '',
-      }));
+        // Transform employees to match EmployeeWithAttendance interface
+        const transformedEmployees = employees.map((emp: any) => ({
+          _id: emp.id || "",
+          firstName: emp.users?.firstName || "Unknown",
+          lastName: emp.users?.lastName || "Employee",
+          designation: emp.designations?.role || "No designation",
+          avatar: emp.avatar || null,
+          isActive: emp.isActive ?? true, // Default to true if not specified
+          branchName: emp.branches?.name || "",
+          subOrgName: emp.companyOverview?.name || "",
+        }));
 
-      // Filter only active employees for state
-      const activeEmployees = transformedEmployees.filter((emp: any) => emp.isActive !== false);
+        // Filter only active employees for state
+        const activeEmployees = transformedEmployees.filter(
+          (emp: any) => emp.isActive !== false,
+        );
 
-      // Transform attendance data for Redux
-      const transformedAttendance = allAttendance.map((att: any) => ({
-        id: att.id,
-        employeeId: att.employeeId,
-        checkIn: att.checkIn,
-        checkOut: att.checkOut,
-        date: att.date,
-        workingMethod: att.workingMethod
-      }));
+        // Transform attendance data for Redux
+        const transformedAttendance = allAttendance.map((att: any) => ({
+          id: att.id,
+          employeeId: att.employeeId,
+          checkIn: att.checkIn,
+          checkOut: att.checkOut,
+          date: att.date,
+          workingMethod: att.workingMethod,
+        }));
 
-      setAllEmployees(activeEmployees);
-      setEmployeesOnLeave(employeesOnLeave);
-      setEmployesLeaveDatas(employesLeaveData);
-      setAttendance(allAttendance);
-      dispatch(saveTotalEmployeeCount(activeEmployees.length));
-      dispatch(saveEmployeesAttendance(transformedAttendance));
-    } catch (err) {
-      console.error('Error fetching employee data:', err);
-      if (!silent) setError('Failed to load employee data. Please refresh the page to try again.');
-    } finally {
-      if (!silent) setIsLoading(false);
-    }
-  }, [dispatch, dateString, rolesAndPermissionsLoaded]);
+        setAllEmployees(activeEmployees);
+        setEmployeesOnLeave(employeesOnLeave);
+        setEmployesLeaveDatas(employesLeaveData);
+        setAttendance(allAttendance);
+        dispatch(saveTotalEmployeeCount(activeEmployees.length));
+        dispatch(saveEmployeesAttendance(transformedAttendance));
+      } catch (err) {
+        console.error("Error fetching employee data:", err);
+        if (!silent)
+          setError(
+            "Failed to load employee data. Please refresh the page to try again.",
+          );
+      } finally {
+        if (!silent) setIsLoading(false);
+      }
+    },
+    [dispatch, dateString, rolesAndPermissionsLoaded],
+  );
 
   useEffect(() => {
     reloadAttendance();
@@ -904,9 +1114,15 @@ const DashboardDailyAttendanceOverview = () => {
 
   if (isLoading && allEmployees.length === 0) {
     return (
-      <div className="card border-0 rounded-3 mb-5" style={{ boxShadow: '8px 8px 16px 0px rgba(0,0,0,0.04)' }}>
+      <div
+        className="card border-0 rounded-3 mb-5"
+        style={{ boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)" }}
+      >
         <div className="card-body p-3 p-md-4">
-          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
+          <div
+            className="d-flex justify-content-center align-items-center"
+            style={{ minHeight: "200px" }}
+          >
             <CircularProgress size={36} aria-label="Loading" />
           </div>
         </div>
@@ -916,10 +1132,15 @@ const DashboardDailyAttendanceOverview = () => {
 
   if (error) {
     return (
-      <div className="card border-0 rounded-3 mb-5" style={{ boxShadow: '8px 8px 16px 0px rgba(0,0,0,0.04)' }}>
+      <div
+        className="card border-0 rounded-3 mb-5"
+        style={{ boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)" }}
+      >
         <div className="card-body p-3 p-md-4">
           <Box sx={{ mt: 1.5 }}>
-            <InlineNotice trio={TRIO.rose} icon="information-5" role="alert">{error}</InlineNotice>
+            <InlineNotice trio={TRIO.rose} icon="information-5" role="alert">
+              {error}
+            </InlineNotice>
           </Box>
         </div>
       </div>
@@ -927,49 +1148,95 @@ const DashboardDailyAttendanceOverview = () => {
   }
 
   return (
-    <div className="card border-0 rounded-3 mb-5" style={{ boxShadow: '8px 8px 16px 0px rgba(0,0,0,0.04)' }}>
+    <div
+      className="card border-0 rounded-3 mb-5"
+      style={{ boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)" }}
+    >
       <div className="card-body p-3 p-md-4">
         {/* Header */}
         <div className="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-3">
-          <h5 className="fw-semibold mb-0" style={{ fontFamily: 'Barlow', fontSize: 'clamp(18px, 4vw, 20px)', letterSpacing: '0.2px' }}>
+          <h5
+            className="fw-semibold mb-0"
+            style={{
+              fontFamily: "Barlow",
+              fontSize: "clamp(18px, 4vw, 20px)",
+              letterSpacing: "0.2px",
+            }}
+          >
             Daily Attendance Overview
           </h5>
 
           <div className="d-flex align-items-center gap-3 flex-wrap">
-            {canSection("attendance.employees") &&
-            <Link
-              to="/employees/attendance-and-leaves"
-              data-slot="button"
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              View all
-            </Link>
-}
+            {canSection("attendance.employees") && (
+              <Link
+                to="/employees/attendance-and-leaves"
+                data-slot="button"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                View all
+              </Link>
+            )}
 
             {/* Date Navigation - tabs previous and next */}
             <div>
-              <PeriodFilter 
-                initialMode="daily" 
-                allowedModes={["daily"]}
+              <PeriodFilter
+                initialMode={PeriodMode.DAILY}
+                allowedModes={[PeriodMode.DAILY]}
                 onChange={(range) => {
                   if (range.start) {
                     setDate(dayjs(range.start));
                   }
-                }} 
+                }}
               />
             </div>
           </div>
         </div>
 
         {/* Working Employees Summary */}
-        <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-2 mb-3`} style={{ backgroundColor: '#edf2f9', border: '1px solid #edf2f9', cursor: 'pointer' }} onClick={() => handleCardClick('working')}>
+        <Item
+          render={<button type="button" />}
+          className={`${CARD_TRIGGER} rounded-2 mb-3`}
+          style={{
+            backgroundColor: "#edf2f9",
+            border: "1px solid #edf2f9",
+            cursor: "pointer",
+          }}
+          onClick={() => handleCardClick("working")}
+        >
           <div className="d-flex align-items-center gap-2">
-            <i className="fa fa-users" style={{ fontSize: '20px', color: '#4a5568' }}></i>
+            <i
+              className="fa fa-users"
+              style={{ fontSize: "20px", color: "#4a5568" }}
+            ></i>
             <div>
-              <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{visibleAttendance.length}</span>
-              <span style={{ fontSize: '14px', color: '#a6b1c0', fontFamily: 'Inter' }}>/{visibleEmployees.length}</span>
+              <span
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "500",
+                  fontFamily: "Inter",
+                }}
+              >
+                {visibleAttendance.length}
+              </span>
+              <span
+                style={{
+                  fontSize: "14px",
+                  color: "#a6b1c0",
+                  fontFamily: "Inter",
+                }}
+              >
+                /{visibleEmployees.length}
+              </span>
             </div>
-            <span style={{ fontSize: '14px', fontFamily: 'Inter', marginLeft: '8px' }}>Working Employees</span>
+            <span
+              style={{
+                fontSize: "14px",
+                fontFamily: "Inter",
+                marginLeft: "8px",
+              }}
+            >
+              Working Employees
+            </span>
           </div>
         </Item>
 
@@ -977,22 +1244,54 @@ const DashboardDailyAttendanceOverview = () => {
         <div className="row g-2">
           {/* On Leave Card */}
           <div className="col-lg col-md-6 col-sm-6">
-            <div className="border rounded-3 h-100" style={{ borderColor: '#dee5ef', minHeight: '80px', cursor: 'pointer' }}>
-              <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-top`} style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('leave')}>
+            <div
+              className="border rounded-3 h-100"
+              style={{
+                borderColor: "#dee5ef",
+                minHeight: "80px",
+                cursor: "pointer",
+              }}
+            >
+              <Item
+                render={<button type="button" />}
+                className={`${CARD_TRIGGER} rounded-top`}
+                style={{ backgroundColor: "#edf2f9" }}
+                onClick={() => handleCardClick("leave")}
+              >
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <i className="fa fa-calendar-times" style={{ fontSize: '20px', color: '#f59e0b' }}></i>
-                  <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{employesLeaveDatas?.length || 0}</span>
+                  <i
+                    className="fa fa-calendar-times"
+                    style={{ fontSize: "20px", color: "#f59e0b" }}
+                  ></i>
+                  <span
+                    style={{
+                      fontSize: "20px",
+                      fontWeight: "500",
+                      fontFamily: "Inter",
+                    }}
+                  >
+                    {employesLeaveDatas?.length || 0}
+                  </span>
                 </div>
-                <p className="mb-0" style={{ fontSize: '14px', fontWeight: '500', fontFamily: 'Inter' }}>On Leave</p>
+                <p
+                  className="mb-0"
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    fontFamily: "Inter",
+                  }}
+                >
+                  On Leave
+                </p>
               </Item>
-              <hr className="m-0" style={{ borderColor: '#d9d9d9' }} />
+              <hr className="m-0" style={{ borderColor: "#d9d9d9" }} />
               <div
                 className="p-3"
                 style={{
-                  maxHeight: '160px',
-                  overflowY: 'scroll',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: '#1E3A8A #f0f0f0'
+                  maxHeight: "160px",
+                  overflowY: "scroll",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#1E3A8A #f0f0f0",
                 }}
               >
                 <div className="d-flex flex-column gap-2">
@@ -1000,28 +1299,49 @@ const DashboardDailyAttendanceOverview = () => {
                     leaveEmployees.map((emp: any, index: number) => {
                       const employeeData = emp.employee || {};
                       const user = employeeData.users || emp.users || {};
-                      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-                      const avatarSrc = employeeData.avatar || emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                      const fullName =
+                        `${user.firstName || ""} ${user.lastName || ""}`.trim();
+                      const avatarSrc =
+                        employeeData.avatar ||
+                        emp.avatar ||
+                        toAbsoluteUrl("media/svg/avatars/043-boy-18.svg");
 
                       return (
-                        <div key={emp.id || index} className="d-flex align-items-center gap-2">
+                        <div
+                          key={emp.id || index}
+                          className="d-flex align-items-center gap-2"
+                        >
                           <Avatar
-                          src={avatarSrc}
-                          alt={fullName}
-                          sx={{ width: 24, height: 24 }}
-                          imgProps={{
-                            onError: (e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
-                            },
-                          }}
-                        />
-                          <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{fullName || 'Unnamed Employee'}</span>
+                            src={avatarSrc}
+                            alt={fullName}
+                            sx={{ width: 24, height: 24 }}
+                            imgProps={{
+                              onError: (e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = toAbsoluteUrl(
+                                  "media/svg/avatars/043-boy-18.svg",
+                                );
+                              },
+                            }}
+                          />
+                          <span
+                            style={{ fontSize: "15px", fontFamily: "Inter" }}
+                          >
+                            {fullName || "Unnamed Employee"}
+                          </span>
                         </div>
                       );
                     })
                   ) : (
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter', color: '#a6b1c0' }}>No employees on leave</span>
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        fontFamily: "Inter",
+                        color: "#a6b1c0",
+                      }}
+                    >
+                      No employees on leave
+                    </span>
                   )}
                 </div>
               </div>
@@ -1030,44 +1350,94 @@ const DashboardDailyAttendanceOverview = () => {
 
           {/* Absent Card */}
           <div className="col-lg col-md-6 col-sm-6">
-            <div className="border rounded-3 h-100" style={{ borderColor: '#dee5ef', minHeight: '80px', cursor: 'pointer' }}>
-              <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-top`} style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('absent')}>
+            <div
+              className="border rounded-3 h-100"
+              style={{
+                borderColor: "#dee5ef",
+                minHeight: "80px",
+                cursor: "pointer",
+              }}
+            >
+              <Item
+                render={<button type="button" />}
+                className={`${CARD_TRIGGER} rounded-top`}
+                style={{ backgroundColor: "#edf2f9" }}
+                onClick={() => handleCardClick("absent")}
+              >
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <i className="fa fa-user-times" style={{ fontSize: '20px', color: '#ef4444' }}></i>
-                  <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{absentCount}</span>
+                  <i
+                    className="fa fa-user-times"
+                    style={{ fontSize: "20px", color: "#ef4444" }}
+                  ></i>
+                  <span
+                    style={{
+                      fontSize: "20px",
+                      fontWeight: "500",
+                      fontFamily: "Inter",
+                    }}
+                  >
+                    {absentCount}
+                  </span>
                 </div>
-                <p className="mb-0" style={{ fontSize: '14px', fontWeight: '500', fontFamily: 'Inter' }}>Absent</p>
+                <p
+                  className="mb-0"
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    fontFamily: "Inter",
+                  }}
+                >
+                  Absent
+                </p>
               </Item>
-              <hr className="m-0" style={{ borderColor: '#d9d9d9' }} />
+              <hr className="m-0" style={{ borderColor: "#d9d9d9" }} />
               <div
                 className="p-3"
                 style={{
-                  maxHeight: '160px',
-                  overflowY: 'scroll',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: '#1E3A8A #f0f0f0'
+                  maxHeight: "160px",
+                  overflowY: "scroll",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#1E3A8A #f0f0f0",
                 }}
               >
                 <div className="d-flex flex-column gap-2">
                   {absentEmployees.length > 0 ? (
                     absentEmployees.map((emp, index) => (
-                      <div key={emp._id || index} className="d-flex align-items-center gap-2">
+                      <div
+                        key={emp._id || index}
+                        className="d-flex align-items-center gap-2"
+                      >
                         <Avatar
-                          src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
+                          src={
+                            emp.avatar ||
+                            toAbsoluteUrl("media/svg/avatars/043-boy-18.svg")
+                          }
                           alt={`${emp.firstName} ${emp.lastName}`}
                           sx={{ width: 24, height: 24 }}
                           imgProps={{
                             onError: (e) => {
                               const target = e.target as HTMLImageElement;
-                              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                              target.src = toAbsoluteUrl(
+                                "media/svg/avatars/043-boy-18.svg",
+                              );
                             },
                           }}
                         />
-                        <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>
+                        <span style={{ fontSize: "15px", fontFamily: "Inter" }}>
+                          {emp.firstName} {emp.lastName}
+                        </span>
                       </div>
                     ))
                   ) : (
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter', color: '#a6b1c0' }}>No absent employees</span>
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        fontFamily: "Inter",
+                        color: "#a6b1c0",
+                      }}
+                    >
+                      No absent employees
+                    </span>
                   )}
                 </div>
               </div>
@@ -1076,44 +1446,94 @@ const DashboardDailyAttendanceOverview = () => {
 
           {/* Extra Day Working Card */}
           <div className="col-lg col-md-6 col-sm-6">
-            <div className="border rounded-3 h-100" style={{ borderColor: '#dee5ef', minHeight: '80px', cursor: 'pointer' }}>
-              <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-top`} style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('extra')}>
+            <div
+              className="border rounded-3 h-100"
+              style={{
+                borderColor: "#dee5ef",
+                minHeight: "80px",
+                cursor: "pointer",
+              }}
+            >
+              <Item
+                render={<button type="button" />}
+                className={`${CARD_TRIGGER} rounded-top`}
+                style={{ backgroundColor: "#edf2f9" }}
+                onClick={() => handleCardClick("extra")}
+              >
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <i className="fa fa-briefcase" style={{ fontSize: '20px', color: '#3b82f6' }}></i>
-                  <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{extraDays || 0}</span>
+                  <i
+                    className="fa fa-briefcase"
+                    style={{ fontSize: "20px", color: "#3b82f6" }}
+                  ></i>
+                  <span
+                    style={{
+                      fontSize: "20px",
+                      fontWeight: "500",
+                      fontFamily: "Inter",
+                    }}
+                  >
+                    {extraDays || 0}
+                  </span>
                 </div>
-                <p className="mb-0" style={{ fontSize: '14px', fontWeight: '500', fontFamily: 'Inter' }}>Extra Day Working</p>
+                <p
+                  className="mb-0"
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    fontFamily: "Inter",
+                  }}
+                >
+                  Extra Day Working
+                </p>
               </Item>
-              <hr className="m-0" style={{ borderColor: '#d9d9d9' }} />
+              <hr className="m-0" style={{ borderColor: "#d9d9d9" }} />
               <div
                 className="p-3"
                 style={{
-                  maxHeight: '160px',
-                  overflowY: 'scroll',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: '#1E3A8A #f0f0f0'
+                  maxHeight: "160px",
+                  overflowY: "scroll",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#1E3A8A #f0f0f0",
                 }}
               >
                 <div className="d-flex flex-column gap-2">
                   {extraDayEmployees.length > 0 ? (
                     extraDayEmployees.map((emp, index) => (
-                      <div key={emp._id || index} className="d-flex align-items-center gap-2">
+                      <div
+                        key={emp._id || index}
+                        className="d-flex align-items-center gap-2"
+                      >
                         <Avatar
-                          src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
+                          src={
+                            emp.avatar ||
+                            toAbsoluteUrl("media/svg/avatars/043-boy-18.svg")
+                          }
                           alt={`${emp.firstName} ${emp.lastName}`}
                           sx={{ width: 24, height: 24 }}
                           imgProps={{
                             onError: (e) => {
                               const target = e.target as HTMLImageElement;
-                              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                              target.src = toAbsoluteUrl(
+                                "media/svg/avatars/043-boy-18.svg",
+                              );
                             },
                           }}
                         />
-                        <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>
+                        <span style={{ fontSize: "15px", fontFamily: "Inter" }}>
+                          {emp.firstName} {emp.lastName}
+                        </span>
                       </div>
                     ))
                   ) : (
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter', color: '#a6b1c0' }}>No extra day working</span>
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        fontFamily: "Inter",
+                        color: "#a6b1c0",
+                      }}
+                    >
+                      No extra day working
+                    </span>
                   )}
                 </div>
               </div>
@@ -1122,44 +1542,94 @@ const DashboardDailyAttendanceOverview = () => {
 
           {/* Late Check-in Card */}
           <div className="col-lg col-md-6 col-sm-6">
-            <div className="border rounded-3 h-100" style={{ borderColor: '#dee5ef', minHeight: '80px', cursor: 'pointer' }}>
-              <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-top`} style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('late')}>
+            <div
+              className="border rounded-3 h-100"
+              style={{
+                borderColor: "#dee5ef",
+                minHeight: "80px",
+                cursor: "pointer",
+              }}
+            >
+              <Item
+                render={<button type="button" />}
+                className={`${CARD_TRIGGER} rounded-top`}
+                style={{ backgroundColor: "#edf2f9" }}
+                onClick={() => handleCardClick("late")}
+              >
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <i className="fa fa-clock" style={{ fontSize: '20px', color: '#8b5cf6' }}></i>
-                  <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{lateCheckInsCount}</span>
+                  <i
+                    className="fa fa-clock"
+                    style={{ fontSize: "20px", color: "#8b5cf6" }}
+                  ></i>
+                  <span
+                    style={{
+                      fontSize: "20px",
+                      fontWeight: "500",
+                      fontFamily: "Inter",
+                    }}
+                  >
+                    {lateCheckInsCount}
+                  </span>
                 </div>
-                <p className="mb-0" style={{ fontSize: '14px', fontWeight: '500', fontFamily: 'Inter' }}>Late Check-in</p>
+                <p
+                  className="mb-0"
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    fontFamily: "Inter",
+                  }}
+                >
+                  Late Check-in
+                </p>
               </Item>
-              <hr className="m-0" style={{ borderColor: '#d9d9d9' }} />
+              <hr className="m-0" style={{ borderColor: "#d9d9d9" }} />
               <div
                 className="p-3"
                 style={{
-                  maxHeight: '160px',
-                  overflowY: 'scroll',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: '#1E3A8A #f0f0f0'
+                  maxHeight: "160px",
+                  overflowY: "scroll",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#1E3A8A #f0f0f0",
                 }}
               >
                 <div className="d-flex flex-column gap-2">
                   {lateCheckInEmployees.length > 0 ? (
                     lateCheckInEmployees.map((emp, index) => (
-                      <div key={emp._id || index} className="d-flex align-items-center gap-2">
+                      <div
+                        key={emp._id || index}
+                        className="d-flex align-items-center gap-2"
+                      >
                         <Avatar
-                          src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
+                          src={
+                            emp.avatar ||
+                            toAbsoluteUrl("media/svg/avatars/043-boy-18.svg")
+                          }
                           alt={`${emp.firstName} ${emp.lastName}`}
                           sx={{ width: 24, height: 24 }}
                           imgProps={{
                             onError: (e) => {
                               const target = e.target as HTMLImageElement;
-                              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                              target.src = toAbsoluteUrl(
+                                "media/svg/avatars/043-boy-18.svg",
+                              );
                             },
                           }}
                         />
-                        <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>
+                        <span style={{ fontSize: "15px", fontFamily: "Inter" }}>
+                          {emp.firstName} {emp.lastName}
+                        </span>
                       </div>
                     ))
                   ) : (
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter', color: '#a6b1c0' }}>No late check-ins</span>
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        fontFamily: "Inter",
+                        color: "#a6b1c0",
+                      }}
+                    >
+                      No late check-ins
+                    </span>
                   )}
                 </div>
               </div>
@@ -1168,44 +1638,94 @@ const DashboardDailyAttendanceOverview = () => {
 
           {/* Early Check-out Card */}
           <div className="col-lg col-md-6 col-sm-6">
-            <div className="border rounded-3 h-100" style={{ borderColor: '#dee5ef', minHeight: '80px', cursor: 'pointer' }}>
-              <Item render={<button type="button" />} className={`${CARD_TRIGGER} rounded-top`} style={{ backgroundColor: '#edf2f9' }} onClick={() => handleCardClick('early')}>
+            <div
+              className="border rounded-3 h-100"
+              style={{
+                borderColor: "#dee5ef",
+                minHeight: "80px",
+                cursor: "pointer",
+              }}
+            >
+              <Item
+                render={<button type="button" />}
+                className={`${CARD_TRIGGER} rounded-top`}
+                style={{ backgroundColor: "#edf2f9" }}
+                onClick={() => handleCardClick("early")}
+              >
                 <div className="d-flex align-items-center gap-2 mb-2">
-                  <i className="fa fa-sign-out-alt" style={{ fontSize: '20px', color: '#ec4899' }}></i>
-                  <span style={{ fontSize: '20px', fontWeight: '500', fontFamily: 'Inter' }}>{earlyCheckOutsCount}</span>
+                  <i
+                    className="fa fa-sign-out-alt"
+                    style={{ fontSize: "20px", color: "#ec4899" }}
+                  ></i>
+                  <span
+                    style={{
+                      fontSize: "20px",
+                      fontWeight: "500",
+                      fontFamily: "Inter",
+                    }}
+                  >
+                    {earlyCheckOutsCount}
+                  </span>
                 </div>
-                <p className="mb-0" style={{ fontSize: '14px', fontWeight: '500', fontFamily: 'Inter' }}>Early Check-out</p>
+                <p
+                  className="mb-0"
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    fontFamily: "Inter",
+                  }}
+                >
+                  Early Check-out
+                </p>
               </Item>
-              <hr className="m-0" style={{ borderColor: '#d9d9d9' }} />
+              <hr className="m-0" style={{ borderColor: "#d9d9d9" }} />
               <div
                 className="p-3"
                 style={{
-                  maxHeight: '160px',
-                  overflowY: 'scroll',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: '#1E3A8A #f0f0f0'
+                  maxHeight: "160px",
+                  overflowY: "scroll",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#1E3A8A #f0f0f0",
                 }}
               >
                 <div className="d-flex flex-column gap-2">
                   {earlyCheckOutEmployees.length > 0 ? (
                     earlyCheckOutEmployees.map((emp, index) => (
-                      <div key={emp._id || index} className="d-flex align-items-center gap-2">
+                      <div
+                        key={emp._id || index}
+                        className="d-flex align-items-center gap-2"
+                      >
                         <Avatar
-                          src={emp.avatar || toAbsoluteUrl('media/svg/avatars/043-boy-18.svg')}
+                          src={
+                            emp.avatar ||
+                            toAbsoluteUrl("media/svg/avatars/043-boy-18.svg")
+                          }
                           alt={`${emp.firstName} ${emp.lastName}`}
                           sx={{ width: 24, height: 24 }}
                           imgProps={{
                             onError: (e) => {
                               const target = e.target as HTMLImageElement;
-                              target.src = toAbsoluteUrl('media/svg/avatars/043-boy-18.svg');
+                              target.src = toAbsoluteUrl(
+                                "media/svg/avatars/043-boy-18.svg",
+                              );
                             },
                           }}
                         />
-                        <span style={{ fontSize: '15px', fontFamily: 'Inter' }}>{emp.firstName} {emp.lastName}</span>
+                        <span style={{ fontSize: "15px", fontFamily: "Inter" }}>
+                          {emp.firstName} {emp.lastName}
+                        </span>
                       </div>
                     ))
                   ) : (
-                    <span style={{ fontSize: '14px', fontFamily: 'Inter', color: '#a6b1c0' }}>No early check-outs</span>
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        fontFamily: "Inter",
+                        color: "#a6b1c0",
+                      }}
+                    >
+                      No early check-outs
+                    </span>
                   )}
                 </div>
               </div>

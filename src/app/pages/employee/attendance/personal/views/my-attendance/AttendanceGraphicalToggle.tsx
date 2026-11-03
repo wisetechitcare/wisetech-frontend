@@ -15,7 +15,7 @@ import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import TimePeriodDropdown, { TimePeriodMode } from "@app/modules/common/components/TimePeriodDropdown";
+import TimePeriodDropdown from "@app/modules/common/components/TimePeriodDropdown";
 import { fetchAppSettings } from "@redux/slices/appSettings";
 import Loader from "@app/modules/common/utils/Loader";
 import { AppDispatch } from "@redux/store";

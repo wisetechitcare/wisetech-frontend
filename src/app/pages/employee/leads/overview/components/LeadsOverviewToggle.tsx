@@ -9,7 +9,9 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import PeriodFilter, {
+  PeriodRange,
+} from "@app/modules/common/components/PeriodFilter";
 import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import { ChartMetric } from "@pages/dashboard/leadAnalytics";
 import { DATE_FORMATS } from "@utils/dateFormats";
@@ -25,7 +27,8 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import LeadBulkImport from "../../lead/LeadBulkImport";
 import LeadWizardModal from "../../lead/LeadWizardModal";
 import SelectLeadOrganizationDialog from "../../lead/SelectLeadOrganizationDialog";
-import { Button } from '@/ds/ui/button';
+import { Button } from "@/ds/ui/button";
+import { PeriodMode } from "@/constants/common";
 
 export type ToggleItemsCallBackFunctions = {
   monthly: (date: Dayjs, endDate: Dayjs) => void;
@@ -39,7 +42,6 @@ interface MaterialToggleProps {
   dateSettingsEnabled: boolean;
 }
 
-
 const LeadsOverviewToggle = ({
   toggleItemsActions,
   fromAdmin = false,
@@ -50,13 +52,17 @@ const LeadsOverviewToggle = ({
   const canWrite = canSection("crm.leads", "write");
 
   const [periodRange, setPeriodRange] = useState<PeriodRange>({
-    mode: "yearly",
+    mode: PeriodMode.YEARLY,
     start: null,
     end: null,
     label: "",
   });
-  const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(undefined);
-  const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(undefined);
+  const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(
+    undefined,
+  );
+  const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(
+    undefined,
+  );
   const [formValues, setFormValues] = useState<any | null>(null);
   const [showOrgPicker, setShowOrgPicker] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
@@ -74,18 +80,16 @@ const LeadsOverviewToggle = ({
 
   // If user loses access to amount view, revert to count
   useEffect(() => {
-    if (metric === "amount" && !canViewCommercial('crm.leads')) {
+    if (metric === "amount" && !canViewCommercial("crm.leads")) {
       setMetric("count");
     }
   }, [metric]);
 
   // Compute metric options based on user permissions (must be at component level, not conditional)
   const metricOptions = useMemo(() => {
-    const baseOptions = [
-      { label: "Number", value: "count" },
-    ];
+    const baseOptions = [{ label: "Number", value: "count" }];
     // Only show "Amount" if the user may see lead money
-    if (canViewCommercial('crm.leads')) {
+    if (canViewCommercial("crm.leads")) {
       baseOptions.push({ label: "Amount", value: "amount" });
     }
     return baseOptions;
@@ -93,7 +97,7 @@ const LeadsOverviewToggle = ({
 
   useEffect(() => {
     const handleChartSettingsUpdate = () => {
-      setRefreshTrigger(prev => prev + 1);
+      setRefreshTrigger((prev) => prev + 1);
     };
 
     const handleCloseModal = () => {
@@ -153,39 +157,55 @@ const LeadsOverviewToggle = ({
           Overview
         </div>
         <div className="d-flex align-items-center gap-2 gap-sm-3 flex-wrap">
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            width="24" 
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
             height="24"
-            viewBox="0 0 24 24" 
+            viewBox="0 0 24 24"
             fill="none"
             onClick={handleOpenChartSettingsModal}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: "pointer" }}
           >
-            <path d="M10.5 6H20.25M10.5 6C10.5 6.39782 10.342 6.77936 10.0607 7.06066C9.77936 7.34196 9.39782 7.5 9 7.5C8.60218 7.5 8.22064 7.34196 7.93934 7.06066C7.65804 6.77936 7.5 6.39782 7.5 6M10.5 6C10.5 5.60218 10.342 5.22064 10.0607 4.93934C9.77936 4.65804 9.39782 4.5 9 4.5C8.60218 4.5 8.22064 4.65804 7.93934 4.93934C7.65804 5.22064 7.5 5.60218 7.5 6M7.5 6H3.75M10.5 18H20.25M10.5 18C10.5 18.3978 10.342 18.7794 10.0607 19.0607C9.77936 19.342 9.39782 19.5 9 19.5C8.60218 19.5 8.22064 19.342 7.93934 19.0607C7.65804 18.7794 7.5 18.3978 7.5 18M10.5 18C10.5 17.6022 10.342 17.2206 10.0607 16.9393C9.77936 16.658 9.39782 16.5 9 16.5C8.60218 16.5 8.22064 16.658 7.93934 16.9393C7.65804 17.2206 7.5 17.6022 7.5 18M7.5 18H3.75M16.5 12H20.25M16.5 12C16.5 12.3978 16.342 12.7794 16.0607 13.0607C15.7794 13.342 15.3978 13.5 15 13.5C14.6022 13.5 14.2206 13.342 13.9393 13.0607C13.658 12.7794 13.5 12.3978 13.5 12M16.5 12C16.5 11.6022 16.342 11.2206 16.0607 10.9393C15.7794 10.658 15.3978 10.5 15 10.5C14.6022 10.5 14.2206 10.658 13.9393 10.9393C13.658 11.2206 13.5 11.6022 13.5 12M13.5 12H3.75" stroke="#172554" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M10.5 6H20.25M10.5 6C10.5 6.39782 10.342 6.77936 10.0607 7.06066C9.77936 7.34196 9.39782 7.5 9 7.5C8.60218 7.5 8.22064 7.34196 7.93934 7.06066C7.65804 6.77936 7.5 6.39782 7.5 6M10.5 6C10.5 5.60218 10.342 5.22064 10.0607 4.93934C9.77936 4.65804 9.39782 4.5 9 4.5C8.60218 4.5 8.22064 4.65804 7.93934 4.93934C7.65804 5.22064 7.5 5.60218 7.5 6M7.5 6H3.75M10.5 18H20.25M10.5 18C10.5 18.3978 10.342 18.7794 10.0607 19.0607C9.77936 19.342 9.39782 19.5 9 19.5C8.60218 19.5 8.22064 19.342 7.93934 19.0607C7.65804 18.7794 7.5 18.3978 7.5 18M10.5 18C10.5 17.6022 10.342 17.2206 10.0607 16.9393C9.77936 16.658 9.39782 16.5 9 16.5C8.60218 16.5 8.22064 16.658 7.93934 16.9393C7.65804 17.2206 7.5 17.6022 7.5 18M7.5 18H3.75M16.5 12H20.25M16.5 12C16.5 12.3978 16.342 12.7794 16.0607 13.0607C15.7794 13.342 15.3978 13.5 15 13.5C14.6022 13.5 14.2206 13.342 13.9393 13.0607C13.658 12.7794 13.5 12.3978 13.5 12M16.5 12C16.5 11.6022 16.342 11.2206 16.0607 10.9393C15.7794 10.658 15.3978 10.5 15 10.5C14.6022 10.5 14.2206 10.658 13.9393 10.9393C13.658 11.2206 13.5 11.6022 13.5 12M13.5 12H3.75"
+              stroke="#172554"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
-          {canWrite && (<>
-          <Button variant="tinted" size="sm" type="submit"
-            onClick={() => setShowBulkImport(true)}
-          >
-            Bulk Import
-          </Button>
-          <Button size="sm" type="submit"
-            onClick={() => setShowOrgPicker(true)}
-            style={{ backgroundColor: "#1E3A8A", border: "none" }}
-          >
-            + New Lead
-          </Button>
-          </>)}
+          {canWrite && (
+            <>
+              <Button
+                variant="tinted"
+                size="sm"
+                type="submit"
+                onClick={() => setShowBulkImport(true)}
+              >
+                Bulk Import
+              </Button>
+              <Button
+                size="sm"
+                type="submit"
+                onClick={() => setShowOrgPicker(true)}
+                style={{ backgroundColor: "#1E3A8A", border: "none" }}
+              >
+                + New Lead
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       <div className="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-start mb-6 gap-3 w-100">
         {/* Same stacking as Projects Overview: full-width controls on phones, one row from md up. */}
-        <div className="d-flex flex-column flex-md-row flex-md-wrap align-items-stretch align-items-md-center gap-3" style={{ flex: "1 1 auto", minWidth: 0 }}>
+        <div
+          className="d-flex flex-column flex-md-row flex-md-wrap align-items-stretch align-items-md-center gap-3"
+          style={{ flex: "1 1 auto", minWidth: 0 }}
+        >
           <PeriodFilter
             onChange={setPeriodRange}
-            initialMode="yearly"
+            initialMode={PeriodMode.YEARLY}
             storageKey="leadsOverviewPeriodMode"
             useFiscalYear={true}
             clampYearToToday={dateSettingsEnabled}
@@ -198,14 +218,18 @@ const LeadsOverviewToggle = ({
                 <DatePicker
                   label="Start Date"
                   value={customStartDate}
-                  onChange={(newValue) => setCustomStartDate(newValue ?? undefined)}
+                  onChange={(newValue) =>
+                    setCustomStartDate(newValue ?? undefined)
+                  }
                   maxDate={customEndDate}
                   format={DATE_FORMATS.DATE_PICKER}
                 />
                 <DatePicker
                   label="End Date"
                   value={customEndDate}
-                  onChange={(newValue) => setCustomEndDate(newValue ?? undefined)}
+                  onChange={(newValue) =>
+                    setCustomEndDate(newValue ?? undefined)
+                  }
                   minDate={customStartDate}
                   format={DATE_FORMATS.DATE_PICKER}
                 />
@@ -215,29 +239,33 @@ const LeadsOverviewToggle = ({
         </div>
 
         {/* Right side controls: Metric selector & Tab slot grouped together */}
-        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-3 justify-content-lg-end" style={{ flexShrink: 0, minWidth: 0 }}>
-          {["monthly", "yearly", "allyear"].includes(periodRange.mode) && metricOptions.length > 1 && (
-            <div className="d-flex align-items-center gap-2">
-              <span
-                style={{
-                  fontFamily: "Inter, sans-serif",
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  color: "#94A3B8",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Based on
-              </span>
-              <PeriodTabs
-                value={metric}
-                options={metricOptions}
-                onChange={(val) => setMetric(val as ChartMetric)}
-                // The app's standard selection look, same as Projects Overview's measure switch.
-                ariaLabel="measure selection"
-              />
-            </div>
-          )}
+        <div
+          className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-3 justify-content-lg-end"
+          style={{ flexShrink: 0, minWidth: 0 }}
+        >
+          {["monthly", "yearly", "allyear"].includes(periodRange.mode) &&
+            metricOptions.length > 1 && (
+              <div className="d-flex align-items-center gap-2">
+                <span
+                  style={{
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    color: "#94A3B8",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Based on
+                </span>
+                <PeriodTabs
+                  value={metric}
+                  options={metricOptions}
+                  onChange={(val) => setMetric(val as ChartMetric)}
+                  // The app's standard selection look, same as Projects Overview's measure switch.
+                  ariaLabel="measure selection"
+                />
+              </div>
+            )}
 
           {/* Sub-tabs (Summary / Services / Sources / Insights) portal into here */}
           {/* Full width on phones so the tab bar spans the screen; natural width on desktop. */}
@@ -259,25 +287,45 @@ const LeadsOverviewToggle = ({
           key={`daily-${periodRange.start.valueOf()}-${refreshTrigger}`}
         />
       )}
-      {periodRange.mode === "weekly" && periodRange.start && periodRange.end && (
-        <Custom
-          startDate={periodRange.start}
-          endDate={periodRange.end}
-          key={`weekly-${periodRange.start.valueOf()}-${refreshTrigger}`}
-        />
-      )}
-      {periodRange.mode === "monthly" && periodRange.start && periodRange.end && (
-        <Monthly month={periodRange.start} endDate={periodRange.end} key={`monthly-${refreshTrigger}`} metric={metric} />
-      )}
-      {periodRange.mode === "yearly" && periodRange.start && periodRange.end && (
-        <Yearly startDate={periodRange.start} endDate={periodRange.end} key={`yearly-${refreshTrigger}`} metric={metric} />
-      )}
+      {periodRange.mode === "weekly" &&
+        periodRange.start &&
+        periodRange.end && (
+          <Custom
+            startDate={periodRange.start}
+            endDate={periodRange.end}
+            key={`weekly-${periodRange.start.valueOf()}-${refreshTrigger}`}
+          />
+        )}
+      {periodRange.mode === "monthly" &&
+        periodRange.start &&
+        periodRange.end && (
+          <Monthly
+            month={periodRange.start}
+            endDate={periodRange.end}
+            key={`monthly-${refreshTrigger}`}
+            metric={metric}
+          />
+        )}
+      {periodRange.mode === "yearly" &&
+        periodRange.start &&
+        periodRange.end && (
+          <Yearly
+            startDate={periodRange.start}
+            endDate={periodRange.end}
+            key={`yearly-${refreshTrigger}`}
+            metric={metric}
+          />
+        )}
       {periodRange.mode === "allyear" && (
         <AllTime key={`alltime-${refreshTrigger}`} metric={metric} />
       )}
       {periodRange.mode === "custom" ? (
         customStartDate && customEndDate ? (
-          <Custom startDate={customStartDate} endDate={customEndDate} key={`custom-${refreshTrigger}`} />
+          <Custom
+            startDate={customStartDate}
+            endDate={customEndDate}
+            key={`custom-${refreshTrigger}`}
+          />
         ) : (
           <Container
             className="my-4 w-100 px-0 d-flex justify-content-center align-items-center"
@@ -299,8 +347,6 @@ const LeadsOverviewToggle = ({
           </Container>
         )
       ) : null}
-
-      
 
       {/* Same pre-step as the Leads tab. The organization fixes the lead's prefix and
           number series, so it has to be chosen before the wizard opens — skipping it
