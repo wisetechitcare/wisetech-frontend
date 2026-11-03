@@ -14,7 +14,23 @@ const COUNTRIES = defaultCountries.map(parseCountry)
  * Decorative: the country name and dial code next to it carry the meaning.
  */
 function Flag({ iso2, size = 20 }: { iso2: string; size?: number }) {
-  return <FlagImage iso2={iso2} size={`${size}px`} alt="" aria-hidden className="shrink-0 rounded-[3px]" />
+  // The hairline ring keeps white flags (Japan, Cyprus) visible on a white surface.
+  return (
+    <FlagImage
+      iso2={iso2}
+      size={`${size}px`}
+      alt=""
+      aria-hidden
+      className="shrink-0 rounded-[3px] ring-1 ring-foreground/10"
+    />
+  )
+}
+
+/** An example number in the country's own grouping ("50 123 4567"), shown as the placeholder hint. */
+function example(format: unknown) {
+  if (typeof format !== "string") return undefined
+  let n = 0
+  return format.replace(/\./g, () => String((n++ % 9) + 1))
 }
 
 /**
@@ -61,15 +77,15 @@ export function PhoneField({
               <InputGroupButton
                 variant="ghost"
                 size="sm"
-                aria-label={`Country code: ${country.name} +${country.dialCode}`}
+                className="gap-1 px-1.5"
+                aria-label={`Country: ${country.name} (+${country.dialCode})`}
               />
             }
           >
             <Flag iso2={country.iso2} />
-            <span className="tabular">+{country.dialCode}</span>
-            <ChevronDown aria-hidden className="text-muted-foreground" />
+            <ChevronDown aria-hidden className="size-3.5 text-muted-foreground" />
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-80 p-0">
+          <PopoverContent align="start" sideOffset={8} className="w-80 p-0">
             <Command>
               <CommandInput placeholder="Search country or code" />
               <CommandList>
@@ -85,15 +101,20 @@ export function PhoneField({
                     }}
                   >
                     <Flag iso2={c.iso2} />
-                    <span className="flex-1 truncate">{c.name}</span>
-                    <span className="tabular text-muted-foreground">+{c.dialCode}</span>
-                    <Check aria-hidden className={cn("size-4", c.iso2 === country.iso2 ? "opacity-100" : "opacity-0")} />
+                    <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                    <span className="tabular w-12 text-right text-muted-foreground">+{c.dialCode}</span>
+                    <Check aria-hidden className={cn("size-4 text-primary", c.iso2 === country.iso2 ? "opacity-100" : "opacity-0")} />
                   </CommandItem>
                 ))}
               </CommandList>
             </Command>
           </PopoverContent>
         </Popover>
+        {/* The dial code reads as the start of the number: the input's own typography, not the button's. */}
+        <span aria-hidden className="h-5 w-px bg-border" />
+        <span aria-hidden className="tabular text-base font-normal text-muted-foreground md:text-sm">
+          +{country.dialCode}
+        </span>
       </InputGroupAddon>
       <InputGroupInput
         id={id}
@@ -103,6 +124,7 @@ export function PhoneField({
         value={inputValue}
         onChange={handlePhoneValueChange}
         disabled={disabled}
+        placeholder={example(country.format)}
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
       />

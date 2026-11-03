@@ -37,13 +37,27 @@ export const Default: Story = {
   },
 }
 
+/** The dial code reads as the start of the number: same size, weight and family as the typed digits. */
+export const DialCodeMatchesNumber: Story = {
+  play: async ({ canvas, canvasElement }) => {
+    const input = canvas.getByLabelText('Mobile')
+    const code = [...canvasElement.querySelectorAll<HTMLElement>('[data-slot="input-group-addon"] span')].find((el) => el.textContent === '+91')!
+    await expect(code).toBeDefined()
+    const a = getComputedStyle(code)
+    const b = getComputedStyle(input)
+    for (const prop of ['fontSize', 'fontWeight', 'fontFamily'] as const) {
+      await expect(a[prop], `dial code ${prop}`).toBe(b[prop])
+    }
+  },
+}
+
 /** Changing country by searching for it. */
 export const ChangeCountry: Story = {
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: /Country code: India/ }))
+    await userEvent.click(canvas.getByRole('button', { name: /Country: India/ }))
     await userEvent.type(await screen.findByPlaceholderText('Search country or code'), 'United Arab')
     await userEvent.click(await screen.findByRole('option', { name: /United Arab Emirates/ }))
-    await waitFor(() => expect(canvas.getByRole('button', { name: /Country code: United Arab Emirates \+971/ })).toBeInTheDocument())
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Country: United Arab Emirates (+971)' })).toBeInTheDocument())
     await animationsSettled()
   },
 }
