@@ -11,6 +11,7 @@ import {errorConfirmation} from '@utils/modal'
 import {removeAuth} from '@app/modules/auth'
 import {logoutUser} from '@redux/slices/auth'
 import {useNavigate} from 'react-router-dom'
+import { Button } from '@/ds/ui/button';
 
 const passwordFormValidationSchema = Yup.object().shape({
   currentPassword: Yup.string()
@@ -79,7 +80,7 @@ const SignInMethod: React.FC = () => {
 
   return (
     <div className='card mb-5 mb-xl-10'>
-      <div
+      <div data-wt-control="accordion"
         className='card-header border-0 cursor-pointer'
         role='button'
         data-bs-toggle='collapse'
@@ -181,10 +182,10 @@ const SignInMethod: React.FC = () => {
                 </div>
 
                 <div className='d-flex'>
-                  <button
+                  <Button
                     id='kt_password_submit'
                     type='submit'
-                    className='btn btn-primary me-2 px-6'
+                    className="me-2"
                   >
                     {!loading2 && 'Update Password'}
                     {loading2 && (
@@ -193,17 +194,16 @@ const SignInMethod: React.FC = () => {
                         <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                       </span>
                     )}
-                  </button>
-                  <button
+                  </Button>
+                  <Button variant="ghost"
                     onClick={() => {
                       setPasswordForm(false)
                     }}
                     id='kt_password_cancel'
                     type='button'
-                    className='btn btn-color-gray-500 btn-active-light-primary px-6'
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -212,14 +212,13 @@ const SignInMethod: React.FC = () => {
               id='kt_signin_password_button'
               className={'ms-auto ' + (showPasswordForm && 'd-none')}
             >
-              <button
+              <Button variant="outline" type="submit"
                 onClick={() => {
                   setPasswordForm(true)
                 }}
-                className='btn btn-light btn-active-light-primary'
               >
                 Reset Password
-              </button>
+              </Button>
             </div>
           </div>
 

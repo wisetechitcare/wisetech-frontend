@@ -4,6 +4,7 @@ import {
   fetchAllOrganizationConfigurations,
   deleteOrganizationConfigurationById,
 } from "@services/configurations";
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
@@ -1224,4 +1225,4 @@ const EmployeeConfigure = () => {
   );
 };
 
-export default EmployeeConfigure;
+export default withDeleteSection('users', EmployeeConfigure);

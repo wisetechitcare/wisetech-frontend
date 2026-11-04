@@ -357,7 +357,7 @@ const CandidateDrawer = ({ application, statuses, onClose, onMove, moving, onCon
                                 fullWidth
                             />
                             <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1 }}>
-                                <WtButton tone="primary" size="small" disabled={!canAddNote || addNote.isPending} onClick={submitNote}>
+                                <WtButton size="small" disabled={!canAddNote || addNote.isPending} onClick={submitNote}>
                                     {addNote.isPending ? "Adding…" : "Add note"}
                                 </WtButton>
                             </Stack>

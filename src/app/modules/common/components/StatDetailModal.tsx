@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Box, Divider, IconButton, InputAdornment, Menu, MenuItem, TextField } from "@mui/material";
+import { Box, Divider, InputAdornment, Menu, MenuItem, TextField } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { GlassDialog, GlassHeader, WtButton } from "@app/modules/common/components/ui";
 import type { StatSortOption } from "./employeeStatGrouping";
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 /**
  * StatDetailModal — the shared "drill into a stat card" dialog: title, Sort By
@@ -194,9 +195,9 @@ const StatDetailModal: React.FC<StatDetailModalProps> = ({
                                 ),
                                 endAdornment: searchQuery ? (
                                     <InputAdornment position="end">
-                                        <IconButton size="small" onClick={() => onSearchChange('')} aria-label="Clear search">
+                                        <WtIconButton size="small" onClick={() => onSearchChange('')} aria-label="Clear search">
                                             <KTIcon iconName="cross" className="fs-5" />
-                                        </IconButton>
+                                        </WtIconButton>
                                     </InputAdornment>
                                 ) : undefined,
                             }}

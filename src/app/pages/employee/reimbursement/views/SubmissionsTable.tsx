@@ -46,6 +46,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import { LEGACY_UIKIT as T, tonePair } from '@app/theme/tokens';
 import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 import { useStoredState } from '@app/hooks/useStoredState';
+import { Button } from '@/ds/ui/button';
 
 // Sentinel batch id for reimbursements that have no batch (batch_id = NULL).
 // These are legacy/imported records that were never submitted through the
@@ -270,75 +271,31 @@ function SubmissionDetailModal({
                     {asking && (
                       <div className="mt-1">
                         {hasAwaitingQuery ? (
-                          <button
+                          <Button variant="ghost" size="icon-sm" aria-label="Open conversation"
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setConversationFor({ id: row.original.id, label: row.original.description || 'Expense' });
-                            }}
-                            style={{
-                              padding: '2px 8px',
-                              border: `1px solid ${T.color.warning}`,
-                              borderRadius: `${T.radius.sm}px`,
-                              backgroundColor: '#fff',
-                              color: T.color.warning,
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              outline: 'none',
-                              boxShadow: T.shadow.xs,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              transition: 'all 0.15s ease-in-out',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = T.color.warningSoft;
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#fff';
                             }}
                           >
                             <span style={{ color: T.color.warning, display: 'inline-flex' }}>
                               <KTIcon iconName="message-text-2" className="fs-8" />
                             </span>
                             Respond
-                          </button>
+                          </Button>
                         ) : (
-                          <button
+                          <Button variant="ghost" size="icon-sm" aria-label="Open conversation"
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setConversationFor({ id: row.original.id, label: row.original.description || 'Expense' });
-                            }}
-                            style={{
-                              padding: '2px 8px',
-                              border: `1px solid ${T.color.neutral}`,
-                              borderRadius: `${T.radius.sm}px`,
-                              backgroundColor: '#fff',
-                              color: T.color.neutral,
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              outline: 'none',
-                              boxShadow: T.shadow.xs,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              transition: 'all 0.15s ease-in-out',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = T.color.neutralSoft;
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#fff';
                             }}
                           >
                             <span style={{ color: T.color.neutral, display: 'inline-flex' }}>
                               <KTIcon iconName="eye" className="fs-8" />
                             </span>
                             View Conversation
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}
@@ -427,8 +384,8 @@ function SubmissionDetailModal({
                 return (
                   <div className="flex items-center justify-center space-x-4">
                     {resEdit && (
-                      <button
-                        className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+                      <Button variant="ghost" size="icon-sm" type="submit"
+                        className="w-[20px]"
                         aria-label={needsAnswer ? 'Answer the approver' : 'Edit'}
                         title={needsAnswer
                           ? "Answer your approver's question — saving sends it back for approval"
@@ -446,11 +403,11 @@ function SubmissionDetailModal({
                         }}
                       >
                         <KTIcon iconName="pencil" className="inline fs-4 text-red-500" />
-                      </button>
+                      </Button>
                     )}
                     {resDelete && (
-                      <button
-                        className="btn btn-icon btn-active-color-primary btn-sm w-4"
+                      <Button variant="ghost" size="icon-sm" type="submit"
+                        className="w-4"
                         aria-label="Delete" title="Delete"
                         disabled={isDeleting}
                         onClick={() => handleDelete(r.id)}
@@ -460,7 +417,7 @@ function SubmissionDetailModal({
                         ) : (
                           <i className="bi bi-trash3 fs-4 text-danger" />
                         )}
-                      </button>
+                      </Button>
                     )}
                     {!resEdit && !resDelete && (
                       <span className="text-muted fs-7">N/A</span>
@@ -554,8 +511,8 @@ function SubmissionDetailModal({
               )}
             </div>
             {batch && displayedReimbursements.length > 0 && (
-              <button
-                className="btn d-flex align-items-center gap-2 px-3 ms-auto"
+              <Button variant="ghost" type="submit"
+                className="ms-auto"
                 style={{
                   height: '35px',
                   background: '#1E3A8A',
@@ -585,7 +542,7 @@ function SubmissionDetailModal({
                     <span>Download Slip</span>
                   </>
                 )}
-              </button>
+              </Button>
             )}
           </div>
         </Modal.Header>
@@ -694,17 +651,15 @@ function SubmissionDetailModal({
           </p>
         </Modal.Body>
         <Modal.Footer>
-          <button
-            className="btn btn-sm btn-light"
+          <Button variant="outline" size="sm" type="submit"
             onClick={() => {
               setShowPartialApprovalWarning(false);
               setPendingEditRow(null);
             }}
           >
             Cancel
-          </button>
-          <button
-            className="btn btn-sm btn-warning"
+          </Button>
+          <Button size="sm" type="submit"
             onClick={() => {
               setEditRow(pendingEditRow);
               setPendingEditRow(null);
@@ -712,7 +667,7 @@ function SubmissionDetailModal({
             }}
           >
             Yes, Edit and Reset Approval
-          </button>
+          </Button>
         </Modal.Footer>
       </Modal>
     </>
@@ -1247,20 +1202,14 @@ function SubmissionsTable({
           {/* A filter set from a chart the reader may have scrolled past needs to say so here,
               where the narrowed rows are — and be undoable from the same place. */}
           {externalCategoryFilter && (
-            <button
+            <Button variant="ghost" size="icon-xs"
               type="button"
               onClick={onClearCategoryFilter}
               title="Clear category filter"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                border: '1px solid #c7d2fe', background: '#eef2ff', color: '#3730a3',
-                borderRadius: 999, padding: '3px 10px', fontSize: 11.5, fontWeight: 600,
-                cursor: onClearCategoryFilter ? 'pointer' : 'default',
-              }}
             >
               {externalCategoryFilter}
               {onClearCategoryFilter && <span aria-hidden>✕</span>}
-            </button>
+            </Button>
           )}
           <StatusFilterChips value={statusFilter} onChange={setStatusFilter} counts={statusCounts} />
         </div>

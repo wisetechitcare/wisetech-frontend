@@ -93,7 +93,7 @@ const ProjectTimeSheets = ({id}: {id?: string}) => {
           <div className="mb-4">
             <ul className="nav nav-tabs nav-line-tabs nav-line-tabs-2x fs-4 fw-bold mb-0">
               <li className="nav-item">
-                <button
+                <button data-wt-control="tab"
                   className={`nav-link text-active-primary ${
                     billableFilter === null ? "active" : ""
                   }`}
@@ -113,7 +113,7 @@ const ProjectTimeSheets = ({id}: {id?: string}) => {
                 </button>
               </li>
               <li className="nav-item">
-                <button
+                <button data-wt-control="tab"
                   className={`nav-link text-active-primary ${
                     billableFilter === "true" ? "active" : ""
                   }`}
@@ -133,7 +133,7 @@ const ProjectTimeSheets = ({id}: {id?: string}) => {
                 </button>
               </li>
               <li className="nav-item">
-                <button
+                <button data-wt-control="tab"
                   className={`nav-link text-active-primary ${
                     billableFilter === "false" ? "active" : ""
                   }`}

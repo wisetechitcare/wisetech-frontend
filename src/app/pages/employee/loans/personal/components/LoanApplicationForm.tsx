@@ -13,6 +13,7 @@ import { Form, Formik, useFormikContext } from 'formik';
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import * as Yup from 'yup';
+import { Button } from '@/ds/ui/button';
 
 const validationSchema = Yup.object().shape({
   loanAmount: Yup.number().required('Loan Amount is required'),
@@ -210,9 +211,8 @@ function LoanApplicationForm({ setShowModalFunc, defaultData, isUpdate = false, 
 
                         <div className="row px-7 mb-0 my-3">
                             <div className="col-lg-12 text-end mb-5">
-                <button
+                <Button size="lg"
                                     type="submit"
-                                    className="btn btn-lg btn-primary"
                   disabled={loading}
                 >
                   {loading ? (
@@ -223,7 +223,7 @@ function LoanApplicationForm({ setShowModalFunc, defaultData, isUpdate = false, 
                   ) : (
                                         isUpdate ? "Update" : "Submit"
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           </Form>

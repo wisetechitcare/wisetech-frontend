@@ -3,6 +3,7 @@ import { LevelSectionProps } from '../types';
 import EmployeeCard from './EmployeeCard';
 import VirtualizedEmployeeGrid from './VirtualizedEmployeeGrid';
 import { canSection } from '@utils/can';
+import { Button } from '@/ds/ui/button';
 
 const LevelSection: React.FC<LevelSectionProps> = React.memo(({
     level,
@@ -89,9 +90,8 @@ const LevelSection: React.FC<LevelSectionProps> = React.memo(({
                 </div>
 
                 {canWrite && <div className="d-flex gap-3 flex-wrap">
-                    <button
+                    <Button variant="outline"
                         type="button"
-                        className="btn btn-outline text-nowrap"
                         style={{
                             color: '#1E3A8A',
                             borderColor: '#1E3A8A',
@@ -106,10 +106,9 @@ const LevelSection: React.FC<LevelSectionProps> = React.memo(({
                         onClick={handleAddMultipleEmployees}
                     >
                         Add Employee
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="outline"
                         type="button"
-                        className="btn btn-outline text-nowrap"
                         style={{
                             color: '#1E3A8A',
                             borderColor: '#1E3A8A',
@@ -124,7 +123,7 @@ const LevelSection: React.FC<LevelSectionProps> = React.memo(({
                         onClick={handleEditLevel}
                     >
                         Edit Level
-                    </button>
+                    </Button>
                 </div>}
             </div>
 
@@ -150,7 +149,7 @@ const LevelSection: React.FC<LevelSectionProps> = React.memo(({
                         />
                     ))}
                     {/* Add Employee Placeholder */}
-                    {canWrite && <div
+                    {canWrite && <div data-wt-control="tile"
                         className="d-flex align-items-center justify-content-center bg-white rounded-2 border border-2 border-dashed text-secondary"
                         style={{
                             width: '240px',

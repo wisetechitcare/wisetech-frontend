@@ -1,6 +1,7 @@
 import React from "react";
 import type { ProjectPointValue } from "@services/projectPoints";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface ProjectPointRowProps {
     row: ProjectPointValue;
@@ -24,19 +25,6 @@ const inputStyle: React.CSSProperties = {
     outline: "none",
     background: "#fff",
 };
-
-const iconBtn = (color: string, dim = false): React.CSSProperties => ({
-    background: "transparent",
-    border: "none",
-    cursor: dim ? "not-allowed" : "pointer",
-    color,
-    opacity: dim ? 0.3 : 0.75,
-    padding: "4px 6px",
-    borderRadius: 6,
-    display: "flex",
-    alignItems: "center",
-    fontSize: 13,
-});
 
 /**
  * A single editable Project Point row (heading + description) with reorder/remove controls.
@@ -92,18 +80,19 @@ const ProjectPointRow: React.FC<ProjectPointRowProps> = ({
 
             {/* Controls */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2, paddingTop: 4 }}>
-                <button type="button" title="Move up" style={iconBtn("#64748b", index === 0)}
+                <Button type="button" variant="ghost" size="icon-sm" title="Move up" aria-label="Move up"
                     disabled={disabled || index === 0} onClick={onMoveUp}>
                     <AppIcon name="bi-arrow-up" />
-                </button>
-                <button type="button" title="Move down" style={iconBtn("#64748b", index === total - 1)}
+                </Button>
+                <Button type="button" variant="ghost" size="icon-sm" title="Move down" aria-label="Move down"
                     disabled={disabled || index === total - 1} onClick={onMoveDown}>
                     <AppIcon name="bi-arrow-down" />
-                </button>
-                <button type="button" title="Remove" style={iconBtn("#ef4444")}
+                </Button>
+                <Button type="button" variant="tinted" size="icon-sm" title="Remove" aria-label="Remove"
+                    style={{ '--tint': 'var(--cta-danger)' } as React.CSSProperties}
                     disabled={disabled} onClick={onRemove}>
                     <AppIcon name="bi-trash" />
-                </button>
+                </Button>
             </div>
         </div>
     );

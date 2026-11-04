@@ -1,6 +1,13 @@
 import { fetchAllEmployees, fetchLeaveRequest } from "@services/employee";
-import { useTeamFilter } from '@/contexts/TeamFilterContext';
-import { useEffect, useState, lazy, Suspense, useCallback, useMemo } from "react";
+import { useTeamFilter } from "@/contexts/TeamFilterContext";
+import {
+  useEffect,
+  useState,
+  lazy,
+  Suspense,
+  useCallback,
+  useMemo,
+} from "react";
 import { RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
 import { usePermission } from "@hooks/usePermission";
@@ -10,7 +17,9 @@ import { toAbsoluteUrl } from "@metronic/helpers";
 import { getWeekDay } from "@utils/date";
 import { LEAVE_STATUS, LeaveStatus } from "@constants/attendance";
 import Overview from "./views/overview/Overview";
-import PeriodFilter, { PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import PeriodFilter, {
+  PeriodRange,
+} from "@app/modules/common/components/PeriodFilter";
 import { Bar } from "@app/modules/common/components/Graphs";
 import {
   barDailyData,
@@ -34,8 +43,12 @@ import DailyAttendance from "./views/overview/DailyAttendance";
 import { countWorkingDays, isMultiDay } from "@utils/periodRange";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { formatWorkedMinutes, parseHoursMinutes } from "./views/overview/attendancePeriodSummary";
+import {
+  formatWorkedMinutes,
+  parseHoursMinutes,
+} from "./views/overview/attendancePeriodSummary";
 import { safeJsonParse } from "@utils/safeJson";
+import { PeriodMode } from "@/constants/common";
 // Lazy load heavy components
 // Weekly/monthly Attendance rolls up to one row per employee (see the component's
 // docblock) — lazily loaded because a Daily session never renders it.
@@ -188,7 +201,7 @@ function OverviewView() {
     (state: RootState) => state.employee.selectedEmployee?.id,
   );
 
-  const userIsHROrAdmin = usePermission('approvals.approve.team');
+  const userIsHROrAdmin = usePermission("approvals.approve.team");
   const toggleChange = useSelector(
     (state: RootState) => state.attendanceStats.toggleChange,
   );
@@ -205,7 +218,11 @@ function OverviewView() {
             fetchLeaveRequest(),
             // Scoped server-side to today — this board is a "now" view
             // (fetchEmpDailyStatistics below asks for today too).
-            fetchAllEmployees(true, dayjs().format('YYYY-MM-DD'), dayjs().format('YYYY-MM-DD')),
+            fetchAllEmployees(
+              true,
+              dayjs().format("YYYY-MM-DD"),
+              dayjs().format("YYYY-MM-DD"),
+            ),
             fetchConfiguration(DISABLE_LAUNCH_DEDUCTION_TIME_KEY),
             fetchConfiguration(LEAVE_MANAGEMENT),
             dispatch(fetchRolesAndPermissions() as any),
@@ -295,7 +312,9 @@ function OverviewView() {
   // request tables filter server-side and take the range directly.
   const isPeriodView = isMultiDay(statsRange);
   const weekends = useSelector((state: RootState) =>
-    safeJsonParse(state?.employee?.currentEmployee?.branches?.workingAndOffDays),
+    safeJsonParse(
+      state?.employee?.currentEmployee?.branches?.workingAndOffDays,
+    ),
   );
   const workingDaysInPeriod = useMemo(
     () => countWorkingDays(statsRange, weekends),
@@ -349,7 +368,9 @@ function OverviewView() {
     : calculateTotalDuration(dailyStats[0]);
 
   const totalAllowedTime = isPeriodView
-    ? formatWorkedMinutes(parseHoursMinutes(totalWorkingHours) * workingDaysInPeriod)
+    ? formatWorkedMinutes(
+        parseHoursMinutes(totalWorkingHours) * workingDaysInPeriod,
+      )
     : `${totalWorkingHours}`;
 
   return (
@@ -359,8 +380,12 @@ function OverviewView() {
         {/* Period filter (Daily / Weekly / Monthly) with day+date label in daily mode.
             Yearly / All-Time are future scope, so they're hidden via allowedModes. */}
         <PeriodFilter
-          allowedModes={["daily", "weekly", "monthly"]}
-          initialMode="daily"
+          allowedModes={[
+            PeriodMode.DAILY,
+            PeriodMode.WEEKLY,
+            PeriodMode.MONTHLY,
+          ]}
+          initialMode={PeriodMode.DAILY}
           dailyLabelFormat="dddd, D MMMM YYYY"
           storageKey="attendance:overview:period"
           onChange={handleRangeChange}

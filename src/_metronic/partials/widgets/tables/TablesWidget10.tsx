@@ -1,6 +1,7 @@
 ﻿
 import { FC } from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+import {buttonVariants} from '@/ds/ui/button'
 
 type Props = {
   className: string
@@ -24,11 +25,14 @@ const TablesWidget10: FC<Props> = ({className}) => {
         >
           <a
             href='#'
-            className='btn btn-sm btn-light-primary'
+            data-slot='button'
+            className={buttonVariants({variant: 'tinted', size: 'sm'})}
             // data-bs-toggle='modal'
             // data-bs-target='#kt_modal_invite_friends'
           >
-            <KTIcon iconName='plus' className='fs-3' />
+            <span data-icon='inline-start' className='inline-flex'>
+              <KTIcon iconName='plus' className='fs-3' />
+            </span>
             New Member
           </a>
         </div>
@@ -110,19 +114,33 @@ const TablesWidget10: FC<Props> = ({className}) => {
                   <div className='d-flex justify-content-end flex-shrink-0'>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                      data-slot='button'
+                      aria-label='Toggle'
+                      className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon-sm',
+                        className: 'me-1',
+                      })}
                     >
                       <KTIcon iconName='switch' className='fs-3' />
                     </a>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                      data-slot='button'
+                      aria-label='Edit'
+                      className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon-sm',
+                        className: 'me-1',
+                      })}
                     >
                       <KTIcon iconName='pencil' className='fs-3' />
                     </a>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                      data-slot='button'
+                      aria-label='Delete'
+                      className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                     >
                       <KTIcon iconName='trash' className='fs-3' />
                     </a>
@@ -176,19 +194,33 @@ const TablesWidget10: FC<Props> = ({className}) => {
                   <div className='d-flex justify-content-end flex-shrink-0'>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                      data-slot='button'
+                      aria-label='Toggle'
+                      className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon-sm',
+                        className: 'me-1',
+                      })}
                     >
                       <KTIcon iconName='switch' className='fs-3' />
                     </a>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                      data-slot='button'
+                      aria-label='Edit'
+                      className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon-sm',
+                        className: 'me-1',
+                      })}
                     >
                       <KTIcon iconName='pencil' className='fs-3' />
                     </a>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                      data-slot='button'
+                      aria-label='Delete'
+                      className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                     >
                       <KTIcon iconName='trash' className='fs-3' />
                     </a>
@@ -242,19 +274,33 @@ const TablesWidget10: FC<Props> = ({className}) => {
                   <div className='d-flex justify-content-end flex-shrink-0'>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                      data-slot='button'
+                      aria-label='Toggle'
+                      className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon-sm',
+                        className: 'me-1',
+                      })}
                     >
                       <KTIcon iconName='switch' className='fs-3' />
                     </a>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                      data-slot='button'
+                      aria-label='Edit'
+                      className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon-sm',
+                        className: 'me-1',
+                      })}
                     >
                       <KTIcon iconName='pencil' className='fs-3' />
                     </a>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                      data-slot='button'
+                      aria-label='Delete'
+                      className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                     >
                       <KTIcon iconName='trash' className='fs-3' />
                     </a>
@@ -306,19 +352,33 @@ const TablesWidget10: FC<Props> = ({className}) => {
                   <div className='d-flex justify-content-end flex-shrink-0'>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                      data-slot='button'
+                      aria-label='Toggle'
+                      className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon-sm',
+                        className: 'me-1',
+                      })}
                     >
                       <KTIcon iconName='switch' className='fs-3' />
                     </a>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                      data-slot='button'
+                      aria-label='Edit'
+                      className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon-sm',
+                        className: 'me-1',
+                      })}
                     >
                       <KTIcon iconName='pencil' className='fs-3' />
                     </a>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                      data-slot='button'
+                      aria-label='Delete'
+                      className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                     >
                       <KTIcon iconName='trash' className='fs-3' />
                     </a>
@@ -372,19 +432,33 @@ const TablesWidget10: FC<Props> = ({className}) => {
                   <div className='d-flex justify-content-end flex-shrink-0'>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                      data-slot='button'
+                      aria-label='Toggle'
+                      className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon-sm',
+                        className: 'me-1',
+                      })}
                     >
                       <KTIcon iconName='switch' className='fs-3' />
                     </a>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                      data-slot='button'
+                      aria-label='Edit'
+                      className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon-sm',
+                        className: 'me-1',
+                      })}
                     >
                       <KTIcon iconName='pencil' className='fs-3' />
                     </a>
                     <a
                       href='#'
-                      className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                      data-slot='button'
+                      aria-label='Delete'
+                      className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                     >
                       <KTIcon iconName='trash' className='fs-3' />
                     </a>

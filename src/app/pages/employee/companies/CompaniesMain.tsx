@@ -32,7 +32,7 @@ const CompaniesMain = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    getAllClientCompanies().then((res) => {
+    getAllClientCompanies(true).then((res) => {
       const companies = res?.data?.companies || [];
       setCompanyData(companies);
       

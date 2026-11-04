@@ -1,20 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  InputAdornment,
-  MenuItem,
-  Select,
-  TextField,
-  Tooltip,
-  Typography,
-  alpha,
-} from '@mui/material';
+import { Box, CircularProgress, Dialog, DialogContent, DialogTitle, InputAdornment, MenuItem, Select, TextField, Tooltip, Typography, alpha } from '@mui/material';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import LinkOffRoundedIcon from '@mui/icons-material/LinkOffRounded';
 import SubdirectoryArrowRightRoundedIcon from '@mui/icons-material/SubdirectoryArrowRightRounded';
@@ -48,6 +33,7 @@ import {
   resolveSequencePad,
   type FiscalYearFormat,
 } from '@utils/fiscalYearSegment';
+import { WtIconButton, WtButton } from '@app/modules/common/components/ui/buttons';
 
 interface PerOrgPrefixSettingsProps {
   /** Human label, e.g. 'Lead'. */
@@ -495,19 +481,19 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
           }}
         >
           {/* Section 1: the fiscal year itself — label and picker read as one field. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary', whiteSpace: 'nowrap' }}>
                 Fiscal Year
               </Typography>
               <Tooltip title="How numbering series work">
-                <IconButton
+                <WtIconButton
                   size="small"
                   onClick={() => setInfoOpen(true)}
                   sx={{ color: 'primary.main', p: 0.25 }}
                 >
                   <InfoOutlinedIcon sx={{ fontSize: 17 }} />
-                </IconButton>
+                </WtIconButton>
               </Tooltip>
             </Box>
             <Box
@@ -524,6 +510,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
               <FiscalYearRangeField
                 value={fiscalYear}
                 onChange={setFiscalYear}
+                label=""
                 startLabel="Start"
                 endLabel="End"
                 density="compact"
@@ -645,7 +632,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
             </Select>
 
 
-            <Button
+            <WtButton
               variant="contained"
               color="primary"
               size="small"
@@ -664,7 +651,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
               }}
             >
               {saving ? 'Saving...' : 'Save'}
-            </Button>
+            </WtButton>
           </Box>
         </Box>
       </Box>
@@ -859,9 +846,9 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
               How Lead Auto-Numbering Works
             </Typography>
           </Box>
-          <IconButton size="small" onClick={() => setInfoOpen(false)}>
+          <WtIconButton size="small" onClick={() => setInfoOpen(false)}>
             <CloseRoundedIcon sx={{ fontSize: 20 }} />
-          </IconButton>
+          </WtIconButton>
         </DialogTitle>
 
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
@@ -1275,7 +1262,7 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
             <CircularProgress size={16} />
           ) : role === 'follower' ? (
             <Tooltip title={`Give ${row.organizationName} its own independent number series.`}>
-              <Button
+              <WtButton
                 size="small"
                 variant="outlined"
                 color="error"
@@ -1299,7 +1286,7 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
                 }}
               >
                 Stop sharing
-              </Button>
+              </WtButton>
             </Tooltip>
           ) : !isSharedSeries && canLink && linkTargets.length > 0 ? (
             <Select
@@ -1538,7 +1525,7 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
             {busy ? (
               <CircularProgress size={16} />
             ) : role === 'follower' ? (
-              <Button
+              <WtButton
                 size="small"
                 variant="outlined"
                 color="error"
@@ -1565,7 +1552,7 @@ const OrgRowItem: React.FC<OrgRowItemProps> = ({
                 }}
               >
                 Stop sharing
-              </Button>
+              </WtButton>
             ) : !isSharedSeries && canLink && linkTargets.length > 0 ? (
               <Select
                 size="small"

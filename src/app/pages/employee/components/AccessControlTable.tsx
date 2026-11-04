@@ -4,10 +4,13 @@ import { SECTION_ICON } from "@hooks/useNavContainers";
 import { sectionAccent } from "@components/navigation/NavContainers/navTheme";
 import { navIcon } from "@components/navigation/NavContainers/navIcons";
 import { AppIcon, WtButton, WtIconButton, WtTooltip } from "@app/modules/common/components/ui";
+import { Item } from "@/ds/ui/item";
+import { Checkbox as DsCheckbox } from "@/ds/ui/checkbox";
 import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
-import type { EffLevel } from "./accessControlTypes";
-import { SECTION_TABS } from "@utils/sectionTabs";
+import { atLeastWrite, type EffLevel } from "./accessControlTypes";
+import { isFullAccess } from "@utils/can";
+import { DELETABLE_SECTIONS, NOTHING_TO_DELETE, SECTION_TABS } from "@utils/sectionTabs";
 import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS, SupportAccessPolicyChip } from "@app/modules/common/components/SecurityPin";
 
 const ACCENT = "#1E3A8A";
@@ -16,19 +19,10 @@ const ACCENT = "#1E3A8A";
 const CELL = 84;
 const ACTION = 28;
 
-/** A bare checkbox — its column heading names it. */
+/** A bare checkbox — its column heading names it. `wrap` keeps the tooltip on disabled boxes. */
 const Checkbox: React.FC<{ checked: boolean; onChange: () => void; disabled?: boolean; title?: string }> = ({ checked, onChange, disabled, title }) => (
-  <WtTooltip title={title}>
-    <label style={{ display: "inline-flex", alignItems: "center", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, margin: 0 }}>
-      <input
-        type="checkbox"
-        aria-label={title}
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-        style={{ width: 17, height: 17, accentColor: ACCENT, cursor: "inherit", margin: 0 }}
-      />
-    </label>
+  <WtTooltip title={title} wrap>
+    <DsCheckbox aria-label={title} checked={checked} onCheckedChange={() => onChange()} disabled={disabled} />
   </WtTooltip>
 );
 
@@ -95,7 +89,7 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
   const allCollapsed = open.size === 0;
   const isOpenLevel = (m: string) => (levels[m] || "none") !== "none";
 
-  const columns = employee ? ["Read", "Read all", "Write", "Commercials"] : ["Read", "Write"];
+  const columns = employee ? ["Read", "Read all", "Write", "Delete", "Commercials"] : ["Read", "Write", "Delete"];
   const rowPad = (depth: number): React.CSSProperties => ({ padding: "7px 10px", paddingLeft: 10 + depth * 22 });
   const chevron = (isOpen: boolean, visible = true) => (
     <span style={{ width: 16, textAlign: "center", flexShrink: 0, color: "#8893a0", transition: "transform .18s ease", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", visibility: visible ? "visible" : "hidden" }}>
@@ -108,8 +102,10 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
     // Read / Write set them all.
     const level = kids ? compositeLevel(kids, levels) : levels[module] || "none";
     const setLevel = (l: EffLevel) => (kids ? setCompositeLevel(kids, l, onSetLevel) : onSetLevel(module, l));
-    const read = level === "view" || level === "edit";
-    const write = level === "edit";
+    const read = level !== "none";
+    const write = atLeastWrite(level);
+    const del = level === "delete";
+    const deletable = kids ? kids.some((c) => DELETABLE_SECTIONS.has(c.module)) : DELETABLE_SECTIONS.has(module);
     const isCustom = !kids && (customModules?.has(module) ?? false);
     const rec = recordCells?.[module];
     return (
@@ -117,6 +113,7 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
         <Cell><Checkbox title={`Read ${label}`} checked={read} disabled={readOnly} onChange={() => setLevel(read ? "none" : "view")} /></Cell>
         {employee && <Cell>{rec && <Checkbox {...rec.readAll} disabled={readOnly || rec.readAll.disabled} />}</Cell>}
         <Cell><Checkbox title={`Write ${label}`} checked={write} disabled={readOnly} onChange={() => setLevel(write ? "view" : "edit")} /></Cell>
+        <Cell><Checkbox title={!deletable ? NOTHING_TO_DELETE : `${isFullAccess() ? "Delete" : "Only a Super Admin can give Delete on"} ${label}`} checked={del && deletable} disabled={readOnly || !deletable || !isFullAccess()} onChange={() => setLevel(del ? "edit" : "delete")} /></Cell>
         {employee && <Cell>{rec && <Checkbox {...rec.commercial} disabled={readOnly || rec.commercial.disabled} />}</Cell>}
         {employee && (
           <Cell width={ACTION}>
@@ -190,9 +187,12 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
               const openCount = leaves.filter(isOpenLevel).length;
               const GroupIcon = navIcon(SECTION_ICON[row.group.id]);
               return (
-                <div
+                <Item
                   key={row.key}
+                  render={<button type="button" />}
+                  aria-expanded={row.open}
                   onClick={() => { if (!q) toggle(row.key); }}
+                  className="flex-nowrap border-0"
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px 6px", marginTop: 6, cursor: q ? "default" : "pointer", userSelect: "none" }}
                 >
                   {chevron(row.open, !q)}
@@ -206,7 +206,7 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
                       {openCount}/{leaves.length} open
                     </span>
                   )}
-                </div>
+                </Item>
               );
             }
             const { node, depth } = row;
@@ -216,6 +216,18 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
             const isCustom = !hasTabs && !kids && employee && (customModules?.has(node.module) ?? false);
             const tabsOpen = hasTabs ? node.children!.filter((c) => isOpenLevel(c.module)).length : 0;
             const Icon = navIcon(node.icon === "bi-dot" ? undefined : node.icon);
+            const name = (
+              <>
+                {chevron(row.open, hasTabs)}
+                {node.icon === "bi-dot"
+                  // A module's tab: a bullet in the department's colour, as in a sidebar menu.
+                  ? <span className={accent.icon} style={{ width: 17, display: "inline-flex", justifyContent: "center", flexShrink: 0 }}><span style={{ width: 5, height: 5, borderRadius: 999, background: "currentColor" }} /></span>
+                  : <Icon className={`shrink-0 ${accent.icon}`} sx={{ fontSize: 17 }} />}
+                <span style={{ fontWeight: hasTabs ? 600 : 500, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {node.label}
+                </span>
+              </>
+            );
             return (
               <div
                 key={row.key}
@@ -223,21 +235,24 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
                 onMouseEnter={(e) => { if (!dirty) (e.currentTarget as HTMLElement).style.background = "rgba(100,116,139,0.08)"; }}
                 onMouseLeave={(e) => { if (!dirty) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, cursor: hasTabs ? "pointer" : "default" }}
-                  onClick={() => { if (hasTabs && !q) toggle(node.module); }}
-                >
-                  {chevron(row.open, hasTabs)}
-                  {node.icon === "bi-dot"
-                    // A module's tab: a bullet in the department's colour, as in a sidebar menu.
-                    ? <span className={accent.icon} style={{ width: 17, display: "inline-flex", justifyContent: "center", flexShrink: 0 }}><span style={{ width: 5, height: 5, borderRadius: 999, background: "currentColor" }} /></span>
-                    : <Icon className={`shrink-0 ${accent.icon}`} sx={{ fontSize: 17 }} />}
-                  <span style={{ fontWeight: hasTabs ? 600 : 500, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {node.label}
-                  </span>
-                  {hasTabs && <span style={{ fontSize: 11, color: "#8893a0" }}>{tabsOpen}/{node.children!.length}</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                  {/* Only the name toggles the row's tabs. The chips beside it are controls of their own
+                      (with dialogs whose clicks bubble through the React tree), so they sit next to the
+                      toggle rather than inside it, which is what used to need a stopPropagation on each. */}
+                  {hasTabs ? (
+                    <Item
+                      render={<button type="button" />}
+                      aria-expanded={row.open}
+                      onClick={() => { if (!q) toggle(node.module); }}
+                      className="w-auto flex-nowrap border-0 p-0"
+                      style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, cursor: "pointer" }}
+                    >
+                      {name}
+                      <span style={{ fontSize: 11, color: "#8893a0" }}>{tabsOpen}/{node.children!.length}</span>
+                    </Item>
+                  ) : name}
                   {((tabs && SECTION_TABS[node.module]) || kids) && (
-                    <span onClick={(e) => e.stopPropagation()}>
+                    <span>
                       <AdvancedTabsButton
                         section={node.module} label={node.label} icon={node.icon} readOnly={readOnly}
                         level={kids ? compositeLevel(kids, levels) : levels[node.module] || "none"}
@@ -246,10 +261,10 @@ const AccessControlTable: React.FC<AccessControlProps> = ({ levels, customModule
                     </span>
                   )}
                   {pinSubject && SECURITY_PIN_ROW_AREAS[node.module] && (
-                    <span onClick={(e) => e.stopPropagation()}><SecurityPinRowChip subject={pinSubject} label={node.label} areas={SECURITY_PIN_ROW_AREAS[node.module]} /></span>
+                    <span><SecurityPinRowChip subject={pinSubject} label={node.label} areas={SECURITY_PIN_ROW_AREAS[node.module]} /></span>
                   )}
                   {pinSubject && node.module === "settings.developerMfa" && (
-                    <span onClick={(e) => e.stopPropagation()}><SupportAccessPolicyChip subject={pinSubject} /></span>
+                    <span><SupportAccessPolicyChip subject={pinSubject} /></span>
                   )}
                   {isCustom && (
                     <span style={{ fontSize: 9.5, fontWeight: 600, color: ACCENT, background: "rgba(37,99,235,0.1)", borderRadius: 999, padding: "2px 8px", textTransform: "uppercase", letterSpacing: ".4px", flexShrink: 0 }}>Custom</span>

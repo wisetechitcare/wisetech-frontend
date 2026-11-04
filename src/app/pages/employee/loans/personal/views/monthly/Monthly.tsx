@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { Form, Formik } from "formik";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { formatNumber } from "@utils/statistics";
+import { Button } from '@/ds/ui/button';
 
 function Monthly({ month, resource, viewOthers, viewOwn }: { month: Dayjs, resource: string, viewOthers: boolean, viewOwn: boolean }) {
     const leaves = useSelector((state: RootState) => state.leaves.personalLeaves);
@@ -407,9 +408,8 @@ function Monthly({ month, resource, viewOthers, viewOwn }: { month: Dayjs, resou
 
                                     <div className="row px-3 mb-0 my-3">
                                         <div className="col-lg-12 text-start mb-5">
-                                            <button
+                                            <Button size="lg"
                                                 type="submit"
-                                                className="btn btn-lg btn-primary"
                                                 disabled={loading}
                                             >
                                                 {loading ? (
@@ -420,7 +420,7 @@ function Monthly({ month, resource, viewOthers, viewOwn }: { month: Dayjs, resou
                                                 ) : (
                                                     isUpdate ? "Update" : "Send Request"
                                                 )}
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
 

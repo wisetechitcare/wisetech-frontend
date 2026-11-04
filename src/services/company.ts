@@ -569,6 +569,11 @@ export const reorderFaqCategories = async (orderedIds: string[]) => {
     return data;
 }
 
+export const reorderAnnouncements = async (orderedIds: string[]) => {
+    const { data } = await axios.put(`${API_BASE_URL}/${COMPANY.REORDER_ANNOUNCEMENTS}`, { orderedIds });
+    return data;
+}
+
 export const getAllAnnouncements = async (scope?: 'me') => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_ANNOUNCEMENTS}${scope ? `?scope=${scope}` : ''}`;

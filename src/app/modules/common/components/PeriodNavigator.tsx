@@ -2,15 +2,14 @@ import KeyboardArrowLeftRoundedIconModule from '@mui/icons-material/KeyboardArro
 import KeyboardArrowRightRoundedIconModule from '@mui/icons-material/KeyboardArrowRightRounded';
 import { useState } from 'react';
 import { resolveReactComponent } from '@utils/resolveReactComponent';
-import {
-    Box, IconButton, SxProps, Theme, Typography, Tooltip, useMediaQuery, useTheme,
-} from '@mui/material';
+import { Box, SxProps, Theme, Typography, Tooltip, useMediaQuery, useTheme } from '@mui/material';
 import { DatePicker, MobileDatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import { WtDateField } from '@app/modules/common/components/ui';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 const KeyboardArrowLeftRoundedIcon = resolveReactComponent<typeof KeyboardArrowLeftRoundedIconModule>(KeyboardArrowLeftRoundedIconModule);
 const KeyboardArrowRightRoundedIcon = resolveReactComponent<typeof KeyboardArrowRightRoundedIconModule>(KeyboardArrowRightRoundedIconModule);
@@ -153,14 +152,14 @@ const PeriodNavigator = ({
             }}
         >
             <Tooltip title={previousTitle || 'Previous period'} placement="top" arrow>
-                <IconButton
+                <WtIconButton size="medium"
                     aria-label="Previous period"
                     onClick={onPrevious}
                     disabled={disablePrevious}
                     sx={edgeBtnSx}
                 >
                     <KeyboardArrowLeftRoundedIcon sx={{ fontSize: isMobile ? 18 : 20 }} />
-                </IconButton>
+                </WtIconButton>
             </Tooltip>
 
             <Tooltip title={canPick ? jumpTitle : ''} placement="top" arrow disableHoverListener={!canPick}>
@@ -366,14 +365,14 @@ const PeriodNavigator = ({
             </Tooltip>
 
             <Tooltip title={nextTitle || 'Next period'} placement="top" arrow>
-                <IconButton
+                <WtIconButton size="medium"
                     aria-label="Next period"
                     onClick={onNext}
                     disabled={disableNext}
                     sx={edgeBtnSx}
                 >
                     <KeyboardArrowRightRoundedIcon sx={{ fontSize: isMobile ? 18 : 20 }} />
-                </IconButton>
+                </WtIconButton>
             </Tooltip>
         </Box>
     );

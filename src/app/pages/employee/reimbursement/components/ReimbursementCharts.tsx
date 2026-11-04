@@ -12,6 +12,7 @@ import {
 import { formatMoney } from '../utils/reimbursementFormat';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { currencyPrefix } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 /**
  * The three analytics — trend, status, categories — in one row. One set of components for all
@@ -381,7 +382,7 @@ export default function ReimbursementCharts({
                             {/* Legend rows highlight their slice, and vice-versa. */}
                             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginTop: 2 }}>
                                 {slices.map((sl, i) => (
-                                    <div
+                                    <div data-wt-control="row"
                                         key={sl.name}
                                         role={onSelectStatus ? 'button' : undefined}
                                         tabIndex={onSelectStatus ? 0 : undefined}
@@ -439,7 +440,7 @@ export default function ReimbursementCharts({
                                 {visibleCategories.map((c) => {
                                     const selected = activeCategory === c.name;
                                     return (
-                                        <div
+                                        <div data-wt-control="row"
                                             key={c.name}
                                             role={onSelectCategory ? 'button' : undefined}
                                             tabIndex={onSelectCategory ? 0 : undefined}
@@ -473,17 +474,12 @@ export default function ReimbursementCharts({
                             </div>
 
                             {(hiddenCategories > 0 || showAllCategories) && (
-                                <button
+                                <Button variant="link" size="xs" style={{ flexShrink: 0, marginTop: 4 }}
                                     type="button"
                                     onClick={() => setShowAllCategories((v) => !v)}
-                                    style={{
-                                        flexShrink: 0, marginTop: 4, border: 'none', background: 'transparent',
-                                        color: '#4f46e5', fontSize: 11, fontWeight: 600, padding: '4px 8px',
-                                        textAlign: 'left', cursor: 'pointer',
-                                    }}
                                 >
                                     {showAllCategories ? 'Show top 5' : `Show ${hiddenCategories} more`}
-                                </button>
+                                </Button>
                             )}
                         </div>
                     )}

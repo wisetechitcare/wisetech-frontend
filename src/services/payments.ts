@@ -218,6 +218,7 @@ export interface PaymentListParams {
   search?: string;
   projectId?: string;
   clientId?: string;
+  organizationId?: string;
   paymentStatus?: PaymentStatus | "";
   method?: ClientPaymentMethod | "";
   receivedById?: string;
@@ -244,24 +245,13 @@ const clean = (params: PaymentListParams) =>
 
 export const listPayments = async (
   params: PaymentListParams = {},
-): Promise<{ payments: PaymentListItem[]; pagination: Pagination }> => {
+): Promise<{
+  payments: PaymentListItem[];
+  organizations: Array<{ id: string; name: string }>;
+  pagination: Pagination;
+}> => {
   const { data } = await axios.get(url(PAYMENT.LIST), { params: clean(params), withCredentials: true });
-  return { payments: data.payments ?? [], pagination: data.pagination };
-};
-
-export const getPaymentStatistics = async (
-  period: { from?: string; to?: string } = {},
-): Promise<PaymentStatistics> => {
-  // The tiles take the SAME period as the list, so a tile's count and the rows it
-  // filters to always describe one slice of time.
-  const params = new URLSearchParams();
-  if (period.from) params.set("from", period.from);
-  if (period.to) params.set("to", period.to);
-  const query = params.toString();
-  const { data } = await axios.get(`${url(PAYMENT.STATISTICS)}${query ? `?${query}` : ""}`, {
-    withCredentials: true,
-  });
-  return data.statistics;
+  return { payments: data.payments ?? [], organizations: data.organizations ?? [], pagination: data.pagination };
 };
 
 export const getPayment = async (id: string): Promise<PaymentDetail> => {
@@ -312,15 +302,6 @@ export const verifyPayment = async (
     url(PAYMENT.VERIFY, { id }), { transactionId, decision, note }, { withCredentials: true },
   );
   return data;
-};
-
-export const setCollectionVerification = async (
-  id: string, status: "UNDER_REVIEW" | "REJECTED", note: string,
-) => {
-  const { data } = await axios.patch(
-    url(PAYMENT.SET_VERIFICATION, { id }), { status, note }, { withCredentials: true },
-  );
-  return data.operation as PaymentListItem;
 };
 
 export const uploadAttachments = async (

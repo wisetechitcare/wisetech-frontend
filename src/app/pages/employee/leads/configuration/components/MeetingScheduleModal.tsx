@@ -1,6 +1,7 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from "react";
-import { Button, Form } from "react-bootstrap";
+import { Form } from "react-bootstrap";
+import { Button } from "@/ds/ui/button";
 import { KTIcon } from "@metronic/helpers";
 import { createMeetingSchedule, updateMeetingSchedule } from "@services/meetingSchedule";
 import { showSuccess } from "@utils/modal";
@@ -243,8 +244,9 @@ const MeetingScheduleModal: React.FC<MeetingScheduleModalProps> = ({
             <KTIcon iconName="chart-simple" className="text-primary me-2 fs-3" />
             Area Brackets
           </h6>
-          <Button variant="light-primary" size="sm" className="fw-bold" onClick={addBracket}>
-            <KTIcon iconName="plus" className="fs-3 me-1" /> Add Bracket
+          <Button variant="tinted" size="sm" onClick={addBracket}>
+            <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="plus" className="fs-3" /></span>
+            Add Bracket
           </Button>
         </div>
 
@@ -253,9 +255,11 @@ const MeetingScheduleModal: React.FC<MeetingScheduleModalProps> = ({
             <div key={bi} className="border border-gray-300 border-dashed rounded-3 p-5 bg-light-primary bg-opacity-25 position-relative">
               {brackets.length > 1 && (
                 <Button
-                  variant="light-danger"
-                  size="sm"
-                  className="btn-icon w-30px h-30px position-absolute top-0 end-0 mt-3 me-3"
+                  variant="tinted"
+                  size="icon-sm"
+                  className="position-absolute top-0 end-0 mt-3 me-3"
+                  style={{ '--tint': 'var(--cta-danger)' } as React.CSSProperties}
+                  aria-label="Remove bracket"
                   onClick={() => removeBracket(bi)}
                 >
                   <KTIcon iconName="trash" className="fs-4" />
@@ -311,7 +315,7 @@ const MeetingScheduleModal: React.FC<MeetingScheduleModalProps> = ({
               <div className="bg-white rounded p-3 shadow-sm">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <span className="fw-bold fs-8 text-uppercase text-gray-600">Meetings</span>
-                  <Button variant="light-primary" size="sm" className="btn-icon w-25px h-25px" onClick={() => addItem(bi)}>
+                  <Button variant="tinted" size="icon-xs" aria-label="Add meeting" onClick={() => addItem(bi)}>
                     <KTIcon iconName="plus" className="fs-4" />
                   </Button>
                 </div>
@@ -349,8 +353,10 @@ const MeetingScheduleModal: React.FC<MeetingScheduleModalProps> = ({
                           </td>
                           <td className="text-end">
                             <Button
-                              variant="icon"
-                              className="btn btn-icon btn-light-danger btn-sm w-25px h-25px"
+                              variant="tinted"
+                              size="icon-xs"
+                              style={{ '--tint': 'var(--cta-danger)' } as React.CSSProperties}
+                              aria-label="Remove meeting"
                               onClick={() => removeItem(bi, ii)}
                             >
                               <KTIcon iconName="cross" className="fs-4" />
@@ -375,14 +381,13 @@ const MeetingScheduleModal: React.FC<MeetingScheduleModalProps> = ({
       </Modal.Body>
 
       <Modal.Footer style={{ borderTop: "none" }}>
-        <Button variant="light" data-unsaved-changes-close onClick={onClose} disabled={isSubmitting}>
+        <Button variant="outline" data-unsaved-changes-close onClick={onClose} disabled={isSubmitting}>
           Cancel
         </Button>
         <Button
-          variant="primary"
+          variant="default"
           onClick={handleSave}
           disabled={isSubmitting || !name.trim() || brackets.length === 0}
-          style={{ backgroundColor: "#1E3A8A", border: "none" }}
         >
           {isSubmitting ? "Saving..." : isEditing ? "Update Schedule" : "Save Schedule"}
         </Button>

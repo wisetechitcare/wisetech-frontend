@@ -1,13 +1,13 @@
-import { useState, useEffect, memo, useMemo } from 'react';
+import { useState, useEffect, memo, useMemo, type CSSProperties } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Box,
   CircularProgress,
-  IconButton,
   Stack,
   Tooltip,
   Typography,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { RootState } from '@redux/store';
 import { getTodo, createTodo, updateTodo, deleteTodo } from '@services/employee';
 import { deleteConfirmation, errorConfirmation, successConfirmation } from '@utils/modal';
@@ -43,6 +43,9 @@ interface Todo {
 }
 
 const CARD_HEIGHT = 555;
+
+/** Delete is a destructive row action: the kit's tinted icon button, toned danger. */
+const DANGER_TINT = { '--tint': 'var(--cta-danger)' } as CSSProperties;
 
 function formatCreatedAt(createdAt: string): string {
   const createdAtDate = new Date(createdAt);
@@ -230,7 +233,7 @@ const TodoList = memo(() => {
             >
               My To-Do’s
             </Typography>
-            <WtButton tone="primary" onClick={() => setShowModal(true)}>
+            <WtButton onClick={() => setShowModal(true)}>
               New To-Do
             </WtButton>
           </Stack>
@@ -330,22 +333,23 @@ const TodoList = memo(() => {
                       </Tooltip>
                     </Stack>
                     <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
-                      <IconButton
-                        size="small"
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
                         aria-label="Edit to-do"
                         onClick={() => handleEditShow(todo)}
-                        sx={{ color: label(mode, 'secondary') }}
                       >
                         <KTIcon iconName="pencil" className="fs-3" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
+                      </Button>
+                      <Button
+                        variant="tinted"
+                        size="icon-sm"
                         aria-label="Delete to-do"
                         onClick={() => handleDeleteTodo(todo.id)}
-                        sx={{ color: 'error.main' }}
+                        style={DANGER_TINT}
                       >
                         <KTIcon iconName="trash" className="fs-3" />
-                      </IconButton>
+                      </Button>
                     </Stack>
                   </Stack>
                 ))}
@@ -371,19 +375,21 @@ const TodoList = memo(() => {
 
           {filteredTodos.length > todosPerPage && (
             <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={1.5}>
-              <IconButton
-                size="small"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 disabled={currentPage === 0}
                 aria-label="Previous page"
                 onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 0))}
               >
                 <KTIcon iconName="arrow-left" className="fs-3" />
-              </IconButton>
+              </Button>
               <Typography sx={{ fontSize: 13, color: label(mode, 'secondary') }}>
                 {currentPage + 1} / {totalPages}
               </Typography>
-              <IconButton
-                size="small"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 disabled={currentPage >= totalPages - 1}
                 aria-label="Next page"
                 onClick={() =>
@@ -391,7 +397,7 @@ const TodoList = memo(() => {
                 }
               >
                 <KTIcon iconName="arrow-right" className="fs-3" />
-              </IconButton>
+              </Button>
             </Stack>
           )}
         </Stack>
@@ -451,7 +457,7 @@ const TodoList = memo(() => {
                 <WtButton ghost type="button" onClick={handleClose}>
                   Cancel
                 </WtButton>
-                <WtButton tone="primary" type="submit" disabled={isSubmitting}>
+                <WtButton type="submit" disabled={isSubmitting}>
                   {isSubmitting ? 'Saving…' : 'Save'}
                 </WtButton>
               </Stack>
@@ -491,7 +497,7 @@ const TodoList = memo(() => {
             <WtButton ghost type="button" onClick={handleEditClose}>
               Cancel
             </WtButton>
-            <WtButton tone="primary" type="button" onClick={handleUpdateTodo}>
+            <WtButton type="button" onClick={handleUpdateTodo}>
               Save
             </WtButton>
           </Stack>

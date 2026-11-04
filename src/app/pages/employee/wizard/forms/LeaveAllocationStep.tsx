@@ -3,6 +3,7 @@ import { useFormikContext } from "formik";
 import { fetchLeaveOptions } from "@services/company";
 import { fetchLeaveAllocations } from "@services/employee";
 import "./LeaveAllocationStep.css";
+import { Button } from '@/ds/ui/button';
 
 interface LeaveOption {
     id: string;
@@ -247,14 +248,14 @@ const LeaveAllocationStep = () => {
 
                             <div>
                                 {isOverridden && (
-                                    <button
+                                    <Button variant="tinted" size="sm"
                                         type="button"
-                                        className="btn btn-sm btn-light-danger ob-leave-reset"
+                                        className="ob-leave-reset [--tint:var(--cta-danger)]"
                                         title="Reset to branch default"
                                         onClick={() => handleReset(idx)}
                                     >
                                         Reset
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
                         </div>

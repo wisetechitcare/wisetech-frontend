@@ -17,6 +17,7 @@ import { fetchCompanyOverview } from "@services/company";
 import { hasPermission } from "@utils/authAbac";
 import { canSection } from "@utils/can";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { Button } from '@/ds/ui/button';
 
 const onboardingDocs: Array<PageLink> = [
     { title: 'Company', path: '#', isSeparator: false, isActive: false },
@@ -116,12 +117,11 @@ function OnBoardingDocs() {
                 header: "Actions",
                 Cell: ({ row }: any) => {
                     return (hasPermission(resourceNameMapWithCamelCase.onboardingDocument, permissionConstToUseWithHasPermission.editOthers) ?
-                        <button
-                            className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                        <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
                             onClick={() => handleEditClick(row.original.id)}
                         >
                             <KTIcon iconName='pencil' className='fs-3' />
-                        </button> : "Not Allowed"
+                        </Button> : "Not Allowed"
                     );
                 }
             }]
@@ -192,10 +192,10 @@ function OnBoardingDocs() {
                     <div>
                         {canWrite && hasPermission(resourceNameMapWithCamelCase.onboardingDocument, permissionConstToUseWithHasPermission.create) && (
                             <div className='card-toolbar text-end'>
-                                <button onClick={handleShowModal} className='btn btn-sm btn-light-primary'>
+                                <Button variant="tinted" size="sm" type="submit" onClick={handleShowModal}>
                                     <KTIcon iconName='plus' className='fs-3' />
                                     New Onboarding Document
-                                </button>
+                                </Button>
                             </div>
                         )}
                     </div>
@@ -243,12 +243,12 @@ function OnBoardingDocs() {
                                 </div>
 
                                 <div className='des-flex justify-content-end pt-20'>
-                                    <button type='submit' className='btn btn-primary' disabled={loading}>
+                                    <Button type='submit' disabled={loading}>
                                         {loading ? 'Saving...' : 'Save Changes'}
-                                    </button>
-                                    <button type='button' className='btn btn-secondary ms-2 text-white' onClick={handleClose}>
+                                    </Button>
+                                    <Button variant="outline" type='button' className="ms-2" onClick={handleClose}>
                                         Cancel
-                                    </button>
+                                    </Button>
                                 </div>
                             </Form>
                         )}

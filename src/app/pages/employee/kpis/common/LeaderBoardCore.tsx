@@ -24,6 +24,7 @@ import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneou
 import { getKpiBehavior, KpiBehavior, normalizeScoreSign } from "@utils/kpiBehavior";
 import Skeleton from "@components/loaders/Skeleton";
 import { ModuleChampionCard } from "./leaderboard";
+import { Button } from '@/ds/ui/button';
 
 const PodiumHero = React.lazy(() => import("./leaderboard/PodiumHero"));
 
@@ -738,13 +739,11 @@ const FactorLeaderboardCard = React.memo(
       >
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div style={STYLES.factorTitle}>{factor.name}</div>
-          <button
-            className={`btn btn-sm ${isNegative ? "btn-outline-danger" : "btn-outline-success"}`}
+          <Button variant={isNegative ? 'destructive' : 'success'} size="sm" type="submit"
             onClick={() => onViewAll(factor, rankings)}
-            style={STYLES.viewAllBtn}
           >
             View All
-          </button>
+          </Button>
         </div>
         <div className="d-flex flex-wrap gap-10 align-items-start">
           {loading ? (
@@ -1226,8 +1225,7 @@ function LeaderBoardCore({
     <>
       <div className="d-flex align-items-center justify-content-end mb-2">
         <div className="d-flex align-items-center gap-3">
-          <button
-            className="btn btn-icon btn-sm btn-active-light-danger bg-transparent border-0 shadow-none"
+          <Button variant="ghost" size="icon-sm" type="submit" aria-label="How KPI Score Works"
             onClick={() => setShowInfoModal(true)}
             style={{ 
               width: "32px", 
@@ -1243,7 +1241,7 @@ function LeaderBoardCore({
             title="How KPI Score Works"
           >
             <i className="fa-solid fa-circle-info text-gray-500 fs-2" />
-          </button>
+          </Button>
         </div>
       </div>
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1259,7 +1257,7 @@ function LeaderBoardCore({
             <div style={{ minWidth: 0 }}>
               {/* The heading IS the switch — click to flip between the two boards. A
                   dropdown just repeated the heading text and cost ~190px of width. */}
-              <button
+              <Button variant="outline" size="sm"
                 type="button"
                 onClick={() =>
                   setBoardMode((m) => (m === "overall" ? "no-late" : "overall"))
@@ -1270,16 +1268,6 @@ function LeaderBoardCore({
                     : "Showing Top Performers — click to switch to No Late"
                 }
                 aria-label={`Switch board. Currently showing ${boardMode === "no-late" ? "No Late" : "Top Performers"}`}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  background: "transparent",
-                  border: "none",
-                  padding: 0,
-                  cursor: "pointer",
-                  minWidth: 0,
-                }}
               >
                 <h3
                   style={{
@@ -1297,7 +1285,7 @@ function LeaderBoardCore({
                   className="fa-solid fa-arrow-right-arrow-left fs-8"
                   style={{ color: "#1E3A8A", flexShrink: 0 }}
                 />
-              </button>
+              </Button>
               {boardMode === "no-late" && !topFiveLoading && (
                 <div className="text-muted" style={{ fontSize: "12px", marginTop: "2px" }}>
                   No late marks &middot; up to 1 leave allowed &mdash;{" "}
@@ -1305,8 +1293,7 @@ function LeaderBoardCore({
                 </div>
               )}
             </div>
-            <button
-              className="btn btn-sm fw-bold d-inline-flex align-items-center gap-2"
+            <Button variant="ghost" size="sm" type="submit"
               onClick={() =>
                 boardMode === "no-late"
                   ? setShowNoLateModal(true)
@@ -1333,7 +1320,7 @@ function LeaderBoardCore({
               }}
             >
               View All <i className="fa-solid fa-arrow-right fs-8" />
-            </button>
+            </Button>
           </div>
           {topFiveLoading || isLoading ? (
             <div

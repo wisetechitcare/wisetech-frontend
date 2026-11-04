@@ -4,6 +4,7 @@ import { useDropzone } from 'react-dropzone';
 import { useDMS } from '../store/DmsContext';
 import { getFileTypeFromName } from '../utils/dmsUtils';
 import type { DMSFile } from '../types/dms.types';
+import { Button } from '@/ds/ui/button';
 
 interface UploadDropzoneProps {
   folderId?: string;
@@ -79,7 +80,7 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({ folderId, onClos
               Uploading to: {state.folders.find(f => f.id === folderId)?.name || 'All Files'}
             </p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#94a3b8' }}>✕</button>
+          <Button variant="ghost" size="icon-sm" type="submit" aria-label="Close" onClick={onClose}>✕</Button>
         </div>
 
         {/* Drop zone */}
@@ -126,9 +127,9 @@ export const UploadDropzone: React.FC<UploadDropzoneProps> = ({ folderId, onClos
         )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
-          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: '9px', background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#475569' }}>
+          <Button variant="outline" size="sm" type="submit" onClick={onClose}>
             {uploadedFiles.length > 0 ? 'Done' : 'Cancel'}
-          </button>
+          </Button>
         </div>
       </motion.div>
     </motion.div>

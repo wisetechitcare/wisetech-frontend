@@ -36,7 +36,7 @@ const Step1: FC = () => {
               value='personal'
               id='kt_create_account_form_account_type_personal'
             />
-            <label
+            <label data-wt-control="option"
               className='btn btn-outline btn-outline-dashed btn-outline-default p-7 d-flex align-items-center mb-10'
               htmlFor='kt_create_account_form_account_type_personal'
             >
@@ -59,7 +59,7 @@ const Step1: FC = () => {
               value='corporate'
               id='kt_create_account_form_account_type_corporate'
             />
-            <label
+            <label data-wt-control="option"
               className='btn btn-outline btn-outline-dashed btn-outline-default p-7 d-flex align-items-center'
               htmlFor='kt_create_account_form_account_type_corporate'
             >

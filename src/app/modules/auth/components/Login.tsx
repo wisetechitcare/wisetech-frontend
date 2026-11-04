@@ -7,9 +7,6 @@ import { toast } from "react-toastify";
 import {
   Alert,
   Box,
-  Button,
-  CircularProgress,
-  IconButton,
   InputAdornment,
   Link as MuiLink,
   Stack,
@@ -30,6 +27,7 @@ import { setAuth } from "../core/AuthHelpers";
 import { toAbsoluteUrl, KTIcon } from "@metronic/helpers";
 import { makeTokens } from "@app/theme/tokens";
 import { useColorMode, ColorModeToggle } from "@app/theme/ColorMode";
+import { Button } from "@/ds/ui/button";
 import TextType from "@components/reactbits/TextType";
 import CursorField from "@components/reactbits/CursorField";
 
@@ -174,17 +172,19 @@ function LoginForm() {
             ),
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="-me-[3px]"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  edge="end"
                   aria-label="toggle password visibility"
-                  size="small"
+                  aria-pressed={showPassword}
                 >
                   <KTIcon
                     iconName={showPassword ? "eye-slash" : "eye"}
                     className="fs-3"
                   />
-                </IconButton>
+                </Button>
               </InputAdornment>
             ),
           }}
@@ -205,48 +205,12 @@ function LoginForm() {
       <Button
         type="submit"
         id="kt_sign_in_submit"
-        variant="contained"
-        fullWidth
+        glow
+        className="w-full"
         disabled={formik.isSubmitting || !formik.isValid}
-        sx={{
-          py: 1.5,
-          fontSize: 15,
-          fontWeight: 700,
-          letterSpacing: "-0.01em",
-          borderRadius: 2.5,
-          textTransform: "none",
-          // Glossy navy CTA (UI-kit `ctaSx` recipe): 180° gradient + triple shadow
-          // (crisp 1px · long soft glow · inset white top-highlight for the glass
-          // edge) + hover lift / active press. !important beats the app's clashing
-          // global color systems (#AA393D reds, MaterialTable's local theme).
-          background: `linear-gradient(180deg, ${BRAND_NAVY} 0%, ${BRAND_NAVY_HOVER} 100%) !important`,
-          color: "#fff !important",
-          boxShadow:
-            "0 1px 2px rgba(30,58,138,0.35), 0 12px 26px -10px rgba(30,58,138,0.70), inset 0 1px 0 rgba(255,255,255,0.18)",
-          transition:
-            "transform .16s cubic-bezier(.22,.61,.36,1), box-shadow .2s ease",
-          "&:hover": {
-            background: "linear-gradient(180deg, #24449E 0%, #1B2C63 100%) !important",
-            transform: "translateY(-1px)",
-            boxShadow:
-              "0 2px 4px rgba(30,58,138,0.40), 0 16px 32px -10px rgba(30,58,138,0.82), inset 0 1px 0 rgba(255,255,255,0.20)",
-          },
-          "&:active": { transform: "translateY(0) scale(0.985)" },
-          "&.Mui-disabled": {
-            background: "rgba(30,58,138,0.40) !important",
-            color: "rgba(255,255,255,0.85) !important",
-            boxShadow: "none",
-          },
-        }}
+        loading={loading}
       >
-        {loading ? (
-          <>
-            <CircularProgress size={18} thickness={5} sx={{ color: "#fff", mr: 1.5 }} />
-            Please wait…
-          </>
-        ) : (
-          "Sign In"
-        )}
+        {loading ? "Please wait…" : "Sign In"}
       </Button>
     </Box>
   );

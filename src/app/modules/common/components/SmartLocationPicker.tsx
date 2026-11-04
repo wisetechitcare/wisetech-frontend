@@ -5,9 +5,10 @@ import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
-import { Box, Chip, CircularProgress, IconButton, InputAdornment, TextField, Typography, Paper, List, ListItemButton, ListItemText } from "@mui/material";
+import { Box, Chip, CircularProgress, InputAdornment, TextField, Typography, Paper, List, ListItemButton, ListItemText } from "@mui/material";
 import { LocationOn, MyLocation } from "@mui/icons-material";
 import { useFloatingLabels } from "./ui/FloatingLabel";
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 // import { resolveReactComponent } from "../../../../utils/resolveReactComponent";
 // import { LocationOn as RawLocationOn, MyLocation as RawMyLocation } from "@mui/icons-material";
 
@@ -329,9 +330,9 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
         />
         <Box sx={{ flex: 1 }} />
         {resolving && <CircularProgress size={16} />}
-        <IconButton size="small" onClick={useMyLocation} title="Use my current location">
+        <WtIconButton size="small" onClick={useMyLocation} title="Use my current location">
           <MyLocation fontSize="small" />
-        </IconButton>
+        </WtIconButton>
       </Box>
 
       <Box sx={{ border: 1, borderTop: 0, borderColor: "divider", borderRadius: "0 0 8px 8px", p: 2 }}>

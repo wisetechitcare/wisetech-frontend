@@ -1,0 +1,61 @@
+/* ============================================================================
+ * WiseTech Visual Language v2 — the ONE token source (ADR-001).
+ *
+ * Look = shadcn/ui style `base-maia` (components.json); colours = ours. Components come from
+ * the shadcn CLI and use shadcn's type, radius and motion conventions; this file owns only the
+ * colour roles, the radius base and the appearance axes below. Per-tenant branding overrides
+ * only `--brand-*` at runtime; everything else derives from it.
+ *
+ * Axes (all set on <html>):
+ *   .dark                       light / dark
+ *   [data-surface="glass"]      Glass chrome (frosted header/sidebar/overlays); default Material
+ *   [data-density="compact"]    tighter spacing scale for data-heavy users; default comfortable
+ * ========================================================================== */
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "./tokens.css";
+@import "./typeset.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* shadcn/typeset (./typeset.css, https://ui.shadcn.com/docs/typeset): styles rendered markdown inside a
+   `typeset` container and nothing outside it. Kept verbatim so it can be re-downloaded over; local
+   choices live below. Its defaults sit in @layer components, so these unlayered presets win on any
+   import order. Opt an embedded element out with `not-typeset` or `data-not-typeset`; kit components
+   (data-slot) are skipped already. */
+:root {
+  --font-inter: 'Inter Variable', sans-serif;
+}
+
+/* Long-form reading surface. Other typeset-* presets are separate surfaces. */
+.typeset-article {
+  --typeset-font-body: var(--font-inter);
+  --typeset-font-heading: var(--font-inter);
+  --typeset-font-mono: var(--font-inter);
+  --typeset-size: 15px;
+  --typeset-leading: 1.75;
+  --typeset-flow: 1.25em;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

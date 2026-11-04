@@ -1,6 +1,7 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useEffect, useState } from "react";
-import { Button } from "react-bootstrap";
+import { Button } from "@/ds/ui/button";
+import { Item } from "@/ds/ui/item";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import Select from "react-select";
@@ -215,8 +216,9 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                     Choose {title} Color
                   </label>
                   <div className="position-relative">
-                    <div
-                      className="d-flex align-items-center justify-content-between"
+                    <Item
+                      render={<button type="button" />}
+                      className="d-flex align-items-center justify-content-between flex-nowrap text-start"
                       style={{
                         backgroundColor: '#f8f9fa',
                         border: '1px solid #e9ecef',
@@ -247,7 +249,7 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
                       >
                         {values.color}
                       </span>
-                    </div>
+                    </Item>
                     <input
                       id="colorInput"
                       type="color"
@@ -380,18 +382,9 @@ const CompanyConfigForm: React.FC<ConfigFormProps> = ({ show, onClose, onSuccess
             </Modal.Body>
 
             <Modal.Footer style={{ borderTop: 'none', paddingTop: '0' }}>
-              <Button 
-                variant="primary" 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isSubmitting}
-                style={{
-                  backgroundColor: '#1E3A8A',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '10px 24px',
-                  fontWeight: '500',
-                  fontSize: '14px'
-                }}
               >
                 {isSubmitting ? "Saving..." : isEditing ? "Update" : "Save"}
               </Button>

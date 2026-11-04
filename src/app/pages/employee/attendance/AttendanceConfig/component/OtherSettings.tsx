@@ -414,7 +414,7 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
             {/* Save */}
             <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, pt: 0.5 }}>
               <WtButton
-                type="submit" tone="primary" disabled={isSaving}
+                type="submit" disabled={isSaving}
                 startIcon={isSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <KTIcon iconName="check-circle" className="fs-3" />}
                 sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 200 } }}
               >

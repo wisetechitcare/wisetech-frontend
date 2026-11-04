@@ -24,6 +24,7 @@ import {
   RADIUS,
   KEYFRAMES,
 } from '@app/modules/configuration';
+import { Button } from '@/ds/ui/button';
 
 const designationSchema = Yup.object({
     role: Yup.string().required().label('Designation Name'),
@@ -225,60 +226,15 @@ function Designations() {
                                 </div>
 
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SP.md, paddingTop: SP.lg }}>
-                                  <button
+                                  <Button variant="outline"
                                     type='button'
                                     onClick={handleClose}
-                                    style={{
-                                      backgroundColor: C.bgCard,
-                                      color: C.textSecondary,
-                                      border: `1px solid ${C.border}`,
-                                      borderRadius: RADIUS.md,
-                                      padding: '8px 16px',
-                                      fontFamily: FONT.body,
-                                      fontWeight: 500,
-                                      fontSize: '13px',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s ease',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.backgroundColor = C.bgSection;
-                                      e.currentTarget.style.borderColor = C.borderDark;
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.backgroundColor = C.bgCard;
-                                      e.currentTarget.style.borderColor = C.border;
-                                    }}
                                   >
                                     Cancel
-                                  </button>
-                                    <button
+                                  </Button>
+                                    <Button
                                       type='submit'
                                       disabled={loading || !formikProps.isValid}
-                                      style={{
-                                        backgroundColor: loading || !formikProps.isValid ? `${C.primary}80` : C.primary,
-                                        color: '#fff',
-                                        border: 'none',
-                                        borderRadius: RADIUS.md,
-                                        padding: '8px 16px',
-                                        fontFamily: FONT.body,
-                                        fontWeight: 600,
-                                        fontSize: '13px',
-                                        cursor: loading || !formikProps.isValid ? 'not-allowed' : 'pointer',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        transition: 'all 0.2s ease',
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        if (!loading && formikProps.isValid) {
-                                          e.currentTarget.style.transform = 'translateY(-2px)';
-                                          e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-                                        }
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = 'none';
-                                      }}
                                     >
                                         {!loading && (editMode ? 'Update Designation' : 'Create Designation')}
                                         {loading && (
@@ -287,7 +243,7 @@ function Designations() {
                                                 Please wait...
                                             </span>
                                         )}
-                                    </button>
+                                    </Button>
                                 </div>
                             </Form>
                         )}

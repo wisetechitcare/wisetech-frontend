@@ -1,11 +1,12 @@
 import React from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import { Modal } from 'react-bootstrap';
 import { Formik, Form } from 'formik';
 import { KTIcon } from '@metronic/helpers';
 import { Close } from '@mui/icons-material';
 import { GrossDistributionData, DynamicField } from '../../types/payroll.types';
 import { formatMoneyDecimal } from '../../utils/payrollFormatters';
 import { getCurrencySymbol } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 interface GrossDistributionModalProps {
     show: boolean;
@@ -108,7 +109,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                         Allowances & Benefits
                                     </span>
                                 </div>
-                                <Button variant="outline-primary" size="sm" onClick={onAddComment} className="py-1 px-3 fs-8 fw-bold">
+                                <Button variant="inverted" size="sm" onClick={onAddComment}>
                                     <KTIcon iconName="plus" className="fs-8 me-1" />
                                     Add Component
                                 </Button>
@@ -140,13 +141,12 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                                     />
                                                 </div>
                                             </div>
-                                            <button
+                                            <Button variant="tinted" size="icon-xs" aria-label="Remove" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                                                 type="button"
                                                 onClick={() => onRemoveField(key, false)}
-                                                style={{ width: 28, height: 28, minWidth: 28, border: 'none', background: 'transparent', color: '#f1416c', cursor: 'pointer', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                             >
                                                 <Close sx={{ fontSize: 16 }} />
-                                            </button>
+                                            </Button>
                                         </div>
                                     ))}
 
@@ -174,13 +174,12 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                                     />
                                                 </div>
                                             </div>
-                                            <button
+                                            <Button variant="tinted" size="icon-xs" aria-label="Remove" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                                                 type="button"
                                                 onClick={() => onRemoveField(field.id, true)}
-                                                style={{ width: 28, height: 28, minWidth: 28, border: 'none', background: 'transparent', color: '#f1416c', cursor: 'pointer', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                             >
                                                 <Close sx={{ fontSize: 16 }} />
-                                            </button>
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>
@@ -192,7 +191,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                             )}
 
                             <div className="d-flex justify-content-end gap-3 py-4 border-top mt-2">
-                                <Button variant="light" onClick={onHide} disabled={loading}>Cancel</Button>
+                                <Button variant="outline" onClick={onHide} disabled={loading}>Cancel</Button>
                                 <Button
                                     type="submit"
                                     disabled={loading || !formikProps.isValid}

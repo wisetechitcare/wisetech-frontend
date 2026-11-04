@@ -1,10 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
-import CountUpModule from "react-countup";
+import { CountUp } from "@/ds/effects/count-up";
+import { getCurrencyLocale } from "@utils/currency";
 import { ProjectKpi } from "./projectAnalyticsUtils";
-import { resolveReactComponent } from "@utils/resolveReactComponent";
-
-const CountUp = resolveReactComponent<typeof CountUpModule>(CountUpModule);
 
 interface Props extends ProjectKpi {
   index?: number;
@@ -69,10 +67,10 @@ const ProjectCommandCenterKpi: React.FC<Props> = ({
           {prefix}
           {isNumeric ? (
             <CountUp
-              end={Number(displayValue) || 0}
-              duration={0.6}
-              separator=","
+              value={Number(displayValue) || 0}
+              duration={600}
               decimals={decimals}
+              locale={getCurrencyLocale()}
             />
           ) : (
             value

@@ -23,7 +23,8 @@ import CompanyReferences from "./CompanyReferences";
 import { AppIcon, GlassSurface, ToneChip, UnderlineTabs, WtButton, WtIconButton } from "@app/modules/common/components/ui";
 import LeadReferenceTab from "./LeadReferenceTab";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
-import { canSection } from "@utils/can";
+import { canSection, canTab } from "@utils/can";
+import { AuditDrawer } from "@/modules/audit/AuditDrawer";
 
 
 type TabType =
@@ -158,6 +159,10 @@ const CompanyDetails = () => {
   const [addRequested, setAddRequested] = useState(false);
   const addLabel = TAB_ADD_LABEL[activeTab];
 
+  // Audit is a tab in the bar but opens a drawer over the current tab, so it is not a route.
+  const [auditOpen, setAuditOpen] = useState(false);
+  const canAudit = canTab("crm.companies", "audit");
+
   const tabs: Array<{ key: TabType; label: string; icon: string }> = [
     { key: "overview", label: "Overview", icon: "bi bi-building" },
     { key: "lead-reference", label: "Lead Reference", icon: "bi bi-signpost-split" },
@@ -167,6 +172,7 @@ const CompanyDetails = () => {
     { key: "subcompanies", label: "Subcompanies", icon: "bi bi-diagram-3" },
     { key: "branches", label: "Branches", icon: "bi bi-geo-alt" },
     { key: "rating", label: "Rating", icon: "bi bi-star" },
+    ...(canAudit ? [{ key: "audit", label: "Audit", icon: "bi bi-clock-history" }] : []),
   ].filter((t) => !TAB_SECTION[t.key as TabType] || canSection(TAB_SECTION[t.key as TabType]!)) as Array<{ key: TabType; label: string; icon: string }>;
 
   const templateDataForLeads = [
@@ -337,7 +343,7 @@ const CompanyDetails = () => {
       <UnderlineTabs
         tabs={tabs}
         value={activeTab}
-        onChange={setActiveTab}
+        onChange={(key) => ((key as string) === "audit" ? setAuditOpen(true) : setActiveTab(key))}
         ariaLabel="Company sections"
         actions={canWrite && addLabel ? (
           <WtButton size="small" onClick={() => setAddRequested(true)} startIcon={<AppIcon name="plus" className="fs-5" />} sx={{ whiteSpace: "nowrap" }}>
@@ -348,6 +354,10 @@ const CompanyDetails = () => {
 
       {/* Tab Content */}
       <div className="tab-content">{renderTabContent()}</div>
+
+      {canAudit && (
+        <AuditDrawer open={auditOpen} onClose={() => setAuditOpen(false)} type="COMPANY" id={company.id} recordName={company.companyName} record={company as any} />
+      )}
 
       {/* New Company Modal */}
       <NewCompanyForm

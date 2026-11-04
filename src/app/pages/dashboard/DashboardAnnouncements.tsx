@@ -19,17 +19,18 @@
  * The outer `col-lg-7` is the parent dashboard row's contract (DashboardWrapper is a Bootstrap
  * grid); everything inside it is MUI + kit tokens, per the UI standard.
  */
-import { useEffect, useState, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useMemo, useRef, type CSSProperties } from "react";
+import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { Box, IconButton, Paper, Stack, Typography } from "@mui/material";
+import { Box, Paper, Stack, Typography } from "@mui/material";
+import { Button, buttonVariants } from "@/ds/ui/button";
 import SVG from "react-inlinesvg";
 import { KTIcon } from "@metronic/helpers";
 import { miscellaneousIcons } from "../../../_metronic/assets/miscellaneousicons";
 import { formatDate } from "@utils/date";
 import { getAllAnnouncements } from "@services/company";
 import { RootState } from "@redux/store";
-import { T, WtButton, hoverLiftSx } from "@app/modules/common/components/ui";
+import { T, hoverLiftSx } from "@app/modules/common/components/ui";
 import {
   POSTER_ASPECT,
   usePosterInk,
@@ -106,8 +107,6 @@ const DashboardAnnouncements = () => {
   // is no hover at all and the panel would otherwise be unreachable.
   const [expanded, setExpanded] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
-
-  const navigate = useNavigate();
 
   // Extract userId as a primitive to prevent unnecessary re-renders and API calls
   const employeeUserId = useSelector(
@@ -198,38 +197,29 @@ const DashboardAnnouncements = () => {
           Announcements
         </Typography>
       )}
-      <WtButton
-        ghost={!hasPoster}
-        size="small"
-        onClick={(e) => {
-          e.stopPropagation();
-          navigate("/company/announcements");
-        }}
-        // A quiet corner affordance, not a call to action: the kit's CTA metrics (46px tall,
-        // 14.5px bold) made it the loudest thing on a card whose subject is the poster.
-        //
-        // `background`, not `bgcolor`: the CTA recipe paints a gradient through the `background`
-        // shorthand, which would sit on top of a `background-color` set here and win.
-        sx={{
-          minHeight: 0,
-          px: 1.5,
-          py: 0.5,
-          fontSize: 12.5,
-          fontWeight: 600,
-          borderRadius: "8px",
-          ...(hasPoster && {
-            background: top.buttonBg,
-            color: top.text,
-            border: `1px solid ${top.hairline}`,
-            // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
-            backdropFilter: "blur(6px)",
-            boxShadow: "none",
-            "&:hover": { background: top.controlHover, color: top.text, boxShadow: "none" },
-          }),
-        }}
+      {/* A quiet corner affordance, not a call to action: the poster is the subject. It
+          navigates, so it is a link styled as the kit's small button — outline on the plain
+          card, and over a poster the tinted control toned with the poster's ink (the ink is
+          picked per region from the image, so it reads on light and dark artwork alike).
+          stopPropagation keeps the click from also toggling the card's panel. */}
+      <Link
+        to="/company/announcements"
+        data-slot="button"
+        onClick={(e) => e.stopPropagation()}
+        className={buttonVariants({ variant: hasPoster ? "tinted" : "outline", size: "sm" })}
+        style={
+          hasPoster
+            ? ({
+                "--tint": top.text,
+                "--tint-ink": top.text,
+                // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
+                backdropFilter: "blur(6px)",
+              } as unknown as CSSProperties)
+            : undefined
+        }
       >
-        view all
-      </WtButton>
+        View All
+      </Link>
     </Stack>
   );
 
@@ -424,36 +414,35 @@ const DashboardAnnouncements = () => {
                   { dir: -1, icon: "arrow-left", edge: { left: 10 }, label: "Previous announcement" },
                   { dir: 1, icon: "arrow-right", edge: { right: 10 }, label: "Next announcement" },
                 ] as const).map((btn) => (
-                  <IconButton
+                  <Button
                     key={btn.icon}
+                    variant="tinted"
+                    size="icon-sm"
                     aria-label={btn.label}
                     onClick={(e) => {
                       e.stopPropagation();
                       step(btn.dir);
                     }}
-                    sx={{
+                    style={{
                       position: "absolute",
                       top: "50%",
                       ...btn.edge,
                       transform: "translateY(-50%)",
                       zIndex: 5,
-                      width: 34,
-                      height: 34,
                       // Mid-height, between the two sampled bands — the top band's answer is the
-                      // closer of the two and reads correctly in practice.
-                      color: top.text,
-                      bgcolor: top.control,
-                      border: `1px solid ${top.hairline}`,
+                      // closer of the two and reads correctly in practice. The kit's tinted
+                      // control, toned with the poster ink (as the header's View All).
+                      "--tint": top.text,
+                      "--tint-ink": top.text,
                       // eslint-disable-next-line no-restricted-syntax -- legacy raw blur, migrate to glassSx
                       backdropFilter: "blur(8px)",
                       opacity: expanded ? 1 : 0,
                       transition: `opacity 220ms ${EASE}`,
                       pointerEvents: expanded ? "auto" : "none",
-                      "&:hover": { bgcolor: top.controlHover },
-                    }}
+                    } as unknown as CSSProperties}
                   >
                     <KTIcon iconName={btn.icon} className="fs-4" />
-                  </IconButton>
+                  </Button>
                 ))}
 
                 <Stack

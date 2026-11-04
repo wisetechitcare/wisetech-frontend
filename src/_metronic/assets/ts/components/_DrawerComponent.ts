@@ -114,7 +114,10 @@ class DrawerComponent {
 
     // Reset state
     const hasBaseClass = this.element.classList.contains(`${this.options.baseClass}-on`)
-    const bodyCanvasAttr = String(document.body.getAttribute(`data-kt-drawer-${this.name}-`))
+    // No trailing dash: `_show` writes `data-kt-drawer-<name>`. Upstream Metronic reads
+    // `data-kt-drawer-<name>-`, which never exists, so every resize / re-init marked an OPEN
+    // drawer as closed and the next tap on the hamburger "opened" it again instead of closing it.
+    const bodyCanvasAttr = String(document.body.getAttribute(`data-kt-drawer-${this.name}`))
 
     if (hasBaseClass === true && bodyCanvasAttr === 'on') {
       this.shown = true
@@ -166,7 +169,9 @@ class DrawerComponent {
       return
     }
 
-    if (this.shown) {
+    // Ask the DOM, not the `shown` flag: the flag is only as fresh as the last `_update`, and a
+    // stale one costs the user extra taps.
+    if (this.element.classList.contains(`${this.options.baseClass}-on`)) {
       this._hide()
     } else {
       this._show()

@@ -11,6 +11,7 @@ import {
 } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
+import { canDelete } from "@utils/can";
 import {
   getProforma, getProformaTimeline, getVersionPreview, compareVersions,
   createRevision, accessProforma, downloadWord, setVersionStatus, archiveProforma, restoreProforma,
@@ -230,6 +231,7 @@ const ProformaDetailPage: React.FC<ProformaDetailPageProps> = ({ documentId, onB
             >
               Share
             </WtButton>
+            {(isArchived || canDelete("billing.proformas")) && (
             <WtButton
               ghost size="small" onClick={askArchive}
               startIcon={<KTIcon iconName={isArchived ? "arrow-circle-left" : "archive"} className="fs-6" />}
@@ -237,6 +239,7 @@ const ProformaDetailPage: React.FC<ProformaDetailPageProps> = ({ documentId, onB
             >
               {isArchived ? "Restore" : "Archive"}
             </WtButton>
+            )}
           </Stack>
         }
       />
@@ -331,8 +334,7 @@ const ProformaDetailPage: React.FC<ProformaDetailPageProps> = ({ documentId, onB
                   InputLabelProps={{ shrink: true }}
                   helperText="The current version becomes Superseded — never edited, never removed."
                 />
-                <WtButton
-                  tone="primary" size="small"
+                <WtButton size="small"
                   disabled={revisionReason.trim().length < 3 || revise.isPending}
                   onClick={() => revise.mutate()}
                   sx={{ minHeight: 34, borderRadius: "10px", fontSize: 12.5 }}

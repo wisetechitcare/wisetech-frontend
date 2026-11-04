@@ -3,7 +3,7 @@ import { Box, Rating, Stack, Typography } from "@mui/material";
 import { updateCompanyRating } from "@services/companies";
 import { getRatingByCompanyId } from "@services/projects";
 import { canSection } from "@utils/can";
-import { useCountUp } from "@app/hooks/useCountUp";
+import { CountUp } from "@/ds/effects/count-up";
 import Loader from "@app/modules/common/utils/Loader";
 import { DetailCard } from "@app/modules/detail-page/DetailPageComponents";
 import { AppIcon, GlassDialog, PlainDialogHeader, ToneChip, WtButton, WtEmptyState } from "@app/modules/common/components/ui";
@@ -46,7 +46,6 @@ const useEntered = () => {
 
 /** The overall score as a ring that sweeps to its value while the number counts up. */
 export const ScoreRing = ({ score, size = 132 }: { score: number; size?: number }) => {
-  const shown = useCountUp(score);
   const entered = useEntered();
   const stroke = Math.round(size * 0.085);
   const r = (size - stroke) / 2;
@@ -72,7 +71,7 @@ export const ScoreRing = ({ score, size = 132 }: { score: number; size?: number 
       </Box>
       <Stack alignItems="center" justifyContent="center" sx={{ position: "absolute", inset: 0 }}>
         <Typography sx={{ fontFamily: "Barlow", fontWeight: 700, fontSize: size * 0.27, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
-          {shown.toFixed(1)}
+          <CountUp value={score} decimals={1} />
         </Typography>
         <Typography sx={{ fontSize: size * 0.095, color: "text.secondary", fontWeight: 600 }}>out of {MAX_RATING}</Typography>
       </Stack>

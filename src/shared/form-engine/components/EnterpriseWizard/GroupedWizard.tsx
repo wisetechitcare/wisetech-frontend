@@ -16,6 +16,7 @@ import {
   DEFAULT_REVIEW_TITLE, REVIEW_STEP_ID, WizardDraftStatusText, WizardReview, focusStepHeading, reviewStatusOf,
   type PendingStepFocus, type WizardReviewItem,
 } from './WizardReview';
+import { WizardFooterActions } from './WizardFooterActions';
 
 /** A leaf = one editable section, the unit the canvas renders and Continue walks. */
 export interface WizardLeaf<TProps> {
@@ -751,21 +752,17 @@ export function GroupedWizard<TProps>({
         </Box>}
       </Box>
       <GlassDialogActions sx={{ justifyContent: 'space-between', flexWrap: 'wrap', bgcolor: 'background.paper', gap: 1, px: { xs: 1.5, sm: 2 }, '& > :not(style) ~ :not(style)': { ml: 0 } }}>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          <WtButton ghost onClick={onCancel} disabled={isSubmitting}>Cancel</WtButton>
-          {/* Secondary save — outlined, so the footer has exactly one filled primary action. */}
-          <WtButton inverted onClick={() => onDirectSave ? onDirectSave() : handleDirectSave()} disabled={isSubmitting}
-            sx={(theme) => (theme.palette.mode === 'dark' ? {} : { borderColor: alpha(theme.palette.primary.main, 0.45), boxShadow: 'none' })}>
-            {isSubmitting ? 'Saving…' : onDirectSave ? directSaveLabel ?? 'Save draft' : isEditMode ? 'Save Changes' : 'Save'}
-          </WtButton>
-          <WizardDraftStatusText status={draftStatus ?? 'idle'} />
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, flex: '1 1 auto', justifyContent: 'flex-end' }}>
-          <WtButton ghost startIcon={<ChevronLeft />} onClick={handleBack} disabled={isFirst || isSubmitting}>Back</WtButton>
-          <WtButton tone="primary" endIcon={<ChevronRight />} onClick={handleNext} disabled={isSubmitting}>
-            {isSubmitting ? 'Saving…' : isLast ? submitText : 'Save & Continue'}
-          </WtButton>
-        </Box>
+        <WizardFooterActions
+          isSubmitting={isSubmitting}
+          onCancel={onCancel}
+          onDirectSave={() => onDirectSave ? onDirectSave() : handleDirectSave()}
+          directSaveLabel={onDirectSave ? directSaveLabel ?? 'Save draft' : isEditMode ? 'Save Changes' : 'Save'}
+          leftExtra={<WizardDraftStatusText status={draftStatus ?? 'idle'} />}
+          onBack={handleBack}
+          backDisabled={isFirst}
+          onNext={handleNext}
+          nextLabel={isLast ? submitText : 'Save & Continue'}
+        />
       </GlassDialogActions>
     </Box>
   );

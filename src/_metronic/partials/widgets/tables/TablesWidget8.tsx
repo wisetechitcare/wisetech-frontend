@@ -1,6 +1,7 @@
 
 import { FC } from 'react'
 import {KTIcon} from '../../../helpers'
+import {buttonVariants} from '@/ds/ui/button'
 
 type Props = {
   className: string
@@ -19,7 +20,15 @@ const TablesWidget8: FC<Props> = ({className}) => {
           <ul className='nav'>
             <li className='nav-item'>
               <a
-                className='nav-link btn btn-sm btn-color-muted btn-active btn-active-light-primary active fw-bold px-4 me-1'
+                data-slot='button'
+                role='tab'
+                aria-selected={true}
+                className={buttonVariants({
+                  variant: 'ghost',
+                  size: 'sm',
+                  className:
+                    'nav-link active me-1 aria-selected:bg-muted aria-selected:text-foreground',
+                })}
                 data-bs-toggle='tab'
                 href='#kt_table_widget_8_tab_1'
               >
@@ -28,7 +37,14 @@ const TablesWidget8: FC<Props> = ({className}) => {
             </li>
             <li className='nav-item'>
               <a
-                className='nav-link btn btn-sm btn-color-muted btn-active btn-active-light-primary fw-bold px-4 me-1'
+                data-slot='button'
+                role='tab'
+                aria-selected={false}
+                className={buttonVariants({
+                  variant: 'ghost',
+                  size: 'sm',
+                  className: 'nav-link me-1 aria-selected:bg-muted aria-selected:text-foreground',
+                })}
                 data-bs-toggle='tab'
                 href='#kt_table_widget_8_tab_2'
               >
@@ -37,7 +53,14 @@ const TablesWidget8: FC<Props> = ({className}) => {
             </li>
             <li className='nav-item'>
               <a
-                className='nav-link btn btn-sm btn-color-muted btn-active btn-active-light-primary fw-bold px-4'
+                data-slot='button'
+                role='tab'
+                aria-selected={false}
+                className={buttonVariants({
+                  variant: 'ghost',
+                  size: 'sm',
+                  className: 'nav-link aria-selected:bg-muted aria-selected:text-foreground',
+                })}
                 data-bs-toggle='tab'
                 href='#kt_table_widget_8_tab_3'
               >
@@ -89,7 +112,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -116,7 +141,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -143,7 +170,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -170,7 +199,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -197,7 +228,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -248,7 +281,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -275,7 +310,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -302,7 +339,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -353,7 +392,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -380,7 +421,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -407,7 +450,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>
@@ -434,7 +479,9 @@ const TablesWidget8: FC<Props> = ({className}) => {
                     <td className='text-end'>
                       <a
                         href='#'
-                        className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'
+                        data-slot='button'
+                        aria-label='More actions'
+                        className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
                       >
                         <i className='bi bi-three-dots fs-5'></i>
                       </a>

@@ -275,7 +275,7 @@ const DeliverableFormDialog: React.FC<DeliverableFormDialogProps> = ({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <WtButton ghost onClick={onClose} disabled={saving}>Cancel</WtButton>
-        <WtButton tone="primary" disabled={!name.trim() || saving} onClick={submit}>
+        <WtButton disabled={!name.trim() || saving} onClick={submit}>
           {saving ? "Saving…" : "Save"}
         </WtButton>
       </DialogActions>

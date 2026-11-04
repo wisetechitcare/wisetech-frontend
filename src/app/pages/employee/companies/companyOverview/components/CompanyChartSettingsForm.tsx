@@ -10,6 +10,7 @@ import {
   selectError,
 } from "@redux/slices/leadProjectCompanies";
 import Loader from "@app/modules/common/utils/Loader";
+import { Button } from "@/ds/ui/button";
 
 type ChartSettings = {
   showCompaniesByType: boolean;
@@ -136,20 +137,9 @@ const CompanyChartSettingsForm: React.FC<CompanyChartSettingsFormProps> = ({ onS
       {renderSection("", COMPANY_CONFIG_ITEMS)}
 
       <div className="d-flex justify-content-start mt-4">
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleSave}
-          disabled={isSaving}
-          style={{
-            backgroundColor: '#1E3A8A',
-            borderColor: '#1E3A8A',
-            fontFamily: 'Inter',
-            fontWeight: '600'
-          }}
-        >
+        <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? 'Saving...' : 'Save Settings'}
-        </button>
+        </Button>
       </div>
     </div>
   );

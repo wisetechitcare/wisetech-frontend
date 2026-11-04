@@ -1,3 +1,4 @@
+import { toast } from "react-toastify";
 import {
   createClientCompany,
   getAllCompanyTypes,
@@ -21,8 +22,9 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
+import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtTooltip, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
 import { Box } from "@mui/material";
+import { Button } from "@/ds/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "react-select";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
@@ -32,7 +34,8 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { getRatingByCompanyId } from "@services/projects";
 import SubCompanyForm from "./SubCompanryForm";
-import { fetchAllEmployees } from "@services/employee";
+import { fetchAllEmployeesSelectedData } from "@services/employee";
+import { getAvatar } from "@utils/avatar";
 import MultiSelectWithInlineCreate, { Option } from "@app/modules/common/components/MultiSelectWithInlineCreate";
 import { transformToOptions, createNewCompanyService, createNewCompanyType, createNewServiceUnderType } from "@app/modules/common/components/InlineCreateHelpers";
 import { fetchSubCompanies } from "@services/company";
@@ -165,6 +168,25 @@ const schemaFor = (sections: IFormSection[]) =>
     )
   );
 
+/**
+ * Required CUSTOM fields left empty, as { fieldId: message }.
+ *
+ * Custom fields only: a built-in (Company Name…) keeps its value in Formik, not on `f.value`,
+ * so including it reported it empty every time and silently blocked EVERY save — fixed twice
+ * already, the second time after a merge undid it (see NewCompanyForm.test). Built-ins are
+ * enforced by `schemaFor`; hidden fields cannot be filled in, so they never block.
+ */
+export const missingCustomFields = (sections: IFormSection[]): Record<string, string> => {
+  const errs: Record<string, string> = {};
+  sections.forEach((sec) =>
+    sec.fields.forEach((f) => {
+      if (f.isSystem || f.hidden) return;
+      if (f.required && !String(f.value ?? "").trim()) errs[f.id] = `${f.label} is required`;
+    })
+  );
+  return errs;
+};
+
 const NewCompanyForm: React.FC<Props> = ({
   show,
   onClose,
@@ -287,12 +309,22 @@ const NewCompanyForm: React.FC<Props> = ({
     () => new Map<string, any>(contacts.map((c: any) => [c.id, c])),
     [contacts],
   );
+  // Active-only (same roster/shape as EmployeePickerField's useEmployeeDirectory),
+  // with avatar so the Referral Contact dropdown shows a photo like every other
+  // avatar dropdown in this form instead of a bare name.
   const employeeOptions = useMemo(
     () =>
-      allEmployees.map((e: any) => ({
-        label: `${e.users?.firstName} ${e.users?.lastName}`,
-        value: e.id,
-      })),
+      allEmployees
+        .filter((e: any) => e?.isActive !== false)
+        .map((e: any) => ({
+          label: `${e.users?.firstName} ${e.users?.lastName}`,
+          value: e.id,
+          avatar: getAvatar(e.avatar || "", e.gender ?? 0),
+        })),
+    [allEmployees],
+  );
+  const employeeById = useMemo(
+    () => new Map<string, any>(allEmployees.map((e: any) => [e.id, e])),
     [allEmployees],
   );
   const companyOptions = useMemo(
@@ -344,7 +376,7 @@ const NewCompanyForm: React.FC<Props> = ({
 
   useEffect(() => {
     const allEmployeesDropdown = async () => {
-      const { data } = await fetchAllEmployees();
+      const { data } = await fetchAllEmployeesSelectedData();
       setAllEmployees(data.employees);
     };
     allEmployeesDropdown();
@@ -714,15 +746,12 @@ const NewCompanyForm: React.FC<Props> = ({
 
   const validateCustomFields = (): boolean => {
     const errs: Record<string, string> = {};
-    formSections.forEach((sec) =>
-      sec.fields.forEach((f) => {
-        if (f.required && !String(f.value ?? "").trim()) {
-          errs[f.id] = `${f.label} is required`;
-        }
-      })
-    );
+    Object.assign(errs, missingCustomFields(formSections));
     setCustomErrors(errs);
-    return Object.keys(errs).length === 0;
+    const missing = Object.values(errs);
+    // Say so: the inline errors sit on their own step, which may not be the one on screen.
+    if (missing.length) toast.error(missing.join(", "));
+    return missing.length === 0;
   };
 
   // Renders a single admin-defined custom field (text / number / date / file).
@@ -1137,28 +1166,20 @@ const NewCompanyForm: React.FC<Props> = ({
                                       <div key={index} className="row g-3 mb-3" style={{ position: "relative" }}>
                                         {/* Remove button for items after the first one - positioned at top right */}
                                         {index > 0 && (
-                                          <div
+                                          <Button
+                                            variant="tinted"
+                                            size="icon-xs"
+                                            aria-label="Remove reference"
                                             onClick={() => remove(index)}
                                             style={{
                                               position: "absolute",
                                               top: "-8px",
                                               right: "8px",
-                                              cursor: "pointer",
-                                              color: "#1E3A8A",
-                                              fontSize: "20px",
-                                              fontWeight: "bold",
-                                              width: "24px",
-                                              height: "24px",
-                                              display: "flex",
-                                              alignItems: "center",
-                                              justifyContent: "center",
-                                              backgroundColor: "transparent",
-                                              // transition: "all 0.2s ease",
                                               zIndex: 10
                                             }}
                                           >
-                                            ×
-                                          </div>
+                                            <AppIcon name="cross" />
+                                          </Button>
                                         )}
 
                                         <div className="col-lg-6">
@@ -1186,7 +1207,28 @@ const NewCompanyForm: React.FC<Props> = ({
                                               formikField={`referenceType.${index}.internalReferenceEmployeeId`}
                                               inputLabel="Referral Contact"
                                               isRequired={false}
-                                              options={employeeOptions}
+                                              options={(() => {
+                                                // Safety net (same pattern as the external contact dropdown
+                                                // below): a previously-saved referrer who has since gone
+                                                // inactive is still surfaced, so editing an existing
+                                                // reference never shows an empty dropdown.
+                                                const savedId = reference.internalReferenceEmployeeId;
+                                                if (savedId && !employeeOptions.some((o) => o.value === savedId)) {
+                                                  const saved = employeeById.get(savedId);
+                                                  if (saved) {
+                                                    return [
+                                                      {
+                                                        label: `${saved.users?.firstName} ${saved.users?.lastName}`,
+                                                        value: saved.id,
+                                                        avatar: getAvatar(saved.avatar || "", saved.gender ?? 0),
+                                                      },
+                                                      ...employeeOptions,
+                                                    ];
+                                                  }
+                                                }
+                                                return employeeOptions;
+                                              })()}
+                                              showAvatar={true}
                                             />
                                           </div>
                                         )}
@@ -1311,7 +1353,9 @@ const NewCompanyForm: React.FC<Props> = ({
 
                                   {/* Add More button - placed outside the map */}
                                   <div className="col-12">
-                                    <div
+                                    <Button
+                                      variant="outline"
+                                      className="w-100"
                                       onClick={() =>
                                         push({
                                           referenceType: "",
@@ -1322,21 +1366,10 @@ const NewCompanyForm: React.FC<Props> = ({
                                           externalReferenceSubCompanyId: "",
                                         })
                                       }
-                                      style={{
-                                        cursor: "pointer",
-                                        color: "#1E3A8A",
-                                        border: "1px dotted #1E3A8A",
-                                        borderRadius: "5px",
-                                        padding: "8px 10px",
-                                        marginTop: "15px",
-                                        textAlign: "center",
-                                        display: "flex",
-                                        justifyContent: "center",
-                                        alignItems: "center",
-                                      }}
+                                      style={{ marginTop: "15px" }}
                                     >
                                       + Add More Reference
-                                    </div>
+                                    </Button>
                                   </div>
                                 </>
                               )}
@@ -1503,14 +1536,12 @@ const NewCompanyForm: React.FC<Props> = ({
                             )}
                           </label>
                           <div className="crm-avatar-actions">
-                            <button
-                              type="button"
-                              className="wt-btn wt-btn-outline-primary"
-                              style={{ fontSize: 13, fontWeight: 600 }}
+                            <Button
+                              variant="outline"
                               onClick={() => document.getElementById("logo")?.click()}
                             >
                               {logoPreview ? "Change logo" : "Upload logo"}
-                            </button>
+                            </Button>
                             <span className="crm-avatar-hint">
                               {logoFile?.name || "PNG or JPG · shown on company lists"}
                             </span>
@@ -1547,9 +1578,29 @@ const NewCompanyForm: React.FC<Props> = ({
                     ) : undefined
                   }
                   headerActions={
-                    <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)} startIcon={<AppIcon name="bi-gear" className="fs-6" />}>
-                      Manage fields
-                    </WtButton>
+                    <>
+                      <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)}
+                        startIcon={<AppIcon name="bi-gear" className="fs-6" />} sx={{ display: { xs: "none", sm: "inline-flex" } }}>
+                        Manage fields
+                      </WtButton>
+                      {/* Phones: icon only, the same 32px translucent square as the close button beside it. */}
+                      {/* The kit Button (ds), as the button ratchet requires; the Box only decides
+                          the breakpoint so it flips at the same width as the labelled one above. */}
+                      <Box sx={{ display: { xs: "inline-flex", sm: "none" } }}>
+                        <WtTooltip title="Manage fields" wrap>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            type="button"
+                            aria-label="Manage fields"
+                            onClick={() => setShowSchemaManager(true)}
+                            className="rounded-[10px] border border-white/25 bg-white/12 text-white hover:border-white/40 hover:bg-white/22 hover:text-white"
+                          >
+                            <AppIcon name="bi-gear" />
+                          </Button>
+                        </WtTooltip>
+                      </Box>
+                    </>
                   }
                 
                   sections={

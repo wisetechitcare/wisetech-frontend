@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Box } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 
 // Shared toolbar filters (Sub Organization / Employee Status / Pay Type) used by
@@ -54,11 +55,11 @@ const distinctValues = (summaries: any[], field: string, exclude?: Set<string>) 
 };
 
 export const useSalaryFilters = (employeesData: any): SalaryFilters => {
-  const [statusFilter, setStatusFilter] = useStoredState<StatusFilter>('filters:SalaryTableFilters:statusFilter', 'Active');
-  const [subOrgFilter, setSubOrgFilter] = useStoredState<string>('filters:SalaryTableFilters:subOrgFilter', 'All');
-  const [payTypeFilter, setPayTypeFilter] = useStoredState<PayTypeFilter>('filters:SalaryTableFilters:payTypeFilter', 'All');
-  const [branchFilter, setBranchFilter] = useStoredState<string>('filters:SalaryTableFilters:branchFilter', 'All');
-  const [teamFilter, setTeamFilter] = useStoredState<string>('filters:SalaryTableFilters:teamFilter', 'All');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('Active');
+  const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
+  const [payTypeFilter, setPayTypeFilter] = useState<PayTypeFilter>('All');
+  const [branchFilter, setBranchFilter] = useState<string>('All');
+  const [teamFilter, setTeamFilter] = useState<string>('All');
   const rootOrgNames = useRootOrgNames();
 
   const summaries: any[] = employeesData?.message?.employeeSummaries ?? [];
@@ -150,36 +151,6 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
           { value: 'All', label: 'All' },
         ]}
       />
-      <ToolbarFilterSelect
-        label="Sub Organization"
-        icon="bi-building"
-        value={subOrgFilter}
-        onChange={setSubOrgFilter}
-        minWidth={220}
-        theme={subOrgFilter !== 'All'
-          ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' }
-          : undefined}
-        options={[
-          { value: 'All', label: 'All Sub Organizations' },
-          ...subOrgOptions.map((name) => ({ value: name, label: name })),
-        ]}
-      />
-      {branchOptions.length > 0 && (
-        <ToolbarFilterSelect
-          label="Branch"
-          icon="bi-geo-alt"
-          value={branchFilter}
-          onChange={setBranchFilter}
-          minWidth={190}
-          theme={branchFilter !== 'All'
-            ? { icon: '#0891b2', border: '#a5f3fc', bg: '#ecfeff', text: '#155e75', ring: 'rgba(8, 145, 178, 0.12)' }
-            : undefined}
-          options={[
-            { value: 'All', label: 'All Branches' },
-            ...branchOptions.map((name) => ({ value: name, label: name })),
-          ]}
-        />
-      )}
       {teamOptions.length > 0 && (
         <ToolbarFilterSelect
           label="Team"
@@ -215,24 +186,15 @@ export const SalaryFilterToolbar: React.FC<SalaryFilterToolbarProps> = ({ filter
       />
 
       {/* Reset appears only when a non-default filter is applied */}
-      {(subOrgFilter !== 'All' || statusFilter !== 'Active' || payTypeFilter !== 'All' || branchFilter !== 'All' || teamFilter !== 'All') && (
-        <button
-          onClick={() => { setSubOrgFilter('All'); setStatusFilter('Active'); setPayTypeFilter('All'); setBranchFilter('All'); setTeamFilter('All'); onStatusChange?.('Active'); }}
+      {(statusFilter !== 'Active' || payTypeFilter !== 'All' || teamFilter !== 'All') && (
+        <Button
+          variant="outline"
+          onClick={() => { setStatusFilter('Active'); setPayTypeFilter('All'); setTeamFilter('All'); onStatusChange?.('Active'); }}
           title="Reset filters to defaults"
-          style={{
-            height: '38px', padding: '0 12px',
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            border: '1px dashed #fca5a5', borderRadius: '10px',
-            backgroundColor: '#ffffff', color: '#dc2626',
-            fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 600,
-            cursor: 'pointer', transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
         >
-          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
+          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" data-icon="inline-start" />
           Reset
-        </button>
+        </Button>
       )}
 
     </Box>

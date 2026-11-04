@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface QuickAction {
   id: string
@@ -68,7 +69,7 @@ function BottomNavQuickActionsBase({ open, onClose }: Props) {
           exit={{ opacity: 0 }}
           transition={{ duration: reduce ? 0 : 0.18 }}
         >
-          <div
+          <div data-wt-control="backdrop"
             className="bottom-nav-more__backdrop"
             onClick={onClose}
             aria-hidden="true"
@@ -88,19 +89,18 @@ function BottomNavQuickActionsBase({ open, onClose }: Props) {
             <div className="bottom-nav-more__grabber" aria-hidden="true" />
             <div className="bottom-nav-more__header">
               <span className="bottom-nav-more__title">Quick Actions</span>
-              <button
+              <Button variant="ghost" size="icon-sm" className="bottom-nav-more__close"
                 type="button"
-                className="bottom-nav-more__close"
                 onClick={onClose}
                 aria-label="Close"
               >
                 <AppIcon name="bi-x-lg" aria-hidden="true" />
-              </button>
+              </Button>
             </div>
 
             <div className="bottom-nav-more__grid">
               {QUICK_ACTIONS.map((action) => (
-                <button
+                <button data-wt-control="menuitem" role="menuitem"
                   key={action.id}
                   type="button"
                   className="bottom-nav-more__item"

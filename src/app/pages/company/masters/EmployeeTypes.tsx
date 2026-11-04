@@ -20,10 +20,10 @@ import {
   C,
   FONT,
   SP,
-  RADIUS,
   KEYFRAMES,
 } from '@app/modules/configuration';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 const employeeTypeSchema = Yup.object({
     employeeType: Yup.string().required().label('Employee Type'),
@@ -124,13 +124,14 @@ function EmployeeTypes() {
                   accessorKey: "actions",
                   header: "Actions",
                   Cell: ({ row }: any) => (
-                      <button
-                          className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                      <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Edit employee type"
                           onClick={() => handleEditClick(row.original.id)}
-                          style={{ cursor: 'pointer' }}
                       >
                           <AppIcon name="bi-pencil" className="fs-4" />
-                      </button>
+                      </Button>
                   ),
               });
           }
@@ -176,36 +177,12 @@ function EmployeeTypes() {
             <ConfigPageLayout
               actions={
                 canWrite ? (
-                  <button
-                    onClick={() => setShowModal(true)}
-                    style={{
-                      backgroundColor: C.primary,
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: RADIUS.md,
-                      padding: '8px 16px',
-                      fontFamily: FONT.body,
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: `0 4px 12px ${C.primaryShadow}`,
-                      transition: 'all 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`;
-                    }}
-                  >
-                    <AppIcon name="bi-plus-lg" className="fs-6" />
+                  <Button variant="default" size="sm" onClick={() => setShowModal(true)}>
+                    <span data-icon="inline-start" className="inline-flex">
+                      <AppIcon name="bi-plus-lg" className="fs-6" />
+                    </span>
                     New Employee Type
-                  </button>
+                  </Button>
                 ) : null
               }
             >
@@ -258,69 +235,18 @@ function EmployeeTypes() {
                                 </div>
 
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SP.md, paddingTop: SP.lg }}>
-                                  <button
-                                    type='button'
-                                    onClick={handleClose}
-                                    style={{
-                                      backgroundColor: C.bgCard,
-                                      color: C.textSecondary,
-                                      border: `1px solid ${C.border}`,
-                                      borderRadius: RADIUS.md,
-                                      padding: '8px 16px',
-                                      fontFamily: FONT.body,
-                                      fontWeight: 500,
-                                      fontSize: '13px',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s ease',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.backgroundColor = C.bgSection;
-                                      e.currentTarget.style.borderColor = C.borderDark;
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.backgroundColor = C.bgCard;
-                                      e.currentTarget.style.borderColor = C.border;
-                                    }}
-                                  >
+                                  <Button type="button" variant="outline" size="sm" onClick={handleClose}>
                                     Cancel
-                                  </button>
-                                    <button
-                                      type='submit'
+                                  </Button>
+                                    <Button
+                                      type="submit"
+                                      variant="default"
+                                      size="sm"
                                       disabled={loading || !formikProps.isValid}
-                                      style={{
-                                        backgroundColor: loading || !formikProps.isValid ? `${C.primary}80` : C.primary,
-                                        color: '#fff',
-                                        border: 'none',
-                                        borderRadius: RADIUS.md,
-                                        padding: '8px 16px',
-                                        fontFamily: FONT.body,
-                                        fontWeight: 600,
-                                        fontSize: '13px',
-                                        cursor: loading || !formikProps.isValid ? 'not-allowed' : 'pointer',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        transition: 'all 0.2s ease',
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        if (!loading && formikProps.isValid) {
-                                          e.currentTarget.style.transform = 'translateY(-2px)';
-                                          e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`;
-                                        }
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = 'none';
-                                      }}
+                                      loading={loading}
                                     >
-                                        {!loading && (editMode ? 'Update Employee Type' : 'Create Employee Type')}
-                                        {loading && (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', border: `2px solid rgba(255,255,255,0.3)`, borderTopColor: '#fff', animation: 'spin 0.6s linear infinite' }} />
-                                                Please wait...
-                                            </span>
-                                        )}
-                                    </button>
+                                        {editMode ? 'Update Employee Type' : 'Create Employee Type'}
+                                    </Button>
                                 </div>
                             </Form>
                         )}

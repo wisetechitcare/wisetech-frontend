@@ -5,9 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { Box, Stack, Typography } from "@mui/material";
 import { formatCurrencyCompact } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
-import { PeriodMode } from "@app/modules/common/components/PeriodFilter";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
+import { PeriodMode } from "@/constants/common";
+import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
+import { GlassDialog, GlassHeader } from "@app/modules/common/components/ui";
 import type { ChartMetric } from "@pages/dashboard/leadAnalytics/leadAnalyticsUtils";
 
 /**
@@ -45,8 +45,9 @@ export interface AnalyticsRow {
 
 /** The date a referred lead is charted under — the business-meaningful inquiry
  * date, falling back to createdAt for old rows that never had one entered. */
-export const referredLeadDate = (rl: { lead?: { inquiryDate?: string | null; createdAt?: string } | null }): string | undefined =>
-  rl.lead?.inquiryDate || rl.lead?.createdAt;
+export const referredLeadDate = (rl: {
+  lead?: { inquiryDate?: string | null; createdAt?: string } | null;
+}): string | undefined => rl.lead?.inquiryDate || rl.lead?.createdAt;
 
 export type { ChartMetric } from "@pages/dashboard/leadAnalytics/leadAnalyticsUtils";
 
@@ -69,7 +70,11 @@ interface Props {
 /** "lead" → "leads", "company" → "companies". A bare +"s" gave us "2 companys".
  *  Consonant-before-y only, so a "day"-shaped noun stays "days". */
 const plural = (noun: string, n: number): string =>
-  n === 1 ? noun : /[^aeiou]y$/i.test(noun) ? `${noun.slice(0, -1)}ies` : `${noun}s`;
+  n === 1
+    ? noun
+    : /[^aeiou]y$/i.test(noun)
+      ? `${noun.slice(0, -1)}ies`
+      : `${noun}s`;
 
 const ACCENT = "#1E3A8A";
 // Shared by the status chips and the VALUE / RESULTS summary so the row lines up.
@@ -107,9 +112,22 @@ const chipTextSx = {
  * centred. One size lines them up by construction — the hierarchy is carried by weight and
  * colour, exactly as the status chips beside it already do.
  */
-const summaryValueSx = { ...chipTextSx, fontWeight: 800, color: ACCENT } as const;
+const summaryValueSx = {
+  ...chipTextSx,
+  fontWeight: 800,
+  color: ACCENT,
+} as const;
 
-const FALLBACK_COLORS = ["#3B5BDB", "#2F9E44", "#E8590C", "#7048E8", "#E64980", "#1098AD", "#F08C00", "#868E96"];
+const FALLBACK_COLORS = [
+  "#3B5BDB",
+  "#2F9E44",
+  "#E8590C",
+  "#7048E8",
+  "#E64980",
+  "#1098AD",
+  "#F08C00",
+  "#868E96",
+];
 
 // Build the time buckets for the x-axis from the active mode + range (falling
 // back to the data's own min/max date when the range is open-ended).
@@ -117,7 +135,7 @@ const buildBuckets = (
   mode: PeriodMode,
   start: Dayjs | null,
   end: Dayjs | null,
-  dates: Dayjs[]
+  dates: Dayjs[],
 ): Array<{ label: string; start: Dayjs; end: Dayjs }> => {
   let from = start;
   let to = end;
@@ -131,7 +149,8 @@ const buildBuckets = (
   let unit: "day" | "month" | "year";
   if (mode === "yearly") unit = "month";
   else if (mode === "allyear") unit = "year";
-  else if (mode === "custom") unit = to.diff(from, "day") > 45 ? "month" : "day";
+  else if (mode === "custom")
+    unit = to.diff(from, "day") > 45 ? "month" : "day";
   else unit = "day"; // daily / weekly / monthly
 
   const fmt = unit === "day" ? "DD MMM" : unit === "month" ? "MMM YY" : "YYYY";
@@ -140,81 +159,106 @@ const buildBuckets = (
   const last = to.endOf(unit);
   let guard = 0;
   while ((cursor.isBefore(last) || cursor.isSame(last)) && guard < 400) {
-    buckets.push({ label: cursor.format(fmt), start: cursor.startOf(unit), end: cursor.endOf(unit) });
+    buckets.push({
+      label: cursor.format(fmt),
+      start: cursor.startOf(unit),
+      end: cursor.endOf(unit),
+    });
     cursor = cursor.add(1, unit);
     guard++;
   }
   return buckets;
 };
 
-const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-up-arrow", noun, mode, rangeStart, rangeEnd, metric = "count" }) => {
+const LeadReferralAnalytics: React.FC<Props> = ({
+  rows,
+  title,
+  icon = "bi-graph-up-arrow",
+  noun,
+  mode,
+  rangeStart,
+  rangeEnd,
+  metric = "count",
+}) => {
   const byAmount = metric === "amount";
   const navigate = useNavigate();
   // Which bar was clicked. A bar is a period, so the drill-down shows the whole
   // period rather than only the segment under the cursor — "what is in 2024" is the
   // question a stacked bar provokes, and answering half of it would be a tease.
   const [openBucket, setOpenBucket] = useState<number | null>(null);
-  const { series, categories, bucketValues, bucketRows, totalValue, hasValue } = useMemo(() => {
-    const dated = rows.filter((r) => r.date);
-    const dates = dated.map((r) => dayjs(r.date as string));
-    const buckets = buildBuckets(mode, rangeStart, rangeEnd, dates);
+  const { series, categories, bucketValues, bucketRows, totalValue, hasValue } =
+    useMemo(() => {
+      const dated = rows.filter((r) => r.date);
+      const dates = dated.map((r) => dayjs(r.date as string));
+      const buckets = buildBuckets(mode, rangeStart, rangeEnd, dates);
 
-    // Distinct series (preserve first-seen order) + colours.
-    const seriesOrder: string[] = [];
-    const seriesColor = new Map<string, string>();
-    dated.forEach((r) => {
-      if (!seriesOrder.includes(r.series)) {
-        seriesOrder.push(r.series);
-        seriesColor.set(r.series, r.color || FALLBACK_COLORS[seriesOrder.length % FALLBACK_COLORS.length]);
-      }
-    });
+      // Distinct series (preserve first-seen order) + colours.
+      const seriesOrder: string[] = [];
+      const seriesColor = new Map<string, string>();
+      dated.forEach((r) => {
+        if (!seriesOrder.includes(r.series)) {
+          seriesOrder.push(r.series);
+          seriesColor.set(
+            r.series,
+            r.color ||
+              FALLBACK_COLORS[seriesOrder.length % FALLBACK_COLORS.length],
+          );
+        }
+      });
 
-    const bucketOf = (d: Dayjs) => buckets.findIndex((b) => !d.isBefore(b.start) && !d.isAfter(b.end));
+      const bucketOf = (d: Dayjs) =>
+        buckets.findIndex((b) => !d.isBefore(b.start) && !d.isAfter(b.end));
 
-    const series = seriesOrder.map((name) => ({
-      name,
-      color: seriesColor.get(name),
-      data: buckets.map(() => 0),
-    }));
-    const bucketValues = buckets.map(() => 0);
-    // The records behind each bar, kept so a click can show what the bar is made of.
-    const bucketRows: AnalyticsRow[][] = buckets.map(() => []);
-    let totalValue = 0;
+      const series = seriesOrder.map((name) => ({
+        name,
+        color: seriesColor.get(name),
+        data: buckets.map(() => 0),
+      }));
+      const bucketValues = buckets.map(() => 0);
+      // The records behind each bar, kept so a click can show what the bar is made of.
+      const bucketRows: AnalyticsRow[][] = buckets.map(() => []);
+      let totalValue = 0;
 
-    dated.forEach((r) => {
-      const idx = bucketOf(dayjs(r.date as string));
-      if (idx < 0) return;
-      const v = Number(r.value) || 0;
-      const s = series.find((x) => x.name === r.series);
-      if (s) (s.data[idx] as number) += byAmount ? v : 1;
-      bucketValues[idx] += v;
-      bucketRows[idx].push(r);
-      totalValue += v;
-    });
+      dated.forEach((r) => {
+        const idx = bucketOf(dayjs(r.date as string));
+        if (idx < 0) return;
+        const v = Number(r.value) || 0;
+        const s = series.find((x) => x.name === r.series);
+        if (s) (s.data[idx] as number) += byAmount ? v : 1;
+        bucketValues[idx] += v;
+        bucketRows[idx].push(r);
+        totalValue += v;
+      });
 
-    return {
-      series,
-      categories: buckets.map((b) => b.label),
-      bucketValues,
-      bucketRows,
-      totalValue,
-      hasValue: totalValue > 0,
-    };
-  }, [rows, mode, rangeStart, rangeEnd, byAmount]);
+      return {
+        series,
+        categories: buckets.map((b) => b.label),
+        bucketValues,
+        bucketRows,
+        totalValue,
+        hasValue: totalValue > 0,
+      };
+    }, [rows, mode, rangeStart, rangeEnd, byAmount]);
 
   const seriesColor = useMemo(
     () => new Map(series.map((s) => [s.name, s.color as string])),
-    [series]
+    [series],
   );
 
   // One card per status. Counted over every row in the period (not just the dated,
   // bucketed ones) so the cards always add up to RESULTS.
   const statusCards = useMemo(() => {
-    const byName = new Map<string, { name: string; color: string; count: number; value: number }>();
+    const byName = new Map<
+      string,
+      { name: string; color: string; count: number; value: number }
+    >();
     rows.forEach((r) => {
       const card = byName.get(r.series) ?? {
         name: r.series,
-        color: r.color || seriesColor.get(r.series) || FALLBACK_COLORS[byName.size % FALLBACK_COLORS.length],
+        color:
+          r.color ||
+          seriesColor.get(r.series) ||
+          FALLBACK_COLORS[byName.size % FALLBACK_COLORS.length],
         count: 0,
         value: 0,
       };
@@ -222,7 +266,9 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       card.value += Number(r.value) || 0;
       byName.set(r.series, card);
     });
-    return [...byName.values()].sort((a, b) => (byAmount ? b.value - a.value : b.count - a.count));
+    return [...byName.values()].sort((a, b) =>
+      byAmount ? b.value - a.value : b.count - a.count,
+    );
   }, [rows, seriesColor, byAmount]);
 
   // What the open bar contains, newest first. Indexed defensively: changing the period
@@ -232,11 +278,17 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       openBucket === null
         ? []
         : [...(bucketRows[openBucket] || [])].sort(
-            (a, b) => dayjs(b.date as string).valueOf() - dayjs(a.date as string).valueOf()
+            (a, b) =>
+              dayjs(b.date as string).valueOf() -
+              dayjs(a.date as string).valueOf(),
           );
     const value = records.reduce((sum, r) => sum + (Number(r.value) || 0), 0);
     const count = `${records.length} ${plural(noun, records.length)}`;
-    return { records, subtitle: value > 0 ? `${count} · ${formatCurrencyCompact(value)}` : count };
+    return {
+      records,
+      subtitle:
+        value > 0 ? `${count} · ${formatCurrencyCompact(value)}` : count,
+    };
   }, [openBucket, bucketRows, noun]);
 
   // Amount mode: one outlier bucket (₹1,080 Cr beside ₹30 L) flattens every other bar to
@@ -254,6 +306,22 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
     return ([1, 2, 4, 6, 8, 10].find((m) => m * pow >= raw) as number) * pow;
   }, [byAmount, bucketValues]);
 
+  // Apex does not clip a bar at `yaxis.max` — it draws it straight through the top of the
+  // plot. So a capped bucket is SHRUNK to the cap here, every segment in proportion so the
+  // stack still reads right; the tooltip and the ▲ label keep reporting the real figures.
+  const plotted = useMemo(() => {
+    if (axisMax === undefined) return series;
+    const totals = categories.map((_, i) =>
+      series.reduce((sum, x) => sum + (x.data[i] as number), 0),
+    );
+    return series.map((x) => ({
+      ...x,
+      data: x.data.map((v, i) =>
+        totals[i] > axisMax ? ((v as number) * axisMax) / totals[i] : v,
+      ),
+    }));
+  }, [series, categories, axisMax]);
+
   const options: ApexCharts.ApexOptions = {
     chart: {
       type: "bar",
@@ -265,7 +333,8 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       // light CSS fade on the wrapper instead (see below).
       animations: { enabled: false },
       events: {
-        dataPointSelection: (_e: any, _ctx: any, cfg: any) => setOpenBucket(cfg?.dataPointIndex ?? null),
+        dataPointSelection: (_e: any, _ctx: any, cfg: any) =>
+          setOpenBucket(cfg?.dataPointIndex ?? null),
       },
     },
     plotOptions: {
@@ -280,11 +349,21 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
     colors: series.map((s) => s.color as string),
     fill: {
       type: "gradient",
-      gradient: { shade: "light", type: "vertical", shadeIntensity: 0.25, opacityFrom: 1, opacityTo: 0.88, stops: [0, 100] },
+      gradient: {
+        shade: "light",
+        type: "vertical",
+        shadeIntensity: 0.25,
+        opacityFrom: 1,
+        opacityTo: 0.88,
+        stops: [0, 100],
+      },
     },
     // `active` off: Apex would otherwise leave the clicked bar visibly selected after
     // the dialog closes, which reads as a filter nobody applied.
-    states: { hover: { filter: { type: "darken" } }, active: { filter: { type: "none" } } },
+    states: {
+      hover: { filter: { type: "darken" } },
+      active: { filter: { type: "none" } },
+    },
     dataLabels: { enabled: false },
     // The status cards above the chart are the legend (Apex also hid it for a
     // single series, leaving an all-"Received" chart with no key at all).
@@ -300,7 +379,11 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       categories,
       axisBorder: { show: false },
       axisTicks: { show: false },
-      labels: { style: { fontSize: "11px", colors: "#8b95a5" }, rotate: -45, hideOverlappingLabels: true },
+      labels: {
+        style: { fontSize: "11px", colors: "#8b95a5" },
+        rotate: -45,
+        hideOverlappingLabels: true,
+      },
     },
     yaxis: {
       // A fixed max without a min let Apex pad below zero (₹-2.63 L).
@@ -310,7 +393,8 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       tickAmount: axisMax ? 4 : undefined,
       labels: {
         style: { fontSize: "11px", colors: "#8b95a5" },
-        formatter: (v) => (byAmount ? formatCurrencyCompact(v) : `${Math.round(v)}`),
+        formatter: (v) =>
+          byAmount ? formatCurrencyCompact(v) : `${Math.round(v)}`,
       },
     },
     annotations: {
@@ -318,41 +402,62 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
       // ₹ total in Amount mode (only where there IS money — a row of ₹0 chips would be
       // noise pretending to be data). A bar clipped by `axisMax` pins its label to the
       // cap and marks it ▲ so the real figure is never hidden.
-      points: !byAmount || hasValue
-        ? categories
-            .map((label, i) => ({ label, i, height: series.reduce((sum, s) => sum + (s.data[i] as number), 0) }))
-            .filter(({ i, height }) => (byAmount ? bucketValues[i] > 0 : height > 0))
-            .map(({ label, height }) => {
-              const clipped = axisMax !== undefined && height > axisMax;
-              return {
-                x: label,
-                y: clipped ? axisMax : height,
-                marker: { size: 0 },
-                label: {
-                  text: byAmount
-                    ? `${formatCurrencyCompact(height)}${clipped ? " ▲" : ""}`
-                    : `${height} ${plural(noun, height)}`,
-                  offsetY: -8,
-                  borderWidth: 0,
-                  borderRadius: 6,
-                  style: {
-                    background: "#fbf3f3",
-                    color: ACCENT,
-                    fontSize: "10.5px",
-                    fontWeight: 700,
-                    padding: { left: 7, right: 7, top: 3, bottom: 3 },
+      points:
+        !byAmount || hasValue
+          ? categories
+              .map((label, i) => ({
+                label,
+                i,
+                height: series.reduce(
+                  (sum, s) => sum + (s.data[i] as number),
+                  0,
+                ),
+              }))
+              .filter(({ i, height }) =>
+                byAmount ? bucketValues[i] > 0 : height > 0,
+              )
+              .map(({ label, height }) => {
+                const clipped = axisMax !== undefined && height > axisMax;
+                return {
+                  x: label,
+                  y: clipped ? axisMax : height,
+                  marker: { size: 0 },
+                  label: {
+                    text: byAmount
+                      ? `${formatCurrencyCompact(height)}${clipped ? " ▲" : ""}`
+                      : `${height} ${plural(noun, height)}`,
+                    offsetY: -8,
+                    borderWidth: 0,
+                    borderRadius: 6,
+                    style: {
+                      background: "#fbf3f3",
+                      color: ACCENT,
+                      fontSize: "10.5px",
+                      fontWeight: 700,
+                      padding: { left: 7, right: 7, top: 3, bottom: 3 },
+                    },
                   },
-                },
-              };
-            })
-        : [],
+                };
+              })
+          : [],
     },
     tooltip: {
       shared: true,
       intersect: false,
       theme: "light",
       style: { fontSize: "12px" },
-      y: { formatter: (val: number) => (byAmount ? formatCurrencyCompact(val) : `${val} ${plural(noun, val)}`) },
+      y: {
+        // The real segment value, not the shrunk one drawn for a capped bar.
+        formatter: (val: number, opts?: any) => {
+          const real =
+            (series[opts?.seriesIndex]?.data[opts?.dataPointIndex] as
+              | number
+              | undefined) ?? val;
+          return byAmount
+            ? formatCurrencyCompact(real)
+            : `${real} ${plural(noun, real)}`;
+        },
+      },
     },
   };
 
@@ -365,34 +470,101 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
             (pinned right). Chips and summary share one chip grammar — same 32px
             height, border and radius — so the summary reads as their total. On narrow
             screens the three stack instead of squeezing. */}
-        <Box sx={{ display: "flex", alignItems: { xs: "flex-start", lg: "center" }, gap: 1.5, mb: 2, flexDirection: { xs: "column", lg: "row" } }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flexShrink: 0 }}>
-            <span className="d-inline-flex align-items-center justify-content-center" style={{ width: 34, height: 34, borderRadius: 10, background: "#fbf3f3", color: ACCENT }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: { xs: "flex-start", lg: "center" },
+            gap: 1.5,
+            mb: 2,
+            flexDirection: { xs: "column", lg: "row" },
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.25,
+              flexShrink: 0,
+            }}
+          >
+            <span
+              className="d-inline-flex align-items-center justify-content-center"
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                background: "#fbf3f3",
+                color: ACCENT,
+              }}
+            >
               <AppIcon name={icon} className="fs-4" />
             </span>
-            <span className="fw-bold fs-5 text-gray-900" style={{ whiteSpace: "nowrap" }}>{title}</span>
+            <span
+              className="fw-bold fs-5 text-gray-900"
+              style={{ whiteSpace: "nowrap" }}
+            >
+              {title}
+            </span>
           </Box>
           {/* Chips hug the summary on wide screens, so they read as its breakdown. */}
-          <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: { lg: "flex-end" }, gap: 1, flex: 1, minWidth: 0 }}>
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: { lg: "flex-end" },
+              gap: 1,
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
             {statusCards.map((c) => (
               <Box
                 key={c.name}
                 title={`${c.count} ${plural(noun, c.count)}${c.value > 0 ? ` · ${formatCurrencyCompact(c.value)}` : ""}`}
-                sx={{ ...chipSx, pl: 1, pr: 1.25, bgcolor: (t) => `color-mix(in srgb, ${c.color} 7%, ${t.palette.background.paper})` }}
+                sx={{
+                  ...chipSx,
+                  pl: 1,
+                  pr: 1.25,
+                  bgcolor: (t) =>
+                    `color-mix(in srgb, ${c.color} 7%, ${t.palette.background.paper})`,
+                }}
               >
-                <Box sx={{ width: 4, height: 16, borderRadius: 4, bgcolor: c.color, flexShrink: 0 }} />
+                <Box
+                  sx={{
+                    width: 4,
+                    height: 16,
+                    borderRadius: 4,
+                    bgcolor: c.color,
+                    flexShrink: 0,
+                  }}
+                />
                 {/* One size for every part (uppercase caps = digit height, so they line up);
                     hierarchy comes from weight and colour only. */}
-                <Typography sx={{ ...chipTextSx, fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                <Typography
+                  sx={{
+                    ...chipTextSx,
+                    fontWeight: 600,
+                    color: "text.secondary",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.02em",
+                  }}
+                >
                   {c.name}
                 </Typography>
-                <Typography sx={{ ...chipTextSx, fontWeight: 800, color: "text.primary" }}>
+                <Typography
+                  sx={{ ...chipTextSx, fontWeight: 800, color: "text.primary" }}
+                >
                   {c.count}
                 </Typography>
                 {hasValue && c.value > 0 && (
                   <>
-                    <Box sx={{ width: "1px", height: 14, bgcolor: "divider" }} />
-                    <Typography sx={{ ...chipTextSx, fontWeight: 700, color: ACCENT }}>
+                    <Box
+                      sx={{ width: "1px", height: 14, bgcolor: "divider" }}
+                    />
+                    <Typography
+                      sx={{ ...chipTextSx, fontWeight: 700, color: ACCENT }}
+                    >
                       {formatCurrencyCompact(c.value)}
                     </Typography>
                   </>
@@ -405,14 +577,44 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
               pill's bare outline floating in the corner. The ₹ half needs money too. */}
           {rows.length > 0 && (
             // Same padding and flat layout as a status chip, so its bar sits exactly where theirs do.
-            <Box sx={{ ...chipSx, pl: 1, pr: 1.25, flexShrink: 0, ml: { lg: "auto" }, bgcolor: "background.paper", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <Box sx={{ width: 4, height: 16, borderRadius: 4, bgcolor: "#8a8181ff", flexShrink: 0 }} />
-              <Typography sx={{ ...chipTextSx, fontWeight: 600, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.02em" }}>Total:</Typography>
+            <Box
+              sx={{
+                ...chipSx,
+                pl: 1,
+                pr: 1.25,
+                flexShrink: 0,
+                ml: { lg: "auto" },
+                bgcolor: "background.paper",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              }}
+            >
+              <Box
+                sx={{
+                  width: 4,
+                  height: 16,
+                  borderRadius: 4,
+                  bgcolor: "#8a8181ff",
+                  flexShrink: 0,
+                }}
+              />
+              <Typography
+                sx={{
+                  ...chipTextSx,
+                  fontWeight: 600,
+                  color: "text.secondary",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                Total:
+              </Typography>
               <Typography sx={summaryValueSx}>{rows.length}</Typography>
               {hasValue && (
                 <>
                   <Box sx={{ width: "1px", height: 14, bgcolor: "divider" }} />
-                  <Typography sx={summaryValueSx}>{formatCurrencyCompact(totalValue)}</Typography>
+                  <Typography sx={summaryValueSx}>
+                    {formatCurrencyCompact(totalValue)}
+                  </Typography>
                 </>
               )}
             </Box>
@@ -427,10 +629,18 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
             className="lra-fade"
             style={{ cursor: "pointer" }}
           >
-            <ReactApexChart options={options} series={series} type="bar" height={300} />
+            <ReactApexChart
+              options={options}
+              series={plotted}
+              type="bar"
+              height={300}
+            />
           </div>
         ) : (
-          <div className="text-center text-muted py-10" style={{ fontSize: 13 }}>
+          <div
+            className="text-center text-muted py-10"
+            style={{ fontSize: 13 }}
+          >
             No {plural(noun, 0)} in this period.
           </div>
         )}
@@ -452,11 +662,25 @@ const LeadReferralAnalytics: React.FC<Props> = ({ rows, title, icon = "bi-graph-
           />
         }
       >
-        <Box sx={{ p: { xs: 1.5, sm: 2 }, display: "flex", flexDirection: "column", gap: 0.5 }}>
+        <Box
+          sx={{
+            p: { xs: 1.5, sm: 2 },
+            display: "flex",
+            flexDirection: "column",
+            gap: 0.5,
+          }}
+        >
           {drill.records.map((r, i) => (
             <Box
               key={`${r.label}-${i}`}
-              onClick={r.href ? () => { setOpenBucket(null); navigate(r.href as string); } : undefined}
+              onClick={
+                r.href
+                  ? () => {
+                      setOpenBucket(null);
+                      navigate(r.href as string);
+                    }
+                  : undefined
+              }
               sx={{
                 display: "flex",
                 alignItems: "center",

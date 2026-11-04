@@ -3,10 +3,10 @@ import { useSelector } from "react-redux";
 import {
   Box,
   CircularProgress,
-  IconButton,
   Stack,
   Typography,
 } from "@mui/material";
+import { Button } from "@/ds/ui/button";
 import { RootState } from "@redux/store";
 import { getMeetings } from "@services/employee";
 import { fetchPublicHolidays } from "@services/company";
@@ -505,19 +505,21 @@ const UpcomingEventsCard: React.FC = () => {
 
           {selectedData.length > itemsPerPage && (
             <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={1.5}>
-              <IconButton
-                size="small"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 disabled={currentPage === 0}
                 aria-label="Previous page"
                 onClick={() => currentPage > 0 && handlePageChange(currentPage - 1)}
               >
                 <KTIcon iconName="arrow-left" className="fs-3" />
-              </IconButton>
+              </Button>
               <Typography sx={{ fontSize: 13, color: label(mode, 'secondary') }}>
                 {currentPage + 1} / {totalPages}
               </Typography>
-              <IconButton
-                size="small"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 disabled={currentPage >= totalPages - 1}
                 aria-label="Next page"
                 onClick={() =>
@@ -525,7 +527,7 @@ const UpcomingEventsCard: React.FC = () => {
                 }
               >
                 <KTIcon iconName="arrow-right" className="fs-3" />
-              </IconButton>
+              </Button>
             </Stack>
           )}
         </Stack>

@@ -7,7 +7,6 @@ import { useState } from "react";
 import PendingReimbursementsPage, { PendingReimbursementsPageHandle } from "./PendingReimbursementsPage";
 import ReimbursementWorkspace, { kpiProps } from "./views/ReimbursementWorkspace";
 import { WtButton } from "@app/modules/common/components/ui";
-import { Button } from "@mui/material";
 import { lightToolbarButton } from "./utils/toolbarButton";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
@@ -50,13 +49,13 @@ function Reimbursement() {
         ) ? (
           // The PRIMARY action of this screen. `tone="accent"` is the kit's bright blue CTA,
           // so the emphasis comes from the design system rather than a hardcoded hex.
-          <Button
+          <WtButton variant="text"
             onClick={() => pendingPageRef.current?.openAddModal()}
             startIcon={<KTIcon iconName='plus' className='fs-3' />}
             sx={lightToolbarButton('accent')}
           >
             Add Reimbursement Request
-          </Button>
+          </WtButton>
         ) : null
       }
       renderHeader={({ summary, loading, periodBar, currentPeriod }) => (

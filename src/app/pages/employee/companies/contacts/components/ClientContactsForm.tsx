@@ -33,10 +33,11 @@ import {
   fetchAllCities,
 } from "@services/options";
 import { uploadCompanyAsset } from "@services/uploader";
-import DateInput from "@app/modules/common/inputs/DateInput";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { ContactFormValues, Branch, ContactRoleType } from "@models/companies";
+import { ContactFormValues, Branch, ContactRoleType, ContactChannel, ContactCompanyStint } from "@models/companies";
+import { ContactChannelFields, toChannelRows, toChannelPayload } from "./ContactChannelFields";
+import { CompanyMoveFields, CompanyMoveStage, type MovedFrom } from "./CompanyMoveFields";
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
 import CompaniesBranchForm from "../../companies/components/CompaniesBranchForm";
 import NewCompanyForm from "../../companies/components/NewCompanyForm";
@@ -44,11 +45,13 @@ import { useEventBus } from "@hooks/useEventBus";
 import dayjs from "dayjs";
 import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
 import { AppIcon, useDiscardConfirm, FloatingLabels, FloatingLabelFrame, WtFieldFormik } from "@app/modules/common/components/ui";
+import BirthdayField from "./BirthdayField";
 import { Box } from "@mui/material";
 import {
   CRM_ACTIVE_COLOR,
   CRM_INACTIVE_COLOR,
 } from "../../crmListRowSx";
+import { Button } from '@/ds/ui/button';
 
 /** Prefer CRM active/inactive palette when the status name matches. */
 function contactStatusColor(name?: string, fallback?: string) {
@@ -75,6 +78,8 @@ interface ClientContactsFormProps {
   key?: string
   clearContactId?: () => void;
   selectedCompanyId?: string;
+  /** Fires with the new contact after a successful create (not on edit). */
+  onCreated?: (contact: any) => void;
 }
 
 
@@ -85,6 +90,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   initialData,
   clearContactId,
   selectedCompanyId,
+  onCreated,
   key
 }) => {
   // X / Esc / footer Cancel ask before throwing away unsaved edits (the ONE kit prompt).
@@ -97,8 +103,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     return Yup.object().shape({
       roleInCompany: Yup.string(),
       fullName: Yup.string().required("Full name is required"),
-      phone: Yup.string(),
-      email: Yup.string().email("Invalid email format"),
+      phones: Yup.array().of(Yup.object({ value: Yup.string().max(20, "Phone is too long") })),
+      emails: Yup.array().of(Yup.object({ value: Yup.string().trim().email("Invalid email format").max(100, "Email is too long") })),
       country: isAdd ? Yup.string() : Yup.string(),
       state: isAdd ? Yup.string() : Yup.string(),
       city: isAdd ? Yup.string() : Yup.string(),
@@ -160,6 +166,41 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   };
 
 
+  /*
+   * Saving REPLACES the contact's phone / email lists with the ones on screen. If the contact
+   * was handed in without its `channels` (a caller whose row lacks them), the screen would only
+   * show the primary ones and saving would drop the rest — so fetch them first.
+   */
+  const [fetchedChannels, setFetchedChannels] = useState<ContactChannel[] | null>(null);
+  // Company history is display-only (never a form value), so it lives outside initialValues
+  // and arriving late cannot reinitialize what the user has typed.
+  const [fetchedHistory, setFetchedHistory] = useState<ContactCompanyStint[] | null>(null);
+  useEffect(() => {
+    setFetchedChannels(null);
+    setFetchedHistory(null);
+    if (!contactId || !initialData) return;
+    const needChannels = !Array.isArray(initialData.channels);
+    if (!needChannels && Array.isArray(initialData.companyHistory)) return;
+    let cancelled = false;
+    getClientContactById(contactId)
+      .then((res: any) => {
+        if (cancelled) return;
+        const contact = res?.data?.contact;
+        if (needChannels) setFetchedChannels(contact?.channels ?? []);
+        setFetchedHistory(contact?.companyHistory ?? []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [contactId, initialData]);
+  const companyHistory = initialData?.companyHistory ?? fetchedHistory ?? [];
+
+  /*
+   * Set only by "Move to another company". Changing the Company dropdown without it is a
+   * CORRECTION (wrong company picked), which must not create a job-change history entry.
+   */
+  const [movedFrom, setMovedFrom] = useState<MovedFrom | null>(null);
+  useEffect(() => { setMovedFrom(null); }, [contactId, show]);
+
   // Create a clean initial values object for new contacts
   const emptyInitialValues: ContactFormValues = {
     companyId: "",
@@ -170,13 +211,13 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     serviceIds: [],
     subServiceIds: [],
     isPrimaryContact: false,
+    companyMovedOn: "",
     fullName: "",
     dob: "",
     anniversary: "",
     gender: "",
-    phone: "",
-    phone2: "",
-    email: "",
+    phones: toChannelRows("phones", undefined, []),
+    emails: toChannelRows("emails", undefined, []),
     country: "",
     zipCode: "",
     area: "",
@@ -205,13 +246,13 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       serviceIds: initialData.serviceMappings?.map((m: any) => m.serviceId) || [],
       subServiceIds: [],
       isPrimaryContact: initialData.isPrimaryContact || false,
+      companyMovedOn: "",
       fullName: initialData.fullName || "",
       dob: initialData.dateOfBirth ? formatDateForInput(initialData.dateOfBirth) : "",
       anniversary: initialData.anniversary ? formatDateForInput(initialData.anniversary) : "",
       gender: initialData.gender || "",
-      phone: initialData.phone || "",
-      phone2: initialData.phone2 || "",
-      email: initialData.email || "",
+      phones: toChannelRows("phones", initialData.channels ?? fetchedChannels ?? undefined, [initialData.phone, initialData.phone2]),
+      emails: toChannelRows("emails", initialData.channels ?? fetchedChannels ?? undefined, [initialData.email]),
       country: initialData.country || "",
       zipCode: initialData.zipCode || "",
       area: initialData.area || "",
@@ -238,7 +279,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     }
 
     return values;
-  }, [key, initialData, contactId, contactStatuses, selectedCompanyId]);
+  }, [key, initialData, contactId, contactStatuses, selectedCompanyId, fetchedChannels]);
 
   // Seed the photo preview with the contact's existing image when editing, so it
   // shows in the upload box instead of the empty placeholder. (The form field
@@ -530,15 +571,18 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         statusId: formValues.statusId,
         serviceIds: formValues.serviceIds || [],
         isPrimaryContact: formValues.isPrimaryContact === true ? 'true' : 'false',
+        // Only on a move: the server closes the old company's stint on this day (default today).
+        companyMove: movedFrom ? true : undefined,
+        companyMovedOn: movedFrom ? parseDateFromDisplay(formValues.companyMovedOn || "") ?? undefined : undefined,
 
         fullName: formValues.fullName,
         dateOfBirth: parseDateFromDisplay(formValues?.dob || ""),
         anniversary: parseDateFromDisplay(formValues?.anniversary || ""),
         gender: formValues.gender ? formValues.gender.toUpperCase() : null,
 
-        phone: formValues.phone,
-        phone2: formValues.phone2,
-        email: formValues.email,
+        // The server stores these and writes the primary ones back to phone / phone2 / email.
+        phones: toChannelPayload(formValues.phones),
+        emails: toChannelPayload(formValues.emails),
 
         country: selectedCountryData?.name || formValues.country,
         state: selectedStateData?.name || formValues.state,
@@ -600,8 +644,9 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
         await updateClientContact(contactId, contactData);
         successConfirmation("Contact updated.");
       } else {
-        await createClientContact(contactData);
+        const created = await createClientContact(contactData);
         successConfirmation("Contact created.");
+        onCreated?.(created?.data?.contact);
       }
 
       eventBus.emit("clientContactUpdated");
@@ -690,26 +735,22 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 )}
                               </label>
                               <div className="crm-avatar-actions crm-avatar-actions--stack">
-                                <button
+                                <Button variant="outline" size="sm"
                                   type="button"
-                                  className="wt-btn wt-btn-outline-primary"
-                                  style={{ fontSize: 13, fontWeight: 600 }}
                                   onClick={() => document.getElementById("profilePhotoInput")?.click()}
                                 >
                                   {profilePhotoPreview ? "Change photo" : "Upload photo"}
-                                </button>
+                                </Button>
                                 {profilePhotoPreview && (
-                                  <button
+                                  <Button variant="ghost" size="sm"
                                     type="button"
-                                    className="wt-btn wt-btn-ghost"
-                                    style={{ fontSize: 13 }}
                                     onClick={() => {
                                       setFieldValue("profilePhoto", null);
                                       setProfilePhotoPreview(null);
                                     }}
                                   >
                                     Remove
-                                  </button>
+                                  </Button>
                                 )}
                                 <span className="crm-avatar-hint">
                                   JPG or PNG · shown on contact lists
@@ -741,13 +782,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   />
                                 </Col>
                                 <Col md={6} className="crm-date-field">
-                                  <DateInput
-                                    formikField="dob"
-                                    isRequired={false}
-                                    formikProps={formikProps}
-                                    inputLabel="Date of birth"
-                                    placeHolder="1/3/2025"
-                                  />
+                                  {/* Day + month; the year is optional — often not known. */}
+                                  <BirthdayField name="dob" />
                                 </Col>
                                 <Col md={6}>
                                   {/* Pills in a box the date beside it's height, "Gender" in its border. */}
@@ -770,13 +806,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   </FloatingLabelFrame>
                                 </Col>
                                 <Col md={6} className="crm-date-field">
-                                  <DateInput
-                                    formikField="anniversary"
-                                    isRequired={false}
-                                    formikProps={formikProps}
-                                    inputLabel="Anniversary date"
-                                    placeHolder="1/3/2025"
-                                  />
+                                  {/* Same control as the birthday: day + month, year optional. */}
+                                  <BirthdayField name="anniversary" label="Anniversary" />
                                 </Col>
                               </Row>
                             </div>
@@ -794,7 +825,23 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                       icon: "bi-building",
                       content: (
                         <CrmSection title="Company">
-
+                          <CompanyMoveStage movedFrom={movedFrom} onUndo={() => {
+                            const original = initialValues;
+                            formikProps.setValues({
+                              ...values,
+                              companyId: original.companyId,
+                              branchId: original.branchId,
+                              roleInCompany: original.roleInCompany,
+                              contactRoleId: original.contactRoleId,
+                              statusId: original.statusId,
+                              serviceIds: original.serviceIds,
+                              isPrimaryContact: original.isPrimaryContact,
+                              companyMovedOn: "",
+                            });
+                            setMovedFrom(null);
+                            setSelectedCompany(original.companyId);
+                            if (original.companyId) loadBranches(original.companyId);
+                          }}>
                           <Row>
                             <Col md={12}>
                               <DropDownInput
@@ -1082,7 +1129,44 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                               </div>
                             </div>
                           </div>
-                    
+                          </CompanyMoveStage>
+                          <CompanyMoveFields
+                            canMove={!!contactId && !!initialData?.companyId}
+                            moving={!!movedFrom}
+                            originalCompanyName={
+                              (initialData as any)?.company?.companyName ||
+                              companies.find((c) => c.id == initialData?.companyId)?.companyName ||
+                              "their current company"
+                            }
+                            history={companyHistory}
+                            onMove={() => {
+                              // Snapshot the company they are leaving by NAME now: the branch list is
+                              // about to reload for the new company and would lose the old names.
+                              setMovedFrom({
+                                companyName:
+                                  companies.find((c) => c.id == values.companyId)?.companyName ||
+                                  (initialData as any)?.company?.companyName || "",
+                                branch: branches.find((b) => b.id === values.branchId)?.name,
+                                role: contactRoleTypes.find((r) => r.id === values.contactRoleId)?.name || values.roleInCompany,
+                                status: contactStatuses.find((x) => x.id === values.statusId)?.name,
+                                services: companyServices.filter((x: any) => (values.serviceIds || []).includes(x.id)).map((x: any) => x.name),
+                              });
+                              // A new employer: nothing from the old one carries over.
+                              formikProps.setValues({
+                                ...values,
+                                companyId: "",
+                                branchId: "",
+                                roleInCompany: "",
+                                contactRoleId: "",
+                                serviceIds: [],
+                                isPrimaryContact: false,
+                                companyMovedOn: dayjs().format("YYYY-MM-DD"),
+                              });
+                              setSelectedCompany("");
+                              setBranches([]);
+                              setBranchWarning("");
+                            }}
+                          />
                         </CrmSection>
                       ),
                     },
@@ -1091,39 +1175,18 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                       label: "Contact",
                       title: "Contact Details",
                       subtitle: "Phone numbers and email",
-                      fields: ["phone","phone2","email"],
+                      fields: ["phones","emails"],
                       requiredFields: [],
                       icon: "bi-telephone",
                       content: (
                         <CrmSection title="Contact Details">
-
-                          <Row className="">
-                            <Col md={4}>
-                              <PhoneNumberInput
-                                label="Phone"
-                                placeholder="Enter phone"
-                                isRequired={false}
-                                formikField="phone"
-                              />
-                            </Col>
-                            <Col md={4}>
-                              <PhoneNumberInput
-                                label="Phone 2"
-                                placeholder="Enter phone 2"
-                                formikField="phone2"
-                                isRequired={false}
-                              />
-                            </Col>
-                            <Col md={4}>
-                              <TextInput
-                                label="Email"
-                                placeholder="Enter email"
-                                isRequired={false}
-                                formikField="email"
-                              />
-                            </Col>
-                          </Row>
-                    
+                          <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <ContactChannelFields kind="phones" />
+                            <ContactChannelFields
+                              kind="emails"
+                              hint="Birthday greetings and meeting invites go to the primary email. A personal address keeps working if they change jobs."
+                            />
+                          </Box>
                         </CrmSection>
                       ),
                     },

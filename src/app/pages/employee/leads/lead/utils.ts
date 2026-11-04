@@ -249,7 +249,6 @@ export function mapLeadToFormInitialValues(
                 projectAreas: projectAreas,
                 addresses: addresses,
                 // Legacy fields for backward compatibility
-                projectArea: additional.projectArea || firstAdditional.projectArea || "",
                 projectAddress: additional.projectAddress || firstAdditional.projectAddress || "",
               })
             };

@@ -2,6 +2,10 @@
 
 **The rule: search here first. If it exists, use it. If it doesn't, build it *here*, not in your feature.**
 
+> **Direction (ADR-001, 2026-10-26):** this kit *is* the WiseTech design system — owned code, moving onto
+> Radix primitives + Tailwind v4 behind the same public API. Screens import UI from this barrel only.
+> Rules and roadmap: [`docs/DESIGN_SYSTEM_DECISION.md`](../../../../../../docs/DESIGN_SYSTEM_DECISION.md).
+
 This file exists because that rule kept being broken — not out of disagreement,
 but because "the existing component" had no index. People searched one folder,
 found nothing, and wrote their own. The result was four close buttons, three

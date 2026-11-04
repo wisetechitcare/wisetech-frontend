@@ -33,6 +33,13 @@ import {
 } from './apply-leave/tokens';
 import LeaveCalendar from './apply-leave/LeaveCalendar';
 import { useLeavePalette, type LeavePalette } from './apply-leave/theme';
+import type { CSSProperties } from 'react';
+import { Button } from '@/ds/ui/button';
+import { Item } from '@/ds/ui/item';
+import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
+
+/** Remove-row actions: the kit's tinted icon button in the danger tone. */
+const DANGER_TINT = { '--tint': 'var(--cta-danger)' } as CSSProperties;
 
 const BLANK: ApplyLeaveState = {
     from: null, to: null, isHalfDay: false, halfDaySession: null, firstDayHalf: null, lastDayHalf: null,
@@ -523,7 +530,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
     const primaryDisabled = isView ? false : (!canSubmit || submitting);
     const primaryActive   = isView ? true : canSubmit;
     const onPrimary = () => {
-        if (isView) { if (canEditExisting) { onEdit ? onEdit() : setEditing(true); } else { onClose(); } return; }
+        if (isView) { if (canEditExisting) { if (onEdit) onEdit(); else setEditing(true); } else { onClose(); } return; }
         onSubmit();
     };
 
@@ -531,12 +538,13 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
 
     // Auto-only selector — no individual type pills (matches design)
     const TypeSelector = ({ compact }: { compact?: boolean }) => compact ? (
-        <button onClick={() => reshape({ leaveTypeId: undefined, leaveTypeName: undefined })} style={pillSt(true, ACCENT, P)}>
+        // The selected (and only) type chip: a toggle shown pressed, so it stays a native element.
+        <button aria-pressed onClick={() => reshape({ leaveTypeId: undefined, leaveTypeName: undefined })} style={pillSt(true, ACCENT, P)}>
             <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'linear-gradient(135deg,#2F5E8C,#C2606B,#3E8E6E)' }} />Auto · paid first
         </button>
     ) : (
         <div style={{ borderRadius: 13, border: `1.5px solid ${ACCENT}`, background: rgba(ACCENT, 0.06), overflow: 'hidden' }}>
-            <button onClick={() => setPriorityOpen((o) => !o)}
+            <Item render={<button type="button" />} onClick={() => setPriorityOpen((o) => !o)} className="flex-nowrap"
                 style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 14px', cursor: 'pointer', width: '100%', boxSizing: 'border-box', border: 'none', background: 'transparent' }}>
                 <span style={{ width: 13, height: 13, borderRadius: '50%', background: 'linear-gradient(135deg,#2F5E8C,#C2606B,#3E8E6E)', flexShrink: 0 }} />
                 <span style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
@@ -564,7 +572,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     );
                 })()}
                 <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, transition: 'transform .2s ease', transform: priorityOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }}>▾</span>
-            </button>
+            </Item>
             {/* On probation the panel explains the rule instead of quoting numbers the employee
                 cannot spend. The underlying balance keeps accruing and appears once probation ends. */}
             {priorityOpen && hidePaidFigures && (
@@ -640,7 +648,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 // The AM half is unavailable once the morning has actually been worked.
                 const off = !!lockPM && ss === 'AM';
                 return (
-                    <button key={ss} onClick={() => { if (!off) onPick(ss); }} disabled={off}
+                    <button key={ss} aria-pressed={value === ss} onClick={() => { if (!off) onPick(ss); }} disabled={off}
                         style={{ flex: 1, padding: 9, borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.45 : 1, border: value === ss ? `1.5px solid ${ACCENT}` : `1px solid ${P.line}`, background: value === ss ? rgba(ACCENT, 0.08) : P.surface, color: value === ss ? ACCENT : P.inkBody }}>
                         {ss === 'AM' ? 'First half · AM' : 'Second half · PM'}
                     </button>
@@ -737,8 +745,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
             </div>
             {!isMobile && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 1.45 }}>Sick leave is meant for illness. Use it for these days?</div>}
             <div style={{ display: 'flex', gap: 7, marginTop: isMobile ? 9 : 10 }}>
-                <button onClick={() => setSickConfirmed(true)} style={{ flex: 1, padding: 8, borderRadius: 9, border: 'none', background: ACCENT, color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Yes, sick</button>
-                <button onClick={() => setSickConfirmed(false)} style={{ flex: 1, padding: 8, borderRadius: 9, border: '1px solid #d8dce2', background: P.surface, color: P.inkBody, fontWeight: 700, cursor: 'pointer' }}>Use other</button>
+                <Button size="sm" className="flex-1" onClick={() => setSickConfirmed(true)}>Yes, sick</Button>
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => setSickConfirmed(false)}>Use other</Button>
             </div>
         </div>
     );
@@ -778,8 +786,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             {seg.status === 1 && <span style={{ fontSize: 10.5, fontWeight: 700, color: GREEN }}>✓ Approved</span>}
                             {seg.status === 2 && <span style={{ fontSize: 10.5, fontWeight: 700, color: RED }}>✕ Rejected</span>}
                             {existing?.canDelete && segs.length > 1 && (seg.status === 0 || seg.status === undefined) && seg.id && onDeleteSegment && (
-                                <button onClick={() => onDeleteSegment(seg.id!)} title="Remove this segment"
-                                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: RED, fontSize: 15, lineHeight: 1, padding: '0 2px' }}>×</button>
+                                <Button variant="tinted" size="icon-xs" style={DANGER_TINT} onClick={() => onDeleteSegment(seg.id!)} title="Remove this segment"
+                                    aria-label="Remove this segment">×</Button>
                             )}
                         </div>
                     ))}
@@ -826,8 +834,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     </>
                 )}
                 {unpaidDays > 0 && (
-                    /* Custom styled checkbox-button matching the design */
-                    <button onClick={() => setLopAck(v => !v)}
+                    /* Custom styled checkbox-button matching the design (a checkbox, so it keeps its element) */
+                    <button role="checkbox" aria-checked={lopAck} onClick={() => setLopAck(v => !v)}
                         style={{ display: 'flex', alignItems: 'center', gap: compact ? 8 : 9, marginTop: compact ? 9 : 11, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
                         <span style={{ width: 19, height: 19, borderRadius: 5, border: lopAck ? 'none' : `1.5px solid ${RED}`, background: lopAck ? RED : '#fff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
                             {lopAck ? '✓' : ''}
@@ -855,17 +863,18 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     const isImage = f.type.startsWith('image/'), url = URL.createObjectURL(f);
                     return (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: isMobile ? '8px 10px' : '9px 11px', border: `1px solid ${P.line}`, borderRadius: 10 }}>
-                            <div onClick={() => setPv({ url, name: f.name, isImage })} {...pressableProps(() => setPv({ url, name: f.name, isImage }))} aria-label={`Preview ${f.name}`} style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                            {/* A real button now (keyboard + role come with it), so pressableProps is gone;
+                                the reset classes keep the old div's box: no padding, no border, left-aligned. */}
+                            <Item render={<button type="button" />} onClick={() => setPv({ url, name: f.name, isImage })} aria-label={`Preview ${f.name}`} className="flex-nowrap border-0 p-0 text-start" style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                                 {isImage
                                     ? <img src={url} alt={f.name} style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, objectFit: 'cover', border: `1px solid ${P.line}` }} />
                                     : <span style={{ width: isMobile ? 28 : 30, height: isMobile ? 28 : 30, borderRadius: 7, background: '#eaf0f6', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>📄</span>}
                                 <span style={{ flex: 1, minWidth: 0, fontSize: isMobile ? 12.5 : 13, fontWeight: 600, color: P.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
                                 <span style={{ fontSize: 11.5, color: P.inkSubtle, flexShrink: 0 }}>{Math.round(f.size / 1024)} KB</span>
                                 {!isMobile && <span style={{ fontSize: 11, color: '#2F5E8C', fontWeight: 700, flexShrink: 0 }}>Preview</span>}
-                            </div>
-                            <button type="button" onClick={() => setS(p => ({ ...p, files: p.files.filter((_, j) => j !== i) }))}
-                                aria-label={`Remove ${f.name}`}
-                                style={{ cursor: 'pointer', color: RED, fontSize: 17, lineHeight: 1, flexShrink: 0, padding: '0 4px', border: 'none', background: 'none' }}>×</button>
+                            </Item>
+                            <Button variant="tinted" size="icon-xs" style={DANGER_TINT} onClick={() => setS(p => ({ ...p, files: p.files.filter((_, j) => j !== i) }))}
+                                aria-label={`Remove ${f.name}`}>×</Button>
                         </div>
                     );
                 })}
@@ -951,7 +960,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
         <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(20,24,33,.74)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 22 : 30, borderRadius: isMobile ? '24px 24px 0 0' : 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: 560, marginBottom: 12 }}>
                 <span style={{ color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pv.name}</span>
-                <button type="button" onClick={() => setPv(null)} aria-label="Close preview" style={{ width: 32, height: 32, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.16)', color: '#fff', cursor: 'pointer', flexShrink: 0 }}>×</button>
+                <WtCloseButton variant="dark" size={32} onClick={() => setPv(null)} aria-label="Close preview" />
             </div>
             {pv.isImage
                 ? <img src={pv.url} alt={pv.name} style={{ maxWidth: '100%', maxHeight: '62vh', borderRadius: 12, boxShadow: '0 18px 50px rgba(0,0,0,.45)' }} />
@@ -969,7 +978,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 <div style={{ color: '#fff', fontSize: 16.5, fontWeight: 700, fontFamily: PJK }}>{headerTitle}</div>
                 <div style={{ color: 'rgba(255,255,255,.72)', fontSize: 12, fontWeight: 500, marginTop: 1 }}>{fiscalHint}</div>
             </div>
-            <button type="button" onClick={onClose} aria-label="Close" style={{ width: 31, height: 31, borderRadius: 9, border: 'none', background: 'rgba(255,255,255,.14)', color: '#fff', cursor: 'pointer', fontSize: 17 }}>×</button>
+            <WtCloseButton variant="dark" size={31} onClick={onClose} aria-label="Close" />
         </div>
     );
 
@@ -997,8 +1006,8 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     </div>
                 )}
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
-                    <button onClick={applyAnother} style={{ padding: '11px 22px', borderRadius: 11, border: `1px solid ${P.line}`, background: P.surface, color: P.inkBody, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Apply Another</button>
-                    <button onClick={onClose} style={{ padding: '11px 22px', borderRadius: 11, border: 'none', background: ACCENT, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Done</button>
+                    <Button variant="outline" onClick={applyAnother}>Apply Another</Button>
+                    <Button onClick={onClose}>Done</Button>
                 </div>
             </div>
         );
@@ -1025,7 +1034,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             const active = s.from === iso && s.to === iso;
                             const off = blockedDates.has(iso) || (iso === today && todayDone);
                             return (
-                                <button key={label} onClick={() => pickQuick(iso)} disabled={off}
+                                <button key={label} aria-pressed={active} onClick={() => pickQuick(iso)} disabled={off}
                                     style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : P.line}`, background: active ? rgba(ACCENT, 0.10) : P.surface, color: active ? ACCENT : off ? P.inkDisabled : P.inkBody, fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
                                     {label}
                                 </button>
@@ -1056,7 +1065,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                                 </strong>{' '}
                                 will be automatically applied to this request.
                             </p>
-                            <button onClick={() => setPenaltyAck(v => !v)}
+                            <button role="checkbox" aria-checked={penaltyAck} onClick={() => setPenaltyAck(v => !v)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                                 <span style={{ width: 18, height: 18, borderRadius: 4, border: penaltyAck ? 'none' : '1.5px solid #c9a100', background: penaltyAck ? '#c9a100' : '#fff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                                     {penaltyAck ? '✓' : ''}
@@ -1079,10 +1088,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     <BlockingAlerts spaced />
                     {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
                     {error && <div style={{ ...errBoxOf(P.dark), marginBottom: 10 }}>{error}</div>}
-                    <button disabled={primaryDisabled} onClick={onPrimary}
-                        style={{ width: '100%', padding: 15, borderRadius: 14, border: 'none', color: '#fff', fontSize: 15, fontWeight: 800, background: primaryActive ? ACCENT : P.disabledBg, cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
+                    <Button size="lg" className="w-full" disabled={primaryDisabled} onClick={onPrimary}>
                         {primaryLabel}
-                    </button>
+                    </Button>
                 </div>
             </div>
         );
@@ -1113,7 +1121,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                             const active = s.from === iso && s.to === iso;
                             const off = blockedDates.has(iso) || (iso === today && todayDone);
                             return (
-                                <button key={label} onClick={() => pickQuick(iso)} disabled={off}
+                                <button key={label} aria-pressed={active} onClick={() => pickQuick(iso)} disabled={off}
                                     style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${active ? ACCENT : P.line}`, background: active ? rgba(ACCENT, 0.10) : P.surface, color: active ? ACCENT : off ? P.inkDisabled : P.inkBody, fontSize: 13, fontWeight: active ? 700 : 500, cursor: off ? 'not-allowed' : 'pointer', opacity: off ? 0.5 : 1 }}>
                                     {label}
                                 </button>
@@ -1141,7 +1149,7 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                                 </strong>{' '}
                                 will be automatically applied to this request.
                             </p>
-                            <button onClick={() => setPenaltyAck(v => !v)}
+                            <button role="checkbox" aria-checked={penaltyAck} onClick={() => setPenaltyAck(v => !v)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                                 <span style={{ width: 18, height: 18, borderRadius: 4, border: penaltyAck ? 'none' : '1.5px solid #c9a100', background: penaltyAck ? '#c9a100' : '#fff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                                     {penaltyAck ? '✓' : ''}
@@ -1192,10 +1200,9 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                     {/* Primary action — sticky so it's always visible without scrolling the rail. */}
                     <div style={{ position: 'sticky', bottom: 0, zIndex: 2, marginTop: 'auto', paddingTop: 12, paddingBottom: 2, background: '#f6f7f9', borderTop: '1px solid #ececed' }}>
                         {isView && reviewActions && <div style={{ marginBottom: 10 }}>{reviewActions}</div>}
-                        <button disabled={primaryDisabled} onClick={onPrimary}
-                            style={{ width: '100%', padding: 13, borderRadius: 11, border: 'none', color: '#fff', fontSize: 15, fontWeight: 700, background: primaryActive ? ACCENT : P.disabledBg, cursor: !primaryDisabled ? 'pointer' : 'not-allowed' }}>
+                        <Button size="lg" className="w-full" disabled={primaryDisabled} onClick={onPrimary}>
                             {primaryLabel}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>

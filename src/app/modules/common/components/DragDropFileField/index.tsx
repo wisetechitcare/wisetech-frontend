@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
 import { IconUpload } from '@app/modules/common/components/icons/OrgIcons';
+import { Button, buttonVariants } from '@/ds/ui/button';
+import { Item } from '@/ds/ui/item';
 
 interface Props {
   label: string;
@@ -115,18 +117,21 @@ export default function DragDropFileField({
               View
             </a>
           )}
-          <button type="button"
-            style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: '0 4px' }}
+          <Button variant="ghost" size="sm"
             onClick={() => { setLocalFile(null); onChange?.('', ''); }}>
             Remove
-          </button>
+          </Button>
         </div>
       ) : compact ? (
-        <div
+        // The whole zone opens the picker (and takes the drop); "Browse" inside is its visual
+        // cue in the kit Button's look, not a second button (a button cannot nest in one).
+        <Item
+          render={<button type="button" />}
           onClick={() => inputRef.current?.click()}
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
+          className="flex-nowrap text-left"
           style={{
             border: `1.5px dashed ${dragging ? '#1E3A8A' : '#c0c0c0'}`,
             borderRadius: '8px',
@@ -142,16 +147,18 @@ export default function DragDropFileField({
         >
           <IconUpload size={18} color="#1E3A8A" />
           <span style={{ fontSize: '13px', color: '#666', flex: 1 }}>Drag &amp; drop or click to attach</span>
-          <span style={{ background: '#1E3A8A', color: '#fff', borderRadius: '6px', padding: '4px 12px', fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          <span data-slot="button" className={buttonVariants({ size: 'xs' })}>
             Browse
           </span>
-        </div>
+        </Item>
       ) : (
-        <div
+        <Item
+          render={<button type="button" />}
           onClick={() => inputRef.current?.click()}
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
+          className="block"
           style={{
             border: `2px dashed ${dragging ? '#1E3A8A' : '#c0c0c0'}`,
             borderRadius: '8px',
@@ -171,13 +178,13 @@ export default function DragDropFileField({
           <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>
             or click to browse
           </div>
-          <div style={{ display: 'inline-block', background: '#1E3A8A', color: '#fff', borderRadius: '6px', padding: '5px 16px', fontSize: '13px', fontWeight: 600 }}>
+          <span data-slot="button" className={buttonVariants({ size: 'sm' })}>
             Browse Files
-          </div>
+          </span>
           <div style={{ fontSize: '11px', color: '#aaa', marginTop: '10px' }}>
             PDF, DOC, DOCX, XLS, XLSX, JPG, PNG
           </div>
-        </div>
+        </Item>
       )}
 
       {/* Progress bar */}

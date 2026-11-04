@@ -36,8 +36,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    Badge, Box, Button, Chip, CircularProgress, IconButton, Stack, Tooltip, Typography, alpha, useTheme,
+    Badge, Box, Chip, CircularProgress, Stack, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { KTIcon } from '@metronic/helpers';
 import { KanbanTableViewSwitch, type KanbanTableView } from '@app/modules/common/components/ui';
 import { useFillViewport } from '@app/hooks/useFillViewport';
@@ -508,20 +509,14 @@ export const TasksWorkspace = () => {
                                     overlap="circular"
                                     sx={{ '& .MuiBadge-badge': { fontSize: 9, height: 16, minWidth: 16 } }}
                                 >
-                                    <IconButton
-                                        size="small"
+                                    <Button
+                                        variant="outline"
+                                        size="icon-sm"
                                         aria-label="Filter tasks"
                                         onClick={() => setFiltersOpen(true)}
-                                        sx={{
-                                            border: `1px solid ${theme.palette.divider}`,
-                                            borderRadius: 1.5,
-                                            width: 34, height: 34,
-                                            color: 'text.secondary',
-                                            '&:hover': { color: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.08) },
-                                        }}
                                     >
                                         <KTIcon iconName="filter" className="fs-4" />
-                                    </IconButton>
+                                    </Button>
                                 </Badge>
                             </Tooltip>
 
@@ -532,24 +527,14 @@ export const TasksWorkspace = () => {
                                 button at all. The backdrop is on screen behind it already; the
                                 tooltip still names the current choice. */}
                             <Tooltip title={`Board background — ${describeBackground(background)}`}>
-                                <IconButton
-                                    size="small"
+                                <Button
+                                    variant="outline"
+                                    size="icon-sm"
                                     aria-label="Change board background"
                                     onClick={() => setBackdropOpen(true)}
-                                    sx={{
-                                        border: `1px solid ${theme.palette.divider}`,
-                                        borderRadius: 1.5,
-                                        width: 34, height: 34,
-                                        color: 'text.secondary',
-                                        '&:hover': {
-                                            color: 'primary.main',
-                                            bgcolor: alpha(theme.palette.primary.main, 0.08),
-                                            borderColor: theme.palette.primary.main,
-                                        },
-                                    }}
                                 >
                                     <KTIcon iconName="picture" className="fs-5" />
-                                </IconButton>
+                                </Button>
                             </Tooltip>
 
                             {/* Only for somebody the SERVER says may file one here. A team member
@@ -559,11 +544,9 @@ export const TasksWorkspace = () => {
                                 the client can work out for itself, so the board answers it. */}
                             {boardQuery.data?.canCreateTask !== false && (
                                 <Button
-                                    variant="contained"
                                     onClick={() => { setCreateInStage(undefined); setCreateOpen(true); }}
-                                    startIcon={<KTIcon iconName="plus" className="fs-6" />}
-                                    sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, whiteSpace: 'nowrap' }}
                                 >
+                                    <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="plus" className="fs-6" /></span>
                                     New task
                                 </Button>
                             )}
@@ -624,7 +607,7 @@ export const TasksWorkspace = () => {
                                         tone="error" icon="information-5" title="Could not load tasks"
                                         description={apiErrorMessage(activeQuery.error, 'The request failed. Try again in a moment.')}
                                         action={
-                                            <Button onClick={() => activeQuery.refetch()} sx={{ textTransform: 'none', fontWeight: 600 }}>
+                                            <Button variant="ghost" onClick={() => activeQuery.refetch()}>
                                                 Retry
                                             </Button>
                                         }

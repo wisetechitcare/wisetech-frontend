@@ -2,6 +2,7 @@ import React from "react";
 import type { ProjectPointValue } from "@services/projectPoints";
 import ProjectPointRow from "./ProjectPointRow";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface ProjectPointsSectionProps {
     /** Current rows (controlled). */
@@ -54,19 +55,15 @@ const ProjectPointsSection: React.FC<ProjectPointsSectionProps> = ({
                 marginBottom: 4, flexWrap: "wrap", gap: 8,
             }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>{title}</div>
-                <button
+                <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={addCustom}
                     disabled={disabled}
-                    style={{
-                        display: "inline-flex", alignItems: "center", gap: 6,
-                        background: "#fff", border: "1px solid #d1d5e0", borderRadius: 8,
-                        padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: "#1E3A8A",
-                        cursor: disabled ? "not-allowed" : "pointer",
-                    }}
                 >
-                    <AppIcon name="bi-plus-lg" /> Add Point
-                </button>
+                    <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-plus-lg" /></span> Add Point
+                </Button>
             </div>
 
             {/* Column headers */}

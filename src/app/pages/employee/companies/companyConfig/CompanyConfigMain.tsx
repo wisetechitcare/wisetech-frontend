@@ -1,4 +1,5 @@
 import { ActionIconButton, AppIcon } from '@app/modules/common/components/ui';
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import { deleteCompanyType, getAllCompanyTypes, getAllRatingFactors, deleteRatingFactor, getAllCompanyServices, deleteCompanyService } from "@services/companies";
 import { useEffect, useState } from "react";
 import PrefixSettingsForm from "@app/modules/common/components/PrefixSettingsForm";
@@ -7,7 +8,9 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { deleteConfirmation } from "@utils/modal";
 import CompanyConfigForm from "./components/CompanyConfigForm";
+import AuditWindowSetting from "../AuditWindowSetting";
 import { Container } from "react-bootstrap";
+import { Button } from "@/ds/ui/button";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "../../../../../types/deleteConfirmation";
 import ChartVisibilitySettings from "@pages/company/settings/ChartVisibilitySettings";
@@ -23,26 +26,6 @@ import {
 } from '@app/modules/configuration';
 // import { useContactConfig } from "@hooks/useContactConfig"; // Moved to ContactConfigMain
 
-
-// Common button styles
-const buttonStyles = {
-  base: {
-    border: "1px solid #1E3A8A",
-    fontWeight: 500,
-    color: "#1E3A8A",
-    backgroundColor: "transparent",
-    borderRadius: "5px",
-    cursor: "pointer",
-    transition: "all 0.3s ease-in-out",
-    paddingLeft: "20px",
-    paddingRight: "20px",
-    height: "40px",
-  },
-  hover: {
-    color: "white",
-    backgroundColor: "#1E3A8A",
-  },
-};
 
 
 const CompanyConfigMain = () => {
@@ -418,15 +401,9 @@ const CompanyConfigMain = () => {
                 Type → Service → Sub-service. Use the row actions to add a service or a sub-service.
               </div>
             </div>
-            <button
-              onClick={handleModalOpen}
-              className="btn"
-              style={buttonStyles.base}
-              onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonStyles.hover)}
-              onMouseLeave={(e) => Object.assign(e.currentTarget.style, buttonStyles.base)}
-            >
+            <Button onClick={handleModalOpen}>
               New Company Type
-            </button>
+            </Button>
           </div>
 
           <div className="mt-4">
@@ -480,6 +457,8 @@ const CompanyConfigMain = () => {
               </div>
             </div>
           </ConfigSectionCard>
+
+          <AuditWindowSetting entity="COMPANY" what="company" />
         </div>
       </ConfigPageLayout>
 
@@ -523,4 +502,4 @@ const CompanyConfigMain = () => {
   );
 };
 
-export default CompanyConfigMain;
+export default withDeleteSection('crm.companies', CompanyConfigMain);

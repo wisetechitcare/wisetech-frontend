@@ -1,18 +1,13 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import ExportButton from "@app/modules/common/components/ExportButton";
-import TimePeriodSelector, { TimePeriodMode } from "@app/modules/common/components/TimePeriodSelector";
-import {
-  Box,
-  FormControl,
-  Select,
-  MenuItem,
-  TextField,
-  InputAdornment,
-  useTheme,
-  useMediaQuery,
-} from "@mui/material";
+import TimePeriodSelector from "@app/modules/common/components/TimePeriodSelector";
+import { PeriodMode } from "@/constants/common";
+import { Box, useTheme, useMediaQuery } from "@mui/material";
 import { getAllLeadsComplete } from "@services/leads";
-import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
+import {
+  saveLeadPeriodPreference,
+  getLeadPeriodPreference,
+} from "@services/users";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTableFilters } from "@app/hooks/useTableFilters";
@@ -42,20 +37,44 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 import { KTIcon } from "@metronic/helpers";
-import WrongLocationRoundedIcon from "@mui/icons-material/WrongLocationRounded";
+import { Check, ImageOff, MapPinOff } from "lucide-react";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
-import { formatCompactCurrency, getProjectPhase, isDelayedProject, projectNumberOf } from "../../entity/entityUtils";
-import { buildProjectColumns, categoryIdsOf, serviceIdsOf, subCategoryIdsOf, projectTableProps } from "./ProjectListTable";
+import {
+  formatCompactCurrency,
+  getProjectPhase,
+  isDelayedProject,
+  projectNumberOf,
+} from "../../entity/entityUtils";
+import {
+  buildProjectColumns,
+  categoryIdsOf,
+  serviceIdsOf,
+  subCategoryIdsOf,
+  projectTableProps,
+} from "./ProjectListTable";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
-import "./ProjectTablePage.css";
+import { Button } from "@/ds/ui/button";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
 
-type DateMode = "daily" | "weekly" | "monthly" | "yearly" | "allyear" | "custom";
+// `!` on the button: Metronic's global button rules otherwise win over Tailwind.
+const TOGGLE =
+  "group flex! h-[32px]! items-center! justify-center! gap-[7px]! pl-[12px]! pr-[10px]! rounded-[10px]! border! border-[#e2e8f0]! bg-white! text-[#475569]! " +
+  "shadow-[0_1px_2px_rgba(0,0,0,0.05)]! [font-family:Inter,sans-serif]! transition-colors! duration-150! active:scale-[0.98]! " +
+  "hover:border-[#cbd5e1]! hover:bg-[#f8fafc]! focus-visible:outline-2! focus-visible:outline-offset-2! focus-visible:outline-[#3b82f6]! " +
+  "aria-pressed:border-[#1e3a8a]! aria-pressed:bg-[#eef2ff]! aria-pressed:text-[#1e3a8a]! aria-pressed:shadow-[inset_0_0_0_1px_#1e3a8a]! aria-pressed:hover:bg-[#e0e7ff]! " +
+  "dark:border-[var(--gh-border)]! dark:bg-[var(--gh-surface)]! dark:text-[var(--gh-fg-muted)]! dark:shadow-none! dark:hover:border-[var(--gh-border)]! dark:hover:bg-[var(--gh-hover)]! " +
+  "dark:aria-pressed:border-[var(--gh-accent)]! dark:aria-pressed:bg-[var(--gh-selected)]! dark:aria-pressed:hover:bg-[var(--gh-selected)]! dark:aria-pressed:text-[var(--gh-accent)]! dark:aria-pressed:shadow-[inset_0_0_0_1px_var(--gh-accent)]!";
+const TOGGLE_ICON =
+  "shrink-0 text-[#64748b] group-aria-pressed:text-current dark:text-current";
+const TOGGLE_COUNT =
+  "inline-flex h-[20px] min-w-[22px] items-center justify-center rounded-full px-[7px] text-[12px] font-extrabold leading-none transition-colors " +
+  "bg-[#e0e7ff] text-[#1e3a8a] group-aria-pressed:bg-[#1e3a8a] group-aria-pressed:text-white " +
+  "dark:bg-[var(--gh-elevated)] dark:text-[var(--gh-fg)] dark:group-aria-pressed:bg-[var(--gh-accent)] dark:group-aria-pressed:text-[var(--gh-canvas)]";
 
 const ProjectTablePage = () => {
   const navigate = useNavigate();
@@ -80,35 +99,43 @@ const ProjectTablePage = () => {
   const visibleColumnsRef = useRef<string[] | null>(null);
   const lastFieldsKeyRef = useRef<string | null>(null);
   const firstVisibilityEmissionRef = useRef(true);
-  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // Clean up refetch timer on unmount
   useEffect(() => {
     return () => {
-      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      if (columnsRefetchTimerRef.current)
+        clearTimeout(columnsRefetchTimerRef.current);
     };
   }, []);
 
-  const [alignment, setAlignment] = useState<DateMode>("monthly");
+  const [alignment, setAlignment] = useState<PeriodMode>(PeriodMode.MONTHLY);
   // Filters sync with URL params — persist across navigation without page reload
   const {
     projectStatusFilter,
     projectManagerFilter,
     showMissingAddress,
+    showMissingProjectView,
     updateStatusFilter,
     updateManagerFilter,
     updateMissingAddress,
+    updateMissingProjectView,
     clearAllFilters: clearFiltersURL,
-  } = useTableFilters('projectFilters');
+  } = useTableFilters("projectFilters");
 
   const [day, setDay] = useState<Dayjs>(today);
   const [weekStart, setWeekStart] = useState<Dayjs>(() => {
     const dow = today.day();
-    return dow === 0 ? today.subtract(6, "day") : today.subtract(dow - 1, "day");
+    return dow === 0
+      ? today.subtract(6, "day")
+      : today.subtract(dow - 1, "day");
   });
   const [weekEnd, setWeekEnd] = useState<Dayjs>(() => {
     const dow = today.day();
-    const ws = dow === 0 ? today.subtract(6, "day") : today.subtract(dow - 1, "day");
+    const ws =
+      dow === 0 ? today.subtract(6, "day") : today.subtract(dow - 1, "day");
     return ws.add(6, "day");
   });
   const [monthStart, setMonthStart] = useState<Dayjs>(today.startOf("month"));
@@ -116,10 +143,16 @@ const ProjectTablePage = () => {
   const [yearStart, setYearStart] = useState<Dayjs | null>(null);
   const [yearEnd, setYearEnd] = useState<Dayjs | null>(null);
   const [fiscalYearDisplay, setFiscalYearDisplay] = useState("");
-  const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(undefined);
-  const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(undefined);
+  const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(
+    undefined,
+  );
+  const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(
+    undefined,
+  );
 
-  const allemployees = useSelector((state: RootState) => state.allEmployees?.list);
+  const allemployees = useSelector(
+    (state: RootState) => state.allEmployees?.list,
+  );
   const currentEmployeeId = useSelector(
     (state: RootState) => state.employee?.currentEmployee?.id,
   );
@@ -128,8 +161,10 @@ const ProjectTablePage = () => {
   // the row builder's empty placeholder, not a real id.
   const rowManagerIds = useCallback(
     (row: any): string[] =>
-      (row?.projectManagerIds?.length ? row.projectManagerIds : [row?.projectManagerId])
-        .filter((id: any) => id && id !== "N/A"),
+      (row?.projectManagerIds?.length
+        ? row.projectManagerIds
+        : [row?.projectManagerId]
+      ).filter((id: any) => id && id !== "N/A"),
     [],
   );
 
@@ -137,7 +172,10 @@ const ProjectTablePage = () => {
   const pmNames = useCallback(
     (row: any): string =>
       rowManagerIds(row)
-        .map((id: string) => allemployees?.find((e: any) => e.employeeId === id)?.employeeName)
+        .map(
+          (id: string) =>
+            allemployees?.find((e: any) => e.employeeId === id)?.employeeName,
+        )
         .filter(Boolean)
         .join(", "),
     [allemployees, rowManagerIds],
@@ -146,7 +184,9 @@ const ProjectTablePage = () => {
   const projectManagerOptions = useMemo(() => {
     // Every manager on every project, not just the primaries — otherwise a
     // secondary manager could never be picked from the filter.
-    const pmIds = new Set<string>(tableData.flatMap((p: any) => rowManagerIds(p)));
+    const pmIds = new Set<string>(
+      tableData.flatMap((p: any) => rowManagerIds(p)),
+    );
     return (allemployees || [])
       .filter((e: any) => pmIds.has(e.employeeId))
       .sort((a: any, b: any) => a.employeeName.localeCompare(b.employeeName));
@@ -155,7 +195,8 @@ const ProjectTablePage = () => {
   useEffect(() => {
     async function initFiscalYear() {
       try {
-        const { startDate: sd, endDate: ed } = await generateFiscalYearFromGivenYear(today);
+        const { startDate: sd, endDate: ed } =
+          await generateFiscalYearFromGivenYear(today);
         const fs = dayjs(sd);
         const fe = dayjs(ed);
         setYearStart(fs);
@@ -174,7 +215,9 @@ const ProjectTablePage = () => {
   }, []);
 
   const navigateDay = useCallback((dir: "prev" | "next") => {
-    setDay((prev) => (dir === "prev" ? prev.subtract(1, "day") : prev.add(1, "day")));
+    setDay((prev) =>
+      dir === "prev" ? prev.subtract(1, "day") : prev.add(1, "day"),
+    );
   }, []);
 
   const navigateWeek = useCallback((dir: "prev" | "next") => {
@@ -199,7 +242,8 @@ const ProjectTablePage = () => {
     async (dir: "prev" | "next") => {
       const base = (yearStart ?? today).add(dir === "prev" ? -1 : 1, "year");
       try {
-        const { startDate: sd, endDate: ed } = await generateFiscalYearFromGivenYear(base);
+        const { startDate: sd, endDate: ed } =
+          await generateFiscalYearFromGivenYear(base);
         const fs = dayjs(sd);
         const fe = dayjs(ed);
         setYearStart(fs);
@@ -222,7 +266,7 @@ const ProjectTablePage = () => {
     newVal: string,
   ) => {
     if (!newVal) return;
-    const mode = newVal as DateMode;
+    const mode = newVal as PeriodMode;
     setAlignment(mode);
     localStorage.setItem("projectPeriodPreference", mode);
     try {
@@ -234,19 +278,24 @@ const ProjectTablePage = () => {
 
   useEffect(() => {
     const loadPreference = async () => {
-      const localPref = localStorage.getItem("projectPeriodPreference") as DateMode | null;
+      const localPref = localStorage.getItem(
+        "projectPeriodPreference",
+      ) as PeriodMode | null;
       if (localPref) {
         setAlignment(localPref);
       }
       try {
         const res = await getLeadPeriodPreference();
-        const redisPref = res?.data?.period as DateMode | null;
-        if (redisPref && ["daily", "weekly", "monthly", "yearly", "allyear", "custom"].includes(redisPref)) {
+        const redisPref = res?.data?.period as PeriodMode | null;
+        if (redisPref && Object.values(PeriodMode).includes(redisPref)) {
           setAlignment(redisPref);
           localStorage.setItem("projectPeriodPreference", redisPref);
         }
       } catch (err) {
-        console.warn("Failed to fetch period preference from Redis, using local storage/default:", err);
+        console.warn(
+          "Failed to fetch period preference from Redis, using local storage/default:",
+          err,
+        );
       }
     };
     loadPreference();
@@ -262,24 +311,25 @@ const ProjectTablePage = () => {
 
       // Filter to ONLY project leads (isProjectTrigger === true)
       const projectLeads = leadsData.filter(
-        (lead: any) => lead?.status?.isProjectTrigger
+        (lead: any) => lead?.status?.isProjectTrigger,
       );
 
-      const [servicesRes, catRes, subcatRes, statusRes, countriesData] = await Promise.all([
-        getAllProjectServices(),
-        getAllProjectCategories(),
-        getAllProjectSubcategories(),
-        getAllProjectStatuses().catch(() => null),
-        fetchAllCountries(),
-      ]);
+      const [servicesRes, catRes, subcatRes, statusRes, countriesData] =
+        await Promise.all([
+          getAllProjectServices(),
+          getAllProjectCategories(),
+          getAllProjectSubcategories(),
+          getAllProjectStatuses().catch(() => null),
+          fetchAllCountries(),
+        ]);
       setProjectServices(servicesRes?.services || []);
       setProjectCategories(catRes?.projectCategories || []);
       setProjectSubcategories(subcatRes?.projectSubCategories || []);
       setProjectStatuses(
         statusRes?.projectStatuses ||
-        statusRes?.data?.projectStatuses ||
-        statusRes?.data?.data?.projectStatuses ||
-        [],
+          statusRes?.data?.projectStatuses ||
+          statusRes?.data?.data?.projectStatuses ||
+          [],
       );
 
       if (projectLeads.length > 0) {
@@ -296,7 +346,9 @@ const ProjectTablePage = () => {
         const countriesMap = new Map<string, any>();
         const statesMap = new Map<string, any>();
         const citiesMap = new Map<string, any>();
-        (countriesData || []).forEach((c: any) => countriesMap.set(c.id.toString(), c));
+        (countriesData || []).forEach((c: any) =>
+          countriesMap.set(c.id.toString(), c),
+        );
 
         const transformedProjects = projectLeads.map((lead: any) => {
           // Lead-as-master: project-execution fields live on lead.execution; the
@@ -306,13 +358,15 @@ const ProjectTablePage = () => {
           // The lead's received date IS the project's start date (the day it became
           // a project). startDate was imported equal to inquiryDate on old rows, so
           // it only stands in when there is no received date.
-          const startVal = lead?.receivedDate || lead?.startDate || project?.startDate || null;
+          const startVal =
+            lead?.receivedDate || lead?.startDate || project?.startDate || null;
           // actualEndDate is the REAL completion date set via the Project Status
           // control when a project is marked Completed; endDate is only the
           // planned/expected closure. Prefer the real date once it exists so
           // "End Date"/Timeline reflect reality instead of staying N/A forever
           // after completion.
-          const endVal = lead?.actualEndDate || lead?.endDate || project?.endDate || null;
+          const endVal =
+            lead?.actualEndDate || lead?.endDate || project?.endDate || null;
           const s = startVal ? new Date(startVal) : null;
           const e = endVal ? new Date(endVal) : null;
           const duration =
@@ -335,10 +389,7 @@ const ProjectTablePage = () => {
           // → plot), so a project with specs but no commercial rows still shows.
           const ad = lead?.additionalDetails || {};
           const fallbackArea =
-            parseFloat(ad.projectArea) ||
-            parseFloat(ad.builtUpArea) ||
-            parseFloat(ad.plotArea) ||
-            0;
+            parseFloat(ad.builtUpArea) || parseFloat(ad.plotArea) || 0;
           const resolvedArea = commercialsArea || fallbackArea;
           // Rate is derived: total cost per unit area (matches the detail page's
           // "Total Rate"). execution.rate is a fallback when commercials are absent.
@@ -348,7 +399,9 @@ const ProjectTablePage = () => {
           // Address completeness: a project "has address" only when a usable
           // lat/long exists — on the lead's additionalDetails OR on any of the
           // project's site addresses. Drives the "Missing Address" filter.
-          const projectSites: any[] = Array.isArray(project?.addresses) ? project.addresses : [];
+          const projectSites: any[] = Array.isArray(project?.addresses)
+            ? project.addresses
+            : [];
           const hasAddress = !!(
             (ad.latitude && ad.longitude) ||
             projectSites.some((a: any) => a?.latitude && a?.longitude)
@@ -358,23 +411,37 @@ const ProjectTablePage = () => {
             id: lead.id,
             prefix: lead?.prefix || "N/A",
             projectName: lead.title || "N/A",
+            coverImageUrl: lead.coverImageUrl || null,
             totalCost: commercialsTotal || lead.budget || 0,
             client:
               lead?.company?.companyName ||
               lead?.leadTeams?.[0]?.company?.companyName ||
               "N/A",
-            service: lead?.projectServiceId || lead?.services?.[0]?.serviceId || "N/A",
+            service:
+              lead?.projectServiceId || lead?.services?.[0]?.serviceId || "N/A",
             serviceIds: serviceIdsOf(lead),
-            category: lead?.projectCategoryId || lead?.leadCategories?.[0]?.category?.id || "N/A",
+            category:
+              lead?.projectCategoryId ||
+              lead?.leadCategories?.[0]?.category?.id ||
+              "N/A",
             categoryIds: categoryIdsOf(lead),
             subCategory:
-              lead?.projectSubCategoryId || lead?.leadSubCategories?.[0]?.subcategory?.id || "N/A",
+              lead?.projectSubCategoryId ||
+              lead?.leadSubCategories?.[0]?.subcategory?.id ||
+              "N/A",
             subCategoryIds: subCategoryIdsOf(lead),
             status: lead?.status || null,
             poStatus: lead?.poStatus || null,
-            contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "N/A",
-            createdAt: lead?.createdAt ? new Date(lead.createdAt).toISOString() : new Date().toISOString(),
-            updatedAt: lead?.updatedAt ? new Date(lead.updatedAt).toISOString() : new Date().toISOString(),
+            contact:
+              lead?.contact?.fullName ||
+              lead?.leadTeams?.[0]?.contact?.fullName ||
+              "N/A",
+            createdAt: lead?.createdAt
+              ? new Date(lead.createdAt).toISOString()
+              : new Date().toISOString(),
+            updatedAt: lead?.updatedAt
+              ? new Date(lead.updatedAt).toISOString()
+              : new Date().toISOString(),
 
             // Project-specific fields — sourced from lead.execution (lead-as-master)
             // with lead scalars and the transitional lead.project as fallbacks.
@@ -387,20 +454,27 @@ const ProjectTablePage = () => {
             // roster (primary first); `projectManagerId` stays as the primary alone.
             projectManagerIds: projectManagerIds(lead).length
               ? projectManagerIds(lead)
-              : (project?.projectManagerId ? [String(project.projectManagerId)] : []),
-            projectManagerId: exec?.projectManagerId || project?.projectManagerId || "N/A",
+              : project?.projectManagerId
+                ? [String(project.projectManagerId)]
+                : [],
+            projectManagerId:
+              exec?.projectManagerId || project?.projectManagerId || "N/A",
             projectTeamName: exec?.team?.name || project?.team?.name || "N/A",
             projectTeams: project?.projectTeams || [],
             projectCompanyMappings: project?.projectCompanyMappings || [],
-            projectCost: parseFloat(exec?.cost ?? project?.cost) || commercialsTotal || 0,
-            projectRate: derivedRate || parseFloat(exec?.rate ?? project?.rate) || 0,
+            projectCost: commercialsTotal,
+            projectRate:
+              derivedRate || parseFloat(exec?.rate ?? project?.rate) || 0,
             projectArea: resolvedArea,
-            projectServiceId: lead?.projectServiceId || project?.serviceId || "N/A",
-            projectCategoryId: lead?.projectCategoryId || project?.projectCategoryId || "N/A",
+            projectServiceId:
+              lead?.projectServiceId || project?.serviceId || "N/A",
+            projectCategoryId:
+              lead?.projectCategoryId || project?.projectCategoryId || "N/A",
             projectCountry: project?.country || "N/A",
             projectState: project?.state || "N/A",
             projectCity: project?.city || "N/A",
             hasAddress,
+            hasProjectViewMedia: (lead?._count?.media ?? 0) > 0,
             projectIsLive: exec?.isLive ?? project?.isLive ?? false,
             entityPhase: getProjectPhase(lead),
             isDelayed: isDelayedProject(lead),
@@ -437,7 +511,8 @@ const ProjectTablePage = () => {
       lastFieldsKeyRef.current = key;
 
       // Debounce refetch
-      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      if (columnsRefetchTimerRef.current)
+        clearTimeout(columnsRefetchTimerRef.current);
       columnsRefetchTimerRef.current = setTimeout(() => {
         fetchAllData(keys);
       }, 500);
@@ -462,42 +537,75 @@ const ProjectTablePage = () => {
   useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
 
   const columns = useMemo(
-    () => buildProjectColumns({
-      categories: projectCategories,
-      subcategories: projectSubcategories,
-      services: projectServices,
-      pmNames,
-    }),
+    () =>
+      buildProjectColumns({
+        categories: projectCategories,
+        subcategories: projectSubcategories,
+        services: projectServices,
+        pmNames,
+      }),
     [projectServices, projectCategories, projectSubcategories, pmNames],
   );
 
   const exportColumns = useMemo(
-    () => [
-      { key: 'projectPrefix', header: 'Project Number', type: 'text' as const },
-      { key: 'projectName', header: 'Project Name', type: 'text' as const },
-      { key: 'client', header: 'Client Company', type: 'text' as const },
-      { key: 'contact', header: 'Contact', type: 'text' as const },
-      { key: 'category', header: 'Category', type: 'text' as const },
-      { key: 'subCategory', header: 'Subcategory', type: 'text' as const },
-      {
-        key: 'projectStatus', header: 'Project Status', type: 'text' as const,
-        format: (val: any) => val?.name || String(val || ''),
-      },
-      { key: 'poStatus', header: 'PO Status', type: 'text' as const },
-      { key: 'projectStartDate', header: 'Start Date', type: 'text' as const },
-      { key: 'projectEndDate', header: 'End Date', type: 'text' as const },
-      { key: 'projectCost', header: 'Budget', type: 'currency' as const, showTotal: true },
-      { key: 'totalCost', header: 'Cost', type: 'currency' as const, showTotal: true },
-      { key: 'projectArea', header: 'Area (SFT)', type: 'number' as const, showTotal: true },
-      { key: 'projectRate', header: 'Rate', type: 'currency' as const },
-      // Export the resolved manager names (all of them), not the raw ids.
-      {
-        key: 'projectManagerId', header: 'Project Manager', type: 'text' as const,
-        format: (_val: any, row: any) => pmNames(row),
-      },
-      { key: 'projectTeamName', header: 'Team', type: 'text' as const },
-      { key: 'service', header: 'Service', type: 'text' as const },
-    ].filter((c) => canViewCommercial('projects') || !['projectCost', 'totalCost', 'projectRate'].includes(c.key)),
+    () =>
+      [
+        {
+          key: "projectPrefix",
+          header: "Project Number",
+          type: "text" as const,
+        },
+        { key: "projectName", header: "Project Name", type: "text" as const },
+        { key: "client", header: "Client Company", type: "text" as const },
+        { key: "contact", header: "Contact", type: "text" as const },
+        { key: "category", header: "Category", type: "text" as const },
+        { key: "subCategory", header: "Subcategory", type: "text" as const },
+        {
+          key: "projectStatus",
+          header: "Project Status",
+          type: "text" as const,
+          format: (val: any) => val?.name || String(val || ""),
+        },
+        { key: "poStatus", header: "PO Status", type: "text" as const },
+        {
+          key: "projectStartDate",
+          header: "Start Date",
+          type: "text" as const,
+        },
+        { key: "projectEndDate", header: "End Date", type: "text" as const },
+        {
+          key: "projectCost",
+          header: "Budget",
+          type: "currency" as const,
+          showTotal: true,
+        },
+        {
+          key: "totalCost",
+          header: "Cost",
+          type: "currency" as const,
+          showTotal: true,
+        },
+        {
+          key: "projectArea",
+          header: "Area (SFT)",
+          type: "number" as const,
+          showTotal: true,
+        },
+        { key: "projectRate", header: "Rate", type: "currency" as const },
+        // Export the resolved manager names (all of them), not the raw ids.
+        {
+          key: "projectManagerId",
+          header: "Project Manager",
+          type: "text" as const,
+          format: (_val: any, row: any) => pmNames(row),
+        },
+        { key: "projectTeamName", header: "Team", type: "text" as const },
+        { key: "service", header: "Service", type: "text" as const },
+      ].filter(
+        (c) =>
+          canViewCommercial("projects") ||
+          !["projectCost", "totalCost", "projectRate"].includes(c.key),
+      ),
     [allemployees],
   );
 
@@ -508,25 +616,37 @@ const ProjectTablePage = () => {
   const baseFilteredData = tableData?.filter((item: any) => {
     let dateMatch = true;
     // Period filter runs on the project start date — the date the table shows.
-    const d = item.projectStartDate && item.projectStartDate !== "N/A"
-      ? dayjs(item.projectStartDate)
-      : null;
+    const d =
+      item.projectStartDate && item.projectStartDate !== "N/A"
+        ? dayjs(item.projectStartDate)
+        : null;
     if (alignment === "daily") {
       dateMatch = d ? d.isSame(day, "day") : false;
     } else if (alignment === "weekly") {
-      dateMatch = d ? !d.isBefore(weekStart.startOf("day")) && !d.isAfter(weekEnd.endOf("day")) : false;
+      dateMatch = d
+        ? !d.isBefore(weekStart.startOf("day")) &&
+          !d.isAfter(weekEnd.endOf("day"))
+        : false;
     } else if (alignment === "monthly") {
-      dateMatch = d ? !d.isBefore(monthStart.startOf("day")) && !d.isAfter(monthEnd.endOf("day")) : false;
+      dateMatch = d
+        ? !d.isBefore(monthStart.startOf("day")) &&
+          !d.isAfter(monthEnd.endOf("day"))
+        : false;
     } else if (alignment === "yearly" && yearStart && yearEnd) {
-      dateMatch = d ? !d.isBefore(yearStart.startOf("day")) && !d.isAfter(yearEnd.endOf("day")) : false;
+      dateMatch = d
+        ? !d.isBefore(yearStart.startOf("day")) &&
+          !d.isAfter(yearEnd.endOf("day"))
+        : false;
     } else if (alignment === "allyear") {
       dateMatch = true;
     } else if (alignment === "custom") {
       if (customStartDate || customEndDate) {
         if (!d) dateMatch = false;
         else {
-          if (customStartDate && d.isBefore(customStartDate.startOf("day"))) dateMatch = false;
-          if (customEndDate && d.isAfter(customEndDate.endOf("day"))) dateMatch = false;
+          if (customStartDate && d.isBefore(customStartDate.startOf("day")))
+            dateMatch = false;
+          if (customEndDate && d.isAfter(customEndDate.endOf("day")))
+            dateMatch = false;
         }
       }
     }
@@ -544,17 +664,23 @@ const ProjectTablePage = () => {
     return dateMatch && projectStatusMatch && projectManagerMatch;
   });
 
-  // "Missing Address" is a GLOBAL view: the count and the list ignore the period
-  // and other filters, so clicking always reveals EVERY project without lat/long
-  // across all time — and clicking it again returns to the normal filtered view.
-  const missingAddressCount = (tableData ?? []).filter((i: any) => !i.hasAddress).length;
-  const quickFilteredData = showMissingAddress
-    ? (tableData ?? []).filter((i: any) => !i.hasAddress)
-    : baseFilteredData;
+  // Missing-* toggles ignore the period/other filters; both on = missing both.
+  const missingAddressCount = (tableData ?? []).filter(
+    (i: any) => !i.hasAddress,
+  ).length;
+  const missingProjectViewCount = (tableData ?? []).filter(
+    (i: any) => !i.hasProjectViewMedia,
+  ).length;
+  const quickFilteredData =
+    showMissingAddress || showMissingProjectView
+      ? (tableData ?? []).filter(
+          (i: any) =>
+            (!showMissingAddress || !i.hasAddress) &&
+            (!showMissingProjectView || !i.hasProjectViewMedia),
+        )
+      : baseFilteredData;
 
-  // Note: showMissingAddress is intentionally NOT part of hasAnyFilter — its own
-  // toggle button turns it off, so surfacing a separate "Clear filters" chip for it
-  // would only shift the toolbar layout when the button is clicked.
+  // Missing-* toggles clear themselves, so they stay out of hasAnyFilter.
   const hasAnyFilter = projectStatusFilter || projectManagerFilter;
   const clearAllFilters = clearFiltersURL;
 
@@ -563,71 +689,44 @@ const ProjectTablePage = () => {
     0,
   );
 
-  const FILTER_HEIGHT = "32px";
-
-  const pillSelectSx = (hasValue: boolean) => ({
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontFamily: "Inter",
-    fontWeight: 500,
-    height: FILTER_HEIGHT,
-    color: hasValue ? "#1E3A8A" : "#1E293B",
-    "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasValue ? "#1E3A8A !important" : "#E2E8F0 !important",
-      borderWidth: "1px !important",
-      borderRadius: "6px !important",
-    },
-    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#1E3A8A !important" },
-    "& .MuiSelect-icon": { color: hasValue ? "#1E3A8A" : "#94A3B8" },
-  });
-
-  const menuSx = {
-    PaperProps: {
-      sx: {
-        borderRadius: "6px",
-        mt: 0.5,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-        maxHeight: 320,
-        "& .MuiMenuItem-root": {
-          fontSize: "12px",
-          fontFamily: "Inter",
-          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
-          "&.Mui-selected": {
-            backgroundColor: "rgba(30, 58, 138,0.1)",
-            color: "#1E3A8A",
-            fontWeight: 600,
-          },
-        },
-      },
-    },
-  };
-
   return (
     <>
-      <Box sx={{ px: { xs: 2, md: 3 }, py: 1.5, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '4px',
-          marginTop: '2px',
-          flexWrap: 'wrap'
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '2px',
-            flexWrap: 'wrap',
-            width: isMobile ? '100%' : 'auto'
-          }}>
-            {/* Period Selector */}
-            <div style={{
+      <Box
+        sx={{
+          px: { xs: 2, md: 3 },
+          py: 1.5,
+          background: "#fff",
+          borderBottom: "1px solid #F1F5F9",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "4px",
+            marginTop: "2px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
               display: "flex",
-              marginRight: "4px"
-            }}>
+              alignItems: "center",
+              gap: "2px",
+              flexWrap: "wrap",
+              width: isMobile ? "100%" : "auto",
+            }}
+          >
+            {/* Period Selector */}
+            <div
+              style={{
+                display: "flex",
+                marginRight: "4px",
+              }}
+            >
               <TimePeriodSelector
-                value={alignment as TimePeriodMode}
+                value={alignment}
                 onChange={(mode) => handleAlignmentChange({} as any, mode)}
               />
             </div>
@@ -655,7 +754,10 @@ const ProjectTablePage = () => {
                 onPickDate={(v) => {
                   const picked = dayjs(v);
                   const dow = picked.day();
-                  const ns = dow === 0 ? picked.subtract(6, "day") : picked.subtract(dow - 1, "day");
+                  const ns =
+                    dow === 0
+                      ? picked.subtract(6, "day")
+                      : picked.subtract(dow - 1, "day");
                   setWeekStart(ns);
                   setWeekEnd(ns.add(6, "day"));
                 }}
@@ -687,19 +789,24 @@ const ProjectTablePage = () => {
                 onPickDate={async (v) => {
                   const base = dayjs(`${dayjs(v).year()}-04-01`);
                   try {
-                    const { startDate: sd, endDate: ed } = await generateFiscalYearFromGivenYear(base);
+                    const { startDate: sd, endDate: ed } =
+                      await generateFiscalYearFromGivenYear(base);
                     const fs = dayjs(sd);
                     const fe = dayjs(ed);
                     setYearStart(fs);
                     setYearEnd(fe);
-                    setFiscalYearDisplay(`${fs.format("YYYY")} - ${fe.format("YYYY")}`);
+                    setFiscalYearDisplay(
+                      `${fs.format("YYYY")} - ${fe.format("YYYY")}`,
+                    );
                   } catch {
                     const year = base.year();
                     const fs = dayjs(`${year}-04-01`);
                     const fe = dayjs(`${year + 1}-03-31`);
                     setYearStart(fs);
                     setYearEnd(fe);
-                    setFiscalYearDisplay(`${fs.format("YYYY")} - ${fe.format("YYYY")}`);
+                    setFiscalYearDisplay(
+                      `${fs.format("YYYY")} - ${fe.format("YYYY")}`,
+                    );
                   }
                 }}
               />
@@ -718,10 +825,18 @@ const ProjectTablePage = () => {
                       textField: {
                         size: "small",
                         sx: {
-                          "& .MuiOutlinedInput-root": { borderRadius: "6px", height: "32px", fontSize: "11px", width: "110px" },
-                          "& .MuiInputLabel-root": { fontSize: "11px", top: "-3px" }
-                        }
-                      }
+                          "& .MuiOutlinedInput-root": {
+                            borderRadius: "6px",
+                            height: "32px",
+                            fontSize: "11px",
+                            width: "110px",
+                          },
+                          "& .MuiInputLabel-root": {
+                            fontSize: "11px",
+                            top: "-3px",
+                          },
+                        },
+                      },
                     }}
                   />
                   <DatePicker
@@ -734,70 +849,165 @@ const ProjectTablePage = () => {
                       textField: {
                         size: "small",
                         sx: {
-                          "& .MuiOutlinedInput-root": { borderRadius: "6px", height: "32px", fontSize: "11px", width: "110px" },
-                          "& .MuiInputLabel-root": { fontSize: "11px", top: "-3px" }
-                        }
-                      }
+                          "& .MuiOutlinedInput-root": {
+                            borderRadius: "6px",
+                            height: "32px",
+                            fontSize: "11px",
+                            width: "110px",
+                          },
+                          "& .MuiInputLabel-root": {
+                            fontSize: "11px",
+                            top: "-3px",
+                          },
+                        },
+                      },
                     }}
                   />
                 </LocalizationProvider>
               </div>
             )}
-
-            {/* Search / Status / Manager / Clear now live inside the table's own toolbar
-                (renderTopToolbarRightActions below), next to its column picker and
-                search — same arrangement as the reimbursement tables. */}
           </div>
 
           {/* Right-side group: budget/results pill + missing-address toggle, kept together */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'stretch' : 'flex-end', width: isMobile ? '100%' : 'auto' }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+              justifyContent: isMobile ? "stretch" : "flex-end",
+              width: isMobile ? "100%" : "auto",
+            }}
+          >
             {/* KPI Summary — glassmorphic pill */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              border: '1px solid rgba(226,232,240,0.9)',
-              borderRadius: '10px',
-              padding: '0 14px',
-              background: 'rgba(255,255,255,0.55)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              height: '32px',
-              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)',
-              width: isMobile ? '100%' : 'auto'
-            }}>
-              {canViewCommercial('projects') && (<>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Budget:</span>
-                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
-              </div>
-              <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
-              </>)}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px",
+                border: "1px solid rgba(226,232,240,0.9)",
+                borderRadius: "10px",
+                padding: "0 14px",
+                background: "rgba(255,255,255,0.55)",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                height: "32px",
+                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.06)",
+                width: isMobile ? "100%" : "auto",
+              }}
+            >
+              {canViewCommercial("projects") && (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "#64748B",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      Budget:
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        color: "#1E3A8A",
+                        fontWeight: 800,
+                        fontFamily: "Inter, sans-serif",
+                      }}
+                    >
+                      {formatCompactCurrency(totalFilteredCost)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      width: "1px",
+                      height: "14px",
+                      backgroundColor: "#E2E8F0",
+                    }}
+                  />
+                </>
+              )}
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "4px" }}
+              >
+                <span
+                  style={{
+                    fontSize: "10px",
+                    color: "#64748B",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  Results:
+                </span>
+                <span
+                  style={{
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    fontWeight: 800,
+                    fontFamily: "Inter, sans-serif",
+                  }}
+                >
                   {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
                 </span>
               </div>
             </div>
 
-            {/* Missing-address filter: shows the count and, on click, lists ONLY the
-              projects without lat/long in place — no modal. */}
-            <button
-              type="button"
-              onClick={() => updateMissingAddress(!showMissingAddress)}
-              title={showMissingAddress
-                ? 'Showing projects with no address (latitude/longitude). Click to show all.'
-                : 'Show only projects missing address (latitude/longitude)'}
-              className={`missing-address-btn${showMissingAddress ? ' is-selected' : ''}`}
-              style={{ width: isMobile ? '100%' : 'auto' }}
-            >
-              <span aria-hidden className="missing-address-btn__gradient" />
-              <WrongLocationRoundedIcon className="missing-address-btn__icon" style={{ fontSize: 16 }} />
-              <span className="missing-address-btn__label">Missing Address</span>
-              <span className="missing-address-btn__count">{missingAddressCount}</span>
-            </button>
+            {[
+              {
+                label: "Missing Address",
+                title: "Projects with no latitude/longitude",
+                Icon: MapPinOff,
+                on: showMissingAddress,
+                set: updateMissingAddress,
+                count: missingAddressCount,
+              },
+              {
+                label: "Missing Project View",
+                title: "Projects with an empty Gallery → Project View",
+                Icon: ImageOff,
+                on: showMissingProjectView,
+                set: updateMissingProjectView,
+                count: missingProjectViewCount,
+              },
+            ].map(({ label, title, Icon, on, set, count }) => (
+              <button
+                key={label}
+                type="button"
+                data-wt-control="toggle"
+                aria-pressed={on}
+                title={title}
+                onClick={() => set(!on)}
+                className={TOGGLE}
+                style={{ width: isMobile ? "100%" : "auto" }}
+              >
+                {on ? (
+                  <Check
+                    aria-hidden
+                    className={TOGGLE_ICON}
+                    size={16}
+                    strokeWidth={2.5}
+                  />
+                ) : (
+                  <Icon aria-hidden className={TOGGLE_ICON} size={16} />
+                )}
+                <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.03em]">
+                  {label}
+                </span>
+                <span className={TOGGLE_COUNT}>{count}</span>
+              </button>
+            ))}
           </div>
         </div>
       </Box>
@@ -806,134 +1016,39 @@ const ProjectTablePage = () => {
           only — Leads uses the same component and keeps its spacing. `!important`
           because Bootstrap's own `.pt-6` utility carries it. */}
       <Box sx={{ "& > .pt-6": { paddingTop: "8px !important" } }}>
-      <MaterialTable
-        columns={columns}
-        data={quickFilteredData}
-        // V4: fresh prefs bucket — saved sorts from V3 overrode the Start Date
-        // desc default, leaving the list in effectively random order. Bumping
-        // discards them so latest-start-date-first applies for everyone.
-        tableName="ProjectTableV4"
-        defaultSorting={[{ id: "projectStartDate", desc: true }]}
-        // Returns elements, not a <FilterToolbar/> component declared in render —
-        // a fresh component type each render remounts the controls mid-interaction.
-        renderTopToolbarRightActions={() => (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {projectStatuses.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <Select
-                  value={projectStatusFilter}
-                  onChange={(e) => updateStatusFilter(e.target.value)}
-                  displayEmpty
-                  sx={pillSelectSx(!!projectStatusFilter)}
-                  renderValue={(val) => {
-                    if (!val) {
-                      return (
-                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                          Project Status
-                        </span>
-                      );
-                    }
-                    const st = projectStatuses.find((s: any) => s.id === val);
-                    return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
-                        {st?.name || val}
-                      </span>
-                    );
-                  }}
-                  MenuProps={menuSx}
-                >
-                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                    All Project Statuses
-                  </MenuItem>
-                  {projectStatuses.map((st: any) => (
-                    <MenuItem key={st.id} value={st.id} sx={{ fontSize: "12px" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                        <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color || "#64748B", display: "inline-block", flexShrink: 0 }} />
-                        {st.name}
-                      </span>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {projectManagerOptions.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <Select
-                  value={projectManagerFilter}
-                  onChange={(e) => updateManagerFilter(e.target.value)}
-                  displayEmpty
-                  sx={pillSelectSx(!!projectManagerFilter)}
-                  renderValue={(val) => {
-                    if (!val) {
-                      return (
-                        <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                          Project Manager
-                        </span>
-                      );
-                    }
-                    const emp = projectManagerOptions.find((e: any) => e.employeeId === val);
-                    return (
-                      <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A" }}>
-                        {emp?.employeeName || val}
-                      </span>
-                    );
-                  }}
-                  MenuProps={menuSx}
-                >
-                  <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                    All Project Managers
-                  </MenuItem>
-                  {projectManagerOptions.map((emp: any) => (
-                    <MenuItem key={emp.employeeId} value={emp.employeeId} sx={{ fontSize: "12px" }}>
-                      {emp.employeeName}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-
-            {hasAnyFilter && (
-              <button
-                onClick={clearAllFilters}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  color: "#1E3A8A",
-                  fontWeight: 600,
-                  fontFamily: "Inter, sans-serif",
-                  padding: "2px 8px",
-                  whiteSpace: "nowrap"
-                }}
-              >
-                ✕ Clear Filters
-              </button>
-            )}
-          </Box>
-        )}
-        renderExportActions={() => (
-          <ExportButton
-            data={quickFilteredData}
-            columns={exportColumns}
-            filename="projects"
-            title="Projects"
-            subtitle="Project Management & Execution"
-            sheetName="Projects"
-            showTotals
-            totalLabel="TOTAL"
-            disabled={!quickFilteredData?.length}
-          />
-        )}
-        employeeId={currentEmployeeId}
-        resource="PROJECTS"
-        viewOwn={true}
-        viewOthers={true}
-        checkOwnWithOthers={true}
-        onVisibleColumnsChange={handleVisibleColumnsChange}
-        {...projectTableProps((row) => navigate(`/project/${row.id}`))}
-      />
+        <MaterialTable
+          columns={columns}
+          data={quickFilteredData}
+          // V4: fresh prefs bucket — saved sorts from V3 overrode the Start Date
+          // desc default, leaving the list in effectively random order. Bumping
+          // discards them so latest-start-date-first applies for everyone.
+          tableName="ProjectTableV4"
+          defaultSorting={[{ id: "projectStartDate", desc: true }]}
+          renderExportActions={() => (
+            <ExportButton
+              data={quickFilteredData}
+              columns={exportColumns}
+              filename="projects"
+              title="Projects"
+              subtitle="Project Management & Execution"
+              sheetName="Projects"
+              showTotals
+              totalLabel="TOTAL"
+              disabled={!quickFilteredData?.length}
+            />
+          )}
+          employeeId={currentEmployeeId}
+          resource="PROJECTS"
+          viewOwn={true}
+          viewOthers={true}
+          checkOwnWithOthers={true}
+          onVisibleColumnsChange={handleVisibleColumnsChange}
+          {...projectTableProps((row) =>
+            navigate(
+              `/project/${row.id}${showMissingProjectView ? "/gallery" : ""}`,
+            ),
+          )}
+        />
       </Box>
     </>
   );

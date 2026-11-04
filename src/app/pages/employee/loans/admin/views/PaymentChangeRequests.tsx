@@ -15,6 +15,7 @@ import { installmentStatusLabels } from "@constants/statistics";
 import { Link } from "react-router-dom";
 import dayjs from "dayjs";
 import { formatNumber } from "@utils/statistics";
+import { Button } from '@/ds/ui/button';
 
 interface ChangeRequests {
   id: string;
@@ -192,20 +193,18 @@ const PaymentChangeRequests: React.FC<MyComponentProps> = ({
                       </Link>
                     </div>
                     {allowEdit && (
-                      <span
-                        style={commonButtonStyle}
+                      <Button variant="success" size="sm"
                         onClick={() => approveLoanIntallment(row.original.id)}
                       >
                         Approve
-                      </span>
+                      </Button>
                     )}
                     {allowEdit && (
-                      <span
-                        style={commonButtonStyle}
+                      <Button variant="destructive" size="sm"
                         onClick={() => rejectLoanIntallment(row.original.id)}
                       >
                         Reject
-                      </span>
+                      </Button>
                     )}
                     {!allowEdit && <span
                         style={commonButtonStyle}

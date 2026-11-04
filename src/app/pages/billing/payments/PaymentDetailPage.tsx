@@ -7,6 +7,7 @@ import { KTIcon } from "@metronic/helpers";
 import { GlassCard, WtButton, ToneChip, TRIO, toast } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
+import { canDelete } from "@utils/can";
 import {
   getPayment, uploadAttachments, getAttachmentLink, deleteAttachment,
   type PaymentTransaction, type AttachmentKind,
@@ -116,8 +117,7 @@ const PaymentDetailPage: React.FC = () => {
             >
               {back.label}
             </WtButton>
-            <WtButton
-              tone="primary" size="small"
+            <WtButton size="small"
               disabled={Number(collection.outstandingAmount) <= 0 && collection.paymentStatus !== "PENDING"}
               onClick={() => setRecordOpen(true)}
               startIcon={<KTIcon iconName="plus" className="fs-6" />}
@@ -274,12 +274,14 @@ const PaymentDetailPage: React.FC = () => {
                         <WtButton ghost size="small" onClick={() => openAttachment.mutate(attachment.id)} sx={{ minHeight: 28, fontSize: 11.5 }}>
                           View
                         </WtButton>
+                        {canDelete("billing.payments") && (
                         <WtButton
                           ghost size="small" onClick={() => removeAttachment.mutate(attachment.id)}
                           sx={{ minHeight: 28, fontSize: 11.5, color: "error.main" }}
                         >
                           Remove
                         </WtButton>
+                        )}
                       </Stack>
                     ))}
                     {!attachments.length && (
@@ -364,8 +366,7 @@ const PaymentDetailPage: React.FC = () => {
                 : "Invoicing unlocks once the client accepts the proforma."}
             </Typography>
             {data.readyForInvoice && (
-              <WtButton
-                tone="primary" size="small" fullWidth
+              <WtButton size="small" fullWidth
                 disabled={generateInvoice.isPending}
                 onClick={() => generateInvoice.mutate()}
                 startIcon={<KTIcon iconName="receipt-cutoff" className="fs-6" />}

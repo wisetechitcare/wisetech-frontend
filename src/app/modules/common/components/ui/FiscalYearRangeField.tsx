@@ -430,7 +430,7 @@ export function FiscalYearRangeField({
         onBlur={() => {
           if (!open) onBlur?.();
         }}
-        aria-label={label}
+        aria-label={label || 'Fiscal Year'}
         sx={{
           width: '100%',
           height: triggerH,

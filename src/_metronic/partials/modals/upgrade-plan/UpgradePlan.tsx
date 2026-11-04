@@ -1,6 +1,8 @@
 
 import React, {FC, useState} from 'react'
 import {KTIcon} from '../../../helpers'
+import {Button, buttonVariants} from '@/ds/ui/button'
+import {WtCloseButton} from '@/app/modules/common/components/ui/tw/WtCloseButton'
 
 const plans = [
   {
@@ -141,9 +143,7 @@ const UpgradePlan: FC = () => {
       <div className='modal-dialog modal-xl'>
         <div className='modal-content rounded'>
           <div className='modal-header justify-content-end border-0 pb-0'>
-            <div className='btn btn-sm btn-icon btn-active-color-primary' data-bs-dismiss='modal'>
-              <KTIcon iconName='cross' className='fs-1' />
-            </div>
+            <WtCloseButton variant='plain' data-bs-dismiss='modal' />
           </div>
 
           <div className='modal-body pt-0 pb-15 px-5 px-xl-20'>
@@ -163,10 +163,12 @@ const UpgradePlan: FC = () => {
               <div className='nav-group nav-group-outline mx-auto' data-kt-buttons='true'>
                 <a
                   href='#'
-                  className={
-                    'btn btn-color-gray-500 btn-active btn-active-secondary px-6 py-3 me-2 ' +
-                    (currentState === 'month' && 'active')
-                  }
+                  data-slot='button'
+                  className={buttonVariants({
+                    variant: currentState === 'month' ? 'secondary' : 'ghost',
+                    size: 'lg',
+                    className: currentState === 'month' ? 'me-2 active' : 'me-2',
+                  })}
                   onClick={() => {
                     setCurrentState('month')
                   }}
@@ -176,10 +178,12 @@ const UpgradePlan: FC = () => {
                 </a>
                 <a
                   href='#'
-                  className={
-                    'btn btn-color-gray-500 btn-active btn-active-secondary px-6 py-3 me-2 ' +
-                    (currentState === 'annual' && 'active')
-                  }
+                  data-slot='button'
+                  className={buttonVariants({
+                    variant: currentState === 'annual' ? 'secondary' : 'ghost',
+                    size: 'lg',
+                    className: currentState === 'annual' ? 'me-2 active' : 'me-2',
+                  })}
                   onClick={() => {
                     setCurrentState('annual')
                   }}
@@ -194,15 +198,21 @@ const UpgradePlan: FC = () => {
                   <div className='nav flex-column'>
                     {plans.map((plan, index) => {
                       return (
+                        // A Bootstrap tab (data-bs-toggle='tab') drawn as a dashed card; it holds a
+                        // radio and, for Custom, a button, so it cannot itself be a button.
                         <div
                           onClick={() => {
                             setSelected(plan.title)
                           }}
+                          role='tab'
+                          aria-selected={selected === plan.title}
                           className={
-                            `nav-link btn btn-outline btn-outline-dashed btn-color-dark d-flex flex-stack text-start p-6 ` +
-                            (index !== plans.length - 1 && 'mb-6 ') +
-                            (plan.default && 'active ') +
-                            (!plan.custom && 'btn-active btn-active-primary ')
+                            `nav-link d-flex flex-stack text-start p-6 rounded border border-dashed ` +
+                            (selected === plan.title && !plan.custom
+                              ? 'border-primary bg-light-primary '
+                              : 'border-gray-300 ') +
+                            (index !== plans.length - 1 ? 'mb-6 ' : '') +
+                            (plan.default ? 'active ' : '')
                           }
                           data-bs-toggle='tab'
                           data-bs-target={`#kt_upgrade_plan_${index}`}
@@ -236,7 +246,7 @@ const UpgradePlan: FC = () => {
 
                           <div className='ms-5'>
                             {plan.custom && (
-                              <button className='btn btn-sm btn-primary'>Contact Us</button>
+                              <Button size='sm'>Contact Us</Button>
                             )}
                             {!plan.custom && (
                               <>
@@ -322,13 +332,11 @@ const UpgradePlan: FC = () => {
             </div>
 
             <div className='d-flex flex-center flex-row-fluid pt-12'>
-              <button type='reset' className='btn btn-light me-3' data-bs-dismiss='modal'>
+              <Button type='reset' variant='outline' className='me-3' data-bs-dismiss='modal'>
                 Cancel
-              </button>
+              </Button>
 
-              <button type='submit' className='btn btn-primary'>
-                Upgrade Plan
-              </button>
+              <Button type='submit'>Upgrade Plan</Button>
             </div>
           </div>
         </div>

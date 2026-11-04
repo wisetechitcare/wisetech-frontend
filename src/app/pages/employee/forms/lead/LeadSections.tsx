@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Grid, Box, Typography, IconButton, CircularProgress, FormControlLabel } from "@mui/material";
+import { Grid, Box, Typography, CircularProgress, FormControlLabel } from "@mui/material";
 import { uploadLeadPoFile } from "@services/uploader";
 import axios from "axios";
 import { ProjectPointsSection } from "@app/modules/projectPoints";
@@ -7,7 +7,6 @@ import { ProjectPointsSection } from "@app/modules/projectPoints";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 import { FieldArray, useFormikContext } from "formik";
-import { Button } from "react-bootstrap";
 import { Close, Add, Delete, Help, CheckCircleOutline, InfoOutlined } from "@mui/icons-material";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
@@ -24,6 +23,8 @@ import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/Sma
 import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
+import { Button } from '@/ds/ui/button';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 /** Formik setFieldValue — named so LeadSections / LeadWorkspace props stay readable. */
 export type LeadSetFieldValue = (field: string, value: any, shouldValidate?: boolean) => void;
@@ -101,6 +102,15 @@ interface LeadSectionsProps {
  * has been populated.
  */
 const buildRowContacts = (team: any, index: number, props: LeadSectionsProps): any[] => {
+  const rows = filterRowContacts(team, index, props);
+  // A contact who has since moved company is no longer in that company's list, but this
+  // lead still names them — keep them, or the row shows blank and saving drops them.
+  const saved = team.contactId && !rows.some((c: any) => c.id === team.contactId)
+    && (props.contacts || []).find((c: any) => c.id === team.contactId);
+  return saved ? [...rows, saved] : rows;
+};
+
+const filterRowContacts = (team: any, index: number, props: LeadSectionsProps): any[] => {
   const allContacts = props.contacts || [];
   const cascadeContacts = props.teamFilteredContacts && props.teamFilteredContacts[index];
   if (Array.isArray(cascadeContacts) && cascadeContacts.length > 0) {
@@ -142,12 +152,37 @@ const mainCompanyTypeOptions = (companyTypes: any[]): { value: any; label: strin
   return list.filter((t: any) => !isSub(t)).map((t: any) => ({ value: t.id, label: t.name }));
 };
 
+/**
+ * Sub Categories options limited to the selected Categories (all of them when none is
+ * picked). A selected subcategory whose category gets removed is dropped from the value.
+ */
+const useScopedSubcategoryOptions = (subcategories: any[]) => {
+  const { values, setFieldValue } = useFormikContext<any>();
+  const categoryIds: string[] = values.categoryIds || [];
+
+  React.useEffect(() => {
+    if (!categoryIds.length) return;
+    const current: string[] = values.subcategoryIds || [];
+    const kept = current.filter((id) => {
+      const sub = (subcategories || []).find((s) => s.id === id);
+      return !sub?.categoryId || categoryIds.includes(sub.categoryId);
+    });
+    if (kept.length !== current.length) setFieldValue("subcategoryIds", kept);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryIds.join(), subcategories]);
+
+  return (subcategories || [])
+    .filter((s) => !categoryIds.length || categoryIds.includes(s.categoryId))
+    .map((s) => ({ value: s.id || s.value, label: s.name || s.label }));
+};
+
 // 1. Lead Details Section
 export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const transformToOptions = (arr: any[]) => {
     return (arr || []).map((x) => ({ value: x.id || x.value, label: x.name || x.label }));
   };
+  const subcategoryOptions = useScopedSubcategoryOptions(props.subcategories);
 
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
@@ -198,7 +233,7 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
           <MultiSelectWithInlineCreate
             formikField="subcategoryIds"
             inputLabel="Sub Categories"
-            options={transformToOptions(props.subcategories)}
+            options={subcategoryOptions}
             placeholder="Select subcategories..."
             isRequired={false}
             externalCreate
@@ -251,13 +286,13 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
 
                   return (
                     <div key={index} className="p-4 border rounded bg-light position-relative">
-                      <IconButton
+                      <WtIconButton
                         onClick={() => remove(index)}
                         sx={{ position: "absolute", top: 8, right: 8, color: "red" }}
                         size="small"
                       >
                         <Close fontSize="small" />
-                      </IconButton>
+                      </WtIconButton>
                       <Grid container spacing={2}>
                         <Grid item xs={12} md={3}>
                           <DropDownInput
@@ -303,11 +338,9 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                 })}
                 {/* Single Address To — hidden once one client connection exists. */}
                 {(values.leadTeams || []).length === 0 && (
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
+                  <Button variant="inverted" size="sm"
                     onClick={() => push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })}
-                    className="align-self-start fw-bold mt-2"
+                    className="align-self-start mt-2"
                   >
                     + Add Client Company Connection
                   </Button>
@@ -514,14 +547,14 @@ export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
             <div style={{ marginTop: 8, fontSize: 12, color: "#b45309" }}>
               No direct sources configured yet.
               {props.setShowDirectSourceModal && (
-                <button
+                <Button variant="link"
                   type="button"
-                  className="btn btn-link p-0 ms-1 align-baseline fw-bold"
+                  className="ms-1 align-baseline"
                   style={{ fontSize: 12 }}
                   onClick={() => props.setShowDirectSourceModal(true)}
                 >
                   + Add a Direct Source
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -599,14 +632,13 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
           <div className="d-flex flex-column gap-3">
             {(values.referrals || []).map((ref: any, index: number) => (
               <div key={index} className="wt-entry-card">
-                <button
+                <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                   type="button"
-                  className="wt-entry-card-remove"
                   onClick={() => remove(index)}
                   aria-label="Remove referral"
                 >
                   <Close fontSize="small" />
-                </button>
+                </Button>
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={4}>
                     <DropDownInput
@@ -731,12 +763,10 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                 </Grid>
               </div>
             ))}
-            <Button
-              variant="outline-primary"
-              size="sm"
+            <Button variant="inverted" size="sm"
               type="button"
               onClick={() => push({ referralType: "", referredByEmployeeId: "", referringCompanyType: "", referringCompany: "", referringContact: "" })}
-              className="align-self-start fw-bold mt-1"
+              className="align-self-start mt-1"
             >
               + Add Referral Source
             </Button>
@@ -762,9 +792,6 @@ export const CommercialsSection: React.FC = () => {
   return (
     <>
       <div className="card shadow-sm border p-6 bg-white mb-6">
-        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-          Commercial Work Areas
-        </Typography>
         <CommercialsGrid type="lead" />
       </div>
 
@@ -783,6 +810,7 @@ export const CommercialsSection: React.FC = () => {
         </Typography>
         <MeetingScheduleSelector />
       </div>
+
     </>
   );
 };
@@ -895,13 +923,13 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
               return (
                   <div className="position-relative" key={index}>
                     {values.addresses.length > 1 && (
-                      <IconButton
+                      <WtIconButton
                         onClick={() => remove(index)}
                         sx={{ position: "absolute", top: -8, right: 0, color: "red", zIndex: 10 }}
                         size="small"
                       >
                         <Close fontSize="small" />
-                      </IconButton>
+                      </WtIconButton>
                     )}
                     <SmartLocationPicker
                       lat={addr.latitude}
@@ -1002,11 +1030,9 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
                   </div>
               );
             })}
-            <Button
-              variant="outline-primary"
-              size="sm"
+            <Button variant="inverted" size="sm"
               onClick={() => push({ projectAddress: "", country: "", state: "", city: "", locality: "", zipCode: "", mapLocation: "", googleMapLink: "", googleMyBusinessLink: "", latitude: "", longitude: "", isDefault: false })}
-              className="align-self-start fw-bold mt-2"
+              className="align-self-start mt-2"
             >
               + Add Address details
             </Button>
@@ -1155,7 +1181,7 @@ const PoFileUpload: React.FC = () => {
         }}
       />
 
-      <div
+      <div data-wt-control="dropzone"
         onClick={url ? undefined : openPicker}
         onDragOver={(e) => { e.preventDefault(); if (!dragging) setDragging(true); }}
         onDragLeave={() => setDragging(false)}
@@ -1190,17 +1216,17 @@ const PoFileUpload: React.FC = () => {
               </div>
               <div style={{ fontSize: 11, color: "#a1a5b7" }}>Uploaded</div>
             </div>
-            <IconButton size="small" title="Preview" onClick={() => window.open(url, "_blank", "noopener,noreferrer")}>
+            <WtIconButton size="small" title="Preview" onClick={() => window.open(url, "_blank", "noopener,noreferrer")}>
               <AppIcon name="bi-eye" className="fs-5" color="#5e6278" />
-            </IconButton>
-            <IconButton size="small" title="Replace" disabled={!!busy} onClick={openPicker}>
+            </WtIconButton>
+            <WtIconButton size="small" title="Replace" disabled={!!busy} onClick={openPicker}>
               <AppIcon name="bi-arrow-repeat" className="fs-5" color="#5e6278" />
-            </IconButton>
-            <IconButton size="small" title="Remove" disabled={!!busy} onClick={remove}>
+            </WtIconButton>
+            <WtIconButton size="small" title="Remove" disabled={!!busy} onClick={remove}>
               {busy === "remove"
                 ? <CircularProgress size={14} />
                 : <AppIcon name="bi-trash" className="fs-5" color="#d13438" />}
-            </IconButton>
+            </WtIconButton>
           </>
         ) : (
           <>
@@ -1247,8 +1273,9 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
   return (
     <div className="card shadow-sm border p-6 bg-white mb-6">
       <Grid container spacing={3}>
-        {/* Lead Status — the only editable field in this step. */}
-        <Grid item xs={12}>
+        {/* Lead Status — the only editable field in this step. Shares its row with the
+            receipt fields once the lead is Received, so the whole step sits on one grid. */}
+        <Grid item xs={12} md={isReceived ? 4 : 12}>
           <DropDownInput
             formikField="statusId"
             inputLabel="Lead Status"
@@ -1351,101 +1378,52 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
         {/* When the status is project-triggering, capture the commercial/PO details
             right here — they're set once on receipt and become read-only on the
             Project detail page afterwards. */}
+        {/* Same three columns as the row above (Lead Status | Received Date | PO Document),
+            so the fields line up down the whole step. */}
         {isReceived && (
-          <Grid item xs={12}>
-            <div
-              className="d-flex align-items-center gap-3 p-4 rounded mb-4"
-              style={{ background: "#ecfdf5", border: "1px solid #a7f3d0" }}
-            >
-              <CheckCircleOutline style={{ color: "#15803d", fontSize: "2rem", flexShrink: 0 }} />
-              <div>
-                <div style={{ fontWeight: 700, color: "#0A5C2A", fontSize: 15 }}>
-                  This lead has been converted to a Project
-                </div>
-                <div style={{ color: "#15803d", fontSize: 13, marginTop: 2 }}>
-                  Add the received date, contract financials and purchase order details
-                  below — the lead record stays fully preserved.
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
-                  <DateInput
-                    formikField="receivedDate"
-                    inputLabel="Received Date"
-                    formikProps={props.formikProps}
-                    placeHolder="Select received date"
-                    isRequired={false}
-                  />
-                  <p className="text-muted fs-8 mt-2 mb-0">
-                    Auto-filled with the current date and time when you move the status to Received. Left as-is otherwise — clear it and it stays cleared.
-                  </p>
-                </Grid>
-                <Grid item xs={12} md={5}>
-                  <PoFileUpload />
-                </Grid>
-              </Grid>
-            </div>
-
-            <div className="mb-4">
-              <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-                Contract Financials
-              </Typography>
-              <p className="text-muted fs-8 mb-3">
-                Auto-filled from the Commercials step totals when the status is set to Received. Adjust if needed.
+          <>
+            <Grid item xs={12} md={4}>
+              <DateInput
+                formikField="receivedDate"
+                inputLabel="Received Date"
+                formikProps={props.formikProps}
+                placeHolder="Select received date"
+                isRequired={false}
+              />
+              <p className="text-muted fs-8 mt-2 mb-0">
+                Auto-filled with the current date and time when you move the status to Received. Left as-is otherwise — clear it and it stays cleared.
               </p>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <TextInput
-                    formikField="projectArea"
-                    label="Total Area (sqft)"
-                    isRequired={false}
-                    inputValidation="decimal"
-                  />
-                </Grid>
-                {canViewCommercial('projects') && (
-                <Grid item xs={12} md={6}>
-                  <TextInput
-                    formikField="projectMeta.finalCost"
-                    label="Final Cost"
-                    isRequired={false}
-                    inputValidation="decimal"
-                  />
-                </Grid>
-                )}
-              </Grid>
-            </div>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <PoFileUpload />
+            </Grid>
 
-            <div>
-              <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
+            <Grid item xs={12}>
+              <Typography className="fs-6 fw-bold text-gray-800 pb-2 border-bottom">
                 Purchase Order
               </Typography>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
-                  <DropDownInput
-                    formikField="poStatus"
-                    inputLabel="PO Status"
-                    isRequired={false}
-                    options={poStatusOptions}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <TextInput formikField="poNumber" label="PO Number" isRequired={false} />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <DateInput
-                    formikField="poDate"
-                    inputLabel="PO Date"
-                    formikProps={props.formikProps}
-                    placeHolder="Select PO Date"
-                    isRequired={false}
-                  />
-                </Grid>
-              </Grid>
-            </div>
-          </Grid>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <DropDownInput
+                formikField="poStatus"
+                inputLabel="PO Status"
+                isRequired={false}
+                options={poStatusOptions}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextInput formikField="poNumber" label="PO Number" isRequired={false} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <DateInput
+                formikField="poDate"
+                inputLabel="PO Date"
+                formikProps={props.formikProps}
+                placeHolder="Select PO Date"
+                isRequired={false}
+              />
+            </Grid>
+          </>
         )}
       </Grid>
     </div>
@@ -1543,16 +1521,14 @@ export const HandleBySection: React.FC<LeadSectionsProps> = (props) => {
                     type="number"
                   />
                 </div>
-                <IconButton onClick={() => remove(index)} color="error" className="mt-6">
+                <WtIconButton color="var(--cta-danger)" size="medium" onClick={() => remove(index)} className="mt-6">
                   <Delete />
-                </IconButton>
+                </WtIconButton>
               </div>
             ))}
-            <Button
-              variant="outline-primary"
-              size="sm"
+            <Button variant="inverted" size="sm"
               onClick={() => push({ employeeId: "", sharePercentage: "" })}
-              className="align-self-start fw-bold mt-2"
+              className="align-self-start mt-2"
             >
               + Add Work Handled Employee
             </Button>
@@ -1577,6 +1553,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
   const transformToOptions = (arr: any[]) =>
     (arr || []).map((x) => ({ value: x.id || x.value, label: x.name || x.label }));
+  const subcategoryOptions = useScopedSubcategoryOptions(props.subcategories);
 
   return (
     <div className="wt-section-card">
@@ -1600,7 +1577,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
           </Grid>
         )}
 
-        {/* Inquiry No + Revision No (read-only) + Date */}
+        {/* Inquiry No + Date */}
         <Grid item xs={12} md={4}>
           <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
             Inquiry No. <span className="text-danger">*</span>
@@ -1633,31 +1610,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
             </Typography>
           )}
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
-            Revision No.
-          </Typography>
-          <Box
-            sx={{
-              border: "1px solid #D0D5DD",
-              borderRadius: "8px",
-              px: 2,
-              height: "45px",
-              display: "flex",
-              alignItems: "center",
-              background: "#F3F4F6",
-              color: "#6B7280",
-              fontSize: "14px",
-              cursor: "not-allowed",
-            }}
-            title="Revision number is managed automatically by the audit system"
-          >
-            {props.currLeadData?.revisionCount !== undefined &&
-            props.currLeadData?.revisionCount !== null
-              ? `R${props.currLeadData.revisionCount}`
-              : "—"}
-          </Box>
-        </Grid>
+        {/* Revision No. is shown as a chip in the step header (LeadWorkspace). */}
         <Grid item xs={12} md={4}>
           <DateInput formikField="leadInquiryDate" inputLabel="Lead Inquiry Date" formikProps={props.formikProps} placeHolder="Select Date" isRequired={false} />
         </Grid>
@@ -1694,7 +1647,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
           <MultiSelectWithInlineCreate
             formikField="subcategoryIds"
             inputLabel="Sub Categories"
-            options={transformToOptions(props.subcategories)}
+            options={subcategoryOptions}
             placeholder="Select subcategories…"
             isRequired={false}
             externalCreate
@@ -1747,14 +1700,13 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
 
               return (
                 <div key={index} className="wt-entry-card">
-                  <button
+                  <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                     type="button"
-                    className="wt-entry-card-remove"
                     onClick={() => remove(index)}
                     aria-label="Remove company"
                   >
                     <Close fontSize="small" />
-                  </button>
+                  </Button>
                   <Grid container spacing={2}>
                     <Grid item xs={12} md={3}>
                       <DropDownInput
@@ -1824,14 +1776,12 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                 one-way into the project's External Team; additional stakeholders
                 are managed there, not here. */}
             {(values.leadTeams || []).length === 0 && (
-              <Button
-                variant="outline-primary"
-                size="sm"
+              <Button variant="inverted" size="sm"
                 type="button"
                 onClick={() =>
                   push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })
                 }
-                className="align-self-start fw-bold mt-1"
+                className="align-self-start mt-1"
               >
                 + Add Client Company Connection
               </Button>

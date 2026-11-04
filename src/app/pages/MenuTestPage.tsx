@@ -658,7 +658,7 @@ const MenuTestPage: FC = () => {
               data-kt-menu-permanent='true'
               data-kt-menu-placement='bottom-start'
             >
-              <div className='btn btn-icon btn-active-light-primary w-30px h-30px w-lg-40px h-lg-40px'>
+              <div data-wt-control="dev" className='btn btn-icon btn-active-light-primary w-30px h-30px w-lg-40px h-lg-40px'>
                 <span className=' fs-2 text-lg-1'>
                   <img src='/WT-logo.ico' alt='WT Logo' style={{width: '20px', height: '20px'}} />
                 </span>
@@ -704,7 +704,7 @@ const MenuTestPage: FC = () => {
                   >
                     <span className='spinner-border h-15px w-15px align-middle text-gray-500'></span>
                   </span>
-                  <span
+                  <span data-wt-control="dev"
                     className='btn btn-flush btn-active-color-primary position-absolute top-50 end-0 translate-middle-y lh-0 d-none'
                     id='kt_header_search_clear'
                   >

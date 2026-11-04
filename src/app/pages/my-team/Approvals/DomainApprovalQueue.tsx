@@ -26,6 +26,7 @@ import { tonePair, type SemanticTone } from '@app/theme/tokens';
 import { CircularProgress } from '@mui/material';
 import { formatTime } from '@utils/dateFormats';
 import { currencyPrefix } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 // A single leave segment within a multi-segment (sandwich) group request — one LeaveTracker row.
 type LeaveSegment = {
@@ -236,17 +237,16 @@ function RejectModal({ step, onClose, onConfirm, submitting, variant = 'reject' 
         )}
       </Modal.Body>
       <Modal.Footer style={{ gap: 8 }}>
-        <button className='btn btn-sm btn-light' data-unsaved-changes-close onClick={onClose} disabled={submitting}>
+        <Button variant="outline" size="sm" type="submit" data-unsaved-changes-close onClick={onClose} disabled={submitting}>
           Cancel
-        </button>
-        <button
-          className={`btn btn-sm ${copy.btnClass} d-flex align-items-center gap-2`}
+        </Button>
+        <Button variant={copy.btnClass === 'btn-danger' ? 'destructive' : 'default'} size="sm" type="submit"
           onClick={() => onConfirm(trimmed)}
           disabled={!canSubmit}
         >
           {submitting && <span className='spinner-border spinner-border-sm' />}
           {copy.confirm}
-        </button>
+        </Button>
       </Modal.Footer>
     </Modal>
   );
@@ -383,8 +383,8 @@ function ExpandedDetail({
                     {s.status === 2 && <ToneChip dense tone='danger' label='✕ Rejected' />}
                     {pending && canDecide && s.id && onDecide && (
                       <span className='d-inline-flex gap-2'>
-                        <button className='btn btn-sm btn-light-success py-1 px-3 fs-8' onClick={() => onDecide(s.id!, 'approved')}>Approve</button>
-                        <button className='btn btn-sm btn-light-danger py-1 px-3 fs-8' onClick={() => onDecide(s.id!, 'rejected')}>Reject</button>
+                        <Button variant="tinted" size="sm" type="submit" className="[--tint:var(--cta-success)]" onClick={() => onDecide(s.id!, 'approved')}>Approve</Button>
+                        <Button variant="tinted" size="sm" type="submit" className="[--tint:var(--cta-danger)]" onClick={() => onDecide(s.id!, 'rejected')}>Reject</Button>
                       </span>
                     )}
                     {pending && !canDecide && <ToneChip dense tone='warning' label='Waiting' />}
@@ -608,7 +608,7 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           if (d?.rejectedCount) pills.push({ label: `${d.rejectedCount} rejected`, tone: 'danger' });
           if (d?.resubmittedCount) pills.push({ label: `${d.resubmittedCount} sent again`, tone: 'indigo' });
           return (
-            <div
+            <div data-wt-control="row"
               role='button'
               style={{ cursor: 'pointer' }}
               onClick={(e: React.MouseEvent) => {
@@ -1030,21 +1030,20 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       <div className='d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2'>
         <div className='d-flex gap-2 flex-wrap'>
           {TABS.map((t) => (
-            <button
+            <Button variant={activeTab === t.key ? 'default' : 'outline'} size="sm" type="submit" aria-pressed={activeTab === t.key}
               key={t.key}
-              className={`btn btn-sm ${activeTab === t.key ? 'btn-primary' : 'btn-light'}`}
               onClick={() => setActiveTab(t.key)}
             >
               {t.label}
               {t.key === 'pending' && steps.length > 0 && activeTab === 'pending' && (
                 <span className='badge badge-circle badge-white ms-2 text-primary fw-bold'>{steps.length}</span>
               )}
-            </button>
+            </Button>
           ))}
         </div>
-        <button className='btn btn-sm btn-light-primary d-flex align-items-center gap-2' onClick={() => load(activeTab)} disabled={loading}>
+        <Button variant="tinted" size="sm" type="submit" onClick={() => load(activeTab)} disabled={loading}>
           <KTIcon iconName='arrows-circle' className='fs-5' />{loading ? 'Refreshing...' : 'Refresh'}
-        </button>
+        </Button>
       </div>
 
       <MaterialTable
@@ -1063,20 +1062,20 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             <span className='text-muted fs-7'>
               {selected.length} selected{selectedEmployeeIds.length > 1 ? ` · ${selectedEmployeeIds.length} employees` : ''}
             </span>
-            <button
-              className='btn btn-sm btn-light-success'
+            <Button variant="tinted" size="sm" type="submit"
+              className="[--tint:var(--cta-success)]"
               disabled={bulkBusy}
               onClick={() => runBulk('approve')}
             >
               {bulkBusy ? 'Working…' : 'Approve selected'}
-            </button>
-            <button
-              className='btn btn-sm btn-light-danger'
+            </Button>
+            <Button variant="tinted" size="sm" type="submit"
+              className="[--tint:var(--cta-danger)]"
               disabled={bulkBusy}
               onClick={() => runBulk('reject')}
             >
               Reject selected
-            </button>
+            </Button>
           </div>
         )}
         renderDetailPanel={({ row }: { row: MRT_Row<ApprovalStep> }) => (

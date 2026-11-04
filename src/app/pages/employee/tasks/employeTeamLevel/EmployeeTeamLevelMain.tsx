@@ -15,6 +15,7 @@ import {
     handleAddMultipleEmployees,
     handleDeleteEmployee
 } from './handlers/EmployeeHandlers';
+import { Button } from '@/ds/ui/button';
 
 const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
     levels: propLevels,
@@ -161,9 +162,9 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                         </p>
                     </div>
 
-                    {canWrite && <button
+                    {canWrite && <Button variant="ghost"
                         type="button"
-                        className="btn flex-shrink-0"
+                        className="flex-shrink-0"
                         style={{
                             fontFamily: 'Inter',
                             fontSize: '14px',
@@ -181,19 +182,18 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                         disabled={loading}
                     >
                         {loading ? 'Loading...' : 'Add New Level'}
-                    </button>}
+                    </Button>}
                 </div>
 
                 {/* Error Display */}
                 {error && (
                     <div className="alert alert-danger alert-dismissible fade show mb-4" role="alert">
                         <strong>Error:</strong> {error}
-                        <button
+                        <Button variant="ghost"
                             type="button"
-                            className="btn-close"
                             onClick={() => setError(null)}
                             aria-label="Close"
-                        ></button>
+                        ></Button>
                     </div>
                 )}
 
@@ -258,8 +258,7 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                                             <ul className="pagination mb-0" style={{ gap: '8px' }}>
                                                 {/* Previous Button */}
                                                 <li className={`page-item ${!pagination.hasPrevPage ? 'disabled' : ''}`}>
-                                                    <button
-                                                        className="btn"
+                                                    <Button variant="ghost" type="submit"
                                                         onClick={handlePrevious}
                                                         disabled={!pagination.hasPrevPage}
                                                         style={{
@@ -274,7 +273,7 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                                                         }}
                                                     >
                                                         Previous
-                                                    </button>
+                                                    </Button>
                                                 </li>
 
                                                 {/* Page Numbers */}
@@ -284,8 +283,7 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
 
                                                     return (
                                                         <li key={page} className="page-item">
-                                                            <button
-                                                                className="btn"
+                                                            <Button variant="ghost" type="submit"
                                                                 onClick={() => handlePageChange(page)}
                                                                 style={{
                                                                     border: '1px solid #c1c9d6',
@@ -301,15 +299,14 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                                                                 }}
                                                             >
                                                                 {page}
-                                                            </button>
+                                                            </Button>
                                                         </li>
                                                     );
                                                 })}
 
                                                 {/* Next Button */}
                                                 <li className={`page-item ${!pagination.hasNextPage ? 'disabled' : ''}`}>
-                                                    <button
-                                                        className="btn"
+                                                    <Button variant="ghost" type="submit"
                                                         onClick={handleNext}
                                                         disabled={!pagination.hasNextPage}
                                                         style={{
@@ -324,7 +321,7 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                                                         }}
                                                     >
                                                         Next
-                                                    </button>
+                                                    </Button>
                                                 </li>
                                             </ul>
                                         </nav>

@@ -142,9 +142,12 @@ export const EmployeeSelectionDialog: React.FC<EmployeeSelectionDialogProps> = (
                         {rows.map((emp) => {
                             const isSel = selected.has(emp.id);
                             return (
+                                // A multi-select card: checkbox semantics, kept a div because
+                                // `renderTrailing` can put a control of its own inside it.
                                 <div
                                     key={emp.id}
-                                    role="button"
+                                    role="checkbox"
+                                    aria-checked={isSel}
                                     tabIndex={0}
                                     onClick={() => onToggle(emp.id)}
                                     onKeyDown={(e) => {
@@ -182,7 +185,9 @@ export const EmployeeSelectionDialog: React.FC<EmployeeSelectionDialogProps> = (
 
                                     {/* Trailing: custom control when selected (e.g. time picker), else a check/empty pill */}
                                     {isSel && renderTrailing ? (
-                                        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="shrink-0">
+                                        // Propagation guard only (the card must not toggle when its
+                                        // trailing control is used); not interactive itself.
+                                        <div role="presentation" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="shrink-0">
                                             {renderTrailing(emp)}
                                         </div>
                                     ) : (

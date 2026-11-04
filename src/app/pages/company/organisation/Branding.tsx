@@ -4,6 +4,7 @@ import { PageLink, PageTitle } from "@metronic/layout/core";
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { KTCard, KTCardBody } from '@metronic/helpers';
+import { Button } from '@/ds/ui/button';
 
 // Breadcrumbs for the page
 const overviewBreadcrumbs: Array<PageLink> = [
@@ -69,9 +70,8 @@ const Branding: React.FC = () => {
 
                 <div className="row px-7 mb-0">
                   <div className="col-lg-12 text-end mb-5">
-                    <button
+                    <Button size="lg"
                       type="submit"
-                      className="btn btn-lg btn-primary"
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? (
@@ -82,7 +82,7 @@ const Branding: React.FC = () => {
                       ) : (
                         'Submit'
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </KTCardBody>

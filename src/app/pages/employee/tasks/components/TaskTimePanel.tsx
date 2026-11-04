@@ -18,9 +18,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-    Alert, Box, Button, Chip, CircularProgress, Collapse, Divider, Stack, Table, TableBody,
+    Alert, Box, Chip, CircularProgress, Collapse, Divider, Stack, Table, TableBody,
     TableCell, TableHead, TableRow, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { KTIcon } from '@metronic/helpers';
 import { AppDispatch, RootState } from '@redux/store';
 import { startTimerThunk, pauseTimerThunk, stopTimerThunk, selectTimer } from '@redux/slices/timer';
@@ -276,11 +277,10 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
     /** Log time without the timer — offered wherever the timer is (same people, same task). */
     const addLogButton = (
         <Button
-            variant="outlined"
-            startIcon={<KTIcon iconName="plus" className="fs-6" />}
+            variant="outline"
             onClick={() => setAddingLog(true)}
-            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, borderColor: 'divider', color: 'text.primary' }}
         >
+            <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="plus" className="fs-6" /></span>
             Add log
         </Button>
     );
@@ -368,19 +368,17 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                             (the next start opens a new one). This button used to say "Stop"
                             while dispatching pause. */}
                         <Button
-                            variant="outlined" color="warning"
-                            startIcon={<KTIcon iconName="timer" className="fs-6" />}
+                            variant="outline"
                             onClick={() => dispatch(pauseTimerThunk())}
-                            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
                         >
+                            <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="timer" className="fs-6" /></span>
                             Pause
                         </Button>
                         <Button
-                            variant="contained" color="error"
-                            startIcon={<KTIcon iconName="cross-circle" className="fs-6" />}
+                            variant="destructive"
                             onClick={() => void handleStop()}
-                            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
                         >
+                            <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="cross-circle" className="fs-6" /></span>
                             Stop &amp; save
                         </Button>
                     </Stack>
@@ -388,12 +386,10 @@ export const TaskTimePanel = ({ task, data, isLoading, isError, error }: TaskTim
                     <Stack direction="row" spacing={1} alignItems="center">
                         {addLogButton}
                         <Button
-                            variant="contained"
-                            startIcon={<KTIcon iconName="time" className="fs-6" />}
                             onClick={() => void handleStart()}
                             disabled={timer.isRunning}
-                            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
                         >
+                            <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="time" className="fs-6" /></span>
                             Start timer
                         </Button>
                     </Stack>

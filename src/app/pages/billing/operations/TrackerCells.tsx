@@ -296,7 +296,7 @@ export const TrackerStatusCell: React.FC<{ row: ProjectOverviewRow }> = ({ row }
             </WtButton>
             <WtButton
               size="small"
-              tone={pending === "CANCELLED" ? "danger" : "primary"}
+              tone={pending === "CANCELLED" ? "danger" : "accent"}
               disabled={!reason.trim() || transition.isPending}
               onClick={() => transition.mutate({ status: pending!, reason: reason.trim() })}
             >

@@ -43,7 +43,7 @@ function SubmissionMobileCard({ row, onOpen }: SubmissionMobileCardProps) {
     const open = () => onOpen?.(row?.id ?? row?._id);
 
     return (
-        <div
+        <div data-wt-control="row"
             role={onOpen ? 'button' : undefined}
             tabIndex={onOpen ? 0 : undefined}
             onClick={onOpen ? open : undefined}

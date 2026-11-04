@@ -168,15 +168,22 @@ export async function createDriveApi(input: {
   giftItem: string;
   driveDate?: string;
   sourceGroupId?: string;
+  sourceGroupIds?: string[];
+  members?: PersonRef[];
   fromRunId?: string;
   defaultQuantity?: number;
   costPerGift?: number | null;
+  sizeUnit?: string;
+  sizePerGift?: string;
 }) {
   const res = await post<{ drive: CourtesyDrive }>(GIFTS.DRIVES, input);
   return res.drive;
 }
 
-export async function updateDriveApi(id: string, patch: Partial<CourtesyDrive>) {
+export async function updateDriveApi(
+  id: string,
+  patch: Partial<CourtesyDrive> & { sourceGroupIds?: string[] },
+) {
   const res = await patchJson<{ drive: CourtesyDrive }>(path(GIFTS.DRIVE_BY_ID, { id }), patch);
   return res.drive;
 }
@@ -254,7 +261,19 @@ export async function removeRunRecipientsApi(driveId: string, recipientIds: stri
   return res.drive;
 }
 
-type ConfigKindPath = "occasions" | "delivery-statuses" | "gift-run-statuses" | "delivery-modes";
+type ConfigKindPath =
+  | "occasions"
+  | "delivery-statuses"
+  | "gift-run-statuses"
+  | "delivery-modes"
+  | "units";
+
+/** Units only: `includeInactive` adds deactivated units plus `isActive` / `inUse` (Configure). */
+export async function fetchConfigOptionsApi(kind: ConfigKindPath, includeInactive = false) {
+  const qs = includeInactive ? "?includeInactive=1" : "";
+  const res = await get<{ options: ConfigOption[] }>(`${path(GIFTS.CONFIG_KIND, { kind })}${qs}`);
+  return res.options;
+}
 
 export async function createConfigOptionApi(kind: ConfigKindPath, option: ConfigOption) {
   const res = await post<{ option: ConfigOption }>(path(GIFTS.CONFIG_KIND, { kind }), option);

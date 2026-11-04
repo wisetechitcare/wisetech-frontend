@@ -1,21 +1,11 @@
 import React from 'react';
-import {
-    Box,
-    Button,
-    Chip,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    IconButton,
-    Stack,
-    Typography,
-} from '@mui/material';
+import { Box, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import dayjs from 'dayjs';
 import { IncrementRecord } from '@services/incrementService';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { T } from '@app/modules/common/components/ui/tokens';
+import { WtIconButton, WtButton } from '@app/modules/common/components/ui/buttons';
 
 interface DialogProps {
     open: boolean;
@@ -48,9 +38,9 @@ const IncrementDetailDialog = ({ open, onClose, record, employeeName }: DialogPr
             <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.15rem', color: T.color.ink }}>
                 Increment Details
             </Typography>
-            <IconButton size="small" onClick={onClose} sx={{ color: T.color.inkSoft }}>
+            <WtIconButton size="small" onClick={onClose} sx={{ color: T.color.inkSoft }}>
                 <CloseIcon fontSize="small" />
-            </IconButton>
+            </WtIconButton>
         </DialogTitle>
 
         {record && (
@@ -102,9 +92,9 @@ const IncrementDetailDialog = ({ open, onClose, record, employeeName }: DialogPr
         )}
 
         <DialogActions sx={{ px: 3, py: 1.75 }}>
-            <Button onClick={onClose} sx={{ textTransform: 'none', fontWeight: 600, color: T.color.inkSoft }}>
+            <WtButton variant="text" onClick={onClose} sx={{ textTransform: 'none', fontWeight: 600, color: T.color.inkSoft }}>
                 Close
-            </Button>
+            </WtButton>
         </DialogActions>
     </Dialog>
 );

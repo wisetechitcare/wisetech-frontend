@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { Button } from '@/ds/ui/button';
 
 /**
  * SmartAvatar — premium, brand-aware avatar for companies and contacts.
@@ -410,27 +411,13 @@ const SmartAvatar: React.FC<Props> = ({
             cursor: "zoom-out",
           }}
         >
-          <button
+          <Button variant="tinted" size="icon-sm" style={{ position: "absolute", top: 18, right: 24, '--tint': 'white', '--tint-ink': 'white' } as import('react').CSSProperties}
             type="button"
             onClick={(e) => { e.stopPropagation(); setShowPreview(false); }}
             aria-label="Close"
-            style={{
-              position: "absolute",
-              top: 18,
-              right: 24,
-              width: 40,
-              height: 40,
-              borderRadius: "50%",
-              border: "none",
-              background: "rgba(255,255,255,0.14)",
-              color: "#fff",
-              fontSize: 24,
-              lineHeight: 1,
-              cursor: "pointer",
-            }}
           >
             ×
-          </button>
+          </Button>
           <img
             src={cleanUrl || undefined}
             alt={name || ""}

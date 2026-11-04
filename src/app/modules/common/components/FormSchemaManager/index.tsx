@@ -1,10 +1,12 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 
 import { v4 as uuidv4 } from 'uuid';
 import { IFormField, IFormSection, FormFieldType } from '@models/company';
-import { IconClose } from '@app/modules/common/components/icons/OrgIcons';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
+import { Button } from '@/ds/ui/button';
+import { Item } from '@/ds/ui/item';
 
 export type { IFormField as SchemaField, IFormSection as SchemaSection, FormFieldType as FieldType };
 
@@ -43,26 +45,26 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
 
-function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+// A switch, so a native button with switch semantics (not a kit Button): same look, now also
+// reachable and operable from the keyboard.
+function Toggle({ value, onChange, disabled, label }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; label?: string }) {
   return (
-    <div onClick={() => !disabled && onChange(!value)}
+    <button type="button" role="switch" aria-checked={value} aria-label={label} disabled={disabled}
+      onClick={() => onChange(!value)}
       style={{ width: 38, height: 21, borderRadius: 999, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, background: value ? C.brand : '#CDD2DC', position: 'relative', transition: 'background .2s', flexShrink: 0 }}>
-      <div style={{ position: 'absolute', top: 3, left: value ? 20 : 3, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left .2s', boxShadow: '0 1px 2px rgba(0,0,0,.2)' }} />
-    </div>
+      <span style={{ position: 'absolute', top: 3, left: value ? 20 : 3, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left .2s', boxShadow: '0 1px 2px rgba(0,0,0,.2)' }} />
+    </button>
   );
 }
 
+const DANGER_TINT = { '--tint': 'var(--cta-danger)' } as CSSProperties;
+
 function IconBtn({ children, onClick, disabled, title, danger }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; title?: string; danger?: boolean }) {
   return (
-    <button type="button" title={title} disabled={disabled} onClick={onClick}
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26,
-        borderRadius: 6, fontSize: 12, lineHeight: 1, cursor: disabled ? 'not-allowed' : 'pointer',
-        border: `1px solid ${danger ? '#F3C7C7' : C.line}`, background: danger ? '#FFF5F5' : '#fff',
-        color: danger ? '#D14343' : C.inkSoft, opacity: disabled ? 0.4 : 1, transition: 'all .12s',
-      }}>
+    <Button variant={danger ? 'tinted' : 'outline'} size="icon-xs" title={title} aria-label={title}
+      disabled={disabled} onClick={onClick} style={danger ? DANGER_TINT : undefined}>
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -141,7 +143,7 @@ function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSect
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 7, letterSpacing: '.3px' }}>REQUIRED</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Toggle value={required} disabled={field.essential} onChange={required => onChange({ required })} />
+            <Toggle value={required} disabled={field.essential} onChange={required => onChange({ required })} label="Required" />
             <span style={{ fontSize: 12, fontWeight: 600, color: required ? C.brand : C.inkFaint }}>{field.essential ? 'Always' : required ? 'Yes' : 'No'}</span>
           </div>
         </div>
@@ -149,7 +151,7 @@ function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSect
           {/* Whether this field shows on the read-only Organization Info page (undefined = shown). */}
           <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 7, letterSpacing: '.3px' }}>ON INFO PAGE</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Toggle value={field.showOnInfoPage !== false} onChange={v => onChange({ showOnInfoPage: v })} />
+            <Toggle value={field.showOnInfoPage !== false} onChange={v => onChange({ showOnInfoPage: v })} label="Show on info page" />
             <span style={{ fontSize: 12, fontWeight: 600, color: field.showOnInfoPage !== false ? C.brand : C.inkFaint }}>{field.showOnInfoPage !== false ? 'Show' : 'Hide'}</span>
           </div>
         </div>
@@ -332,7 +334,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
             </div>
           </div>
         </div>
-        <button type="button" data-unsaved-changes-close onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.line}`, background: '#fff', color: C.inkSoft, cursor: 'pointer', display: 'grid', placeItems: 'center' }}><IconClose size={16} /></button>
+        <WtCloseButton data-unsaved-changes-close onClick={onClose} size={32} />
       </div>
 
       {/* Body */}
@@ -346,33 +348,38 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
               const on = s.id === activeId;
               const cf = s.fields.filter(f => !f.isSystem).length;
               return (
-                <div key={s.id} onClick={() => setActiveId(s.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 11px', borderRadius: 9, marginBottom: 4, cursor: 'pointer', background: on ? C.brandSoft : 'transparent', border: `1px solid ${on ? C.brandBorder : 'transparent'}`, transition: 'all .12s' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: on ? 700 : 600, color: on ? C.brand : C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title || 'Untitled'}</div>
-                    <div style={{ fontSize: 11, color: C.inkFaint, marginTop: 1 }}>
-                      {s.fields.filter(f => f.isSystem).length} built-in{cf > 0 ? ` · +${cf} custom` : ''}
-                    </div>
-                  </div>
+                // The row is the selector (a kit Item rendered as a button); its move / delete
+                // buttons sit beside it in the same row, never inside a button.
+                <div key={s.id}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: on || !s.isSystem ? 11 : 0, borderRadius: 9, marginBottom: 4, background: on ? C.brandSoft : 'transparent', border: `1px solid ${on ? C.brandBorder : 'transparent'}`, transition: 'all .12s' }}>
+                  <Item render={<button type="button" />} onClick={() => setActiveId(s.id)} aria-current={on || undefined}
+                    className="flex-nowrap text-left"
+                    style={{ flex: 1, minWidth: 0, padding: on || !s.isSystem ? '10px 0 10px 11px' : '10px 11px', border: 'none', borderRadius: 9, cursor: 'pointer' }}>
+                    <span style={{ display: 'block', flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: on ? 700 : 600, color: on ? C.brand : C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title || 'Untitled'}</span>
+                      <span style={{ display: 'block', fontSize: 11, color: C.inkFaint, marginTop: 1 }}>
+                        {s.fields.filter(f => f.isSystem).length} built-in{cf > 0 ? ` · +${cf} custom` : ''}
+                      </span>
+                    </span>
+                  </Item>
                   {on && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <button type="button" disabled={i === 0} onClick={e => { e.stopPropagation(); moveSection(i, -1); }} style={{ border: 'none', background: 'none', fontSize: 9, cursor: i === 0 ? 'default' : 'pointer', opacity: i === 0 ? 0.3 : 0.7, padding: 0, color: C.brand, lineHeight: 1 }}>▲</button>
-                      <button type="button" disabled={i === local.length - 1} onClick={e => { e.stopPropagation(); moveSection(i, 1); }} style={{ border: 'none', background: 'none', fontSize: 9, cursor: i === local.length - 1 ? 'default' : 'pointer', opacity: i === local.length - 1 ? 0.3 : 0.7, padding: 0, color: C.brand, lineHeight: 1 }}>▼</button>
+                      <Button variant="tinted" size="icon-xs" aria-label="Move section up" disabled={i === 0} onClick={e => { e.stopPropagation(); moveSection(i, -1); }} style={{ height: 16 }}>▲</Button>
+                      <Button variant="tinted" size="icon-xs" aria-label="Move section down" disabled={i === local.length - 1} onClick={e => { e.stopPropagation(); moveSection(i, 1); }} style={{ height: 16 }}>▼</Button>
                     </div>
                   )}
                   {!s.isSystem && (
-                    <button type="button" title="Delete section" onClick={e => { e.stopPropagation(); deleteSection(s.id); }}
-                      style={{ border: 'none', background: 'none', fontSize: 13, color: '#D14343', cursor: 'pointer', opacity: 0.65, padding: '0 2px', lineHeight: 1 }}>✕</button>
+                    <Button variant="tinted" size="icon-xs" title="Delete section" aria-label="Delete section" onClick={e => { e.stopPropagation(); deleteSection(s.id); }}
+                      style={DANGER_TINT}>✕</Button>
                   )}
                 </div>
               );
             })}
           </div>
           <div style={{ padding: 12, borderTop: `1px solid ${C.line}` }}>
-            <button type="button" onClick={addSection}
-              style={{ width: '100%', background: C.brandSoft, border: `1.5px dashed ${C.brand}`, borderRadius: 9, padding: 10, color: C.brand, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+            <Button variant="tinted" className="w-full" onClick={addSection}>
               + Add New Section
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -395,7 +402,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
 
                 {/* Whether this whole section appears on the read-only Organization Info page. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '10px 14px', border: `1px solid ${C.line}`, borderRadius: 10, background: '#fff' }}>
-                  <Toggle value={active.showOnInfoPage !== false} onChange={v => patchSection({ showOnInfoPage: v })} />
+                  <Toggle value={active.showOnInfoPage !== false} onChange={v => patchSection({ showOnInfoPage: v })} label="Show section on info page" />
                   <div>
                     <div style={{ fontSize: 12.5, fontWeight: 700, color: active.showOnInfoPage !== false ? C.brand : C.inkFaint }}>
                       {active.showOnInfoPage !== false ? `Shown on ${infoPageLabel} Info page` : `Hidden from ${infoPageLabel} Info page`}
@@ -409,10 +416,9 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft, letterSpacing: '.4px' }}>FIELDS</span>
                 <div style={{ flex: 1, height: 1, background: C.line }} />
-                <button type="button" onClick={addField}
-                  style={{ background: C.brand, border: 'none', borderRadius: 8, padding: '7px 16px', color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', boxShadow: '0 1px 3px rgba(30, 58, 138,.3)' }}>
+                <Button size="sm" onClick={addField}>
                   + Add Field
-                </button>
+                </Button>
               </div>
 
               {(() => {
@@ -444,10 +450,9 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
                           {hiddenFields.map(f => (
                             <div key={f.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 999, padding: '5px 6px 5px 12px' }}>
                               <span style={{ fontSize: 12.5, fontWeight: 600, color: C.inkSoft }}>{f.label}</span>
-                              <button type="button" onClick={() => restoreField(f.id)} title="Restore field to the form"
-                                style={{ border: `1px solid ${C.brandBorder}`, background: C.brandSoft, color: C.brand, borderRadius: 999, fontSize: 11, fontWeight: 700, padding: '3px 10px', cursor: 'pointer' }}>
+                              <Button variant="tinted" size="xs" onClick={() => restoreField(f.id)} title="Restore field to the form">
                                 Restore
-                              </button>
+                              </Button>
                             </div>
                           ))}
                         </div>
@@ -467,8 +472,8 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', padding: '14px 26px', borderTop: `1px solid ${C.line}`, background: C.surface }}>
         <span style={{ fontSize: 12, color: C.inkFaint }}>Changes apply after you click <b style={{ color: C.inkSoft }}>Update</b> on the form.</span>
         <div style={{ display: 'flex', gap: 10, flexGrow: 1, justifyContent: 'flex-end' }}>
-          <button type="button" data-unsaved-changes-close onClick={onClose} style={{ background: '#fff', border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 22px', fontWeight: 600, color: C.inkSoft, cursor: 'pointer', fontSize: 14 }}>Cancel</button>
-          <button type="button" onClick={handleSave} style={{ background: C.brand, border: 'none', borderRadius: 8, padding: '9px 28px', fontWeight: 700, color: '#fff', cursor: 'pointer', fontSize: 14, boxShadow: '0 1px 3px rgba(30, 58, 138,.3)' }}>Apply Changes</button>
+          <Button variant="outline" data-unsaved-changes-close onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave}>Apply Changes</Button>
         </div>
       </div>
       </Modal>

@@ -4,6 +4,7 @@ import { BreakdownTableProps } from '../../types/payroll.types';
 import { formatMoneyDecimal, formatValue, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 const BreakdownTable: React.FC<BreakdownTableProps> = ({
     data,
@@ -284,9 +285,9 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                         <span className="fw-bolder fs-4 me-0 me-md-3" style={{ color: '#2563eb' }}>TOTAL GROSS PAY</span>
                         <div className="d-none d-md-block">
                             <OverlayTrigger placement="top" overlay={renderTooltip}>
-                                <span className="btn btn-icon btn-circle btn-sm" style={{ backgroundColor: '#dbeafe' }}>
+                                <Button variant="tinted" size="icon-sm">
                                     <AppIcon name="bi-info-circle" className="text-gray-600 fs-6" />
-                                </span>
+                                </Button>
                             </OverlayTrigger>
                         </div>
                     </div>

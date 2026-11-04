@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import dayjs, { Dayjs } from 'dayjs';
@@ -15,6 +15,7 @@ import { T } from '@app/modules/common/components/ui/tokens';
 import AddEditIncrementDialog from '@app/modules/employee/salary/AddEditIncrementDialog';
 import { useIncrementData, IncrementMode } from './useIncrementData';
 import IncrementDashboard from './components/IncrementDashboard';
+import { WtButton } from '@app/modules/common/components/ui/buttons';
 
 /** Parse ?year= into a valid fiscal start year, falling back to the current year. */
 function resolveYear(param: string | null): string {
@@ -133,7 +134,7 @@ function IncrementView({ fromAdmin = false }: { fromAdmin?: boolean }) {
                     )}
 
                     {canWrite && (
-                        <Button
+                        <WtButton
                             variant="contained"
                             startIcon={<AddIcon sx={{ fontSize: 16 }} />}
                             onClick={() => setShowAddDialog(true)}
@@ -150,7 +151,7 @@ function IncrementView({ fromAdmin = false }: { fromAdmin?: boolean }) {
                             }}
                         >
                             Add Increment
-                        </Button>
+                        </WtButton>
                     )}
                 </Box>
             </Box>

@@ -2,6 +2,7 @@
 import React, {useRef, useState} from 'react'
 import {Modal} from 'react-bootstrap'
 import {KTIcon} from '../../helpers'
+import { Button, buttonVariants } from '@/ds/ui/button';
 
 export type Props = {
   show: boolean
@@ -34,13 +35,12 @@ const InboxCompose: React.FC<Props> = ({show, handleClose}) => {
             <h5 className='fw-bold m-0'>Compose</h5>
             <div className='d-flex ms-2'>
               {/*begin::Close*/}
-              <div
-                className='btn btn-icon btn-sm btn-light-primary ms-2'
+              <Button variant="tinted" size="icon-sm" aria-label="Close" className="ms-2"
                 data-bs-dismiss='modal'
                 onClick={handleClose}
               >
                 <KTIcon className='fs-1' iconName='cross' />
-              </div>
+              </Button>
               {/*end::Close*/}
             </div>
           </div>
@@ -88,9 +88,9 @@ const InboxCompose: React.FC<Props> = ({show, handleClose}) => {
                   onChange={(e) => setComposeCC(e.target.value)}
                 />
               </div>
-              <span className='btn btn-active-light-primary btn-sm btn-icon' data-inbox='cc-hide'>
+              <Button variant="ghost" size="icon-sm" aria-label="Hide Cc" data-inbox='cc-hide'>
                 <i className='la la-close '></i>
-              </span>
+              </Button>
             </div>
             {/*end::CC*/}
 
@@ -106,9 +106,9 @@ const InboxCompose: React.FC<Props> = ({show, handleClose}) => {
                   onChange={(e) => setComposeBCC(e.target.value)}
                 />
               </div>
-              <span className='btn btn-active-light-primary btn-sm btn-icon' data-inbox='bcc-hide'>
+              <Button variant="ghost" size="icon-sm" aria-label="Hide Bcc" data-inbox='bcc-hide'>
                 <i className='la la-close '></i>
-              </span>
+              </Button>
             </div>
             {/*end::BCC*/}
 
@@ -156,12 +156,11 @@ const InboxCompose: React.FC<Props> = ({show, handleClose}) => {
                   <div className='dropzone-toolbar'>
                     <span className='dropzone-delete' data-dz-remove>
                       {/*begin::Close*/}
-                      <span
-                        className='btn btn-icon btn-sm btn-active-light-primary ms-2'
+                      <Button variant="ghost" size="icon-sm" aria-label="Close" className="ms-2"
                         data-bs-dismiss='modal'
                       >
                         <KTIcon className='fs-1' iconName='cross' />
-                      </span>
+                      </Button>
                       {/*end::Close*/}
                     </span>
                   </div>
@@ -177,18 +176,18 @@ const InboxCompose: React.FC<Props> = ({show, handleClose}) => {
             {/*begin::Actions*/}
             <div className='d-flex align-items-center me-3'>
               {/*begin::Send*/}
-              <button className='btn btn-primary me-4 px-6'>Send</button>
+              <Button type="submit" className="me-4">Send</Button>
               {/*end::Send*/}
 
               {/*begin::Other*/}
-              <a
+              <a data-slot="button"
                 href='#'
-                className='btn btn-icon btn-active-light-primary me-2'
+                className={buttonVariants({ variant: 'ghost', size: 'icon', className: "me-2" })}
                 id='kt_inbox_compose_attachments_select'
               >
                 <KTIcon className='fs-1' iconName='cloud-add' />
               </a>
-              <a href='#' className='btn btn-icon btn-active-light-primary'>
+              <a data-slot="button" href='#' className={buttonVariants({ variant: 'ghost', size: 'icon' })}>
                 <KTIcon className='fs-1' iconName='geolocation' />
               </a>
               {/*end::Other*/}
@@ -197,13 +196,13 @@ const InboxCompose: React.FC<Props> = ({show, handleClose}) => {
 
             {/*begin::Toolbar*/}
             <div className='d-flex align-items-center'>
-              <button
-                className='btn btn-icon btn-active-light-primary me-2'
+              <Button variant="ghost" size="icon" type="submit" aria-label="More actions"
+                className="me-2"
                 data-bs-toggle='tooltip'
                 title='More actions'
               >
                 <KTIcon className='fs-1' iconName='setting-2' />
-              </button>
+              </Button>
             </div>
             {/*end::Toolbar*/}
           </div>

@@ -12,6 +12,8 @@ import type {
   ExportStep,
 } from "../types/dms.types";
 import { KTIcon } from "@metronic/helpers";
+import { Button } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 type ExportFormat = "docx" | "pdf";
 
@@ -279,53 +281,16 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                   replace it?
                 </p>
                 <div style={{ display: "flex", gap: "12px" }}>
-                  <button
+                  <Button variant="outline" type="submit" style={{ flex: 1 }}
                     onClick={() => setShowConfirmReplace(false)}
-                    style={{
-                      flex: 1,
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: "1.5px solid #e2e8f0",
-                      background: "white",
-                      color: "#475569",
-                      fontWeight: 700,
-                      fontSize: "14px",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "#f8fafc")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "white")
-                    }
                   >
                     No
-                  </button>
-                  <button
+                  </Button>
+                  <Button type="submit" style={{ flex: 1 }}
                     onClick={() => handleStartExport(true)}
-                    style={{
-                      flex: 1,
-                      padding: "14px",
-                      borderRadius: "14px",
-                      border: "none",
-                      background: "linear-gradient(135deg, #ef4444, #dc2626)",
-                      color: "white",
-                      fontWeight: 700,
-                      fontSize: "14px",
-                      cursor: "pointer",
-                      boxShadow: "0 8px 20px rgba(239,68,68,0.25)",
-                      transition: "all 0.2s",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.transform = "translateY(-2px)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.transform = "translateY(0)")
-                    }
                   >
                     Yes
-                  </button>
+                  </Button>
                 </div>
               </div>
             </motion.div>
@@ -383,32 +348,11 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
               </p>
             </div>
           </div>
-          <button
+          <Button variant="ghost" size="icon-sm" type="submit" aria-label="Close"
             onClick={onHide}
-            style={{
-              background: "#f1f5f9",
-              border: "none",
-              borderRadius: "10px",
-              width: "36px",
-              height: "36px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#94a3b8",
-              transition: "all 0.2s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#e2e8f0";
-              e.currentTarget.style.color = "#475569";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#f1f5f9";
-              e.currentTarget.style.color = "#94a3b8";
-            }}
           >
             <KTIcon iconName="cross" className="fs-3" />
-          </button>
+          </Button>
         </div>
 
         {/* Body */}
@@ -561,7 +505,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                     const cfg = getExportTypeConfig(type);
                     const active = exportType === type;
                     return (
-                      <div
+                      <div data-wt-control="option" {...pressableProps(() => setExportType(type))}
                         key={type}
                         onClick={() => setExportType(type)}
                         style={{
@@ -642,7 +586,7 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                   >
                     {(["device", "cloud", "both"] as ExportDestination[]).map(
                       (dest) => (
-                        <div
+                        <div data-wt-control="segmented" {...pressableProps(() => setDestination(dest))}
                           key={dest}
                           onClick={() => setDestination(dest)}
                           style={{
@@ -778,27 +722,15 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
                       Controlled by lead revision status.
                     </p>
                   </div>
-                  <button
+                  <Button variant="ghost" size="icon-xs" type="submit" aria-label="Increase"
                     onClick={(e) => {
                       e.preventDefault();
                       setTempNumber((prev) => prev + 1);
                     }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      padding: 0,
-                      color: "#1E3A8A",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "3px",
-                    }}
                   >
                     <KTIcon iconName="plus" className="fs-6" />
                     New Version
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -816,27 +748,11 @@ export const ExportCenterModal: React.FC<ExportCenterModalProps> = ({
               background: "#fafafa",
             }}
           >
-            <button
+            <Button variant="outline" type="submit" style={{ flex: 1 }}
               onClick={onHide}
-              style={{
-                flex: 1,
-                padding: "13px",
-                borderRadius: "12px",
-                border: "1.5px solid #e2e8f0",
-                background: "white",
-                color: "#64748b",
-                fontSize: "14px",
-                fontWeight: 700,
-                cursor: "pointer",
-                transition: "all 0.18s",
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "#f8fafc")
-              }
-              onMouseLeave={(e) => (e.currentTarget.style.background = "white")}
             >
               Cancel
-            </button>
+            </Button>
             <motion.button
               whileHover={format ? { y: -2, boxShadow: "0 15px 35px rgba(30, 58, 138, 0.3)" } : {}}
               whileTap={format ? { y: 0 } : {}}

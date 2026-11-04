@@ -283,7 +283,3 @@ export interface ReportsDashboardResponse {
   revenue: RevenueStats;
 }
 
-export const getReportsDashboard = async (): Promise<ReportsDashboardResponse> => {
-  const { data } = await axios.get(`${API_BASE_URL}/${BILLING_REPORT.DASHBOARD}`);
-  return data;
-};

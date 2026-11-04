@@ -8,6 +8,7 @@ import { useDispatch } from 'react-redux';
 import { removeAuth } from '../core/AuthHelpers';
 import { logoutUser } from '@redux/slices/auth';
 import {toAbsoluteUrl} from '@metronic/helpers/AssetHelpers'
+import { Button } from '@/ds/ui/button';
 
 const resetPasswordSchema = Yup.object().shape({
     password: Yup.string().required('Password is required').min(8, 'Password should have atleast 8 characters'),
@@ -123,20 +124,14 @@ function ResetPasswordForm() {
 
             {/* begin::Action */}
             <div className='d-grid mb-10 mt-10'>
-                <button
+                <Button
                     type='submit'
                     id='kt_sign_in_submit'
-                    className='btn btn-primary'
                     disabled={formik.isSubmitting || !formik.isValid}
+                    loading={loading}
                 >
-                    {!loading && <span className='indicator-label'>Continue</span>}
-                    {loading && (
-                        <span className='indicator-progress' style={{ display: 'block' }}>
-                            Please wait...
-                            <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                        </span>
-                    )}
-                </button>
+                    {loading ? 'Please wait...' : 'Continue'}
+                </Button>
             </div>
             {/* end::Action */}
         </form>

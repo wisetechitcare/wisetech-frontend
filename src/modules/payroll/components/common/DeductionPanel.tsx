@@ -4,6 +4,7 @@ import { DeductionBreakdownProps } from '../../types/payroll.types';
 import { formatMoneyDecimal, formatMoneyDecimalTruncated, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
     deductionBreakdown,
@@ -428,9 +429,9 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                     <span className="fw-bolder text-danger fs-4 me-0 me-md-3">TOTAL DEDUCTIONS</span>
                     <div className="d-none d-md-block">
                         <OverlayTrigger placement="top" overlay={renderTooltip}>
-                            <span className="btn btn-icon btn-circle btn-sm bg-light">
+                            <Button variant="ghost" size="icon-sm" aria-label="About deductions">
                                 <AppIcon name="bi-info-circle" className="text-gray-600 fs-6" />
-                            </span>
+                            </Button>
                         </OverlayTrigger>
                     </div>
                 </div>

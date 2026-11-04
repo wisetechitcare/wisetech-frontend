@@ -48,7 +48,7 @@ export default function LeaveDetail({ step, onClose, onDone, canEdit, canDecide,
     ) : undefined;
 
     return (
-        <div
+        <div data-wt-control="backdrop"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
             style={{
                 position: 'fixed', inset: 0, zIndex: 1060, background: 'rgba(15,23,42,.45)',

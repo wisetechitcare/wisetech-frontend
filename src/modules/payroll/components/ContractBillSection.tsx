@@ -6,6 +6,7 @@ import { sendContractBillToEmployee } from '@services/employee';
 import { errorConfirmation } from '@utils/modal';
 import { toast } from 'react-toastify';
 import { Employee } from '@redux/slices/employee';
+import { Button } from '@/ds/ui/button';
 
 interface ContractBillSectionProps {
   employee: Employee | null;
@@ -190,41 +191,14 @@ const ContractBillSection: React.FC<ContractBillSectionProps> = ({
     >
       {salaryId && (
         <div style={{ position: 'relative' }}>
-          <button
+          <Button variant="outline" size="sm" type="submit"
             onClick={() => setDropdownOpen(!dropdownOpen)}
             disabled={loading}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '10px 22px',
-              border: '1.5px solid #1E3A8A',
-              borderRadius: '8px',
-              background: 'transparent',
-              color: '#1E3A8A',
-              fontWeight: 600,
-              fontSize: '14px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.6 : 1,
-              transition: 'all 0.2s',
-              whiteSpace: 'nowrap',
-            } as React.CSSProperties}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                (e.currentTarget as HTMLButtonElement).style.background = '#1E3A8A';
-                (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-              }
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-              (e.currentTarget as HTMLButtonElement).style.color = '#1E3A8A';
-            }}
           >
             <KTIcon iconName="file-invoice" className="fs-5" />
             Contract Bill
             <KTIcon iconName="down" className="fs-6" />
-          </button>
+          </Button>
 
           {dropdownOpen && (
             <div
@@ -242,7 +216,7 @@ const ContractBillSection: React.FC<ContractBillSectionProps> = ({
                 overflow: 'hidden',
               }}
             >
-              <button
+              <button data-wt-control="menuitem" role="menuitem"
                 onClick={handleDownloadContractBill}
                 disabled={loading}
                 style={{
@@ -276,7 +250,7 @@ const ContractBillSection: React.FC<ContractBillSectionProps> = ({
                 <span>{isDownloading ? 'Downloading...' : 'Download Bill'}</span>
               </button>
 
-              <button
+              <button data-wt-control="menuitem" role="menuitem"
                 onClick={handleEmailContractBill}
                 disabled={loading}
                 style={{

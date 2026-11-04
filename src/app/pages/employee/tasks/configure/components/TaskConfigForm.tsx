@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from "react";
 import { UnsavedChangesModal as Modal } from "@app/modules/common/components/ui";
-import { Button, Form } from "react-bootstrap";
+import { Form } from "react-bootstrap";
 import { Formik, Form as FormikForm, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 import {
@@ -30,6 +30,7 @@ import {
 } from "@utils/categoryScope";
 import { AppIcon, WtSwitchField } from "@app/modules/common/components/ui";
 import StatusGlyph, { STATUS_ICONS, STATUS_ICON_LABELS } from "@app/pages/employee/tasks/components/StatusGlyph";
+import { Button } from '@/ds/ui/button';
 
 interface ConfigFormProps {
   show: boolean;
@@ -515,7 +516,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                                   {path.join(PATH_SEPARATOR) || taskId}
                                 </span>
                               </div>
-                              <button
+                              <Button variant="ghost" size="icon-xs" style={{ flexShrink: 0 }}
                                 type="button"
                                 aria-label={`Remove ${path.join(PATH_SEPARATOR) || 'task'} from this stage`}
                                 onClick={() =>
@@ -525,18 +526,9 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                                     true
                                   )
                                 }
-                                style={{
-                                  border: 'none',
-                                  background: 'transparent',
-                                  color: '#c0392b',
-                                  cursor: 'pointer',
-                                  lineHeight: 1,
-                                  padding: '2px 4px',
-                                  flexShrink: 0,
-                                }}
                               >
                                 <AppIcon name="bi-x-lg" />
-                              </button>
+                              </Button>
                             </div>
                           );
                         })}
@@ -561,7 +553,7 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                     Choose Color
                   </label>
                   <div className="position-relative">
-                    <div
+                    <div data-wt-control="accordion"
                       className="d-flex align-items-center justify-content-between"
                       style={{
                         backgroundColor: '#f8f9fa',
@@ -669,7 +661,6 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
 
               <Modal.Footer style={{ borderTop: 'none', paddingTop: '0' }}>
                 <Button
-                  variant="primary"
                   type="submit"
                   disabled={isSubmitting}
                   style={{

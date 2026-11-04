@@ -1,9 +1,11 @@
 import React from "react";
-import { Box, Collapse, IconButton, Menu, MenuItem, Stack, Typography } from "@mui/material";
+import { Box, Collapse, Menu, MenuItem, Stack, Typography } from "@mui/material";
+import { Button } from "@/ds/ui/button";
 import { KTIcon } from "@metronic/helpers";
 import { ToneChip } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
+import { canDelete } from "@utils/can";
 import { BillingStatusBadge } from "../components";
 import type { ProformaNode, ProformaVersion } from "@services/proformas";
 
@@ -63,13 +65,18 @@ const ProformaTreeRow: React.FC<ProformaTreeRowProps> = ({
         }}
         onClick={onToggle}
       >
-        <IconButton
-          size="small"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label={expanded ? "Collapse revisions" : "Expand revisions"}
-          sx={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }}
         >
-          <KTIcon iconName="right" className="fs-6" />
-        </IconButton>
+          <span
+            className="inline-flex"
+            style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }}
+          >
+            <KTIcon iconName="right" className="fs-6" />
+          </span>
+        </Button>
 
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -97,13 +104,14 @@ const ProformaTreeRow: React.FC<ProformaTreeRowProps> = ({
           </Typography>
         </Box>
 
-        <IconButton
-          size="small"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label="Open proforma"
           onClick={(event) => { event.stopPropagation(); onOpen(); }}
         >
           <KTIcon iconName="exit-right-corner" className="fs-5" />
-        </IconButton>
+        </Button>
       </Stack>
 
       {/* ── Revisions ───────────────────────────────────────────────────── */}
@@ -143,13 +151,14 @@ const ProformaTreeRow: React.FC<ProformaTreeRowProps> = ({
                 {formatCurrencyDecimal(Number(node.grandTotal))}
               </Typography>
 
-              <IconButton
-                size="small"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 aria-label={`Actions for version ${version.versionNumber}`}
                 onClick={(event) => setMenu({ el: event.currentTarget, version })}
               >
                 <KTIcon iconName="dots-vertical" className="fs-5" />
-              </IconButton>
+              </Button>
             </Stack>
           ))}
         </Box>
@@ -161,7 +170,7 @@ const ProformaTreeRow: React.FC<ProformaTreeRowProps> = ({
         onClose={() => setMenu(null)}
         slotProps={{ paper: { sx: { minWidth: 200 } } }}
       >
-        {ACTIONS.filter((action) => action.key !== "delete" || menu?.version.canDelete).map((action) => (
+        {ACTIONS.filter((action) => action.key !== "delete" || (menu?.version.canDelete && canDelete("billing.proformas"))).map((action) => (
           <MenuItem
             key={action.key}
             sx={{ fontSize: 12.5, gap: 1 }}

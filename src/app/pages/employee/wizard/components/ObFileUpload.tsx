@@ -1,6 +1,7 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { Upload, FileText, X, Eye } from "lucide-react";
 import { DOCUMENT_ACCEPT, DOCUMENT_HINT, validateDocumentFile } from "@utils/fileValidation";
+import { Button } from '@/ds/ui/button';
 
 type ObFileUploadProps = {
   onChange: (file: File | null) => void;
@@ -91,7 +92,7 @@ function ObFileUpload({
 
   return (
     <>
-    <div
+    <div data-wt-control="dropzone"
       className={`ob-file-upload${disabled ? " is-disabled" : ""}${displayName ? " has-file" : ""}`}
       onClick={openPicker}
       onKeyDown={(e) => {
@@ -127,29 +128,27 @@ function ObFileUpload({
         </span>
       </div>
       {viewUrl && (
-        <button
+        <Button variant="ghost" size="icon-xs"
           type="button"
-          className="ob-file-upload-view"
           onClick={handleView}
           aria-label="View uploaded file"
           title="View uploaded file"
         >
           <Eye size={14} />
           <span>View</span>
-        </button>
+        </Button>
       )}
       <span className="ob-file-upload-action">
         {displayName ? "Change" : "Browse"}
       </span>
       {displayName && !disabled && (
-        <button
+        <Button variant="ghost" size="icon-xs"
           type="button"
-          className="ob-file-upload-clear"
           onClick={handleClear}
           aria-label="Remove file"
         >
           <X size={14} />
-        </button>
+        </Button>
       )}
     </div>
     {rejectionError && (

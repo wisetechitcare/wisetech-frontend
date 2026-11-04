@@ -210,7 +210,19 @@ export interface ProjectOverviewBill {
   kind: "PROFORMA" | "TAX_INVOICE";
   issueDate: string | null;
   amount: number;
+  /** The payment stage(s) this bill was raised for, e.g. "Advance". */
+  stageName: string | null;
   paymentStatus: PaymentStatus | null;
+}
+
+/** Footer sums for the Tracker, computed server-side over every row in the filtered set. */
+export interface ProjectOverviewTotals {
+  poValue: number;
+  receivedAmount: number;
+  pendingAmount: number;
+  totalBilled: number;
+  notBilledAmount: number;
+  expectedThisMonth: number;
 }
 
 export interface ProjectOverviewRow {
@@ -219,6 +231,8 @@ export interface ProjectOverviewRow {
   projectName: string | null;
   /** The client this project is for (the lead's company). */
   clientName: string | null;
+  /** The lead's owning organization (WISETECH MEP, …). Null for leads that predate organizations. */
+  organizationName: string | null;
   handledByName: string | null;
   projectStartDate: string | null;
   projectStatus: { name: string; color: string | null } | null;
@@ -256,21 +270,36 @@ export interface ProjectOverviewRow {
    */
   allowedTransitions: BillingOperationStatus[];
   lastPaymentAt: string | null;
+  /** What came in on the last payment date (receipts of that day added together). Null when nothing is paid. */
+  lastPaymentAmount: number | null;
   nextFollowUpDate: string | null;
   /** Always null today — no follow-up owner exists in the schema yet. */
   followUpManagerName: string | null;
+  /** Issued bills plus billing operations, summed. Cancelled rows are excluded. */
+  totalBilled: number;
+  /** poValue − totalBilled: the part of the PO no bill has been raised for. Null whenever poValue is. */
+  notBilledAmount: number | null;
+  /** What is still owed on bills and operations falling due this calendar month. */
+  expectedThisMonth: number;
   bill: ProjectOverviewBill | null;
 }
 
-export type ProjectOverviewSort =
-  | "projectNumber" | "projectName" | "clientName" | "poValue" | "receivedAmount"
-  | "pendingAmount" | "lastPaymentAt" | "nextFollowUpDate";
+/** Mirrors the backend's `PROJECT_SORT_KEYS` — every Operations column orders in SQL. */
+export const PROJECT_SORT_KEYS = [
+  "projectNumber", "projectName", "clientName", "poValue", "receivedAmount", "pendingAmount",
+  "lastPaymentAt", "nextFollowUpDate", "projectStartDate", "organizationName", "handledByName",
+  "projectStatus", "paymentStatus", "followUpManagerName", "totalBilled", "billDate", "billedStage",
+  "billNo", "billAmount", "billStatus", "notBilledAmount", "expectedThisMonth",
+  "lastPaymentAmount",
+] as const;
+export type ProjectOverviewSort = (typeof PROJECT_SORT_KEYS)[number];
 
 export interface ProjectOverviewParams {
   search?: string;
   status?: BillingOperationStatus | "";
   stage?: BillingOperationStage | "";
   projectManagerId?: string;
+  organizationId?: string;
   billPaymentStatus?: string;
   poApprovedOnly?: boolean;
   sortBy?: ProjectOverviewSort;
@@ -281,17 +310,25 @@ export interface ProjectOverviewParams {
 
 export const listProjectOverview = async (
   params: ProjectOverviewParams = {},
-): Promise<{ projects: ProjectOverviewRow[]; managers: Array<{ id: string; name: string }>; pagination: Pagination }> => {
+): Promise<{
+  projects: ProjectOverviewRow[];
+  managers: Array<{ id: string; name: string }>;
+  organizations: Array<{ id: string; name: string }>;
+  pagination: Pagination;
+  /** Sums over every row in scope, not the page. Drives the table's footer row. */
+  totals: ProjectOverviewTotals;
+}> => {
   const { data } = await axios.get(url(BILLING_OPERATION.PROJECTS), {
     params: clean(params),
     withCredentials: true,
   });
-  return { projects: data.projects ?? [], managers: data.managers ?? [], pagination: data.pagination };
-};
-
-export const getBillingOperationStatistics = async (): Promise<OperationStatistics> => {
-  const { data } = await axios.get(url(BILLING_OPERATION.STATISTICS), { withCredentials: true });
-  return data.statistics;
+  return {
+    projects: data.projects ?? [],
+    managers: data.managers ?? [],
+    organizations: data.organizations ?? [],
+    pagination: data.pagination,
+    totals: data.totals,
+  };
 };
 
 export const getBillingOperation = async (id: string): Promise<OperationDetail> => {
@@ -340,19 +377,9 @@ export const setProjectBillingFields = async (
   );
 };
 
-export const getOperationTimeline = async (id: string): Promise<OperationTimelineStep[]> => {
-  const { data } = await axios.get(url(BILLING_OPERATION.TIMELINE, id), { withCredentials: true });
-  return data.timeline ?? [];
-};
-
 export const getOperationActivity = async (id: string): Promise<OperationEvent[]> => {
   const { data } = await axios.get(url(BILLING_OPERATION.ACTIVITY, id), { withCredentials: true });
   return data.activity ?? [];
-};
-
-export const getOperationDocuments = async (id: string): Promise<OperationDocument[]> => {
-  const { data } = await axios.get(url(BILLING_OPERATION.DOCUMENTS, id), { withCredentials: true });
-  return data.documents ?? [];
 };
 
 export const addOperationNote = async (

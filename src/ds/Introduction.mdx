@@ -1,0 +1,69 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Introduction" />
+
+# WiseTech Design System — Visual Language v2
+
+The catalogue of the WiseTech UI kit: owned code from **shadcn/ui** (style `base-maia`) on
+**Base UI + Tailwind CSS v4**, with **React Aria** for locale-sensitive inputs (dates, times, numbers).
+Decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
+
+## Principles
+
+- **Roles, not colours.** Components use token roles (`primary`, `muted`, `success-soft`…) from
+  `src/ds/styles/globals.css` — never a hex value.
+- **One meaning per colour.** A single status set (success, warning, danger, info), each with a solid,
+  a soft fill and readable text, in light and dark.
+- **shadcn's design, our colours.** Components come from the shadcn CLI unchanged in shape, type and
+  motion; only the colour roles (navy brand, status set, per-tenant brand) are ours.
+- **Accessible by default.** Base UI and React Aria primitives, visible focus, keyboard-complete; every story is checked
+  with axe and fails on a violation.
+- **Status is never colour alone.** Badges carry text (and a dot); trends carry an arrow.
+
+## Where we differ from stock shadcn
+
+Everything in `src/ds/ui` comes from the shadcn CLI (`components.json`, style `base-maia`). Our only
+changes, each marked in the file:
+
+- **Badge** — the WiseTech status set (`success`, `warning`, `danger`, `info`, `brand`, `neutral`) and `dot`.
+- **Button** — the live app's WtButton recipe: the CTA gradient from a brighter brand to the brand with an
+  own-colour glow, an `inverted` variant (brand text on white, the "Choose Image" pill), bold labels with tight
+  tracking, 1px lift on hover, press to 0.975, spring easing. See Components/Button → States.
+- **Primitives** — Animate UI (`@animate-ui/react`) wraps the Base UI / React Aria primitives with Motion
+  springs (checkbox, switch, tabs, menus, dialogs, select, tooltip…). `KitProvider` sets
+  `MotionConfig reducedMotion="user"` so they honour the OS reduce-motion setting.
+- **Toaster** — follows our light/dark engine instead of `next-themes`.
+- **cmdk** (behind Command) — patched for three screen-reader bugs; see `pnpm-workspace.yaml`.
+- **Calendar, DateField, TimeField, DatePicker, NumberField** — React Aria (locale-aware: day-first dates,
+  1,00,000 grouping). The Calendar is shadcn's own React Aria calendar, adapted by hand: the CLI would replace
+  our Base UI Button and Select with React Aria ones. `KitProvider` (`src/ds/provider.tsx`) supplies the locale.
+  They wear shadcn's own parts through React Aria's contexts (`src/ds/ui/aria-field.tsx`): FieldLabel,
+  FieldDescription, FieldError and the InputGroup pill — no copied class strings.
+- **field.tsx / popover.tsx** — export `fieldVariants` and `popoverSurfaceClassName` so those React Aria fields
+  share them (rendered classes unchanged).
+
+Screens and patterns are composed only from these components; `src/ds/consistency.test.ts` fails the
+build if one hand-builds a button, input, textarea, kbd or card.
+
+## Appearance axes
+
+Use the toolbar above any story:
+
+| Axis | Values | Applied as |
+| --- | --- | --- |
+| Theme | Light · Dark | `.dark` on `<html>` |
+| Surface | Material · Glass | `data-surface` — Glass frosts chrome only; the work canvas stays opaque |
+| Density | Comfortable · Compact | `data-density` — compact shrinks the whole spacing scale |
+| Brand | WiseTech Navy · Teal · Violet · Graphite | `--brand` — per-tenant brand colour |
+
+## Sections
+
+- **Foundations** — colour roles, status, type scale, radius & shadow, spacing & density.
+- **Components** — the shadcn components in `src/ds/ui`.
+- **Patterns** — page header, stat card, empty state (`src/ds/patterns`).
+- **Effects** — moments only (KPI counters, one insight highlight, real celebrations), one implementation each,
+  CSS-first, nothing under reduced motion (`src/ds/effects`). Never in tables, forms, wizards or approvals.
+- **Screens** — prototypes of the new app shell and hero screens (`src/ds/prototypes`).
+
+For agents: the Storybook MCP server (`wisetech-storybook`) exposes these docs — check props with
+`docs-list` / `docs-show` before using a component, and run `test-run` after any UI change.

@@ -20,7 +20,6 @@ import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { TOOLBAR_ROW, lightToolbarButton } from './utils/toolbarButton';
-import { Button } from '@mui/material';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
 import { ReimbursementDraft, ReimbursementOption } from './utils/reimbursementTypes';
@@ -48,6 +47,8 @@ import { WtButton, AppIcon } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation, describeLimitBreach } from './utils/reimbursementSchema';
 import { currencyPrefix } from '@utils/currency';
+import { Button as KitButton } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 
@@ -663,8 +664,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       enableSorting: false,
       enableColumnActions: false,
       Cell: ({ row }) => (
-        <button
-          className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
+        <KitButton variant="ghost" size="icon-sm" type="submit"
+          className="w-[20px]"
           onClick={() => { if (row.original.document) setPreviewUrl(row.original.document); }}
           disabled={!row.original.document}
           aria-label={row.original.document ? 'Preview receipt' : 'No receipt attached'}
@@ -674,7 +675,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
             ? <KTIcon iconName='eye' className='fs-3' />
             : <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
           }
-        </button>
+        </KitButton>
       ),
     },
     {
@@ -685,22 +686,22 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       enableColumnActions: false,
       Cell: ({ row }) => (
         <div className='flex items-center justify-center space-x-4'>
-          <button
-            className='btn btn-icon btn-active-color-primary btn-sm w-[20px]'
+          <KitButton variant="ghost" size="icon-sm" type="submit"
+            className="w-[20px]"
             onClick={() => handleEdit(row.original)}
             aria-label='Edit this expense'
             title='Edit'
           >
             <i className='bi bi-pencil fs-4 text-gray-500' />
-          </button>
-          <button
-            className='btn btn-icon btn-active-color-primary btn-sm w-4'
+          </KitButton>
+          <KitButton variant="ghost" size="icon-sm" type="submit"
+            className="w-4"
             onClick={() => handleDelete(row.original.id)}
             aria-label='Delete this expense'
             title='Delete'
           >
             <i className='bi bi-trash3 fs-4 text-danger' />
-          </button>
+          </KitButton>
         </div>
       ),
     },
@@ -744,16 +745,16 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 // Same action, same emphasis as the one on the records bar below —
                 // this is the one the user sees once drafts exist, and the two must
                 // not disagree about how prominent "add a request" is.
-                <Button
+                <WtButton variant="text"
                   onClick={handleNew}
                   startIcon={<KTIcon iconName='plus' className='fs-3' />}
                   sx={lightToolbarButton('accent')}
                 >
                   Add Reimbursement Request
-                </Button>
+                </WtButton>
               )}
             {drafts.length > 0 && (
-              <Button
+              <WtButton variant="text"
                 onClick={handleSendForApproval}
                 disabled={submitting}
                 startIcon={
@@ -764,7 +765,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 sx={lightToolbarButton('success', submitting)}
               >
                 {submitting ? 'Submitting...' : 'Send for Approval'}
-              </Button>
+              </WtButton>
             )}
           </div>
         </div>
@@ -784,7 +785,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           hideFilters={false}
           showColumnFooter={true}
           renderMobileCard={({ row }: any) => (
-            <div
+            <div data-wt-control="row" {...pressableProps(() => handleEdit(row.original))}
               onClick={() => handleEdit(row.original)}
               style={{
                 padding: '12px', background: '#fff', border: `2px solid ${row.original?.isExceedingLimit ? '#ef4444' : '#f59e0b'}`,
@@ -1143,22 +1144,13 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                         }}
                       >
                         {/* Choose File button */}
-                        <button
+                        <KitButton variant="outline" size="sm" className="flex-shrink-0 h-100"
                           type='button'
                           onClick={() => fileInputRef.current?.click()}
-                          className='d-flex align-items-center gap-1 flex-shrink-0 h-100 px-3 border-0 fs-7 fw-semibold'
-                          style={{
-                            backgroundColor: '#e9ecef',
-                            color: '#5e6278',
-                            borderRight: '1px solid #dee2e6',
-                            borderRadius: '0.425rem 0 0 0.425rem',
-                            whiteSpace: 'nowrap',
-                            cursor: 'pointer',
-                          }}
                         >
                           <KTIcon iconName='paper-clip' className='fs-5' />
                           Choose File
-                        </button>
+                        </KitButton>
 
                         {/* Filename / placeholder */}
                         <div className='d-flex align-items-center gap-2 px-3 overflow-hidden flex-grow-1'>
@@ -1178,17 +1170,17 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                       {/* Action buttons — appear only when a document is attached */}
                       {formikProps.values.document && (
                         <>
-                          <button
+                          <KitButton variant="outline" size="icon-sm"
                             type='button'
-                            className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
+                            className="flex-shrink-0"
                             aria-label='Preview document' title='Preview document'
                             onClick={() => setPreviewUrl(justUploadedUrl ?? String(formikProps.values.document))}
                           >
                             <KTIcon iconName='eye' className='fs-3' />
-                          </button>
-                          <button
+                          </KitButton>
+                          <KitButton variant="outline" size="icon-sm"
                             type='button'
-                            className='btn btn-icon btn-light btn-active-light-primary btn-sm flex-shrink-0'
+                            className="flex-shrink-0"
                             aria-label='Remove document' title='Remove document'
                             onClick={() => {
                               formikProps.setFieldValue('document', '');
@@ -1196,7 +1188,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                             }}
                           >
                             <i className='bi bi-trash3 fs-3 text-danger' />
-                          </button>
+                          </KitButton>
                         </>
                       )}
                     </div>
@@ -1217,9 +1209,8 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
                 {/* Submit */}
                 <div className='d-flex justify-content-end gap-2 mt-5 flex-wrap'>
-                  <button
+                  <KitButton
                     type='submit'
-                    className='btn btn-primary'
                     disabled={formLoading || !formikProps.isValid || formikProps.isSubmitting}
                   >
                     {!formLoading && (editMode ? 'Save Changes' : 'Save to Pending Requests')}
@@ -1229,7 +1220,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                         <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                       </span>
                     )}
-                  </button>
+                  </KitButton>
                 </div>
 
               </Form>

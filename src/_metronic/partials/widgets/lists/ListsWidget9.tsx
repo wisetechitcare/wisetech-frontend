@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import React from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
+import { Button } from '@/ds/ui/button';
 
 type Props = {
   className: string
@@ -19,15 +20,15 @@ const ListsWidget9: React.FC<Props> = ({className}) => {
         </h3>
         <div className='card-toolbar'>
           {/* begin::Menu */}
-          <button
+          <Button variant="ghost" size="icon-sm" aria-label="Category"
             type='button'
-            className='btn btn-clean btn-sm btn-icon btn-icon-primary btn-active-light-primary me-n3'
+            className="me-n3"
             data-kt-menu-trigger='click'
             data-kt-menu-placement='bottom-end'
             data-kt-menu-flip='top-end'
           >
             <KTIcon iconName='category' className='fs-2' />
-          </button>
+          </Button>
           <Dropdown1 />
           {/* end::Menu */}
         </div>

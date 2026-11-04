@@ -4,6 +4,7 @@ import { useDMS } from '../store/DmsContext';
 import { formatBytes, formatDate, getStatusConfig } from '../utils/dmsUtils';
 import { KTIcon } from '@metronic/helpers';
 import { downloadDocument } from '../services/dmsService';
+import { Button } from '@/ds/ui/button';
 
 export const RevisionTimeline: React.FC = () => {
   const { state } = useDMS();
@@ -136,17 +137,12 @@ export const RevisionTimeline: React.FC = () => {
                       </span>
                     </div>
 
-                    <button 
+                    <Button variant="ghost" size="icon-sm" type="submit" aria-label="Download" 
                       onClick={() => downloadDocument(file.s3Url || '', file.name)}
-                      style={{
-                        background: 'transparent', border: 'none', borderRadius: '6px',
-                        padding: '4px', cursor: 'pointer', color: '#1E3A8A', 
-                        display: 'flex', alignItems: 'center', transition: 'all 0.15s'
-                      }}
                       title="Download"
                     >
                       <KTIcon iconName="cloud-download" className="fs-2" />
-                    </button>
+                    </Button>
                   </div>
 
                   <h4 style={{ 

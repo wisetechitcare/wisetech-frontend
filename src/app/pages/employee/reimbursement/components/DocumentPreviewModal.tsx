@@ -54,7 +54,7 @@ export default function DocumentPreviewModal({ url, onClose, title, inPageOnly =
             aria-modal="true"
             aria-label={`Preview of ${filename}`}
         >
-            <div
+            <div data-wt-control="container"
                 className="d-flex flex-column bg-white shadow overflow-hidden"
                 style={{
                     // Fills a phone, stays a dialog on a desktop. The old fixed 95vw did neither.

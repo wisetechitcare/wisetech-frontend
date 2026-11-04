@@ -2,6 +2,7 @@ import {
   fetchAllOrganizationConfigurations,
   deleteOrganizationConfigurationById,
 } from "@services/configurations";
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import React, { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -144,4 +145,4 @@ const OrganizationConfigure = () => {
   );
 };
 
-export default OrganizationConfigure;
+export default withDeleteSection('settings.profile', OrganizationConfigure);

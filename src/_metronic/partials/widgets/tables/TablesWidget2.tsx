@@ -2,6 +2,7 @@
 import { FC } from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
+import {Button, buttonVariants} from '@/ds/ui/button'
 
 type Props = {
   className: string
@@ -18,15 +19,16 @@ const TablesWidget2: FC<Props> = ({className}) => {
         </h3>
         <div className='card-toolbar'>
           {/* begin::Menu */}
-          <button
-            type='button'
-            className='btn btn-sm btn-icon btn-color-primary btn-active-light-primary'
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            aria-label='Filter options'
             data-kt-menu-trigger='click'
             data-kt-menu-placement='bottom-end'
             data-kt-menu-flip='top-end'
           >
             <KTIcon iconName='category' className='fs-2' />
-          </button>
+          </Button>
           <Dropdown1 />
           {/* end::Menu */}
         </div>
@@ -77,7 +79,12 @@ const TablesWidget2: FC<Props> = ({className}) => {
                   <span className='text-muted fw-semibold'>4600 Users</span>
                 </td>
                 <td className='text-end'>
-                  <a href='#' className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'>
+                  <a
+                    href='#'
+                    data-slot='button'
+                    aria-label='View'
+                    className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
+                  >
                     <KTIcon iconName='arrow-right' className='fs-2' />
                   </a>
                 </td>
@@ -108,7 +115,12 @@ const TablesWidget2: FC<Props> = ({className}) => {
                   <span className='text-muted fw-semibold'>7200 Users</span>
                 </td>
                 <td className='text-end'>
-                  <a href='#' className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'>
+                  <a
+                    href='#'
+                    data-slot='button'
+                    aria-label='View'
+                    className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
+                  >
                     <KTIcon iconName='arrow-right' className='fs-2' />
                   </a>
                 </td>
@@ -139,7 +151,12 @@ const TablesWidget2: FC<Props> = ({className}) => {
                   <span className='text-muted fw-semibold'>890 Users</span>
                 </td>
                 <td className='text-end'>
-                  <a href='#' className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'>
+                  <a
+                    href='#'
+                    data-slot='button'
+                    aria-label='View'
+                    className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
+                  >
                     <KTIcon iconName='arrow-right' className='fs-2' />
                   </a>
                 </td>
@@ -170,7 +187,12 @@ const TablesWidget2: FC<Props> = ({className}) => {
                   <span className='text-muted fw-semibold'>6370 Users</span>
                 </td>
                 <td className='text-end'>
-                  <a href='#' className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'>
+                  <a
+                    href='#'
+                    data-slot='button'
+                    aria-label='View'
+                    className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
+                  >
                     <KTIcon iconName='arrow-right' className='fs-2' />
                   </a>
                 </td>
@@ -201,7 +223,12 @@ const TablesWidget2: FC<Props> = ({className}) => {
                   <span className='text-muted fw-semibold'>354 Users</span>
                 </td>
                 <td className='text-end'>
-                  <a href='#' className='btn btn-sm btn-icon btn-bg-light btn-active-color-primary'>
+                  <a
+                    href='#'
+                    data-slot='button'
+                    aria-label='View'
+                    className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
+                  >
                     <KTIcon iconName='arrow-right' className='fs-2' />
                   </a>
                 </td>

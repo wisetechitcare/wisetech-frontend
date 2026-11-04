@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { KTIcon } from '@metronic/helpers';
 import type { NotificationFilterState, ReadFilter } from '../types';
+import { Button } from '@/ds/ui/button';
 
 interface Props {
   filters: NotificationFilterState;
@@ -28,14 +29,13 @@ function NotificationFiltersBase({ filters, onChange }: Props) {
           onChange={(e) => onChange({ search: e.target.value })}
         />
         {filters.search && (
-          <button
+          <Button variant="ghost" size="icon-xs"
             type="button"
-            className="wt-search__clear"
             aria-label="Clear search"
             onClick={() => onChange({ search: '' })}
           >
             <KTIcon iconName="cross" className="fs-6" />
-          </button>
+          </Button>
         )}
       </div>
 

@@ -2,11 +2,12 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
 import { useDMS } from '../store/DmsContext';
-import { canSection } from '@utils/can';
+import { canDelete, canSection } from '@utils/can';
 import * as dmsService from '../services/dmsService';
 import { formatBytes, formatDate, getStatusConfig, getExportTypeConfig } from '../utils/dmsUtils';
 import { successConfirmation, errorConfirmation, rejectConfirmation } from '@utils/modal';
 import type { DMSFile } from '../types/dms.types';
+import { Button } from '@/ds/ui/button';
 
 interface FileDetailsSidebarProps {
   file: DMSFile | null;
@@ -130,9 +131,9 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
       {/* Header */}
       <div style={{ padding: '16px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>File Details</span>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Minimize">
+        <Button variant="ghost" size="icon-sm" type="submit" onClick={onClose} title="Minimize">
           <KTIcon iconName="arrow-right" className="fs-2 text-muted" />
-        </button>
+        </Button>
       </div>
 
       {/* File Info Section */}
@@ -182,6 +183,8 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
           },
           ...(canWrite ? [
           { icon: 'pencil', label: 'Rename', action: () => setIsRenaming(true) },
+          ] : []),
+          ...(canDelete('crm.leads') ? [
           { icon: 'trash', label: 'Delete', action: handleDelete, danger: true },
           ] : []),
         ].map(a => (

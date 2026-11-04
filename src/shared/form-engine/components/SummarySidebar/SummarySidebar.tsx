@@ -14,6 +14,8 @@ interface SummarySidebarProps {
   submitDisabled?: boolean;
   submitText?: string;
   warningMessage?: string;
+  /** Extra content under the rows. */
+  extra?: React.ReactNode;
   /** When true, hides the submit/cancel action buttons (used inside wizard footer instead) */
   hideSubmitButton?: boolean;
 }
@@ -25,6 +27,7 @@ export const SummarySidebar: React.FC<SummarySidebarProps> = ({
   exportPdf,
   exportDocx,
   warningMessage,
+  extra,
   hideSubmitButton = false,
 }) => {
   return (
@@ -47,12 +50,14 @@ export const SummarySidebar: React.FC<SummarySidebarProps> = ({
             </div>
           ))}
         </div>
-      ) : (
+      ) : extra ? null : (
         <div style={{ textAlign: "center", padding: "1.5rem 0", color: "var(--wt-gray-400)" }}>
           <InfoOutlined style={{ fontSize: "1.5rem", marginBottom: "0.375rem", display: "block", margin: "0 auto 0.375rem" }} />
           <span style={{ fontSize: "0.72rem", fontWeight: 500 }}>Fill in the form to see a summary</span>
         </div>
       )}
+
+      {extra}
 
       {/* ── Warning Message ───────────────────────────────────────────── */}
       {warningMessage && (

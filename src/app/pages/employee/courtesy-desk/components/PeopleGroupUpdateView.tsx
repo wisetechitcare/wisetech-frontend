@@ -1,18 +1,4 @@
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  DialogActions,
-  DialogContent,
-  IconButton,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-  alpha,
-  useTheme,
-} from "@mui/material";
+import { Alert, Box, Chip, DialogActions, DialogContent, Paper, Stack, TextField, Typography, alpha, useTheme } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
@@ -27,6 +13,7 @@ import { FormSectionHead } from "@app/pages/employee/tasks/components/primitives
 import PersonPicker, { MemberListPanel } from "./PersonPicker";
 import PeopleGroupHeader from "./PeopleGroupHeader";
 import type { PersonRef } from "../types";
+import { WtIconButton, WtButton } from '@app/modules/common/components/ui/buttons';
 
 export default function PeopleGroupUpdateView({
   isNew,
@@ -130,36 +117,35 @@ export default function PeopleGroupUpdateView({
         mobileTrailing={
           <>
             {!isNew && (
-              <IconButton
+              <WtIconButton size="medium"
                 onClick={onCancel}
                 disabled={saving}
                 aria-label="Cancel"
               >
                 <AppIcon name="bi-x-lg" className="fs-3" />
-              </IconButton>
+              </WtIconButton>
             )}
-            <IconButton
+            <WtIconButton color="var(--primary)" size="medium"
               onClick={onSave}
               disabled={saveDisabled}
               aria-label={isNew ? "Save Group" : "Update Group"}
-              color="primary"
             >
               <AppIcon name="bi-check-lg" className="fs-2" />
-            </IconButton>
+            </WtIconButton>
           </>
         }
         desktopActions={
           <Stack direction="row" spacing={1}>
-            <Button
+            <WtButton variant="text"
               startIcon={<AppIcon name="bi-arrow-left" />}
               onClick={onBack}
             >
               Back
-            </Button>
+            </WtButton>
             {!isNew && (
-              <Button onClick={onCancel} disabled={saving}>
+              <WtButton variant="text" onClick={onCancel} disabled={saving}>
                 Cancel
-              </Button>
+              </WtButton>
             )}
             <PremiumButton
               icon="bi-check-lg"
@@ -266,15 +252,14 @@ export default function PeopleGroupUpdateView({
               Members
             </Typography>
             {/* Mobile: icon add; desktop: labeled button */}
-            <IconButton
-              color="primary"
+            <WtIconButton color="var(--primary)" size="medium"
               onClick={onOpenAddPeople}
               aria-label="Add people"
               sx={{ display: { xs: "inline-flex", sm: "none" } }}
             >
               <AppIcon name="bi-plus-lg" className="fs-2" />
-            </IconButton>
-            <Button
+            </WtIconButton>
+            <WtButton
               variant="contained"
               startIcon={<AppIcon name="bi-people" />}
               onClick={onOpenAddPeople}
@@ -284,7 +269,7 @@ export default function PeopleGroupUpdateView({
               }}
             >
               Add people
-            </Button>
+            </WtButton>
           </Stack>
 
           {membersForList.length === 0 ? (

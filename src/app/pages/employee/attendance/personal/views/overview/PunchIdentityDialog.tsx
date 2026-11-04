@@ -1,5 +1,5 @@
 import { lazy, Suspense, useRef, useState } from 'react';
-import { Alert, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from '@mui/material';
+import { Alert, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from '@mui/material';
 import { Amplify } from 'aws-amplify';
 import {
   beginAttendanceFace,
@@ -10,6 +10,7 @@ import {
   type AttendancePunchAction,
 } from '@services/attendanceIdentity';
 import '@aws-amplify/ui-react-liveness/styles.css';
+import { WtButton } from '@app/modules/common/components/ui/buttons';
 
 const FaceLivenessDetector = lazy(async () => {
   const module = await import('@aws-amplify/ui-react-liveness');
@@ -129,14 +130,14 @@ export function usePunchIdentity() {
         ) : (
           <Stack spacing={2} pt={1}>
             <p className="mb-0">Confirm your identity before this attendance punch is accepted.</p>
-            {pending?.status.passkeys.length ? <Button variant="contained" disabled={busy} onClick={passkey}>Use device passkey</Button> : null}
-            {pending?.status.faceEnrolled ? <Button variant="outlined" disabled={busy} onClick={startFace}>Use face verification</Button> : null}
+            {pending?.status.passkeys.length ? <WtButton variant="contained" disabled={busy} onClick={passkey}>Use device passkey</WtButton> : null}
+            {pending?.status.faceEnrolled ? <WtButton variant="outlined" disabled={busy} onClick={startFace}>Use face verification</WtButton> : null}
             {busy && <Stack alignItems="center"><CircularProgress size={24} /></Stack>}
           </Stack>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={() => close(new Error('Identity verification was cancelled'))}>Cancel</Button>
+        <WtButton variant="text" onClick={() => close(new Error('Identity verification was cancelled'))}>Cancel</WtButton>
       </DialogActions>
     </Dialog>
   );

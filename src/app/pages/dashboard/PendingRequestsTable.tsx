@@ -2,13 +2,14 @@ import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { Box, CircularProgress, Stack, Typography } from "@mui/material";
+import { Button, buttonVariants } from "@/ds/ui/button";
 import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { IAttendanceRequests } from "@models/employee";
 import { RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { fetchCompanyOverview } from "@services/company";
 import {
   getPendingAttendanceRequests,
@@ -66,7 +67,6 @@ type RequestTab = "attendance" | "leaves" | "reimbursements";
 
 const PendingRequestsTable = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<RequestTab>("attendance");
   const [isLoading, setIsLoading] = useState(false);
   // Parallel fetches used to flip a single boolean — last-finisher won, and an early
@@ -354,13 +354,9 @@ const PendingRequestsTable = () => {
     initThresholds();
   }, [attendanceRequests]);
 
-  const handleViewAll = () => {
-    if (activeTab === "attendance" || activeTab === "leaves") {
-      navigate("/employees/attendance-and-leaves");
-    } else if (activeTab === "reimbursements") {
-      navigate("/finance/reimbursements");
-    }
-  };
+  // "View all" navigates, so it is a link; where it goes follows the active tab.
+  const viewAllPath =
+    activeTab === "reimbursements" ? "/finance/reimbursements" : "/employees/attendance-and-leaves";
 
   const getLeaveTypeColor = (leaveType: string): string => {
     if (!leaveTypeColors) return '#3498DB';
@@ -489,26 +485,25 @@ const PendingRequestsTable = () => {
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
               {canAct && (
                 <>
-                  <button
-                    type="button"
-                    className="btn btn-icon btn-sm"
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     title="Approve"
+                    aria-label="Approve"
                     disabled={isProcessing}
+                    loading={isProcessing}
                     onClick={(e) => {
                       e.stopPropagation();
                       approveWorkflowRequest(row.original.id, fetchAttendanceRequests);
                     }}
                   >
-                    {isProcessing ? (
-                      <span className="spinner-border spinner-border-sm text-success" />
-                    ) : (
-                      <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} alt="" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-icon btn-sm"
+                    <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} alt="" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     title="Reject"
+                    aria-label="Reject"
                     disabled={isProcessing}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -517,21 +512,22 @@ const PendingRequestsTable = () => {
                     }}
                   >
                     <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} alt="" />
-                  </button>
+                  </Button>
                 </>
               )}
               {row.original.hasApprovalInstance && (
-                <button
-                  type="button"
-                  className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   title="Track Approval"
+                  aria-label="Track Approval"
                   onClick={(e) => {
                     e.stopPropagation();
                     openTracker(row.original.id, 'AttendanceRequests');
                   }}
                 >
                   <KTIcon iconName="map" className="fs-3" />
-                </button>
+                </Button>
               )}
             </div>
           );
@@ -601,26 +597,25 @@ const PendingRequestsTable = () => {
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
               {canAct && (
                 <>
-                  <button
-                    type="button"
-                    className="btn btn-icon btn-sm"
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     title="Approve"
+                    aria-label="Approve"
                     disabled={isProcessing}
+                    loading={isProcessing}
                     onClick={(e) => {
                       e.stopPropagation();
                       approveWorkflowRequest(row.original.id, fetchLeaveRequests);
                     }}
                   >
-                    {isProcessing ? (
-                      <span className="spinner-border spinner-border-sm text-success" />
-                    ) : (
-                      <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} alt="" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-icon btn-sm"
+                    <img src={toAbsoluteUrl("media/svg/misc/tick.svg")} alt="" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     title="Reject"
+                    aria-label="Reject"
                     disabled={isProcessing}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -629,21 +624,22 @@ const PendingRequestsTable = () => {
                     }}
                   >
                     <img src={toAbsoluteUrl("media/svg/misc/cross.svg")} alt="" />
-                  </button>
+                  </Button>
                 </>
               )}
               {row.original.hasApprovalInstance && (
-                <button
-                  type="button"
-                  className="btn btn-icon btn-bg-light btn-active-color-info btn-sm"
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   title="Track Approval"
+                  aria-label="Track Approval"
                   onClick={(e) => {
                     e.stopPropagation();
                     openTracker(row.original.id, 'LeaveTracker');
                   }}
                 >
                   <KTIcon iconName="map" className="fs-3" />
-                </button>
+                </Button>
               )}
             </div>
           );
@@ -670,14 +666,15 @@ const PendingRequestsTable = () => {
           const { firstName, lastName } = row.original.employee?.users || {};
           const fullName = [firstName, lastName].filter(Boolean).join(' ');
           return (
-            <button
-              className='btn btn-link p-0 text-primary fw-semibold fs-7'
-              style={{ textDecoration: 'none', cursor: 'pointer' }}
+            <Button
+              variant='link'
+              size='xs'
+              className='h-auto p-0'
               onClick={() => openBatchDetail(row.original)}
               title='View submission details'
             >
               {fullName || '—'}
-            </button>
+            </Button>
           );
         },
         Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
@@ -696,14 +693,15 @@ const PendingRequestsTable = () => {
         size: 130,
         muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
         Cell: ({ row }) => (
-          <button
-            className='btn btn-link p-0 text-primary fw-semibold fs-7'
-            style={{ textDecoration: 'none', cursor: 'pointer' }}
+          <Button
+            variant='link'
+            size='xs'
+            className='h-auto p-0'
             onClick={() => openBatchDetail(row.original)}
             title='View submission details'
           >
             {row.original.totalRequests}
-          </button>
+          </Button>
         ),
       },
       {
@@ -728,36 +726,38 @@ const PendingRequestsTable = () => {
             <div className='d-flex align-items-center gap-1'>
               {isActionable && (
                 <>
-                  <button
-                    type='button'
-                    className='btn btn-icon btn-sm'
+                  <Button
+                    variant='ghost'
+                    size='icon-sm'
                     title='Approve'
+                    aria-label='Approve'
                     disabled={isProcessing}
+                    loading={isProcessing}
                     onClick={(e) => { e.stopPropagation(); handleBatchApprove(r); }}
                   >
-                    {isProcessing
-                      ? <span className='spinner-border spinner-border-sm text-success' />
-                      : <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='Approve' />
-                    }
-                  </button>
-                  <button
-                    type='button'
-                    className='btn btn-icon btn-sm'
+                    <img src={toAbsoluteUrl('media/svg/misc/tick.svg')} alt='Approve' />
+                  </Button>
+                  <Button
+                    variant='ghost'
+                    size='icon-sm'
                     title='Reject'
+                    aria-label='Reject'
                     disabled={isProcessing}
                     onClick={(e) => { e.stopPropagation(); setBatchRejectTarget(r); }}
                   >
                     <img src={toAbsoluteUrl('media/svg/misc/cross.svg')} alt='Reject' />
-                  </button>
+                  </Button>
                 </>
               )}
-              <button
-                className='btn btn-icon btn-bg-light btn-active-color-info btn-sm'
+              <Button
+                variant='ghost'
+                size='icon-sm'
                 title='View Approval Status'
+                aria-label='View Approval Status'
                 onClick={(e) => { e.stopPropagation(); openTracker(r.id, 'ReimbursementBatch', r); }}
               >
                 <KTIcon iconName='map' className='fs-3' />
-              </button>
+              </Button>
             </div>
           );
         },
@@ -801,25 +801,13 @@ const PendingRequestsTable = () => {
             Pending Requests
           </h2>
           {can("approvals.view.team") && (
-            <Button
-              variant="outlined"
-              onClick={handleViewAll}
-              sx={{
-                borderColor: "#1E3A8A",
-                color: "#1E3A8A",
-                textTransform: "none",
-                fontSize: { xs: "12px", sm: "14px" },
-                fontWeight: 500,
-                padding: { xs: "8px 12px", sm: "10px 14px" },
-                borderRadius: "6px",
-                "&:hover": {
-                  borderColor: "#1E3A8A",
-                  backgroundColor: "rgba(30, 58, 138, 0.04)",
-                },
-              }}
+            <Link
+              to={viewAllPath}
+              data-slot="button"
+              className={buttonVariants({ variant: "outline" })}
             >
               View all
-            </Button>
+            </Link>
           )}
         </div>
 
@@ -835,9 +823,13 @@ const PendingRequestsTable = () => {
             paddingTop: "3px",
           }}
           className="tabs-container"
+          role="tablist"
         >
           <div style={{ position: "relative", flex: "0 0 auto" }}>
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "attendance"}
               onClick={() => setActiveTab("attendance")}
               style={{
                 padding: "6px 12px",
@@ -859,6 +851,9 @@ const PendingRequestsTable = () => {
           </div>
           <div style={{ position: "relative", flex: "0 0 auto" }}>
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "leaves"}
               onClick={() => setActiveTab("leaves")}
               style={{
                 padding: "6px 12px",
@@ -880,6 +875,9 @@ const PendingRequestsTable = () => {
           </div>
           <div style={{ position: "relative", flex: "0 0 auto" }}>
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "reimbursements"}
               onClick={() => setActiveTab("reimbursements")}
               style={{
                 padding: "6px 12px",

@@ -101,7 +101,12 @@ export const UnsavedChangesModal = Object.assign(
       closeContext,
       requestClose,
       discardDialog,
-    } = useDialogUnsavedChangesBoundary();
+    } = useDialogUnsavedChangesBoundary(
+      false,
+      // A modal raised above the default layer (e.g. Manage Form Fields at 1400) must get its
+      // discard prompt above IT, or the prompt opens hidden behind the modal.
+      typeof props.style?.zIndex === 'number' ? props.style.zIndex + 10 : undefined,
+    );
 
     return (
       <>

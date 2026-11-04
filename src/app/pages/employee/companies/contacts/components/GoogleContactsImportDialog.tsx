@@ -10,6 +10,7 @@ import {
 } from '@app/modules/common/components/ui';
 import { tonePair, type SemanticTone } from '@app/theme/tokens';
 import { formatMaybeDate } from '@utils/dateFormats';
+import { formatBirthday, isYearless } from '@utils/birthday';
 import { fetchGoogleContacts, importGoogleContacts, startGoogleContactsAuth } from '@services/googleContacts';
 import { toContactCreatePayload, type GoogleContactCandidate } from './googleContactPrefill';
 
@@ -179,7 +180,7 @@ function ContactCard({ candidate, checked, onToggle, onReview }: {
         .map(([key, label]) => {
             const raw = f[key];
             if (!raw) return null;
-            return { label, value: DATE_FIELDS.has(key) ? formatMaybeDate(String(raw)) : String(raw) };
+            return { label, value: DATE_FIELDS.has(key) ? (isYearless(String(raw)) ? formatBirthday(String(raw)) : formatMaybeDate(String(raw))) : String(raw) };
         })
         .filter((x): x is { label: string; value: string } => !!x);
 
@@ -359,7 +360,7 @@ function ConfirmList({ chosen, organizationName }: {
                         .map(([key, label]) => {
                             const raw = f[key];
                             if (!raw) return null;
-                            return { label, value: DATE_FIELDS.has(key) ? formatMaybeDate(String(raw)) : String(raw) };
+                            return { label, value: DATE_FIELDS.has(key) ? (isYearless(String(raw)) ? formatBirthday(String(raw)) : formatMaybeDate(String(raw))) : String(raw) };
                         })
                         .filter((x): x is { label: string; value: string } => !!x);
 

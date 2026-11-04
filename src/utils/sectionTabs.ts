@@ -18,6 +18,7 @@ export interface SectionTab {
 
 const overview = (what: string): SectionTab => ({ key: "overview", label: "Overview", icon: "bi-grid-1x2", hint: `Charts and totals for ${what}` });
 const map: SectionTab = { key: "map", label: "Map", icon: "bi-geo-alt", hint: "Locations on a map" };
+const audit = (what: string): SectionTab => ({ key: "audit", label: "Audit", icon: "bi-clock-history", hint: `Edit history of each ${what}` });
 const configure = (what: string): SectionTab => ({ key: "configure", label: "Configure", icon: "bi-gear", hint: `Statuses, types and other settings for ${what}`, needsWrite: true });
 
 export const SECTION_TABS: Record<string, SectionTab[]> = {
@@ -37,6 +38,7 @@ export const SECTION_TABS: Record<string, SectionTab[]> = {
     overview("companies"),
     { key: "companies", label: "Companies", icon: "bi-building", hint: "The companies list" },
     map,
+    audit("company"),
     configure("companies"),
   ],
   "crm.contacts": [
@@ -44,10 +46,18 @@ export const SECTION_TABS: Record<string, SectionTab[]> = {
     { key: "contacts", label: "Contacts", icon: "bi-person-lines-fill", hint: "The contacts list" },
     { key: "calendar", label: "Calendar", icon: "bi-calendar-event", hint: "Contacts' birthdays and events" },
     map,
+    audit("contact"),
     configure("contacts"),
   ],
   // Pages whose tab bar is filtered by MaterialHeaderTab (`accessSection`): keys are the tab titles
   // as slugs (tabSlug), so a tab is found by its name.
+  // Tab titles in MeetingsMain, as slugs. Agenda carries the minutes (MoM) too.
+  meetings: [
+    overview("meetings"),
+    { key: "all-meetings", label: "All Meetings", icon: "bi-people", hint: "Every meeting, on a list and the calendar" },
+    { key: "agenda", label: "Agenda", icon: "bi-list-check", hint: "Agendas and Minutes of Meeting" },
+    configure("meetings"),
+  ],
   calendar: [
     { key: "calendar", label: "Calendar", icon: "bi-calendar-event", hint: "The shared calendar" },
     { key: "meetings", label: "Meetings", icon: "bi-people", hint: "Meetings list" },
@@ -121,6 +131,20 @@ export const SECTION_TABS: Record<string, SectionTab[]> = {
 export const tabSlug = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 export const tabKey = (section: string, tab: string) => `${section}/${tab}`;
+
+/**
+ * Sections where something can be deleted or archived — everywhere else the Delete box is greyed
+ * out (and the server refuses it). Mirrors DELETABLE_SECTIONS in the backend's
+ * constants/permissions.ts — keep the two in sync.
+ */
+export const DELETABLE_SECTIONS: ReadonlySet<string> = new Set([
+  'users', 'attendance.employees', 'timesheets.employees', 'meetings', 'calendar',
+  'crm.leads', 'crm.companies', 'crm.contacts', 'projects', 'tasks', 'recruitment', 'gift-management',
+  'finance.loans', 'finance.reimbursements', 'finance.salary', 'finance.increment',
+  'billing.configure', 'billing.requests', 'billing.proformas', 'billing.invoices', 'billing.payments',
+  'settings.profile', 'settings.announcements', 'settings.teams', 'settings.employeeLevel',
+]);
+export const NOTHING_TO_DELETE = "There's nothing to delete in this section, so Delete doesn't apply here.";
 
 /**
  * For a section's page: the tabs this person gets, in page order. Subscribes to access so a live

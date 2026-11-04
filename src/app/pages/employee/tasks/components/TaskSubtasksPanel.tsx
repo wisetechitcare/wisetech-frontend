@@ -9,11 +9,12 @@
  * rollup would silently overwrite a manager's own assessment. The counter here reports what the
  * children say about themselves and writes nothing to the parent.
  */
-import { Box, Button, CircularProgress, LinearProgress, Stack, Typography, alpha, useTheme } from '@mui/material';
+import { Box, CircularProgress, LinearProgress, Stack, Typography, alpha, useTheme } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { KTIcon } from '@metronic/helpers';
 import { TaskRow, subtaskProgress, apiErrorMessage, isTaskFinal, shortTaskId } from '../taskDomain';
 import {
-    TaskStatusBadge, TaskProgress, TaskPriorityBadge, AssigneeAvatar, TaskDueDate, TaskStateBlock, primaryPillSx,
+    TaskStatusBadge, TaskProgress, TaskPriorityBadge, AssigneeAvatar, TaskDueDate, TaskStateBlock,
 } from './primitives';
 
 export interface TaskSubtasksPanelProps {
@@ -68,11 +69,8 @@ export const TaskSubtasksPanel = ({
                 {/* Depth cap: a subtask cannot have subtasks, so the action is absent — not
                     disabled with a tooltip, because it is not a permission, it is the shape. */}
                 {!isSubtask && (
-                    <Button
-                        startIcon={<KTIcon iconName="plus" className="fs-5" />}
-                        onClick={onAddSubtask}
-                        sx={primaryPillSx}
-                    >
+                    <Button onClick={onAddSubtask}>
+                        <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="plus" className="fs-5" /></span>
                         Add subtask
                     </Button>
                 )}

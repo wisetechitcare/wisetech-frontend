@@ -2,16 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     Alert,
     Box,
-    Button,
     Dialog,
     DialogActions,
     DialogContent,
     DialogTitle,
-    IconButton,
     TextField,
     Typography,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Button } from '@/ds/ui/button';
+import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
 import dayjs, { Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -181,9 +180,7 @@ const AddEditIncrementDialog: React.FC<AddEditIncrementDialogProps> = ({
                 <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.1rem', color: T.color.ink }}>
                     {isEdit ? 'Edit Increment' : 'Add Increment'}
                 </Typography>
-                <IconButton size="small" onClick={onClose} disabled={submitting} sx={{ color: T.color.inkSoft }}>
-                    <CloseIcon fontSize="small" />
-                </IconButton>
+                <WtCloseButton variant="plain" onClick={onClose} disabled={submitting} />
             </DialogTitle>
 
             <DialogContent sx={{ px: 3, pt: '20px !important', pb: 2 }}>
@@ -283,23 +280,12 @@ const AddEditIncrementDialog: React.FC<AddEditIncrementDialogProps> = ({
             </DialogContent>
 
             <DialogActions sx={{ borderTop: `1px solid ${T.color.lineSoft}`, px: 3, py: 1.75 }}>
-                <Button
-                    onClick={onClose}
-                    disabled={submitting}
-                    sx={{ textTransform: 'none', fontWeight: 600, color: T.color.inkSoft }}
-                >
+                <Button variant="outline" onClick={onClose} disabled={submitting}>
                     Cancel
                 </Button>
                 <Button
-                    variant="contained"
                     onClick={handleSubmit}
                     disabled={submitting || (touched && !isValid)}
-                    sx={{
-                        textTransform: 'none', fontWeight: 600,
-                        bgcolor: T.color.brand,
-                        '&:hover': { bgcolor: T.color.brandHover },
-                        borderRadius: `${T.radius.sm}px`, px: 2.5,
-                    }}
                 >
                     {submitting ? 'Processing…' : isEdit ? 'Save Changes' : 'Create Increment'}
                 </Button>

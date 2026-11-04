@@ -44,7 +44,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
 
   return (
     <div className="position-relative">
-      <div
+      <div data-wt-control="select"
         className="d-flex align-items-center justify-content-between"
         style={{
           backgroundColor: '#eef1f7',
@@ -198,7 +198,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
                   : false;
 
                 return (
-                  <div
+                  <div data-wt-control="option"
                     key={employee.id}
                     className="d-flex align-items-center gap-2 p-3 border-bottom"
                     style={{
@@ -262,7 +262,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
                   </div>
                 );
               })}
-              <div
+              <div data-wt-control="menuitem" role="menuitem"
                 className="d-flex align-items-center gap-2 p-3 border-top border-2"
                 style={{
                   cursor: 'pointer',

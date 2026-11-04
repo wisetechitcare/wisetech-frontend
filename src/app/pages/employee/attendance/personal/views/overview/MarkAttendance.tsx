@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
-import { Dialog, DialogTitle, DialogContent, IconButton } from "@mui/material";
+import { Dialog, DialogTitle, DialogContent } from "@mui/material";
 import GoogleMaps from './GoogleMaps';
 import { saveCoordinates, saveCurrentAddress, saveWorkingMethodOptions, toggleLocationPermission, toggleOpenModal } from "@redux/slices/attendance";
 import { fetchAddressDetails } from "@services/location";
@@ -29,6 +29,7 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { Status } from "@constants/statistics";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { ToneChip, WtButton } from '@app/modules/common/components/ui';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 interface MarkAttendanceProps {
     variant?: 'default' | 'dashboard';
@@ -979,7 +980,7 @@ const getBlockingMessage = async () => {
             <div className={isDashboard ? "py-1 rounded-3 mb-2" : "py-1 rounded-3 mb-4"}>
                 <WtButton
                     type="button"
-                    tone={hasCheckin && hasCheckin !== null && hasCheckin !== "" ? "danger" : "primary"}
+                    tone={hasCheckin && hasCheckin !== null && hasCheckin !== "" ? "danger" : "accent"}
                     flat={false}
                     size="medium"
                     fullWidth
@@ -1042,9 +1043,9 @@ const getBlockingMessage = async () => {
                 PaperProps={{ sx: { borderRadius: 2 } }}
             >
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
-                    <IconButton onClick={handleClose} aria-label="close">
+                    <WtIconButton size="medium" onClick={handleClose} aria-label="close">
                         <AppIcon name="bi-x-lg" />
-                    </IconButton>
+                    </WtIconButton>
                 </DialogTitle>
                 <DialogContent>
                     <div className="row">

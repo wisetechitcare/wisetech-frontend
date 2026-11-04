@@ -31,6 +31,7 @@ import { AutoGrid } from '@app/modules/common/components/ui/AutoGrid';
 import { getTimeTokens } from '@utils/timeFormat';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { errorConfirmation } from '@utils/modal';
+import { Button } from '@/ds/ui/button';
 
 /**
  * MeetingsList — the meetings surface, shared by the project (entity), contact and employee
@@ -408,17 +409,13 @@ const PhoneMonthCellMeetings = ({
     const overflow = n - shown.length;
 
     const moreBtn = (extra: number, total: number) => (
-        <button
+        <Button variant="link" size="xs"
             type="button"
             aria-label={`Show all ${total} meetings on this day`}
             onClick={(e) => { stop(e); onShowAgenda(); }}
-            style={{
-                border: 0, background: 'transparent', padding: '2px 0', minHeight: 22,
-                fontSize: 9, fontWeight: 700, color: '#1E3A8A', textAlign: 'center', width: '100%',
-            }}
         >
             +{extra} more
-        </button>
+        </Button>
     );
 
     if (cap === 0) {
@@ -1203,7 +1200,7 @@ const StatCard: React.FC<{
     valueGradient?: string;
     onClick?: () => void;
 }> = ({ label, value, sub, icon, tone, valueGradient, onClick }) => (
-    <div
+    <div data-wt-control="row"
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
         onClick={onClick}
@@ -1492,10 +1489,9 @@ const CostBreakdown: React.FC<{ data: MeetingAnalytics; open: boolean; onClose: 
                 </div>
             </div>
             <div style={{ flex: 1 }} />
-            <button type="button" onClick={onClose} aria-label="Close"
-                style={{ border: 0, background: 'transparent', color: '#BFD2F5', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>
+            <Button variant="tinted" size="icon-sm" style={{ '--tint': 'white', '--tint-ink': 'white' } as import('react').CSSProperties} type="button" onClick={onClose} aria-label="Close">
                 <AppIcon name="bi-x-lg" className="fs-4" />
-            </button>
+            </Button>
         </div>
 
         <DialogContent sx={{ p: 0 }}>
@@ -1589,6 +1585,7 @@ const DayDetail: React.FC<{
     onLogTime, onRemind, onCreate, colors = DEFAULT_HALF_COLORS, labels = DEFAULT_HALF_LABELS,
     stateColors,
 }) => {
+    const navigate = useNavigate();
     const openProject = useOpenProject();
     const isPhone = useMediaQuery(PHONE);
     /** This day at the half's opening hour — what "new meeting here" means. */
@@ -1619,24 +1616,18 @@ const DayDetail: React.FC<{
                 {/* Booking the day you are looking at. The morning hour is the default because
                     a day opened from the grid is usually being filled from the top. */}
                 {onCreate && (
-                    <button
+                    <Button variant="outline" size="sm" style={{ flexShrink: 0 }}
                         type="button"
                         onClick={() => onCreate(startOfHalf('am'))}
                         title={`New meeting on ${dayjs(dayKeyValue).format('DD MMM')}`}
-                        style={{
-                            border: '1px solid #ffffff55', borderRadius: 8, background: '#ffffff1f', color: '#fff',
-                            padding: isPhone ? '6px 9px' : '7px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
-                            fontFamily: 'Inter', fontSize: 12.5, fontWeight: 700, flexShrink: 0,
-                        }}
                     >
                         <AppIcon name="bi-plus" className={isPhone ? '' : 'me-1'} />
                         {!isPhone && 'New meeting'}
-                    </button>
+                    </Button>
                 )}
-                <button type="button" onClick={onClose} aria-label="Close"
-                    style={{ border: 0, background: 'transparent', color: '#BFD2F5', cursor: 'pointer', lineHeight: 1, flexShrink: 0 }}>
+                <Button variant="tinted" size="icon-sm" style={{ flexShrink: 0, '--tint': 'white', '--tint-ink': 'white' } as import('react').CSSProperties} type="button" onClick={onClose} aria-label="Close">
                     <AppIcon name="bi-x-lg" className="fs-4" />
-                </button>
+                </Button>
             </div>
             <DialogContent sx={{ p: 2, fontFamily: 'Inter' }}>
 
@@ -1661,7 +1652,7 @@ const DayDetail: React.FC<{
                 // so the box that reports it IS the button — with the half's own opening hour,
                 // which is the difference between "the afternoon is free" and an afternoon
                 // meeting already half filled in.
-                <button
+                <button data-wt-control="cell"
                     type="button"
                     disabled={!onCreate}
                     onClick={onCreate ? () => onCreate(startOfHalf(half.key)) : undefined}
@@ -1682,7 +1673,7 @@ const DayDetail: React.FC<{
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {half.list.map((m) => (
-                        <div
+                        <div data-wt-control="row"
                             key={m.id}
                             onClick={onEdit && m.canManage ? () => onEdit(m) : undefined}
                             role={onEdit && m.canManage ? 'button' : undefined}
@@ -1819,8 +1810,9 @@ const DayDetail: React.FC<{
                                 happened to be in — and the day modal is the view people are in
                                 when they want them. Rendered only when there is one to show. */}
                             {((onRemind && !isHeld(m) && !isCancelled(m)) || (onLogTime && isHeld(m) && !isCancelled(m))
-                                || (onEdit && !isCancelled(m) && m.canManage) || (onCancel && m.canManage) || onDelete) && (
-                                <div
+                                || (onEdit && !isCancelled(m) && m.canManage) || (onCancel && m.canManage) || onDelete
+                                || !isCancelled(m)) && (
+                                <div data-wt-control="container"
                                     style={{
                                         display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px',
                                         borderTop: '1px dashed rgba(100,116,139,0.28)',
@@ -1841,6 +1833,14 @@ const DayDetail: React.FC<{
                                     )}
                                     {onEdit && !isCancelled(m) && m.canManage && (
                                         <CardAction icon="bi-pencil" label="Edit" color="#1E3A8A" onClick={() => onEdit(m)} />
+                                    )}
+                                    {!isCancelled(m) && (
+                                        <CardAction
+                                            icon="bi-journal-text"
+                                            label="Detail"
+                                            color="#0F766E"
+                                            onClick={() => navigate(`/employees/meetings/agenda?meeting=${m.id}`)}
+                                        />
                                     )}
                                     {onCancel && m.canManage && (
                                         <CardAction
@@ -2073,6 +2073,7 @@ const MobileDayAgenda = ({
     onLogTime?: (m: MeetingRow) => void;
     onRemind?: (m: MeetingRow) => void;
 }) => {
+    const navigate = useNavigate();
     const openProject = useOpenProject();
     const sorted = useMemo(
         () => [...meetings].sort((a, b) => dayjs(a.startDate).valueOf() - dayjs(b.startDate).valueOf()),
@@ -2102,18 +2103,13 @@ const MobileDayAgenda = ({
                     </div>
                 </div>
                 {onCreate && (
-                    <button
+                    <Button variant="outline" size="sm" style={{ flexShrink: 0 }}
                         type="button"
                         onClick={() => onCreate(startOfHalf('am'))}
-                        style={{
-                            border: '1px solid #CBD5E1', borderRadius: 8, background: '#fff',
-                            color: '#1E3A8A', padding: '8px 10px', fontSize: 12, fontWeight: 700,
-                            whiteSpace: 'nowrap', flexShrink: 0, minHeight: 44,
-                        }}
                     >
                         <AppIcon name="bi-plus" className="me-1" />
                         New
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -2170,7 +2166,8 @@ const MobileDayAgenda = ({
                                 {((onRemind && !isHeld(m) && !isCancelled(m))
                                     || (onLogTime && isHeld(m) && !isCancelled(m))
                                     || (onEdit && !isCancelled(m) && m.canManage)
-                                    || (onCancel && m.canManage) || onDelete) && (
+                                    || (onCancel && m.canManage) || onDelete
+                                    || !isCancelled(m)) && (
                                     <div style={{
                                         display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px 10px',
                                         borderTop: '1px dashed rgba(100,116,139,0.28)', background: '#F8FAFC',
@@ -2188,6 +2185,14 @@ const MobileDayAgenda = ({
                                         )}
                                         {onEdit && !isCancelled(m) && m.canManage && (
                                             <CardAction icon="bi-pencil" label="Edit" color="#1E3A8A" onClick={() => onEdit(m)} />
+                                        )}
+                                        {!isCancelled(m) && (
+                                            <CardAction
+                                                icon="bi-journal-text"
+                                                label="Detail"
+                                                color="#0F766E"
+                                                onClick={() => navigate(`/employees/meetings/agenda?meeting=${m.id}`)}
+                                            />
                                         )}
                                         {onCancel && m.canManage && (
                                             <CardAction
@@ -2277,6 +2282,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
     mode, targetId, onCreate, onDelete, onCancel, onEdit, onReschedule, onLogTime, onRemind,
     reloadToken, focusDate, viewerEmployeeId,
 }) => {
+    const navigate = useNavigate();
     const [meetings, setMeetings] = useState<MeetingRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [layout, setLayout] = useState<'month' | 'table'>('month');
@@ -2665,7 +2671,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
             header: 'External Participants',
             Cell: ({ row }: any) => namesCell((row.original as MeetingRow).externalParticipantNames),
         },
-        ...(onDelete || onCancel || onEdit || onLogTime || onRemind ? [{
+        ...[{
             id: 'actions',
             header: 'Actions',
             enableSorting: false,
@@ -2674,34 +2680,42 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                 return (
                     <div style={{ display: 'flex', gap: 4 }}>
                         {onRemind && !isHeld(m) && !isCancelled(m) && (
-                            <button
+                            <Button variant="ghost" size="icon-sm"
                                 type="button"
                                 onClick={() => onRemind(m)}
                                 title="Remind me before this meeting"
-                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#1E3A8A' }}
                             >
                                 <AppIcon name="bi-bell" className="fs-5" />
-                            </button>
+                            </Button>
                         )}
                         {onLogTime && isHeld(m) && !isCancelled(m) && (
-                            <button
+                            <Button variant="ghost" size="icon-sm"
                                 type="button"
                                 onClick={() => onLogTime(m)}
                                 title={m.loggedMinutes ? 'Edit your logged time' : 'Log your time'}
-                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: m.loggedMinutes ? '#16A34A' : '#B45309' }}
                             >
                                 <AppIcon name="bi-stopwatch" className="fs-5" />
-                            </button>
+                            </Button>
                         )}
                         {onEdit && !isCancelled(m) && viewerCanManage(m) && (
-                            <button
+                            <Button variant="ghost" size="icon-sm"
                                 type="button"
                                 onClick={() => requestEdit(m)}
                                 title="Edit meeting"
-                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#1E3A8A' }}
                             >
                                 <AppIcon name="bi-pencil" className="fs-5" />
-                            </button>
+                            </Button>
+                        )}
+                        {!isCancelled(m) && (
+                            <Button variant="ghost" size="icon-sm"
+                                type="button"
+                                onClick={() => navigate(`/employees/meetings/agenda?meeting=${m.id}`)}
+                                title="Open meeting detail (agenda and minutes)"
+                                aria-label="Open meeting detail (agenda and minutes)"
+                                style={{ color: '#0F766E' }}
+                            >
+                                <AppIcon name="bi-journal-text" className="fs-5" />
+                            </Button>
                         )}
                         {onCancel && viewerCanManage(m) && (() => {
                             // The SAME rule the day card applies, because this is the same act
@@ -2709,40 +2723,33 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                             // the table is where you go to do the thing the card refuses.
                             const blocked = !isCancelled(m) && (m.loggedMinutes ?? 0) > 0;
                             return (
-                                <button
+                                <Button variant="ghost" size="icon-sm"
                                     type="button"
                                     disabled={blocked}
                                     onClick={blocked ? undefined : () => requestCancel({ id: m.id, cancelled: !isCancelled(m) })}
                                     title={blocked
                                         ? 'Time has been logged against this meeting, so it cannot be cancelled'
                                         : (isCancelled(m) ? 'Restore meeting' : 'Cancel meeting')}
-                                    style={{
-                                        border: 0, background: 'transparent',
-                                        cursor: blocked ? 'not-allowed' : 'pointer',
-                                        opacity: blocked ? 0.35 : 1,
-                                        color: isCancelled(m) ? '#16A34A' : '#B45309',
-                                    }}
                                 >
                                     <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
-                                </button>
+                                </Button>
                             );
                         })()}
                         {onDelete && (
-                            <button
+                            <Button variant="ghost" size="icon-sm"
                                 type="button"
                                 onClick={() => onDelete(m.id)}
                                 title="Delete meeting"
-                                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: '#DC2626' }}
                             >
                                 <AppIcon name="bi-trash" className="fs-5" />
-                            </button>
+                            </Button>
                         )}
                     </div>
                 );
             },
-        } as MRT_ColumnDef<MeetingRow>] : []),
+        } as MRT_ColumnDef<MeetingRow>],
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [onDelete, onCancel, onEdit, onLogTime, onRemind, mode, openProject, requestEdit, viewerCanManage]);
+    ], [onDelete, onCancel, onEdit, onLogTime, onRemind, mode, openProject, requestEdit, viewerCanManage, navigate]);
 
     /**
      * A row that states its own outcome.
@@ -2820,19 +2827,14 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                 />
 
                 {onCreate && (
-                    <button
+                    <Button size="sm" style={{ flexShrink: 0 }}
                         type="button"
                         // No argument: the header is not standing on a date, so the form opens
                         // where it always did rather than on whichever day happens to be picked.
                         onClick={() => onCreate()}
-                        style={{
-                            border: 0, borderRadius: 8, padding: isPhone ? '8px 10px' : '8px 14px', cursor: 'pointer',
-                            background: '#1E3A8A', color: '#fff', fontFamily: 'Inter', fontSize: 13, fontWeight: 600,
-                            whiteSpace: 'nowrap', flexShrink: 0,
-                        }}
                     >
                         <AppIcon name="bi-plus" className="me-1" />New meeting
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -2880,22 +2882,21 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                 <div style={{ padding: isPhone ? 8 : 16, fontFamily: 'Inter' }}>
                     {/* ── month bar ── */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                        <button type="button" onClick={() => setCursor(cursor.subtract(1, 'month'))} style={navBtn} aria-label="Previous month">
+                        <Button variant="outline" size="icon-sm" type="button" onClick={() => setCursor(cursor.subtract(1, 'month'))} aria-label="Previous month">
                             <AppIcon name="bi-chevron-left" />
-                        </button>
+                        </Button>
                         <div style={{ fontSize: 15, fontWeight: 700, color: '#1E293B', minWidth: isPhone ? 0 : 150 }}>
                             {cursor.format(isPhone ? 'MMM YYYY' : 'MMMM YYYY')}
                         </div>
-                        <button type="button" onClick={() => setCursor(cursor.add(1, 'month'))} style={navBtn} aria-label="Next month">
+                        <Button variant="outline" size="icon-sm" type="button" onClick={() => setCursor(cursor.add(1, 'month'))} aria-label="Next month">
                             <AppIcon name="bi-chevron-right" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button variant="outline" size="sm"
                             type="button"
                             onClick={() => { setCursor(dayjs().startOf('month')); selectDay(todayKey); }}
-                            style={{ ...navBtn, width: 'auto', padding: '0 12px', fontSize: 12, fontWeight: 600 }}
                         >
                             Today
-                        </button>
+                        </Button>
 
                         <div style={{ flex: 1 }} />
 
@@ -2950,7 +2951,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                             const chipStack = shown.length;
                             const chipLayout = monthChipLayout(chipStack, isPhone, hasMore);
                             return (
-                                <button
+                                <button data-wt-control="cell"
                                     key={k}
                                     type="button"
                                     onClick={() => selectDay(k)}

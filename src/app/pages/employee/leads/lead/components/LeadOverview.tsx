@@ -19,6 +19,7 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { ToneChip } from '@app/modules/common/components/ui';
 import { getTimeTokens } from '@utils/timeFormat';
 import { currencyPrefix } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 interface ProjectData {
   currentStatus: string;
@@ -182,7 +183,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
       duration: computeDuration(start, end),
       rate: '-', // Not directly available in new structure
       totalCost: totalCost > 0 ? `${currencyPrefix()}${totalCost}` : '-',
-      area: lead?.additionalDetails?.projectArea || '-',
+      area: (lead?.commercials || []).reduce((sum: number, c: any) => sum + (parseFloat(c.area) || 0), 0) || '-',
       leadNumber: lead.prefix || lead.id || '-',
       inquiryDate: lead.inquiryDate ? dayjs(lead.inquiryDate).format("DD/MM/YYYY") : '-',
       leadAssignedTo: lead.assignedTo?.users ?
@@ -507,9 +508,9 @@ const LeadOverview = ({ lead }: { lead: any }) => {
             {title}
           </span>
           {title === 'Notes' && (
-            <button className="btn btn-outline-primary btn-sm px-3 py-2 ms-auto">
+            <Button variant="inverted" size="sm" type="submit" className="ms-auto">
               Add Note
-            </button>
+            </Button>
           )}
         </div>
         <div className="d-flex flex-column" style={{ gap: "8px", width: "100%" }}>
@@ -824,7 +825,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
                           ? (lead.commercials.reduce((sum: number, commercial: any) => {
                               return sum + (parseFloat(commercial.area) || 0);
                             }, 0)).toLocaleString('en-IN')
-                          : (parseFloat(lead?.additionalDetails?.projectArea) || 0).toLocaleString('en-IN')} sqft
+                          : 0} sqft
                       </div>
                     </div>
 

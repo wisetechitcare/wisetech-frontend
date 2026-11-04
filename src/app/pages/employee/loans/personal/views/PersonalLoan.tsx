@@ -18,6 +18,7 @@ import dayjs from 'dayjs'
 import { formatNumber } from '@utils/statistics'
 import { hasPermission } from '@utils/authAbac'
 import { formatCurrencyDecimal } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 interface MyComponentProps {
     resource: string;
@@ -273,12 +274,12 @@ function PersonalLoan({ resource, viewOthers, viewOwn, isSelecteEmployee }: { re
             {!isSelecteEmployee && <>
                 <div className="d-flex justify-content-between align-items-center mt-12">
                     <h3 style={{  fontWeight: "semi-bold" }} className='fs-lg-1 fs-3'>Loan Application Requests</h3>
-                    {hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.create, employeeId) && <button
-                        className="d-flex justify-content-between align-items-center bg-primary btn btn-lg btn-primary fs-7 w-auto"
+                    {hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.create, employeeId) && <Button size="lg" type="submit"
+                        className="w-auto"
                         onClick={() => setShowApplyLoanModal(true)}
                     >
                         <div>Apply For Loan</div>
-                    </button>}
+                    </Button>}
                 </div>
                 <PendingLoanTable completeLoanData={loanApplicationRequestData} onLoanSubmited={handleLoanSubmited} />
                 <div className="d-flex justify-content-between align-items-center mt-12">

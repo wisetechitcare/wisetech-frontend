@@ -1,6 +1,7 @@
 import React from 'react';
-import { Button, Table, Badge } from 'react-bootstrap';
+import { Table, Badge } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
+import { Button } from '@/ds/ui/button';
 
 interface FeeBreakupRow {
     stage_name: string;
@@ -68,10 +69,8 @@ const FeeBreakupTable: React.FC<FeeBreakupTableProps> = ({ rows, totalCost, onCh
                 <h6 className="fw-bolder mb-0">Payment Stages</h6>
                 <div className="d-flex align-items-center gap-3">
                     {!isValid && rows.length > 0 && (
-                        <Button 
-                            variant="light-danger" 
-                            size="sm" 
-                            className="btn-sm py-1 px-3 fs-9 fw-bold"
+                        <Button variant="tinted" size="sm" 
+                            className="[--tint:var(--cta-danger)]"
                             onClick={handleAutoFix}
                         >
                             <KTIcon iconName="magic" className="fs-9 me-1" /> Auto-Fix
@@ -80,7 +79,7 @@ const FeeBreakupTable: React.FC<FeeBreakupTableProps> = ({ rows, totalCost, onCh
                     <Badge bg={isValid ? 'light-success' : 'light-danger'} className={isValid ? 'text-success' : 'text-danger'}>
                         {totalPercentage}%
                     </Badge>
-                    <Button variant="light-primary" size="sm" onClick={handleAddRow} className="btn-icon w-25px h-25px">
+                    <Button variant="tinted" size="icon-xs" aria-label="Add" onClick={handleAddRow}>
                         <KTIcon iconName="plus" className="fs-3" />
                     </Button>
                 </div>
@@ -118,9 +117,8 @@ const FeeBreakupTable: React.FC<FeeBreakupTableProps> = ({ rows, totalCost, onCh
                                     </div>
                                 </td>
                                 <td className="text-end pe-4">
-                                    <Button
-                                        variant="icon"
-                                        className="btn btn-icon btn-light-danger btn-sm"
+                                    <Button variant="tinted" size="icon-sm" aria-label="Delete"
+                                        className="[--tint:var(--cta-danger)]"
                                         onClick={() => handleRemoveRow(index)}
                                         disabled={rows.length === 1}
                                     >

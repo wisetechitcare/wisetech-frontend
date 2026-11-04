@@ -3,6 +3,8 @@ import { Document, Page } from 'react-pdf';
 import { Dialog, DialogContent } from '@mui/material';
 import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { KTIcon } from '@metronic/helpers';
+import { Button } from '@/ds/ui/button';
+import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
 
 interface Position {
     x: number;
@@ -107,23 +109,11 @@ const PdfPreviewer: React.FC<PdfPreviewerProps> = ({ signatureUrl, file, onClose
     return (
         <Dialog open={open} onClose={handleCloseDialog} fullWidth maxWidth="lg">
             <DialogContent>
-                <button
-                    style={{
-                        position: 'absolute',
-                        top: '0px',
-                        right: '0px',
-                        background: 'transparent',
-                        border: 'none',
-                        fontSize: '24px',
-                        cursor: 'pointer',
-                        zIndex: 1001,
-                        display: 'block',
-                        marginBottom: '10px'
-                    }}
+                <WtCloseButton
+                    variant="plain"
+                    style={{ position: 'absolute', top: '0px', right: '0px', zIndex: 1001 }}
                     onClick={handleCloseDialog}
-                >
-                    ✖️
-                </button>
+                />
                 <div className='notice d-flex bg-primary-red rounded border-warning border border-dashed p-6'>
                     <KTIcon iconName='information-5' className='fs-2tx text-white me-4' />
                     <div className='d-flex flex-stack flex-grow-1'>
@@ -135,7 +125,7 @@ const PdfPreviewer: React.FC<PdfPreviewerProps> = ({ signatureUrl, file, onClose
                         </div>
                     </div>
                 </div>
-                <div onClick={handlePageClick} className='position-relative'>
+                <div data-wt-control="container" onClick={handlePageClick} className='position-relative'>
                     <Document file={file} onLoadSuccess={onDocumentLoadSuccess}>
                         {Array.from(new Array(numPages), (_, index) => (
                             <Page
@@ -148,7 +138,7 @@ const PdfPreviewer: React.FC<PdfPreviewerProps> = ({ signatureUrl, file, onClose
                         ))}
 
                         {showButton && !signatureLoaded && (
-                            <button
+                            <Button
                                 style={{
                                     position: 'absolute',
                                     top: buttonPosition.y,
@@ -156,10 +146,9 @@ const PdfPreviewer: React.FC<PdfPreviewerProps> = ({ signatureUrl, file, onClose
                                     zIndex: 1000
                                 }}
                                 onClick={handleImportSignature}
-                                className='btn btn-primary'
                             >
                                 Import Signature
-                            </button>
+                            </Button>
                         )}
 
                         {signatureUrl && signatureLoaded && (() => {

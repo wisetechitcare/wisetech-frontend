@@ -1,6 +1,6 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState } from "react";
-import { Button } from "react-bootstrap";
+import { Button } from "@/ds/ui/button";
 import Select from "react-select";
 import { createSubService, updateSubService } from "@services/companies";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
@@ -101,7 +101,7 @@ const SubServiceModal: React.FC<Props> = ({ show, onClose, services, defaultPare
         </div>
       </Modal.Body>
       <Modal.Footer style={{ borderTop: "none" }}>
-        <Button variant="primary" onClick={handleSave} disabled={saving} style={{ backgroundColor: "#1E3A8A", border: "none" }}>
+        <Button onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : "Save"}
         </Button>
       </Modal.Footer>

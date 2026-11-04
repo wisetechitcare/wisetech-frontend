@@ -117,7 +117,7 @@ const ProjectTeamsSection = ({
       {(Object.keys(MODE_LABEL) as ExternalMode[]).map((m) => {
         const active = externalMode === m;
         return (
-          <button
+          <button data-wt-control="segmented" aria-pressed={externalMode === m}
             key={m}
             type="button"
             onClick={() => setExternalMode(m)}

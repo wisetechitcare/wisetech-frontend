@@ -16,6 +16,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { formatDate } from "@utils/dateFormats";
 import { apiErrorMessage } from "@utils/apiError";
+import { canDelete } from "@utils/can";
 import NewTimeLogForm from "@app/pages/employee/timesheet/employeetimesheet/component/NewTimeLogForm";
 import TimeLogDetailDialog from "@app/pages/employee/timesheet/components/TimeLogDetailDialog";
 import { AssigneeAvatar } from "@pages/employee/tasks/components/primitives";
@@ -241,9 +242,11 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
           <WtIconButton title="Edit" onClick={() => setEditing(row.original.id)} sx={{ width: 30, height: 30, borderRadius: "8px" }}>
             <KTIcon iconName="pencil" className="fs-6" />
           </WtIconButton>
+          {canDelete("timesheets.employees") && (
           <WtIconButton title="Delete" color="#C0392B" onClick={() => void remove(row.original)} sx={{ width: 30, height: 30, borderRadius: "8px" }}>
             <KTIcon iconName="trash" className="fs-6" />
           </WtIconButton>
+          )}
         </Stack>
       ),
     },
@@ -277,7 +280,7 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
                 { value: "nonBillable", label: "Non-billable", count: logs.filter((l) => !l.billable).length },
               ]}
             />
-            <WtButton tone="primary" size="small" onClick={() => setEditing(null)} startIcon={<KTIcon iconName="plus" className="fs-6" />}>
+            <WtButton size="small" onClick={() => setEditing(null)} startIcon={<KTIcon iconName="plus" className="fs-6" />}>
               Add Log
             </WtButton>
           </Stack>

@@ -29,7 +29,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({
                 height: 28,
             }}
         >
-            <button
+            <button data-wt-control="stepper"
                 onClick={onPrevious}
                 style={{
                     width: 26, height: '100%', border: 'none', borderRight: '1px solid #e5e7eb',
@@ -52,7 +52,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({
                 {displayValue}
             </span>
 
-            <button
+            <button data-wt-control="stepper"
                 onClick={onNext}
                 disabled={disableNext}
                 title={disableNext ? nextDisabledMessage : ''}

@@ -3,6 +3,7 @@ import {FC} from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../../../_metronic/helpers'
 import {ChatInner, Dropdown1} from '../../../../../_metronic/partials'
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 const Group: FC = () => {
   return (
@@ -310,14 +311,16 @@ const Group: FC = () => {
 
               <div className='card-toolbar'>
                 <div className='me-n3'>
-                  <button
-                    className='btn btn-sm btn-icon btn-active-light-primary'
+                  <Button
+                    variant='ghost'
+                    size='icon-sm'
+                    aria-label='Open menu'
                     data-kt-menu-trigger='click'
                     data-kt-menu-placement='bottom-end'
                     data-kt-menu-flip='top-end'
                   >
                     <AppIcon name="bi-three-dots" className="fs-2" />
-                  </button>
+                  </Button>
                   <Dropdown1 />
                 </div>
               </div>

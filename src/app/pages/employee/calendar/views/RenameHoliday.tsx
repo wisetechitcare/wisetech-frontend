@@ -30,8 +30,9 @@ import eventBus from "../../../../../utils/EventBus";
 import { ConfigSectionCard, KEYFRAMES } from "@app/modules/configuration";
 import Holiday from "@pages/company/Holiday";
 import { Box } from "@mui/material";
-import { GlassDialog, PlainDialogHeader, T } from "@app/modules/common/components/ui";
+import { GlassDialog, PlainDialogHeader } from "@app/modules/common/components/ui";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 // Interface for the transformed holiday data displayed in the table
 interface PublicHoliday {
@@ -388,24 +389,28 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
                 return (
                   <div>
                     {allowEdit && (
-                      <button
-                        className="btn btn-icon btn-active-color-primary btn-sm"
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={() => handleEdit(row.original)}
                         title="Edit Holiday"
+                        aria-label="Edit Holiday"
                         disabled={loading}
                       >
                         <KTIcon iconName="pencil" className="fs-4" />
-                      </button>
+                      </Button>
                     )}
                     {allowDelete && (
-                      <button
-                        className="btn btn-icon btn-active-color-danger btn-sm"
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={() => handleDelete(row.original)}
                         title="Delete Holiday"
+                        aria-label="Delete Holiday"
                         disabled={loading}
                       >
                         <KTIcon iconName="trash" className="fs-4" />
-                      </button>
+                      </Button>
                     )}
                   </div>
                 );
@@ -549,21 +554,10 @@ const PREMIUM_TABLE_CSS = `
           
           <div>
             {hasPermission(resourceNameMapWithCamelCase.holiday, permissionConstToUseWithHasPermission.create) && (
-              <button
-                type="button"
-                className="btn btn-sm text-white fw-bold d-flex align-items-center gap-2 border-0"
-                style={{
-                  background: `linear-gradient(180deg, ${T.color.brand} 0%, ${T.color.brandHover} 100%)`,
-                  borderRadius: '8px',
-                  padding: '9px 18px',
-                  fontSize: '13px',
-                  boxShadow: `0 4px 12px ${T.color.brand}40`,
-                }}
-                onClick={() => setShowAddModal(true)}
-              >
-                <AppIcon name="bi-plus-lg" className="fs-6" />
+              <Button size="sm" onClick={() => setShowAddModal(true)}>
+                <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-plus-lg" className="fs-6" /></span>
                 Add Holiday
-              </button>
+              </Button>
             )}
           </div>
         </div>

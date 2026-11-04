@@ -1,0 +1,23 @@
+# Shared setup for every job in ci.yml: pnpm, Node, dependencies.
+# One definition, so the three parallel jobs can't drift onto different Node or pnpm versions.
+name: Setup pnpm + Node + deps
+description: Installs pnpm (version from package.json "packageManager"), Node 24 with the pnpm cache, and the locked dependencies.
+
+runs:
+  using: composite
+  steps:
+    # Must come before setup-node: `cache: pnpm` needs pnpm on PATH.
+    - name: 📦 Setup pnpm
+      uses: pnpm/action-setup@v6
+
+    - name: ⚙️ Setup Node.js
+      uses: actions/setup-node@v7
+      with:
+        # 24, not 20: pnpm 11.20 (our packageManager) requires Node >= 22.13 and dies on
+        # 20 with "No such built-in module: node:sqlite". Vite 7's floor is 20.19.
+        node-version: 24
+        cache: 'pnpm'
+
+    - name: 📦 Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

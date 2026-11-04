@@ -1,14 +1,6 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect } from "react";
-import {
-  Form,
-  Button,
-  Table,
-  Card,
-  Row,
-  Col,
-  Badge
-} from "react-bootstrap";
+import { Form, Table, Card, Row, Col, Badge } from "react-bootstrap";
 import {
   getProposalConfigurations,
   getAvailableExportFields,
@@ -18,10 +10,12 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import { useNavigate } from "react-router-dom";
 import { showSuccess, showError, showWarning } from "@utils/modal";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import PercentageConfigurationTable from "./PercentageConfigurationTable";
 import MeetingConfigurationTable from "./MeetingConfigurationTable";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
+import { Button as KitButton } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 const ProposalConfigurationPage: React.FC = () => {
   const navigate = useNavigate();
@@ -63,11 +57,6 @@ const ProposalConfigurationPage: React.FC = () => {
       enabledFields: availableFields.map((f) => f.key),
       enabledSections: ["percentages", "meetings"],
       paymentBreakdown: [
-        {
-          config_type: "percentage",
-          config_key: "Advance (To be paid along with the Work Order)",
-          value: 0,
-        },
         { config_type: "percentage", config_key: "Design Concept", value: 0 },
         { config_type: "percentage", config_key: "Design Detailing", value: 0 },
         { config_type: "percentage", config_key: "Tendering", value: 0 },
@@ -277,13 +266,12 @@ const ProposalConfigurationPage: React.FC = () => {
         style={{ zIndex: 100 }}
       >
         <div className="d-flex align-items-center">
-          <Button
-            variant="link"
-            className="p-0 me-4 text-gray-600 text-hover-primary"
+          <KitButton variant="link"
+            className="p-0 me-4 text-hover-primary"
             onClick={goBack}
           >
             <KTIcon iconName="arrow-left" className="fs-1" />
-          </Button>
+          </KitButton>
           <div>
             <h1 className="fs-2 fw-bolder mb-0 text-dark">
               Proposal Template Builder
@@ -295,32 +283,27 @@ const ProposalConfigurationPage: React.FC = () => {
         </div>
         {canWrite && (
         <div className="d-flex gap-3">
-          {selectedConfig?.id && (
-            <Button
-              variant="light-danger"
-              className="fw-bold"
+          {selectedConfig?.id && canDelete("crm.leads") && (
+            <KitButton variant="tinted"
+              className="[--tint:var(--cta-danger)]"
               onClick={() => setShowDeleteModal(true)}
             >
               <KTIcon iconName="trash" className="fs-2 me-1" /> Delete Template
-            </Button>
+            </KitButton>
           )}
-          <Button
-            variant="light-primary"
-            className="fw-bold"
+          <KitButton variant="tinted"
             onClick={handleCreateNew}
           >
             <KTIcon iconName="plus" className="fs-2 me-1" /> New Template
-          </Button>
+          </KitButton>
           {selectedConfig && (
-            <Button
-              variant="primary"
-              className="fw-bold shadow-sm"
+            <KitButton
               onClick={handleSave}
               disabled={isSaving}
             >
               <KTIcon iconName="save-2" className="fs-2 me-1" />{" "}
               {isSaving ? "Saving..." : "Save Changes"}
-            </Button>
+            </KitButton>
           )}
         </div>
         )}
@@ -338,7 +321,7 @@ const ProposalConfigurationPage: React.FC = () => {
               <Card.Body className="px-4">
                 <div className="d-flex flex-column gap-2">
                   {configurations.map((config, index) => (
-                    <div
+                    <div data-wt-control="option" {...pressableProps(() => handleSelectTemplate(config))}
                       key={index}
                       onClick={() => handleSelectTemplate(config)}
                       className={`p-4 rounded-3 cursor-pointer transition-all ${selectedConfig?.id === config.id ? "bg-light-primary border border-primary" : "bg-hover-light border border-transparent"}`}
@@ -474,10 +457,7 @@ const ProposalConfigurationPage: React.FC = () => {
                           <h5 className="fw-bolder mb-0">
                             Select Fields to Enable in This Template:
                           </h5>
-                          <Button
-                            variant="light-primary"
-                            size="sm"
-                            className="fw-bold"
+                          <KitButton variant="tinted" size="sm"
                             onClick={() => {
                               const allKeys = availableFields.map((f) => f.key);
                               const current =
@@ -516,7 +496,7 @@ const ProposalConfigurationPage: React.FC = () => {
                               )
                               ? "Deselect All"
                               : "Select All"}
-                          </Button>
+                          </KitButton>
                         </div>
                         <Row className="g-4">
                           {availableFields.map((field, idx) => (
@@ -568,9 +548,7 @@ const ProposalConfigurationPage: React.FC = () => {
                           <h4 className="fw-bolder mb-0 text-dark">
                             Area-Specific Meetings & Durations
                           </h4>
-                          <Button
-                            variant="primary"
-                            size="sm"
+                          <KitButton size="sm"
                             onClick={() => {
                               const newGroup = {
                                 min_area: 0,
@@ -619,7 +597,7 @@ const ProposalConfigurationPage: React.FC = () => {
                           >
                             <KTIcon iconName="plus" className="fs-3 me-1" /> Add
                             Area Range
-                          </Button>
+                          </KitButton>
                         </div>
 
                         <div className="d-flex flex-column gap-6">
@@ -633,9 +611,7 @@ const ProposalConfigurationPage: React.FC = () => {
                                   className="position-absolute top-0 end-0 mt-4 me-4"
                                   style={{ zIndex: 10 }}
                                 >
-                                  <Button
-                                    variant="light-danger"
-                                    size="sm"
+                                  <KitButton variant="tinted" size="sm" className="[--tint:var(--cta-danger)]"
                                     onClick={() => {
                                       const updated = [...selectedConfig.rules];
                                       updated.splice(ruleIdx, 1);
@@ -646,7 +622,7 @@ const ProposalConfigurationPage: React.FC = () => {
                                     }}
                                   >
                                     <KTIcon iconName="trash" className="fs-3" />
-                                  </Button>
+                                  </KitButton>
                                 </div>
 
                                 <Row className="align-items-center mb-6 pe-12">
@@ -831,21 +807,20 @@ const ProposalConfigurationPage: React.FC = () => {
           </ul>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="light"
+          <KitButton variant="outline"
             onClick={() => setShowDeleteModal(false)}
             disabled={isDeleting}
           >
             Cancel
-          </Button>
-          <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>
+          </KitButton>
+          <KitButton variant="destructive" onClick={handleDelete} disabled={isDeleting}>
             {isDeleting ? (
               <span className="spinner-border spinner-border-sm me-2" />
             ) : (
               <KTIcon iconName="trash" className="me-1" />
             )}
             Confirm Hard Delete
-          </Button>
+          </KitButton>
         </Modal.Footer>
       </Modal>
     </div>

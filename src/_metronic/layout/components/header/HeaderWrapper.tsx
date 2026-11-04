@@ -53,7 +53,7 @@ export function HeaderWrapper() {
             {/* Left side: the menu button. A real hamburger — the abstract-shapes glyph it
                 replaced read as an apps grid, not "open the navigation". Metronic's drawer binds
                 to the id, so the element type can change without rewiring anything. */}
-            <button
+            <button data-wt-control="shell"
               type='button'
               className='wt-menu-toggle'
               id='kt_aside_mobile_toggle'
@@ -93,7 +93,7 @@ export function HeaderWrapper() {
         </Link>
 
         {/* Premium collapse / expand toggle (desktop only) */}
-        <button
+        <button data-wt-control="shell"
           type='button'
           onClick={toggle}
           className='wt-aside-toggle d-none d-lg-flex'

@@ -2,6 +2,7 @@ import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui'
 import React, { useState, useRef, useCallback, useEffect } from "react";
 
 import { KTIcon } from "@metronic/helpers";
+import { Button } from '@/ds/ui/button';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -172,7 +173,7 @@ function SystemIconItem({
   };
 
   return (
-    <button
+    <button data-wt-control="swatch"
       type="button"
       title={icon.label}
       onClick={onClick}
@@ -218,7 +219,7 @@ function RemoteIconItem({
   };
 
   return (
-    <button
+    <button data-wt-control="swatch"
       type="button"
       title={icon.label}
       onClick={onClick}
@@ -306,25 +307,12 @@ function SearchInput({
       />
 
       {value && (
-        <button
+        <Button variant="ghost" size="icon-xs" aria-label="Clear search" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)" }}
           type="button"
           onClick={onClear}
-          style={{
-            position: "absolute",
-            right: 10,
-            top: "50%",
-            transform: "translateY(-50%)",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            color: "#A1A5B7",
-            padding: 0,
-            display: "flex",
-            alignItems: "center",
-          }}
         >
           <KTIcon iconName="cross" className="fs-6" />
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -510,28 +498,19 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
                   : "Iconify"}
               </div>
             </div>
-            <button
+            <Button variant="link" size="xs" style={{ marginLeft: "auto" }}
               type="button"
               onClick={() => setSelectedIcon(null)}
-              style={{
-                marginLeft: "auto",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#A1A5B7",
-                display: "flex",
-                alignItems: "center",
-              }}
             >
               <KTIcon iconName="cross" className="fs-5" />
-            </button>
+            </Button>
           </div>
         )}
 
         {/* ── Tabs ──────────────────────────────────────────────────── */}
         <div style={{ display: "flex", borderBottom: "1.5px solid #EEF0F8", padding: "0 24px" }}>
           {TABS.map((tab) => (
-            <button
+            <button data-wt-control="tab"
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
@@ -601,7 +580,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
                   style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "14px" }}
                 >
                   {SYSTEM_ICON_GROUPS.map((g) => (
-                    <button
+                    <button data-wt-control="chip"
                       key={g.label}
                       type="button"
                       onClick={() => setActiveGroup(g.label)}
@@ -729,18 +708,16 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
           gap: "10px",
         }}
       >
-        <button
+        <Button variant="outline" size="sm"
           type="button"
-          className="btn btn-light btn-sm"
           data-unsaved-changes-close
           onClick={onHide}
           style={{ fontWeight: 600 }}
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button size="sm"
           type="button"
-          className="btn btn-primary btn-sm"
           onClick={handleConfirm}
           disabled={!selectedIcon}
           style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
@@ -749,7 +726,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
             <KTIcon iconName="check" className="fs-5" />
           </span>
           Select This Icon
-        </button>
+        </Button>
       </Modal.Footer>
     </Modal>
   );

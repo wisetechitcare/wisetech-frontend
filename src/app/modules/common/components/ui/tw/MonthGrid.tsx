@@ -32,6 +32,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import { KTIcon } from '@metronic/helpers';
 import { cn } from './cn';
+import { Button } from '@/ds/ui/button';
 
 /** 0 = Sunday, 1 = Monday. */
 export type WeekStart = 0 | 1;
@@ -247,13 +248,12 @@ export function MonthGrid({
               {cursor.format('MMMM YYYY')}
             </h3>
             {month !== dayjs().format('YYYY-MM') && (
-              <button
+              <Button variant="ghost" size="xs" className="shrink-0"
                 type="button"
                 onClick={() => onMonthChange?.(dayjs().format('YYYY-MM'))}
-                className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[#1E3A8A] hover:bg-[#EAF0FA] dark:text-[#8AA3EC] dark:hover:bg-white/[0.06]"
               >
                 Today
-              </button>
+              </Button>
             )}
             {toolbar}
           </div>
@@ -340,7 +340,7 @@ export function MonthGrid({
 
 function NavBtn({ label, icon, onClick }: { label: string; icon: string; onClick: () => void }) {
   return (
-    <button
+    <button data-wt-control="cell"
       type="button"
       aria-label={label}
       onClick={onClick}

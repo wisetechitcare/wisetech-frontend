@@ -1,8 +1,5 @@
 import { Children, cloneElement, forwardRef, isValidElement } from 'react';
-import {
-  Box, BoxProps, Dialog, DialogActions, DialogContent, DialogProps, Fade, Grow, IconButton,
-  Stack, Typography, useMediaQuery,
-} from '@mui/material';
+import { Box, BoxProps, Dialog, DialogActions, DialogContent, DialogProps, Fade, Grow, Stack, Typography, useMediaQuery } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
 import { alpha } from '@mui/material/styles';
 import type { SxProps, Theme } from '@mui/material/styles';
@@ -16,6 +13,7 @@ import { WtCloseButton } from './tw/WtCloseButton';
 import { useIsDark } from './tw/useIsDark';
 import { useDialogUnsavedChangesBoundary } from './useDialogUnsavedChangesBoundary';
 import { DialogCloseContext, DialogDirtyContext } from './UnsavedChangesContext';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 /** Resolve a keenicon name string or a ready-made node into the header glyph. */
 function resolveHeaderIcon(icon: React.ReactNode | string | undefined): React.ReactNode {
@@ -212,7 +210,7 @@ export function GlassHeader({
         {/* Back replaces the icon tile rather than sitting next to it: on a 360px header
             a back control + icon + title + close leaves the title an ellipsis. */}
         {onBack ? (
-          <IconButton onClick={onBack} aria-label={backLabel} sx={{
+          <WtIconButton size="medium" onClick={onBack} aria-label={backLabel} sx={{
             width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5, flexShrink: 0,
             ...(gradient
               ? { color: '#fff', bgcolor: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.22)', '&:hover': { bgcolor: 'rgba(255,255,255,0.24)' } }
@@ -221,7 +219,7 @@ export function GlassHeader({
             '&:active': { transform: 'scale(.92)' },
           }}>
             {backIcon ?? <Box component="span" sx={{ fontSize: 26, lineHeight: 1, fontWeight: 400, mt: '-2px' }}>&lsaquo;</Box>}
-          </IconButton>
+          </WtIconButton>
         ) : iconNode && !plain && (
           <Box sx={{
             width: { xs: 40, sm: 46 }, height: { xs: 40, sm: 46 }, borderRadius: 2.5,

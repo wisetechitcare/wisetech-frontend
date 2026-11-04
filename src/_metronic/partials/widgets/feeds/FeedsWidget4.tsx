@@ -1,6 +1,7 @@
 ﻿
 import React from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+import {Button, buttonVariants} from '@/ds/ui/button'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
 
 type Props = {
@@ -35,15 +36,16 @@ const FeedsWidget4: React.FC<Props> = ({className}) => {
 
           {/* begin::Menu */}
           <div className='my-0'>
-            <button
-              type='button'
-              className='btn btn-sm btn-icon btn-color-primary btn-active-light-primary'
+            <Button
+              variant='tinted'
+              size='icon-sm'
+              aria-label='Open menu'
               data-kt-menu-trigger='click'
               data-kt-menu-placement='bottom-end'
               data-kt-menu-flip='top-end'
             >
               <KTIcon iconName='category' className='fs-2' />
-            </button>
+            </Button>
             <Dropdown1 />
           </div>
           {/* end::Menu */}
@@ -63,17 +65,23 @@ const FeedsWidget4: React.FC<Props> = ({className}) => {
           <div className='d-flex align-items-center mb-5'>
             <a
               href='#'
-              className='btn btn-sm btn-light btn-color-muted btn-active-light-success px-4 py-2 me-4'
+              data-slot='button'
+              className={buttonVariants({variant: 'outline', size: 'sm', className: 'me-4'})}
             >
-              <KTIcon iconName='message-text-2' className='fs-3' />
+              <span data-icon='inline-start' className='inline-flex'>
+                <KTIcon iconName='message-text-2' className='fs-3' />
+              </span>
               22
             </a>
 
             <a
               href='#'
-              className='btn btn-sm btn-light btn-color-muted btn-active-light-danger px-4 py-2'
+              data-slot='button'
+              className={buttonVariants({variant: 'outline', size: 'sm'})}
             >
-              <KTIcon iconName='heart' className='fs-2' />
+              <span data-icon='inline-start' className='inline-flex'>
+                <KTIcon iconName='heart' className='fs-2' />
+              </span>
               59
             </a>
           </div>
@@ -94,13 +102,13 @@ const FeedsWidget4: React.FC<Props> = ({className}) => {
           ></textarea>
 
           <div className='position-absolute top-0 end-0 me-n5'>
-            <span className='btn btn-icon btn-sm btn-active-color-primary pe-0 me-2'>
+            <Button variant='ghost' size='icon-sm' className='me-2' aria-label='Attach file'>
               <KTIcon iconName='paper-clip' className='fs-3 mb-3' />
-            </span>
+            </Button>
 
-            <span className='btn btn-icon btn-sm btn-active-color-primary ps-0'>
+            <Button variant='ghost' size='icon-sm' aria-label='Add location'>
               <KTIcon iconName='geolocation' className='fs-2 mb-3' />
-            </span>
+            </Button>
           </div>
         </form>
         {/* edit::Reply input */}

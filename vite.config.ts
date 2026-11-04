@@ -4,6 +4,7 @@ import tsconfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
+import { kitExemption } from './scripts/postcss-kit-exemption'
 
 function muiIconDeepImportPlugin() {
   return {
@@ -81,7 +82,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    needsInterop: ['react-countup'],
     include: [
       '@emotion/react',
       '@emotion/styled',
@@ -103,6 +103,8 @@ export default defineConfig({
     ],
   },
   css: {
+    // Bootstrap/Metronic utilities skip v2 kit elements (see the plugin file).
+    postcss: { plugins: [kitExemption(path.resolve(__dirname, './src/ds'))] },
     preprocessorOptions: {
       scss: {
         quietDeps: true,
@@ -133,7 +135,7 @@ export default defineConfig({
             'vendor-table': ['material-react-table', 'react-table', '@tanstack/react-query'],
             'vendor-maps': ['leaflet', 'react-leaflet', '@react-google-maps/api', '@vis.gl/react-google-maps'],
             'vendor-calendar': ['@fullcalendar/react', '@fullcalendar/daygrid', '@fullcalendar/timegrid', '@fullcalendar/interaction', '@fullcalendar/multimonth'],
-            'vendor-ui': ['antd', '@mantine/core', '@mantine/dates', 'framer-motion', 'react-select'],
+            'vendor-ui': ['framer-motion', 'react-select'],
             'vendor-utils': ['axios', 'dayjs', 'lodash', 'jszip'],
           };
           for (const [chunk, pkgs] of Object.entries(chunks)) {

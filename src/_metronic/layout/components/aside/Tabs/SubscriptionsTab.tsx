@@ -1,4 +1,5 @@
 import {useIllustrationsPath} from '../../../../helpers'
+import { buttonVariants } from '@/ds/ui/button';
 
 
 const SubscriptionsTab = () => (
@@ -18,7 +19,7 @@ const SubscriptionsTab = () => (
       {/*end::Description*/}
 
       {/*begin::Action*/}
-      <a href='#' className='btn btn-primary'>
+      <a data-slot="button" href='#' className={buttonVariants({  })}>
         Upgrade Plan
       </a>
       {/*end::Action*/}

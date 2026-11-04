@@ -4,6 +4,7 @@ import { C, FONT, RADIUS, BTN } from '@/app/modules/configuration/ConfigDesignSy
 import { AuditEntityType } from './audit.service';
 import { useResetPreview, useReset } from './hooks';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface Props {
   type: AuditEntityType;
@@ -46,7 +47,7 @@ export const ResetModal: React.FC<Props> = ({ type, id, targetVersion, onClose, 
   const changedFields = preview.data?.changes ?? [];
 
   return (
-    <div
+    <div data-wt-control="backdrop"
       onClick={onClose}
       style={{
         position: 'fixed',
@@ -193,28 +194,13 @@ export const ResetModal: React.FC<Props> = ({ type, id, targetVersion, onClose, 
 
         {/* Footer */}
         <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button type="button" style={{ ...BTN.secondary }} onClick={onClose} disabled={reset.isPending}>
+          <Button variant="outline" type="button" onClick={onClose} disabled={reset.isPending}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button variant="destructive"
             type="button"
             onClick={handleConfirm}
             disabled={reset.isPending || !preview.data}
-            style={{
-              backgroundColor: C.danger,
-              color: '#fff',
-              border: 'none',
-              borderRadius: RADIUS.md,
-              padding: '10px 20px',
-              fontFamily: FONT.body,
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: reset.isPending ? 'default' : 'pointer',
-              opacity: reset.isPending || !preview.data ? 0.6 : 1,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
           >
             {reset.isPending ? (
               <>
@@ -225,7 +211,7 @@ export const ResetModal: React.FC<Props> = ({ type, id, targetVersion, onClose, 
                 <AppIcon name="bi-arrow-counterclockwise" aria-hidden /> Reset Version
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

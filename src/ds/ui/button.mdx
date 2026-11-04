@@ -1,0 +1,109 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as ButtonStories from './button.stories';
+
+<Meta of={ButtonStories} />
+
+# Button
+
+The one button for the whole app. Every button in WiseTech is this component, a wrapper that renders it
+(`WtButton`, `WtIconButton`, `ActionIconButton`, `WtCloseButton`, `PremiumButton`), or a documented control
+that is not an ordinary action. CI (`pnpm audit:buttons:check`) fails on anything else. Source: `src/ds/ui/button.tsx`;
+rules: `docs/BUTTONS.md`.
+
+<Canvas of={ButtonStories.Default} />
+<Controls of={ButtonStories.Default} />
+
+## Which variant
+
+**`default` for every main action: default always.** There is no navy "primary".
+
+| Variant | Use it for |
+|---|---|
+| `default` | the main action of a view: Save, Create, Submit, Next, Apply |
+| `destructive` | irreversible actions: Delete, Discard, Reject |
+| `success` | affirmative decisions: Approve, Confirm payment |
+| `outline` | Cancel and other secondary actions beside a main one |
+| `inverted` | secondary "launch" actions on brand surfaces (Choose Image, Save Changes) |
+| `secondary` / `ghost` | quiet actions: Load more, Refresh, toolbar icons |
+| `link` | an action inside running text |
+| `tinted` | row and card icon actions (Edit, Delete, Approve), toned with the `--tint` CSS variable |
+
+<Canvas of={ButtonStories.Variants} />
+<Canvas of={ButtonStories.Tinted} />
+<Canvas of={ButtonStories.TintedOnHeader} />
+
+## Sizes
+
+`default` is 40px and `lg` is 44px; `sm` and `xs` serve dense toolbars. Icon-only buttons use `icon`, `icon-sm`,
+`icon-xs` or `icon-lg`, and **must** carry an `aria-label`: it is their only accessible name.
+
+<Canvas of={ButtonStories.Sizes} />
+<Canvas of={ButtonStories.IconSizes} />
+
+## Icons, loading, disabled
+
+Put the icon inside the button and mark its side: `data-icon="inline-start"` or `data-icon="inline-end"`.
+`loading` disables the button, sets `aria-busy` and shows a spinner (icon-only buttons swap their glyph for it).
+A disabled button cannot be activated and is skipped by the keyboard.
+
+<Canvas of={ButtonStories.Loading} />
+<Canvas of={ButtonStories.Disabled} />
+
+## Forms
+
+The kit defaults to `type="button"`. A submit button must say `type="submit"`; the legacy native `button` defaulted
+to submit, so migrated buttons that had no type were given `type="submit"` explicitly.
+
+<Canvas of={ButtonStories.FormSubmission} />
+
+## Links that look like buttons
+
+Navigation is a link, not a button. Put `buttonVariants({ variant, size })` on a real anchor or router `Link`, and add
+`data-slot="button"` inside the app so it gets the kit sizing.
+
+<Canvas of={ButtonStories.AsLink} />
+
+## Keyboard and focus
+
+Tab moves focus to the button, which shows a 2px outline in its own tone colour. Enter and Space activate it.
+Disabled buttons are skipped.
+
+<Canvas of={ButtonStories.Keyboard} />
+<Canvas of={ButtonStories.States} />
+<Canvas of={ButtonStories.StatesDark} />
+
+## Destructive actions
+
+Put Cancel (`outline`) beside the destructive action, and ask for confirmation before anything irreversible.
+
+<Canvas of={ButtonStories.DestructiveConfirm} />
+<Canvas of={ButtonStories.ConfirmDiscard} />
+
+## Responsive
+
+Dialog and form footers stack full-width on a phone and sit side by side from `sm` up.
+
+<Canvas of={ButtonStories.Responsive} />
+
+## Do and don't
+
+- **Do** use `default` for the main action, and only one per view.
+- **Do** give every icon-only button an `aria-label`.
+- **Do** keep layout classes (margins, width, flex placement) on a button; the variant owns the look.
+- **Don't** restyle a button with colour, padding, border or shadow classes, or with an inline `style`.
+- **Don't** put two glowing buttons side by side.
+- **Don't** make a `div` or `span` clickable as a button, and don't use Bootstrap `.btn` classes, MUI `Button` or
+  react-bootstrap `Button`.
+- **Don't** reach for a "primary" variant: there isn't one.
+
+<Canvas of={ButtonStories.DoDont} />
+
+## App wrappers
+
+`WtButton` keeps the MUI-style API and maps onto these variants: tone `accent` (default) / `danger` / `success` to
+`default` / `destructive` / `success`, `ghost` to `outline`, `inverted` to `inverted`, `size="medium"` to `lg`,
+`flat={false}` to `glow`, and MUI's own `variant="text"` / `"outlined"` to `ghost` / `outline`. `WtIconButton`,
+`ActionIconButton` and `WtCloseButton` render the `tinted` variant.
+
+<Canvas of={ButtonStories.DialogFooter} />
+<Canvas of={ButtonStories.WizardFooter} />

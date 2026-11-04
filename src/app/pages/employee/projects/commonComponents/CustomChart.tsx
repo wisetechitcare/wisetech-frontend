@@ -6,6 +6,7 @@ import { Col, Card, Form } from "react-bootstrap";
 import ProjectConfigForm from "../configure/components/ProjectConfigForm";
 import { ProjectItem } from "@models/clientProject";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 type PieChartDataItem = {
   label: string;
@@ -377,99 +378,30 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
           </h1>
           <div className="d-flex align-items-center gap-2">
             {title.toLowerCase().includes("projects by status") && (
-              <button
-                style={{
-                  fontSize: "11px",
-                  border: "1px solid #1E3A8A",
-                  color: "#1E3A8A",
-                  backgroundColor: "transparent",
-                  borderRadius: "3px",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  display: "flex",
-                  padding: "9px 12px",
-                  lineHeight: "1",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-in-out",
-                  whiteSpace: "nowrap"
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#1E3A8A";
-                  e.currentTarget.style.color = "#fff";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = "#1E3A8A";
-                }}
+              <Button variant="outline" size="xs" type="submit"
                 onClick={handleStatusModalOpen}
               >
                 New Status
-              </button>
+              </Button>
             )}
 
             {
               title.toLowerCase().includes("projects by category") && (
-                <button
-                  style={{
-                    fontSize: "11px",
-                    border: "1px solid #1E3A8A",
-                    color: "#1E3A8A",
-                    backgroundColor: "transparent",
-                    borderRadius: "3px",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    display: "flex",
-                    padding: "9px 12px",
-                    lineHeight: "1",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease-in-out",
-                    whiteSpace: "nowrap"
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#1E3A8A";
-                    e.currentTarget.style.color = "#fff";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "#1E3A8A";
-                  }}
+                <Button variant="outline" size="xs" type="submit"
                   onClick={handleCategoryModalOpen}
                 >
                   New Category
-                </button>
+                </Button>
               )
             }
 
             {
               title.toLowerCase().includes("projects by service") && (
-                <button
-                  style={{
-                    fontSize: "11px",
-                    border: "1px solid #1E3A8A",
-                    color: "#1E3A8A",
-                    backgroundColor: "transparent",
-                    borderRadius: "3px",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    display: "flex",
-                    padding: "9px 12px",
-                    lineHeight: "1",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease-in-out",
-                    whiteSpace: "nowrap"
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#1E3A8A";
-                    e.currentTarget.style.color = "#fff";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "#1E3A8A";
-                  }}
+                <Button variant="outline" size="xs" type="submit"
                   onClick={handleServiceModalOpen}
                 >
                   New Service
-                </button>
+                </Button>
               )
             }
             {showFilter && filterOptions.length > 0 && (

@@ -1,23 +1,8 @@
-import React, { useMemo } from "react";
-import { useFormikContext } from "formik";
-import {
-  EnterpriseFormWizard,
-  type EnterpriseWizardStep,
-  type SummaryRow,
-} from "@/shared/form-engine";
-import { AppIcon } from "@app/modules/common/components/ui";
-import "./crmWizardTheme.css";
+import React from "react";
+import type { SummaryRow } from "@/shared/form-engine";
+import { CrmWorkspace, type CrmWizardSection } from "./CrmWorkspace";
 
-export type ContactWizardSection = {
-  id: string;
-  label: string;
-  title: string;
-  subtitle?: string;
-  fields: string[];
-  requiredFields?: string[];
-  icon?: string;
-  content: React.ReactNode;
-};
+export type ContactWizardSection = CrmWizardSection;
 
 type Props = {
   isEdit: boolean;
@@ -26,63 +11,32 @@ type Props = {
   sections: ContactWizardSection[];
 };
 
-/**
- * Contact form shell — same EnterpriseFormWizard chrome as Leads / Onboarding.
- * Flow: Profile → Company → Contact → Address → Notes.
- */
+const summaryRows = (values: any): SummaryRow[] => [
+  { label: "Name", value: values.fullName || "—", isStrong: true },
+  // The primary ones — what greetings, invites and every other screen will use.
+  { label: "Phone", value: values.phones?.find((p: any) => p.isPrimary)?.value || "—" },
+  { label: "Email", value: values.emails?.find((e: any) => e.isPrimary)?.value || "—" },
+  { label: "Gender", value: values.gender || "—" },
+  { label: "Status", value: values.isContactActive === false ? "Inactive" : "Active" },
+  { label: "Visibility", value: values.visibility || "—" },
+];
+
+/** Contact form shell. Flow: Profile → Company → Contact → Address → Notes. */
 export function ContactWorkspace({ isEdit, onCancel, isSubmitting, sections }: Props) {
-  const { values } = useFormikContext<any>();
-
-  const summaryRows: SummaryRow[] = useMemo(
-    () => [
-      { label: "Name", value: values.fullName || "—", isStrong: true },
-      { label: "Phone", value: values.phone || "—" },
-      { label: "Email", value: values.email || "—" },
-      { label: "Gender", value: values.gender || "—" },
-      {
-        label: "Status",
-        value: values.isContactActive === false ? "Inactive" : "Active",
-      },
-      { label: "Visibility", value: values.visibility || "—" },
-    ],
-    [values],
-  );
-
-  const steps: EnterpriseWizardStep[] = useMemo(
-    () =>
-      sections.map((s, i) => ({
-        id: s.id,
-        label: s.label,
-        title: s.title,
-        subtitle: s.subtitle,
-        fields: s.fields,
-        requiredFields: s.requiredFields,
-        isSubmitStep: i === sections.length - 1,
-        icon: <AppIcon name={s.icon || "bi-circle"} />,
-        render: () => <>{s.content}</>,
-      })),
-    [sections],
-  );
-
   return (
-    <EnterpriseFormWizard
+    <CrmWorkspace
       module="contact"
       moduleIcon="bi-person-lines-fill"
       headerTitle={isEdit ? "Edit Contact" : "Add New Contact"}
-      headerSub={
-        isEdit
-          ? "Update company link, personal and contact details"
-          : "Photo, company link, personal and contact details"
-      }
+      headerSub={isEdit ? "Update company link, personal and contact details" : "Photo, company link, personal and contact details"}
       sidebarTitle="Contact"
-      steps={steps}
-      summary={{ title: "Contact Summary", rows: summaryRows }}
-      actions={{
-        isSubmitting,
-        isEditMode: isEdit,
-        onCancel,
-        submitText: isEdit ? "Save Contact" : "Create Contact",
-      }}
+      summaryTitle="Contact Summary"
+      summaryRows={summaryRows}
+      isEdit={isEdit}
+      isSubmitting={isSubmitting}
+      onCancel={onCancel}
+      submitText={isEdit ? "Save Contact" : "Create Contact"}
+      sections={sections}
     />
   );
 }

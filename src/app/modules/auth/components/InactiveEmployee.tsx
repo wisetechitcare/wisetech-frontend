@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchCompanyLogo } from "@services/company";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from "@/ds/ui/button";
 
 const DEFAULT_LOGO =
   "https://wise-tech-asset-store.s3.ap-south-1.amazonaws.com/4100960a0f2c5e89381847e6637d3e67aa43d39330";
@@ -159,35 +160,16 @@ export default function InactiveEmployee() {
           </div>
         </div>
 
-        <button
+        <Button
           type="button"
-          className="btn w-100 d-flex align-items-center justify-content-center gap-2"
+          className="w-100"
           onClick={() => navigate("/auth", { replace: true })}
-          style={{
-            background: "#1e293b",
-            color: "#fff",
-            borderRadius: 12,
-            padding: "14px 20px",
-            fontSize: 15,
-            fontWeight: 600,
-            transition: "all 0.2s ease",
-            boxShadow: "0 4px 6px rgba(30, 41, 59, 0.2)",
-            border: "none",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#0f172a";
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow = "0 6px 12px rgba(30, 41, 59, 0.3)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "#1e293b";
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "0 4px 6px rgba(30, 41, 59, 0.2)";
-          }}
         >
-          <AppIcon name="bi-arrow-left" className="fs-3" />
+          <span data-icon="inline-start" className="inline-flex">
+            <AppIcon name="bi-arrow-left" className="fs-3" />
+          </span>
           Back to Login
-        </button>
+        </Button>
 
         <style>{`
           @keyframes spin {

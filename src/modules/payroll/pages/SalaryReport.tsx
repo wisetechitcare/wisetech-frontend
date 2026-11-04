@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Container, Card, Row, Col, Button } from 'react-bootstrap';
+import { Container, Card, Row, Col } from 'react-bootstrap';
 import { useLocation, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { KTIcon } from '@metronic/helpers';
@@ -28,6 +28,7 @@ import MonthlySalaryPieChart from '../components/charts/MonthlySalaryPieChart';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { getEmployeeStatus, wasEmployedDuring } from '@utils/employeeStatus';
+import { Button } from '@/ds/ui/button';
 
 const SalaryReport: React.FC<SalaryReportProps> = (props) => {
     const {
@@ -181,10 +182,10 @@ const SalaryReport: React.FC<SalaryReportProps> = (props) => {
                             </div>
                             {fromAdmin && !isYearly && (
                                 <div className="d-flex flex-row gap-2 w-100 w-sm-auto mt-3 mt-sm-0">
-                                    <Button variant="light-primary" size="sm" className="fw-bold px-2 px-sm-4 w-50 w-sm-auto text-truncate" onClick={() => grossDist.fetchGrossDistributionData().then(() => ui.setShowGrossModal(true))}>
+                                    <Button variant="tinted" size="sm" className="w-50 w-sm-auto" onClick={() => grossDist.fetchGrossDistributionData().then(() => ui.setShowGrossModal(true))}>
                                         Modify Gross
                                     </Button>
-                                    <Button variant="light-danger" size="sm" className="fw-bold px-2 px-sm-4 w-50 w-sm-auto text-truncate" onClick={() => ui.setShowDeductionModal(true)}>
+                                    <Button variant="tinted" size="sm" className="w-50 w-sm-auto [--tint:var(--cta-danger)]" onClick={() => ui.setShowDeductionModal(true)}>
                                         Modify Deductions
                                     </Button>
                                 </div>

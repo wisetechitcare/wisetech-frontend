@@ -1,7 +1,9 @@
 import React, { useMemo, useState, useCallback } from "react";
+import { IfCanDelete } from '@app/modules/common/components/ui/DeleteSection';
 import { Tooltip } from "@mui/material";
 import { PresetTreeNode, buildPresetTree } from "@utils/presetTaskHierarchy";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 /**
  * PresetTaskTree
@@ -108,33 +110,18 @@ const hexToRgba = (hex: string, a: number): string => {
 };
 
 const IconBtn: React.FC<{ icon: string; title: string; color: string; onClick: (e: React.MouseEvent) => void }> = ({ icon, title, color, onClick }) => {
-  const [hov, setHov] = useState(false);
   return (
     <Tooltip title={title} arrow>
-    <button
+    <Button
       type="button"
+      variant="tinted"
+      size="icon-sm"
       aria-label={title}
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        width: 30,
-        height: 30,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: hov ? hexToRgba(color, 0.24) : hexToRgba(color, 0.12),
-        border: `1px solid ${hov ? color : hexToRgba(color, 0.32)}`,
-        borderRadius: 8,
-        cursor: "pointer",
-        color,
-        boxShadow: hov ? `0 3px 8px ${hexToRgba(color, 0.3)}` : "none",
-        transform: hov ? "translateY(-1px)" : "none",
-        transition: "all .15s ease",
-      }}
+      style={{ '--tint': color } as React.CSSProperties}
     >
       <AppIcon name={icon} className="fs-7" style={{ lineHeight: 1 }} />
-    </button>
+    </Button>
     </Tooltip>
   );
 };
@@ -188,7 +175,7 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
     return rows;
   }, [tree, expanded, q, matches]);
 
-  const toggle = (key: string) => setExpanded((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggle = (key: string) => setExpanded((prev) => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   const expandAll = () => setExpanded(new Set(expandableKeys));
   const collapseAll = () => setExpanded(new Set());
   const allExpanded = expandableKeys.size > 0 && Array.from(expandableKeys).every((k) => expanded.has(k));
@@ -197,12 +184,6 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
   // Every level is the same entity, so every row carries the same label — the
   // indentation is what communicates depth.
   const KIND_LABEL = labels.kind ?? labels.noun;
-
-  const toolBtn = (active: boolean): React.CSSProperties => ({
-    display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8,
-    border: `1px solid ${active ? ACCENT : "#dde2e8"}`, background: active ? "#f3f5fb" : "#fff",
-    color: active ? ACCENT : "#46505d", fontWeight: 500, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap",
-  });
 
   return (
     <div>
@@ -218,18 +199,18 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
           />
           {query && (
             <Tooltip title="Clear" arrow>
-              <button type="button" onClick={() => setQuery("")} aria-label="Clear search" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aab2bd" }}>
+              <Button type="button" variant="ghost" size="icon-xs" onClick={() => setQuery("")} aria-label="Clear search" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)" }}>
                 <AppIcon name="bi-x-lg" className="fs-8" />
-              </button>
+              </Button>
             </Tooltip>
           )}
         </div>
-        <button type="button" onClick={expandAll} disabled={allExpanded || !!q} style={{ ...toolBtn(false), opacity: allExpanded || !!q ? 0.55 : 1, cursor: allExpanded || !!q ? "not-allowed" : "pointer" }}>
-          <AppIcon name="bi-arrows-expand" /> Expand all
-        </button>
-        <button type="button" onClick={collapseAll} disabled={allCollapsed || !!q} style={{ ...toolBtn(false), opacity: allCollapsed || !!q ? 0.55 : 1, cursor: allCollapsed || !!q ? "not-allowed" : "pointer" }}>
-          <AppIcon name="bi-arrows-collapse" /> Collapse all
-        </button>
+        <Button type="button" variant="outline" size="sm" onClick={expandAll} disabled={allExpanded || !!q}>
+          <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrows-expand" /></span> Expand all
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={collapseAll} disabled={allCollapsed || !!q}>
+          <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrows-collapse" /></span> Collapse all
+        </Button>
       </div>
 
       {/* Tree */}
@@ -277,12 +258,18 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-                  <span
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={open ? "Collapse" : "Expand"}
                     onClick={() => hasChildren && toggle(node.key)}
-                    style={{ width: 16, textAlign: "center", flexShrink: 0, color: "#8893a0", cursor: hasChildren ? "pointer" : "default", transition: "transform .18s ease", transform: open ? "rotate(90deg)" : "rotate(0deg)", visibility: hasChildren ? "visible" : "hidden" }}
+                    style={{ width: 16, height: 16, visibility: hasChildren ? "visible" : "hidden" }}
                   >
-                    <AppIcon name="bi-chevron-right" className="fs-9" />
-                  </span>
+                    <span className="inline-flex" style={{ transition: "transform .18s ease", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}>
+                      <AppIcon name="bi-chevron-right" className="fs-9" />
+                    </span>
+                  </Button>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, boxShadow: isTop ? `0 0 0 2px ${color}28` : "none" }} />
                   <span style={{ fontWeight: isTop ? 600 : 400, fontSize: isTop ? 13.5 : 12.5, color: "#1f2733", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {node.name}
@@ -320,7 +307,7 @@ function PresetTaskTree<T extends PresetTaskRow>({ presetTasks, onAddChild, onEd
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                   <IconBtn icon="bi-diagram-3" title={`Add a ${labels.noun} under "${node.name}"`} color={ACTION.addChild} onClick={() => onAddChild(node.id)} />
                   <IconBtn icon="bi-pencil" title={`Edit ${labels.noun}`} color={ACTION.edit} onClick={() => onEditTask(node.entity)} />
-                  <IconBtn icon="bi-trash" title={`Delete ${labels.noun}`} color={ACTION.remove} onClick={() => onDeleteTask(node.id)} />
+                  <IfCanDelete><IconBtn icon="bi-trash" title={`Delete ${labels.noun}`} color={ACTION.remove} onClick={() => onDeleteTask(node.id)} /></IfCanDelete>
                 </div>
               </div>
             );

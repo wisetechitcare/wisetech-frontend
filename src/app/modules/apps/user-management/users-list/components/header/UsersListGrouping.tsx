@@ -1,5 +1,6 @@
 import {useQueryClient, useMutation} from '@tanstack/react-query'
 import {QUERIES} from '../../../../../../../_metronic/helpers'
+import {Button} from '@/ds/ui/button'
 import {useListView} from '../../core/ListViewProvider'
 import {useQueryResponse} from '../../core/QueryResponseProvider'
 import {deleteSelectedUsers} from '../../core/_requests'
@@ -23,13 +24,12 @@ const UsersListGrouping = () => {
         <span className='me-2'>{selected.length}</span> Selected
       </div>
 
-      <button
-        type='button'
-        className='btn btn-danger'
+      <Button
+        variant='destructive'
         onClick={async () => await deleteSelectedItems.mutateAsync()}
       >
         Delete Selected
-      </button>
+      </Button>
     </div>
   )
 }

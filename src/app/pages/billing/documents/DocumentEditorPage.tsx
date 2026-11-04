@@ -223,8 +223,7 @@ const DocumentEditorPage: React.FC<DocumentEditorPageProps> = ({ documentId, onB
       >
         {save.isPending ? "Saving…" : "Save draft"}
       </WtButton>
-      <WtButton
-        tone="primary" size="small"
+      <WtButton size="small"
         disabled={publish.isPending || dirty || missingRequired.length > 0}
         title={
           dirty ? "Save the draft first"
@@ -267,8 +266,7 @@ const DocumentEditorPage: React.FC<DocumentEditorPageProps> = ({ documentId, onB
           Revise
         </WtButton>
       )}
-      <WtButton
-        tone="primary" size="small"
+      <WtButton size="small"
         onClick={() => setTab(2)}
         startIcon={<KTIcon iconName="send" className="fs-6" />}
         sx={ACTION_SX}
@@ -514,8 +512,7 @@ const DocumentEditorPage: React.FC<DocumentEditorPageProps> = ({ documentId, onB
                   InputLabelProps={{ shrink: true }}
                   helperText="Leave blank to use the standard covering note. The PDF is attached automatically."
                 />
-                <WtButton
-                  tone="primary" size="small"
+                <WtButton size="small"
                   disabled={!email.to.trim() || send.isPending || isEditable}
                   title={isEditable ? "Publish the document before emailing it" : undefined}
                   onClick={() => send.mutate()}

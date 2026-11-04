@@ -1,9 +1,9 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import ExportButton from "@app/modules/common/components/ExportButton";
-import TimePeriodSelector, { TimePeriodMode } from "@app/modules/common/components/TimePeriodSelector";
+import TimePeriodSelector from "@app/modules/common/components/TimePeriodSelector";
+import { PeriodMode } from "@/constants/common";
 import {
   Box,
-  Button,
   MenuItem,
   Select,
   FormControl,
@@ -11,16 +11,17 @@ import {
   ToggleButtonGroup,
   useTheme,
   useMediaQuery,
-  Autocomplete,
-  TextField,
-  InputAdornment,
 } from "@mui/material";
 import { getAllLeads } from "@services/leads";
 import { fetchAllPages } from "@utils/fetchAllPages";
 import { useServerPagination } from "@hooks/useServerPagination";
 import { getMyLeadReminders } from "@services/leadService";
 import { getMeetingLeadIds } from "@services/employee";
-import { saveLeadPeriodPreference, getLeadPeriodPreference, getUserTablePreferences } from "@services/users";
+import {
+  saveLeadPeriodPreference,
+  getLeadPeriodPreference,
+  getUserTablePreferences,
+} from "@services/users";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SelectLeadOrganizationDialog from "./SelectLeadOrganizationDialog";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -57,16 +58,29 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import LeadBulkImport from "./LeadBulkImport";
 import { useOrgScope } from "@hooks/useOrgScope";
-import { ActionIconButton, ToneChip, toast } from "@app/modules/common/components/ui";
-import LeadNoteDialog, { ReminderCell, REMINDER_COLUMN_WIDTH } from "./LeadNoteDialog";
+import {
+  ActionIconButton,
+  ToneChip,
+  toast,
+} from "@app/modules/common/components/ui";
+import { Button } from "@/ds/ui/button";
+import LeadNoteDialog, {
+  ReminderCell,
+  REMINDER_COLUMN_WIDTH,
+} from "./LeadNoteDialog";
 import LeadActionPicker from "./LeadActionPicker";
 // The SAME meeting dialog the calendar and the project board use. A second form here is how
 // the app would end up with two ways to book an hour that disagree about what an hour needs.
 import MeetingDialog from "@pages/employee/MeetingDialog";
-import { LeadStatusPill, leadRowSx, leadTableSx, UNASSIGNED_ORG_LABEL } from "./leadTableStyle";
-import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import {
+  LeadStatusPill,
+  leadRowSx,
+  leadTableSx,
+  UNASSIGNED_ORG_LABEL,
+} from "./leadTableStyle";
+import { getCurrencyLocale, currencyPrefix } from "@utils/currency";
 import { canSection, canViewCommercial } from "@utils/can";
-import { useStickyFilters } from "@app/hooks/useStickyFilters";
+import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
 
 /**
  * Leads created before organizations existed carry no organizationId. They are
@@ -78,16 +92,6 @@ const UNASSIGNED_ORG_VALUE = "__unassigned__";
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
-
-type DateMode =
-  | "daily"
-  | "weekly"
-  | "monthly"
-  | "yearly"
-  | "allyear"
-  | "custom";
-
 // ─── Navigation Buttons ────────────────────────────────────────────────────────
 
 const NavigationButtons: React.FC<{
@@ -96,36 +100,33 @@ const NavigationButtons: React.FC<{
   displayText: string;
   isMobile?: boolean;
 }> = ({ onPrev, onNext, displayText, isMobile }) => (
-  <div style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: isMobile ? "space-between" : "center",
-    background: "#fff",
-    border: "1px solid #E2E8F0",
-    borderRadius: "6px",
-    height: "32px",
-    padding: "0 8px",
-    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-    gap: "6px",
-    width: isMobile ? "100%" : "auto"
-  }}>
-    <button
-      className="btn btn-sm p-0"
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: isMobile ? "space-between" : "center",
+      background: "#fff",
+      border: "1px solid #E2E8F0",
+      borderRadius: "6px",
+      height: "32px",
+      padding: "0 8px",
+      boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+      gap: "6px",
+      width: isMobile ? "100%" : "auto",
+    }}
+  >
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      aria-label="Previous"
       onClick={onPrev}
-      style={{
-        width: "24px",
-        height: "24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        borderRadius: "4px"
-      }}
     >
-      <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" style={{ width: "12px", height: "12px" }} />
-    </button>
+      <img
+        src={toAbsoluteUrl("media/svg/misc/back.svg")}
+        alt="Previous"
+        style={{ width: "12px", height: "12px" }}
+      />
+    </Button>
     <span
       className="mx-2"
       style={{
@@ -135,28 +136,18 @@ const NavigationButtons: React.FC<{
         color: "#1E293B",
         whiteSpace: "nowrap",
         textAlign: "center",
-        flex: isMobile ? 1 : "none"
+        flex: isMobile ? 1 : "none",
       }}
     >
       {displayText}
     </span>
-    <button
-      className="btn btn-sm p-0"
-      onClick={onNext}
-      style={{
-        width: "24px",
-        height: "24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        borderRadius: "4px"
-      }}
-    >
-      <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" style={{ width: "12px", height: "12px" }} />
-    </button>
+    <Button variant="ghost" size="icon-xs" aria-label="Next" onClick={onNext}>
+      <img
+        src={toAbsoluteUrl("media/svg/misc/next.svg")}
+        alt="Next"
+        style={{ width: "12px", height: "12px" }}
+      />
+    </Button>
   </div>
 );
 
@@ -167,12 +158,8 @@ const NavigationButtons: React.FC<{
  * fills the table or an export.
  */
 const toLeadRow = (lead: any) => {
-  const s = lead?.project?.startDate
-    ? new Date(lead.project.startDate)
-    : null;
-  const e = lead?.project?.endDate
-    ? new Date(lead.project.endDate)
-    : null;
+  const s = lead?.project?.startDate ? new Date(lead.project.startDate) : null;
+  const e = lead?.project?.endDate ? new Date(lead.project.endDate) : null;
   const duration =
     s && e
       ? `${Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))} days`
@@ -192,20 +179,17 @@ const toLeadRow = (lead: any) => {
     totalCost:
       Array.isArray(lead.commercials) && lead.commercials.length > 0
         ? lead.commercials.reduce(
-          (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-          0,
-        )
+            (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+            0,
+          )
         : lead.budget || 0,
     client:
       lead?.company?.companyName ||
       lead?.leadTeams?.[0]?.company?.companyName ||
       "",
-    service:
-      lead?.projectServiceId || lead?.services?.[0]?.serviceId || "",
+    service: lead?.projectServiceId || lead?.services?.[0]?.serviceId || "",
     category:
-      lead?.projectCategoryId ||
-      lead?.leadCategories?.[0]?.category?.id ||
-      "",
+      lead?.projectCategoryId || lead?.leadCategories?.[0]?.category?.id || "",
     subCategory:
       lead?.projectSubCategoryId ||
       lead?.leadSubCategories?.[0]?.subcategory?.id ||
@@ -218,9 +202,7 @@ const toLeadRow = (lead: any) => {
     endDate: lead?.endDate || "",
     duration,
     contact:
-      lead?.contact?.fullName ||
-      lead?.leadTeams?.[0]?.contact?.fullName ||
-      "",
+      lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "",
     createdAt: lead?.createdAt || "",
     createdBy: lead?.createdById || "",
     updatedBy: lead?.updatedById || "",
@@ -231,16 +213,13 @@ const toLeadRow = (lead: any) => {
     area:
       (Array.isArray(lead.commercials) && lead.commercials.length > 0
         ? lead.commercials[0]?.area
-        : null) ||
-      lead?.additionalDetails?.projectArea ||
-      lead?.addresses?.[0]?.projectArea ||
-      "",
+        : null) || "",
     cost:
       Array.isArray(lead.commercials) && lead.commercials.length > 0
         ? lead.commercials.reduce(
-          (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-          0,
-        )
+            (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+            0,
+          )
         : 0,
     companyId: lead.companyId || "",
     branchId: lead.branchId || "",
@@ -250,13 +229,12 @@ const toLeadRow = (lead: any) => {
     budget:
       Array.isArray(lead.commercials) && lead.commercials.length > 0
         ? lead.commercials.reduce(
-          (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-          0,
-        )
+            (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+            0,
+          )
         : lead.budget || "",
     rate: lead.rate || "",
-    leadSource:
-      lead.source?.name || lead.sourceId || lead?.leadSource || "",
+    leadSource: lead.source?.name || lead.sourceId || lead?.leadSource || "",
     referrals: lead.referrals || [],
     companyType: lead.company?.companyTypeId || "",
     receivedDate: lead?.receivedDate || "",
@@ -304,13 +282,18 @@ const LeadNewLead: React.FC = () => {
   /** The lead whose `+` was pressed with BOTH actions still missing. */
   const [pickerLead, setPickerLead] = useState<any>(null);
 
-
   // ── Date mode ────────────────────────────────────────────────────────────────
-  const [alignment, setAlignment] = useState<DateMode>("monthly");
+  const [alignment, setAlignment] = useState<PeriodMode>(PeriodMode.MONTHLY);
   // The table's search box, debounced by the table and applied by the server.
   const [search, setSearch] = useState("");
+  // Per-column filters from the table's filter row. See `columnFiltering` below.
+  const [columnFilters, setColumnFilters] = useState<
+    Array<{ id: string; value: unknown }>
+  >([]);
   // Seeded with the table's default sort, so the first request is already in that order.
-  const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([{ id: "inquiryDate", desc: true }]);
+  const [sorting, setSorting] = useState<Array<{ id: string; desc: boolean }>>([
+    { id: "inquiryDate", desc: true },
+  ]);
 
   // Daily
   const [day, setDay] = useState<Dayjs>(today);
@@ -356,10 +339,9 @@ const LeadNewLead: React.FC = () => {
   // Empty = all organizations; UNASSIGNED_ORG_VALUE = leads that predate them.
   const organizationFilter = searchParams.get("org") || "";
   const assignedToFilter = searchParams.get("assignee") || "";
-  // …and they stick: leaving for another section (or logging out) and coming back
-  // restores them, exactly like the Daily/Weekly/Monthly selector. Clear Filters clears
-  // them for good — see useStickyFilters.
-  useStickyFilters("leadFilters", LEAD_FILTER_KEYS);
+  // Not restored from storage any more: the toolbar dropdowns that set and cleared these
+  // were removed, so a remembered value would filter the list with no control to undo it.
+  // A link that carries ?status= (a dashboard drill-down) still applies.
   const setFilterParam = useCallback(
     (key: string, value: string) => {
       setSearchParams(
@@ -374,9 +356,18 @@ const LeadNewLead: React.FC = () => {
     },
     [setSearchParams],
   );
-  const setStatusFilter = useCallback((v: string) => setFilterParam("status", v), [setFilterParam]);
-  const setOrganizationFilter = useCallback((v: string) => setFilterParam("org", v), [setFilterParam]);
-  const setAssignedToFilter = useCallback((v: string) => setFilterParam("assignee", v), [setFilterParam]);
+  const setStatusFilter = useCallback(
+    (v: string) => setFilterParam("status", v),
+    [setFilterParam],
+  );
+  const setOrganizationFilter = useCallback(
+    (v: string) => setFilterParam("org", v),
+    [setFilterParam],
+  );
+  const setAssignedToFilter = useCallback(
+    (v: string) => setFilterParam("assignee", v),
+    [setFilterParam],
+  );
   const { organizations: leadOrganizations } = useOrgScope({
     includeAll: false,
     initialScopeId: "",
@@ -446,11 +437,14 @@ const LeadNewLead: React.FC = () => {
       // vanished on the next load.
       return {
         reminders: Object.fromEntries(
-          (remindersResponse?.data?.reminders || []).map(
-            (r: any) => [String(r.leadId), { note: r.note, color: r.color }],
-          ),
+          (remindersResponse?.data?.reminders || []).map((r: any) => [
+            String(r.leadId),
+            { note: r.note, color: r.color },
+          ]),
         ) as Record<string, { note: string; color: string | null }>,
-        meetingLeadIds: ((meetingLeadsResponse?.data?.leadIds || []) as any[]).map(String),
+        meetingLeadIds: (
+          (meetingLeadsResponse?.data?.leadIds || []) as any[]
+        ).map(String),
       };
     },
   });
@@ -480,7 +474,14 @@ const LeadNewLead: React.FC = () => {
    * A stable identity, so the memoised columns can close over it.
    */
   const patchCachedRow = useCallback(
-    (leadId: string, patch: { reminder?: string; reminderColor?: string | null; hasMeeting?: boolean }) => {
+    (
+      leadId: string,
+      patch: {
+        reminder?: string;
+        reminderColor?: string | null;
+        hasMeeting?: boolean;
+      },
+    ) => {
       queryClient.setQueryData(rowExtrasKey, (prev: any) => {
         if (!prev) return prev;
         const id = String(leadId);
@@ -489,12 +490,16 @@ const LeadNewLead: React.FC = () => {
           const current = reminders[id] ?? { note: "", color: null };
           reminders[id] = {
             note: patch.reminder ?? current.note,
-            color: "reminderColor" in patch ? patch.reminderColor ?? null : current.color,
+            color:
+              "reminderColor" in patch
+                ? (patch.reminderColor ?? null)
+                : current.color,
           };
         }
-        const meetingLeadIds = patch.hasMeeting && !prev.meetingLeadIds.includes(id)
-          ? [...prev.meetingLeadIds, id]
-          : prev.meetingLeadIds;
+        const meetingLeadIds =
+          patch.hasMeeting && !prev.meetingLeadIds.includes(id)
+            ? [...prev.meetingLeadIds, id]
+            : prev.meetingLeadIds;
         return { ...prev, reminders, meetingLeadIds };
       });
     },
@@ -520,23 +525,45 @@ const LeadNewLead: React.FC = () => {
     // The period window on the inquiry date. A lead with no inquiry date falls outside every
     // window and inside "All", exactly as before.
     const [from, to]: [Dayjs | null | undefined, Dayjs | null | undefined] =
-      alignment === "daily" ? [day.startOf("day"), day.endOf("day")]
-        : alignment === "weekly" ? [weekStart.startOf("day"), weekEnd.endOf("day")]
-          : alignment === "monthly" ? [monthStart.startOf("day"), monthEnd.endOf("day")]
-            : alignment === "yearly" ? [yearStart?.startOf("day"), yearEnd?.endOf("day")]
-              : alignment === "custom" ? [customStartDate?.startOf("day"), customEndDate?.endOf("day")]
+      alignment === "daily"
+        ? [day.startOf("day"), day.endOf("day")]
+        : alignment === "weekly"
+          ? [weekStart.startOf("day"), weekEnd.endOf("day")]
+          : alignment === "monthly"
+            ? [monthStart.startOf("day"), monthEnd.endOf("day")]
+            : alignment === "yearly"
+              ? [yearStart?.startOf("day"), yearEnd?.endOf("day")]
+              : alignment === "custom"
+                ? [customStartDate?.startOf("day"), customEndDate?.endOf("day")]
                 : [null, null];
     if (from) params.inquiryFrom = from.toISOString();
     if (to) params.inquiryTo = to.toISOString();
     if (statusFilter) params.status = statusFilter;
     if (organizationFilter) {
-      params.organizationIds = organizationFilter === UNASSIGNED_ORG_VALUE ? "unassigned" : organizationFilter;
+      params.organizationIds =
+        organizationFilter === UNASSIGNED_ORG_VALUE
+          ? "unassigned"
+          : organizationFilter;
     }
     if (assignedToFilter) params.assignee = assignedToFilter;
     return params;
   }, [
-    sortBy, sortDesc, search, alignment, day, weekStart, weekEnd, monthStart, monthEnd,
-    yearStart, yearEnd, customStartDate, customEndDate, statusFilter, organizationFilter, assignedToFilter,
+    sortBy,
+    sortDesc,
+    search,
+    alignment,
+    day,
+    weekStart,
+    weekEnd,
+    monthStart,
+    monthEnd,
+    yearStart,
+    yearEnd,
+    customStartDate,
+    customEndDate,
+    statusFilter,
+    organizationFilter,
+    assignedToFilter,
   ]);
 
   /** The figures beside the table, computed by the server over the whole result set. */
@@ -558,7 +585,11 @@ const LeadNewLead: React.FC = () => {
         filters: { ...listParams, ...(withSummary && { summary: "1" }) },
       });
       const payload = res?.data?.data;
-      if (withSummary && payload?.summary && requestId === summaryRequestRef.current) {
+      if (
+        withSummary &&
+        payload?.summary &&
+        requestId === summaryRequestRef.current
+      ) {
         setSummary(payload.summary);
       }
       const rows = (payload?.leads || []).map(toLeadRow);
@@ -573,7 +604,11 @@ const LeadNewLead: React.FC = () => {
    * queries, too expensive to repeat on every page turn.
    */
   const summaryFilterKey = useMemo(() => {
-    const { sortBy: _sortBy, sortOrder: _sortOrder, ...filtersOnly } = listParams;
+    const {
+      sortBy: _sortBy,
+      sortOrder: _sortOrder,
+      ...filtersOnly
+    } = listParams;
     return JSON.stringify(filtersOnly);
   }, [listParams]);
   const summaryKeyRef = useRef<string | null>(null);
@@ -602,7 +637,10 @@ const LeadNewLead: React.FC = () => {
     resetKey: JSON.stringify(listParams),
   });
 
-  const tableData = useMemo(() => withRowExtras(pageRows), [pageRows, withRowExtras]);
+  const tableData = useMemo(
+    () => withRowExtras(pageRows),
+    [pageRows, withRowExtras],
+  );
 
   /** A lead was created, edited or deleted: the page AND the totals beside it are stale. */
   const refetchWithSummary = useCallback(() => {
@@ -612,12 +650,52 @@ const LeadNewLead: React.FC = () => {
 
   /** Export: every lead matching the current filters, not just this page. */
   const fetchAllRows = useCallback(
-    () => fetchAllPages(async (page, pageSize) => {
-      const { data, totalRecords: total } = await fetchPage(page, pageSize);
-      return { rows: withRowExtras(data), total };
-    }),
+    () =>
+      fetchAllPages(async (page, pageSize) => {
+        const { data, totalRecords: total } = await fetchPage(page, pageSize);
+        return { rows: withRowExtras(data), total };
+      }),
     [fetchPage, withRowExtras],
   );
+
+  /**
+   * Column filtering works on the WHOLE result set, not the page on screen.
+   *
+   * The moment any column filter has a value, every lead matching the toolbar filters (period,
+   * status, organization, assignee, search) is loaded — the same path Export uses — and the
+   * table filters, sorts and pages them itself. That is what lets every column filter,
+   * including the ones computed in the browser (area, cost, file location), and makes the
+   * answer independent of which page you were on. Clearing the filters returns to server paging.
+   */
+  const columnFiltering = columnFilters.some(({ value }) =>
+    Array.isArray(value)
+      ? value.some((v) => v !== undefined && v !== null && v !== "")
+      : value !== undefined && value !== null && value !== "",
+  );
+  const [allRows, setAllRows] = useState<any[] | null>(null);
+  const [allRowsLoading, setAllRowsLoading] = useState(false);
+  useEffect(() => {
+    if (!columnFiltering) {
+      setAllRows(null);
+      return;
+    }
+    let cancelled = false;
+    setAllRowsLoading(true);
+    fetchAllRows()
+      .then((rows) => {
+        if (!cancelled) setAllRows(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setAllRows(null);
+      })
+      .finally(() => {
+        if (!cancelled) setAllRowsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [columnFiltering, fetchAllRows]);
+  const localMode = columnFiltering && allRows !== null;
 
   // Only the first ever load blanks the screen; later fetches keep the rows up.
   const loading = isInitialLoading;
@@ -664,18 +742,14 @@ const LeadNewLead: React.FC = () => {
         const fe = dayjs(ed);
         setYearStart(fs);
         setYearEnd(fe);
-        setFiscalYearDisplay(
-          `${fs.format("YYYY")} - ${fe.format("YYYY")}`,
-        );
+        setFiscalYearDisplay(`${fs.format("YYYY")} - ${fe.format("YYYY")}`);
       } catch {
         const year = today.month() >= 3 ? today.year() : today.year() - 1;
         const fs = dayjs(`${year}-04-01`);
         const fe = dayjs(`${year + 1}-03-31`);
         setYearStart(fs);
         setYearEnd(fe);
-        setFiscalYearDisplay(
-          `${fs.format("YYYY")} - ${fe.format("YYYY")}`,
-        );
+        setFiscalYearDisplay(`${fs.format("YYYY")} - ${fe.format("YYYY")}`);
       }
     }
     initFiscalYear();
@@ -716,18 +790,14 @@ const LeadNewLead: React.FC = () => {
         const fe = dayjs(ed);
         setYearStart(fs);
         setYearEnd(fe);
-        setFiscalYearDisplay(
-          `${fs.format("YYYY")} - ${fe.format("YYYY")}`,
-        );
+        setFiscalYearDisplay(`${fs.format("YYYY")} - ${fe.format("YYYY")}`);
       } catch {
         const year = base.month() >= 3 ? base.year() : base.year() - 1;
         const fs = dayjs(`${year}-04-01`);
         const fe = dayjs(`${year + 1}-03-31`);
         setYearStart(fs);
         setYearEnd(fe);
-        setFiscalYearDisplay(
-          `${fs.format("YYYY")} - ${fe.format("YYYY")}`,
-        );
+        setFiscalYearDisplay(`${fs.format("YYYY")} - ${fe.format("YYYY")}`);
       }
     },
     [yearStart, today],
@@ -738,7 +808,7 @@ const LeadNewLead: React.FC = () => {
     newVal: string,
   ) => {
     if (!newVal) return;
-    const mode = newVal as DateMode;
+    const mode = newVal as PeriodMode;
     setAlignment(mode);
     localStorage.setItem("leadPeriodPreference", mode);
     try {
@@ -751,7 +821,9 @@ const LeadNewLead: React.FC = () => {
   useEffect(() => {
     const loadPreference = async () => {
       // 1. Try local storage first
-      const localPref = localStorage.getItem("leadPeriodPreference") as DateMode | null;
+      const localPref = localStorage.getItem(
+        "leadPeriodPreference",
+      ) as PeriodMode | null;
       if (localPref) {
         setAlignment(localPref);
       }
@@ -759,13 +831,16 @@ const LeadNewLead: React.FC = () => {
       // 2. Fetch from redis
       try {
         const res = await getLeadPeriodPreference();
-        const redisPref = res?.data?.period as DateMode | null;
-        if (redisPref && ["daily", "weekly", "monthly", "yearly", "allyear", "custom"].includes(redisPref)) {
+        const redisPref = res?.data?.period as PeriodMode | null;
+        if (redisPref && Object.values(PeriodMode).includes(redisPref)) {
           setAlignment(redisPref);
           localStorage.setItem("leadPeriodPreference", redisPref);
         }
       } catch (err) {
-        console.warn("Failed to fetch period preference from Redis, using local storage/default:", err);
+        console.warn(
+          "Failed to fetch period preference from Redis, using local storage/default:",
+          err,
+        );
       }
     };
     loadPreference();
@@ -816,406 +891,483 @@ const LeadNewLead: React.FC = () => {
     return map;
   }, [projectSubcategories]);
 
+  const poStatusOptions = usePoStatusOptions();
+  const poStatusColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    poStatusOptions.forEach((opt) => {
+      if (opt.value && opt.color) map.set(opt.value.toLowerCase(), opt.color);
+    });
+    return map;
+  }, [poStatusOptions]);
+
   // ── Columns ──────────────────────────────────────────────────────────────────
   // Memoized so the array keeps a stable identity across renders. An unstable identity
   // makes useTablePreferences recompute its defaults + re-run the column-order reset
   // effect on every render, which (with hidden-by-default columns + selective fetching)
   // ping-pongs with the auto-refetch and reloads the table continuously.
-  const columns = useMemo(() => [
-
-    {
-      // `id: "actions"` is not cosmetic — MaterialTable recognises that exact id and turns
-      // off sorting and grouping for it, because there is no backing row field for either to
-      // operate on. Ordering is not one of those: the header carries a name and drags like
-      // any other column.
-      id: "actions",
-      header: "Action",
-      size: 108,
-      minSize: 108,
-      enableResizing: false,
-      /**
-       * THE ICONS ARE THE STATE, not a fixed toolbar.
-       *
-       * Two permanent buttons on 1,385 identical rows told the reader nothing: every lead
-       * looked the same whether it had been followed up or never touched. Now an icon means
-       * that thing EXISTS on this lead, and `+` means something is still missing — so the
-       * column answers "which of these has a reminder, which has a meeting" at a glance,
-       * which is the question somebody scanning a pipeline is actually asking.
-       *
-       * `+` knows what is missing, so it only asks when it genuinely does not know: with one
-       * of the two already there it goes straight to the other, and the chooser opens only
-       * when both are absent.
-       */
-      // Reminders and meetings are the viewer's own, so Read on Leads is enough (the page needs it).
-      Cell: ({ row }: any) => {
-        const lead = row.original;
-        const hasReminder = !!lead?.reminder;
-        const hasMeeting = !!lead?.hasMeeting;
-        return (
-          // The row itself navigates to the lead on click. Stopping here — once, on the
-          // wrapper — is what keeps "open the reminder" from also being "leave the page".
-          <Box
-            sx={{ display: "flex", gap: "4px" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {hasReminder && (
-              <ActionIconButton
-                size="sm"
-                iconName="notepad-edit"
-                tone="success"
-                // Names the full editor, not just "edit": a quick text fix is a click on the
-                // Reminder cell itself, and this is the way to the thing that cell cannot do.
-                title="Edit reminder and colour"
-                onClick={() => setNoteLead(lead)}
-              />
-            )}
-            {hasMeeting && (
-              <ActionIconButton
-                size="sm"
-                iconName="calendar-tick"
-                tone="indigo"
-                title="Meeting booked — schedule another"
-                onClick={() => setMeetingLead(lead)}
-              />
-            )}
-            {!(hasReminder && hasMeeting) && (
-              <ActionIconButton
-                size="sm"
-                iconName="plus"
-                tone="brand"
-                title={
-                  hasReminder
-                    ? "Schedule a meeting"
-                    : hasMeeting
-                      ? "Add a reminder"
-                      : "Add a reminder or a meeting"
-                }
-                onClick={() => {
-                  if (hasReminder) setMeetingLead(lead);
-                  else if (hasMeeting) setNoteLead(lead);
-                  else setPickerLead(lead);
-                }}
-              />
-            )}
-          </Box>
-        );
-      },
-    },
-    {
-      accessorKey: "reminder",
-      // Computed in the browser, so the server cannot order by it.
-      enableSorting: false,
-      header: "Reminder",
-      // One number, shared with the cell — which caps its own content to it. A column whose
-      // width and whose content ceiling can disagree is a column that grows.
-      size: REMINDER_COLUMN_WIDTH,
-      minSize: 200,
-      // FIRST after the row actions, before the dates. A reminder is the one cell here that
-      // is a claim on the reader's attention rather than a fact about the lead — buried mid-
-      // table it is read after everything it was meant to interrupt, and off the right edge
-      // of a wide table it is not read at all.
-      //
-      // Its own column rather than a second line under Project Name: that cell's Cell
-      // returns a single string child, which is what the table's search highlighter
-      // clones through — wrapping it in a container to append the note would silently
-      // stop the project name highlighting on every search.
-      Cell: ({ row }: { row: any }) => (
-        <ReminderCell
-          lead={row.original}
-          onSaved={(reminder) => patchCachedRow(row.original.id, { reminder })}
-        />
-      ),
-    },
-    {
-      accessorKey: "inquiryDate",
-      header: "Inquiry Date",
-      size: 140,
-      Cell: ({ cell }: { cell: any }) => {
-        const v = cell.getValue();
-        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
-      },
-    },
-    {
-      accessorKey: "prefix",
-      header: "Inquiry Id",
-      size: 180,
-      minSize: 160,
-      enableEditing: false,
-      Cell: ({ row }: { row: any }) => (
-        <span
-          className="cursor-pointer"
-          style={{
-            fontWeight: "600",
-            fontSize: "14.5px",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {row?.original?.prefix || "N/A"}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "projectName",
-      header: "Project Name",
-      size: 320,
-      minSize: 240,
-      Cell: ({ cell }: { cell: any }) => {
-        const v = cell.getValue();
-        return (
-          // Wraps inside the column: a nowrap span in a fixed-width cell spilled past the
-          // row's coloured background and over the next column.
-          <span>
-            {typeof v === "object" ? JSON.stringify(v) : v || "N/A"}
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: "totalCost",
-      // Computed in the browser, so the server cannot order by it.
-      enableSorting: false,
-      header: "Total Cost",
-      size: 130,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) => {
-        const v = cell.getValue();
-        return v !== undefined ? `${currencyPrefix()}${Number(v).toLocaleString()}` : `${currencyPrefix()}0`;
-      },
-    },
-    {
-      accessorKey: "client",
-      header: "Client",
-      size: 150,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) => {
-        const v = cell.getValue();
-        return typeof v === "object" ? v.name || "N/A" : v || "N/A";
-      },
-    },
-    {
-      accessorKey: "organization",
-      header: "Organization",
-      size: 170,
-      Cell: ({ cell }: { cell: any }) => {
-        const name = cell.getValue() as string;
-        const isUnassigned = !name || name === UNASSIGNED_ORG_LABEL;
-        return (
-          <span style={isUnassigned ? { color: "#98A2B3", fontStyle: "italic" } : undefined}>
-            {isUnassigned ? UNASSIGNED_ORG_LABEL : name}
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: "service",
-      header: "Service",
-      size: 150,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) =>
-        serviceMap.get(cell.getValue()) || "N/A",
-    },
-    {
-      accessorKey: "category",
-      header: "Category",
-      size: 150,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) =>
-        categoryMap.get(cell.getValue()) || "N/A",
-    },
-    {
-      accessorKey: "subCategory",
-      header: "Sub Category",
-      size: 150,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) =>
-        subCategoryMap.get(cell.getValue()) || "N/A",
-    },
-    {
-      accessorKey: "status",
-      header: "Lead Status",
-      size: 150,
-      Cell: ({ row }: any) => <LeadStatusPill status={row?.original?.status} />,
-    },
-    {
-      accessorKey: "receivedDate",
-      header: "Received Date",
-      size: 150,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) => {
-        const v = cell.getValue();
-        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
-      },
-    },
-    {
-      accessorKey: "poStatus",
-      header: "PO Status",
-      size: 130,
-      meta: { defaultVisible: false },
-      Cell: ({ row }: any) => {
-        const poStatus = row?.original?.poStatus;
-        if (row?.original?.status?.name !== "Received" || !poStatus)
-          return <span>N/A</span>;
-        return (
-          <ToneChip
-            dense
-            tone={poStatus === "Received" ? "success" : "warning"}
-            label={poStatus}
-            solid={poStatus === "Received"}
-          />
-        );
-      },
-    },
-    {
-      accessorKey: "assignedTo",
-      header: "Assigned To",
-      size: 160,
-      Cell: ({ cell }: { cell: any }) =>
-        employeeMap.get(cell.getValue()) || "N/A",
-    },
-    {
-      accessorKey: "startDate",
-      header: "Date",
-      size: 120,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) => {
-        const v = cell.getValue();
-        return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
-      },
-    },
-    {
-      accessorKey: "duration",
-      // Computed in the browser, so the server cannot order by it.
-      enableSorting: false,
-      header: "Duration",
-      size: 120,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-    },
-    {
-      accessorKey: "contact",
-      header: "Contact",
-      size: 160,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) => {
-        const v = cell.getValue();
-        return typeof v === "object" ? v.name || v.email || "N/A" : v || "N/A";
-      },
-    },
-    {
-      accessorKey: "createdAt",
-      header: "Created Date",
-      size: 150,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) =>
-        cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
-    },
-    {
-      accessorKey: "createdBy",
-      header: "Created By",
-      size: 150,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) =>
-        employeeMap.get(cell.getValue()) || "N/A",
-    },
-    {
-      accessorKey: "updatedBy",
-      header: "Edited By",
-      size: 140,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) =>
-        employeeMap.get(cell.getValue()) || "N/A",
-    },
-    {
-      accessorKey: "country",
-      header: "Country",
-      size: 120,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-    },
-    {
-      accessorKey: "city",
-      header: "City",
-      size: 110,
-      meta: { defaultVisible: false },
-      Cell: ({ row }: { row: any }) => row.original.city || "N/A",
-    },
-    {
-      accessorKey: "state",
-      header: "State",
-      size: 110,
-      meta: { defaultVisible: false },
-      Cell: ({ row }: { row: any }) => row.original.state || "N/A",
-    },
-    {
-      accessorKey: "area",
-      // Computed in the browser, so the server cannot order by it.
-      enableSorting: false,
-      header: "Area",
-      size: 120,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-    },
-    {
-      accessorKey: "cost",
-      // Computed in the browser, so the server cannot order by it.
-      enableSorting: false,
-      header: "Cost",
-      size: 120,
-      meta: { defaultVisible: false },
-      Cell: ({ cell }: { cell: any }) =>
-        cell.getValue() ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}` : `${currencyPrefix()}0`,
-    },
-    {
-      accessorKey: "fileLocation",
-      // Computed in the browser, so the server cannot order by it.
-      enableSorting: false,
-      header: "File Location",
-      size: 200,
-      // "File Location in Computer" in the form = Company Type + Company. The lead stores
-      // those as IDs, so resolve them to names; fall back to the free-text path.
-      Cell: ({ row }: { row: any }) => {
-        const path = row?.original?.fileLocation;
-        // Names resolved by the server; the raw value when it is already a name / unmapped.
-        const company = row?.original?.fileLocationCompanyName || row?.original?.fileLocationCompany || "";
-        const type = row?.original?.fileLocationCompanyTypeName || row?.original?.fileLocationCompanyType || "";
-        if (company) {
-          return (
-            <span>
-              {company}
-              {type ? (
-                <span style={{ color: "#9CA3AF" }}> ({type})</span>
-              ) : null}
-            </span>
-          );
-        }
-        if (path) {
-          const isUrl = /^https?:\/\//i.test(String(path));
-          return isUrl ? (
-            <a
-              href={String(path)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              style={{ color: "#1E3A8A", textDecoration: "underline", whiteSpace: "nowrap" }}
+  const columns = useMemo(
+    () =>
+      [
+        {
+          // `id: "actions"` is not cosmetic — MaterialTable recognises that exact id and turns
+          // off sorting and grouping for it, because there is no backing row field for either to
+          // operate on. Ordering is not one of those: the header carries a name and drags like
+          // any other column.
+          id: "actions",
+          header: "Action",
+          size: 108,
+          minSize: 108,
+          enableResizing: false,
+          /**
+           * THE ICONS ARE THE STATE, not a fixed toolbar.
+           *
+           * Two permanent buttons on 1,385 identical rows told the reader nothing: every lead
+           * looked the same whether it had been followed up or never touched. Now an icon means
+           * that thing EXISTS on this lead, and `+` means something is still missing — so the
+           * column answers "which of these has a reminder, which has a meeting" at a glance,
+           * which is the question somebody scanning a pipeline is actually asking.
+           *
+           * `+` knows what is missing, so it only asks when it genuinely does not know: with one
+           * of the two already there it goes straight to the other, and the chooser opens only
+           * when both are absent.
+           */
+          // Reminders and meetings are the viewer's own, so Read on Leads is enough (the page needs it).
+          Cell: ({ row }: any) => {
+            const lead = row.original;
+            const hasReminder = !!lead?.reminder;
+            const hasMeeting = !!lead?.hasMeeting;
+            return (
+              // The row itself navigates to the lead on click. Stopping here — once, on the
+              // wrapper — is what keeps "open the reminder" from also being "leave the page".
+              <Box
+                sx={{ display: "flex", gap: "4px" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {hasReminder && (
+                  <ActionIconButton
+                    size="sm"
+                    iconName="notepad-edit"
+                    tone="success"
+                    // Names the full editor, not just "edit": a quick text fix is a click on the
+                    // Reminder cell itself, and this is the way to the thing that cell cannot do.
+                    title="Edit reminder and colour"
+                    onClick={() => setNoteLead(lead)}
+                  />
+                )}
+                {hasMeeting && (
+                  <ActionIconButton
+                    size="sm"
+                    iconName="calendar-tick"
+                    tone="indigo"
+                    title="Meeting booked — schedule another"
+                    onClick={() => setMeetingLead(lead)}
+                  />
+                )}
+                {!(hasReminder && hasMeeting) && (
+                  <ActionIconButton
+                    size="sm"
+                    iconName="plus"
+                    tone="brand"
+                    title={
+                      hasReminder
+                        ? "Schedule a meeting"
+                        : hasMeeting
+                          ? "Add a reminder"
+                          : "Add a reminder or a meeting"
+                    }
+                    onClick={() => {
+                      if (hasReminder) setMeetingLead(lead);
+                      else if (hasMeeting) setNoteLead(lead);
+                      else setPickerLead(lead);
+                    }}
+                  />
+                )}
+              </Box>
+            );
+          },
+        },
+        {
+          accessorKey: "reminder",
+          // Computed in the browser, so the server cannot order by it.
+          enableSorting: false,
+          header: "Reminder",
+          // One number, shared with the cell — which caps its own content to it. A column whose
+          // width and whose content ceiling can disagree is a column that grows.
+          size: REMINDER_COLUMN_WIDTH,
+          minSize: 200,
+          // FIRST after the row actions, before the dates. A reminder is the one cell here that
+          // is a claim on the reader's attention rather than a fact about the lead — buried mid-
+          // table it is read after everything it was meant to interrupt, and off the right edge
+          // of a wide table it is not read at all.
+          //
+          // Its own column rather than a second line under Project Name: that cell's Cell
+          // returns a single string child, which is what the table's search highlighter
+          // clones through — wrapping it in a container to append the note would silently
+          // stop the project name highlighting on every search.
+          Cell: ({ row }: { row: any }) => (
+            <ReminderCell
+              lead={row.original}
+              onSaved={(reminder) =>
+                patchCachedRow(row.original.id, { reminder })
+              }
+            />
+          ),
+        },
+        {
+          accessorKey: "inquiryDate",
+          header: "Inquiry Date",
+          size: 140,
+          Cell: ({ cell }: { cell: any }) => {
+            const v = cell.getValue();
+            return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+          },
+        },
+        {
+          accessorKey: "prefix",
+          header: "Inquiry Id",
+          size: 180,
+          minSize: 160,
+          enableEditing: false,
+          Cell: ({ row }: { row: any }) => (
+            <span
+              className="cursor-pointer"
+              style={{
+                fontWeight: "600",
+                fontSize: "14.5px",
+                whiteSpace: "nowrap",
+              }}
             >
-              Open file
-            </a>
-          ) : (
-            <span>{String(path)}</span>
-          );
-        }
-        return "N/A";
-      },
-    },
-  ].filter((c: any) => canViewCommercial('crm.leads') || !['totalCost', 'cost'].includes(c.accessorKey)), [
-    serviceMap,
-    categoryMap,
-    subCategoryMap,
-    employeeMap,
-    // Stable via useCallback, so listing it never rebuilds the column model — it only stops
-    // the reminder cell closing over a stale writer if that ever changes.
-    patchCachedRow,
-  ]);
+              {row?.original?.prefix || "N/A"}
+            </span>
+          ),
+        },
+        {
+          accessorKey: "projectName",
+          header: "Project Name",
+          size: 320,
+          minSize: 240,
+          Cell: ({ cell }: { cell: any }) => {
+            const v = cell.getValue();
+            return (
+              // Wraps inside the column: a nowrap span in a fixed-width cell spilled past the
+              // row's coloured background and over the next column.
+              <span>
+                {typeof v === "object" ? JSON.stringify(v) : v || "N/A"}
+              </span>
+            );
+          },
+        },
+        {
+          accessorKey: "totalCost",
+          // Computed in the browser, so the server cannot order by it.
+          enableSorting: false,
+          header: "Total Cost",
+          size: 130,
+          meta: { defaultVisible: false },
+          Cell: ({ cell }: { cell: any }) => {
+            const v = cell.getValue();
+            return v !== undefined
+              ? `${currencyPrefix()}${Number(v).toLocaleString()}`
+              : `${currencyPrefix()}0`;
+          },
+        },
+        {
+          accessorKey: "client",
+          header: "Client",
+          size: 150,
+          meta: {
+            defaultVisible: false,
+            filterText: (r: any) =>
+              (typeof r.client === "object" ? r.client?.name : r.client) || "",
+          },
+          Cell: ({ cell }: { cell: any }) => {
+            const v = cell.getValue();
+            return typeof v === "object" ? v.name || "N/A" : v || "N/A";
+          },
+        },
+        {
+          accessorKey: "organization",
+          header: "Organization",
+          // The filter dropdown lists what the cell shows (MaterialTable meta.filterText).
+          meta: {
+            filterText: (r: any) => r.organization || UNASSIGNED_ORG_LABEL,
+          },
+          size: 170,
+          Cell: ({ cell }: { cell: any }) => {
+            const name = cell.getValue() as string;
+            const isUnassigned = !name || name === UNASSIGNED_ORG_LABEL;
+            return (
+              <span
+                style={
+                  isUnassigned
+                    ? { color: "#98A2B3", fontStyle: "italic" }
+                    : undefined
+                }
+              >
+                {isUnassigned ? UNASSIGNED_ORG_LABEL : name}
+              </span>
+            );
+          },
+        },
+        {
+          accessorKey: "service",
+          header: "Service",
+          size: 150,
+          meta: {
+            defaultVisible: false,
+            filterText: (r: any) => serviceMap.get(r.service) || "",
+          },
+          Cell: ({ cell }: { cell: any }) =>
+            serviceMap.get(cell.getValue()) || "N/A",
+        },
+        {
+          accessorKey: "category",
+          header: "Category",
+          size: 150,
+          meta: {
+            defaultVisible: false,
+            filterText: (r: any) => categoryMap.get(r.category) || "",
+          },
+          Cell: ({ cell }: { cell: any }) =>
+            categoryMap.get(cell.getValue()) || "N/A",
+        },
+        {
+          accessorKey: "subCategory",
+          header: "Sub Category",
+          size: 150,
+          meta: {
+            defaultVisible: false,
+            filterText: (r: any) => subCategoryMap.get(r.subCategory) || "",
+          },
+          Cell: ({ cell }: { cell: any }) =>
+            subCategoryMap.get(cell.getValue()) || "N/A",
+        },
+        {
+          accessorKey: "status",
+          header: "Lead Status",
+          // The filter dropdown lists what the cell shows (MaterialTable meta.filterText).
+          meta: { filterText: (r: any) => r.status?.name || "" },
+          size: 150,
+          Cell: ({ row }: any) => (
+            <LeadStatusPill status={row?.original?.status} />
+          ),
+        },
+        {
+          accessorKey: "receivedDate",
+          header: "Received Date",
+          size: 150,
+          meta: { defaultVisible: false },
+          Cell: ({ cell }: { cell: any }) => {
+            const v = cell.getValue();
+            return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+          },
+        },
+        {
+          accessorKey: "poStatus",
+          header: "PO Status",
+          size: 130,
+          meta: {
+            defaultVisible: false,
+            filterText: (r: any) => r.poStatus || "",
+          },
+          Cell: ({ row }: any) => {
+            const poStatus = row?.original?.poStatus;
+            if (row?.original?.status?.name !== "Received" || !poStatus)
+              return <span>N/A</span>;
+            const color =
+              poStatusColorMap.get(poStatus.toLowerCase()) ||
+              (poStatus === "Received" ? "#107e3e" : "#ffc107");
+            return <LeadStatusPill status={{ name: poStatus, color }} />;
+          },
+        },
+        {
+          accessorKey: "assignedTo",
+          header: "Assigned To",
+          // The filter dropdown lists what the cell shows (MaterialTable meta.filterText).
+          meta: { filterText: (r: any) => employeeMap.get(r.assignedTo) || "" },
+          size: 160,
+          Cell: ({ cell }: { cell: any }) =>
+            employeeMap.get(cell.getValue()) || "N/A",
+        },
+        {
+          accessorKey: "startDate",
+          header: "Date",
+          size: 120,
+          meta: { defaultVisible: false },
+          Cell: ({ cell }: { cell: any }) => {
+            const v = cell.getValue();
+            return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+          },
+        },
+        {
+          accessorKey: "duration",
+          // Computed in the browser, so the server cannot order by it.
+          enableSorting: false,
+          header: "Duration",
+          size: 120,
+          meta: { defaultVisible: false },
+          Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+        },
+        {
+          accessorKey: "contact",
+          header: "Contact",
+          size: 160,
+          meta: { defaultVisible: false },
+          Cell: ({ cell }: { cell: any }) => {
+            const v = cell.getValue();
+            return typeof v === "object"
+              ? v.name || v.email || "N/A"
+              : v || "N/A";
+          },
+        },
+        {
+          accessorKey: "createdAt",
+          header: "Created Date",
+          size: 150,
+          meta: { defaultVisible: false },
+          Cell: ({ cell }: { cell: any }) =>
+            cell.getValue()
+              ? dayjs(cell.getValue()).format("DD-MM-YYYY")
+              : "N/A",
+        },
+        {
+          accessorKey: "createdBy",
+          header: "Created By",
+          size: 150,
+          meta: {
+            defaultVisible: false,
+            filterText: (r: any) => employeeMap.get(r.createdBy) || "",
+          },
+          Cell: ({ cell }: { cell: any }) =>
+            employeeMap.get(cell.getValue()) || "N/A",
+        },
+        {
+          accessorKey: "updatedBy",
+          header: "Edited By",
+          size: 140,
+          meta: {
+            defaultVisible: false,
+            filterText: (r: any) => employeeMap.get(r.updatedBy) || "",
+          },
+          Cell: ({ cell }: { cell: any }) =>
+            employeeMap.get(cell.getValue()) || "N/A",
+        },
+        {
+          accessorKey: "country",
+          header: "Country",
+          size: 120,
+          meta: {
+            defaultVisible: false,
+            filterText: (r: any) => r.country || "",
+          },
+          Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+        },
+        {
+          accessorKey: "city",
+          header: "City",
+          size: 110,
+          meta: { defaultVisible: false, filterText: (r: any) => r.city || "" },
+          Cell: ({ row }: { row: any }) => row.original.city || "N/A",
+        },
+        {
+          accessorKey: "state",
+          header: "State",
+          size: 110,
+          meta: {
+            defaultVisible: false,
+            filterText: (r: any) => r.state || "",
+          },
+          Cell: ({ row }: { row: any }) => row.original.state || "N/A",
+        },
+        {
+          accessorKey: "area",
+          // Computed in the browser, so the server cannot order by it.
+          enableSorting: false,
+          header: "Area",
+          size: 120,
+          meta: { defaultVisible: false },
+          Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+        },
+        {
+          accessorKey: "cost",
+          // Computed in the browser, so the server cannot order by it.
+          enableSorting: false,
+          header: "Cost",
+          size: 120,
+          meta: { defaultVisible: false },
+          Cell: ({ cell }: { cell: any }) =>
+            cell.getValue()
+              ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}`
+              : `${currencyPrefix()}0`,
+        },
+        {
+          accessorKey: "fileLocation",
+          // Computed in the browser, so the server cannot order by it.
+          enableSorting: false,
+          header: "File Location",
+          size: 200,
+          // "File Location in Computer" in the form = Company Type + Company. The lead stores
+          // those as IDs, so resolve them to names; fall back to the free-text path.
+          Cell: ({ row }: { row: any }) => {
+            const path = row?.original?.fileLocation;
+            // Names resolved by the server; the raw value when it is already a name / unmapped.
+            const company =
+              row?.original?.fileLocationCompanyName ||
+              row?.original?.fileLocationCompany ||
+              "";
+            const type =
+              row?.original?.fileLocationCompanyTypeName ||
+              row?.original?.fileLocationCompanyType ||
+              "";
+            if (company) {
+              return (
+                <span>
+                  {company}
+                  {type ? (
+                    <span style={{ color: "#9CA3AF" }}> ({type})</span>
+                  ) : null}
+                </span>
+              );
+            }
+            if (path) {
+              const isUrl = /^https?:\/\//i.test(String(path));
+              return isUrl ? (
+                <a
+                  href={String(path)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    color: "#1E3A8A",
+                    textDecoration: "underline",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Open file
+                </a>
+              ) : (
+                <span>{String(path)}</span>
+              );
+            }
+            return "N/A";
+          },
+        },
+      ].filter(
+        (c: any) =>
+          canViewCommercial("crm.leads") ||
+          !["totalCost", "cost"].includes(c.accessorKey),
+      ),
+    [
+      serviceMap,
+      categoryMap,
+      subCategoryMap,
+      employeeMap,
+      poStatusColorMap,
+      // Stable via useCallback, so listing it never rebuilds the column model — it only stops
+      // the reminder cell closing over a stale writer if that ever changes.
+      patchCachedRow,
+    ],
+  );
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
 
@@ -1223,44 +1375,70 @@ const LeadNewLead: React.FC = () => {
     setShowChartSettingsModal(false);
   }
 
-  const leadsExportColumns = useMemo(() => [
-    { key: 'inquiryDate', header: 'Inquiry Date', type: 'text' as const },
-    { key: 'prefix', header: 'Inquiry ID', type: 'text' as const },
-    { key: 'projectName', header: 'Project Name', type: 'text' as const },
-    { key: 'reminder', header: 'Reminder', type: 'text' as const },
-    { key: 'organization', header: 'Organization', type: 'text' as const },
-    { key: 'totalCost', header: 'Total Cost', type: 'currency' as const, showTotal: true },
-    { key: 'client', header: 'Client', type: 'text' as const },
-    { key: 'service', header: 'Service', type: 'text' as const },
-    { key: 'category', header: 'Category', type: 'text' as const },
-    { key: 'subCategory', header: 'Sub Category', type: 'text' as const },
-    {
-      key: 'status', header: 'Lead Status', type: 'text' as const,
-      format: (val: any) => val?.name || String(val || '')
-    },
-    { key: 'receivedDate', header: 'Received Date', type: 'text' as const },
-    { key: 'poStatus', header: 'PO Status', type: 'text' as const },
-    { key: 'assignedTo', header: 'Assigned To', type: 'text' as const },
-    { key: 'startDate', header: 'Start Date', type: 'text' as const },
-    { key: 'duration', header: 'Duration', type: 'text' as const },
-    { key: 'contact', header: 'Contact', type: 'text' as const },
-    { key: 'cost', header: 'Cost', type: 'currency' as const, showTotal: true },
-    { key: 'country', header: 'Country', type: 'text' as const },
-    { key: 'city', header: 'City', type: 'text' as const },
-    { key: 'state', header: 'State', type: 'text' as const },
-    { key: 'area', header: 'Area', type: 'text' as const },
-    { key: 'createdAt', header: 'Created Date', type: 'text' as const },
-    { key: 'createdBy', header: 'Created By', type: 'text' as const },
-    { key: 'updatedBy', header: 'Edited By', type: 'text' as const },
-  ].filter((c) => canViewCommercial('crm.leads') || !['totalCost', 'cost'].includes(c.key)), []);
+  const leadsExportColumns = useMemo(
+    () =>
+      [
+        { key: "inquiryDate", header: "Inquiry Date", type: "text" as const },
+        { key: "prefix", header: "Inquiry ID", type: "text" as const },
+        { key: "projectName", header: "Project Name", type: "text" as const },
+        { key: "reminder", header: "Reminder", type: "text" as const },
+        { key: "organization", header: "Organization", type: "text" as const },
+        {
+          key: "totalCost",
+          header: "Total Cost",
+          type: "currency" as const,
+          showTotal: true,
+        },
+        { key: "client", header: "Client", type: "text" as const },
+        { key: "service", header: "Service", type: "text" as const },
+        { key: "category", header: "Category", type: "text" as const },
+        { key: "subCategory", header: "Sub Category", type: "text" as const },
+        {
+          key: "status",
+          header: "Lead Status",
+          type: "text" as const,
+          format: (val: any) => val?.name || String(val || ""),
+        },
+        { key: "receivedDate", header: "Received Date", type: "text" as const },
+        { key: "poStatus", header: "PO Status", type: "text" as const },
+        { key: "assignedTo", header: "Assigned To", type: "text" as const },
+        { key: "startDate", header: "Start Date", type: "text" as const },
+        { key: "duration", header: "Duration", type: "text" as const },
+        { key: "contact", header: "Contact", type: "text" as const },
+        {
+          key: "cost",
+          header: "Cost",
+          type: "currency" as const,
+          showTotal: true,
+        },
+        { key: "country", header: "Country", type: "text" as const },
+        { key: "city", header: "City", type: "text" as const },
+        { key: "state", header: "State", type: "text" as const },
+        { key: "area", header: "Area", type: "text" as const },
+        { key: "createdAt", header: "Created Date", type: "text" as const },
+        { key: "createdBy", header: "Created By", type: "text" as const },
+        { key: "updatedBy", header: "Edited By", type: "text" as const },
+      ].filter(
+        (c) =>
+          canViewCommercial("crm.leads") ||
+          !["totalCost", "cost"].includes(c.key),
+      ),
+    [],
+  );
 
   // Organization filter options: every organization the user can see, plus an
   // "Unassigned" entry only when legacy leads without one are actually present —
   // no point offering a filter that can only ever return nothing.
   const organizationFilterOptions = useMemo(() => {
-    const options = leadOrganizations.map((org) => ({ value: org.id, label: org.name }));
+    const options = leadOrganizations.map((org) => ({
+      value: org.id,
+      label: org.name,
+    }));
     return summary?.hasUnassignedOrganization
-      ? [...options, { value: UNASSIGNED_ORG_VALUE, label: UNASSIGNED_ORG_LABEL }]
+      ? [
+          ...options,
+          { value: UNASSIGNED_ORG_VALUE, label: UNASSIGNED_ORG_LABEL },
+        ]
       : options;
   }, [leadOrganizations, summary?.hasUnassignedOrganization]);
 
@@ -1283,261 +1461,259 @@ const LeadNewLead: React.FC = () => {
   const formatCost = (amount: number) => {
     if (amount >= 1_00_00_000)
       return `${currencyPrefix()}${(amount / 1_00_00_000).toFixed(2)} Cr`;
-    if (amount >= 1_00_000) return `${currencyPrefix()}${(amount / 1_00_000).toFixed(2)} L`;
+    if (amount >= 1_00_000)
+      return `${currencyPrefix()}${(amount / 1_00_000).toFixed(2)} L`;
     return `${currencyPrefix()}${amount.toLocaleString(getCurrencyLocale())}`;
   };
 
-  // ── Shared heights ─────────────────────────────────────────────────────────
-  // Matches the table toolbar beside it (kit 'sm' select = 34px).
-  const FILTER_HEIGHT = "34px";
-
-  // ── Menu styling for selects ─────────────────────────────────────────────────
-  const menuSx = {
-    PaperProps: {
-      sx: {
-        borderRadius: "6px",
-        mt: 0.5,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-        maxHeight: 320,
-        "& .MuiMenuItem-root": {
-          fontSize: "12px",
-          fontFamily: "Inter",
-          "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
-          "&.Mui-selected": {
-            backgroundColor: "rgba(30, 58, 138,0.1)",
-            color: "#1E3A8A",
-            fontWeight: 600,
-          },
-        },
-      },
-    },
-  };
-
-  // ── Pill select sx for Status & Assigned ──────────────────────────────────────
-  const pillSelectSx = (hasValue: boolean) => ({
-    borderRadius: "6px",
-    fontSize: "12px",
-    fontFamily: "Inter",
-    fontWeight: 500,
-    height: FILTER_HEIGHT,
-    color: hasValue ? "#1E3A8A" : "#1E293B",
-    "& .MuiOutlinedInput-notchedOutline": {
-      borderColor: hasValue ? "#1E3A8A !important" : "#E2E8F0 !important",
-      borderWidth: "1px !important",
-      borderRadius: "6px !important",
-    },
-    "&:hover .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#1E3A8A !important",
-    },
-    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-      borderColor: "#1E3A8A !important",
-    },
-    "& .MuiSelect-icon": { color: hasValue ? "#1E3A8A" : "#94A3B8" },
-  });
-
   return (
     <>
-      <Box sx={{ px: { xs: 2, md: 3 }, py: 1.5, background: '#fff', borderBottom: '1px solid #F1F5F9' }}>
+      <Box
+        sx={{
+          px: { xs: 2, md: 3 },
+          py: 1.5,
+          background: "#fff",
+          borderBottom: "1px solid #F1F5F9",
+        }}
+      >
         {/* ONE ROW: period selector on the left; Bulk Import, + New Lead and the KPI
             summary on the right. */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
-            flexWrap: 'wrap'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              flexWrap: 'wrap',
-              width: isMobile ? '100%' : 'auto'
-            }}>
-              {/* Period Selector Tabs */}
-              <div style={{ marginRight: "4px" }}>
-                <TimePeriodSelector
-                  value={alignment as TimePeriodMode}
-                  onChange={(mode) => handleAlignmentChange({} as any, mode)}
-                />
-              </div>
-
-              {/* Date Nav placed next to Period Tabs */}
-              {alignment === "daily" && (
-                <NavigationButtons
-                  onPrev={() => navigateDay("prev")}
-                  onNext={() => navigateDay("next")}
-                  displayText={day.format("DD MMM, YYYY")}
-                  isMobile={isMobile}
-                />
-              )}
-              {alignment === "weekly" && (
-                <NavigationButtons
-                  onPrev={() => navigateWeek("prev")}
-                  onNext={() => navigateWeek("next")}
-                  displayText={`${weekStart.format("DD MMM")} - ${weekEnd.format("DD MMM")}`}
-                  isMobile={isMobile}
-                />
-              )}
-              {alignment === "monthly" && (
-                <NavigationButtons
-                  onPrev={() => navigateMonth("prev")}
-                  onNext={() => navigateMonth("next")}
-                  displayText={`${monthStart.format("MMMM YYYY")}`}
-                  isMobile={isMobile}
-                />
-              )}
-              {alignment === "yearly" && yearStart && yearEnd && (
-                <NavigationButtons
-                  onPrev={() => navigateYear("prev")}
-                  onNext={() => navigateYear("next")}
-                  displayText={fiscalYearDisplay}
-                  isMobile={isMobile}
-                />
-              )}
-              {alignment === "custom" && (
-                <div className="d-flex align-items-center gap-2">
-                  <LocalizationProvider dateAdapter={AdapterDayjs}>
-                    <DatePicker
-                      label="Start"
-                      value={customStartDate ?? null}
-                      onChange={(v) => setCustomStartDate(v ?? undefined)}
-                      maxDate={customEndDate}
-                      format="DD MMM, YYYY"
-                      slotProps={{
-                        textField: {
-                          size: "small",
-                          sx: {
-                            "& .MuiOutlinedInput-root": {
-                              borderRadius: "6px",
-                              height: "32px",
-                              fontSize: "11px",
-                              width: "110px"
-                            },
-                            "& .MuiInputLabel-root": {
-                              fontSize: "11px",
-                              top: "-3px"
-                            }
-                          }
-                        }
-                      }}
-                    />
-                    <DatePicker
-                      label="End"
-                      value={customEndDate ?? null}
-                      onChange={(v) => setCustomEndDate(v ?? undefined)}
-                      minDate={customStartDate}
-                      format="DD MMM, YYYY"
-                      slotProps={{
-                        textField: {
-                          size: "small",
-                          sx: {
-                            "& .MuiOutlinedInput-root": {
-                              borderRadius: "6px",
-                              height: "32px",
-                              fontSize: "11px",
-                              width: "110px"
-                            },
-                            "& .MuiInputLabel-root": {
-                              fontSize: "11px",
-                              top: "-3px"
-                            }
-                          }
-                        }
-                      }}
-                    />
-                  </LocalizationProvider>
-                </div>
-              )}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              flexWrap: "wrap",
+              width: isMobile ? "100%" : "auto",
+            }}
+          >
+            {/* Period Selector Tabs */}
+            <div style={{ marginRight: "4px" }}>
+              <TimePeriodSelector
+                value={alignment}
+                onChange={(mode) => handleAlignmentChange({} as any, mode)}
+              />
             </div>
 
-            {/* Right side: KPI summary, then Bulk Import and + New Lead */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              flexWrap: 'wrap',
-              width: isMobile ? '100%' : 'auto',
-              justifyContent: isMobile ? 'space-between' : 'flex-end'
-            }}>
-              {/* KPI summary */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '10px',
-                border: '1px solid #E2E8F0',
-                borderRadius: '6px',
-                padding: '0 12px',
-                background: '#F8FAFC',
-                height: '32px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                width: isMobile ? '100%' : 'auto'
-              }}>
-                {canViewCommercial('crm.leads') && (<>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
-                  <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCost(totalFilteredCost)}</span>
-                </div>
-                <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
-                </>)}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-                  <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
-                    {totalRecords} / {summary?.scopeTotal ?? totalRecords}
-                  </span>
-                </div>
+            {/* Date Nav placed next to Period Tabs */}
+            {alignment === "daily" && (
+              <NavigationButtons
+                onPrev={() => navigateDay("prev")}
+                onNext={() => navigateDay("next")}
+                displayText={day.format("DD MMM, YYYY")}
+                isMobile={isMobile}
+              />
+            )}
+            {alignment === "weekly" && (
+              <NavigationButtons
+                onPrev={() => navigateWeek("prev")}
+                onNext={() => navigateWeek("next")}
+                displayText={`${weekStart.format("DD MMM")} - ${weekEnd.format("DD MMM")}`}
+                isMobile={isMobile}
+              />
+            )}
+            {alignment === "monthly" && (
+              <NavigationButtons
+                onPrev={() => navigateMonth("prev")}
+                onNext={() => navigateMonth("next")}
+                displayText={`${monthStart.format("MMMM YYYY")}`}
+                isMobile={isMobile}
+              />
+            )}
+            {alignment === "yearly" && yearStart && yearEnd && (
+              <NavigationButtons
+                onPrev={() => navigateYear("prev")}
+                onNext={() => navigateYear("next")}
+                displayText={fiscalYearDisplay}
+                isMobile={isMobile}
+              />
+            )}
+            {alignment === "custom" && (
+              <div className="d-flex align-items-center gap-2">
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    label="Start"
+                    value={customStartDate ?? null}
+                    onChange={(v) => setCustomStartDate(v ?? undefined)}
+                    maxDate={customEndDate}
+                    format="DD MMM, YYYY"
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        sx: {
+                          "& .MuiOutlinedInput-root": {
+                            borderRadius: "6px",
+                            height: "32px",
+                            fontSize: "11px",
+                            width: "110px",
+                          },
+                          "& .MuiInputLabel-root": {
+                            fontSize: "11px",
+                            top: "-3px",
+                          },
+                        },
+                      },
+                    }}
+                  />
+                  <DatePicker
+                    label="End"
+                    value={customEndDate ?? null}
+                    onChange={(v) => setCustomEndDate(v ?? undefined)}
+                    minDate={customStartDate}
+                    format="DD MMM, YYYY"
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        sx: {
+                          "& .MuiOutlinedInput-root": {
+                            borderRadius: "6px",
+                            height: "32px",
+                            fontSize: "11px",
+                            width: "110px",
+                          },
+                          "& .MuiInputLabel-root": {
+                            fontSize: "11px",
+                            top: "-3px",
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </LocalizationProvider>
               </div>
-
-              {canWrite && (<>
-              <button
-                className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                onClick={() => setShowBulkImport(true)}
-                style={{
-                  backgroundColor: "#fff",
-                  color: "#1E3A8A",
-                  border: "1px solid #E2E8F0",
-                  boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                  borderRadius: "6px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  height: "32px",
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  // Share the row on phones; keep their natural width on desktop and never
-                  // let the label wrap mid-word when the row gets tight.
-                  flex: isMobile ? 1 : '0 0 auto',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                <KTIcon iconName="cloud-download" className="fs-6 me-1" />
-                Bulk Import
-              </button>
-              <button
-                className="btn btn-sm fw-bold d-inline-flex align-items-center justify-content-center gap-1.5"
-                onClick={() => setShowOrgPicker(true)}
-                style={{
-                  backgroundColor: "#1E3A8A",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  height: "32px",
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-                  flex: isMobile ? 1 : '0 0 auto',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                + New Lead
-              </button>
-              </>)}
-            </div>
+            )}
           </div>
+
+          {/* Right side: KPI summary, then Bulk Import and + New Lead */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              flexWrap: "wrap",
+              width: isMobile ? "100%" : "auto",
+              justifyContent: isMobile ? "space-between" : "flex-end",
+            }}
+          >
+            {/* KPI summary */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px",
+                border: "1px solid #E2E8F0",
+                borderRadius: "6px",
+                padding: "0 12px",
+                background: "#F8FAFC",
+                height: "32px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                width: isMobile ? "100%" : "auto",
+              }}
+            >
+              {canViewCommercial("crm.leads") && (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "#64748B",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      Value:
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        color: "#1E3A8A",
+                        fontWeight: 800,
+                        fontFamily: "Inter, sans-serif",
+                      }}
+                    >
+                      {formatCost(totalFilteredCost)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      width: "1px",
+                      height: "14px",
+                      backgroundColor: "#E2E8F0",
+                    }}
+                  />
+                </>
+              )}
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "4px" }}
+              >
+                <span
+                  style={{
+                    fontSize: "10px",
+                    color: "#64748B",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  Results:
+                </span>
+                <span
+                  style={{
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    fontWeight: 800,
+                    fontFamily: "Inter, sans-serif",
+                  }}
+                >
+                  {totalRecords} / {summary?.scopeTotal ?? totalRecords}
+                </span>
+              </div>
+            </div>
+
+            {canWrite && (
+              <>
+                <Button
+                  variant="inverted"
+                  size="sm"
+                  onClick={() => setShowBulkImport(true)}
+                  // Share the row on phones; keep their natural width on desktop (the kit never
+                  // wraps a label mid-word).
+                  style={{ flex: isMobile ? 1 : "0 0 auto" }}
+                >
+                  <span data-icon="inline-start" className="inline-flex">
+                    <KTIcon iconName="cloud-download" className="fs-6" />
+                  </span>
+                  Bulk Import
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setShowOrgPicker(true)}
+                  style={{ flex: isMobile ? 1 : "0 0 auto" }}
+                >
+                  + New Lead
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Custom missing-date hint for Custom Alignment */}
         {alignment === "custom" && (!customStartDate || !customEndDate) && (
@@ -1549,14 +1725,26 @@ const LeadNewLead: React.FC = () => {
                 borderRadius: "6px",
                 border: "1px solid #FEE2E2",
                 maxWidth: 420,
-                width: "100%"
+                width: "100%",
               }}
             >
-              <h6 style={{ fontFamily: "Inter", fontWeight: 600, color: "#1E3A8A", fontSize: "12px", marginBottom: "2px" }}>
+              <h6
+                style={{
+                  fontFamily: "Inter",
+                  fontWeight: 600,
+                  color: "#1E3A8A",
+                  fontSize: "12px",
+                  marginBottom: "2px",
+                }}
+              >
                 Custom Date Range
               </h6>
-              <p className="mb-0" style={{ fontSize: "11px", color: "#64748B" }}>
-                Please select both <strong>Start Date</strong> and <strong>End Date</strong> to query custom period.
+              <p
+                className="mb-0"
+                style={{ fontSize: "11px", color: "#64748B" }}
+              >
+                Please select both <strong>Start Date</strong> and{" "}
+                <strong>End Date</strong> to query custom period.
               </p>
             </div>
           </div>
@@ -1568,283 +1756,25 @@ const LeadNewLead: React.FC = () => {
       <Box sx={{ "& > .pt-6": { paddingTop: "8px !important" } }}>
         <MaterialTable
           columns={columns}
-          data={tableData}
+          data={localMode ? allRows! : tableData}
           tableName="LeadsTablesMainV2"
           defaultSorting={[{ id: "inquiryDate", desc: true }]}
-          // The server owns paging, sorting and search — all three together, or one of them
-          // would act on the single page the browser holds while implying every lead.
-          manualPagination
-          manualSorting
-          manualFiltering
-          rowCount={totalRecords}
-          paginationState={pagination}
-          onPaginationChange={setPagination}
+          // Normally the server owns paging, sorting and search — all three together, or one
+          // would act on the single page the browser holds while implying every lead. While a
+          // column filter is set the table holds EVERY matching lead (see columnFiltering), so
+          // it filters, sorts and pages them itself.
+          manualPagination={!localMode}
+          manualSorting={!localMode}
+          manualFiltering={!localMode}
+          rowCount={localMode ? undefined : totalRecords}
+          paginationState={localMode ? undefined : pagination}
+          onPaginationChange={localMode ? undefined : setPagination}
           onSortingChange={setSorting}
           onSearchChange={setSearch}
-          isLoading={pageLoading}
-          // Per-column filters and grouping would act on one page only.
-          enableFilters={false}
+          isLoading={pageLoading || allRowsLoading}
+          onColumnFiltersChange={setColumnFilters}
+          // Grouping would act on one page only.
           enableGrouping={false}
-          // Returns elements, not a <FilterToolbar/> component declared in render —
-          // a fresh component type each render remounts the controls mid-interaction
-          // (the Assigned To autocomplete would lose focus on every keystroke).
-          renderTopToolbarRightActions={() => (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                {/* Status Filter */}
-                <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 140 }}>
-                  <Select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    displayEmpty
-                    sx={pillSelectSx(!!statusFilter)}
-                    renderValue={(val) => {
-                      if (!val) {
-                        return (
-                          <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                            Select Status
-                          </span>
-                        );
-                      }
-                      const st = leadStatuses.find((s: any) => s.name === val);
-                      return (
-                        <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
-                          {st?.color && (
-                            <span style={{ width: 8, height: 8, minWidth: 8, borderRadius: "50%", backgroundColor: st.color, display: "inline-block" }} />
-                          )}
-                          <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                            {val}
-                          </span>
-                          <span
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setStatusFilter("");
-                            }}
-                            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
-                          >
-                            ✕
-                          </span>
-                        </span>
-                      );
-                    }}
-                    MenuProps={menuSx}
-                  >
-                    <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                      All Statuses
-                    </MenuItem>
-                    {leadStatuses.map((st: any) => (
-                      <MenuItem key={st.id} value={st.name} sx={{ fontSize: "12px" }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                          <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: st.color, display: "inline-block", flexShrink: 0 }} />
-                          {st.name}
-                        </span>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                {/* Organization Filter — same pill treatment as Status. Hidden when
-                    there is only one organization and nothing legacy to separate. */}
-                {organizationFilterOptions.length > 1 && (
-                  <FormControl size="small" sx={{ minWidth: isMobile ? "100%" : 170 }}>
-                    <Select
-                      value={organizationFilter}
-                      onChange={(e) => setOrganizationFilter(e.target.value)}
-                      displayEmpty
-                      sx={pillSelectSx(!!organizationFilter)}
-                      renderValue={(val) => {
-                        if (!val) {
-                          return (
-                            <span style={{ color: "#94A3B8", fontFamily: "Inter", fontSize: "12px", fontWeight: 500 }}>
-                              Organization
-                            </span>
-                          );
-                        }
-                        const label =
-                          organizationFilterOptions.find((o) => o.value === val)?.label ?? val;
-                        return (
-                          <span style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", overflow: "hidden" }}>
-                            <span style={{ fontFamily: "Inter", fontSize: "12px", fontWeight: 500, color: "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                              {label}
-                            </span>
-                            <span
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setOrganizationFilter("");
-                              }}
-                              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", color: "#1E3A8A", fontSize: 9, fontWeight: 700, cursor: "pointer" }}
-                            >
-                              ✕
-                            </span>
-                          </span>
-                        );
-                      }}
-                      MenuProps={menuSx}
-                    >
-                      <MenuItem value="" sx={{ color: "#94A3B8", fontSize: "12px" }}>
-                        All Organizations
-                      </MenuItem>
-                      {organizationFilterOptions.map((option) => (
-                        <MenuItem key={option.value} value={option.value} sx={{ fontSize: "12px" }}>
-                          {option.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-
-                {/* Assigned To Autocomplete */}
-                <Autocomplete
-                  size="small"
-                  options={assignedToOptions}
-                  getOptionLabel={(emp: any) => emp.displayName || emp.employeeName}
-                  value={assignedToOptions.find((e: any) => e.employeeId === assignedToFilter) ?? null}
-                  onChange={(_: any, emp: any) => setAssignedToFilter(emp?.employeeId ?? "")}
-                  isOptionEqualToValue={(opt: any, val: any) => opt.employeeId === val.employeeId}
-                  filterOptions={(options, { inputValue }) => {
-                    const q = inputValue.toLowerCase();
-                    if (!q) return options;
-                    return options.filter((o: any) => (o.displayName || o.employeeName || "").toLowerCase().includes(q));
-                  }}
-                  sx={{ minWidth: isMobile ? "100%" : 180 }}
-                  clearOnEscape
-                  renderOption={(props, emp: any) => (
-                    <li {...props} key={emp.employeeId}>
-                      {emp.employeeId === "__NA__" ? (
-                        <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                          <span style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, backgroundColor: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "8px", color: "#999", fontWeight: 700 }}>
-                            N/A
-                          </span>
-                          <span style={{ fontFamily: "Inter", fontSize: "12px", color: "#888" }}>
-                            N/A — UNASSIGNED
-                          </span>
-                        </span>
-                      ) : (
-                        <span style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                          <img
-                            src={emp.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}&size=32&background=random`}
-                            alt=""
-                            style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0, filter: emp.isInactive ? "grayscale(60%)" : "none" }}
-                            onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.employeeName)}`; }}
-                          />
-                          <span style={{ fontFamily: "Inter", fontSize: "12px" }}>
-                            {emp.isInactive ? `${emp.employeeName} (Inactive)` : emp.employeeName}
-                          </span>
-                        </span>
-                      )}
-                    </li>
-                  )}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder="Assigned To"
-                      InputProps={{
-                        ...params.InputProps,
-                        startAdornment: assignedToFilter ? (
-                          <InputAdornment position="start" sx={{ ml: "4px", mr: 0 }}>
-                            {assignedToFilter === "__NA__" ? (
-                              <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#f0f0f0", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "7px", color: "#999", fontWeight: 700 }}>
-                                N/A
-                              </span>
-                            ) : (
-                              <img
-                                src={assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.employeeName || "")}&size=24&background=random`}
-                                alt=""
-                                style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", filter: assignedEmployeesFromLeads.find((e: any) => e.employeeId === assignedToFilter)?.isInactive ? "grayscale(60%)" : "none" }}
-                              />
-                            )}
-                          </InputAdornment>
-                        ) : undefined,
-                      }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: "6px",
-                          height: FILTER_HEIGHT,
-                          fontFamily: "Inter",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          color: assignedToFilter ? "#1E3A8A" : "#1E293B",
-                          paddingRight: "8px !important",
-                          "& fieldset": {
-                            borderColor: assignedToFilter ? "#1E3A8A" : "#E2E8F0",
-                            borderWidth: "1px",
-                            borderRadius: "6px",
-                          },
-                          "&:hover fieldset": { borderColor: "#1E3A8A" },
-                          "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
-                        },
-                        "& .MuiOutlinedInput-input": {
-                          padding: "0 4px !important",
-                          fontFamily: "Inter",
-                          fontSize: "12px",
-                          fontWeight: 500,
-                          color: assignedToFilter ? "#1E3A8A" : "#1E293B",
-                          "&::placeholder": {
-                            color: "#94A3B8",
-                            opacity: 1,
-                            fontFamily: "Inter",
-                            fontSize: "12px",
-                            fontWeight: 500,
-                          },
-                        },
-                        "& .MuiAutocomplete-endAdornment": {
-                          right: "6px",
-                          "& .MuiSvgIcon-root": {
-                            color: assignedToFilter ? "#1E3A8A" : "#94A3B8",
-                            fontSize: "16px",
-                          },
-                        },
-                      }}
-                    />
-                  )}
-                  slotProps={{
-                    paper: {
-                      sx: {
-                        borderRadius: "8px",
-                        mt: 0.5,
-                        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                        "& .MuiAutocomplete-listbox": {
-                          maxHeight: 280,
-                          fontFamily: "Inter",
-                          "& .MuiAutocomplete-option": {
-                            fontSize: "12px",
-                            "&:hover": { backgroundColor: "rgba(30, 58, 138,0.06)" },
-                            '&[aria-selected="true"]': {
-                              backgroundColor: "rgba(30, 58, 138,0.1)",
-                              color: "#1E3A8A",
-                              fontWeight: 600,
-                            },
-                          },
-                        },
-                      },
-                    },
-                  }}
-                />
-
-
-
-                {/* Clear filters trigger */}
-                {hasAnyFilter && (
-                  <button
-                    onClick={clearAllFilters}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      fontSize: "12px",
-                      color: "#1E3A8A",
-                      fontWeight: 600,
-                      fontFamily: "Inter, sans-serif",
-                      padding: "2px 8px",
-                      whiteSpace: "nowrap"
-                    }}
-                  >
-                    ✕ Clear Filters
-                  </button>
-                )}
-            </Box>
-          )}
           renderExportActions={() => (
             <ExportButton
               data={tableData}
@@ -1907,8 +1837,16 @@ const LeadNewLead: React.FC = () => {
           leadTemplateId={formValues?.leadTemplateId}
           open={true}
           onClose={() => setFormValues(null)}
-          title={formValues?.id ? `Edit ${formValues.title || formValues?.projectName} Lead` : "New Lead"}
-          initialData={formValues?.id ? { id: formValues?.leadTemplateId } : { ...formValues, title: '' }}
+          title={
+            formValues?.id
+              ? `Edit ${formValues.title || formValues?.projectName} Lead`
+              : "New Lead"
+          }
+          initialData={
+            formValues?.id
+              ? { id: formValues?.leadTemplateId }
+              : { ...formValues, title: "" }
+          }
           initialFormData={formValues}
           isEditMode={!!formValues?.id}
         />
@@ -1933,7 +1871,9 @@ const LeadNewLead: React.FC = () => {
           open
           lead={noteLead}
           onClose={() => setNoteLead(null)}
-          onSaved={(reminder, reminderColor) => patchCachedRow(noteLead.id, { reminder, reminderColor })}
+          onSaved={(reminder, reminderColor) =>
+            patchCachedRow(noteLead.id, { reminder, reminderColor })
+          }
         />
       )}
 

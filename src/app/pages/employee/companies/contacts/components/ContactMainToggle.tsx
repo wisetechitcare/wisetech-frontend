@@ -14,7 +14,8 @@ import { UnderlineTabs } from "@app/modules/common/components/ui";
 import { WtButton } from "@app/modules/common/components/ui/tw";
 import { KTIcon } from "@metronic/helpers";
 import AssignToProjectsDialog from "@app/modules/common/components/AssignToProjectsDialog";
-import { canSection } from "@utils/can";
+import { canSection, canTab } from "@utils/can";
+import { AuditDrawer } from "@/modules/audit/AuditDrawer";
 
 type TabType = "overview" | "lead-reference" | "company-references" | "projects" | "meetings";
 
@@ -76,12 +77,17 @@ const ContactMainToggle = () => {
     navigate(-1);
   };
 
+  // Audit is a tab in the bar but opens a drawer over the current tab, so it is not a route.
+  const [auditOpen, setAuditOpen] = useState(false);
+  const canAudit = canTab("crm.contacts", "audit");
+
   const tabs: Array<{ key: TabType; label: string; icon: string }> = [
     { key: "overview", label: "Overview", icon: "bi bi-person-lines-fill" },
     { key: "lead-reference", label: "Lead Reference", icon: "bi bi-signpost-split" },
     { key: "company-references", label: "Company References", icon: "bi bi-buildings" },
     { key: "projects", label: "Projects", icon: "bi bi-kanban" },
     { key: "meetings", label: "Meetings", icon: "bi bi-camera-video" },
+    ...(canAudit ? [{ key: "audit", label: "Audit", icon: "bi bi-clock-history" }] : []),
   ].filter((t) => !TAB_SECTION[t.key as TabType] || canSection(TAB_SECTION[t.key as TabType]!)) as Array<{ key: TabType; label: string; icon: string }>;
 
   const renderTabContent = () => {
@@ -143,7 +149,7 @@ const ContactMainToggle = () => {
           <UnderlineTabs
             tabs={tabs}
             value={activeTab}
-            onChange={setActiveTab}
+            onChange={(key) => ((key as string) === "audit" ? setAuditOpen(true) : setActiveTab(key))}
             ariaLabel="Contact sections"
             sx={{ mb: 0 }}
           />
@@ -163,6 +169,10 @@ const ContactMainToggle = () => {
       />
 
       <div className="tab-content">{renderTabContent()}</div>
+
+      {canAudit && (
+        <AuditDrawer open={auditOpen} onClose={() => setAuditOpen(false)} type="CONTACT" id={contact.id} recordName={contact.fullName} record={contact as any} />
+      )}
 
       {/* Contact Form */}
       <ClientContactsForm 

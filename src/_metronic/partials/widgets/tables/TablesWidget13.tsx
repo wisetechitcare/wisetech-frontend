@@ -1,6 +1,7 @@
 
 import React from 'react'
 import {KTIcon} from '../../../helpers'
+import {Button, buttonVariants} from '@/ds/ui/button'
 
 type Props = {
   className: string
@@ -17,15 +18,16 @@ const TablesWidget13: React.FC<Props> = ({className}) => {
         </h3>
         <div className='card-toolbar'>
           {/* begin::Menu */}
-          <button
-            type='button'
-            className='btn btn-sm btn-icon btn-color-primary btn-active-light-primary'
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            aria-label='Quick actions'
             data-kt-menu-trigger='click'
             data-kt-menu-placement='bottom-end'
             data-kt-menu-flip='top-end'
           >
             <KTIcon iconName='category' className='fs-2' />
-          </button>
+          </Button>
           {/* begin::Menu 2 */}
           <div
             className='menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-semibold w-200px'
@@ -106,7 +108,11 @@ const TablesWidget13: React.FC<Props> = ({className}) => {
             {/* begin::Menu item */}
             <div className='menu-item px-3'>
               <div className='menu-content px-3 py-3'>
-                <a className='btn btn-primary btn-sm px-4' href='#'>
+                <a
+                  data-slot='button'
+                  className={buttonVariants({variant: 'default', size: 'sm'})}
+                  href='#'
+                >
                   Generate Reports
                 </a>
               </div>
@@ -188,17 +194,34 @@ const TablesWidget13: React.FC<Props> = ({className}) => {
                 <td className='text-end'>
                   <a
                     href='#'
-                    className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                    data-slot='button'
+                    aria-label='Toggle'
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'icon-sm',
+                      className: 'me-1',
+                    })}
                   >
                     <KTIcon iconName='switch' className='fs-3' />
                   </a>
                   <a
                     href='#'
-                    className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                    data-slot='button'
+                    aria-label='Edit'
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'icon-sm',
+                      className: 'me-1',
+                    })}
                   >
                     <KTIcon iconName='pencil' className='fs-3' />
                   </a>
-                  <a href='#' className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'>
+                  <a
+                    href='#'
+                    data-slot='button'
+                    aria-label='Delete'
+                    className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
+                  >
                     <KTIcon iconName='trash' className='fs-3' />
                   </a>
                 </td>
@@ -241,17 +264,34 @@ const TablesWidget13: React.FC<Props> = ({className}) => {
                 <td className='text-end'>
                   <a
                     href='#'
-                    className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                    data-slot='button'
+                    aria-label='Toggle'
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'icon-sm',
+                      className: 'me-1',
+                    })}
                   >
                     <KTIcon iconName='switch' className='fs-3' />
                   </a>
                   <a
                     href='#'
-                    className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                    data-slot='button'
+                    aria-label='Edit'
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'icon-sm',
+                      className: 'me-1',
+                    })}
                   >
                     <KTIcon iconName='pencil' className='fs-3' />
                   </a>
-                  <a href='#' className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'>
+                  <a
+                    href='#'
+                    data-slot='button'
+                    aria-label='Delete'
+                    className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
+                  >
                     <KTIcon iconName='trash' className='fs-3' />
                   </a>
                 </td>
@@ -294,17 +334,34 @@ const TablesWidget13: React.FC<Props> = ({className}) => {
                 <td className='text-end'>
                   <a
                     href='#'
-                    className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                    data-slot='button'
+                    aria-label='Toggle'
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'icon-sm',
+                      className: 'me-1',
+                    })}
                   >
                     <KTIcon iconName='switch' className='fs-3' />
                   </a>
                   <a
                     href='#'
-                    className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                    data-slot='button'
+                    aria-label='Edit'
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'icon-sm',
+                      className: 'me-1',
+                    })}
                   >
                     <KTIcon iconName='pencil' className='fs-3' />
                   </a>
-                  <a href='#' className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'>
+                  <a
+                    href='#'
+                    data-slot='button'
+                    aria-label='Delete'
+                    className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
+                  >
                     <KTIcon iconName='trash' className='fs-3' />
                   </a>
                 </td>
@@ -345,17 +402,34 @@ const TablesWidget13: React.FC<Props> = ({className}) => {
                 <td className='text-end'>
                   <a
                     href='#'
-                    className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                    data-slot='button'
+                    aria-label='Toggle'
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'icon-sm',
+                      className: 'me-1',
+                    })}
                   >
                     <KTIcon iconName='switch' className='fs-3' />
                   </a>
                   <a
                     href='#'
-                    className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                    data-slot='button'
+                    aria-label='Edit'
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'icon-sm',
+                      className: 'me-1',
+                    })}
                   >
                     <KTIcon iconName='pencil' className='fs-3' />
                   </a>
-                  <a href='#' className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'>
+                  <a
+                    href='#'
+                    data-slot='button'
+                    aria-label='Delete'
+                    className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
+                  >
                     <KTIcon iconName='trash' className='fs-3' />
                   </a>
                 </td>
@@ -398,17 +472,34 @@ const TablesWidget13: React.FC<Props> = ({className}) => {
                 <td className='text-end'>
                   <a
                     href='#'
-                    className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                    data-slot='button'
+                    aria-label='Toggle'
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'icon-sm',
+                      className: 'me-1',
+                    })}
                   >
                     <KTIcon iconName='switch' className='fs-3' />
                   </a>
                   <a
                     href='#'
-                    className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1'
+                    data-slot='button'
+                    aria-label='Edit'
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'icon-sm',
+                      className: 'me-1',
+                    })}
                   >
                     <KTIcon iconName='pencil' className='fs-3' />
                   </a>
-                  <a href='#' className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'>
+                  <a
+                    href='#'
+                    data-slot='button'
+                    aria-label='Delete'
+                    className={buttonVariants({variant: 'ghost', size: 'icon-sm'})}
+                  >
                     <KTIcon iconName='trash' className='fs-3' />
                   </a>
                 </td>

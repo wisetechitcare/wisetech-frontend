@@ -1,5 +1,4 @@
 import MaterialTable from '@app/modules/common/components/MaterialTable'
-import { IconButton } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react'
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useSelector } from 'react-redux';
@@ -9,6 +8,8 @@ import dayjs from 'dayjs';
 import { useParams } from 'react-router-dom';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { ToneChip } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 function EmployeeDocumentTable({message1='No Documents Uploaded By User', message2='Documents Uploaded By User'}:{message1?: string, message2?: string}) {
     const { employeeId } = useParams();
@@ -232,9 +233,9 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
             ) : (
                 <div className="d-flex justify-content-center">
                     <a href={`${row.original.fileUrl}`} target="_blank" rel="noreferrer">
-                        <IconButton>
+                        <WtIconButton size="medium">
                             <VisibilityIcon />
-                        </IconButton>
+                        </WtIconButton>
                     </a>
                 </div>
             )),
@@ -246,13 +247,12 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
             <div className="card card-body">
                 {/* Breadcrumb Navigation */}
                 <div className="d-flex align-items-center gap-2 mb-5">
-                    <button
-                        className="btn btn-sm btn-light"
+                    <Button variant="outline" size="sm" type="submit"
                         onClick={() => setCurrentFolder(null)}
                         disabled={!currentFolder}
                     >
                         <AppIcon name="home" className="fs-3" />
-                    </button>
+                    </Button>
                     <span className="text-gray-600">/</span>
                     <span className="fw-bold fs-6">
                         {currentFolder ? currentFolderData?.label : 'All Folders'}

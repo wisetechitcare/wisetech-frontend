@@ -4,6 +4,7 @@ import { KTIcon } from '@metronic/helpers';
 import {
     GlassDialog, GlassHeader, WtButton, WtColorPicker, resolveSwatchHex, toast,
 } from '@app/modules/common/components/ui';
+import { Item } from '@/ds/ui/item';
 import { setMyLeadReminder } from '@services/leadService';
 // The API puts its reason in `detail`; `message` is the generic "Bad request". Reading the
 // wrong one turns "Reminder cannot exceed 500 characters" into a shrug.
@@ -183,14 +184,14 @@ export function ReminderCell({ lead, onSaved }: ReminderCellProps) {
          * worth having it look like the product.
          */
         <Tooltip title={hint} placement="top-start" enterDelay={300}>
-        <span
-            role="button"
-            tabIndex={0}
+        <Item
+            render={<button type="button" />}
             aria-label={hint}
             onClick={(e) => { e.stopPropagation(); open(); }}
             onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); open(); }
             }}
+            className="border-0 p-0 text-start"
             style={{
                 display: 'block',
                 cursor: 'text',
@@ -203,13 +204,13 @@ export function ReminderCell({ lead, onSaved }: ReminderCellProps) {
                 // nothing to clip against — the block is as wide as its column, and the
                 // column is as wide as this text wants to be.
                 maxWidth: REMINDER_CONTENT_WIDTH,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
             }}
         >
-            {note || '—'}
-        </span>
+            {/* The clip lives on an inner block: text-overflow on a <button> itself is unreliable. */}
+            <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {note || '—'}
+            </span>
+        </Item>
         </Tooltip>
     );
 }

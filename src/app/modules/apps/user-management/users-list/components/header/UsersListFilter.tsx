@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
 import {MenuComponent} from '../../../../../../../_metronic/assets/ts/components'
 import {initialQueryState, KTIcon} from '../../../../../../../_metronic/helpers'
+import {Button} from '@/ds/ui/button'
 import {useQueryRequest} from '../../core/QueryRequestProvider'
 import {useQueryResponse} from '../../core/QueryResponseProvider'
 
@@ -28,16 +29,18 @@ const UsersListFilter = () => {
   return (
     <>
       {/* begin::Filter Button */}
-      <button
+      <Button
         disabled={isLoading}
-        type='button'
-        className='btn btn-light-primary me-3'
+        variant='tinted'
+        className='me-3'
         data-kt-menu-trigger='click'
         data-kt-menu-placement='bottom-end'
       >
-        <KTIcon iconName='filter' className='fs-2' />
+        <span data-icon='inline-start' className='inline-flex'>
+          <KTIcon iconName='filter' className='fs-2' />
+        </span>
         Filter
-      </button>
+      </Button>
       {/* end::Filter Button */}
       {/* begin::SubMenu */}
       <div className='menu menu-sub menu-sub-dropdown w-300px w-md-325px' data-kt-menu='true'>
@@ -100,26 +103,24 @@ const UsersListFilter = () => {
 
           {/* begin::Actions */}
           <div className='d-flex justify-content-end'>
-            <button
-              type='button'
+            <Button
+              variant='outline'
               disabled={isLoading}
               onClick={filterData}
-              className='btn btn-light btn-active-light-primary fw-bold me-2 px-6'
+              className='me-2'
               data-kt-menu-dismiss='true'
               data-kt-user-table-filter='reset'
             >
               Reset
-            </button>
-            <button
+            </Button>
+            <Button
               disabled={isLoading}
-              type='button'
               onClick={resetData}
-              className='btn btn-primary fw-bold px-6'
               data-kt-menu-dismiss='true'
               data-kt-user-table-filter='filter'
             >
               Apply
-            </button>
+            </Button>
           </div>
           {/* end::Actions */}
         </div>

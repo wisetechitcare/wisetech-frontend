@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
-import { Button } from 'react-bootstrap';
 import { Formik, Form, FormikValues } from 'formik';
 import * as Yup from 'yup';
 import { KTIcon } from '@metronic/helpers';
@@ -14,6 +13,7 @@ import { MASTER_KEY_TO_HARDCODED } from '@modules/payroll/hooks/useSalaryCompone
 import dayjs from 'dayjs';
 import { getCurrencySymbol } from '@utils/currency';
 import { ToneChip } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
 
 interface DeductionDistributionModalProps {
     show: boolean;
@@ -572,13 +572,12 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                             </div>
                                         </div>
 
-                                        <button
+                                        <Button variant="tinted" size="icon-xs" aria-label="Remove" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                                             type="button"
                                             onClick={() => removeField(field.id, field.isNew)}
-                                            style={{ width: 28, height: 28, minWidth: 28, border: 'none', background: 'transparent', color: '#f1416c', cursor: 'pointer', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                                         >
                                             <Close fontSize="small" />
-                                        </button>
+                                        </Button>
                                     </div>
                                 );
                             };
@@ -603,10 +602,10 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                                 {readOnly && <ToneChip dense tone="success" label="Auto-Calculated" />}
                                             </div>
                                             {showAdd && (
-                                                <button type="button" className="btn btn-sm btn-light-primary fw-bold py-1 px-3 fs-8" onClick={() => addNewField(sectionType || 'custom')}>
+                                                <Button variant="tinted" size="sm" type="button" onClick={() => addNewField(sectionType || 'custom')}>
                                                     <KTIcon iconName="plus" className="fs-8 me-1" />
                                                     Add Component
-                                                </button>
+                                                </Button>
                                             )}
                                         </div>
 
@@ -658,7 +657,7 @@ export const DeductionDistributionModal: React.FC<DeductionDistributionModalProp
                                             Positive increases · Negative reduces
                                         </span>
                                         <div className="d-flex gap-3">
-                                            <Button type="button" variant="light" onClick={onClose} disabled={loading}>
+                                            <Button variant="outline" type="button" onClick={onClose} disabled={loading}>
                                                 Cancel
                                             </Button>
                                             <Button

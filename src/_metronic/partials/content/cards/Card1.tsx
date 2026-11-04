@@ -1,6 +1,7 @@
 
 import {FC} from 'react'
 import {toAbsoluteUrl} from '../../../helpers'
+import { Button } from '@/ds/ui/button';
 
 type Props = {
   color?: string
@@ -57,9 +58,9 @@ const Card1: FC<Props> = ({
           </div>
         </div>
 
-        <button className='btn btn-sm btn-light-primary fw-bolder' id='kt_drawer_chat_toggle'>
+        <Button variant="tinted" size="sm" type="submit" id='kt_drawer_chat_toggle'>
           Send Message
-        </button>
+        </Button>
       </div>
     </div>
   )

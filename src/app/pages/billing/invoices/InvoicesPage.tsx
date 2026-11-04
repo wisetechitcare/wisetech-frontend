@@ -3,9 +3,10 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Box, MenuItem, Pagination, Stack, TextField, Typography, TableContainer,
-  Table, TableHead, TableBody, TableRow, TableCell, IconButton, Menu,
+  Table, TableHead, TableBody, TableFooter, TableRow, TableCell, IconButton, Menu,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
+import { Button } from "@/ds/ui/button";
 import { TRIO, WtButton, toast } from "@app/modules/common/components/ui";
 import {
   listInvoices, accessInvoice, downloadInvoiceWord,
@@ -104,6 +105,9 @@ const InvoicesPage: React.FC = () => {
 
   const invoices = data?.invoices ?? [];
   const pagination = data?.pagination;
+  // Sums the rows on screen, the same way payroll and payments total their tables.
+  const sum = (pick: (i: ProformaNode) => unknown) =>
+    invoices.reduce((s, i) => s + (Number(pick(i)) || 0), 0);
 
   const handleMenuOpen = (id: string, event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl((p) => ({ ...p, [id]: event.currentTarget }));
@@ -268,15 +272,17 @@ const InvoicesPage: React.FC = () => {
                     <BillingStatusBadge status={invoice.currentStatus || ""} />
                   </TableCell>
                   <TableCell align="center">
-                    <IconButton
-                      size="small"
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Invoice actions"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleMenuOpen(invoice.id, e);
                       }}
                     >
                       <KTIcon iconName="dots-vertical" className="fs-6" />
-                    </IconButton>
+                    </Button>
                     <Menu
                       anchorEl={anchorEl[invoice.id]}
                       open={Boolean(anchorEl[invoice.id])}
@@ -305,6 +311,15 @@ const InvoicesPage: React.FC = () => {
                 </TableRow>
               ))}
             </TableBody>
+            <TableFooter>
+              <TableRow sx={{ "& td": { position: "sticky", bottom: 0, bgcolor: "background.paper", fontSize: 12, fontWeight: 700, borderTop: "2px solid", borderColor: "divider" } }}>
+                <TableCell colSpan={3} sx={{ color: "#1E3A8A", fontWeight: 800 }}>TOTAL</TableCell>
+                <TableCell align="right">{formatCurrencyDecimal(sum((i) => i.subtotal))}</TableCell>
+                <TableCell align="right">{formatCurrencyDecimal(sum((i) => i.taxTotal))}</TableCell>
+                <TableCell align="right">{formatCurrencyDecimal(sum((i) => i.grandTotal))}</TableCell>
+                <TableCell colSpan={3} />
+              </TableRow>
+            </TableFooter>
           </Table>
         </TableContainer>
       )}

@@ -4,18 +4,18 @@ import { useStoredState } from "@app/hooks/useStoredState";
 import ExportButton, { ExportVisibilityContext } from "@app/modules/common/components/ExportButton";
 import {
   MaterialReactTable,
-  MRT_ShowHideColumnsMenu,
   MRT_ToggleFiltersButton,
   MRT_ToggleFullScreenButton,
   MRT_ToggleGlobalFilterButton,
+  MRT_ShowHideColumnsMenu,
+  type MRT_TableInstance,
 } from "material-react-table";
+import { X } from "lucide-react";
+import { Button } from "@/ds/ui/button";
 import {
-  Button,
-  ButtonGroup,
   Container,
   createTheme,
   Icon,
-  IconButton,
   Menu,
   MenuItem,
   ThemeProvider,
@@ -40,6 +40,7 @@ import useTablePreferences from "@hooks/useTablePreferences";
 import { fitColumnWidth } from "./fitColumnWidth";
 import { rowId, resolveSelectedRows, selectionSignature } from "./table/rowSelection";
 import { useGridNavigation } from "./table/useGridNavigation";
+import { ColumnsSheet } from "./table/ColumnsSheet";
 import {
   HighlightMatch,
   intelligentSearchFilterFn,
@@ -49,39 +50,108 @@ import {
 import React from "react";
 import { DRILLDOWN_Z_INDEX } from "@app/modules/common/components/DrillDownDialog";
 import { makeWisetechTheme } from "@app/theme/wisetechTheme";
+import { SortActiveIcon, SortNeutralIcon } from "./table/SortIcons";
 
 /**
- * Column show/hide toggle — a straight copy of MRT_ShowHideColumnsButton, kept only
- * so the menu can be given props MRT never forwards.
+ * Column show/hide toggle — opens `ColumnsSheet`, the side-sheet twin of `FilterSheet`.
  *
- * Two things break without them. The menu is a portal at the theme's modal layer
- * (1300), so inside a chart drill-down — whose Dialog is pinned at DRILLDOWN_Z_INDEX
- * to clear a fullscreen chart — it paints BEHIND the dialog. And MUI's default paper
- * height is `calc(100% - 96px)`, so a table with 25+ columns renders a panel that runs
- * floor to ceiling instead of scrolling inside itself.
+ * The z-index lift matters: inside a chart drill-down — whose Dialog is pinned at
+ * DRILLDOWN_Z_INDEX to clear a fullscreen chart — a sheet at the default drawer layer
+ * would paint BEHIND the dialog.
  */
 const ShowHideColumnsButton = ({ table }: { table: any }) => {
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [open, setOpen] = useState(false);
   const { ViewColumnIcon } = table.options.icons;
   const label = table.options.localization.showHideColumns;
 
   return (
     <>
       <Tooltip title={label}>
-        <IconButton aria-label={label} onClick={(e) => setAnchorEl(e.currentTarget)}>
+        <Button variant="ghost" size="icon-sm" aria-label={label} onClick={() => setOpen(true)}>
           <ViewColumnIcon />
-        </IconButton>
+        </Button>
       </Tooltip>
-      {anchorEl && (
-        <MRT_ShowHideColumnsMenu
-          anchorEl={anchorEl}
-          setAnchorEl={setAnchorEl}
-          table={table}
-          sx={{ zIndex: DRILLDOWN_Z_INDEX + 100 }}
-          slotProps={{ paper: { sx: { maxHeight: 420 } } }}
-        />
-      )}
+      <ColumnsSheet table={table} open={open} onClose={() => setOpen(false)} zIndex={DRILLDOWN_Z_INDEX + 100} />
     </>
+  );
+};
+
+/**
+ * MRT's built-in search / filter / full-screen toggles, rebuilt on the kit Button so the
+ * toolbar icon strip is one system. Handlers, tooltips, aria-labels (MRT localization),
+ * icons (table.options.icons) and the disabled rule are material-react-table 2.13.3's own
+ * MRT_Toggle*Button. A tool is `tinted` (primary) only while it is ON.
+ */
+type TableProp = { table: MRT_TableInstance<any> };
+
+const ToggleGlobalFilterButton = ({ table }: TableProp) => {
+  const { globalFilter, showGlobalFilter } = table.getState();
+  const { SearchIcon, SearchOffIcon } = table.options.icons;
+  const label = table.options.localization.showHideSearch;
+  return (
+    <Tooltip title={label}>
+      <Button
+        variant={showGlobalFilter ? "tinted" : "ghost"}
+        size="icon-sm"
+        aria-label={label}
+        aria-pressed={showGlobalFilter}
+        data-active={showGlobalFilter}
+        disabled={!!globalFilter}
+        onClick={() => {
+          table.setShowGlobalFilter(!showGlobalFilter);
+          queueMicrotask(() => table.refs.searchInputRef.current?.focus());
+        }}
+      >
+        {showGlobalFilter ? <SearchOffIcon /> : <SearchIcon />}
+      </Button>
+    </Tooltip>
+  );
+};
+
+const ToggleFiltersButton = ({ table }: TableProp) => {
+  const { showColumnFilters } = table.getState();
+  const { FilterListIcon, FilterListOffIcon } = table.options.icons;
+  const label = table.options.localization.showHideFilters;
+  return (
+    <Tooltip title={label}>
+      <Button
+        variant={showColumnFilters ? "tinted" : "ghost"}
+        size="icon-sm"
+        aria-label={label}
+        aria-pressed={showColumnFilters}
+        data-active={showColumnFilters}
+        onClick={() => table.setShowColumnFilters(!showColumnFilters)}
+      >
+        {showColumnFilters ? <FilterListOffIcon /> : <FilterListIcon />}
+      </Button>
+    </Tooltip>
+  );
+};
+
+const ToggleFullScreenButton = ({ table }: TableProp) => {
+  const { isFullScreen } = table.getState();
+  const { FullscreenExitIcon, FullscreenIcon } = table.options.icons;
+  const label = table.options.localization.toggleFullScreen;
+  // Controlled, as in MRT: the tooltip is closed on click, not left open over the new layout.
+  const [tooltipOpened, setTooltipOpened] = useState(false);
+  return (
+    <Tooltip open={tooltipOpened} title={label}>
+      <Button
+        variant={isFullScreen ? "tinted" : "ghost"}
+        size="icon-sm"
+        aria-label={label}
+        aria-pressed={isFullScreen}
+        data-active={isFullScreen}
+        onClick={() => {
+          setTooltipOpened(false);
+          table.setIsFullScreen(!isFullScreen);
+        }}
+        onMouseEnter={() => setTooltipOpened(true)}
+        onMouseLeave={() => setTooltipOpened(false)}
+      >
+        {isFullScreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+      </Button>
+    </Tooltip>
   );
 };
 
@@ -98,6 +168,9 @@ export interface MaterialTableProps {
   hideExportCenter?: boolean;
   hidePagination?: boolean;
   tableName: string;
+  /** Export file / title / sheet name (e.g. a record's title). `tableName` stays the
+   *  preferences key, so a per-record name never resets saved columns. */
+  exportName?: string;
   employeeId?: string;
   muiTableProps?: {
     sx?: object;
@@ -211,6 +284,12 @@ export interface MaterialTableProps {
   manualFiltering?: boolean;
   /** Fires with the DEBOUNCED search query so the page can refetch. */
   onSearchChange?: (query: string) => void;
+  /**
+   * Fires with the DEBOUNCED per-column filters (`[{ id, value }]`) so a server-paged page
+   * can refetch. Pass it with manualFiltering: the column filter row then filters on the
+   * server, every page, instead of only the rows the browser holds.
+   */
+  onColumnFiltersChange?: (filters: Array<{ id: string; value: unknown }>) => void;
   /**
    * Every row matching the current server-side filters, for the built-in Export.
    *
@@ -373,6 +452,7 @@ function MaterialTable({
   hideExportCenter,
   hidePagination,
   tableName,
+  exportName,
   muiTableProps,
   enableBottomToolbar = true,
   muiTableHeadCellStyle = {},
@@ -387,7 +467,7 @@ function MaterialTable({
   enableSorting = true,
   enableGrouping = true,
   enableColumnDragging = true,
-  enableColumnResizing = false,
+  enableColumnResizing = true,
   enableColumnPinning = true,
   enableExpandAll = true,
   enableColumnActions = true,
@@ -416,6 +496,7 @@ function MaterialTable({
   onVisibleColumnsChange,
   manualFiltering = false,
   onSearchChange,
+  onColumnFiltersChange,
   fetchAllRows,
   enableRowSelection = false,
   onSelectedRowsChange,
@@ -455,10 +536,64 @@ function MaterialTable({
     return () => clearTimeout(handler);
   }, [globalFilterValue]);
 
+  // Which filter control each column gets, decided from the data rather than hand-set on 88
+  // tables: numbers → min/max range; a short list of repeated strings (status, department,
+  // branch) → autocomplete, i.e. a dropdown you can also type into; anything else → text.
+  // Reduced to ONE string so the column memo below depends on the kinds, not on the rows —
+  // paging or refetching leaves the column model alone.
+  const filterKinds = useMemo(() => {
+    const out: string[] = [];
+    for (const col of columns as any[]) {
+      const key = col.accessorKey;
+      if (!key || col.filterVariant || col.enableColumnFilter === false || col.meta?.filterText) continue;
+      const seen = new Set<unknown>();
+      let kind = "";
+      for (const row of data as any[]) {
+        const v = row?.[key];
+        if (v == null || v === "") continue;
+        const t = typeof v === "number" ? "n" : typeof v === "string" ? "a" : "x";
+        if (kind && kind !== t) { kind = "x"; break; }
+        kind = t;
+        // A date is never a short list worth a dropdown, however few distinct days a page has.
+        if (t === "a" && /^\d{4}-\d{2}-\d{2}/.test(v as string)) { kind = "s"; break; }
+        if (t === "a") { seen.add(v); if (seen.size > 40) { kind = "s"; break; } }
+        else if (t === "x") break;
+      }
+      if (kind === "n" || kind === "a") out.push(`${key}:${kind}`);
+    }
+    return out.join("|");
+  }, [columns, data]);
+
+  /**
+   * `meta.filterText(row)` — what a person READS in the cell, when the row holds something
+   * else (an employee id, a status object). Those columns get a dropdown of the names on screen
+   * and filter on them; without it the dropdown listed raw ids and an object column got no list.
+   * Serialised so the column memo below depends on the option lists, not on the rows.
+   */
+  const filterTextOptions = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const col of columns as any[]) {
+      const read = col.meta?.filterText;
+      const key = col.accessorKey ?? col.id;
+      if (typeof read !== "function" || !key) continue;
+      const names = new Set<string>();
+      for (const row of data as any[]) {
+        const text = read(row);
+        if (text) names.add(String(text));
+      }
+      out[key] = [...names].sort((a, b) => a.localeCompare(b));
+    }
+    return JSON.stringify(out);
+  }, [columns, data]);
+
   // Apply default sizing if not set
   const finalColumns = useMemo(
-    () =>
-      columns.map((col: any) => {
+    () => {
+      const textOptions: Record<string, string[]> = JSON.parse(filterTextOptions);
+      const kindByKey: Record<string, string> = Object.fromEntries(
+        filterKinds ? filterKinds.split("|").map((p) => p.split(":")) : [],
+      );
+      return columns.map((col: any) => {
         // "actions" / "avatar" have no backing row field, so MRT's sort, group
         // and filter controls all operated on undefined — 42 of 68 such columns
         // app-wide rendered a ⇅ affordance that did nothing. Defaults only:
@@ -470,6 +605,20 @@ function MaterialTable({
         ...defaultColumnSizes,
         ...(isNonDataColumn
           ? { enableSorting: false, enableColumnActions: false, enableHiding: false }
+          : {}),
+        ...(kindByKey[key] === "n"
+          ? { filterVariant: "range", filterFn: "betweenInclusive" }
+          : kindByKey[key] === "a"
+            ? { filterVariant: "autocomplete" }
+            : {}),
+        ...(typeof col.meta?.filterText === "function"
+          ? {
+              filterVariant: "autocomplete",
+              filterSelectOptions: textOptions[key] ?? [],
+              // Match on the text shown, not the stored value.
+              filterFn: (row: any, _id: string, value: unknown) =>
+                value == null || value === "" || String(col.meta.filterText(row.original) ?? "") === String(value),
+            }
           : {}),
         ...col, // custom column values will override defaults
         // The search query is read from context INSIDE HighlightedCell, not closed over
@@ -484,18 +633,19 @@ function MaterialTable({
             {typeof col.Header === "function" ? col.Header(headerProps) : (col.Header ?? col.header)}
             {headerProps.column.getIsPinned() && (
               // Same glyph as the sidebar's pinned menu items (AsideMenuItem).
-              <Box component="i" className="bi bi-pin-angle-fill" aria-label="Pinned" sx={{ fontSize: 12, ml: 1, verticalAlign: "middle", color: "#1E3A8A" }} />
+              <Box component="i" className="bi bi-pin-angle-fill" aria-label="Pinned" sx={{ fontSize: 12, ml: 1, verticalAlign: "middle", color: "primary.main" }} />
             )}
           </>
         ),
         };
-      }),
+      });
+    },
     // Deliberately NOT depending on the search query. This memo rebuilds every column
     // definition, which invalidates MRT's entire column model; doing that on each
     // keystroke was the single most expensive thing typing in the search box did.
     // Highlighting still updates on every keystroke because HighlightedCell subscribes
     // to the query via context, so only the cells re-render, not the column model.
-    [columns],
+    [columns, filterKinds, filterTextOptions],
   );
 
   /**
@@ -1005,6 +1155,15 @@ function MaterialTable({
     onSearchChange(debouncedFilterValue);
   }, [debouncedFilterValue, onSearchChange]);
 
+  // Column filters, for a page that filters on the server. Held here (not in saved
+  // preferences: a filter is a question, not a layout) and handed over debounced, like search.
+  const [columnFilters, setColumnFilters] = useState<Array<{ id: string; value: unknown }>>([]);
+  useEffect(() => {
+    if (!onColumnFiltersChange) return;
+    const handler = setTimeout(() => onColumnFiltersChange(columnFilters), 300);
+    return () => clearTimeout(handler);
+  }, [columnFilters, onColumnFiltersChange]);
+
   // Mobile search toggle function
   const toggleMobileSearch = useCallback(() => {
     if (!enableColumnSpecificSearch) {
@@ -1032,17 +1191,23 @@ function MaterialTable({
         // accessorFn columns have no raw row[key] to read (id-only ones) or hold a
         // raw id the cell never shows (e.g. projectManagerId → manager names), so
         // export through the same accessor the table renders from.
-        ...(col.accessorFn
-          ? { format: (_v: any, row: any) => String(col.accessorFn(row) ?? '') }
-          : {}),
+        // `meta.exportValue(row)` wins when the cell decorates a value the column
+        // must still sort on numerically (e.g. a count shown as "16 Box").
+        ...(typeof col.meta?.exportValue === 'function'
+          ? { format: (_v: any, row: any) => String(col.meta.exportValue(row) ?? '') }
+          : col.accessorFn
+            ? { format: (_v: any, row: any) => String(col.accessorFn(row) ?? '') }
+            : {}),
       }));
   }, [columns, preferences.columnVisibility]);
 
   // Human-readable title from tableName (e.g. "MonthlySalary" → "Monthly Salary")
   const autoExportTitle = useMemo(
-    () => tableName.replace(/([A-Z])/g, ' $1').trim(),
-    [tableName],
+    () => exportName || tableName.replace(/([A-Z])/g, ' $1').trim(),
+    [exportName, tableName],
   );
+  // File and Excel sheet names can't hold  / : * ? [ ] — swap them out.
+  const exportFileName = (exportName || tableName).replace(/[\\/:*?[\]]+/g, ' ').trim();
 
   const tableTheme = useMemo(
     () =>
@@ -1412,29 +1577,20 @@ function MaterialTable({
                   borderBottom: "1px solid #F3F4F6",
                 }}
               >
-                <div
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  aria-expanded={isMobileSearchVisible}
                   onClick={toggleMobileSearch}
-                  style={{
-                    cursor: "pointer",
-                    padding: "10px 16px",
-                    borderRadius: "10px",
-                    backgroundColor: isMobileSearchVisible ? "#FEF2F2" : "#FAFAFA",
-                    border: `1px solid ${isMobileSearchVisible ? "#FECACA" : "#E5E7EB"}`,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    width: "100%",
-                    justifyContent: "center",
-                    transition: "all 0.2s ease",
-                    color: isMobileSearchVisible ? "#1E3A8A" : "#6B7280",
-                  }}
                 >
-                  <KTIcon iconName="magnifier" className="fs-5" />
-                  <span style={{ fontSize: "13px", fontWeight: 600 }}>
-                    {isMobileSearchVisible ? "Hide Search" : "Search Table"}
+                  <span data-icon="inline-start" className="inline-flex">
+                    <KTIcon iconName="magnifier" className="fs-5" />
                   </span>
-                  <KTIcon iconName={isMobileSearchVisible ? "up" : "down"} className="fs-6" />
-                </div>
+                  {isMobileSearchVisible ? "Hide Search" : "Search Table"}
+                  <span data-icon="inline-end" className="inline-flex">
+                    <KTIcon iconName={isMobileSearchVisible ? "up" : "down"} className="fs-6" />
+                  </span>
+                </Button>
               </div>
 
               {/* Collapsible Full-Width Search Interface */}
@@ -1522,31 +1678,20 @@ function MaterialTable({
                       {globalFilterValue && (
                         <Tooltip title="Clear search">
                           <span>
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={() => handleGlobalFilterChange("")}
                             style={{
                               position: "absolute",
                               right: "10px",
                               top: "50%",
                               transform: "translateY(-50%)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: "20px",
-                              height: "20px",
-                              borderRadius: "50%",
-                              border: "none",
-                              backgroundColor: "#D1D5DB",
-                              cursor: "pointer",
-                              padding: 0,
-                              color: "#6B7280",
-                              fontSize: "10px",
-                              lineHeight: 1,
                             }}
                             aria-label="Clear search"
                           >
-                            ✕
-                          </button>
+                            <X aria-hidden />
+                          </Button>
                           </span>
                         </Tooltip>
                       )}
@@ -1663,7 +1808,11 @@ function MaterialTable({
               isLoading: isLoading && tableData.length === 0,
               showProgressBars: isLoading,
               rowSelection,
+              ...(onColumnFiltersChange ? { columnFilters } : {}),
             }}
+            {...(onColumnFiltersChange ? { onColumnFiltersChange: setColumnFilters as any } : {})}
+            // When the page filters columns on the server, MRT must not re-filter the one page it holds.
+            manualFiltering={!!(manualFiltering && onColumnFiltersChange)}
             onColumnVisibilityChange={updateColumnVisibility}
             onColumnOrderChange={updateColumnOrder}
             onColumnSizingChange={updateColumnSizing}
@@ -1697,6 +1846,36 @@ function MaterialTable({
             enableBottomToolbar={enableBottomToolbar ?? true}
             enableTableHead={enableTableHead ?? true}
             enableColumnFilters={enableFilters ?? true}
+            // Dropdown options for the autocomplete filters come from the rows themselves.
+            enableFacetedValues
+            // Filter row: a soft rounded field under each header instead of MRT's bare
+            // underline. Same look for text, autocomplete and the min/max pair.
+            muiFilterTextFieldProps={({ column, rangeFilterIndex }: any) => ({
+              variant: "outlined",
+              size: "small",
+              placeholder:
+                column.columnDef.filterVariant === "range" ? (rangeFilterIndex === 1 ? "Max" : "Min")
+                : column.columnDef.filterVariant === "autocomplete" ? "All"
+                : "Search…",
+              sx: {
+                minWidth: 0,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: 12.5, minWidth: 0,
+                  fontWeight: 500,
+                  borderRadius: "8px",
+                  backgroundColor: "background.paper",
+                  "& fieldset": { borderColor: "#EAECF0" },
+                  "&:hover fieldset": { borderColor: "#98A2B3" },
+                  "&.Mui-focused fieldset": { borderColor: "#1E3A8A", borderWidth: 1.5 },
+                },
+                "& .MuiOutlinedInput-input": { py: "6px", px: "10px", minWidth: 0, width: "100%", textTransform: "none", letterSpacing: 0 },
+                // The clear button only exists once there is something to clear.
+                "& input:placeholder-shown ~ .MuiInputAdornment-root": { display: "none" },
+                // The Min/Max pair sits in an MRT grid with a 1rem gap, too wide for a narrow column.
+                "& .MuiInputAdornment-root": { ml: 0 },
+                "& .MuiInputLabel-root": { display: "none" },
+              },
+            })}
             enableGlobalFilter={!enableColumnSpecificSearch}
             onGlobalFilterChange={handleGlobalFilterChange}
             globalFilterFn={intelligentSearchFilterFn as any}
@@ -1708,8 +1887,8 @@ function MaterialTable({
             // their enable-flags (density toggle is globally off for this table).
             renderToolbarInternalActions={({ table }) => {
               // One neutral segmented group (search-field height). Colour is reserved for
-              // state: a tool turns primary only while it is ON, so the tint carries meaning.
-              const { showColumnFilters, showGlobalFilter, isFullScreen } = table.getState();
+              // state: a tool turns primary (kit `tinted`) only while it is ON, so the tint
+              // carries meaning.
               return (
               <Box
                 sx={{
@@ -1737,18 +1916,20 @@ function MaterialTable({
                 }}
               >
                 {renderToolbarIconActions?.()}
-                {!enableColumnSpecificSearch && <MRT_ToggleGlobalFilterButton table={table} data-active={showGlobalFilter} />}
-                {(enableFilters ?? true) && <MRT_ToggleFiltersButton table={table} data-active={showColumnFilters} />}
+                {!enableColumnSpecificSearch && <ToggleGlobalFilterButton table={table} />}
+                {(enableFilters ?? true) && <ToggleFiltersButton table={table} />}
                 {(enableHiding ?? true) && <ShowHideColumnsButton table={table} />}
                 <Tooltip title="Reset columns to default layout">
-                  <IconButton
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     aria-label="Reset columns to default layout"
                     onClick={() => resetPreferences()}
                   >
                     <KTIcon iconName="arrows-circle" className="fs-2" />
-                  </IconButton>
+                  </Button>
                 </Tooltip>
-                {(enableFullScreenToggle ?? true) && <MRT_ToggleFullScreenButton table={table} data-active={isFullScreen} />}
+                {(enableFullScreenToggle ?? true) && <ToggleFullScreenButton table={table} />}
               </Box>
               );
             }}
@@ -1793,7 +1974,7 @@ function MaterialTable({
 
                 // Padding, not a fixed height: a fixed height clips wrapped headers in grid
                 // layout mode, and min-height is ignored on <th> in table layout mode.
-                padding: "16px",
+                padding: "12px 16px",
                 minHeight: "48px",
 
                 borderBottom: "2px solid #EAECF0",
@@ -1805,12 +1986,32 @@ function MaterialTable({
                 boxSizing: "border-box",
                 userSelect: "none",
 
+                // The filter row sits in a Collapse directly under the label. MRT gives it no spacing,
+                // so the boxes touched the header text, the cell edges and the row below. A gap above
+                // and below, and a little air either side, lets each box read as its own control.
+                // The cell itself needs the room: padding on the Collapse's inner box was swallowed
+                // by the cell's own height, leaving the boxes flush on the first data row.
+                "&:has(> .MuiCollapse-root)": { paddingBottom: "10px" },
+                "& > .MuiCollapse-root": { marginTop: "4px" },
+                "& > .MuiCollapse-root .MuiCollapse-wrapperInner": { paddingTop: "8px", borderTop: "1px solid #EAECF0" },
+                "& > .MuiCollapse-root .MuiFormControl-root": { margin: "0", width: "100%" },
+                // Min/Max pair: MRT lays it out with a 1rem gap, which starves narrow columns.
+                "& .MuiBox-root:has(> .MuiTextField-root + .MuiTextField-root)": { gap: "6px" },
+                // Row virtualization switches MRT to CSS-grid layout, where the <th> is a flex
+                // COLUMN. There `height: 100%` on the label made it as tall as the whole cell and
+                // pushed the filter row out of the bottom, under the first data row. In grid the
+                // label takes its own height and the cell centres its content, which is what a
+                // semantic <th>'s vertical-align: middle does — so both layouts look the same.
+                ...(enableRowVirtualization || layoutMode !== "semantic"
+                  ? { justifyContent: "center" }
+                  : {}),
                 "& .Mui-TableHeadCell-Content": {
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
                   width: "100%",
-                  height: "100%",
+                  height: enableRowVirtualization || layoutMode !== "semantic" ? "auto" : "100%",
+                  flex: "0 0 auto",
                   // Floor = label's longest word + sort icon + gap + actions button. In
                   // semantic layout the <th> can't be resized below its content's
                   // min-content, so shrinking a column stops before anything overlaps.
@@ -1841,6 +2042,9 @@ function MaterialTable({
                   gap: "4px",
                   flexShrink: 0,
                 },
+                // Unsorted chevrons are faint until the header is hovered; the active arrow is always full.
+                "&:hover .MuiTableSortLabel-root": { opacity: 1 },
+                "& .MuiTableSortLabel-root .MuiTableSortLabel-icon": { margin: 0, width: "auto", height: "auto" },
 
                 "&:last-child": {
                   borderRight: "none",
@@ -2125,32 +2329,20 @@ function MaterialTable({
                     {globalFilterValue && (
                       <Tooltip title="Clear search">
                         <span>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
                           onClick={() => handleGlobalFilterChange("")}
                           style={{
                             position: "absolute",
                             right: "8px",
                             top: "50%",
                             transform: "translateY(-50%)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "18px",
-                            height: "18px",
-                            borderRadius: "50%",
-                            border: "none",
-                            backgroundColor: "#D1D5DB",
-                            cursor: "pointer",
-                            padding: 0,
-                            color: "#6B7280",
-                            fontSize: "10px",
-                            lineHeight: 1,
-                            transition: "background-color 0.15s ease",
                           }}
                           aria-label="Clear search"
                         >
-                          ✕
-                        </button>
+                          <X aria-hidden />
+                        </Button>
                         </span>
                       </Tooltip>
                     )}
@@ -2279,7 +2471,7 @@ function MaterialTable({
                       }}
                     >
                       {/* Track */}
-                      <div
+                      <div data-wt-control="scrollbar"
                         ref={scrollTrackRef}
                         onClick={(e) => {
                           const track = scrollTrackRef.current;
@@ -2380,9 +2572,9 @@ function MaterialTable({
                           data={selectedRows.length > 0 ? selectedRows : tableData}
                           getData={selectedRows.length === 0 ? fetchAllRows : undefined}
                           columns={autoExportCols}
-                          filename={tableName}
+                          filename={exportFileName}
                           title={autoExportTitle}
-                          sheetName={tableName.slice(0, 31)}
+                          sheetName={exportFileName.slice(0, 31)}
                           disabled={tableData.length === 0}
                         />
                       ) : null}
@@ -2409,46 +2601,27 @@ function MaterialTable({
                           >
                             {isMobile ? "Rows:" : "Rows per page:"}
                           </span>
-                          <ButtonGroup
-                            variant="outlined"
-                            size="small"
-                            sx={{
-                              borderRadius: '10px',
-                              overflow: 'hidden',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                            }}
-                          >
+                          {/* The page-size pick and its chevron: two joined kit buttons, both
+                              opening the same menu (as the MUI ButtonGroup pair did). */}
+                          <div className="inline-flex">
                             <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-r-none"
                               onClick={(e) => setRowsAnchorEl(e.currentTarget)}
-                              sx={{
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                fontSize: isMobile ? 12 : 13,
-                                borderColor: '#e5e7eb',
-                                color: '#374151',
-                                borderRadius: '10px 0 0 10px',
-                                px: isMobile ? 1 : 1.5,
-                                py: 0.6,
-                                minWidth: 'unset',
-                                '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-                              }}
                             >
                               {pageSize}
                             </Button>
                             <Button
+                              variant="outline"
+                              size="icon-sm"
+                              className="-ml-px rounded-l-none"
+                              aria-label="Rows per page"
                               onClick={(e) => setRowsAnchorEl(e.currentTarget)}
-                              sx={{
-                                borderColor: '#e5e7eb',
-                                color: '#9ca3af',
-                                borderRadius: '0 10px 10px 0',
-                                px: 0.4,
-                                minWidth: 'unset',
-                                '&:hover': { borderColor: '#d1d5db', bgcolor: '#f9fafb' },
-                              }}
                             >
                               <KTIcon iconName="down" className="fs-6" />
                             </Button>
-                          </ButtonGroup>
+                          </div>
                           <Menu
                             anchorEl={rowsAnchorEl}
                             open={Boolean(rowsAnchorEl)}
@@ -2539,58 +2712,30 @@ function MaterialTable({
                         {/* First page */}
                         <Tooltip title="First page">
                           <span>
-                          <button
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             onClick={() => table.setPageIndex(0)}
                             disabled={pageIndex === 0}
-                            className="et-page-nav-btn"
                             aria-label="First page"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: isMobile ? "30px" : "34px",
-                              height: isMobile ? "30px" : "34px",
-                              border: "1px solid #E5E7EB",
-                              borderRadius: "8px",
-                              backgroundColor: pageIndex === 0 ? "#F9FAFB" : "#fff",
-                              cursor: pageIndex === 0 ? "not-allowed" : "pointer",
-                              opacity: pageIndex === 0 ? 0.45 : 1,
-                              transition: "all 0.15s ease",
-                              padding: 0,
-                              flexShrink: 0,
-                            }}
                           >
-                            <KTIcon iconName="double-left" className="fs-4 text-gray-600" />
-                          </button>
+                            <KTIcon iconName="double-left" className="fs-4" />
+                          </Button>
                           </span>
                         </Tooltip>
 
                         {/* Previous page */}
                         <Tooltip title="Previous page">
                           <span>
-                          <button
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             onClick={() => table.previousPage()}
                             disabled={!table.getCanPreviousPage()}
-                            className="et-page-nav-btn"
                             aria-label="Previous page"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: isMobile ? "30px" : "34px",
-                              height: isMobile ? "30px" : "34px",
-                              border: "1px solid #E5E7EB",
-                              borderRadius: "8px",
-                              backgroundColor: !table.getCanPreviousPage() ? "#F9FAFB" : "#fff",
-                              cursor: !table.getCanPreviousPage() ? "not-allowed" : "pointer",
-                              opacity: !table.getCanPreviousPage() ? 0.45 : 1,
-                              transition: "all 0.15s ease",
-                              padding: 0,
-                              flexShrink: 0,
-                            }}
                           >
-                            <KTIcon iconName="black-left" className="fs-4 text-gray-600" />
-                          </button>
+                            <KTIcon iconName="black-left" className="fs-4" />
+                          </Button>
                           </span>
                         </Tooltip>
 
@@ -2619,94 +2764,49 @@ function MaterialTable({
 
                           const isActive = pageIndex === page;
                           return (
-                            <button
+                            <Button
                               key={page}
+                              variant={isActive ? "default" : "outline"}
+                              size="icon-sm"
                               onClick={() => table.setPageIndex(page)}
-                              className="et-page-num-btn"
                               // The active page is signalled only by colour otherwise —
                               // invisible to a screen reader, and to anyone who cannot
-                              // distinguish the navy fill.
+                              // distinguish the filled button.
                               aria-label={`Page ${page + 1}`}
                               aria-current={isActive ? "page" : undefined}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: isMobile ? "30px" : "34px",
-                                height: isMobile ? "30px" : "34px",
-                                border: isActive ? "1.5px solid #1E3A8A" : "1px solid #E5E7EB",
-                                borderRadius: "8px",
-                                backgroundColor: isActive ? "#1E3A8A" : "#fff",
-                                color: isActive ? "#fff" : "#374151",
-                                cursor: "pointer",
-                                fontSize: isMobile ? "12px" : "13px",
-                                fontWeight: isActive ? 700 : 500,
-                                transition: "all 0.15s ease",
-                                padding: 0,
-                                flexShrink: 0,
-                                boxShadow: isActive ? "0 2px 6px rgba(30, 58, 138,0.30)" : "none",
-                              }}
                             >
                               {page + 1}
-                            </button>
+                            </Button>
                           );
                         })}
 
                         {/* Next page */}
                         <Tooltip title="Next page">
                           <span>
-                          <button
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             onClick={() => table.nextPage()}
                             disabled={!table.getCanNextPage()}
-                            className="et-page-nav-btn"
                             aria-label="Next page"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: isMobile ? "30px" : "34px",
-                              height: isMobile ? "30px" : "34px",
-                              border: "1px solid #E5E7EB",
-                              borderRadius: "8px",
-                              backgroundColor: !table.getCanNextPage() ? "#F9FAFB" : "#fff",
-                              cursor: !table.getCanNextPage() ? "not-allowed" : "pointer",
-                              opacity: !table.getCanNextPage() ? 0.45 : 1,
-                              transition: "all 0.15s ease",
-                              padding: 0,
-                              flexShrink: 0,
-                            }}
                           >
-                            <KTIcon iconName="black-right" className="fs-4 text-gray-600" />
-                          </button>
+                            <KTIcon iconName="black-right" className="fs-4" />
+                          </Button>
                           </span>
                         </Tooltip>
 
                         {/* Last page */}
                         <Tooltip title="Last page">
                           <span>
-                          <button
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
                             onClick={() => table.setPageIndex(totalPages - 1)}
                             disabled={pageIndex === totalPages - 1}
-                            className="et-page-nav-btn"
                             aria-label="Last page"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: isMobile ? "30px" : "34px",
-                              height: isMobile ? "30px" : "34px",
-                              border: "1px solid #E5E7EB",
-                              borderRadius: "8px",
-                              backgroundColor: pageIndex === totalPages - 1 ? "#F9FAFB" : "#fff",
-                              cursor: pageIndex === totalPages - 1 ? "not-allowed" : "pointer",
-                              opacity: pageIndex === totalPages - 1 ? 0.45 : 1,
-                              transition: "all 0.15s ease",
-                              padding: 0,
-                              flexShrink: 0,
-                            }}
                           >
-                            <KTIcon iconName="double-right" className="fs-4 text-gray-600" />
-                          </button>
+                            <KTIcon iconName="double-right" className="fs-4" />
+                          </Button>
                           </span>
                         </Tooltip>
 
@@ -2745,13 +2845,8 @@ function MaterialTable({
               );
             }}
             icons={{
-              ArrowDownwardIcon: (props: any) => (
-                <KTIcon
-                  iconName={"arrow-down"}
-                  className="fs-1 text-danger"
-                  {...props}
-                />
-              ),
+              ArrowDownwardIcon: SortActiveIcon,
+              SyncAltIcon: SortNeutralIcon,
               SortIcon: (props: any) => (
                 <KTIcon iconName="arrow-up-down" className="fs-1" {...props} />
               ),

@@ -11,6 +11,7 @@ import {
   PHOTO_HINT,
   validatePhotoFile,
 } from '@utils/fileValidation';
+import { Button } from '@/ds/ui/button';
 
 interface ProfilePictureProps {
   setFile: (id: string, file: File) => void;
@@ -121,7 +122,7 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemo
     <div className="ob-photo-section ob-photo-section--vertical">
       {/* Wrapper keeps the circle from shrinking inside the flex column */}
       <div className="ob-dropzone-wrapper">
-        <div
+        <div data-wt-control="dropzone"
           {...getRootProps()}
           className={`ob-dropzone ${isDragActive || isDragOver ? 'drag-over' : ''}`}
           role="button"
@@ -158,9 +159,8 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemo
           and clipped against the avatar's rounded edge. Only rendered with a photo. */}
       {hasPhoto && (
         <div className="ob-photo-actions">
-          <button
+          <Button variant="outline" size="sm"
             type="button"
-            className="ob-photo-action-btn"
             onClick={(e) => {
               e.stopPropagation();
               setShowModal(true);
@@ -168,15 +168,14 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemo
           >
             <Eye size={13} />
             <span>Preview</span>
-          </button>
-          <button
+          </Button>
+          <Button variant="tinted" size="sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
             type="button"
-            className="ob-photo-action-btn ob-photo-action-btn--danger"
             onClick={removePhoto}
           >
             <X size={13} />
             <span>Remove</span>
-          </button>
+          </Button>
         </div>
       )}
 
@@ -189,12 +188,12 @@ const ProfilePicture: React.FC<ProfilePictureProps> = ({ setFile, avatar, onRemo
       </div>
 
       {showModal && createPortal(
-        <div className="ob-photo-view-modal" onClick={() => setShowModal(false)}>
-          <div className="ob-photo-view-content" onClick={(e) => e.stopPropagation()}>
+        <div data-wt-control="backdrop" className="ob-photo-view-modal" onClick={() => setShowModal(false)}>
+          <div data-wt-control="container" className="ob-photo-view-content" onClick={(e) => e.stopPropagation()}>
             <img src={preview!} alt="Profile Full View" />
-            <button className="ob-photo-view-close" type="button" onClick={() => setShowModal(false)}>
+            <Button variant="tinted" size="icon-sm" aria-label="Close" style={{ '--tint': 'white', '--tint-ink': 'white' } as import('react').CSSProperties} type="button" onClick={() => setShowModal(false)}>
               <X size={20} />
-            </button>
+            </Button>
           </div>
         </div>,
         document.body

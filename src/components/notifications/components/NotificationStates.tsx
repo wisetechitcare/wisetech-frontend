@@ -1,4 +1,5 @@
-/** Empty / loading placeholder states for the notification list. */
+
+import { Button } from '@/ds/ui/button';/** Empty / loading placeholder states for the notification list. */
 
 export function NotificationLoading() {
   return (
@@ -30,9 +31,9 @@ export function NotificationEmpty({ filtered, onReset }: EmptyProps) {
           : 'New alerts will appear here in real time.'}
       </div>
       {filtered && onReset && (
-        <button type="button" className="wt-textbtn" onClick={onReset} style={{ marginTop: 4 }}>
+        <Button variant="link" size="sm" style={{ marginTop: 4 }} type="button" onClick={onReset}>
           Clear filters
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -44,9 +45,9 @@ export function NotificationError({ onRetry }: { onRetry: () => void }) {
       <div className="wt-empty__glyph" aria-hidden="true">⚠️</div>
       <div className="wt-empty__title">Couldn’t load notifications</div>
       <div className="wt-empty__hint">Something went wrong while fetching updates.</div>
-      <button type="button" className="wt-textbtn" onClick={onRetry} style={{ marginTop: 4 }}>
+      <Button variant="link" size="sm" style={{ marginTop: 4 }} type="button" onClick={onRetry}>
         Try again
-      </button>
+      </Button>
     </div>
   );
 }
