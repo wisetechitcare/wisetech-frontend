@@ -2825,12 +2825,12 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
         // (deductionResolver). Prefer it over getTimeDifference (client lunch maths with no
         // holiday/weekend exemption — it deducted lunch on a worked holiday). Fallback only when
         // the record predates the field.
+        // The server value is ALREADY net of lunch, so it must be formatted as-is —
+        // convertMinutesIntoHrMinFormats would deduct lunch a second time.
         const serverNetMinutes = (attendanceRecord as any)?.netWorkedMinutes;
-        const getTimeDifferenceInMinutes = typeof serverNetMinutes === 'number'
-            ? serverNetMinutes
-            : getTimeDifference(formattedCheckIn, formattedCheckOut);
-
-        const getMinutesInHrMinFormat = convertMinutesIntoHrMinFormats(getTimeDifferenceInMinutes);
+        const getMinutesInHrMinFormat = typeof serverNetMinutes === 'number'
+            ? convertMinutesIntoHrMinFormat(serverNetMinutes)
+            : convertMinutesIntoHrMinFormats(getTimeDifference(formattedCheckIn, formattedCheckOut));
         // console.log("getMinutesInHrMinFormat",getMinutesInHrMinFormat);
 
         const isMarkedViaRequest = !!(
