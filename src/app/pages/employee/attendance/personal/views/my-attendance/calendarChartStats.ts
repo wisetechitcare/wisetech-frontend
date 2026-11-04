@@ -106,10 +106,15 @@ export function chartStatsFromCalendarDays(
             continue;
         }
 
-        // Worked a weekly-off / holiday — Extra Days only (not also Present), matching
-        // the prior donut which moved the day out of WEEKEND/HOLIDAYS into EXTRA_DAYS.
+        // Worked a weekly-off / holiday — an Extra Day, and (when it is a HOLIDAY) also counted
+        // in Holidays so the attendance total matches salary, which pays the holiday rate for
+        // every holiday whether or not it was worked. A worked WEEKEND (no `holiday` context)
+        // stays Extra-Day-only. The day is not also Present — it's structurally an off day.
         if (workedOff) {
             donut.set(EXTRA_DAYS, (donut.get(EXTRA_DAYS) || 0) + 1);
+            if (day.holiday) {
+                donut.set(HOLIDAYS, (donut.get(HOLIDAYS) || 0) + 1);
+            }
             if (day.status === "half_day" && day.leave) {
                 donut.set(ON_LEAVE, (donut.get(ON_LEAVE) || 0) + (day.leave.fraction === 0.5 ? 0.5 : 1));
             }

@@ -2821,8 +2821,14 @@ export const transformAttendanceInUTC = (dates: FormattedDate[], attendance: Att
 
 
 
-        const getTimeDifferenceInMinutes = getTimeDifference(formattedCheckIn, formattedCheckOut);
-        //  console.log("getTimeDifferenceInMinutes",getTimeDifferenceInMinutes);
+        // SERVER-SOURCED net worked minutes — holiday-aware, the SAME engine payroll credits
+        // (deductionResolver). Prefer it over getTimeDifference (client lunch maths with no
+        // holiday/weekend exemption — it deducted lunch on a worked holiday). Fallback only when
+        // the record predates the field.
+        const serverNetMinutes = (attendanceRecord as any)?.netWorkedMinutes;
+        const getTimeDifferenceInMinutes = typeof serverNetMinutes === 'number'
+            ? serverNetMinutes
+            : getTimeDifference(formattedCheckIn, formattedCheckOut);
 
         const getMinutesInHrMinFormat = convertMinutesIntoHrMinFormats(getTimeDifferenceInMinutes);
         // console.log("getMinutesInHrMinFormat",getMinutesInHrMinFormat);

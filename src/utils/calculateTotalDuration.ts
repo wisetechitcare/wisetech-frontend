@@ -58,6 +58,15 @@ export function calculateTotalDuration(entries: any | any[]): string {
   const halfDayThresholdMs = ((appSettingWorkingHours || 0) / 2) * 3_600_000 + lunchMs;
 
   for (const entry of entryArray) {
+    // SERVER-SOURCED net worked time — holiday-aware, from the SAME engine payroll credits
+    // (deductionResolver). Prefer it over the client lunch maths below, which had no
+    // holiday/weekend exemption and deducted lunch on a worked holiday. The fallback stays only
+    // for record sources that don't yet carry netWorkedMs.
+    if (entry && typeof entry.netWorkedMs === "number") {
+      totalMs += Math.max(0, entry.netWorkedMs);
+      continue;
+    }
+
     if (!entry || !entry.checkIn || !entry.checkOut) continue;
 
     // NOTE: the .tz() here is NOT a business-timezone dependency worth threading
