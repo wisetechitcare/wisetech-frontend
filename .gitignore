@@ -37,3 +37,6 @@ CLAUDE.md
 
 # npm is not used here — pnpm-lock.yaml is the lockfile
 package-lock.json
+
+# Playwright saved login state — holds a live session token, never commit
+e2e/.auth/
