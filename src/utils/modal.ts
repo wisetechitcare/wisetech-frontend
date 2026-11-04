@@ -121,12 +121,20 @@ export const rejectConfirmation = async (confirmButtonText: string = 'Reject'): 
 
 export type LeadUpdateMode = 'revision' | 'updateOnly' | 'cancelled';
 
-export const customConfirmation = async (confirmButtonText: string = 'Save Revision', cancelButtonText: string = 'Update Only'): Promise<LeadUpdateMode> => {
+/**
+ * "Save Revision / Update Only / Cancel" — the lead form's save choice. `subject` reuses the same
+ * dialog for another versioned record (e.g. the Minutes of Meeting); lead wording is the default.
+ */
+export const customConfirmation = async (
+    confirmButtonText: string = 'Save Revision',
+    cancelButtonText: string = 'Update Only',
+    subject: { title: string; noun: string } = { title: 'Update Lead Information', noun: 'this lead' },
+): Promise<LeadUpdateMode> => {
     const result = await showDialog({
         variant: 'confirm',
-        title: 'Update Lead Information',
+        title: subject.title,
         html:
-            '<p>You are about to save changes to this lead. Choose how you would like to handle this update:</p>'
+            `<p>You are about to save changes to ${subject.noun}. Choose how you would like to handle this update:</p>`
             + '<ul>'
             + '<li><strong>Save Revision:</strong> Increments version number and creates a history record.</li>'
             + '<li><strong>Update Only:</strong> Modifies the current record without version tracking.</li>'

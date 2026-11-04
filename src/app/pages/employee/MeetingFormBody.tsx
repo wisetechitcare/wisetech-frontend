@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import {
     Alert, Autocomplete, Avatar, Box, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
 } from '@mui/material';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 import { RootState } from '@redux/store';
 import { createMeetings, updateMeeting, fetchAllEmployees, getMyMeetingReminders, setMyMeetingReminders, getMeetingsByProject } from '@services/employee';
@@ -15,6 +16,7 @@ import { getAllProjects } from '@services/projects';
 // permissions and offered ones they are not really on.
 import { getMeetingProjects } from '@services/employee';
 import { getLeadById } from '@services/leadService';
+import { getCompanyMeetingPurposes, createCompanyMeetingPurpose } from '@services/meetingAgendaMom';
 import { openingRange, type SelectedDateTimeInfo } from './meetingOpening';
 import {
     MEETING_KINDS, MEETING_KIND_META, kindOfExisting, validateMeetingKind, type MeetingKind,
@@ -23,7 +25,7 @@ import {
     MEETING_MODES, MEETING_MODE_META, isOnlineFor, modeHasLink, modeHasPlace, modeOfExisting,
     type MeetingMode,
 } from './meetingModes';
-import { SegmentedControl, ToneChip, WtDateField, WtSwitch } from '@app/modules/common/components/ui';
+import { SegmentedControl, WtDateField, WtSwitch, toast } from '@app/modules/common/components/ui';
 import { ContactPicker, projectContactOptions } from '@app/modules/common/components/ui/ContactPicker';
 import { useDropdownBoundary } from '@app/modules/common/components/ui/dropdownBoundary';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
@@ -68,6 +70,8 @@ import type { PresetTask } from './tasks/taskDomain';
 export interface MeetingFormBodyHandle {
     /** Validates and posts. Resolves true when the meeting was created. */
     submit: () => Promise<boolean>;
+    /** Has the person changed anything? Drives the shell's "discard changes?" prompt. */
+    isDirty: () => boolean;
 }
 
 export interface MeetingFormBodyProps {
@@ -145,6 +149,10 @@ interface Option {
 /** The location picker's "Other location" row — picking it empties the field to type into. */
 const OTHER_LOCATION = 'other';
 const filterAddresses = createFilterOptions<Option>({ stringify: (o) => `${o.label} ${o.value}` });
+
+/** Title suggestions: a configured meeting purpose, or the "add what I typed as a purpose" row. */
+interface TitleOption { label: string; add?: boolean }
+const filterTitles = createFilterOptions<TitleOption>();
 
 /** The two halves the pickers speak: a wire date and a 24h clock time, off one ISO value. */
 const datePart = (iso: string) => (iso ? dayjs(iso).format('YYYY-MM-DD') : '');
@@ -285,6 +293,37 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [remindersSent, setRemindersSent] = useState<number[]>([]);
 
         const [touched, setTouched] = useState(false);
+
+        /**
+         * Title suggestions come from Meetings → Configure → Meeting purposes.
+         *
+         * Free text stays allowed (`freeSolo`): a title that is not a purpose is still a title.
+         * The extra "Add … to meeting purposes" row is for when it SHOULD be one — it writes to
+         * the same company list Configure edits, so the next person gets it as a suggestion.
+         * "Other (please specify)" is left out: typing your own title already is that.
+         * Best-effort — a failed read leaves a plain text box, never blocks the form.
+         */
+        const [purposes, setPurposes] = useState<Array<{ name: string; isActive: boolean; requiresOther: boolean }>>([]);
+        useEffect(() => {
+            getCompanyMeetingPurposes()
+                .then((res: any) => setPurposes(res?.purposes || []))
+                .catch(() => setPurposes([]));
+        }, []);
+        const titleOptions: TitleOption[] = useMemo(
+            () => purposes.filter((p) => p.isActive && !p.requiresOther).map((p) => ({ label: p.name })),
+            [purposes],
+        );
+        const addPurpose = async (name: string) => {
+            setTitle(name);
+            try {
+                const res = await createCompanyMeetingPurpose({ name });
+                if (res?.purpose) setPurposes((prev) => [...prev, res.purpose]);
+                toast({ icon: 'success', title: `“${name}” added to meeting purposes` });
+            } catch (e: any) {
+                // The title is already set; only the shared list missed out.
+                toast({ icon: 'error', title: 'Could not add purpose', text: e?.response?.data?.message });
+            }
+        };
 
         /**
          * The caller's default project, for a NEW meeting only.
@@ -816,7 +855,26 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             return null;
         };
 
+        /**
+         * "Changed" = differs from what the form showed at the person's FIRST click or keypress
+         * inside it. Not from mount: the form fills itself in after opening (an edit's values, the
+         * caller's project, the suggested address, saved reminders), and none of that is the
+         * person's work to lose. The baseline is taken in the capture phase, before the handler of
+         * that first interaction runs. Opening and closing without touching anything never prompts.
+         */
+        const snapshot = JSON.stringify({
+            title, mode, meetingLink, location, projectId, kind, internal, external,
+            startDate, endDate, description, reminders, notify, notifyIds,
+        });
+        const snapshotRef = useRef(snapshot);
+        snapshotRef.current = snapshot;
+        const baselineRef = useRef<string | null>(null);
+        const markBaseline = () => {
+            if (baselineRef.current === null) baselineRef.current = snapshotRef.current;
+        };
+
         useImperativeHandle(ref, () => ({
+            isDirty: () => baselineRef.current !== null && baselineRef.current !== snapshotRef.current,
             submit: async () => {
                 setTouched(true);
                 const problem = validate();
@@ -1003,26 +1061,69 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const projectLabel = projectOptions.find((o) => o.value === projectId)?.label;
 
         return (
-            <Box ref={dropdown.ref}>
+            <Box ref={dropdown.ref} onPointerDownCapture={markBaseline} onKeyDownCapture={markBaseline}>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
                 {/* TITLE FIRST, and big. It is the meeting's identifier — the string every list,
                     invite and calendar cell shows — so it leads rather than sharing a row. */}
-                <TextField
-                    fullWidth
-                    placeholder="Meeting title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    error={touched && !title.trim()}
-                    // The count only appears once it is worth knowing about. A counter sitting
-                    // under an empty field is a limit announced before anyone has approached
-                    // it, and `maxLength` means most people never see this at all — typing
-                    // simply stops, which is a kinder ceiling than an error after the fact.
-                    helperText={title.length >= TITLE_MAX_CHARS - 5
-                        ? `${title.length} / ${TITLE_MAX_CHARS} characters`
-                        : ' '}
-                    inputProps={{ 'aria-label': 'Meeting title', maxLength: TITLE_MAX_CHARS }}
-                    sx={{ '& .MuiInputBase-input': { fontSize: 15, fontWeight: 600, py: 1.25 } }}
+                <Autocomplete<TitleOption, false, false, true>
+                    freeSolo fullWidth
+                    slotProps={dropdown.slotProps}
+                    options={titleOptions}
+                    // Always null: the TEXT is the value. Selections land in `title` via onChange.
+                    value={null}
+                    inputValue={title}
+                    // 'reset' is MUI echoing a selection's label — onChange already handled it,
+                    // and for the "Add" row that label is not the title.
+                    onInputChange={(_, v, reason) => { if (reason !== 'reset') setTitle(v); }}
+                    onChange={(_, picked) => {
+                        if (!picked) return;
+                        if (typeof picked === 'string') setTitle(picked);
+                        else if (picked.add) void addPurpose(picked.label);
+                        else setTitle(picked.label);
+                    }}
+                    getOptionLabel={(o) => (typeof o === 'string' ? o : o.label)}
+                    filterOptions={(opts, state) => {
+                        const out = filterTitles(opts, state);
+                        const typed = state.inputValue.trim();
+                        // Offer to add only a genuinely new name — inactive ones count, so a
+                        // retired purpose is reactivated in Configure rather than duplicated.
+                        if (typed && !purposes.some((p) => p.name.trim().toLowerCase() === typed.toLowerCase())) {
+                            out.push({ label: typed, add: true });
+                        }
+                        return out;
+                    }}
+                    ListboxProps={{ sx: menuOptionSx }}
+                    renderOption={(props, o) => (
+                        <Box component="li" {...props} key={o.add ? '__add__' : o.label} sx={{ gap: 1 }}>
+                            {o.add ? (
+                                <>
+                                    <KTIcon iconName="plus" className="fs-6" />
+                                    <Typography variant="body2" noWrap>
+                                        Add “{o.label}” to meeting purposes
+                                    </Typography>
+                                </>
+                            ) : (
+                                <Typography variant="body2" noWrap>{o.label}</Typography>
+                            )}
+                        </Box>
+                    )}
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            placeholder="Meeting title — pick a purpose or type your own"
+                            error={touched && !title.trim()}
+                            // The count only appears once it is worth knowing about. A counter sitting
+                            // under an empty field is a limit announced before anyone has approached
+                            // it, and `maxLength` means most people never see this at all — typing
+                            // simply stops, which is a kinder ceiling than an error after the fact.
+                            helperText={title.length >= TITLE_MAX_CHARS - 5
+                                ? `${title.length} / ${TITLE_MAX_CHARS} characters`
+                                : ' '}
+                            inputProps={{ ...params.inputProps, 'aria-label': 'Meeting title', maxLength: TITLE_MAX_CHARS }}
+                            sx={{ '& .MuiInputBase-input': { fontSize: 15, fontWeight: 600, py: 1.25 } }}
+                        />
+                    )}
                 />
 
                 {/* The project — or the LEAD — stated rather than asked, when the screen already
@@ -1074,7 +1175,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                         <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>
                             {projectLabel}
                         </Typography>
-                        {leadName && <ToneChip dense tone="warning" label="Lead" />}
+                        {leadName && <Badge variant="warning">Lead</Badge>}
                     </Stack>
                 ) : (
                     <Box sx={{ mb: 2 }}>

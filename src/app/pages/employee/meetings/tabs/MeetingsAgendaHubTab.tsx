@@ -12,7 +12,6 @@ import {
   Badge,
   Box,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -22,7 +21,6 @@ import {
   Popover,
   Stack,
   TextField,
-  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -40,29 +38,40 @@ import dayjs from 'dayjs';
 import { hasPermission } from '@utils/authAbac';
 import { apiErrorMessage } from '@utils/apiError';
 import { Button } from '@/ds/ui/button';
-import { successConfirmation } from '@utils/modal';
+import { Badge as DsBadge } from '@/ds/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
+import { Skeleton } from '@/ds/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/ds/ui/tabs';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { customConfirmation, successConfirmation } from '@utils/modal';
 import {
   permissionConstToUseWithHasPermission,
   resourceNameMapWithCamelCase,
 } from '@constants/statistics';
 import {
-  AppIcon,
-  WtButton,
   WtCheckbox,
   WtDateField,
-  WtIconButton,
+  ActionIconButton,
   WtSelect,
+  toast,
   type WtSelectOption,
 } from '@app/modules/common/components/ui';
 import { useEmployeeDirectory } from '@app/modules/common/components/EmployeePickerField';
 import MeetingDialog from '../../MeetingDialog';
-import MomAttendees from '../MomAttendees';
+import MomAttendees, { type MomAttendee } from '../MomAttendees';
 import TaskPathSelect, { buildTaskPathOptions } from '../../tasks/components/TaskPathSelect';
 import { usePresetTasks } from '../../tasks/useTaskQueries';
 import { useProjectDeliverables } from '../../tasks/useProjectDeliverables';
 import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
 import type { PresetTask } from '../../tasks/taskDomain';
 import { getProjectTeam } from '@services/tasks';
+import { getLeadById } from '@services/leadService';
+import { projectContactOptions, type ContactOption } from '@app/modules/common/components/ui/ContactPicker';
+import { sectioned } from '../momAttendeeOptions';
+import { useAgendaStatusOptions } from '../useAgendaStatusOptions';
+
+/** Assignee option values for external contacts carry this prefix, so the two id spaces never collide. */
+const EXT = 'contact:';
 import {
   assignMomTasks,
   convertAgendaToMom,
@@ -72,11 +81,12 @@ import {
   deleteAgendaItem,
   downloadMeetingMinutesPdf,
   getAgendaItems,
-  getCompanyAgendaStatuses,
   getMeetingDetail,
   getMeetingMinutes,
   getMeetingsAgendaHub,
   updateAgendaItem,
+  reviseMeetingMinutes,
+  updateMeetingMinutesDraft,
   updateMeetingPurpose,
 } from '@services/meetingAgendaMom';
 
@@ -146,6 +156,13 @@ const STAGE_META: Record<MeetingStage, { label: string; hint: string; fg: string
   COMPLETED: { label: 'Completed', hint: 'Minutes recorded and every task assigned', fg: C.green, bg: C.greenWash },
 };
 const STAGES = Object.keys(STAGE_META) as MeetingStage[];
+const STAGE_BADGE: Record<MeetingStage, 'warning' | 'info' | 'danger' | 'brand' | 'success'> = {
+  AGENDA_NEEDED: 'warning',
+  SCHEDULED: 'info',
+  MOM_PENDING: 'danger',
+  TASKS_PENDING: 'brand',
+  COMPLETED: 'success',
+};
 
 /** Clear (X) collapses until hover/focus so the assignee name + avatar stay readable. */
 const assigneeSelectSx = {
@@ -259,6 +276,29 @@ export default function MeetingsAgendaHubTab() {
   cacheRef.current = cache;
   const abortRef = useRef<AbortController | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * The hub fills the viewport exactly: from where it starts down to the app footer.
+   * Measured, not guessed — the old `100vh - 220px` came up ~65px short and left an empty band
+   * above the footer. Re-measured on resize; a callback ref because the grid mounts after loading.
+   */
+  const [hubHeight, setHubHeight] = useState('calc(100vh - 220px)');
+  const hubEl = useRef<HTMLDivElement | null>(null);
+  const fitHub = useCallback(() => {
+    const el = hubEl.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    const footer = document.getElementById('kt_footer')?.offsetHeight ?? 0;
+    setHubHeight(`${Math.max(420, Math.floor(window.innerHeight - top - footer))}px`);
+  }, []);
+  const hubRef = useCallback((el: HTMLDivElement | null) => {
+    hubEl.current = el;
+    if (el) fitHub();
+  }, [fitHub]);
+  useEffect(() => {
+    window.addEventListener('resize', fitHub);
+    return () => window.removeEventListener('resize', fitHub);
+  }, [fitHub]);
 
   const loadHub = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) {
@@ -465,9 +505,12 @@ export default function MeetingsAgendaHubTab() {
 
   if (loading) {
     return (
-      <Box sx={{ p: 6, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress size={28} />
-      </Box>
+      <Stack spacing={1.5} sx={{ p: 2 }}>
+        <Skeleton className="h-10 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+      </Stack>
     );
   }
 
@@ -476,13 +519,14 @@ export default function MeetingsAgendaHubTab() {
 
   return (
     <Box
+      ref={hubRef}
       sx={{
         display: 'grid',
         // minmax(0, 1fr): a `1fr` track won't shrink below its content, so long one-line
         // addresses pushed the phone list past the screen edge.
         gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(320px, 380px) minmax(0, 1fr)' },
         gap: 0,
-        minHeight: { lg: 'calc(100vh - 220px)' },
+        minHeight: { lg: hubHeight },
         borderTop: `1px solid ${C.line}`,
         bgcolor: C.page,
         position: 'relative',
@@ -506,7 +550,7 @@ export default function MeetingsAgendaHubTab() {
           display: showList ? 'flex' : 'none',
           flexDirection: 'column',
           minHeight: 0,
-          maxHeight: { lg: 'calc(100vh - 220px)' },
+          maxHeight: { lg: hubHeight },
         }}
       >
         <Stack
@@ -519,9 +563,9 @@ export default function MeetingsAgendaHubTab() {
             Meetings ({activeFilterCount || query.trim() ? `${filtered.length} of ${meetings.length}` : meetings.length})
           </Typography>
           {canCreate && !isMobile && (
-            <WtButton size="small" onClick={() => setShowNew(true)}>
+            <Button type="button" size="sm" onClick={() => setShowNew(true)}>
               + New Meeting
-            </WtButton>
+            </Button>
           )}
         </Stack>
 
@@ -547,7 +591,8 @@ export default function MeetingsAgendaHubTab() {
               },
             }}
           />
-          <Tooltip title="Filter meetings" arrow>
+          <Tooltip>
+            <TooltipTrigger render={<span className="inline-flex shrink-0" />}>
             <Button
               variant="outline"
               size="icon"
@@ -567,6 +612,8 @@ export default function MeetingsAgendaHubTab() {
                 <FilterListRounded sx={{ fontSize: 20, color: activeFilterCount ? C.blue : C.mute }} />
               </Badge>
             </Button>
+            </TooltipTrigger>
+            <TooltipContent>Filter meetings</TooltipContent>
           </Tooltip>
         </Stack>
 
@@ -664,18 +711,20 @@ export default function MeetingsAgendaHubTab() {
               >
                 Clear all
               </Box>
-              <WtButton size="small" onClick={() => setFilterAnchor(null)}>
+              <Button type="button" size="sm" onClick={() => setFilterAnchor(null)}>
                 Show {filtered.length} meeting{filtered.length === 1 ? '' : 's'}
-              </WtButton>
+              </Button>
             </Stack>
           </Stack>
         </Popover>
 
         <Box ref={listRef} sx={{ flex: 1, overflowY: 'auto', px: 1.25, pb: { xs: 12, md: 2 } }}>
           {grouped.length === 0 ? (
-            <Alert severity="info" sx={{ mx: 0.75 }}>
-              No meetings match this filter.
-            </Alert>
+            <EmptyState
+              className="mx-1.5"
+              title="No meetings match this filter"
+              description="Change or clear the filters to see more meetings."
+            />
           ) : (
             grouped.map(([month, rows]) => (
               <Box key={month} sx={{ mb: 1.5 }}>
@@ -714,7 +763,7 @@ export default function MeetingsAgendaHubTab() {
           minWidth: 0,
           alignSelf: { lg: 'start' },
           width: '100%',
-          maxHeight: { lg: 'calc(100vh - 220px)' },
+          maxHeight: { lg: hubHeight },
           overflowY: 'auto',
           bgcolor: C.page,
           p: { xs: 1.5, md: 2 },
@@ -724,7 +773,7 @@ export default function MeetingsAgendaHubTab() {
         }}
       >
         {!selectedMeeting ? (
-          <Alert severity="info">Select a meeting to view its agenda.</Alert>
+          <EmptyState title="No meeting selected" description="Select a meeting to view its agenda." />
         ) : (
           <DetailPane
             listMeeting={selectedMeeting}
@@ -994,9 +1043,9 @@ function MeetingTracker({
         {stepsEl}
         <Typography sx={{ mt: 1.75, fontSize: 13, lineHeight: 1.5, color: C.ink }}>{next.text}</Typography>
         {next.tab && next.cta && (
-          <WtButton size="small" fullWidth onClick={() => onOpen(next.tab!)} sx={{ mt: 1.25 }}>
+          <Button type="button" size="sm" className="mt-2.5 w-full" onClick={() => onOpen(next.tab!)}>
             {next.cta}
-          </WtButton>
+          </Button>
         )}
       </Box>
     );
@@ -1037,20 +1086,14 @@ function StageChip({ stage }: { stage?: MeetingStage }) {
   const meta = stage ? STAGE_META[stage] : null;
   if (!meta) return null;
   return (
-    <Tooltip title={meta.hint} arrow>
-      <Chip
-        size="small"
-        icon={stage === 'COMPLETED' ? <CheckRounded sx={{ fontSize: 14 }} /> : undefined}
-        label={meta.label}
-        sx={{
-          height: 22,
-          fontSize: 11,
-          fontWeight: 700,
-          bgcolor: meta.bg,
-          color: meta.fg,
-          '& .MuiChip-icon': { color: meta.fg, ml: 0.5 },
-        }}
-      />
+    <Tooltip>
+      <TooltipTrigger render={<span className="inline-flex" />}>
+        <DsBadge variant={STAGE_BADGE[stage!]}>
+          {stage === 'COMPLETED' && <CheckRounded data-icon="inline-start" />}
+          {meta.label}
+        </DsBadge>
+      </TooltipTrigger>
+      <TooltipContent>{meta.hint}</TooltipContent>
     </Tooltip>
   );
 }
@@ -1157,24 +1200,18 @@ function DetailPane({
       return {
         label: 'View only',
         tip: 'Only the meeting organizer or a project manager can edit the agenda and minutes.',
-        bg: C.slate,
-        fg: C.mute,
       };
     }
     if (!canEditMom) {
       return {
         label: 'View only',
         tip: 'Only the organizer or a project manager can edit the minutes.',
-        bg: C.slate,
-        fg: C.mute,
       };
     }
     if (!canEditAgenda) {
       return {
         label: 'View only',
         tip: 'Only the organizer or a project manager can add or edit agenda items.',
-        bg: C.slate,
-        fg: C.mute,
       };
     }
     return null;
@@ -1269,20 +1306,10 @@ function DetailPane({
             <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.75} sx={{ mt: 1.25 }}>
               {purposeLabels.length ? (
                 purposeLabels.map((label: string) => (
-                  <Chip
-                    key={label}
-                    size="small"
-                    icon={<FlagRounded sx={{ fontSize: 15 }} />}
-                    label={label}
-                    title="Purpose"
-                    sx={{
-                      fontWeight: 700,
-                      bgcolor: C.blueSoft,
-                      color: C.blue,
-                      border: `1px solid #BFDBFE`,
-                      '& .MuiChip-icon': { color: C.blue },
-                    }}
-                  />
+                  <DsBadge key={label} variant="info" title="Purpose">
+                    <FlagRounded data-icon="inline-start" />
+                    {label}
+                  </DsBadge>
                 ))
               ) : perms?.canManage ? (
                 <Chip
@@ -1295,111 +1322,48 @@ function DetailPane({
                 />
               ) : null}
               {meeting.projectName && (
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={[meeting.projectNumber, meeting.projectName].filter(Boolean).join(' — ')}
-                  sx={{ maxWidth: { xs: '100%', sm: 'none' } }}
-                />
+                <DsBadge variant="outline" className="max-w-full min-[600px]:max-w-none">
+                  {[meeting.projectNumber, meeting.projectName].filter(Boolean).join(' — ')}
+                </DsBadge>
               )}
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`${agendaCount} agenda item${agendaCount === 1 ? '' : 's'}`}
-              />
+              <DsBadge variant="outline">
+                {`${agendaCount} agenda item${agendaCount === 1 ? '' : 's'}`}
+              </DsBadge>
             </Stack>
             <MeetingTracker meeting={listMeeting} onOpen={setDetailTab} />
           </Box>
           {accessBadge && (
-            <Tooltip title={accessBadge.tip} arrow placement="left">
-              <Chip
-                size="small"
-                label={accessBadge.label}
-                tabIndex={0}
-                sx={{
-                  flexShrink: 0,
-                  height: 26,
-                  fontWeight: 700,
-                  fontSize: 12,
-                  bgcolor: accessBadge.bg,
-                  color: accessBadge.fg,
-                  cursor: 'help',
-                  border: `1px solid ${accessBadge.fg}22`,
-                }}
-              />
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex shrink-0 cursor-help" tabIndex={0} />}>
+                <DsBadge variant="neutral">{accessBadge.label}</DsBadge>
+              </TooltipTrigger>
+              <TooltipContent side="left">{accessBadge.tip}</TooltipContent>
             </Tooltip>
           )}
         </Stack>
 
-        <Stack
-          direction="row"
-          spacing={0.5}
-          role="tablist"
-          sx={
-            isPhone
-              ? // Phones: a segmented control — three thumb-sized pills on a tinted track.
-                { mt: 2, p: 0.5, bgcolor: C.slate, borderRadius: 999 }
-              : { mt: 2, borderBottom: `1px solid ${C.line}`, overflowX: 'auto' }
-          }
-        >
-          {(
-            [
-              { key: 'overview', label: 'Overview' },
-              { key: 'agenda', label: `Agenda (${agendaCount})` },
-              { key: 'mom', label: isPhone ? 'MoM' : 'Minutes of Meeting' },
-            ] as const
-          ).map((t) => {
-            const active = detailTab === t.key;
-            return (
-              <Box
-                key={t.key}
-                component="button"
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setDetailTab(t.key)}
-                sx={
-                  isPhone
-                    ? {
-                        flex: 1,
-                        border: 0,
-                        borderRadius: 999,
-                        py: 1,
-                        fontSize: 13,
-                        fontWeight: active ? 800 : 600,
-                        color: active ? C.blue : C.mute,
-                        bgcolor: active ? C.paper : 'transparent',
-                        boxShadow: active ? '0 1px 3px rgba(15,23,42,0.12)' : 'none',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        transition: 'background-color .15s ease, color .15s ease',
-                      }
-                    : {
-                        border: 0,
-                        bgcolor: 'transparent',
-                        px: 1.5,
-                        py: 1,
-                        fontSize: 13,
-                        fontWeight: active ? 800 : 600,
-                        color: active ? C.blue : C.mute,
-                        borderBottom: active ? `2px solid ${C.blue}` : '2px solid transparent',
-                        cursor: 'pointer',
-                        mb: '-1px',
-                        whiteSpace: 'nowrap',
-                      }
-                }
-              >
-                {t.label}
-              </Box>
-            );
-          })}
-        </Stack>
+        {/* Storybook Tabs: the line variant on desktop, the segmented pill track on phones.
+            The panels below stay keyed on `detailTab`; this is the tab strip only. */}
+        <Box sx={{ mt: 2, ...(isPhone ? null : { borderBottom: `1px solid ${C.line}`, overflowX: 'auto' }) }}>
+          <Tabs
+            value={detailTab}
+            onValueChange={(v) => setDetailTab(v as 'overview' | 'agenda' | 'mom')}
+          >
+            <TabsList variant={isPhone ? 'default' : 'line'} className={isPhone ? 'w-full' : undefined}>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="agenda">Agenda ({agendaCount})</TabsTrigger>
+              <TabsTrigger value="mom">{isPhone ? 'MoM' : 'Minutes of Meeting'}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </Box>
       </Box>
 
       {loading && !cached ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress size={26} />
-        </Box>
+        <Stack spacing={1.5} sx={{ py: 2 }}>
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-16 w-full rounded-xl" />
+        </Stack>
       ) : detailTab === 'overview' ? (
         <OverviewPanel
           meetingId={listMeeting.id}
@@ -1674,28 +1638,7 @@ function MomPanel({
   const [adding, setAdding] = useState(false);
   const [teamIds, setTeamIds] = useState<Set<string> | null>(null);
   // Company statuses from Configure → Agenda statuses, A–Z.
-  const [statusOptions, setStatusOptions] = useState<WtSelectOption[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    getCompanyAgendaStatuses()
-      .then((res) => {
-        if (cancelled) return;
-        setStatusOptions(
-          (res?.statuses || [])
-            .filter((st: any) => st.isActive !== false && st.code)
-            .map((st: any) => ({ value: st.code, label: st.name || st.code, color: st.color || '#64748B' }))
-            .sort((a: WtSelectOption, b: WtSelectOption) =>
-              a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
-            ),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setStatusOptions([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const statusOptions = useAgendaStatusOptions();
   const { data: directory = [], isLoading: directoryLoading } = useEmployeeDirectory();
   const momItems = useMemo(() => items.filter((it: any) => it.inMom), [items]);
   const { options: taskOptions, loading: topicOptionsLoading } = useAgendaTaskOptions(
@@ -1717,28 +1660,46 @@ function MomPanel({
   const [assigning, setAssigning] = useState(false);
 
   /** One MoM line's fields — shared by the desktop table and the phone cards. */
-  const lineFields = (item: any) => {
-    const rowBusy = rowBusyId === item.id;
+  const lineFields = (saved: any) => {
+    // What the row shows = saved values + anything staged and not saved yet.
+    const draft = drafts[saved.id];
+    const item = draft ? { ...saved, ...draft.display } : saved;
+    const rowBusy = rowBusyId === item.id || saving;
     // Once a line is a task, its assignee and due date live on the task.
     const lineEditable = rowsEditable && !item.taskId;
     const dueVal = item.targetCompletionDate ? dayjs(item.targetCompletionDate).format('YYYY-MM-DD') : '';
+    // A topic added here (not on the agenda) can be swapped here too, from the same list it was
+    // picked from. Its own option is put back in — `topicOptions` leaves out what is already used.
+    const currentTopic = item.addedInMom && lineEditable
+      ? taskOptions.find((o) => o.name === item.description)
+      : undefined;
     return {
       title: (
         <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-          <Box component="span" sx={{ fontWeight: 600, fontSize: 13, color: C.ink }}>{item.description}</Box>
+          {currentTopic ? (
+            <Box sx={{ width: '100%' }}>
+              <TaskPathSelect
+                value={currentTopic.id}
+                options={[currentTopic, ...topicOptions]}
+                disabled={rowBusy}
+                loading={topicOptionsLoading}
+                label=""
+                placeholder="Change topic"
+                onChange={(opt) => {
+                  // Clearing would leave a nameless line; only a real pick changes it.
+                  if (!opt || opt.name === item.description) return;
+                  stageItem(item.id, { description: opt.name });
+                }}
+              />
+            </Box>
+          ) : (
+            <Box component="span" sx={{ fontWeight: 600, fontSize: 13, color: C.ink }}>{item.description}</Box>
+          )}
           {item.addedInMom && (
-            <Chip
-              size="small"
-              label="Not on agenda"
-              sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: C.slate, color: C.mute }}
-            />
+            <DsBadge variant="neutral">Not on agenda</DsBadge>
           )}
           {item.taskId && (
-            <Chip
-              size="small"
-              label="Task assigned"
-              sx={{ height: 20, fontSize: 10.5, fontWeight: 700, bgcolor: C.greenWash, color: C.green }}
-            />
+            <DsBadge variant="success">Task assigned</DsBadge>
           )}
         </Stack>
       ),
@@ -1747,7 +1708,7 @@ function MomPanel({
           <WtSelect
             size="sm"
             options={assigneeOptions}
-            value={assigneeOptions.find((a) => a.value === item.responsibleUserId) || null}
+            value={assigneeValue(item)}
             isDisabled={rowBusy}
             isLoading={directoryLoading}
             isClearable
@@ -1755,9 +1716,18 @@ function MomPanel({
             optionVariant="avatar"
             placeholder="Assignee"
             ariaLabel={`Assignee for ${item.description}`}
+            // Measure against the window, not the table's scroll port — inside the table the
+            // menu only got the sliver below the row (~3 people).
+            menuBoundary={null}
             onChange={(next) => {
               const opt = next as WtSelectOption | null;
-              void patchItem(item.id, { responsibleUserId: opt?.value || null }, { responsibleName: opt?.label || null });
+              const v = opt?.value || null;
+              const contactId = v?.startsWith(EXT) ? v.slice(EXT.length) : null;
+              stageItem(
+                item.id,
+                { responsibleUserId: contactId ? null : v, responsibleContactId: contactId },
+                { responsibleName: opt?.label || null },
+              );
             }}
           />
         </Box>
@@ -1770,7 +1740,7 @@ function MomPanel({
           value={dueVal}
           disabled={rowBusy}
           onChange={(v) => {
-            void patchItem(item.id, { targetCompletionDate: v || null });
+            stageItem(item.id, { targetCompletionDate: v || null });
           }}
         />
       ) : (
@@ -1789,7 +1759,7 @@ function MomPanel({
           onChange={(next) => {
             const opt = next as WtSelectOption | null;
             if (!opt) return;
-            void patchItem(item.id, { status: opt.value }, { statusLabel: opt.label, statusColor: opt.color });
+            stageItem(item.id, { status: opt.value }, { statusLabel: opt.label, statusColor: opt.color });
           }}
         />
       ) : (
@@ -1813,7 +1783,7 @@ function MomPanel({
           onBlur={(e) => {
             const remarks = e.target.value.trim() || null;
             if (remarks === (item.remarks || null)) return;
-            void patchItem(item.id, { remarks });
+            stageItem(item.id, { remarks });
           }}
           sx={{ '& .MuiInputBase-root': { fontSize: 13 } }}
         />
@@ -1822,15 +1792,14 @@ function MomPanel({
       ),
       // Agenda items leave the MoM by unticking them on the Agenda tab.
       remove: rowsEditable && item.addedInMom ? (
-        <WtIconButton
+        <ActionIconButton
+          iconName="trash"
+          tone="danger"
+          size="sm"
           title="Remove topic"
-          color="#DC2626"
           disabled={rowBusy}
           onClick={() => removeTopic(item.id)}
-          sx={{ width: 32, height: 32, borderRadius: '10px', flexShrink: 0 }}
-        >
-          <AppIcon name="bi-trash" fallbackSize={14} />
-        </WtIconButton>
+        />
       ) : null,
     };
   };
@@ -1885,11 +1854,56 @@ function MomPanel({
     };
   }, [projectId, rowsEditable]);
 
+  // The MoM's attendees as they stand on screen — seeded from the saved minutes, then kept current
+  // by MomAttendees so an attendee added a moment ago is assignable without a reload.
+  const savedAttendeesKey = JSON.stringify(minutes?.attendees || []);
+  const [liveAttendees, setLiveAttendees] = useState<MomAttendee[]>(() => minutes?.attendees || []);
+  useEffect(() => {
+    setLiveAttendees(JSON.parse(savedAttendeesKey));
+  }, [savedAttendeesKey]);
+  const attendeesDirty = JSON.stringify(liveAttendees) !== savedAttendeesKey;
+
+  // Unsaved line edits, per agenda item. Reset when a different meeting is opened.
+  const [drafts, setDrafts] = useState<Record<string, { payload: Record<string, unknown>; display: Record<string, unknown> }>>({});
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    setDrafts({});
+  }, [meetingId]);
+  const dirtyCount = Object.keys(drafts).length + (attendeesDirty ? 1 : 0);
+  const dirty = dirtyCount > 0;
+  // A tab close or reload would drop the drafts silently — let the browser ask first.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  // The project's external team (client stakeholders) — same roster rule as the MoM attendees picker.
+  const [externalRoster, setExternalRoster] = useState<ContactOption[]>([]);
+  useEffect(() => {
+    if (!projectId || !rowsEditable) {
+      setExternalRoster([]);
+      return;
+    }
+    let cancelled = false;
+    getLeadById(projectId)
+      .then((res: any) => {
+        if (!cancelled) setExternalRoster(projectContactOptions(res?.data?.data?.lead ?? res?.data?.lead));
+      })
+      .catch(() => {
+        if (!cancelled) setExternalRoster([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, rowsEditable]);
+
   const assigneeOptions: WtSelectOption[] = useMemo(() => {
     const list = projectId && teamIds
       ? directory.filter((e) => teamIds.has(e.id))
       : directory;
-    return list
+    const internal = list
       .map((e) => ({
         value: e.id,
         label: e.name,
@@ -1897,24 +1911,76 @@ function MomPanel({
         description: e.designation,
       }))
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
-  }, [directory, projectId, teamIds]);
+    // External = the project's external team PLUS whoever is recorded as an external attendee of
+    // this MoM (a general meeting has no project roster at all). Typed-in names with no contact
+    // record have no id to assign to, so they are left out.
+    const seen = new Set<string>();
+    const external = [
+      ...externalRoster.map((c) => ({ id: c.value, label: c.label, avatar: c.avatar ?? null })),
+      ...liveAttendees
+        .filter((a) => a.side === 'EXTERNAL' && a.contactId)
+        .map((a) => ({ id: a.contactId as string, label: a.name, avatar: a.avatar ?? null })),
+    ]
+      .filter((c) => !seen.has(c.id) && !!seen.add(c.id))
+      .map((c) => ({ value: `${EXT}${c.id}`, label: c.label, avatar: c.avatar, description: 'External team' }));
+    return external.length
+      ? sectioned([['Internal team', internal], ['External team', external]])
+      : internal;
+  }, [directory, projectId, teamIds, externalRoster, liveAttendees]);
 
-  /** Optimistic row update — avoid full hub reload (that spun the whole page). */
-  const patchItem = async (
-    itemId: string,
-    payload: Record<string, unknown>,
-    displayPatch?: Record<string, unknown>,
-  ) => {
-    setRowBusyId(itemId);
-    onPatchItem(meetingId, itemId, { ...payload, ...displayPatch });
+  /** The row's current assignee — kept visible even if they have since left the roster. */
+  const assigneeValue = (item: any): WtSelectOption | null => {
+    const v = item.responsibleContactId ? `${EXT}${item.responsibleContactId}` : item.responsibleUserId;
+    if (!v) return null;
+    return assigneeOptions.find((a) => a.value === v)
+      || (item.responsibleName ? { value: v, label: item.responsibleName } : null);
+  };
+
+  /**
+   * Line edits are STAGED, not saved: they show in place and wait for Save. `payload` is what the
+   * API gets; `display` only paints the row (names, colours) until the reload after Save.
+   * Kept out of the shared cache on purpose — switching meetings must not show unsaved values as saved.
+   */
+  const stageItem = (itemId: string, payload: Record<string, unknown>, display?: Record<string, unknown>) =>
+    setDrafts((d) => ({
+      ...d,
+      [itemId]: {
+        payload: { ...d[itemId]?.payload, ...payload },
+        display: { ...d[itemId]?.display, ...payload, ...display },
+      },
+    }));
+
+  /** Writes every staged line + the attendees, then reloads so every view of this meeting agrees. */
+  const saveAll = async () => {
+    // Same choice as saving a lead. A revision is opened FIRST, so the edits below land on the
+    // new revision and the previous one stays exactly as it was — that is the history record.
+    const mode = await customConfirmation('Save Revision', 'Update Only', {
+      title: 'Update Minutes of Meeting',
+      noun: 'these minutes',
+    });
+    if (mode === 'cancelled') return;
+    setSaving(true);
     try {
-      await updateAgendaItem(meetingId, itemId, payload);
-    } catch (e) {
-      onError(errMsg(e));
+      if (mode === 'revision') await reviseMeetingMinutes(meetingId);
+      // One at a time: each write rebuilds the MoM lines server-side, so parallel writes would race.
+      for (const [itemId, d] of Object.entries(drafts)) {
+        await updateAgendaItem(meetingId, itemId, d.payload);
+        setDrafts(({ [itemId]: _done, ...rest }) => rest);
+      }
+      if (attendeesDirty) await updateMeetingMinutesDraft(meetingId, { attendees: liveAttendees });
       await onRefresh();
+      toast({ icon: 'success', title: mode === 'revision' ? 'New MoM revision saved' : 'MoM saved' });
+    } catch (e) {
+      // Lines already written are gone from `drafts`; the rest stay staged for another try.
+      onError(errMsg(e));
     } finally {
-      setRowBusyId(null);
+      setSaving(false);
     }
+  };
+
+  const discardAll = () => {
+    setDrafts({});
+    setLiveAttendees(JSON.parse(savedAttendeesKey));
   };
 
   /** A topic discussed in the meeting that was never on the agenda. */
@@ -1935,6 +2001,8 @@ function MomPanel({
     setRowBusyId(itemId);
     try {
       await deleteAgendaItem(meetingId, itemId);
+      // Its unsaved edits go with it — Save would otherwise write to a row that no longer exists.
+      setDrafts(({ [itemId]: _gone, ...rest }) => rest);
       await onRefresh();
     } catch (e) {
       onError(errMsg(e));
@@ -1978,14 +2046,15 @@ function MomPanel({
   if (!minutes) {
     return (
       <Stack spacing={1.5} alignItems="flex-start">
-        <Alert severity="info" sx={{ width: '100%' }}>
-          No Minutes of Meeting yet. Tick agenda items on the Agenda tab and choose Convert to MoM,
-          or start the minutes here and add the topics discussed.
-        </Alert>
+        <EmptyState
+          className="w-full"
+          title="No Minutes of Meeting yet"
+          description="Tick agenda items on the Agenda tab and choose Convert to MoM, or start the minutes here and add the topics discussed."
+        />
         {canEdit && (
-          <WtButton size="small" disabled={busy} onClick={generate}>
+          <Button type="button" size="sm" disabled={busy} onClick={generate}>
             Start minutes
-          </WtButton>
+          </Button>
         )}
       </Stack>
     );
@@ -2017,41 +2086,56 @@ function MomPanel({
             sx={{ width: { xs: '100%', sm: 'auto' }, flexWrap: { xs: 'nowrap', sm: 'wrap' }, '& > *': { flex: { xs: 1, sm: 'none' } } }}
           >
             {rowsEditable && (
-              <Tooltip
-                arrow
-                title={
-                  allAssigned
-                    ? 'Tasks have already been assigned. Each person can see theirs on their task board.'
-                    : !meetingOver
-                      ? 'Available once the meeting has ended.'
-                      : !readyToAssign
-                        ? 'No line has an assignee yet. Pick an assignee on a line to assign it as a task.'
-                        : 'Create a task for each line that has an assignee, on their task board.'
-                }
-              >
+              <Tooltip>
                 {/* span: a disabled button fires no hover, so the tooltip needs a live wrapper. */}
-                <Box component="span" sx={{ display: { xs: 'flex', sm: 'inline' } }}>
-                  <WtButton
-                    size="small"
-                    inverted
-                    fullWidth={isPhone}
-                    disabled={assigning || allAssigned || !meetingOver || !readyToAssign}
+                <TooltipTrigger render={<Box component="span" sx={{ display: { xs: 'flex', sm: 'inline' } }} />}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="inverted"
+                    className={isPhone ? 'w-full' : undefined}
+                    // Assigning reads the SAVED lines — with edits pending it would assign stale ones.
+                    disabled={dirty || assigning || allAssigned || !meetingOver || !readyToAssign}
                     onClick={assignTasks}
-                    startIcon={allAssigned ? <CheckRounded /> : undefined}
                   >
+                    {allAssigned && <CheckRounded data-icon="inline-start" />}
                     {assigning
                       ? 'Assigning…'
                       : allAssigned
                         ? 'Tasks assigned'
                         : `Assign tasks${readyToAssign ? ` (${readyToAssign})` : ''}`}
-                  </WtButton>
-                </Box>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {dirty
+                    ? 'Save your changes first.'
+                    : allAssigned
+                    ? 'Tasks have already been assigned. Each person can see theirs on their task board.'
+                    : !meetingOver
+                      ? 'Available once the meeting has ended.'
+                      : !readyToAssign
+                        ? 'No line has an assignee yet. Pick an assignee on a line to assign it as a task.'
+                        : 'Create a task for each line that has an assignee, on their task board.'}
+                </TooltipContent>
               </Tooltip>
             )}
             {canExport && (
-              <WtButton size="small" disabled={busy} onClick={exportPdf} sx={{ whiteSpace: { xs: 'nowrap', sm: 'normal' } }}>
-                Download PDF
-              </WtButton>
+              dirty ? (
+                <Tooltip>
+                  <TooltipTrigger render={<Box component="span" sx={{ display: { xs: 'flex', sm: 'inline' } }} />}>
+                    <Button type="button" size="sm" disabled className="min-[600px]:whitespace-normal">
+                      Download PDF
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Save your changes first — the PDF is built from the saved MoM.</TooltipContent>
+                </Tooltip>
+              ) : (
+                <Box component="span" sx={{ display: { xs: 'flex', sm: 'inline' } }}>
+                  <Button type="button" size="sm" disabled={busy} onClick={exportPdf} className="min-[600px]:whitespace-normal">
+                    Download PDF
+                  </Button>
+                </Box>
+              )
             )}
           </Stack>
         </Stack>
@@ -2060,18 +2144,21 @@ function MomPanel({
       <MomAttendees
         meetingId={meetingId}
         projectId={projectId}
-        attendees={minutes.attendees || []}
-        editable={rowsEditable}
+        attendees={liveAttendees}
+        editable={rowsEditable && !saving}
         teamIds={teamIds}
         onError={onError}
+        onChange={setLiveAttendees}
+        deferSave
       />
 
       <Box sx={{ bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5, overflow: 'hidden' }}>
         {momItems.length === 0 ? (
-          <Alert severity="info" sx={{ m: 1.5 }}>
-            Nothing in these minutes yet. Convert items from the Agenda tab
-            {rowsEditable ? ', or add a topic discussed below.' : '.'}
-          </Alert>
+          <EmptyState
+            className="m-3"
+            title="Nothing in these minutes yet"
+            description={`Convert items from the Agenda tab${rowsEditable ? ', or add a topic discussed below.' : '.'}`}
+          />
         ) : (
           // Phones get one card per line (fields stacked, nothing to scroll sideways); wider
           // screens the table. Both draw the same fields from `lineFields`.
@@ -2114,10 +2201,10 @@ function MomPanel({
                     </Stack>
                     {/* Due date + Status share a row when each gets 150px; on the narrowest phones they stack. */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', columnGap: 1.25, rowGap: 1.5, mt: 1.75 }}>
+                      <MomField label="Note" wide>{f.note}</MomField>
                       <MomField label="Assignee" wide>{f.assignee}</MomField>
                       <MomField label="Due date">{f.due}</MomField>
                       <MomField label="Status">{f.status}</MomField>
-                      <MomField label="Note" wide>{f.note}</MomField>
                     </Box>
                   </Box>
                 );
@@ -2128,7 +2215,7 @@ function MomPanel({
             <Box component="table" sx={agendaTableSx}>
               <Box component="thead">
                 <Box component="tr">
-                  {['#', 'Agenda item', 'Assignee', 'Due date', 'Status', 'Note'].map((h) => (
+                  {['#', 'Agenda item', 'Note', 'Assignee', 'Due date', 'Status'].map((h) => (
                     <Box component="th" key={h}>
                       {h}
                     </Box>
@@ -2142,11 +2229,11 @@ function MomPanel({
                   return (
                     <Box component="tr" key={item.id}>
                       <Box component="td" sx={{ color: C.mute, width: 36 }}>{idx + 1}</Box>
-                      <Box component="td" sx={{ minWidth: 180 }}>{f.title}</Box>
+                      <Box component="td" sx={{ minWidth: 220 }}>{f.title}</Box>
+                      <Box component="td" sx={{ minWidth: 220 }}>{f.note}</Box>
                       <Box component="td" sx={{ minWidth: 200 }}>{f.assignee}</Box>
                       <Box component="td" sx={{ whiteSpace: 'nowrap', minWidth: 150 }}>{f.due}</Box>
                       <Box component="td" sx={{ minWidth: 160 }}>{f.status}</Box>
-                      <Box component="td" sx={{ minWidth: 220 }}>{f.note}</Box>
                       {rowsEditable && <Box component="td" sx={{ textAlign: 'center' }}>{f.remove}</Box>}
                     </Box>
                   );
@@ -2176,6 +2263,45 @@ function MomPanel({
           </Box>
         )}
       </Box>
+
+      {/* Always there for an editable MoM, so Save is never hunted for; enabled once something
+          changes. Sticky, so it is reachable from anywhere in a long MoM. */}
+      {rowsEditable && (
+        <Stack
+          direction="row"
+          alignItems="center"
+          gap={1.5}
+          role="region"
+          aria-label="Unsaved MoM changes"
+          sx={{
+            position: 'sticky',
+            bottom: 12,
+            zIndex: 2,
+            px: 2,
+            py: 1.25,
+            bgcolor: C.paper,
+            border: `1px solid ${C.line}`,
+            borderRadius: 2.5,
+            // Lifts only while there is something to save — the shadow is the "act on me" cue.
+            boxShadow: dirty ? '0 6px 20px rgba(15, 23, 42, 0.12)' : 'none',
+          }}
+        >
+          <Typography
+            aria-live="polite"
+            sx={{ fontSize: 13, color: dirty ? C.ink : C.mute, fontWeight: 600, flex: 1, minWidth: 0 }}
+          >
+            {dirty ? `${dirtyCount} unsaved change${dirtyCount === 1 ? '' : 's'}` : 'All changes saved'}
+          </Typography>
+          {dirty && (
+            <Button type="button" size="sm" variant="inverted" disabled={saving} onClick={discardAll}>
+              Discard
+            </Button>
+          )}
+          <Button type="button" size="sm" disabled={!dirty} loading={saving} onClick={() => void saveAll()}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </Button>
+        </Stack>
+      )}
     </Stack>
   );
 }
@@ -2357,19 +2483,20 @@ function AgendaPanel({
                 <Typography sx={{ fontSize: 12.5, color: C.mute, whiteSpace: 'nowrap', mr: { xs: 'auto', sm: 0 } }}>
                   {checked.size} of {items.length} selected
                 </Typography>
-                <WtButton size="small" inverted disabled={converting} onClick={convert} sx={{ whiteSpace: { xs: 'nowrap', sm: 'normal' } }}>
+                <Button type="button" size="sm" variant="inverted" loading={converting} onClick={convert} className="min-[600px]:whitespace-normal">
                   {converting ? 'Converting…' : 'Convert to MoM'}
-                </WtButton>
+                </Button>
               </>
             )}
-            <WtButton
-              size="small"
+            <Button
+              type="button"
+              size="sm"
               onClick={() => setOpen(true)}
               aria-label="Add agenda items"
-              sx={{ whiteSpace: { xs: 'nowrap', sm: 'normal' }, ml: { xs: items.length ? 0 : 'auto', sm: 0 } }}
+              className={items.length ? 'min-[600px]:whitespace-normal' : 'ml-auto min-[600px]:ml-0 min-[600px]:whitespace-normal'}
             >
               {isPhone ? '+ Add' : '+ Add agenda items'}
-            </WtButton>
+            </Button>
           </Stack>
         ) : permsLoaded ? (
           <Typography sx={{ fontSize: 12, color: C.mute, maxWidth: 280, textAlign: { sm: 'right' } }}>
@@ -2387,15 +2514,19 @@ function AgendaPanel({
         }}
       >
         {items.length === 0 ? (
-          <Alert severity="info" sx={{ m: 1.5 }}>
-            {canEdit
-              ? 'No structured agenda items yet. Use “+ Add agenda items” to get started.'
-              : 'No structured agenda items yet. Only the organizer or a project manager can add them.'}
-          </Alert>
+          <EmptyState
+            className="m-3"
+            title="No structured agenda items yet"
+            description={canEdit
+              ? 'Use “+ Add agenda items” to get started.'
+              : 'Only the organizer or a project manager can add them.'}
+          />
         ) : visibleItems.length === 0 ? (
-          <Alert severity="info" sx={{ m: 1.5 }}>
-            No agenda items match “{agendaSearch.trim()}”.
-          </Alert>
+          <EmptyState
+            className="m-3"
+            title={`No agenda items match “${agendaSearch.trim()}”`}
+            description="Try a different search term."
+          />
         ) : (
           <Box sx={{ overflowX: 'auto' }}>
             <Box component="table" sx={agendaTableSx}>
@@ -2441,30 +2572,19 @@ function AgendaPanel({
                       <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
                         <span>{item.description}</span>
                         {item.inMom && (
-                          <Chip
-                            size="small"
-                            label="In MoM"
-                            sx={{
-                              height: 20,
-                              fontSize: 10.5,
-                              fontWeight: 700,
-                              bgcolor: C.greenWash,
-                              color: C.green,
-                            }}
-                          />
+                          <DsBadge variant="success">In MoM</DsBadge>
                         )}
                       </Stack>
                     </Box>
                     {canEdit && (
                       <Box component="td" sx={{ textAlign: 'center' }}>
-                        <WtIconButton
+                        <ActionIconButton
+                          iconName="trash"
+                          tone="danger"
+                          size="sm"
                           title="Remove agenda item"
-                          color="#DC2626"
                           onClick={() => onDelete(item.id)}
-                          sx={{ width: 32, height: 32, borderRadius: '10px' }}
-                        >
-                          <AppIcon name="bi-trash" fallbackSize={14} />
-                        </WtIconButton>
+                        />
                       </Box>
                     )}
                   </Box>
@@ -2527,8 +2647,9 @@ function AgendaPanel({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <WtButton
-            ghost
+          <Button
+            type="button"
+            variant="ghost"
             disabled={saving}
             onClick={() => {
               if (saving) return;
@@ -2537,10 +2658,12 @@ function AgendaPanel({
             }}
           >
             Cancel
-          </WtButton>
-          <WtButton
-            size="small"
-            disabled={saving || selectedAgenda.length === 0}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={selectedAgenda.length === 0}
+            loading={saving}
             onClick={submit}
           >
             {saving
@@ -2548,7 +2671,7 @@ function AgendaPanel({
               : selectedAgenda.length > 1
                 ? `Add ${selectedAgenda.length}`
                 : 'Add'}
-          </WtButton>
+          </Button>
         </DialogActions>
       </Dialog>
     </Stack>

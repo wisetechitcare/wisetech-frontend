@@ -15,7 +15,7 @@ import {
     MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
     MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING, MEETING_TODAY_COLOR,
 } from '@constants/configurations-key';
-import { Avatar, Box, Dialog, DialogContent, Tooltip, useMediaQuery } from '@mui/material';
+import { Avatar, Box, Dialog, DialogContent, useMediaQuery } from '@mui/material';
 // Direct module, NOT the `ui` barrel. The barrel re-exports 58 symbols, one of which
 // transitively loads _metronic/layout/core — and that module calls getLayout() at import
 // time, which reads localStorage. Pulling the barrel in here made halfColors.test.ts and
@@ -32,6 +32,7 @@ import { getTimeTokens } from '@utils/timeFormat';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { errorConfirmation } from '@utils/modal';
 import { Button } from '@/ds/ui/button';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/ds/ui/tooltip';
 
 /**
  * MeetingsList — the meetings surface, shared by the project (entity), contact and employee
@@ -1952,10 +1953,11 @@ const AttendeeRoster: React.FC<{
                 // A glyph, not a word: it marks one person in a grid of them, and the count
                 // underneath already says how many in total. Tooltip rather than a raw `title`
                 // so it is styled like the rest of the app and lint stays clean.
-                <Tooltip title="Timesheet not logged yet">
-                    <span style={{ flexShrink: 0, color: '#B45309', lineHeight: 0 }}>
+                <Tooltip>
+                    <TooltipTrigger render={<span className="shrink-0 leading-[0] text-amber-700" />}>
                         <AppIcon name="bi-stopwatch" className="fs-8" />
-                    </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Timesheet not logged yet</TooltipContent>
                 </Tooltip>
             )}
         </div>
@@ -2039,7 +2041,12 @@ const CardAction: React.FC<{
     // A disabled button fires no pointer events, so the tooltip needs a wrapper that does -
     // otherwise the explanation is unreachable by exactly the people who need it.
     return disabledReason
-        ? <Tooltip title={disabledReason}><span style={{ display: 'inline-flex', marginLeft: pushRight ? 'auto' : 0 }}>{button}</span></Tooltip>
+        ? (
+            <Tooltip>
+                <TooltipTrigger render={<span className={pushRight ? 'ml-auto inline-flex' : 'inline-flex'} />}>{button}</TooltipTrigger>
+                <TooltipContent>{disabledReason}</TooltipContent>
+            </Tooltip>
+        )
         : button;
 };
 
