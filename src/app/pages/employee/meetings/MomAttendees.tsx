@@ -1,7 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar, Box, Stack, Typography } from '@mui/material';
 import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded';
-import { AppIcon, WtButton, WtIconButton, WtSelect } from '@app/modules/common/components/ui';
+import { ActionIconButton, WtSelect } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
 import {
   fetchPage as searchContacts,
   projectContactOptions,
@@ -204,19 +205,18 @@ export default function MomAttendees({
                   </Typography>
                 </Box>
                 {editable && typed && side === 'EXTERNAL' && (
-                  <WtButton size="small" inverted onClick={() => setContactFor(i)} sx={{ flexShrink: 0 }}>
+                  <Button size="sm" variant="inverted" type="button" onClick={() => setContactFor(i)} className="shrink-0">
                     + Add to contacts
-                  </WtButton>
+                  </Button>
                 )}
                 {editable && (
-                  <WtIconButton
+                  <ActionIconButton
+                    iconName="trash"
+                    tone="danger"
+                    size="sm"
                     title={`Remove ${a.name}`}
-                    color="#DC2626"
                     onClick={() => remove(i)}
-                    sx={{ width: 30, height: 30, borderRadius: '10px', flexShrink: 0 }}
-                  >
-                    <AppIcon name="bi-trash" fallbackSize={13} />
-                  </WtIconButton>
+                  />
                 )}
               </Stack>
             );

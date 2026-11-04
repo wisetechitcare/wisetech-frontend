@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import {
     Alert, Autocomplete, Avatar, Box, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
 } from '@mui/material';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 import { RootState } from '@redux/store';
 import { createMeetings, updateMeeting, fetchAllEmployees, getMyMeetingReminders, setMyMeetingReminders, getMeetingsByProject } from '@services/employee';
@@ -24,7 +25,7 @@ import {
     MEETING_MODES, MEETING_MODE_META, isOnlineFor, modeHasLink, modeHasPlace, modeOfExisting,
     type MeetingMode,
 } from './meetingModes';
-import { SegmentedControl, ToneChip, WtDateField, WtSwitch, toast } from '@app/modules/common/components/ui';
+import { SegmentedControl, WtDateField, WtSwitch, toast } from '@app/modules/common/components/ui';
 import { ContactPicker, projectContactOptions } from '@app/modules/common/components/ui/ContactPicker';
 import { useDropdownBoundary } from '@app/modules/common/components/ui/dropdownBoundary';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
@@ -69,6 +70,8 @@ import type { PresetTask } from './tasks/taskDomain';
 export interface MeetingFormBodyHandle {
     /** Validates and posts. Resolves true when the meeting was created. */
     submit: () => Promise<boolean>;
+    /** Has the person changed anything? Drives the shell's "discard changes?" prompt. */
+    isDirty: () => boolean;
 }
 
 export interface MeetingFormBodyProps {
@@ -852,7 +855,26 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             return null;
         };
 
+        /**
+         * "Changed" = differs from what the form showed at the person's FIRST click or keypress
+         * inside it. Not from mount: the form fills itself in after opening (an edit's values, the
+         * caller's project, the suggested address, saved reminders), and none of that is the
+         * person's work to lose. The baseline is taken in the capture phase, before the handler of
+         * that first interaction runs. Opening and closing without touching anything never prompts.
+         */
+        const snapshot = JSON.stringify({
+            title, mode, meetingLink, location, projectId, kind, internal, external,
+            startDate, endDate, description, reminders, notify, notifyIds,
+        });
+        const snapshotRef = useRef(snapshot);
+        snapshotRef.current = snapshot;
+        const baselineRef = useRef<string | null>(null);
+        const markBaseline = () => {
+            if (baselineRef.current === null) baselineRef.current = snapshotRef.current;
+        };
+
         useImperativeHandle(ref, () => ({
+            isDirty: () => baselineRef.current !== null && baselineRef.current !== snapshotRef.current,
             submit: async () => {
                 setTouched(true);
                 const problem = validate();
@@ -1039,7 +1061,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const projectLabel = projectOptions.find((o) => o.value === projectId)?.label;
 
         return (
-            <Box ref={dropdown.ref}>
+            <Box ref={dropdown.ref} onPointerDownCapture={markBaseline} onKeyDownCapture={markBaseline}>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
                 {/* TITLE FIRST, and big. It is the meeting's identifier — the string every list,
@@ -1153,7 +1175,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                         <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>
                             {projectLabel}
                         </Typography>
-                        {leadName && <ToneChip dense tone="warning" label="Lead" />}
+                        {leadName && <Badge variant="warning">Lead</Badge>}
                     </Stack>
                 ) : (
                     <Box sx={{ mb: 2 }}>

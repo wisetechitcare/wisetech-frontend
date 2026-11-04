@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { Dialog, DialogContent, Stack, Typography, Box } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { PlainDialogHeader, WtButton } from '@app/modules/common/components/ui';
+import { PlainDialogHeader } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
 import { getMyMeetingReminders, setMyMeetingReminders } from '@services/employee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { apiErrorMessage } from '@app/pages/employee/tasks/taskDomain';
@@ -166,10 +167,10 @@ const MeetingRemindersDialog: React.FC<MeetingRemindersDialogProps> = ({
                 )}
 
                 <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2.5 }}>
-                    <WtButton ghost onClick={onClose} disabled={saving}>cancel</WtButton>
-                    <WtButton onClick={save} disabled={saving || loading}>
+                    <Button type="button" variant="outline" onClick={onClose} disabled={saving}>cancel</Button>
+                    <Button type="button" onClick={save} disabled={loading} loading={saving}>
                         {saving ? 'saving…' : 'save'}
-                    </WtButton>
+                    </Button>
                 </Stack>
             </DialogContent>
         </Dialog>

@@ -6,10 +6,11 @@ import type { RootState } from '@redux/store';
 import { DetailCard } from '@app/modules/detail-page/DetailPageComponents';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { StatusPill, toast, type WtSelectOption } from '@app/modules/common/components/ui';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { CircleAlert, NotebookText } from 'lucide-react';
 import { formatDate } from '@utils/dateFormats';
 import { getProjectMomRegister, updateAgendaItem, type MomRegisterRow } from '@services/meetingAgendaMom';
 import { useAgendaStatusOptions } from '@app/pages/employee/meetings/useAgendaStatusOptions';
-import { EmptyState } from '../widgets';
 import { DASH } from '../entityViewModel';
 import { daysOpen } from './momDays';
 
@@ -153,12 +154,16 @@ const ProjectMomRegister: React.FC<{ projectId: string; reloadToken?: number; ca
             accentColor="purple"
         >
             {error ? (
-                <EmptyState icon="bi bi-exclamation-circle" title="Could not load the MoM register" message="Reload the page to try again." />
+                <EmptyState
+                    icon={<CircleAlert aria-hidden />}
+                    title="Could not load the MoM register"
+                    description="Reload the page to try again."
+                />
             ) : !loading && rows.length === 0 ? (
                 <EmptyState
-                    icon="bi bi-journal-text"
+                    icon={<NotebookText aria-hidden />}
                     title="No MoM lines yet"
-                    message="Lines converted into a meeting's Minutes of Meeting appear here, one row each."
+                    description="Lines converted into a meeting's Minutes of Meeting appear here, one row each."
                 />
             ) : (
                 <MaterialTable

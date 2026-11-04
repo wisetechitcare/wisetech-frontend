@@ -112,7 +112,10 @@ export default function ActionIconButton({
         size={size === 'sm' ? 'sm' : 'default'}
         onClick={onClick}
         disabled={disabled}
-        className={cn(KT_ICON_FULL, 'whitespace-nowrap', fullWidth && 'w-full')}
+        // `flex-1 min-w-0`, not just `w-full`: the ds Button is `shrink-0`, so several full-width
+        // buttons in one row each claimed 100% and pushed their siblings out of the card. flex-1
+        // (merged over shrink-0 by cn) shares the row evenly; w-full still fills a block parent.
+        className={cn(KT_ICON_FULL, 'whitespace-nowrap', fullWidth && 'w-full min-w-0 flex-1')}
         style={tint}
       >
         <span data-icon="inline-start" className="inline-flex">{glyph}</span>
