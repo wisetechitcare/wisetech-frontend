@@ -168,24 +168,9 @@ const schemaFor = (sections: IFormSection[]) =>
     )
   );
 
-/**
- * Required CUSTOM fields left empty, as { fieldId: message }.
- *
- * Custom fields only: a built-in (Company Name…) keeps its value in Formik, not on `f.value`,
- * so including it reported it empty every time and silently blocked EVERY save — fixed twice
- * already, the second time after a merge undid it (see NewCompanyForm.test). Built-ins are
- * enforced by `schemaFor`; hidden fields cannot be filled in, so they never block.
- */
-export const missingCustomFields = (sections: IFormSection[]): Record<string, string> => {
-  const errs: Record<string, string> = {};
-  sections.forEach((sec) =>
-    sec.fields.forEach((f) => {
-      if (f.isSystem || f.hidden) return;
-      if (f.required && !String(f.value ?? "").trim()) errs[f.id] = `${f.label} is required`;
-    })
-  );
-  return errs;
-};
+// Shared by every schema-driven form; re-exported for existing importers.
+export { missingCustomFields } from "@app/modules/common/components/FormSchemaManager/builtinSchema";
+import { missingCustomFields } from "@app/modules/common/components/FormSchemaManager/builtinSchema";
 
 const NewCompanyForm: React.FC<Props> = ({
   show,

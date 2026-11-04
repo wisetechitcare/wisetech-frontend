@@ -1,6 +1,9 @@
+import { missingCustomFields } from "@app/modules/common/components/FormSchemaManager/builtinSchema";
+import { toast } from "react-toastify";
 import {
-  AppIcon, FloatingLabelFrame, FloatingLabels, WtButton, WtFieldFormik, WtSwitch, useDiscardConfirm,
+  AppIcon, FloatingLabelFrame, FloatingLabels, WtButton, WtDateField, WtField, WtFieldFormik, WtSwitch, WtTooltip, useDiscardConfirm,
 } from '@app/modules/common/components/ui';
+import { Button } from "@/ds/ui/button";
 import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
 import { CrmWorkspace } from "../../forms/CrmWorkspace";
 import { CrmSection } from "../../forms/CrmSection";
@@ -19,7 +22,7 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { Box } from "@mui/material";
@@ -29,6 +32,10 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { createSubCompany, updateSubCompany, fetchSubCompanyById } from "@services/company";
 import MultiSelectWithInlineCreate, { Option } from "@app/modules/common/components/MultiSelectWithInlineCreate";
 import { transformToOptions, createNewCompanyService } from "@app/modules/common/components/InlineCreateHelpers";
+import FormSchemaManager from "@app/modules/common/components/FormSchemaManager";
+import DragDropFileField from "@app/modules/common/components/DragDropFileField";
+import { IFormField, IFormSection } from "@models/company";
+import { cloneSubCompanyDefaults, mergeSubCompanySchema } from "./subCompanyFormSchema";
 
 // Type definitions
 interface CompanyType {
@@ -116,6 +123,29 @@ const validationSchema = Yup.object().shape({
   services: Yup.array().of(Yup.string()),
 });
 
+// Built-ins an admin marked required in Manage Fields. Multi-selects need a pick, text
+// needs content; the blacklist toggle has no "empty" to reject.
+const ARRAY_FIELDS = new Set(["services"]);
+const UNREQUIRABLE = new Set(["blacklisted", "subCompanyName", "mainCompanyId"]);
+const schemaFor = (sections: IFormSection[]) =>
+  validationSchema.shape(
+    Object.fromEntries(
+      sections
+        .flatMap((s) => s.fields)
+        .filter((f) => f.isSystem && f.required && !f.hidden && !UNREQUIRABLE.has(f.id))
+        .map((f) => {
+          const msg = `${f.label} is required`;
+          const base = (validationSchema.fields as Record<string, unknown>)[f.id];
+          if (ARRAY_FIELDS.has(f.id)) return [f.id, Yup.array().of(Yup.string()).min(1, msg)];
+          // Keep the field's own rule (email format…) and add presence on top.
+          return [f.id, (base instanceof Yup.StringSchema ? base : Yup.string()).trim().required(msg)];
+        })
+    )
+  );
+
+// Required CUSTOM fields left empty, as { fieldId: message }. Built-ins live in Formik and
+// are enforced by `schemaFor`; hidden fields cannot be filled in, so they never block.
+
 const SubCompanyForm: React.FC<Props> = ({
   show,
   onClose,
@@ -164,6 +194,10 @@ const SubCompanyForm: React.FC<Props> = ({
     services: [],
   });
   const [isDataLoading, setIsDataLoading] = useState(false);
+  const [formSections, setFormSections] = useState<IFormSection[]>(cloneSubCompanyDefaults());
+  const liveSchema = useMemo(() => schemaFor(formSections), [formSections]);
+  const [showSchemaManager, setShowSchemaManager] = useState(false);
+  const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
 
   // Fetch initial data
   useEffect(() => {
@@ -401,6 +435,7 @@ const SubCompanyForm: React.FC<Props> = ({
                 return extractedServices;
               })(),
             });
+            setFormSections(mergeSubCompanySchema(subCompany.sectionConfig));
           }
         } catch (error) {
           console.error("Failed to fetch sub-company data", error);
@@ -436,6 +471,8 @@ const SubCompanyForm: React.FC<Props> = ({
         });
         setLogoPreview(null);
         setLogoFile(null);
+        setFormSections(cloneSubCompanyDefaults());
+        setCustomErrors({});
         setStates([]);
         setCities([]);
       }
@@ -470,8 +507,81 @@ const SubCompanyForm: React.FC<Props> = ({
     }
   };
 
+  // Custom field values live inline on the schema (field.value), like the Company form.
+  const updateCustomValue = (sectionId: string, fieldId: string, value: string) => {
+    setFormSections((prev) =>
+      prev.map((sec) =>
+        sec.id === sectionId
+          ? { ...sec, fields: sec.fields.map((f) => (f.id === fieldId ? { ...f, value } : f)) }
+          : sec
+      )
+    );
+    setCustomErrors((p) => {
+      const n = { ...p };
+      delete n[fieldId];
+      return n;
+    });
+  };
+
+  const validateCustomFields = (): boolean => {
+    const errs = missingCustomFields(formSections);
+    setCustomErrors(errs);
+    const missing = Object.values(errs);
+    // Say so: the inline errors sit on their own step, which may not be the one on screen.
+    if (missing.length) toast.error(missing.join(", "));
+    return missing.length === 0;
+  };
+
+  // Renders a single admin-defined custom field (text / number / date / file).
+  const renderCustomField = (field: IFormField, sectionId: string) => {
+    if (field.type === "file") {
+      return (
+        <DragDropFileField
+          label={field.label}
+          required={field.required}
+          currentFileUrl={field.value}
+          currentFileName={field.value ? field.value.split("/").pop() : ""}
+          uploadFn={uploadCompanyAsset}
+          onChange={(url) => updateCustomValue(sectionId, field.id, url)}
+        />
+      );
+    }
+    if (field.type === "date") {
+      return (
+        <WtDateField
+          label={field.label}
+          required={field.required}
+          value={field.value ?? ""}
+          onChange={(v) => updateCustomValue(sectionId, field.id, v)}
+          error={!!customErrors[field.id]}
+          helperText={customErrors[field.id]}
+          fullWidth
+        />
+      );
+    }
+    const isNumber = field.type === "number";
+    return (
+      <WtField
+        label={field.label}
+        required={field.required}
+        inputMode={isNumber ? "decimal" : undefined}
+        value={field.value ?? ""}
+        onChange={(v) => {
+          const raw = String(v ?? "");
+          updateCustomValue(sectionId, field.id, isNumber ? raw.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") : raw);
+        }}
+        error={customErrors[field.id]}
+      />
+    );
+  };
+
   const handleSubmit = async (values: FormValues, { setSubmitting }: any) => {
     try {
+      if (!validateCustomFields()) {
+        setSubmitting(false);
+        return;
+      }
+
       let logoUrl = "";
       if (logoFile) {
         const formData = new FormData();
@@ -514,6 +624,7 @@ const SubCompanyForm: React.FC<Props> = ({
           logo: logoUrl || null,
           overallRating: 0.0,
           services: values.services || [],
+          sectionConfig: formSections,
           // Use relation objects for update
           ...(values.mainCompanyId && {
             mainCompany: {
@@ -539,6 +650,7 @@ const SubCompanyForm: React.FC<Props> = ({
           longitude: values.longitude ? parseFloat(values.longitude) : null,
           overallRating: 0.0,
           services: values.services,
+          sectionConfig: formSections,
         };
       }
 
@@ -584,214 +696,244 @@ const SubCompanyForm: React.FC<Props> = ({
           innerRef={formikRef}
           initialValues={initialValues}
           onSubmit={handleSubmit}
-          validationSchema={validationSchema}
+          validationSchema={liveSchema}
           enableReinitialize={true}
         >
-          {({ setFieldValue, values, isSubmitting }) => (
-            <FormikForm style={{ height: "100%" }}>
-              <FloatingLabels>
-                <CrmWorkspace
-                  module="sub-company"
-                  moduleIcon="bi-buildings"
-                  headerTitle={isEditMode ? "Edit Sub-Company" : "Add New Sub-Company"}
-                  headerSub={isEditMode ? "Update the sub-company, its contact and address" : "Parent company, name, contact details and address"}
-                  sidebarTitle="Sub-Company"
-                  summaryTitle="Sub-Company Summary"
-                  summaryRows={(v: any) => [
-                    { label: "Sub-company", value: v.subCompanyName || "—", isStrong: true },
-                    { label: "Parent", value: companies.find((c) => c.id === v.mainCompanyId)?.companyName || "—" },
-                    { label: "Status", value: v.status === "CLOSED" ? "Inactive" : "Active" },
-                    { label: "Phone", value: v.phone || "—" },
-                    { label: "City", value: cities.find((c) => c.id === v.city)?.name || "—" },
-                  ]}
-                  isEdit={isEditMode}
-                  isSubmitting={isSubmitting || isDataLoading}
-                  onCancel={discard.requestClose}
-                  submitText={isEditMode ? "Save Sub-Company" : "Create Sub-Company"}
-                  sections={[
-                    {
-                      id: "details",
-                      label: "Details",
-                      title: "Sub-Company Details",
-                      subtitle: "Logo, name, type, parent company and sub-services",
-                      fields: ["subCompanyName", "subCompanyTypeId", "mainCompanyId", "services"],
-                      requiredFields: ["subCompanyName", "mainCompanyId"],
-                      icon: "bi-buildings",
-                      content: (
-                        <>
-                          <CrmSection title="Logo">
-                            <div className="crm-avatar-wrap">
-                              <label
-                                htmlFor="subcompany-logo"
-                                className={`crm-avatar-circle${logoPreview ? " has-image" : ""}`}
-                              >
-                                {logoPreview ? (
-                                  <img src={logoPreview} alt="Logo preview" />
-                                ) : (
-                                  <span className="crm-avatar-placeholder">
-                                    <AppIcon name="bi-buildings" />
-                                    <span>Add logo</span>
-                                  </span>
-                                )}
-                              </label>
-                              <div className="crm-avatar-actions">
-                                <WtButton inverted onClick={() => document.getElementById("subcompany-logo")?.click()}>
-                                  {logoPreview ? "Change logo" : "Upload logo"}
-                                </WtButton>
-                                <span className="crm-avatar-hint">{logoFile?.name || "PNG or JPG · shown on company lists"}</span>
-                              </div>
-                              {/* Own id: this form opens on top of the company form, which has its own "logo" input. */}
-                              <input type="file" id="subcompany-logo" accept="image/*" onChange={handleLogoChange} hidden />
-                            </div>
-                          </CrmSection>
-                          <CrmSection title="Sub-Company" className="mt-5">
-                            <div className="row g-4">
-                              <div className="col-12 col-lg-6">
-                                <TextInput formikField="subCompanyName" label="Company Name" isRequired={true} />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <DropDownInput
-                                  formikField="mainCompanyId"
-                                  inputLabel="Parent Company"
-                                  isRequired={true}
-                                  options={companies.map((c) => ({ label: c.companyName, value: c.id }))}
-                                />
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <DropDownInput
-                                  formikField="subCompanyTypeId"
-                                  inputLabel="Company Type"
-                                  isRequired={false}
-                                  options={companyTypes.map((ct) => ({ label: ct.name, value: ct.id }))}
-                                />
-                                <WtButton ghost size="small" sx={{ mt: 0.5 }} onClick={() => setShowCompanyTypeModal(true)}
-                                  startIcon={<AppIcon name="bi-plus-lg" />}>
-                                  New sub-company type
-                                </WtButton>
-                              </div>
-                              <div className="col-12 col-lg-6">
-                                <MultiSelectWithInlineCreate
-                                  formikField="services"
-                                  inputLabel="Sub-services"
-                                  options={transformToOptions(services)}
-                                  placeholder="Select sub-services..."
-                                  isRequired={false}
-                                  onCreate={createNewCompanyService}
-                                  onRefreshOptions={handleRefreshServices}
-                                  createModalTitle="Create New Sub-service"
-                                  createButtonText="Add New Service"
-                                  createFieldLabel="Service Name"
-                                  createFieldPlaceholder="Enter service name..."
-                                />
-                              </div>
-                            </div>
-                          </CrmSection>
-                        </>
-                      ),
-                    },
-                    {
-                      id: "contact",
-                      label: "Contact",
-                      title: "Contact Details",
-                      subtitle: "Phone, fax, email and website",
-                      fields: ["phone", "phone2", "fax", "email", "website"],
-                      icon: "bi-telephone",
-                      content: (
-                        <CrmSection title="Contact Details">
-                          <div className="row g-4">
-                            <div className="col-12 col-lg-6">
-                              <PhoneNumberInput formikField="phone" label="Phone" isRequired={false} placeholder="Enter phone" />
-                            </div>
-                            <div className="col-12 col-lg-6">
-                              <PhoneNumberInput formikField="phone2" label="Phone 2" isRequired={false} placeholder="Enter phone 2" />
-                            </div>
-                            <div className="col-12 col-lg-6">
-                              <TextInput formikField="email" label="Email" isRequired={false} />
-                            </div>
-                            <div className="col-12 col-lg-6">
-                              <TextInput formikField="website" label="Website" isRequired={false} />
-                            </div>
-                            <div className="col-12 col-lg-6">
-                              <TextInput formikField="fax" label="FAX" isRequired={false} />
-                            </div>
-                          </div>
-                        </CrmSection>
-                      ),
-                    },
-                    {
-                      id: "address",
-                      label: "Address",
-                      title: "Address",
-                      subtitle: "Where it is, and its map pin",
-                      fields: ["address", "country", "state", "city", "area", "zipCode", "googleMapsLink", "gmbProfileUrl", "latitude", "longitude"],
-                      icon: "bi-geo-alt",
-                      content: (
-                        <ContactAddressSection
-                          countries={countries}
-                          states={states}
-                          cities={cities}
-                          selectedCountry={values.country}
-                          selectedState={values.state}
-                          setSelectedCountry={() => {}}
-                          setSelectedState={() => {}}
-                          handleCountryChange={handleCountryChange}
-                          handleStateChange={handleStateChange}
-                          fields={{googleMapLink: "googleMapsLink", gmbLink: "gmbProfileUrl"}}
+          {({ setFieldValue, values, isSubmitting }) => {
+            // Every field — built-in or custom — comes from `formSections`, so the Manage
+            // Fields dialog's label / required / hidden / order / section edits reach the form.
+            // Built-ins keep their bespoke widgets; only the label and required flag are the admin's.
+            const colOf = (f: IFormField) =>
+              f.id === "note" || (!f.isSystem && f.type === "file") ? "col-12" : "col-12 col-lg-6";
+
+            const renderBuiltin = (f: IFormField): React.ReactNode => {
+              const label = f.label;
+              const req = f.required;
+              switch (f.id) {
+                case "subCompanyName":
+                  return <TextInput formikField="subCompanyName" label={label} isRequired={true} />;
+                case "mainCompanyId":
+                  return (
+                    <DropDownInput
+                      formikField="mainCompanyId"
+                      inputLabel={label}
+                      isRequired={true}
+                      options={companies.map((c) => ({ label: c.companyName, value: c.id }))}
+                    />
+                  );
+                case "subCompanyTypeId":
+                  return (
+                    <>
+                      <DropDownInput
+                        formikField="subCompanyTypeId"
+                        inputLabel={label}
+                        isRequired={req}
+                        options={companyTypes.map((ct) => ({ label: ct.name, value: ct.id }))}
+                      />
+                      <WtButton ghost size="small" sx={{ mt: 0.5 }} onClick={() => setShowCompanyTypeModal(true)}
+                        startIcon={<AppIcon name="bi-plus-lg" />}>
+                        New sub-company type
+                      </WtButton>
+                    </>
+                  );
+                case "services":
+                  return (
+                    <MultiSelectWithInlineCreate
+                      formikField="services"
+                      inputLabel={label}
+                      options={transformToOptions(services)}
+                      placeholder="Select sub-services..."
+                      isRequired={req}
+                      onCreate={createNewCompanyService}
+                      onRefreshOptions={handleRefreshServices}
+                      createModalTitle="Create New Sub-service"
+                      createButtonText="Add New Service"
+                      createFieldLabel="Service Name"
+                      createFieldPlaceholder="Enter service name..."
+                    />
+                  );
+                case "phone":
+                case "phone2":
+                  return <PhoneNumberInput formikField={f.id} label={label} isRequired={req} placeholder={`Enter ${label.toLowerCase()}`} />;
+                case "status":
+                  return (
+                    <DropDownInput
+                      inputLabel={label}
+                      placeholder="Select status"
+                      isRequired={req}
+                      formikField="status"
+                      options={COMPANY_STATUS_OPTIONS}
+                      showColor
+                      disableAlphabeticalSort
+                      onChange={(value: any) => setFieldValue("status", (value && typeof value === "object" ? value.value : value) || "ACTIVE")}
+                      value={COMPANY_STATUS_OPTIONS.find((o) => o.value === values.status) || COMPANY_STATUS_OPTIONS[0]}
+                    />
+                  );
+                case "blacklisted":
+                  // Same toggle as the company form's Blacklisted field.
+                  return (
+                    <FloatingLabelFrame label={label} filled>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, minHeight: 42, px: 1.5, border: 1, borderColor: "divider", borderRadius: "8px", bgcolor: "background.paper" }}>
+                        <Box component="span" sx={{ fontSize: 13.5, fontWeight: 600, color: values.blacklisted ? "error.main" : "text.secondary" }}>
+                          {values.blacklisted ? "Yes — blacklisted" : "No"}
+                        </Box>
+                        <WtSwitch
+                          size="sm"
+                          tone="#DC2626"
+                          aria-label={label}
+                          checked={!!values.blacklisted}
+                          onChange={(_, checked) => setFieldValue("blacklisted", checked)}
                         />
-                      ),
-                    },
-                    {
-                      id: "others",
-                      label: "Others",
-                      title: "Status & Notes",
-                      subtitle: "Status, blacklist and notes",
-                      fields: ["status", "blacklisted", "note"],
-                      icon: "bi-sliders",
-                      content: (
-                        <CrmSection title="Others">
-                          <div className="row g-4">
-                            <div className="col-12 col-lg-6">
-                              <DropDownInput
-                                inputLabel="Status"
-                                placeholder="Select status"
-                                isRequired={false}
-                                formikField="status"
-                                options={COMPANY_STATUS_OPTIONS}
-                                showColor
-                                disableAlphabeticalSort
-                                onChange={(value: any) => setFieldValue("status", (value && typeof value === "object" ? value.value : value) || "ACTIVE")}
-                                value={COMPANY_STATUS_OPTIONS.find((o) => o.value === values.status) || COMPANY_STATUS_OPTIONS[0]}
-                              />
+                      </Box>
+                    </FloatingLabelFrame>
+                  );
+                case "note":
+                  return <WtFieldFormik name="note" label={label} required={req} multiline minRows={3} placeholder="Enter note" />;
+                default:
+                  // email, website, fax — plain text built-ins.
+                  return <TextInput formikField={f.id} label={label} isRequired={req} />;
+              }
+            };
+
+            const renderSection = (section: IFormSection) => {
+              if (section.id === "address") {
+                return (
+                  <ContactAddressSection
+                    key={section.id}
+                    title={section.title}
+                    schema={section.fields}
+                    countries={countries}
+                    states={states}
+                    cities={cities}
+                    selectedCountry={values.country}
+                    selectedState={values.state}
+                    setSelectedCountry={() => {}}
+                    setSelectedState={() => {}}
+                    handleCountryChange={handleCountryChange}
+                    handleStateChange={handleStateChange}
+                    fields={{googleMapLink: "googleMapsLink", gmbLink: "gmbProfileUrl"}}
+                  />
+                );
+              }
+              const visible = section.fields.filter((f) => !f.hidden);
+              if (!visible.length) return null;
+              return (
+                <CrmSection key={section.id} title={section.title || "Custom Fields"} className={section.id === "details" ? "mt-5" : undefined}>
+                  <div className="row g-4">
+                    {visible.map((f) => (
+                      <div key={f.id} className={colOf(f)}>
+                        {f.isSystem ? renderBuiltin(f) : renderCustomField(f, section.id)}
+                      </div>
+                    ))}
+                  </div>
+                </CrmSection>
+              );
+            };
+
+            // One wizard step per schema section, in the dialog's order and under its title.
+            // A section with nothing visible drops out (the details step and address picker always stay).
+            const STEP_LOOK: Record<string, { subtitle: string; icon: string }> = {
+              details: { subtitle: "Logo, name, type, parent company and sub-services", icon: "bi-buildings" },
+              contact: { subtitle: "Phone, fax, email and website", icon: "bi-telephone" },
+              address: { subtitle: "Where it is, and its map pin", icon: "bi-geo-alt" },
+              others: { subtitle: "Status, blacklist and notes", icon: "bi-sliders" },
+            };
+            const steps = formSections
+              .filter((sec) => sec.id === "address" || sec.id === "details" || sec.fields.some((f) => !f.hidden))
+              .map((sec) => {
+                const fields = sec.fields.filter((f) => f.isSystem && !f.hidden);
+                return {
+                  id: sec.id,
+                  label: sec.title || "Custom Fields",
+                  title: sec.title || "Custom Fields",
+                  ...(STEP_LOOK[sec.id] ?? { subtitle: "Custom fields", icon: "bi-ui-checks" }),
+                  fields: fields.map((f) => f.id),
+                  requiredFields: fields.filter((f) => f.required).map((f) => f.id),
+                  content: (
+                    <>
+                      {sec.id === "details" && (
+                        <CrmSection title="Logo">
+                          <div className="crm-avatar-wrap">
+                            <label
+                              htmlFor="subcompany-logo"
+                              className={`crm-avatar-circle${logoPreview ? " has-image" : ""}`}
+                            >
+                              {logoPreview ? (
+                                <img src={logoPreview} alt="Logo preview" />
+                              ) : (
+                                <span className="crm-avatar-placeholder">
+                                  <AppIcon name="bi-buildings" />
+                                  <span>Add logo</span>
+                                </span>
+                              )}
+                            </label>
+                            <div className="crm-avatar-actions">
+                              <WtButton inverted onClick={() => document.getElementById("subcompany-logo")?.click()}>
+                                {logoPreview ? "Change logo" : "Upload logo"}
+                              </WtButton>
+                              <span className="crm-avatar-hint">{logoFile?.name || "PNG or JPG · shown on company lists"}</span>
                             </div>
-                            <div className="col-12 col-lg-6">
-                              {/* Same toggle as the company form's Blacklisted field. */}
-                              <FloatingLabelFrame label="Is Blacklisted" filled>
-                                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, minHeight: 42, px: 1.5, border: 1, borderColor: "divider", borderRadius: "8px", bgcolor: "background.paper" }}>
-                                  <Box component="span" sx={{ fontSize: 13.5, fontWeight: 600, color: values.blacklisted ? "error.main" : "text.secondary" }}>
-                                    {values.blacklisted ? "Yes — blacklisted" : "No"}
-                                  </Box>
-                                  <WtSwitch
-                                    size="sm"
-                                    tone="#DC2626"
-                                    aria-label="Is Blacklisted"
-                                    checked={!!values.blacklisted}
-                                    onChange={(_, checked) => setFieldValue("blacklisted", checked)}
-                                  />
-                                </Box>
-                              </FloatingLabelFrame>
-                            </div>
-                            <div className="col-12">
-                              <WtFieldFormik name="note" label="Note" multiline minRows={3} placeholder="Enter note" />
-                            </div>
+                            {/* Own id: this form opens on top of the company form, which has its own "logo" input. */}
+                            <input type="file" id="subcompany-logo" accept="image/*" onChange={handleLogoChange} hidden />
                           </div>
                         </CrmSection>
-                      ),
-                    },
-                  ]}
-                />
-              </FloatingLabels>
-            </FormikForm>
-          )}
+                      )}
+                      {renderSection(sec)}
+                    </>
+                  ),
+                };
+              });
+
+            return (
+              <FormikForm style={{ height: "100%" }}>
+                <FloatingLabels>
+                  <CrmWorkspace
+                    module="sub-company"
+                    moduleIcon="bi-buildings"
+                    headerTitle={isEditMode ? "Edit Sub-Company" : "Add New Sub-Company"}
+                    headerSub={isEditMode ? "Update the sub-company, its contact and address" : "Parent company, name, contact details and address"}
+                    headerActions={
+                      <>
+                        <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)}
+                          startIcon={<AppIcon name="bi-gear" className="fs-6" />} sx={{ display: { xs: "none", sm: "inline-flex" } }}>
+                          Manage fields
+                        </WtButton>
+                        {/* Phones: icon only, the same 32px translucent square as the close button beside it. */}
+                        <Box sx={{ display: { xs: "inline-flex", sm: "none" } }}>
+                          <WtTooltip title="Manage fields" wrap>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              type="button"
+                              aria-label="Manage fields"
+                              onClick={() => setShowSchemaManager(true)}
+                              className="rounded-[10px] border border-white/25 bg-white/12 text-white hover:border-white/40 hover:bg-white/22 hover:text-white"
+                            >
+                              <AppIcon name="bi-gear" />
+                            </Button>
+                          </WtTooltip>
+                        </Box>
+                      </>
+                    }
+                    sidebarTitle="Sub-Company"
+                    summaryTitle="Sub-Company Summary"
+                    summaryRows={(v: any) => [
+                      { label: "Sub-company", value: v.subCompanyName || "—", isStrong: true },
+                      { label: "Parent", value: companies.find((c) => c.id === v.mainCompanyId)?.companyName || "—" },
+                      { label: "Status", value: v.status === "CLOSED" ? "Inactive" : "Active" },
+                      { label: "Phone", value: v.phone || "—" },
+                      { label: "City", value: cities.find((c) => c.id === v.city)?.name || "—" },
+                    ]}
+                    isEdit={isEditMode}
+                    isSubmitting={isSubmitting || isDataLoading}
+                    onCancel={discard.requestClose}
+                    submitText={isEditMode ? "Save Sub-Company" : "Create Sub-Company"}
+                    sections={steps}
+                  />
+                </FloatingLabels>
+              </FormikForm>
+            );
+          }}
         </Formik>
       </FullscreenWizardModal>
       {discard.dialog}
@@ -801,6 +943,16 @@ const SubCompanyForm: React.FC<Props> = ({
         onClose={() => setShowCompanyTypeModal(false)}
         title="Company Type"
         type="company-type"
+      />
+      <FormSchemaManager
+        show={showSchemaManager}
+        sections={formSections}
+        infoPageLabel="Sub-company"
+        onSave={(sections) => {
+          setFormSections(sections);
+          setShowSchemaManager(false);
+        }}
+        onClose={() => setShowSchemaManager(false)}
       />
     </>
   );
