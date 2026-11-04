@@ -1,4 +1,4 @@
-import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { UnsavedChangesModal as Modal, toast } from '@app/modules/common/components/ui';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   MapContainer,
@@ -27,8 +27,10 @@ import {
   PushPin as PinIcon,
   Navigation as NavigationIcon,
   ReportProblemOutlined as ReportIcon,
-  LayersOutlined as LayersIcon
+  LayersOutlined as LayersIcon,
+  IosShare as ShareIcon
 } from "@mui/icons-material";
+import { shareLink, mapsPlaceUrl } from "@utils/webShare";
 import { flagLocationError } from "@services/companies";
 import { Form } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
@@ -570,6 +572,22 @@ const LocationMarker = React.memo(({
     else if (isContact) navigate(`/contacts/${entityId}`);
   };
 
+  /** Copies a Google Maps link to this point; on phones also opens the share sheet. */
+  const handleShare = async () => {
+    const name = isCompany
+      ? (loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName)
+      : isContact ? (loc.item?.fullName || loc.item?.name) : loc.item?.title;
+    const { copied, outcome } = await shareLink({
+      url: mapsPlaceUrl(loc.lat, loc.lng),
+      title: name || 'Location',
+      text: [name, popupAddress].filter(Boolean).join(' — '),
+    });
+    if (outcome === 'shared' || outcome === 'dismissed') return; // the sheet was the answer
+    toast(copied
+      ? { icon: 'success', title: 'Location link copied' }
+      : { icon: 'error', title: 'Could not copy the link', text: mapsPlaceUrl(loc.lat, loc.lng) });
+  };
+
   // 6. Relationship Data (Sub-company / Branch connections)
   const parent = loc.item?.mainCompany || loc.item?.company;
   const parentName = parent?.companyName || "Unknown";
@@ -789,6 +807,10 @@ const LocationMarker = React.memo(({
                 <NavigationIcon style={{ fontSize: "18px" }} />
                 <span>Go to Location</span>
               </Button>
+              <Button size="sm" variant="inverted" type="button" onClick={handleShare} aria-label="Share location">
+                <ShareIcon style={{ fontSize: "18px" }} />
+                <span>Share</span>
+              </Button>
             </div>
           </div>
         ) : (
@@ -889,6 +911,10 @@ const LocationMarker = React.memo(({
               <Button size="sm" type="submit" onClick={() => handleGoToLocation(loc.item)}>
                 <NavigationIcon style={{ fontSize: "18px" }} />
                 <span>Go to Location</span>
+              </Button>
+              <Button size="sm" variant="inverted" type="button" onClick={handleShare} aria-label="Share location">
+                <ShareIcon style={{ fontSize: "18px" }} />
+                <span>Share</span>
               </Button>
             </div>
           </div>
@@ -2615,6 +2641,9 @@ export default function Maps({
 
         .popup-actions {
           padding: 12px 16px 16px 16px;
+          display: flex;
+          justify-content: center;
+          gap: 8px;
         }
 
         .primary-go-btn {
