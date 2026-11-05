@@ -185,8 +185,11 @@ importers:
         specifier: ^2.2.9
         version: 2.4.9(@types/react@19.3.0)(react@19.3.1)
       framer-motion:
-        specifier: ^12.38.0
+        specifier: ^12.40.0
         version: 12.40.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      iconsax-reactjs:
+        specifier: ^0.0.8
+        version: 0.0.8(react@19.3.1)
       js-confetti:
         specifier: ^0.12.0
         version: 0.12.0
@@ -218,7 +221,7 @@ importers:
         specifier: ^4.17.21
         version: 4.18.1
       lucide-react:
-        specifier: ^1.14.0
+        specifier: ^1.18.0
         version: 1.18.0(react@19.3.1)
       material-react-table:
         specifier: ^2.13.0
@@ -3040,6 +3043,7 @@ packages:
   '@smithy/core@3.36.0':
     resolution: {integrity: sha512-3hJiwG1F5t1SoXqp/yOCmYXziyx7ZVqF63S5W6YU201e/qwVaHPex+E/3vvyY9a3ORq/b+BydeNZpP2saQ9X2g==}
     engines: {node: '>=18.0.0'}
+    deprecated: Deprecated due to a bug in custom logger data redaction. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/credential-provider-imds@4.5.2':
     resolution: {integrity: sha512-A9uSdn72ozbRUSit0eib0TW7nXuNPlaeM0zcGkJ+nE6tFcSDbnmtwoxbTCFBukVQcszDAyvsd7+rTduPTXpygg==}
@@ -5182,6 +5186,11 @@ packages:
 
   hyphen@1.14.1:
     resolution: {integrity: sha512-kvL8xYl5QMTh+LwohVN72ciOxC0OEV79IPdJSTwEXok9y9QHebXGdFgrED4sWfiax/ODx++CAMk3hMy4XPJPOw==}
+
+  iconsax-reactjs@0.0.8:
+    resolution: {integrity: sha512-cb+uTMxbkSFNbu8ZclX7BWQVfOWQt8+m/PsDjnsm/H+mcYrnfTYMjHxiof1FB43k7UAgt1ds+0oFeMVKdqyslw==}
+    peerDependencies:
+      react: '*'
 
   iconv-lite@0.7.2:
     resolution: {integrity: sha512-im9DjEDQ55s9fL4EYzOAv0yMqmMBSZp6G0VvFyTMPKWxiSBHUj9NW/qqLmXUwXrrM7AvqSlTCfvqRb0cM8yYqw==}
@@ -12745,6 +12754,10 @@ snapshots:
   husky@9.1.7: {}
 
   hyphen@1.14.1: {}
+
+  iconsax-reactjs@0.0.8(react@19.3.1):
+    dependencies:
+      react: 19.3.1
 
   iconv-lite@0.7.2:
     dependencies:
