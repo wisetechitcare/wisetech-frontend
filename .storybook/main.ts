@@ -13,6 +13,8 @@ const config: StorybookConfig = {
     "storybook-addon-pseudo-states"
   ],
   "framework": "@storybook/react-vite",
+  // Serve public/ as the app does, so stories can use its assets (e.g. the WT logo in /icons).
+  "staticDirs": ["../public"],
   // Storybook MCP docs toolset (docs-list / docs-show / docs-show-story) reads this manifest.
   "features": {
     "componentsManifest": true

@@ -1,7 +1,7 @@
 /**
- * Company Profile: data contract and pure logic. `GET /company-profile` returns `ProfileData`; the
- * static slides (cover, about, who we are, scope, contact) are hardcoded copy in `org`, everything else
- * is fetched from the app and shown only as the user picked it.
+ * Company Profile: data contract and pure logic. `useProfileData` builds `ProfileData` from existing APIs
+ * (`profileAdapter.ts`); the static slides (cover, about, who we are, contact) are hardcoded copy in `org`,
+ * everything else is fetched from the app and shown only as the user picked it.
  */
 
 /** One project (= a Lead past its project trigger), flattened for the profile. */
@@ -10,21 +10,21 @@ export type ProfileProject = {
   name: string
   city: string
   country: string
-  /** AdditionalDetails.latitude / longitude, for the map pins. */
-  lat: number
-  lng: number
-  /** ProjectCategory name. */
+  /** AdditionalDetails.latitude / longitude, for the map pins; null until the address is geocoded. */
+  lat: number | null
+  lng: number | null
+  /** First project category name. */
   typology: string
-  /** Cross-cutting showcase tags: High-rise, Heritage, Green Building, MOEF / CRZ, Government, International… */
+  /** Every project category name. */
   tags: string[]
-  /** Client company name (Lead.company). */
+  /** External Team company whose type has the Client role (else Builder). */
   client?: string
-  /** Architect company name (ProjectExternalTeam, company type Architect). */
+  /** External Team company whose type has the Architect role. */
   architect?: string
   /** Built-up area in sq ft. */
   areaSqft?: number
-  /** Size line from project points: "40 floors · 140 m", "150 beds", "85 rooms", "31 acres · 4,000 flats". */
-  metric?: string
+  /** Project status name: Completed, Ongoing, On Hold… */
+  status?: string
   /** Lead.coverImageUrl, the Gallery cover. A project without one cannot be shown on a slide. */
   cover: string | null
 }
@@ -38,15 +38,15 @@ export type ProfileService = { id: string; name: string; projects: number }
 /** Hardcoded slide copy. Only `foundedIn` feeds a calculation (years in practice). */
 export type OrgProfile = {
   legalName: string
-  initials: string
   /** Two-tone brand name, e.g. ["WISE", "TECH"]. */
   wordmark: [string, string]
   /** Second half prints in the accent colour. */
   tagline: [string, string]
   slogan: string
-  edition: string
   about: string[]
   foundedIn: number
+  /** Head-office city, named on the cover's "Projects in …" count. */
+  homeCity: string
   vision: string
   mission: string
   values: Array<{ label: string; text: string }>
@@ -62,8 +62,8 @@ export type OrgProfile = {
 
 export type ProfileData = {
   org: OrgProfile
-  /** Live counts over every project / company / employee, computed server-side. */
-  totals: { projects: number; completed: number; clients: number; team: number }
+  /** Live counts over every project the viewer can see (Cancelled included), plus active employees. */
+  totals: { projects: number; completed: number; clients: number; team: number; countries: number; cities: number; inHomeCity: number }
   projects: ProfileProject[]
   companies: ProfileCompany[]
   services: ProfileService[]
@@ -81,12 +81,12 @@ export const FACETS: Array<{ id: Facet; label: string }> = [
   { id: "architect", label: "Architect" },
 ]
 
-export type CaptionField = "architect" | "client" | "area" | "metric"
+export type CaptionField = "architect" | "client" | "area" | "status"
 export const CAPTION_FIELDS: Array<{ id: CaptionField; label: string }> = [
   { id: "architect", label: "Architect" },
   { id: "client", label: "Client" },
   { id: "area", label: "Area" },
-  { id: "metric", label: "Size" },
+  { id: "status", label: "Status" },
 ]
 
 /** Projects per slide: up to 9 (one tall hero + 8 portrait tiles). Sections are spread evenly, so with at
@@ -152,11 +152,12 @@ export type Place = { id: string; name: string; lat: number; lng: number; count:
 
 /** Map pins: Indian cities, or countries worldwide, each at the mean of its projects' coordinates. */
 export function places(projects: ProfileProject[], region: "india" | "world"): Place[] {
-  const groups = new Map<string, ProfileProject[]>()
-  for (const p of projects) {
-    if (region === "india" && p.country !== "India") continue
-    const key = region === "india" ? p.city : p.country
-    groups.set(key, [...(groups.get(key) ?? []), p])
+  const groups = new Map<string, Array<{ lat: number; lng: number }>>()
+  for (const { city, country, lat, lng } of projects) {
+    if (region === "india" && country !== "India") continue
+    const key = region === "india" ? city : country
+    if (!key || lat === null || lng === null) continue
+    groups.set(key, [...(groups.get(key) ?? []), { lat, lng }])
   }
   return [...groups]
     .map(([name, ps]) => ({

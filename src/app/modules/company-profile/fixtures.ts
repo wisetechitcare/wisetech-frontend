@@ -1,8 +1,10 @@
 /**
  * Demo data for the Company Profile Storybook prototype only. Company copy and project names are taken
- * from WISETECH MEP's own published brochure (Rev.27); photos and logos are generated placeholders.
+ * from WISETECH MEP's own published brochure (Rev.27); the cover render is from their Profile.pptx; other
+ * photos and logos are generated placeholders.
  */
 import { scene, type SceneName } from "../project-gallery/fixtures"
+import coverHero from "./cover-hero.jpg"
 import { PICK_LIMIT, autoPick, places, projectsOf, type OrgProfile, type ProfileCompany, type ProfileData, type ProfileProject, type ProfileService, type Section } from "./profile"
 
 const SCENE: Record<string, SceneName[]> = {
@@ -33,7 +35,7 @@ const CITY: Record<string, [number, number, string?]> = {
   Thimphu: [27.47, 89.64, "Bhutan"], Nairobi: [-1.29, 36.82, "Kenya"], Washington: [47.6, -122.33, "USA"],
 }
 
-type Extra = { tags?: string[]; metric?: string; noCover?: boolean }
+type Extra = { tags?: string[]; noCover?: boolean }
 let n = 0
 const P = (name: string, city: string, typology: string, areaSqft?: number, client?: string, architect?: string, x: Extra = {}): ProfileProject => {
   n++
@@ -50,7 +52,7 @@ const P = (name: string, city: string, typology: string, areaSqft?: number, clie
     client,
     architect,
     areaSqft,
-    metric: x.metric,
+    status: n % 5 === 0 ? "Ongoing" : "Completed",
     cover: x.noCover ? null : scene(SCENE[typology][n % 2], n + 200),
   }
 }
@@ -63,17 +65,17 @@ const GREEN = "Green Building"
 
 export const DEMO_PROJECTS: ProfileProject[] = [
   // Residential & high-rise
-  P("Shravan Nagar, Kandivali", "Mumbai", "Residential", 1200000, "Shree Ji", undefined, { tags: [HR], metric: "60 floors · 200 m" }),
-  P("Cornerstone, Lokseva Worli", "Mumbai", "Residential", 200000, "Chandak", "Ingrain Arch", { tags: [HR, MOEF], metric: "40 floors · 140 m" }),
-  P("Signature, Bandra", "Mumbai", "Residential", 400000, "DLH", "KNS", { tags: [HR, MOEF], metric: "35 floors · 110 m" }),
-  P("Eiffel Tower, Mazgaon", "Mumbai", "Residential", 200000, "Neumec", "Consultants Combined", { tags: [HR, MOEF], metric: "45 floors · 160 m" }),
-  P("Shikhar Tower", "Mumbai", "Residential", 400000, "Shreem Realty", "Reza Kabul", { tags: [HR], metric: "40 floors · 123 m" }),
-  P("Crescent Jogeshwari", "Mumbai", "Residential", 1000000, "Crescent Group", "Reza Kabul", { tags: [HR, MOEF], metric: "33 floors · 130 m" }),
-  P("Res Agripada", "Mumbai", "Residential", 800000, "Living Stones", undefined, { tags: [HR], metric: "60 floors · 180 m", noCover: true }),
-  P("Sky Annex, Chembur", "Mumbai", "Residential", 250000, "Buildtech Group", undefined, { tags: [HR, MOEF], metric: "30 floors · 90 m" }),
-  P("Ditya Garden, Vashi", "Navi Mumbai", "Residential", 400000, "Ditya", "Sanat Mehta", { tags: [HR, MOEF], metric: "34 floors · 110 m" }),
-  P("Pluto Jogeshwari", "Mumbai", "Residential", 500000, "Chandiwala", "Reza Kabul", { tags: [HR, MOEF], metric: "35 floors · 110 m" }),
-  P("Agarwal Nalasopara", "Nalasopara", "Residential", 1500000, "Agarwal", "Sanat Mehta", { tags: [HR, MOEF], metric: "34 floors · 105 m", noCover: true }),
+  P("Shravan Nagar, Kandivali", "Mumbai", "Residential", 1200000, "Shree Ji", undefined, { tags: [HR] }),
+  P("Cornerstone, Lokseva Worli", "Mumbai", "Residential", 200000, "Chandak", "Ingrain Arch", { tags: [HR, MOEF] }),
+  P("Signature, Bandra", "Mumbai", "Residential", 400000, "DLH", "KNS", { tags: [HR, MOEF] }),
+  P("Eiffel Tower, Mazgaon", "Mumbai", "Residential", 200000, "Neumec", "Consultants Combined", { tags: [HR, MOEF] }),
+  P("Shikhar Tower", "Mumbai", "Residential", 400000, "Shreem Realty", "Reza Kabul", { tags: [HR] }),
+  P("Crescent Jogeshwari", "Mumbai", "Residential", 1000000, "Crescent Group", "Reza Kabul", { tags: [HR, MOEF] }),
+  P("Res Agripada", "Mumbai", "Residential", 800000, "Living Stones", undefined, { tags: [HR], noCover: true }),
+  P("Sky Annex, Chembur", "Mumbai", "Residential", 250000, "Buildtech Group", undefined, { tags: [HR, MOEF] }),
+  P("Ditya Garden, Vashi", "Navi Mumbai", "Residential", 400000, "Ditya", "Sanat Mehta", { tags: [HR, MOEF] }),
+  P("Pluto Jogeshwari", "Mumbai", "Residential", 500000, "Chandiwala", "Reza Kabul", { tags: [HR, MOEF] }),
+  P("Agarwal Nalasopara", "Nalasopara", "Residential", 1500000, "Agarwal", "Sanat Mehta", { tags: [HR, MOEF], noCover: true }),
   P("Crescent Horizon, Kandivali", "Mumbai", "Residential", 160000, "Crescent Group", "Reza Kabul"),
   P("Crescent Downtown, Kalina", "Mumbai", "Residential", 300000, "Crescent Group", "Reza Kabul"),
   P("Crescent Silverwood, Chandivali", "Mumbai", "Residential", 160000, "Crescent Group", "Reza Kabul"),
@@ -89,8 +91,8 @@ export const DEMO_PROJECTS: ProfileProject[] = [
   P("Moraj Silent Valley, Nerul", "Navi Mumbai", "Residential", undefined, "Moraj", "ACUBE"),
   P("Amarchand Mansion, Colaba", "Mumbai", "Residential", 50000, undefined, "K. Unwalla", { tags: [HER] }),
   // Commercial
-  P("Crescent Western Trade Center", "Mira Road", "Commercial", 800000, "Crescent Group", "Reza Kabul", { tags: [HR, MOEF], metric: "30 floors · 115 m" }),
-  P("Lotus Commercial Tower, Pydhoni", "Mumbai", "Commercial", 120000, "Shreem Realty", "Ubaid", { tags: [HR], metric: "40 floors · 120 m" }),
+  P("Crescent Western Trade Center", "Mira Road", "Commercial", 800000, "Crescent Group", "Reza Kabul", { tags: [HR, MOEF] }),
+  P("Lotus Commercial Tower, Pydhoni", "Mumbai", "Commercial", 120000, "Shreem Realty", "Ubaid", { tags: [HR] }),
   P("World One", "Mumbai", "Commercial", 130000, "Sanjar", "Reza Kabul"),
   P("Artek, Marol", "Mumbai", "Commercial", 75000, "Artek", "KNS"),
   P("L&T House", "Mumbai", "Commercial", 60000, "L&T", "SNS", { tags: [HER] }),
@@ -104,15 +106,15 @@ export const DEMO_PROJECTS: ProfileProject[] = [
   P("HDFC Bank, Vashi", "Navi Mumbai", "Commercial", 35000, "HDFC Bank"),
   P("HDFC Bank, Panvel", "Panvel", "Commercial", 35000, "HDFC Bank"),
   // Hospitality
-  P("Al Qasr Hotel", "Karbala", "Hospitality", 1500000, "Anjuman e Faiz e Panjetani", undefined, { tags: [INT], metric: "170 rooms" }),
-  P("Bloom Hotel, Marol", "Mumbai", "Hospitality", undefined, "AA Group", "SD Consultant", { metric: "85 rooms" }),
-  P("Fortune Hotel", "Lonavala", "Hospitality", undefined, undefined, "JOI Design", { metric: "40 rooms" }),
-  P("Hotel New Bengal", "Mumbai", "Hospitality", undefined, "Hotel New Bengal", "Skyline", { metric: "90 rooms" }),
-  P("Amigos Hotel", "Goa", "Hospitality", undefined, "Amigos", "Ulysis Design", { metric: "30 rooms" }),
+  P("Al Qasr Hotel", "Karbala", "Hospitality", 1500000, "Anjuman e Faiz e Panjetani", undefined, { tags: [INT] }),
+  P("Bloom Hotel, Marol", "Mumbai", "Hospitality", undefined, "AA Group", "SD Consultant"),
+  P("Fortune Hotel", "Lonavala", "Hospitality", undefined, undefined, "JOI Design"),
+  P("Hotel New Bengal", "Mumbai", "Hospitality", undefined, "Hotel New Bengal", "Skyline"),
+  P("Amigos Hotel", "Goa", "Hospitality", undefined, "Amigos", "Ulysis Design"),
   P("Ranthambore Forest Resort", "Ranthambore", "Hospitality", 100000, undefined, "Magic Oxide"),
   P("Mandu Resort", "Mandu", "Hospitality", 50000, "Madhya Pradesh Govt.", "Finer Edge", { tags: [GOV] }),
   P("Convention Centre, Khajuraho", "Khajuraho", "Hospitality", 70000, "Madhya Pradesh Govt.", "Finer Edge", { tags: [GOV] }),
-  P("Gokul Vatika", "Jaipur", "Hospitality", undefined, undefined, "Magic Oxide", { metric: "30 rooms" }),
+  P("Gokul Vatika", "Jaipur", "Hospitality", undefined, undefined, "Magic Oxide"),
   P("SAZ Restaurant, BKC", "Mumbai", "Hospitality", 3000, "SAZ", "Patch Design Studio"),
   P("eve Restaurant, Powai", "Mumbai", "Hospitality", 3000, "eve", "KNS"),
   P("Ginger Hotel", "Bengaluru", "Hospitality", undefined, "Ginger Hotels", undefined, { noCover: true }),
@@ -124,14 +126,14 @@ export const DEMO_PROJECTS: ProfileProject[] = [
   P("McDonald's, Sekaran Mall", "Chennai", "Hospitality", 2500, "McDonald's"),
   P("McDonald's, Belgaum", "Belagavi", "Hospitality", 2500, "McDonald's"),
   // Healthcare
-  P("CritiCare / Kohinoor Hospital, Kurla", "Mumbai", "Healthcare", undefined, "CritiCare", undefined, { metric: "200 beds" }),
-  P("Gaurabai Maternity Hospital, Nagpada", "Mumbai", "Healthcare", undefined, "Govt. of Maharashtra", "Hafeez Contractor", { tags: [GOV], metric: "150 beds" }),
-  P("New Millat Hospital", "Mumbai", "Healthcare", undefined, "Millat Hospital", undefined, { metric: "150 beds" }),
-  P("BMC Intervention Centre", "Mumbai", "Healthcare", undefined, "BMC", "Hafeez Contractor", { tags: [GOV], metric: "100 beds" }),
-  P("SRV Hospital, Chembur", "Mumbai", "Healthcare", undefined, "SRV Hospital", "Haresh Gidye", { metric: "100 beds" }),
-  P("SRV Hospital, Goregaon", "Mumbai", "Healthcare", undefined, "SRV Hospital", "Haresh Gidye", { metric: "70 beds" }),
-  P("CritiCare Hospital, Malad", "Mumbai", "Healthcare", undefined, "CritiCare", undefined, { metric: "100 beds" }),
-  P("KEM Hospital", "Mumbai", "Healthcare", undefined, "KEM Hospital", "SKD", { tags: [GOV], metric: "30 beds", noCover: true }),
+  P("CritiCare / Kohinoor Hospital, Kurla", "Mumbai", "Healthcare", undefined, "CritiCare"),
+  P("Gaurabai Maternity Hospital, Nagpada", "Mumbai", "Healthcare", undefined, "Govt. of Maharashtra", "Hafeez Contractor", { tags: [GOV] }),
+  P("New Millat Hospital", "Mumbai", "Healthcare", undefined, "Millat Hospital"),
+  P("BMC Intervention Centre", "Mumbai", "Healthcare", undefined, "BMC", "Hafeez Contractor", { tags: [GOV] }),
+  P("SRV Hospital, Chembur", "Mumbai", "Healthcare", undefined, "SRV Hospital", "Haresh Gidye"),
+  P("SRV Hospital, Goregaon", "Mumbai", "Healthcare", undefined, "SRV Hospital", "Haresh Gidye"),
+  P("CritiCare Hospital, Malad", "Mumbai", "Healthcare", undefined, "CritiCare"),
+  P("KEM Hospital", "Mumbai", "Healthcare", undefined, "KEM Hospital", "SKD", { tags: [GOV], noCover: true }),
   // Institutional & heritage
   P("Delhi Public School", "Rudrapur", "Institutional", 250000, "Delhi Public School", "Finer Edge"),
   P("Delhi Public School", "Mehsana", "Institutional", 200000, "Delhi Public School", "Magic Oxide"),
@@ -152,14 +154,14 @@ export const DEMO_PROJECTS: ProfileProject[] = [
   P("TAGMA", "Pune", "Industrial", 150000, "TAGMA", "Ratan J Batliboi"),
   P("DHL Vikhroli", "Mumbai", "Industrial", 50000, "DHL", "DCH Architects"),
   // Township & bungalows
-  P("Thansit City, Shahpur", "Shahpur", "Township", 2500000, "Mittal Painterior Realty", "Hafeez Contractor", { tags: [MOEF], metric: "31 acres · 4,000 flats" }),
-  P("Thousand Palms, Sancoale", "Goa", "Township", 250000, "Ashoka Realty", "Spectrum", { tags: [MOEF], metric: "10 acres · 12 buildings" }),
-  P("Casa Unico", "Karjat", "Township", 180000, "Landmark Developers", "GA Design", { metric: "13 acres · 17 buildings" }),
-  P("Villa Vaibhav", "Raipur", "Township", 125000, undefined, "Magic Oxide", { metric: "23 villas" }),
-  P("Mandala Alibaug", "Alibaug", "Bungalows", 550000, "Tricone", undefined, { metric: "60 villas" }),
-  P("Pernem 28k", "Goa", "Bungalows", 475000, "Isprava", undefined, { metric: "27 villas" }),
-  P("Pomburpa Villas", "Goa", "Bungalows", 300000, "Isprava", undefined, { metric: "6 villas" }),
-  P("Fern Hills Development", "Ooty", "Bungalows", 150000, undefined, "SPASM Design", { metric: "30 villas" }),
+  P("Thansit City, Shahpur", "Shahpur", "Township", 2500000, "Mittal Painterior Realty", "Hafeez Contractor", { tags: [MOEF] }),
+  P("Thousand Palms, Sancoale", "Goa", "Township", 250000, "Ashoka Realty", "Spectrum", { tags: [MOEF] }),
+  P("Casa Unico", "Karjat", "Township", 180000, "Landmark Developers", "GA Design"),
+  P("Villa Vaibhav", "Raipur", "Township", 125000, undefined, "Magic Oxide"),
+  P("Mandala Alibaug", "Alibaug", "Bungalows", 550000, "Tricone"),
+  P("Pernem 28k", "Goa", "Bungalows", 475000, "Isprava"),
+  P("Pomburpa Villas", "Goa", "Bungalows", 300000, "Isprava"),
+  P("Fern Hills Development", "Ooty", "Bungalows", 150000, undefined, "SPASM Design"),
   P("Private Bungalow", "Nairobi", "Bungalows", 12000, undefined, "KNS", { tags: [INT] }),
   P("Springvale Villa", "Washington", "Bungalows", 10000, undefined, "KNS", { tags: [INT] }),
   // Retail & chains
@@ -234,12 +236,11 @@ export const DEMO_SERVICES: ProfileService[] = [
 
 const DEMO_ORG: OrgProfile = {
   legalName: "WISETECH MEP Consultants Pvt. Ltd.",
-  initials: "WT",
   wordmark: ["WISE", "TECH"],
   tagline: ["Engineering Solutions.", "Building Tomorrow."],
   slogan: "Built on Trust. Driven by Innovation.",
-  edition: "Company Profile · Rev. 28",
   foundedIn: 2005,
+  homeCity: "Mumbai",
   about: [
     "WISETECH MEP Consultants Pvt. Ltd. is a design consulting firm based in Mumbai, India, and a leading services provider in mechanical, electrical, plumbing and fire-fighting design. We focus on continuous improvement, efficient design and value engineering on every project.",
     "We serve offices, IT complexes, campuses & SEZs, high-rise residences and townships, institutional buildings, hotels and hospitals, malls and multiplexes, studios, industries, laboratories and banks, across India and abroad. Through our associates we also offer structural, green building, MOEF and interior design.",
@@ -260,13 +261,13 @@ const DEMO_ORG: OrgProfile = {
   address: "1st Floor, Loonawat Compound, Ghaswala Estate, next to Millat Hospital, SV Road, Jogeshwari (W), Mumbai 400102",
   phone: "+91 22 4673 2679",
   website: "www.wisetech-mep.com",
-  hero: scene("hvac", 999),
+  hero: coverHero,
   site: scene("ceiling", 998),
 }
 
 export const DEMO_DATA: ProfileData = {
   org: DEMO_ORG,
-  totals: { projects: 712, completed: 468, clients: 214, team: 38 },
+  totals: { projects: 668, completed: 468, clients: 214, team: 38, countries: 6, cities: 60, inHomeCity: 512 },
   projects: DEMO_PROJECTS,
   companies: DEMO_COMPANIES,
   services: DEMO_SERVICES,
@@ -283,7 +284,7 @@ const projects = (id: string, facet: "typology" | "tag", value: string, count: n
   facet,
   value,
   projectIds: autoPick(DEMO_PROJECTS, facet, value, count),
-  captions: ["architect", "client", "area", "metric"],
+  captions: ["architect", "client", "area", "status"],
 })
 const topCompanies = (type: (types: string[]) => boolean, k: number) =>
   DEMO_COMPANIES.filter((c) => type(c.types))

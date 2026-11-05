@@ -106,7 +106,7 @@ function itemsFor(s: PickSection, data: ProfileData): { heading: string; items: 
 
 function newProjects(projects: ProfileProject[]): ProjectSection {
   const value = facetValues(projects, "tag")[0]?.name ?? ""
-  return { id: crypto.randomUUID(), kind: "projects", title: value, enabled: true, facet: "tag", value, projectIds: autoPick(projects, "tag", value, MAX_PER_SLIDE), captions: ["architect", "client", "area", "metric"] }
+  return { id: crypto.randomUUID(), kind: "projects", title: value, enabled: true, facet: "tag", value, projectIds: autoPick(projects, "tag", value, MAX_PER_SLIDE), captions: ["architect", "client", "area", "status"] }
 }
 
 function newCompanies(data: ProfileData): CompaniesSection {

@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react"
-import { BadgeCheck, Building2, Cog, Handshake, Lightbulb, ShieldCheck, Users } from "lucide-react"
+import { BadgeCheck, Building, Building2, CalendarDays, Clipboard, Cog, FileCheck, Globe, Handshake, Lightbulb, MapPin, Network, ShieldCheck, Users, type LucideIcon } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
 import { INDIA, WORLD, WORLD_INDIA, type DotGrid } from "./mapGrid"
 import { formatArea, initialsOf, plus, type CaptionField, type Facet, type Group, type Place, type ProfileCompany, type ProfileData, type ProfileProject, type ProfileService } from "./profile"
@@ -73,54 +73,75 @@ function Card({ children, className }: { children: ReactNode; className?: string
 
 const PILLAR_ICONS = [Building2, Cog, Handshake, ShieldCheck]
 
+/** The app's own WT mark: its PWA icon, cropped by the circle to the grey ring. */
+const LOGO = `${import.meta.env.BASE_URL}icons/pwa-512.png`
+
 export function CoverSlide({ data }: { data: ProfileData }) {
-  const { org } = data
+  const { org, totals } = data
   const [tag, tagAccent] = org.tagline
+  const stats: Array<[LucideIcon, ReactNode, string]> = [
+    [Clipboard, plus(totals.projects), "Projects\nTotal"],
+    [FileCheck, plus(totals.completed), "Projects\nCompleted"],
+    [Globe, totals.countries, "Projects in\nCountries"],
+    [MapPin, totals.cities, "Projects in\nCities in India"],
+    [Building, plus(totals.inHomeCity), `Projects in\n${org.homeCity}`],
+    [Users, plus(totals.clients), "Clients"],
+    [CalendarDays, plus(new Date().getFullYear() - org.foundedIn), "Years of\nExperience"],
+    [Network, plus(totals.team), "Team"],
+  ]
   return (
     <Frame footer={false}>
-      <img src={org.hero} alt="" className="absolute top-[16%] left-[10%] h-[72%] w-[52%] object-cover [mask-image:radial-gradient(ellipse_at_center,black_45%,transparent_75%)]" />
-      <div className="relative flex items-center gap-[1.4cqw] p-[3cqw]">
-        <span className="grid size-[7cqw] place-items-center rounded-full border-[0.6cqw] border-slate-400 text-[2.6cqw] font-black italic">
-          <span>
-            <span className="text-[#2b5797]">{org.initials[0]}</span>
-            <span className="text-[#c62828]">{org.initials.slice(1)}</span>
-          </span>
+      <img src={org.hero} alt="" className="absolute top-[3%] left-[13.5%] h-[74%] w-[48%] object-contain object-bottom" />
+      <div className="relative flex items-center gap-[1.7cqw] px-[2.2cqw] pt-[1.5cqw]">
+        <span className="size-[7.3cqw] shrink-0 overflow-hidden rounded-full">
+          <img src={LOGO} alt="" className="size-full scale-150" />
         </span>
         <div>
-          <p className="text-[3.8cqw] leading-none tracking-[0.12em]">
+          <p className="text-[2.7cqw] leading-none [&>span]:tracking-[0.2em]">
             <Wordmark />
           </p>
-          <p className="mt-[0.4cqw] text-[1.25cqw] font-bold tracking-[0.18em] text-slate-500 uppercase">{org.legalName.replace(/^\S+\s/, "")}</p>
+          <p className="mt-[0.6cqw] text-[1.15cqw] font-bold tracking-[0.12em] text-slate-500 uppercase">{org.legalName.replace(/^\S+\s/, "")}</p>
         </div>
       </div>
-      <p className="relative -mt-[1cqw] px-[3cqw] text-[1.9cqw] font-bold text-[#1b2a4e]">
+      <p className="relative mt-[0.4cqw] px-[2.9cqw] text-[1.55cqw] font-bold text-[#1b2a4e]">
         {tag} <span className="text-[#c62828]">{tagAccent}</span>
       </p>
-      <div className="absolute top-[7%] right-[4cqw] w-[32%]">
-        <h3 className="text-[4.6cqw] leading-none font-bold text-[#1b2a4e]">
+      <div className="absolute top-[3.9cqw] right-[3cqw]">
+        <h3 className="text-[3.6cqw] leading-none font-bold whitespace-nowrap text-[#1b2a4e]">
           Company <span className="text-[#c62828]">Profile</span>
         </h3>
-        <span aria-hidden className="mt-[1.2cqw] block h-[0.45cqw] w-[16cqw] bg-[#1b2a4e]" />
-        <ul className="mt-[5cqw] flex flex-col gap-[1.6cqw]">
-          {org.pillars.map((p, i) => {
-            const Icon = PILLAR_ICONS[i % PILLAR_ICONS.length]
-            return (
-              <li key={p.title} className="flex gap-[1.6cqw]">
-                <span className={cn("grid size-[4.4cqw] shrink-0 place-items-center rounded-full text-white [&>svg]:size-[2cqw]", i % 2 ? "bg-[#c62828]" : "bg-[#1b2a4e]")}>
-                  <Icon />
-                </span>
-                <div>
-                  <p className="text-[1.45cqw] font-bold text-[#1b2a4e] uppercase">{p.title}</p>
-                  <p className="text-[1.2cqw] leading-snug text-slate-600">{p.text}</p>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+        <span aria-hidden className="mt-[1.2cqw] ml-[0.8cqw] block h-[0.4cqw] w-[15.6cqw] bg-[#1b2a4e]" />
       </div>
-      <div className="absolute inset-x-0 bottom-0 flex h-[9%] items-end justify-between bg-[#1b2a4e] px-[3cqw] pb-[1.2cqw] text-[1.25cqw] text-white [clip-path:polygon(0_35%,100%_0,100%_100%,0_100%)]">
-        <span>{org.edition}</span>
-        <span className="font-bold">{org.slogan}</span>
+      <ul className="absolute top-[14.8cqw] right-[3cqw] left-[66cqw] flex flex-col gap-[0.6cqw]">
+        {org.pillars.map((p, i) => {
+          const Icon = PILLAR_ICONS[i % PILLAR_ICONS.length]
+          return (
+            <li key={p.title} className="flex gap-[2.3cqw]">
+              <span className={cn("grid size-[4cqw] shrink-0 place-items-center rounded-full text-white [&>svg]:size-[1.8cqw]", i % 2 ? "bg-[#c62828]" : "bg-[#1b2a4e]")}>
+                <Icon />
+              </span>
+              <div>
+                <p className="text-[1.25cqw] font-bold text-[#1b2a4e] uppercase">{p.title}</p>
+                <p className="text-[1.18cqw] leading-[1.6cqw] text-slate-600">{p.text}</p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      <div className="absolute inset-x-0 bottom-0 h-[31.6%] text-white">
+        <svg aria-hidden viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 size-full fill-[#1b2a4e]">
+          <path d="M0 22Q50 6 100 0V100H0Z" />
+        </svg>
+        <p className="absolute top-[2cqw] right-[2.3cqw] text-[1.05cqw] font-bold text-[#e53935]">{org.slogan}</p>
+        <ul className="absolute inset-x-[3cqw] bottom-[0.7cqw] grid grid-cols-8">
+          {stats.map(([Icon, n, label]) => (
+            <li key={label} className="flex flex-col items-center text-center">
+              <Icon aria-hidden strokeWidth={1.25} className="size-[2.6cqw]" />
+              <span className="mt-[1.4cqw] font-[Cambria,Georgia,serif] text-[3.3cqw] leading-none font-bold tabular-nums">{n}</span>
+              <span className="mt-[0.9cqw] min-h-[3.7cqw] text-[1.35cqw] leading-[1.85cqw] whitespace-pre-line">{label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </Frame>
   )
@@ -251,9 +272,9 @@ function ProjectTile({ p, captions, hero }: { p: ProfileProject; captions: Capti
   return (
     <div className="relative size-full min-h-0 overflow-hidden rounded-[0.4cqw] border border-slate-300 bg-slate-100">
       {p.cover && <img src={p.cover} alt="" className="absolute inset-0 size-full object-cover" />}
-      {captions.includes("metric") && p.metric && (
+      {captions.includes("status") && p.status && (
         <span className={cn("absolute top-[0.8cqw] right-[0.8cqw] rounded-full bg-[#1b2a4e]/85 px-[0.9cqw] py-[0.3cqw] font-bold text-white", hero ? "text-[1.2cqw]" : "text-[0.9cqw]")}>
-          {p.metric}
+          {p.status}
         </span>
       )}
       <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-[#1b2a4e] via-[#1b2a4e]/70 to-transparent p-[1cqw] pt-[3cqw] text-white">

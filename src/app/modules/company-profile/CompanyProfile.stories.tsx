@@ -26,10 +26,11 @@ const CLIENT_SLIDES = 4
 const N = 15 + CLIENT_SLIDES
 const COMPANIES = DEMO_DATA.companies.length
 
-/** Cover: brand, tagline, hero image and the four pillars. No numbers here; those live on About us. */
+/** Cover: logo, tagline, hero render, the four pillars and the live totals band (as in Profile.pptx). */
 export const Cover: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByRole('heading', { level: 3, name: 'Company Profile' })).toBeInTheDocument()
+    await expect(within(canvas.getByRole('region', { name: /^1 of/ })).getByText('650+')).toBeInTheDocument()
     await expect(canvas.getByTestId('slide-counter')).toHaveTextContent(`1 / ${N}`)
     await expect(canvas.getByTestId('slide-budget')).toHaveTextContent(`${N} of 20 slides`)
   },
@@ -57,7 +58,7 @@ export const HighRiseProjects: Story = {
 /** A full slide holds 9: one tall hero beside a 4 × 2 grid of portrait tiles. Fewer projects, fewer columns. */
 export const HospitalityProjects: Story = { args: { initialSlideId: 'hospitality' } }
 
-/** A typology section (Healthcare), with beds as the size. */
+/** A typology section (Healthcare). */
 export const HealthcareProjects: Story = { args: { initialSlideId: 'healthcare' } }
 
 /**
