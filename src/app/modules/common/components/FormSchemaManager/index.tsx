@@ -2,7 +2,7 @@ import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui'
 import { useState, useEffect, type CSSProperties } from 'react';
 
 import { v4 as uuidv4 } from 'uuid';
-import { IFormField, IFormSection, FormFieldType } from '@models/company';
+import { IFormField, IFormSection, FormFieldType, BuiltinInputKind } from '@models/company';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
 import { Button } from '@/ds/ui/button';
@@ -68,7 +68,34 @@ function IconBtn({ children, onClick, disabled, title, danger }: { children: Rea
   );
 }
 
-function TypeSelect({ value, onChange, disabled }: { value: FormFieldType; onChange: (v: FormFieldType) => void; disabled?: boolean }) {
+/** How a built-in's bespoke widget reads in the (locked) Input type box. */
+const INPUT_KIND_LABEL: Record<BuiltinInputKind, string> = {
+  text: 'Character (Text)',
+  longText: 'Long text',
+  number: 'Number',
+  phone: 'Phone number',
+  email: 'Email',
+  url: 'Link (URL)',
+  select: 'Dropdown (single)',
+  multiSelect: 'Dropdown (multiple)',
+  toggle: 'Yes / No',
+  date: 'Date',
+  file: 'Document / File',
+  coordinate: 'Coordinate',
+  referenceList: 'Reference list',
+};
+
+function TypeSelect({ value, onChange, disabled, kind }: { value: FormFieldType; onChange: (v: FormFieldType) => void; disabled?: boolean; kind?: BuiltinInputKind }) {
+  // A built-in with its own widget: show what that widget takes, read-only. The custom-field
+  // types below would mislabel it (a phone input is not "Character (Text)").
+  if (disabled && kind) {
+    return (
+      <select value={kind} disabled title="This built-in field uses its own input"
+        style={{ padding: '8px 10px', borderRadius: 8, fontSize: 13, border: `1px solid ${C.line}`, background: C.panel, color: C.inkSoft, cursor: 'not-allowed', outline: 'none', minWidth: 130 }}>
+        <option value={kind}>{INPUT_KIND_LABEL[kind]}</option>
+      </select>
+    );
+  }
   return (
     <select value={value} disabled={disabled} title={disabled ? 'This built-in field uses its own input' : undefined}
       onChange={e => onChange(e.target.value as FormFieldType)}
@@ -124,7 +151,9 @@ function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSect
         )}
         <IconBtn title="Move up" disabled={idx === 0} onClick={() => onMove(-1)}>▲</IconBtn>
         <IconBtn title="Move down" disabled={idx === total - 1} onClick={() => onMove(1)}>▼</IconBtn>
-        <IconBtn title={field.essential ? 'This field is always on the form' : sys ? 'Hide field (its data is kept)' : 'Delete field'} danger disabled={field.essential} onClick={onDelete}>✕</IconBtn>
+        {/* Built-in fields can be renamed, required, reordered and moved — never removed.
+            Only custom fields carry a delete. */}
+        {!sys && <IconBtn title="Delete field" danger onClick={onDelete}>✕</IconBtn>}
       </div>
 
       {/* control row */}
@@ -138,7 +167,7 @@ function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSect
         </div>
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 5, letterSpacing: '.3px' }}>INPUT TYPE</label>
-          <TypeSelect value={field.type} disabled={field.fixedType} onChange={type => onChange({ type })} />
+          <TypeSelect value={field.type} disabled={field.fixedType} kind={field.inputKind} onChange={type => onChange({ type })} />
         </div>
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 7, letterSpacing: '.3px' }}>REQUIRED</label>
@@ -199,13 +228,14 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
 
   const addField = () => active && patchSection({ fields: [...active.fields, emptyField()] });
 
-  // Built-in fields map to real DB columns, so "deleting" one only hides it from the
-  // form (reversible, no data loss). Custom fields have no column → removed outright.
+  // Only CUSTOM fields can be removed. Built-ins map to real columns and stay on the form —
+  // they can be edited, reordered and moved, not deleted (no button is offered; this guard
+  // keeps it that way for any other caller). Built-ins hidden by older configs can still be
+  // restored from the "Hidden fields" list below.
   const removeField = (fid: string) => {
     if (!active) return;
-    const target = active.fields.find(f => f.id === fid);
-    if (target?.isSystem) patchSection({ fields: active.fields.map(f => f.id === fid ? { ...f, hidden: true } : f) });
-    else patchSection({ fields: active.fields.filter(f => f.id !== fid) });
+    if (active.fields.find(f => f.id === fid)?.isSystem) return;
+    patchSection({ fields: active.fields.filter(f => f.id !== fid) });
   };
   const restoreField = (fid: string) =>
     active && patchSection({ fields: active.fields.map(f => f.id === fid ? { ...f, hidden: false } : f) });
@@ -239,8 +269,15 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
     setActiveId(id);
     setTitleError('');
   };
+  // A custom section may hold built-in fields an admin moved there. Deleting the section
+  // removes its custom fields only; the built-ins go back to the first built-in section.
   const deleteSection = (id: string) => {
-    const rest = local.filter(s => s.id !== id);
+    const builtIns = local.find(s => s.id === id)?.fields.filter(f => f.isSystem) ?? [];
+    let rest = local.filter(s => s.id !== id);
+    if (builtIns.length) {
+      const home = rest.find(s => s.isSystem) ?? rest[0];
+      if (home) rest = rest.map(s => (s.id === home.id ? { ...s, fields: [...s.fields, ...builtIns] } : s));
+    }
     setLocal(rest);
     if (activeId === id) setActiveId(rest[rest.length - 1]?.id ?? '');
   };
@@ -397,7 +434,7 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
                   style={{ width: '100%', padding: '12px 16px', borderRadius: 10, fontSize: 16, fontWeight: 700, letterSpacing: '.5px', color: C.brand, border: `1.5px solid ${titleError ? '#F3B4B4' : C.line}`, background: '#fff', outline: 'none' }} />
                 {titleError && <div style={{ fontSize: 12, color: '#D14343', marginTop: 5 }}>{titleError}</div>}
                 <div style={{ fontSize: 11.5, color: C.inkFaint, marginTop: 6 }}>
-                  {active.isSystem ? 'Built-in section — rename freely, fields below can be reordered and customised.' : 'Custom section — fully editable.'}
+                  {active.isSystem ? 'Built-in section — rename freely. Built-in fields can be reordered, moved and customised, but not deleted.' : 'Custom section — fully editable.'}
                 </div>
 
                 {/* Whether this whole section appears on the read-only Organization Info page. */}
