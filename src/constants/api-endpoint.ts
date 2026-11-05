@@ -420,6 +420,7 @@ export const CALENDAR = {
 
 export const FILE = {
     UPLOAD: "api/files/upload",
+    PROJECT_MEDIA: "api/files/project-media",
     LEAD_PO: "api/files/lead-po"
 }
 
