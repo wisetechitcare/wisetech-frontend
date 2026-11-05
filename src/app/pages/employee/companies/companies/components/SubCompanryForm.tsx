@@ -507,6 +507,13 @@ const SubCompanyForm: React.FC<Props> = ({
     }
   };
 
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    const input = document.getElementById("subcompany-logo") as HTMLInputElement | null;
+    if (input) input.value = "";
+  };
+
   // Custom field values live inline on the schema (field.value), like the Company form.
   const updateCustomValue = (sectionId: string, fieldId: string, value: string) => {
     setFormSections((prev) =>
@@ -868,9 +875,14 @@ const SubCompanyForm: React.FC<Props> = ({
                               )}
                             </label>
                             <div className="crm-avatar-actions">
-                              <WtButton inverted onClick={() => document.getElementById("subcompany-logo")?.click()}>
-                                {logoPreview ? "Change logo" : "Upload logo"}
-                              </WtButton>
+                              <Box sx={{ display: "flex", gap: "0.5rem" }}>
+                                <WtButton inverted onClick={() => document.getElementById("subcompany-logo")?.click()}>
+                                  {logoPreview ? "Change logo" : "Upload logo"}
+                                </WtButton>
+                                {logoPreview && (
+                                  <WtButton onClick={handleRemoveLogo}>Cancel</WtButton>
+                                )}
+                              </Box>
                               <span className="crm-avatar-hint">{logoFile?.name || "PNG or JPG · shown on company lists"}</span>
                             </div>
                             {/* Own id: this form opens on top of the company form, which has its own "logo" input. */}

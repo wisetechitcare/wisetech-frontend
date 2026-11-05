@@ -566,8 +566,16 @@ const LocationMarker = React.memo(({
   }
 
   const handleNavigation = () => {
-    if (!entityId) return;
-    if (isProject) navigate(`/projects/${entityId}`);
+    // Sub-company/branch markers are also isCompany; they have no overview of their own,
+    // so they open their parent company's overview on the matching tab.
+    const childTab = loc.entityType === 'branch' ? 'branches'
+      : (loc.entityType === 'sub-company' || loc.entityType === 'subCompany') ? 'subcompanies' : null;
+    if (childTab) {
+      const parentId = item.mainCompanyId || item.companyId || parent?.id;
+      if (parentId) navigate(`/companies/${parentId}/${childTab}`);
+    } else if (!entityId) {
+      return;
+    } else if (isProject) navigate(`/projects/${entityId}`);
     else if (isCompany) navigate(`/companies/${entityId}`);
     else if (isContact) navigate(`/contacts/${entityId}`);
   };

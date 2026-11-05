@@ -711,6 +711,13 @@ const NewCompanyForm: React.FC<Props> = ({
     }
   };
 
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    const input = document.getElementById("logo") as HTMLInputElement | null;
+    if (input) input.value = "";
+  };
+
   // ── Per-company custom sections/fields ────────────────────────────────────────
   // Custom field values live inline on the schema (field.value), exactly like the
   // Organisation edit form. File fields upload immediately and store the returned URL.
@@ -1521,12 +1528,19 @@ const NewCompanyForm: React.FC<Props> = ({
                             )}
                           </label>
                           <div className="crm-avatar-actions">
-                            <Button
-                              variant="outline"
-                              onClick={() => document.getElementById("logo")?.click()}
-                            >
-                              {logoPreview ? "Change logo" : "Upload logo"}
-                            </Button>
+                            <Box sx={{ display: "flex", gap: "0.5rem" }}>
+                              <Button
+                                variant="outline"
+                                onClick={() => document.getElementById("logo")?.click()}
+                              >
+                                {logoPreview ? "Change logo" : "Upload logo"}
+                              </Button>
+                              {logoPreview && (
+                                <Button variant="outline" onClick={handleRemoveLogo}>
+                                  Cancel
+                                </Button>
+                              )}
+                            </Box>
                             <span className="crm-avatar-hint">
                               {logoFile?.name || "PNG or JPG · shown on company lists"}
                             </span>
