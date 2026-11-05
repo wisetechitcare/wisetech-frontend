@@ -68,6 +68,31 @@ export const deleteCompanyMeetingPurpose = async (purposeId: string) => {
   return data;
 };
 
+export interface MomRegisterRow {
+  id: string;
+  meetingId: string;
+  meetingTitle: string;
+  meetingDate: string;
+  /** The meeting's place among the project's live meetings, oldest = 1. */
+  momNo: number;
+  purpose: string | null;
+  description: string;
+  note: string | null;
+  assignee: string | null;
+  status: string;
+  /** Name and colour from Meetings → Configure → Agenda statuses. */
+  statusLabel: string;
+  statusColor: string | null;
+  openDate: string;
+  closeDate: string | null;
+}
+
+/** Every MoM line across a project's meetings. */
+export const getProjectMomRegister = async (projectId: string): Promise<MomRegisterRow[]> => {
+  const { data } = await axios.get(`${meetingsRoot}/project-mom-register`, { params: { projectId } });
+  return data?.rows ?? [];
+};
+
 export const getMeetingDetail = async (meetingId: string) => {
   const { data } = await axios.get(`${base(meetingId)}/detail`);
   return data;
@@ -132,6 +157,12 @@ export const getMeetingMinutes = async (meetingId: string) => {
 
 export const createMeetingMinutesDraft = async (meetingId: string) => {
   const { data } = await axios.post(`${base(meetingId)}/minutes/draft`);
+  return data;
+};
+
+/** Freeze the current MoM as history and open the next revision (R00 → R01). */
+export const reviseMeetingMinutes = async (meetingId: string) => {
+  const { data } = await axios.post(`${base(meetingId)}/minutes/revise`);
   return data;
 };
 

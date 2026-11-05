@@ -9,6 +9,7 @@ import MeetingDialog from '@app/pages/employee/MeetingDialog';
 // screen you started from.
 import NewTimeLogForm from '@app/pages/employee/timesheet/employeetimesheet/component/NewTimeLogForm';
 import MeetingRemindersDialog from '@app/pages/employee/MeetingRemindersDialog';
+import ProjectMomRegister from './ProjectMomRegister';
 import { setMeetingCancelled, updateMeeting } from '@services/employee';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { showDialog } from '@app/modules/common/components/ui';
@@ -130,6 +131,9 @@ const ProjectMeetings: React.FC<Props> = ({ leadId, leadName, contact }) => {
                 onLogTime={(m) => setLogging(m)}
                 onRemind={(m) => setReminding(m)}
             />
+
+            {/* Project tab only — a contact's meetings span projects, so a per-project MoM count means nothing there. */}
+            {leadId && <ProjectMomRegister projectId={leadId} reloadToken={reloadToken} canEdit={canWrite} />}
 
             <NewTimeLogForm
                 key={logging?.id ?? 'none'}
