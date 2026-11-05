@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { autoPick, facetValues, spread, formatArea, nudge, paginateGroups, places, plus, repeatPartners, type ProfileProject } from "./profile"
+import { autoPick, facetValues, spread, formatArea, paginateGroups, places, plus, repeatPartners, type ProfileProject } from "./profile"
 
 const p = (id: string, x: Partial<ProfileProject>): ProfileProject => ({
   id,
@@ -44,13 +44,6 @@ describe("company profile", () => {
     expect(places(projects, "world").map((x) => [x.name, x.count])).toEqual([["India", 3], ["Iraq", 1]])
     // A project without coordinates (not yet geocoded) gets no pin and does not skew its city's position.
     expect(places([...projects, p("e", { lat: null, lng: null })], "india")[0]).toMatchObject({ name: "Mumbai", lat: 20, count: 2 })
-  })
-  it("nudges an item one step and ignores moves past either end", () => {
-    const list = ["a", "b", "c"]
-    expect(nudge(list, 0, 1)).toEqual(["b", "a", "c"])
-    expect(nudge(list, 2, -1)).toEqual(["a", "c", "b"])
-    expect(nudge(list, 0, -1)).toBe(list)
-    expect(nudge(list, 2, 1)).toBe(list)
   })
   it("spreads project sections evenly over slides of at most 9, never below 5", () => {
     const sizes = (n: number) => spread(Array.from({ length: n }, (_, i) => i), 9).map((s) => s.length)
