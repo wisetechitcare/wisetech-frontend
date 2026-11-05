@@ -749,7 +749,9 @@ const EmployeeListContent = () => {
           // The animation is on the GRID, not per card: one compositor layer that
           // cannot judder, instead of 25 staggered ones that fill in patches. A CSS
           // animation only replays on mount, hence `gridKey`.
-          <AutoGrid key={gridKey} min={320} gap={14} sx={riseInSx()}>
+          // `stretch`: cards share the full width — capped at 400px they left a column-sized
+          // empty strip on the right of wide screens.
+          <AutoGrid key={gridKey} min={320} gap={14} stretch sx={riseInSx()}>
             {displayedEmployees.map((employee: any) => (
               <EmployeeCard
                 key={employee.id}

@@ -1,9 +1,9 @@
 import { apiErrorMessage } from '@utils/apiError';
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -12,7 +12,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { WtButton, WtSwitch } from '@app/modules/common/components/ui';
+import { WtSwitch } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
+import { Skeleton } from '@/ds/ui/skeleton';
 import {
   ConfigSectionCard,
   ConfigColorChip,
@@ -55,7 +57,7 @@ function byNameAz<T extends { name: string }>(rows: T[]): T[] {
 /**
  * Meetings → Configure: calendar appearance, agenda statuses, purposes.
  */
-export default function MeetingsConfigureTab() {
+function MeetingsConfigureTab() {
   const [statuses, setStatuses] = useState<any[]>([]);
   const [purposes, setPurposes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -198,7 +200,10 @@ export default function MeetingsConfigureTab() {
       </Box>
 
       {loading ? (
-        <CircularProgress size={24} />
+        <Stack spacing={2.5}>
+          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-32 w-full rounded-xl" />
+        </Stack>
       ) : (
         <Stack spacing={2.5}>
           <ConfigSectionCard
@@ -342,12 +347,12 @@ export default function MeetingsConfigureTab() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <WtButton ghost disabled={busy} onClick={() => setCreateKind(null)}>
+          <Button variant="outline" type="button" disabled={busy} onClick={() => setCreateKind(null)}>
             Cancel
-          </WtButton>
-          <WtButton size="small" disabled={busy || !createName.trim()} onClick={createItem}>
+          </Button>
+          <Button size="sm" type="button" loading={busy} disabled={!createName.trim()} onClick={createItem}>
             Add
-          </WtButton>
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -395,14 +400,16 @@ export default function MeetingsConfigureTab() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <WtButton ghost disabled={busy} onClick={() => setEdit(null)}>
+          <Button variant="outline" type="button" disabled={busy} onClick={() => setEdit(null)}>
             Cancel
-          </WtButton>
-          <WtButton size="small" disabled={busy || !editName.trim()} onClick={saveEdit}>
+          </Button>
+          <Button size="sm" type="button" loading={busy} disabled={!editName.trim()} onClick={saveEdit}>
             Save
-          </WtButton>
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
 }
+
+export default withDeleteSection('meetings', MeetingsConfigureTab);

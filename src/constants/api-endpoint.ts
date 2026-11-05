@@ -420,6 +420,7 @@ export const CALENDAR = {
 
 export const FILE = {
     UPLOAD: "api/files/upload",
+    PROJECT_MEDIA: "api/files/project-media",
     LEAD_PO: "api/files/lead-po"
 }
 
@@ -496,6 +497,7 @@ export const ROLES = {
     ADD_EMPLOYEE_TO_ROLE: "api/roles/:id/employees",
     REMOVE_EMPLOYEE_FROM_ROLE: "api/roles/:id/employees/:employeeId",
     GET_ROLE_ACCESS: "api/roles/:id/access",
+    GET_ROLE_OVERRIDES: "api/roles/:id/overrides",
     SET_ROLE_SECTION_ACCESS: "api/roles/:id/access/section",
     SET_ROLE_TAB_ACCESS: "api/roles/:id/access/tab",
 }

@@ -1,6 +1,7 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import ExportButton from "@app/modules/common/components/ExportButton";
-import TimePeriodSelector, { TimePeriodMode } from "@app/modules/common/components/TimePeriodSelector";
+import TimePeriodSelector from "@app/modules/common/components/TimePeriodSelector";
+import { PeriodMode } from "@/constants/common";
 import {
   Box,
   useTheme,
@@ -10,7 +11,10 @@ import {
 } from "@mui/material";
 import { getRowBackgroundColor } from "@app/modules/common/design-tokens";
 import { getAllLeadsComplete } from "@services/leads";
-import { saveLeadPeriodPreference, getLeadPeriodPreference } from "@services/users";
+import {
+  saveLeadPeriodPreference,
+  getLeadPeriodPreference,
+} from "@services/users";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { useNavigate } from "react-router-dom";
@@ -56,30 +60,21 @@ import {
   matchesView,
   projectNumberOf,
 } from "./entityUtils";
-import { currencyPrefix } from '@utils/currency';
-import { canViewCommercial } from '@utils/can';
-import { ToneChip } from '@app/modules/common/components/ui';
+import { currencyPrefix } from "@utils/currency";
+import { canViewCommercial } from "@utils/can";
+import { StatusPill, ToneChip } from "@app/modules/common/components/ui";
 
 // Money columns and the section whose commercial flag lets them show.
-const MONEY_COLUMN_SECTION: Record<string, 'crm.leads' | 'projects'> = {
-  totalCost: 'crm.leads',
-  projectCost: 'projects',
-  projectRate: 'projects',
+const MONEY_COLUMN_SECTION: Record<string, "crm.leads" | "projects"> = {
+  totalCost: "crm.leads",
+  projectCost: "projects",
+  projectRate: "projects",
 };
-const moneyAllowed = (key: string) => !MONEY_COLUMN_SECTION[key] || canViewCommercial(MONEY_COLUMN_SECTION[key]);
+const moneyAllowed = (key: string) =>
+  !MONEY_COLUMN_SECTION[key] || canViewCommercial(MONEY_COLUMN_SECTION[key]);
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
-
-// ─── Types ─────────────────────────────────────────────────────────────────────
-
-type DateMode =
-  | "daily"
-  | "weekly"
-  | "monthly"
-  | "yearly"
-  | "allyear"
-  | "custom";
 
 /**
  * Drill-down props are a superset of the old LeadNewLead + ProjectsMainTable
@@ -140,30 +135,53 @@ const NavigationButtons: React.FC<{
   displayText: string;
   isMobile?: boolean;
 }> = ({ onPrev, onNext, displayText, isMobile }) => (
-  <div style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: isMobile ? "space-between" : "center",
-    background: "#fff",
-    border: "1px solid #E2E8F0",
-    borderRadius: "6px",
-    height: "32px",
-    padding: "0 8px",
-    boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
-    gap: "6px",
-    width: isMobile ? "100%" : "auto"
-  }}>
-    <Button variant="ghost" size="icon-xs" onClick={onPrev} aria-label="Previous">
-      <img src={toAbsoluteUrl("media/svg/misc/back.svg")} alt="Previous" style={{ width: "12px", height: "12px" }} />
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: isMobile ? "space-between" : "center",
+      background: "#fff",
+      border: "1px solid #E2E8F0",
+      borderRadius: "6px",
+      height: "32px",
+      padding: "0 8px",
+      boxShadow: "0 1px 2px rgba(16, 24, 40, 0.05)",
+      gap: "6px",
+      width: isMobile ? "100%" : "auto",
+    }}
+  >
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      onClick={onPrev}
+      aria-label="Previous"
+    >
+      <img
+        src={toAbsoluteUrl("media/svg/misc/back.svg")}
+        alt="Previous"
+        style={{ width: "12px", height: "12px" }}
+      />
     </Button>
     <span
       className="mx-2"
-      style={{ fontSize: "12px", fontFamily: "Inter, sans-serif", fontWeight: 600, color: "#1E293B", whiteSpace: "nowrap", textAlign: "center", flex: isMobile ? 1 : "none" }}
+      style={{
+        fontSize: "12px",
+        fontFamily: "Inter, sans-serif",
+        fontWeight: 600,
+        color: "#1E293B",
+        whiteSpace: "nowrap",
+        textAlign: "center",
+        flex: isMobile ? 1 : "none",
+      }}
     >
       {displayText}
     </span>
     <Button variant="ghost" size="icon-xs" onClick={onNext} aria-label="Next">
-      <img src={toAbsoluteUrl("media/svg/misc/next.svg")} alt="Next" style={{ width: "12px", height: "12px" }} />
+      <img
+        src={toAbsoluteUrl("media/svg/misc/next.svg")}
+        alt="Next"
+        style={{ width: "12px", height: "12px" }}
+      />
     </Button>
   </div>
 );
@@ -190,7 +208,9 @@ const dimensionIds = (
 
 const StageBadge: React.FC<{ row: any }> = ({ row }) => {
   const phase = row.entityPhase as keyof typeof PHASE_THEMES;
-  const t = row.isProject ? PHASE_THEMES[phase] ?? PHASE_THEMES.ongoing : PHASE_THEMES.none;
+  const t = row.isProject
+    ? (PHASE_THEMES[phase] ?? PHASE_THEMES.ongoing)
+    : PHASE_THEMES.none;
   return (
     <span
       style={{
@@ -207,9 +227,19 @@ const StageBadge: React.FC<{ row: any }> = ({ row }) => {
         whiteSpace: "nowrap",
       }}
     >
-      <span style={{ width: 6, height: 6, borderRadius: "50%", background: t.fg, display: "inline-block" }} />
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: t.fg,
+          display: "inline-block",
+        }}
+      />
       {row.isProject ? `Project · ${t.label}` : "Lead"}
-      {row.isProject && row.isDelayed && <span title="Past expected closure">⚠</span>}
+      {row.isProject && row.isDelayed && (
+        <span title="Past expected closure">⚠</span>
+      )}
     </span>
   );
 };
@@ -278,7 +308,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const visibleColumnsRef = useRef<string[] | null>(null);
   const lastFieldsKeyRef = useRef<string | null>(null);
   const firstVisibilityEmissionRef = useRef(true);
-  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   // True once the first fetch settles. Background refetches (event bus, column
   // visibility changes) must NOT swap the table for the full-page loader:
   // unmounting MaterialTable resets its preference state, and the remount
@@ -288,22 +320,26 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   // Clean up refetch timer on unmount
   useEffect(() => {
     return () => {
-      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      if (columnsRefetchTimerRef.current)
+        clearTimeout(columnsRefetchTimerRef.current);
     };
   }, []);
 
   // ── Date mode ────────────────────────────────────────────────────────────────
-  const [alignment, setAlignment] = useState<DateMode>("monthly");
+  const [alignment, setAlignment] = useState<PeriodMode>(PeriodMode.MONTHLY);
   const [searchText, setSearchText] = useState("");
 
   const [day, setDay] = useState<Dayjs>(today);
   const [weekStart, setWeekStart] = useState<Dayjs>(() => {
     const dow = today.day();
-    return dow === 0 ? today.subtract(6, "day") : today.subtract(dow - 1, "day");
+    return dow === 0
+      ? today.subtract(6, "day")
+      : today.subtract(dow - 1, "day");
   });
   const [weekEnd, setWeekEnd] = useState<Dayjs>(() => {
     const dow = today.day();
-    const ws = dow === 0 ? today.subtract(6, "day") : today.subtract(dow - 1, "day");
+    const ws =
+      dow === 0 ? today.subtract(6, "day") : today.subtract(dow - 1, "day");
     return ws.add(6, "day");
   });
   const [monthStart, setMonthStart] = useState<Dayjs>(today.startOf("month"));
@@ -311,8 +347,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const [yearStart, setYearStart] = useState<Dayjs | null>(null);
   const [yearEnd, setYearEnd] = useState<Dayjs | null>(null);
   const [fiscalYearDisplay, setFiscalYearDisplay] = useState("");
-  const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(undefined);
-  const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(undefined);
+  const [customStartDate, setCustomStartDate] = useState<Dayjs | undefined>(
+    undefined,
+  );
+  const [customEndDate, setCustomEndDate] = useState<Dayjs | undefined>(
+    undefined,
+  );
 
   // ── Quick filters ─────────────────────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -322,7 +362,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const [projectManagerFilter, setProjectManagerFilter] = useState<string>("");
 
   // ── Redux ────────────────────────────────────────────────────────────────────
-  const allemployees = useSelector((state: RootState) => state.allEmployees?.list);
+  const allemployees = useSelector(
+    (state: RootState) => state.allEmployees?.list,
+  );
   const currentEmployeeId = useSelector(
     (state: RootState) => state.employee?.currentEmployee?.id,
   );
@@ -330,13 +372,20 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const NA_OPTION = { employeeId: "__NA__", employeeName: "N/A", avatar: "" };
 
   const assignedEmployeesFromLeads = useMemo(() => {
-    const assignedIds = new Set(tableData.map((l: any) => l.assignedTo).filter(Boolean));
-    const matched = (allemployees || []).filter((e: any) => assignedIds.has(e.employeeId));
+    const assignedIds = new Set(
+      tableData.map((l: any) => l.assignedTo).filter(Boolean),
+    );
+    const matched = (allemployees || []).filter((e: any) =>
+      assignedIds.has(e.employeeId),
+    );
     return [...matched]
       .sort((a: any, b: any) => a.employeeName.localeCompare(b.employeeName))
       .map((e: any) => ({
         ...e,
-        displayName: e.isActive === false ? `${e.employeeName} (Inactive)` : e.employeeName,
+        displayName:
+          e.isActive === false
+            ? `${e.employeeName} (Inactive)`
+            : e.employeeName,
         isInactive: e.isActive === false,
       }));
   }, [tableData, allemployees]);
@@ -347,14 +396,20 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   );
 
   const assignedToOptions = useMemo(
-    () => (hasUnassignedLeads ? [NA_OPTION, ...assignedEmployeesFromLeads] : assignedEmployeesFromLeads),
+    () =>
+      hasUnassignedLeads
+        ? [NA_OPTION, ...assignedEmployeesFromLeads]
+        : assignedEmployeesFromLeads,
     [hasUnassignedLeads, assignedEmployeesFromLeads],
   );
 
   // Every manager id on a row (roster first, primary-only as fallback).
   const rowManagerIds = useCallback(
     (row: any): string[] =>
-      (row?.projectManagerIds?.length ? row.projectManagerIds : [row?.projectManagerId]).filter(Boolean),
+      (row?.projectManagerIds?.length
+        ? row.projectManagerIds
+        : [row?.projectManagerId]
+      ).filter(Boolean),
     [],
   );
 
@@ -362,7 +417,10 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const pmNames = useCallback(
     (row: any): string =>
       rowManagerIds(row)
-        .map((id: string) => allemployees?.find((e: any) => e.employeeId === id)?.employeeName)
+        .map(
+          (id: string) =>
+            allemployees?.find((e: any) => e.employeeId === id)?.employeeName,
+        )
         .filter(Boolean)
         .join(", "),
     [allemployees, rowManagerIds],
@@ -374,7 +432,11 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     const pmIds = new Set<string>(
       tableData
         .filter((l: any) => l.isProject)
-        .flatMap((l: any) => (l.projectManagerIds?.length ? l.projectManagerIds : [l.projectManagerId]))
+        .flatMap((l: any) =>
+          l.projectManagerIds?.length
+            ? l.projectManagerIds
+            : [l.projectManagerId],
+        )
         .filter(Boolean),
     );
     return (allemployees || [])
@@ -386,7 +448,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   useEffect(() => {
     async function initFiscalYear() {
       try {
-        const { startDate: sd, endDate: ed } = await generateFiscalYearFromGivenYear(today);
+        const { startDate: sd, endDate: ed } =
+          await generateFiscalYearFromGivenYear(today);
         const fs = dayjs(sd);
         const fe = dayjs(ed);
         setYearStart(fs);
@@ -406,7 +469,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
 
   // ── Navigation handlers ──────────────────────────────────────────────────────
   const navigateDay = useCallback((dir: "prev" | "next") => {
-    setDay((prev) => (dir === "prev" ? prev.subtract(1, "day") : prev.add(1, "day")));
+    setDay((prev) =>
+      dir === "prev" ? prev.subtract(1, "day") : prev.add(1, "day"),
+    );
   }, []);
 
   const navigateWeek = useCallback((dir: "prev" | "next") => {
@@ -431,7 +496,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     async (dir: "prev" | "next") => {
       const base = (yearStart ?? today).add(dir === "prev" ? -1 : 1, "year");
       try {
-        const { startDate: sd, endDate: ed } = await generateFiscalYearFromGivenYear(base);
+        const { startDate: sd, endDate: ed } =
+          await generateFiscalYearFromGivenYear(base);
         const fs = dayjs(sd);
         const fe = dayjs(ed);
         setYearStart(fs);
@@ -454,7 +520,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     newVal: string,
   ) => {
     if (!newVal) return;
-    const mode = newVal as DateMode;
+    const mode = newVal as PeriodMode;
     setAlignment(mode);
     localStorage.setItem("leadPeriodPreference", mode);
     try {
@@ -466,19 +532,24 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
 
   useEffect(() => {
     const loadPreference = async () => {
-      const localPref = localStorage.getItem("leadPeriodPreference") as DateMode | null;
+      const localPref = localStorage.getItem(
+        "leadPeriodPreference",
+      ) as PeriodMode | null;
       if (localPref) {
         setAlignment(localPref);
       }
       try {
         const res = await getLeadPeriodPreference();
-        const redisPref = res?.data?.period as DateMode | null;
-        if (redisPref && ["daily", "weekly", "monthly", "yearly", "allyear", "custom"].includes(redisPref)) {
+        const redisPref = res?.data?.period as PeriodMode | null;
+        if (redisPref && Object.values(PeriodMode).includes(redisPref)) {
           setAlignment(redisPref);
           localStorage.setItem("leadPeriodPreference", redisPref);
         }
       } catch (err) {
-        console.warn("Failed to fetch period preference from Redis, using local storage/default:", err);
+        console.warn(
+          "Failed to fetch period preference from Redis, using local storage/default:",
+          err,
+        );
       }
     };
     loadPreference();
@@ -518,18 +589,28 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   );
 
   // ── Data fetch ───────────────────────────────────────────────────────────────
-  const fetchAllData = useCallback(async (fields?: string[]) => {
-    try {
-      setLoading(true);
-      // Full set — table filters & paginates client-side; default 50-row page
-      // would otherwise truncate the unified entity list. On a drill-down we force
-      // the FULL (non-sparse) fetch so every filter field is present on each row.
-      const leadsResponse = await getAllLeadsComplete(isDrillDown ? undefined : fields, entityScope === "project" || receivedOnly ? "projects" : undefined);
-      const leadsData = leadsResponse?.data?.data?.leads || [];
-      setRawLeadsDatas(leadsData);
+  const fetchAllData = useCallback(
+    async (fields?: string[]) => {
+      try {
+        setLoading(true);
+        // Full set — table filters & paginates client-side; default 50-row page
+        // would otherwise truncate the unified entity list. On a drill-down we force
+        // the FULL (non-sparse) fetch so every filter field is present on each row.
+        const leadsResponse = await getAllLeadsComplete(
+          isDrillDown ? undefined : fields,
+          entityScope === "project" || receivedOnly ? "projects" : undefined,
+        );
+        const leadsData = leadsResponse?.data?.data?.leads || [];
+        setRawLeadsDatas(leadsData);
 
-      const [servicesRes, subcatRes, catRes, statusRes, projStatusRes, countriesData] =
-        await Promise.all([
+        const [
+          servicesRes,
+          subcatRes,
+          catRes,
+          statusRes,
+          projStatusRes,
+          countriesData,
+        ] = await Promise.all([
           getAllProjectServices(),
           getAllProjectSubcategories(),
           getAllProjectCategories(),
@@ -537,211 +618,249 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           getAllProjectStatuses().catch(() => null),
           fetchAllCountries(),
         ]);
-      setProjectServices(servicesRes?.services || []);
-      setProjectSubcategories(subcatRes?.projectSubCategories || []);
-      setProjectCategories(catRes?.projectCategories || []);
-      setLeadStatuses(statusRes?.leadStatuses || []);
-      setProjectStatuses(
-        projStatusRes?.projectStatuses ||
-        projStatusRes?.data?.projectStatuses ||
-        projStatusRes?.data?.data?.projectStatuses ||
-        [],
-      );
+        setProjectServices(servicesRes?.services || []);
+        setProjectSubcategories(subcatRes?.projectSubCategories || []);
+        setProjectCategories(catRes?.projectCategories || []);
+        setLeadStatuses(statusRes?.leadStatuses || []);
+        setProjectStatuses(
+          projStatusRes?.projectStatuses ||
+            projStatusRes?.data?.projectStatuses ||
+            projStatusRes?.data?.data?.projectStatuses ||
+            [],
+        );
 
-      if (leadsData.length > 0) {
-        const uniqueCountryIds = new Set<any>();
-        const uniqueStateIds = new Map<any, Set<any>>();
-        const uniqueCityIds = new Map<any, Set<any>>();
+        if (leadsData.length > 0) {
+          const uniqueCountryIds = new Set<any>();
+          const uniqueStateIds = new Map<any, Set<any>>();
+          const uniqueCityIds = new Map<any, Set<any>>();
 
-        leadsData.forEach((lead: any) => {
-          if (lead?.additionalDetails?.country) {
-            uniqueCountryIds.add(lead.additionalDetails.country);
-            if (lead?.additionalDetails?.state) {
-              if (!uniqueStateIds.has(lead.additionalDetails.country))
-                uniqueStateIds.set(lead.additionalDetails.country, new Set());
-              uniqueStateIds.get(lead.additionalDetails.country)!.add(lead.additionalDetails.state);
-              if (lead?.additionalDetails?.city) {
-                if (!uniqueCityIds.has(lead.additionalDetails.state))
-                  uniqueCityIds.set(lead.additionalDetails.state, new Set());
-                uniqueCityIds.get(lead.additionalDetails.state)!.add(lead.additionalDetails.city);
+          leadsData.forEach((lead: any) => {
+            if (lead?.additionalDetails?.country) {
+              uniqueCountryIds.add(lead.additionalDetails.country);
+              if (lead?.additionalDetails?.state) {
+                if (!uniqueStateIds.has(lead.additionalDetails.country))
+                  uniqueStateIds.set(lead.additionalDetails.country, new Set());
+                uniqueStateIds
+                  .get(lead.additionalDetails.country)!
+                  .add(lead.additionalDetails.state);
+                if (lead?.additionalDetails?.city) {
+                  if (!uniqueCityIds.has(lead.additionalDetails.state))
+                    uniqueCityIds.set(lead.additionalDetails.state, new Set());
+                  uniqueCityIds
+                    .get(lead.additionalDetails.state)!
+                    .add(lead.additionalDetails.city);
+                }
               }
             }
-          }
-        });
+          });
 
-        const countriesMap = new Map<string, any>();
-        const statesMap = new Map<string, any>();
-        const citiesMap = new Map<string, any>();
-        (countriesData || []).forEach((c: any) => countriesMap.set(c.id.toString(), c));
+          const countriesMap = new Map<string, any>();
+          const statesMap = new Map<string, any>();
+          const citiesMap = new Map<string, any>();
+          (countriesData || []).forEach((c: any) =>
+            countriesMap.set(c.id.toString(), c),
+          );
 
-        const statesResults = await Promise.all(
-          [...uniqueCountryIds].map((cid) => {
-            const c = countriesMap.get(String(cid));
-            return c?.iso2 ? fetchAllStates(c.iso2) : Promise.resolve([]);
-          }),
-        );
-        let allStates: any[] = [];
-        statesResults.forEach((r) => {
-          if (Array.isArray(r)) allStates = [...allStates, ...r];
-        });
-        allStates.forEach((s) => statesMap.set(s.id.toString(), s));
+          const statesResults = await Promise.all(
+            [...uniqueCountryIds].map((cid) => {
+              const c = countriesMap.get(String(cid));
+              return c?.iso2 ? fetchAllStates(c.iso2) : Promise.resolve([]);
+            }),
+          );
+          let allStates: any[] = [];
+          statesResults.forEach((r) => {
+            if (Array.isArray(r)) allStates = [...allStates, ...r];
+          });
+          allStates.forEach((s) => statesMap.set(s.id.toString(), s));
 
-        const stateToCountry = new Map<string, string>();
-        for (const [cid, sids] of uniqueStateIds.entries())
-          for (const sid of sids) stateToCountry.set(String(sid), String(cid));
+          const stateToCountry = new Map<string, string>();
+          for (const [cid, sids] of uniqueStateIds.entries())
+            for (const sid of sids)
+              stateToCountry.set(String(sid), String(cid));
 
-        const citiesResults = await Promise.all(
-          [...uniqueCityIds.keys()].map((sid) => {
-            const s = statesMap.get(String(sid));
-            const cid = stateToCountry.get(String(sid));
-            const c = cid ? countriesMap.get(cid) : null;
-            return s?.iso2 && c?.iso2 ? fetchAllCities(c.iso2, s.iso2) : Promise.resolve([]);
-          }),
-        );
-        let allCities: any[] = [];
-        citiesResults.forEach((r) => {
-          if (Array.isArray(r)) allCities = [...allCities, ...r];
-        });
-        allCities.forEach((c) => citiesMap.set(c.id.toString(), c));
+          const citiesResults = await Promise.all(
+            [...uniqueCityIds.keys()].map((sid) => {
+              const s = statesMap.get(String(sid));
+              const cid = stateToCountry.get(String(sid));
+              const c = cid ? countriesMap.get(cid) : null;
+              return s?.iso2 && c?.iso2
+                ? fetchAllCities(c.iso2, s.iso2)
+                : Promise.resolve([]);
+            }),
+          );
+          let allCities: any[] = [];
+          citiesResults.forEach((r) => {
+            if (Array.isArray(r)) allCities = [...allCities, ...r];
+          });
+          allCities.forEach((c) => citiesMap.set(c.id.toString(), c));
 
-        const transformedLeads = leadsData.map((lead: any) => {
-          const project = lead?.project || null;
-          const exec = lead?.execution || null;
-          const isProject = isProjectEntity(lead);
-          const s = (lead?.startDate || project?.startDate) ? new Date(lead?.startDate || project.startDate) : null;
-          // Timeline should reflect the REAL span once a project is done, so it
-          // prefers actualEndDate (set via Project Status → Completed) over the
-          // planned endDate — unlike the "Expected Closure" column below, which
-          // intentionally stays the planned date.
-          const durationEnd = lead?.actualEndDate || lead?.endDate || project?.endDate;
-          const e = durationEnd ? new Date(durationEnd) : null;
-          const duration =
-            s && e
-              ? `${Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))} days`
-              : "N/A";
-          const countryId = lead?.additionalDetails?.country || "";
-          const stateId = lead?.additionalDetails?.state || "";
-          const cityId = lead?.additionalDetails?.city || "";
-          const commercialsTotal =
-            Array.isArray(lead.commercials) && lead.commercials.length > 0
-              ? lead.commercials.reduce(
-                (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
-                0,
-              )
-              : 0;
+          const transformedLeads = leadsData.map((lead: any) => {
+            const project = lead?.project || null;
+            const exec = lead?.execution || null;
+            const isProject = isProjectEntity(lead);
+            const s =
+              lead?.startDate || project?.startDate
+                ? new Date(lead?.startDate || project.startDate)
+                : null;
+            // Timeline should reflect the REAL span once a project is done, so it
+            // prefers actualEndDate (set via Project Status → Completed) over the
+            // planned endDate — unlike the "Expected Closure" column below, which
+            // intentionally stays the planned date.
+            const durationEnd =
+              lead?.actualEndDate || lead?.endDate || project?.endDate;
+            const e = durationEnd ? new Date(durationEnd) : null;
+            const duration =
+              s && e
+                ? `${Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24))} days`
+                : "N/A";
+            const countryId = lead?.additionalDetails?.country || "";
+            const stateId = lead?.additionalDetails?.state || "";
+            const cityId = lead?.additionalDetails?.city || "";
+            const commercialsTotal =
+              Array.isArray(lead.commercials) && lead.commercials.length > 0
+                ? lead.commercials.reduce(
+                    (acc: number, c: any) => acc + (parseFloat(c.cost) || 0),
+                    0,
+                  )
+                : 0;
 
-          return {
-            id: lead.id,
-            prefix: lead?.prefix || "",
-            projectName: lead.title || "",
-            totalCost: commercialsTotal || lead.budget || 0,
-            client:
-              lead?.company?.companyName ||
-              lead?.leadTeams?.[0]?.company?.companyName ||
-              "",
-            // Display scalars — primary field for sort/filter; columns render *Ids lists below.
-            service: lead?.projectServiceId || "",
-            category: lead?.projectCategoryId || "",
-            subCategory: lead?.projectSubCategoryId || "",
-            // Drill-down matching sets. A lead can carry MANY services/categories/
-            // sub-categories via the join tables, so the chart counts it once per
-            // join row (getLeadsBy*Analytics). These mirror that rule exactly —
-            // join rows when present, else the scalar, else empty (the "__NA__"
-            // bucket) — so the drill-down count always equals the bar it came from.
-            serviceIds: dimensionIds(lead?.projectServiceId, lead?.services, (r: any) => r?.serviceId),
-            categoryIds: dimensionIds(lead?.projectCategoryId, lead?.leadCategories, (r: any) => r?.category?.id),
-            subCategoryIds: dimensionIds(lead?.projectSubCategoryId, lead?.leadSubCategories, (r: any) => r?.subcategory?.id),
-            status: lead?.status || null,
-            poStatus: lead?.poStatus || null,
-            assignedTo: lead?.assignedToId || "",
-            inquiryDate: lead.inquiryDate || "",
-            startDate: lead?.startDate || project?.startDate || "",
-            endDate: lead?.endDate || "",
-            duration,
-            contact: lead?.contact?.fullName || lead?.leadTeams?.[0]?.contact?.fullName || "",
-            createdAt: lead?.createdAt || "",
-            createdBy: lead?.createdById || "",
-            updatedBy: lead?.updatedById || "",
-            updatedAt: lead?.updatedAt || "",
-            country: countriesMap.get(String(countryId))?.name || String(countryId),
-            countryId,
-            city: citiesMap.get(String(cityId))?.name || String(cityId),
-            cityId,
-            state: statesMap.get(String(stateId))?.name || String(stateId),
-            stateId,
-            // Raw locality name (no master table) — drives the Locality drill-down
-            // filter, which matches the chart's raw-name bars 1:1.
-            locality: lead?.additionalDetails?.locality || "",
-            // Area home order: summed commercial work-areas first, then the
-            // technical-spec areas (built-up → plot), so a record with
-            // specs but no commercial rows still shows its area instead of blank.
-            area:
-              (Array.isArray(lead.commercials) && lead.commercials.length > 0
-                ? lead.commercials.reduce((acc: number, c: any) => acc + (parseFloat(c.area) || 0), 0)
-                : 0) ||
-              parseFloat(lead?.additionalDetails?.builtUpArea) ||
-              parseFloat(lead?.additionalDetails?.plotArea) ||
-              "",
-            cost: commercialsTotal,
-            companyId: lead.companyId || "",
-            branchId: lead.branchId || "",
-            description: lead.description || "",
-            priority: lead.priority || "",
-            budget: commercialsTotal || lead.budget || "",
-            rate: lead.rate || "",
-            leadSource: lead.source?.name || lead.sourceId || lead?.leadSource || "",
-            referrals: lead.referrals || [],
-            companyType: lead.company?.companyTypeId || "",
-            receivedDate: lead?.receivedDate || "",
+            return {
+              id: lead.id,
+              prefix: lead?.prefix || "",
+              projectName: lead.title || "",
+              totalCost: commercialsTotal || lead.budget || 0,
+              client:
+                lead?.company?.companyName ||
+                lead?.leadTeams?.[0]?.company?.companyName ||
+                "",
+              // Display scalars — primary field for sort/filter; columns render *Ids lists below.
+              service: lead?.projectServiceId || "",
+              category: lead?.projectCategoryId || "",
+              subCategory: lead?.projectSubCategoryId || "",
+              // Drill-down matching sets. A lead can carry MANY services/categories/
+              // sub-categories via the join tables, so the chart counts it once per
+              // join row (getLeadsBy*Analytics). These mirror that rule exactly —
+              // join rows when present, else the scalar, else empty (the "__NA__"
+              // bucket) — so the drill-down count always equals the bar it came from.
+              serviceIds: dimensionIds(
+                lead?.projectServiceId,
+                lead?.services,
+                (r: any) => r?.serviceId,
+              ),
+              categoryIds: dimensionIds(
+                lead?.projectCategoryId,
+                lead?.leadCategories,
+                (r: any) => r?.category?.id,
+              ),
+              subCategoryIds: dimensionIds(
+                lead?.projectSubCategoryId,
+                lead?.leadSubCategories,
+                (r: any) => r?.subcategory?.id,
+              ),
+              status: lead?.status || null,
+              poStatus: lead?.poStatus || null,
+              assignedTo: lead?.assignedToId || "",
+              inquiryDate: lead.inquiryDate || "",
+              startDate: lead?.startDate || project?.startDate || "",
+              endDate: lead?.endDate || "",
+              duration,
+              contact:
+                lead?.contact?.fullName ||
+                lead?.leadTeams?.[0]?.contact?.fullName ||
+                "",
+              createdAt: lead?.createdAt || "",
+              createdBy: lead?.createdById || "",
+              updatedBy: lead?.updatedById || "",
+              updatedAt: lead?.updatedAt || "",
+              country:
+                countriesMap.get(String(countryId))?.name || String(countryId),
+              countryId,
+              city: citiesMap.get(String(cityId))?.name || String(cityId),
+              cityId,
+              state: statesMap.get(String(stateId))?.name || String(stateId),
+              stateId,
+              // Raw locality name (no master table) — drives the Locality drill-down
+              // filter, which matches the chart's raw-name bars 1:1.
+              locality: lead?.additionalDetails?.locality || "",
+              // Area home order: summed commercial work-areas first, then the
+              // technical-spec areas (built-up → plot), so a record with
+              // specs but no commercial rows still shows its area instead of blank.
+              area:
+                (Array.isArray(lead.commercials) && lead.commercials.length > 0
+                  ? lead.commercials.reduce(
+                      (acc: number, c: any) => acc + (parseFloat(c.area) || 0),
+                      0,
+                    )
+                  : 0) ||
+                parseFloat(lead?.additionalDetails?.builtUpArea) ||
+                parseFloat(lead?.additionalDetails?.plotArea) ||
+                "",
+              cost: commercialsTotal,
+              companyId: lead.companyId || "",
+              branchId: lead.branchId || "",
+              description: lead.description || "",
+              priority: lead.priority || "",
+              budget: commercialsTotal || lead.budget || "",
+              rate: lead.rate || "",
+              leadSource:
+                lead.source?.name || lead.sourceId || lead?.leadSource || "",
+              referrals: lead.referrals || [],
+              companyType: lead.company?.companyTypeId || "",
+              receivedDate: lead?.receivedDate || "",
 
-            // ── Unified-entity (project) fields ───────────────────────────────
-            isProject,
-            entityPhase: getProjectPhase(lead),
-            isDelayed: isDelayedProject(lead),
-            // Lead-as-master: project-only fields live on the 1:1 execution
-            // extension + lead scalars now; the legacy `project` row is a fallback.
-            projectId: lead?.projectId || project?.id || "",
-            projectPrefix: projectNumberOf(lead) || "",
-            projectStatus: exec?.projectStatus || project?.status || null,
-            projectStartDate: lead?.startDate || project?.startDate || "",
-            projectEndDate: lead?.endDate || project?.endDate || "",
-            // A project can have several managers. `projectManagerIds` is the full
-            // roster (primary first); `projectManagerId` stays as the primary alone
-            // so anything still reading a single id keeps working.
-            projectManagerIds: projectManagerIds(lead).length
-              ? projectManagerIds(lead)
-              : (project?.projectManagerId ? [String(project.projectManagerId)] : []),
-            projectManagerId: exec?.projectManagerId || project?.projectManagerId || "",
-            projectTeamName: exec?.team?.name || project?.team?.name || "",
-            // Internal (execution) team id — drives the "Projects by Internal Team" drill-down.
-            executionTeamId: exec?.teamId || project?.teamId || "",
-            projectTeams: project?.projectTeams || [],
-            projectCompanyMappings: project?.projectCompanyMappings || [],
-            // External roster (project_external_teams) — drives the "Projects by
-            // External Team" drill-down (company type / company / contact + NA).
-            externalTeams: lead?.projectExternalTeams || [],
-            projectCost: commercialsTotal,
-            projectRate: parseFloat(exec?.rate ?? project?.rate) || 0,
-            projectServiceId: project?.serviceId || "",
-            projectCategoryId: project?.projectCategoryId || "",
-            projectCountry: project?.country || "",
-            projectState: project?.state || "",
-            projectCity: project?.city || "",
-            projectIsLive: exec?.isLive ?? project?.isLive ?? false,
-          };
-        });
+              // ── Unified-entity (project) fields ───────────────────────────────
+              isProject,
+              entityPhase: getProjectPhase(lead),
+              isDelayed: isDelayedProject(lead),
+              // Lead-as-master: project-only fields live on the 1:1 execution
+              // extension + lead scalars now; the legacy `project` row is a fallback.
+              projectId: lead?.projectId || project?.id || "",
+              projectPrefix: projectNumberOf(lead) || "",
+              projectStatus: exec?.projectStatus || project?.status || null,
+              projectStartDate: lead?.startDate || project?.startDate || "",
+              projectEndDate: lead?.endDate || project?.endDate || "",
+              // A project can have several managers. `projectManagerIds` is the full
+              // roster (primary first); `projectManagerId` stays as the primary alone
+              // so anything still reading a single id keeps working.
+              projectManagerIds: projectManagerIds(lead).length
+                ? projectManagerIds(lead)
+                : project?.projectManagerId
+                  ? [String(project.projectManagerId)]
+                  : [],
+              projectManagerId:
+                exec?.projectManagerId || project?.projectManagerId || "",
+              projectTeamName: exec?.team?.name || project?.team?.name || "",
+              // Internal (execution) team id — drives the "Projects by Internal Team" drill-down.
+              executionTeamId: exec?.teamId || project?.teamId || "",
+              projectTeams: project?.projectTeams || [],
+              projectCompanyMappings: project?.projectCompanyMappings || [],
+              // External roster (project_external_teams) — drives the "Projects by
+              // External Team" drill-down (company type / company / contact + NA).
+              externalTeams: lead?.projectExternalTeams || [],
+              projectCost: commercialsTotal,
+              projectRate: parseFloat(exec?.rate ?? project?.rate) || 0,
+              projectServiceId: project?.serviceId || "",
+              projectCategoryId: project?.projectCategoryId || "",
+              projectCountry: project?.country || "",
+              projectState: project?.state || "",
+              projectCity: project?.city || "",
+              projectIsLive: exec?.isLive ?? project?.isLive ?? false,
+            };
+          });
 
-        setTableData(transformedLeads);
-      } else {
-        setTableData([]);
+          setTableData(transformedLeads);
+        } else {
+          setTableData([]);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        hasLoadedOnceRef.current = true;
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      hasLoadedOnceRef.current = true;
-      setLoading(false);
-    }
-  }, [isDrillDown, entityScope, receivedOnly]);
+    },
+    [isDrillDown, entityScope, receivedOnly],
+  );
 
   const handleVisibleColumnsChange = useCallback(
     (keys: string[]) => {
@@ -763,7 +882,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       lastFieldsKeyRef.current = key;
 
       // Debounce refetch
-      if (columnsRefetchTimerRef.current) clearTimeout(columnsRefetchTimerRef.current);
+      if (columnsRefetchTimerRef.current)
+        clearTimeout(columnsRefetchTimerRef.current);
       columnsRefetchTimerRef.current = setTimeout(() => {
         fetchAllData(keys);
       }, 500);
@@ -786,7 +906,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   useEventBus(EVENT_KEYS.projectUpdated, () => fetchAllData());
   useEventBus(EVENT_KEYS.chartSettingsUpdated, () => fetchAllData());
 
-  const projectColumnsActive = isProjectView(view) || (isDrillDown && entityScope === "project");
+  const projectColumnsActive =
+    isProjectView(view) || (isDrillDown && entityScope === "project");
 
   // ── Drill-down curated columns ────────────────────────────────────────────────
   // A chart drill-down shows a LEAN, scope-aware column set (mirrors the Leads /
@@ -818,8 +939,24 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     () =>
       new Set<string>([
         ...(drillScopeProject
-          ? ["projectPrefix", "projectName", "client", "projectStatus", "projectStartDate", "projectCost", "projectManagerId"]
-          : ["inquiryDate", "prefix", "projectName", "client", "status", "totalCost", "assignedTo"]),
+          ? [
+              "projectPrefix",
+              "projectName",
+              "client",
+              "projectStatus",
+              "projectStartDate",
+              "projectCost",
+              "projectManagerId",
+            ]
+          : [
+              "inquiryDate",
+              "prefix",
+              "projectName",
+              "client",
+              "status",
+              "totalCost",
+              "assignedTo",
+            ]),
         ...(drillContextKey ? [drillContextKey] : []),
       ]),
     [drillScopeProject, drillContextKey],
@@ -848,7 +985,14 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         minSize: 220,
         enableEditing: false,
         Cell: ({ row }: { row: any }) => (
-          <span className="cursor-pointer" style={{ fontWeight: "600", fontSize: "14.5px", whiteSpace: "nowrap" }}>
+          <span
+            className="cursor-pointer"
+            style={{
+              fontWeight: "600",
+              fontSize: "14.5px",
+              whiteSpace: "nowrap",
+            }}
+          >
             {row?.original?.prefix || "N/A"}
           </span>
         ),
@@ -872,13 +1016,15 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       // always single-scope too, so it's excluded there as well.
       ...(view === "all" && !isDrillDown
         ? [
-          {
-            accessorKey: "isProject",
-            header: "Stage",
-            size: 170,
-            Cell: ({ row }: { row: any }) => <StageBadge row={row.original} />,
-          },
-        ]
+            {
+              accessorKey: "isProject",
+              header: "Stage",
+              size: 170,
+              Cell: ({ row }: { row: any }) => (
+                <StageBadge row={row.original} />
+              ),
+            },
+          ]
         : []),
       {
         accessorKey: "totalCost",
@@ -886,7 +1032,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         size: 120,
         Cell: ({ cell }: { cell: any }) => {
           const v = cell.getValue();
-          return v !== undefined ? `${currencyPrefix()}${Number(v).toLocaleString()}` : `${currencyPrefix()}0`;
+          return v !== undefined
+            ? `${currencyPrefix()}${Number(v).toLocaleString()}`
+            : `${currencyPrefix()}0`;
         },
       },
       {
@@ -904,7 +1052,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         size: 150,
         Cell: ({ cell }: { cell: any }) => {
           const v = cell.getValue();
-          return typeof v === "object" ? v.name || v.email || "N/A" : v || "N/A";
+          return typeof v === "object"
+            ? v.name || v.email || "N/A"
+            : v || "N/A";
         },
       },
       {
@@ -912,12 +1062,25 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         header: "Service",
         size: 150,
         accessorFn: (row: any) => {
-          const ids: string[] = row.serviceIds?.length ? row.serviceIds : row.service ? [row.service] : [];
-          return ids.map((id) => projectServices?.find((s: any) => s.id === id)?.name).filter(Boolean).join(", ");
+          const ids: string[] = row.serviceIds?.length
+            ? row.serviceIds
+            : row.service
+              ? [row.service]
+              : [];
+          return ids
+            .map((id) => projectServices?.find((s: any) => s.id === id)?.name)
+            .filter(Boolean)
+            .join(", ");
         },
         Cell: ({ row }: { row: any }) => {
-          const ids: string[] = row.original?.serviceIds?.length ? row.original.serviceIds : row.original?.service ? [row.original.service] : [];
-          const names = ids.map((id) => projectServices?.find((s: any) => s.id === id)?.name).filter(Boolean);
+          const ids: string[] = row.original?.serviceIds?.length
+            ? row.original.serviceIds
+            : row.original?.service
+              ? [row.original.service]
+              : [];
+          const names = ids
+            .map((id) => projectServices?.find((s: any) => s.id === id)?.name)
+            .filter(Boolean);
           return names.length ? names.join(", ") : "N/A";
         },
       },
@@ -927,12 +1090,25 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         size: 150,
         // All-Columns / Category search must match display names (e.g. "MOEF"), not UUIDs.
         accessorFn: (row: any) => {
-          const ids: string[] = row.categoryIds?.length ? row.categoryIds : row.category ? [row.category] : [];
-          return ids.map((id) => projectCategories?.find((c: any) => c.id === id)?.name).filter(Boolean).join(", ");
+          const ids: string[] = row.categoryIds?.length
+            ? row.categoryIds
+            : row.category
+              ? [row.category]
+              : [];
+          return ids
+            .map((id) => projectCategories?.find((c: any) => c.id === id)?.name)
+            .filter(Boolean)
+            .join(", ");
         },
         Cell: ({ row }: { row: any }) => {
-          const ids: string[] = row.original?.categoryIds?.length ? row.original.categoryIds : row.original?.category ? [row.original.category] : [];
-          const names = ids.map((id) => projectCategories?.find((c: any) => c.id === id)?.name).filter(Boolean);
+          const ids: string[] = row.original?.categoryIds?.length
+            ? row.original.categoryIds
+            : row.original?.category
+              ? [row.original.category]
+              : [];
+          const names = ids
+            .map((id) => projectCategories?.find((c: any) => c.id === id)?.name)
+            .filter(Boolean);
           return names.length ? names.join(", ") : "N/A";
         },
       },
@@ -941,183 +1117,233 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         header: "Sub Category",
         size: 150,
         accessorFn: (row: any) => {
-          const ids: string[] = row.subCategoryIds?.length ? row.subCategoryIds : row.subCategory ? [row.subCategory] : [];
-          return ids.map((id) => projectSubcategories?.find((s: any) => s.id === id)?.name).filter(Boolean).join(", ");
+          const ids: string[] = row.subCategoryIds?.length
+            ? row.subCategoryIds
+            : row.subCategory
+              ? [row.subCategory]
+              : [];
+          return ids
+            .map(
+              (id) => projectSubcategories?.find((s: any) => s.id === id)?.name,
+            )
+            .filter(Boolean)
+            .join(", ");
         },
         Cell: ({ row }: { row: any }) => {
-          const ids: string[] = row.original?.subCategoryIds?.length ? row.original.subCategoryIds : row.original?.subCategory ? [row.original.subCategory] : [];
-          const names = ids.map((id) => projectSubcategories?.find((s: any) => s.id === id)?.name).filter(Boolean);
+          const ids: string[] = row.original?.subCategoryIds?.length
+            ? row.original.subCategoryIds
+            : row.original?.subCategory
+              ? [row.original.subCategory]
+              : [];
+          const names = ids
+            .map(
+              (id) => projectSubcategories?.find((s: any) => s.id === id)?.name,
+            )
+            .filter(Boolean);
           return names.length ? names.join(", ") : "N/A";
         },
       },
       // Hide Lead Status column when viewing team projects (only show project details)
-      ...(teamId ? [] : [{
-        accessorKey: "status",
-        header: "Lead Status",
-        size: 130,
-        accessorFn: (row: any) => row?.status?.name || "",
-        Cell: ({ row }: any) => {
-          const st = row?.original?.status;
-          return st?.name ? (
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              backgroundColor: st.color || '#64748B',
-              borderRadius: '6px', padding: '4px 10px 4px 8px',
-            }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fff' }} />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{st.name}</span>
-            </div>
-          ) : (
-            "N/A"
-          );
-        },
-      }]),
+      ...(teamId
+        ? []
+        : [
+            {
+              accessorKey: "status",
+              header: "Lead Status",
+              size: 130,
+              accessorFn: (row: any) => row?.status?.name || "",
+              Cell: ({ row }: any) => {
+                const st = row?.original?.status;
+                // Kit's StatusPill — same badge as the MoM register's status.
+                return st?.name ? <StatusPill label={st.name} color={st.color} /> : "N/A";
+              },
+            },
+          ]),
       // Hide Assigned To when viewing team projects (only show project details)
-      ...(teamId ? [] : [{
-        accessorKey: "assignedTo",
-        header: "Assigned To",
-        size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          allemployees?.find((e: any) => e.employeeId === cell.getValue())?.employeeName || "N/A",
-      }]),
+      ...(teamId
+        ? []
+        : [
+            {
+              accessorKey: "assignedTo",
+              header: "Assigned To",
+              size: 150,
+              Cell: ({ cell }: { cell: any }) =>
+                allemployees?.find((e: any) => e.employeeId === cell.getValue())
+                  ?.employeeName || "N/A",
+            },
+          ]),
     ];
 
     // Lead-pipeline-only columns: hidden in project views to avoid clutter.
     const leadOnly: any[] = projectColumnsActive
       ? []
       : [
-        {
-          accessorKey: "receivedDate",
-          header: "Received Date",
-          size: 150,
-          sortingFn: dateSortingFn,
-          Cell: ({ cell }: { cell: any }) => {
-            const v = cell.getValue();
-            return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+          {
+            accessorKey: "receivedDate",
+            header: "Received Date",
+            size: 150,
+            sortingFn: dateSortingFn,
+            Cell: ({ cell }: { cell: any }) => {
+              const v = cell.getValue();
+              return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+            },
           },
-        },
-        {
-          accessorKey: "poStatus",
-          header: "PO Status",
-          size: 130,
-          Cell: ({ row }: any) => {
-            const poStatus = row?.original?.poStatus;
-            if (!row?.original?.isProject || !poStatus) return <span>N/A</span>;
-            return (
-              <ToneChip
-                dense
-                tone={poStatus === "Received" ? "success" : "warning"}
-                label={poStatus}
-                solid={poStatus === "Received"}
-              />
-            );
+          {
+            accessorKey: "poStatus",
+            header: "PO Status",
+            size: 130,
+            Cell: ({ row }: any) => {
+              const poStatus = row?.original?.poStatus;
+              if (!row?.original?.isProject || !poStatus)
+                return <span>N/A</span>;
+              return (
+                <ToneChip
+                  dense
+                  tone={poStatus === "Received" ? "success" : "warning"}
+                  label={poStatus}
+                  solid={poStatus === "Received"}
+                />
+              );
+            },
           },
-        },
-        {
-          accessorKey: "leadSource",
-          header: "Source",
-          size: 140,
-          Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-        },
-      ];
+          {
+            accessorKey: "leadSource",
+            header: "Source",
+            size: 140,
+            Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+          },
+        ];
 
     // Project columns: revealed only when the active view contains projects.
     const projectCols: any[] = projectColumnsActive
       ? [
-        {
-          accessorKey: "projectPrefix",
-          header: "Project Number",
-          size: 220,
-          Cell: ({ row }: { row: any }) => (
-            <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
-              {row.original.projectPrefix || "N/A"}
-            </span>
-          ),
-        },
-        {
-          accessorKey: "projectStatus",
-          header: "Project Status",
-          size: 150,
-          Cell: ({ row }: any) => {
-            const st = row?.original?.projectStatus;
-            return st?.name ? (
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: '6px',
-                backgroundColor: st.color || '#64748B',
-                borderRadius: '6px', padding: '4px 10px 4px 8px',
-              }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fff' }} />
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#fff' }}>{st.name}</span>
-              </div>
-            ) : (
-              "N/A"
-            );
-          },
-        },
-        {
-          accessorKey: "projectStartDate",
-          header: "Start Date",
-          size: 140,
-          sortingFn: dateSortingFn,
-          Cell: ({ cell }: { cell: any }) => {
-            const v = cell.getValue();
-            return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
-          },
-        },
-        {
-          accessorKey: "projectEndDate",
-          header: "Expected Closure",
-          size: 150,
-          sortingFn: dateSortingFn,
-          Cell: ({ row }: { row: any }) => {
-            const v = row.original.projectEndDate;
-            if (!v) return "N/A";
-            return (
-              <span style={{ color: row.original.isDelayed ? "#D92D20" : undefined, fontWeight: row.original.isDelayed ? 600 : undefined }}>
-                {dayjs(v).format("DD-MM-YYYY")}
-                {row.original.isDelayed ? " ⚠" : ""}
+          {
+            accessorKey: "projectPrefix",
+            header: "Project Number",
+            size: 220,
+            Cell: ({ row }: { row: any }) => (
+              <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
+                {row.original.projectPrefix || "N/A"}
               </span>
-            );
+            ),
           },
-        },
-        {
-          accessorKey: "projectManagerId",
-          header: "Project Manager",
-          size: 160,
-          // Sort/group on the resolved names so the column orders alphabetically
-          // rather than by the raw manager UUIDs.
-          accessorFn: (row: any) => pmNames(row) || "",
-          Cell: ({ row }: { row: any }) => pmNames(row.original) || "N/A",
-        },
-        // Hide Team column when viewing team projects
-        ...(teamId ? [] : [{
-          accessorKey: "projectTeamName",
-          header: "Team",
-          size: 140,
-          Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-        }]),
-        // Hide Project Cost column when viewing team projects
-        ...(teamId ? [] : [{
-          accessorKey: "projectCost",
-          header: "Project Cost",
-          size: 130,
-          Cell: ({ cell }: { cell: any }) =>
-            cell.getValue() ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}` : `${currencyPrefix()}0`,
-        }]),
-        {
-          accessorKey: "projectRate",
-          header: "Rate",
-          size: 110,
-          Cell: ({ cell }: { cell: any }) =>
-            cell.getValue() ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}` : "N/A",
-        },
-        {
-          accessorKey: "duration",
-          header: "Timeline",
-          size: 120,
-          Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
-        },
-      ]
+          {
+            accessorKey: "projectStatus",
+            header: "Project Status",
+            size: 150,
+            Cell: ({ row }: any) => {
+              const st = row?.original?.projectStatus;
+              return st?.name ? (
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    backgroundColor: st.color || "#64748B",
+                    borderRadius: "6px",
+                    padding: "4px 10px 4px 8px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      backgroundColor: "#fff",
+                    }}
+                  />
+                  <span
+                    style={{ fontSize: "12px", fontWeight: 600, color: "#fff" }}
+                  >
+                    {st.name}
+                  </span>
+                </div>
+              ) : (
+                "N/A"
+              );
+            },
+          },
+          {
+            accessorKey: "projectStartDate",
+            header: "Start Date",
+            size: 140,
+            sortingFn: dateSortingFn,
+            Cell: ({ cell }: { cell: any }) => {
+              const v = cell.getValue();
+              return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+            },
+          },
+          {
+            accessorKey: "projectEndDate",
+            header: "Expected Closure",
+            size: 150,
+            sortingFn: dateSortingFn,
+            Cell: ({ row }: { row: any }) => {
+              const v = row.original.projectEndDate;
+              if (!v) return "N/A";
+              return (
+                <span
+                  style={{
+                    color: row.original.isDelayed ? "#D92D20" : undefined,
+                    fontWeight: row.original.isDelayed ? 600 : undefined,
+                  }}
+                >
+                  {dayjs(v).format("DD-MM-YYYY")}
+                  {row.original.isDelayed ? " ⚠" : ""}
+                </span>
+              );
+            },
+          },
+          {
+            accessorKey: "projectManagerId",
+            header: "Project Manager",
+            size: 160,
+            // Sort/group on the resolved names so the column orders alphabetically
+            // rather than by the raw manager UUIDs.
+            accessorFn: (row: any) => pmNames(row) || "",
+            Cell: ({ row }: { row: any }) => pmNames(row.original) || "N/A",
+          },
+          // Hide Team column when viewing team projects
+          ...(teamId
+            ? []
+            : [
+                {
+                  accessorKey: "projectTeamName",
+                  header: "Team",
+                  size: 140,
+                  Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+                },
+              ]),
+          // Hide Project Cost column when viewing team projects
+          ...(teamId
+            ? []
+            : [
+                {
+                  accessorKey: "projectCost",
+                  header: "Project Cost",
+                  size: 130,
+                  Cell: ({ cell }: { cell: any }) =>
+                    cell.getValue()
+                      ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}`
+                      : `${currencyPrefix()}0`,
+                },
+              ]),
+          {
+            accessorKey: "projectRate",
+            header: "Rate",
+            size: 110,
+            Cell: ({ cell }: { cell: any }) =>
+              cell.getValue()
+                ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}`
+                : "N/A",
+          },
+          {
+            accessorKey: "duration",
+            header: "Timeline",
+            size: 120,
+            Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+          },
+        ]
       : [];
 
     const tail: any[] = [
@@ -1161,7 +1387,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       },
     ];
 
-    const assembled = [...base, ...leadOnly, ...projectCols, ...tail].filter((col: any) => moneyAllowed(col.accessorKey));
+    const assembled = [...base, ...leadOnly, ...projectCols, ...tail].filter(
+      (col: any) => moneyAllowed(col.accessorKey),
+    );
 
     // Full-page table: every column visible by default (user toggles via the menu).
     // Drill-down: only the curated base + the drilled dimension's context column are
@@ -1181,59 +1409,183 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
 
     return assembled.map((col: any) => ({
       ...col,
-      meta: { ...(col.meta || {}), defaultVisible: essentialDrillColumns.has(col.accessorKey) },
+      meta: {
+        ...(col.meta || {}),
+        defaultVisible: essentialDrillColumns.has(col.accessorKey),
+      },
     }));
-  }, [view, projectColumnsActive, isDrillDown, drillVisibleKeys, projectServices, projectCategories, projectSubcategories, allemployees, rawLeadsDatas]);
+  }, [
+    view,
+    projectColumnsActive,
+    isDrillDown,
+    drillVisibleKeys,
+    projectServices,
+    projectCategories,
+    projectSubcategories,
+    allemployees,
+    rawLeadsDatas,
+  ]);
 
   // ── Export columns (adapt to view) ───────────────────────────────────────────
   const exportColumns = useMemo(() => {
     const base = [
-      { key: 'inquiryDate', header: 'Inquiry Date', type: 'text' as const },
-      { key: 'prefix', header: 'Inquiry ID', type: 'text' as const },
-      { key: 'projectName', header: 'Name', type: 'text' as const },
-      { meta: { defaultVisible: false }, key: 'totalCost', header: 'Total Cost', type: 'currency' as const, showTotal: true },
-      { meta: { defaultVisible: false }, key: 'client', header: 'Client', type: 'text' as const },
-      { meta: { defaultVisible: false }, key: 'contact', header: 'Contact', type: 'text' as const },
-      { meta: { defaultVisible: false }, key: 'service', header: 'Service', type: 'text' as const },
-      { meta: { defaultVisible: false }, key: 'category', header: 'Category', type: 'text' as const },
-      { meta: { defaultVisible: false }, key: 'subCategory', header: 'Sub Category', type: 'text' as const },
+      { key: "inquiryDate", header: "Inquiry Date", type: "text" as const },
+      { key: "prefix", header: "Inquiry ID", type: "text" as const },
+      { key: "projectName", header: "Name", type: "text" as const },
       {
-        key: 'status', header: 'Lead Status', type: 'text' as const,
-        format: (val: any) => val?.name || String(val || ''),
+        meta: { defaultVisible: false },
+        key: "totalCost",
+        header: "Total Cost",
+        type: "currency" as const,
+        showTotal: true,
       },
-      { key: 'assignedTo', header: 'Assigned To', type: 'text' as const },
+      {
+        meta: { defaultVisible: false },
+        key: "client",
+        header: "Client",
+        type: "text" as const,
+      },
+      {
+        meta: { defaultVisible: false },
+        key: "contact",
+        header: "Contact",
+        type: "text" as const,
+      },
+      {
+        meta: { defaultVisible: false },
+        key: "service",
+        header: "Service",
+        type: "text" as const,
+      },
+      {
+        meta: { defaultVisible: false },
+        key: "category",
+        header: "Category",
+        type: "text" as const,
+      },
+      {
+        meta: { defaultVisible: false },
+        key: "subCategory",
+        header: "Sub Category",
+        type: "text" as const,
+      },
+      {
+        key: "status",
+        header: "Lead Status",
+        type: "text" as const,
+        format: (val: any) => val?.name || String(val || ""),
+      },
+      { key: "assignedTo", header: "Assigned To", type: "text" as const },
     ];
     const projectPart = projectColumnsActive
       ? [
-        { meta: { defaultVisible: false }, key: 'projectPrefix', header: 'Project Number', type: 'text' as const },
-        {
-          key: 'projectStatus', header: 'Project Status', type: 'text' as const,
-          format: (val: any) => val?.name || String(val || ''),
-        },
-        { meta: { defaultVisible: false }, key: 'projectStartDate', header: 'Start Date', type: 'text' as const },
-        { meta: { defaultVisible: false }, key: 'projectEndDate', header: 'Expected Closure', type: 'text' as const },
-        { meta: { defaultVisible: false }, key: 'projectCost', header: 'Project Cost', type: 'currency' as const, showTotal: true },
-        { meta: { defaultVisible: false }, key: 'projectRate', header: 'Rate', type: 'currency' as const },
-        // Export the resolved manager names (all of them), not the raw ids.
-        {
-          meta: { defaultVisible: false }, key: 'projectManagerIds', header: 'Project Manager', type: 'text' as const,
-          format: (_val: any, row: any) => pmNames(row),
-        },
-        { meta: { defaultVisible: false }, key: 'projectTeamName', header: 'Team', type: 'text' as const },
-      ]
+          {
+            meta: { defaultVisible: false },
+            key: "projectPrefix",
+            header: "Project Number",
+            type: "text" as const,
+          },
+          {
+            key: "projectStatus",
+            header: "Project Status",
+            type: "text" as const,
+            format: (val: any) => val?.name || String(val || ""),
+          },
+          {
+            meta: { defaultVisible: false },
+            key: "projectStartDate",
+            header: "Start Date",
+            type: "text" as const,
+          },
+          {
+            meta: { defaultVisible: false },
+            key: "projectEndDate",
+            header: "Expected Closure",
+            type: "text" as const,
+          },
+          {
+            meta: { defaultVisible: false },
+            key: "projectCost",
+            header: "Project Cost",
+            type: "currency" as const,
+            showTotal: true,
+          },
+          {
+            meta: { defaultVisible: false },
+            key: "projectRate",
+            header: "Rate",
+            type: "currency" as const,
+          },
+          // Export the resolved manager names (all of them), not the raw ids.
+          {
+            meta: { defaultVisible: false },
+            key: "projectManagerIds",
+            header: "Project Manager",
+            type: "text" as const,
+            format: (_val: any, row: any) => pmNames(row),
+          },
+          {
+            meta: { defaultVisible: false },
+            key: "projectTeamName",
+            header: "Team",
+            type: "text" as const,
+          },
+        ]
       : [
-        { meta: { defaultVisible: false }, key: 'receivedDate', header: 'Received Date', type: 'text' as const },
-        { meta: { defaultVisible: false }, key: 'poStatus', header: 'PO Status', type: 'text' as const },
-        { meta: { defaultVisible: false }, key: 'leadSource', header: 'Source', type: 'text' as const },
-      ];
+          {
+            meta: { defaultVisible: false },
+            key: "receivedDate",
+            header: "Received Date",
+            type: "text" as const,
+          },
+          {
+            meta: { defaultVisible: false },
+            key: "poStatus",
+            header: "PO Status",
+            type: "text" as const,
+          },
+          {
+            meta: { defaultVisible: false },
+            key: "leadSource",
+            header: "Source",
+            type: "text" as const,
+          },
+        ];
     const tail = [
-      { meta: { defaultVisible: false }, key: 'country', header: 'Country', type: 'text' as const },
-      { meta: { defaultVisible: false }, key: 'state', header: 'State', type: 'text' as const },
-      { meta: { defaultVisible: false }, key: 'city', header: 'City', type: 'text' as const },
-      { meta: { defaultVisible: false }, key: 'area', header: 'Area', type: 'text' as const },
-      { meta: { defaultVisible: false }, key: 'createdAt', header: 'Created Date', type: 'text' as const },
+      {
+        meta: { defaultVisible: false },
+        key: "country",
+        header: "Country",
+        type: "text" as const,
+      },
+      {
+        meta: { defaultVisible: false },
+        key: "state",
+        header: "State",
+        type: "text" as const,
+      },
+      {
+        meta: { defaultVisible: false },
+        key: "city",
+        header: "City",
+        type: "text" as const,
+      },
+      {
+        meta: { defaultVisible: false },
+        key: "area",
+        header: "Area",
+        type: "text" as const,
+      },
+      {
+        meta: { defaultVisible: false },
+        key: "createdAt",
+        header: "Created Date",
+        type: "text" as const,
+      },
     ];
-    return [...base, ...projectPart, ...tail].filter((col) => moneyAllowed(col.key));
+    return [...base, ...projectPart, ...tail].filter((col) =>
+      moneyAllowed(col.key),
+    );
   }, [projectColumnsActive]);
 
   // Full-page loader only for the very first load; background refetches keep
@@ -1292,24 +1644,32 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     if (statusId)
       rows = rows?.filter((item: any) =>
         statusId === NA
-          ? (scopeProject ? !item.projectStatus?.id : !item.status?.id)
-          : (scopeProject ? item.projectStatus?.id === statusId : item.status?.id === statusId),
+          ? scopeProject
+            ? !item.projectStatus?.id
+            : !item.status?.id
+          : scopeProject
+            ? item.projectStatus?.id === statusId
+            : item.status?.id === statusId,
       );
     // service / category / sub-category are MULTI-VALUED (join tables), so match
     // against the row's full id set — matching the single display scalar would
     // drop every lead whose extra categories put it on the bar that was clicked.
     if (serviceId)
       rows = rows?.filter((item: any) =>
-        serviceId === NA ? !item.serviceIds?.length : item.serviceIds?.includes(serviceId),
+        serviceId === NA
+          ? !item.serviceIds?.length
+          : item.serviceIds?.includes(serviceId),
       );
     if (categoryId)
       rows = rows?.filter((item: any) =>
-        categoryId === NA ? !item.categoryIds?.length : item.categoryIds?.includes(categoryId),
+        categoryId === NA
+          ? !item.categoryIds?.length
+          : item.categoryIds?.includes(categoryId),
       );
     if (referralId)
       rows = rows?.filter((item: any) =>
         referralId === NA
-          ? !(item.referrals?.length)
+          ? !item.referrals?.length
           : item.referrals?.some((r: any) => r.referralTypeId === referralId),
       );
     if (sourceId)
@@ -1327,9 +1687,11 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     if (companyTypeId)
       rows = rows?.filter((item: any) =>
         companyTypeId === NA
-          ? !item.companyType && !(item.projectCompanyMappings?.length)
+          ? !item.companyType && !item.projectCompanyMappings?.length
           : item.companyType === companyTypeId ||
-            item.projectCompanyMappings?.some((m: any) => m.companyTypeId === companyTypeId),
+            item.projectCompanyMappings?.some(
+              (m: any) => m.companyTypeId === companyTypeId,
+            ),
       );
     // Internal (execution) team drill-down. NA = projects with no execution team.
     if (teamId)
@@ -1344,19 +1706,29 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       rows = rows?.filter((item: any) =>
         externalCompanyTypeId === NA
           ? !hasActiveExternal(item)
-          : (item.externalTeams || []).some((t: any) => t.isActive !== false && t.companyTypeId === externalCompanyTypeId),
+          : (item.externalTeams || []).some(
+              (t: any) =>
+                t.isActive !== false &&
+                t.companyTypeId === externalCompanyTypeId,
+            ),
       );
     if (externalCompanyId)
       rows = rows?.filter((item: any) =>
         externalCompanyId === NA
           ? !hasActiveExternal(item)
-          : (item.externalTeams || []).some((t: any) => t.isActive !== false && t.companyId === externalCompanyId),
+          : (item.externalTeams || []).some(
+              (t: any) =>
+                t.isActive !== false && t.companyId === externalCompanyId,
+            ),
       );
     if (externalContactId)
       rows = rows?.filter((item: any) =>
         externalContactId === NA
           ? !hasActiveExternal(item)
-          : (item.externalTeams || []).some((t: any) => t.isActive !== false && t.contactId === externalContactId),
+          : (item.externalTeams || []).some(
+              (t: any) =>
+                t.isActive !== false && t.contactId === externalContactId,
+            ),
       );
     // Client Analysis drill-downs (LeadReferral rows on the lead itself — the
     // referring company/company-type/contact, NOT the project external-team
@@ -1369,28 +1741,39 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       rows = rows?.filter((item: any) =>
         referralCompanyTypeId === NA
           ? !hasAnyReferral(item)
-          : (item.referrals || []).some((r: any) => r.referringCompany?.companyTypeId === referralCompanyTypeId),
+          : (item.referrals || []).some(
+              (r: any) =>
+                r.referringCompany?.companyTypeId === referralCompanyTypeId,
+            ),
       );
     if (referralCompanyId)
       rows = rows?.filter((item: any) =>
         referralCompanyId === NA
           ? !hasAnyReferral(item)
-          : (item.referrals || []).some((r: any) => r.referringCompanyId === referralCompanyId),
+          : (item.referrals || []).some(
+              (r: any) => r.referringCompanyId === referralCompanyId,
+            ),
       );
     if (referralContactId)
       rows = rows?.filter((item: any) =>
         referralContactId === NA
           ? !hasAnyReferral(item)
-          : (item.referrals || []).some((r: any) => r.referredByContactId === referralContactId),
+          : (item.referrals || []).some(
+              (r: any) => r.referredByContactId === referralContactId,
+            ),
       );
     if (monthlyCompanyTypeId)
       rows = rows?.filter((item: any) =>
-        item.projectCompanyMappings?.some((m: any) => m.companyTypeId === monthlyCompanyTypeId),
+        item.projectCompanyMappings?.some(
+          (m: any) => m.companyTypeId === monthlyCompanyTypeId,
+        ),
       );
     if (topLeadsId?.length)
-      rows = tableData?.filter((item: any) =>
-        topLeadsId.includes(String(item.id).trim()) ||
-        (item.projectId && topLeadsId.includes(String(item.projectId).trim())),
+      rows = tableData?.filter(
+        (item: any) =>
+          topLeadsId.includes(String(item.id).trim()) ||
+          (item.projectId &&
+            topLeadsId.includes(String(item.projectId).trim())),
       );
     // Geographic Distribution drill-down. countryId/stateId/cityId are resolved
     // server-side (name -> master-table id, or "__NA__" when the name is empty or
@@ -1411,21 +1794,21 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       rows = rows?.filter((item: any) =>
         locationCountryId === NA_ID
           ? !item.countryId
-          : item.countryId === (locationCountryName ?? locationCountryId)
+          : item.countryId === (locationCountryName ?? locationCountryId),
       );
     }
     if (locationStateId) {
       rows = rows?.filter((item: any) =>
         locationStateId === NA_ID
           ? !item.stateId
-          : item.stateId === (locationStateName ?? locationStateId)
+          : item.stateId === (locationStateName ?? locationStateId),
       );
     }
     if (locationCityId) {
       rows = rows?.filter((item: any) =>
         locationCityId === NA_ID
           ? !item.cityId
-          : item.cityId === (locationCityName ?? locationCityId)
+          : item.cityId === (locationCityName ?? locationCityId),
       );
     }
     // Locality has no master table — the chart's id IS the raw name (or "__NA__").
@@ -1433,7 +1816,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       rows = rows?.filter((item: any) =>
         locationLocalityId === NA_ID
           ? !item.locality
-          : item.locality === (locationLocalityName ?? locationLocalityId)
+          : item.locality === (locationLocalityName ?? locationLocalityId),
       );
     }
     if (locationId) {
@@ -1452,8 +1835,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           );
         }
         return !(
-          item.countryId || item.stateId || item.cityId ||
-          item.country || item.state || item.city
+          item.countryId ||
+          item.stateId ||
+          item.cityId ||
+          item.country ||
+          item.state ||
+          item.city
         );
       });
     }
@@ -1470,7 +1857,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       rows = rows?.filter(
         (item: any) =>
           dayjs(item.createdAt).format("MMMM") === projectCompanyTypeName &&
-          item.projectCompanyMappings?.some((m: any) => m.companyTypeId === projectCompanyTypeId),
+          item.projectCompanyMappings?.some(
+            (m: any) => m.companyTypeId === projectCompanyTypeId,
+          ),
       );
     }
     return rows;
@@ -1487,26 +1876,37 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     // here would double-filter and undercount vs the chart.
     let dateMatch = true;
     if (!isDrillDown) {
-    const d = item.inquiryDate ? dayjs(item.inquiryDate) : null;
-    if (alignment === "daily") {
-      dateMatch = d ? d.isSame(day, "day") : false;
-    } else if (alignment === "weekly") {
-      dateMatch = d ? !d.isBefore(weekStart.startOf("day")) && !d.isAfter(weekEnd.endOf("day")) : false;
-    } else if (alignment === "monthly") {
-      dateMatch = d ? !d.isBefore(monthStart.startOf("day")) && !d.isAfter(monthEnd.endOf("day")) : false;
-    } else if (alignment === "yearly" && yearStart && yearEnd) {
-      dateMatch = d ? !d.isBefore(yearStart.startOf("day")) && !d.isAfter(yearEnd.endOf("day")) : false;
-    } else if (alignment === "allyear") {
-      dateMatch = true;
-    } else if (alignment === "custom") {
-      if (customStartDate || customEndDate) {
-        if (!d) dateMatch = false;
-        else {
-          if (customStartDate && d.isBefore(customStartDate.startOf("day"))) dateMatch = false;
-          if (customEndDate && d.isAfter(customEndDate.endOf("day"))) dateMatch = false;
+      const d = item.inquiryDate ? dayjs(item.inquiryDate) : null;
+      if (alignment === "daily") {
+        dateMatch = d ? d.isSame(day, "day") : false;
+      } else if (alignment === "weekly") {
+        dateMatch = d
+          ? !d.isBefore(weekStart.startOf("day")) &&
+            !d.isAfter(weekEnd.endOf("day"))
+          : false;
+      } else if (alignment === "monthly") {
+        dateMatch = d
+          ? !d.isBefore(monthStart.startOf("day")) &&
+            !d.isAfter(monthEnd.endOf("day"))
+          : false;
+      } else if (alignment === "yearly" && yearStart && yearEnd) {
+        dateMatch = d
+          ? !d.isBefore(yearStart.startOf("day")) &&
+            !d.isAfter(yearEnd.endOf("day"))
+          : false;
+      } else if (alignment === "allyear") {
+        dateMatch = true;
+      } else if (alignment === "custom") {
+        if (customStartDate || customEndDate) {
+          if (!d) dateMatch = false;
+          else {
+            if (customStartDate && d.isBefore(customStartDate.startOf("day")))
+              dateMatch = false;
+            if (customEndDate && d.isAfter(customEndDate.endOf("day")))
+              dateMatch = false;
+          }
         }
       }
-    }
     }
 
     // 3. Quick selects
@@ -1530,41 +1930,92 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     let searchMatch = true;
     if (searchText) {
       const q = searchText.toLowerCase();
-      const employeeName = allemployees?.find((e: any) => e.employeeId === item.assignedTo)?.employeeName || "";
+      const employeeName =
+        allemployees?.find((e: any) => e.employeeId === item.assignedTo)
+          ?.employeeName || "";
       const pmName = pmNames(item);
-      const serviceName = (item.serviceIds?.length ? item.serviceIds : [item.service])
-        .map((id: string) => projectServices?.find((s: any) => s.id === id)?.name || "")
+      const serviceName = (
+        item.serviceIds?.length ? item.serviceIds : [item.service]
+      )
+        .map(
+          (id: string) =>
+            projectServices?.find((s: any) => s.id === id)?.name || "",
+        )
         .join(" ");
-      const categoryName = (item.categoryIds?.length ? item.categoryIds : [item.category])
-        .map((id: string) => projectCategories?.find((c: any) => c.id === id)?.name || "")
+      const categoryName = (
+        item.categoryIds?.length ? item.categoryIds : [item.category]
+      )
+        .map(
+          (id: string) =>
+            projectCategories?.find((c: any) => c.id === id)?.name || "",
+        )
         .join(" ");
-      const subCategoryName = (item.subCategoryIds?.length ? item.subCategoryIds : [item.subCategory])
-        .map((id: string) => projectSubcategories?.find((s: any) => s.id === id)?.name || "")
+      const subCategoryName = (
+        item.subCategoryIds?.length ? item.subCategoryIds : [item.subCategory]
+      )
+        .map(
+          (id: string) =>
+            projectSubcategories?.find((s: any) => s.id === id)?.name || "",
+        )
         .join(" ");
 
       searchMatch =
-        String(item.projectName || "").toLowerCase().includes(q) ||
-        String(item.prefix || "").toLowerCase().includes(q) ||
-        String(item.projectPrefix || "").toLowerCase().includes(q) ||
-        String(item.client || "").toLowerCase().includes(q) ||
-        String(item.contact || "").toLowerCase().includes(q) ||
-        String(item.status?.name || "").toLowerCase().includes(q) ||
-        String(item.projectStatus?.name || "").toLowerCase().includes(q) ||
+        String(item.projectName || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.prefix || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.projectPrefix || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.client || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.contact || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.status?.name || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.projectStatus?.name || "")
+          .toLowerCase()
+          .includes(q) ||
         String(employeeName).toLowerCase().includes(q) ||
         String(pmName).toLowerCase().includes(q) ||
         String(serviceName).toLowerCase().includes(q) ||
         String(categoryName).toLowerCase().includes(q) ||
         String(subCategoryName).toLowerCase().includes(q) ||
-        String(item.city || "").toLowerCase().includes(q) ||
-        String(item.state || "").toLowerCase().includes(q) ||
-        String(item.country || "").toLowerCase().includes(q) ||
-        String(item.area || "").toLowerCase().includes(q);
+        String(item.city || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.state || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.country || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.area || "")
+          .toLowerCase()
+          .includes(q);
     }
 
-    return dateMatch && statusMatch && assignedMatch && projectStatusMatch && projectManagerMatch && searchMatch;
+    return (
+      dateMatch &&
+      statusMatch &&
+      assignedMatch &&
+      projectStatusMatch &&
+      projectManagerMatch &&
+      searchMatch
+    );
   });
 
-  const hasAnyFilter = statusFilter || assignedToFilter || searchText || projectStatusFilter || projectManagerFilter;
+  const hasAnyFilter =
+    statusFilter ||
+    assignedToFilter ||
+    searchText ||
+    projectStatusFilter ||
+    projectManagerFilter;
   const clearAllFilters = () => {
     setStatusFilter("");
     setAssignedToFilter("");
@@ -1578,7 +2029,12 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   // return, where calling hooks would violate the rules of hooks.
   const viewCounts = (() => {
     const counts: Record<EntityView, number> = {
-      all: 0, leads: 0, projects: 0, ongoing: 0, completed: 0, onhold: 0,
+      all: 0,
+      leads: 0,
+      projects: 0,
+      ongoing: 0,
+      completed: 0,
+      onhold: 0,
     };
     (filteredByProps || []).forEach((item: any) => {
       ENTITY_VIEWS.forEach(({ key }) => {
@@ -1591,7 +2047,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   // ── KPI totals ────────────────────────────────────────────────────────────────
   const totalFilteredCost = (quickFilteredData ?? []).reduce(
     (acc: number, item: any) =>
-      acc + (projectColumnsActive && item.projectCost
+      acc +
+      (projectColumnsActive && item.projectCost
         ? item.projectCost
         : parseFloat(item.totalCost) || parseFloat(item.cost) || 0),
     0,
@@ -1603,7 +2060,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
 
   // Row tint: project phase wins for project rows, lead-status color otherwise.
   const rowBackground = (row: any) => {
-    const statusColor = row?.isProject ? row?.projectStatus?.color : row?.status?.color;
+    const statusColor = row?.isProject
+      ? row?.projectStatus?.color
+      : row?.status?.color;
     return statusColor ? `${statusColor}20` : "#F1F5F9";
   };
 
@@ -1621,73 +2080,134 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     if (statusId)
       return isNa(statusId)
         ? "N/A"
-        : (scopeIsProject ? resolveDrillName(projectStatuses, statusId) : resolveDrillName(leadStatuses, statusId)) || String(statusId);
-    if (serviceId) return isNa(serviceId) ? "N/A" : resolveDrillName(projectServices, serviceId) || String(serviceId);
-    if (categoryId) return isNa(categoryId) ? "N/A" : resolveDrillName(projectCategories, categoryId) || String(categoryId);
-    if (subCategoryId) return isNa(subCategoryId) ? "N/A" : resolveDrillName(projectSubcategories, subCategoryId) || String(subCategoryId);
+        : (scopeIsProject
+            ? resolveDrillName(projectStatuses, statusId)
+            : resolveDrillName(leadStatuses, statusId)) || String(statusId);
+    if (serviceId)
+      return isNa(serviceId)
+        ? "N/A"
+        : resolveDrillName(projectServices, serviceId) || String(serviceId);
+    if (categoryId)
+      return isNa(categoryId)
+        ? "N/A"
+        : resolveDrillName(projectCategories, categoryId) || String(categoryId);
+    if (subCategoryId)
+      return isNa(subCategoryId)
+        ? "N/A"
+        : resolveDrillName(projectSubcategories, subCategoryId) ||
+            String(subCategoryId);
     if (sourceId) return isNa(sourceId) ? "N/A" : String(sourceId);
     if (locationId) return String(locationId);
-    if (companyTypeId) return isNa(companyTypeId) ? "N/A" : String(companyTypeId);
-    if (monthlyStatusName && monthlyStatusId) return `${monthlyStatusId} · ${monthlyStatusName}`;
+    if (companyTypeId)
+      return isNa(companyTypeId) ? "N/A" : String(companyTypeId);
+    if (monthlyStatusName && monthlyStatusId)
+      return `${monthlyStatusId} · ${monthlyStatusName}`;
     return "";
   })();
 
   return (
     <>
-      <Box sx={{ p: isDrillDown ? '16px' : { xs: 2, md: 3 }, background: '#fff', borderBottom: isDrillDown ? '1px solid #E5E7EB' : '1px solid #F1F5F9' }}>
+      <Box
+        sx={{
+          p: isDrillDown ? "16px" : { xs: 2, md: 3 },
+          background: "#fff",
+          borderBottom: isDrillDown ? "1px solid #E5E7EB" : "1px solid #F1F5F9",
+        }}
+      >
         {/* --- ROW 1: PRIMARY TOOLBAR --- */}
         {isDrillDown ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
-            <h2 style={{ fontFamily: "Inter", fontSize: "15px", fontWeight: 600, margin: 0, color: '#1E293B', lineHeight: '1.4' }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0px" }}>
+            <h2
+              style={{
+                fontFamily: "Inter",
+                fontSize: "15px",
+                fontWeight: 600,
+                margin: 0,
+                color: "#1E293B",
+                lineHeight: "1.4",
+              }}
+            >
               {drillSliceLabel || drillEntityWord}
             </h2>
-            <p style={{ color: '#64748B', margin: 0, fontSize: '11px', fontWeight: 400 }}>
+            <p
+              style={{
+                color: "#64748B",
+                margin: 0,
+                fontSize: "11px",
+                fontWeight: 400,
+              }}
+            >
               {quickFilteredData?.length ?? 0} {drillEntityWord.toLowerCase()}
             </p>
           </div>
         ) : (
-        <div style={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'stretch' : 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          marginBottom: '16px',
-          flexWrap: 'wrap'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <h1 style={{ fontFamily: "Barlow", fontSize: "20px", fontWeight: 700, margin: 0, color: '#1E293B', letterSpacing: '-0.02em', lineHeight: '1.2' }}>
-              Leads & Projects
-            </h1>
-            <p style={{ color: '#64748B', margin: 0, fontSize: '12px', fontWeight: 500 }}>
-              One pipeline — every inquiry, and the projects they become
-            </p>
-          </div>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            width: isMobile ? '100%' : 'auto',
-            marginLeft: isMobile ? '0' : 'auto',
-          }}>
-            <Button
-              variant="outline"
-              size="sm"
-              className={isMobile ? "flex-1" : undefined}
-              onClick={() => setShowBulkImport(true)}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              alignItems: isMobile ? "stretch" : "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              marginBottom: "16px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "2px" }}
             >
-              <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="cloud-download" className="fs-6" /></span>
-              Bulk Import
-            </Button>
-            <Button
-              size="sm"
-              className={isMobile ? "flex-1" : undefined}
-              onClick={() => setFormValues({ leadTemplateId: "blank" })}
+              <h1
+                style={{
+                  fontFamily: "Barlow",
+                  fontSize: "20px",
+                  fontWeight: 700,
+                  margin: 0,
+                  color: "#1E293B",
+                  letterSpacing: "-0.02em",
+                  lineHeight: "1.2",
+                }}
+              >
+                Leads & Projects
+              </h1>
+              <p
+                style={{
+                  color: "#64748B",
+                  margin: 0,
+                  fontSize: "12px",
+                  fontWeight: 500,
+                }}
+              >
+                One pipeline — every inquiry, and the projects they become
+              </p>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                width: isMobile ? "100%" : "auto",
+                marginLeft: isMobile ? "0" : "auto",
+              }}
             >
-              + New Lead
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={isMobile ? "flex-1" : undefined}
+                onClick={() => setShowBulkImport(true)}
+              >
+                <span data-icon="inline-start" className="inline-flex">
+                  <KTIcon iconName="cloud-download" className="fs-6" />
+                </span>
+                Bulk Import
+              </Button>
+              <Button
+                size="sm"
+                className={isMobile ? "flex-1" : undefined}
+                onClick={() => setFormValues({ leadTemplateId: "blank" })}
+              >
+                + New Lead
+              </Button>
+            </div>
           </div>
-        </div>
         )}
 
         {/* --- ROW 2: VIEW TABS — hidden on a chart drill-down. The clicked slice is
@@ -1695,54 +2215,61 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             would only re-slice it and surface project statuses on a lead chart (which
             is confusing). Full-page usage keeps the tabs. --- */}
         {!isDrillDown && (
-        <div role="tablist" style={{
-          display: "flex",
-          gap: "4px",
-          marginBottom: "14px",
-          overflowX: "auto",
-          scrollbarWidth: "none",
-          borderBottom: "1px solid #F1F5F9",
-        }}>
-          {ENTITY_VIEWS.map(({ key, label }) => {
-            const active = view === key;
-            return (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={active}
-                onClick={() => setView(key)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: active ? "2px solid #1E3A8A" : "2px solid transparent",
-                  color: active ? "#1E3A8A" : "#64748B",
-                  padding: "8px 14px",
-                  fontSize: "13px",
-                  fontWeight: active ? 700 : 500,
-                  fontFamily: "Inter, sans-serif",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  transition: "color 0.15s ease",
-                }}
-              >
-                {label}
-                <span style={{
-                  background: active ? "rgba(30, 58, 138,0.1)" : "#F1F5F9",
-                  color: active ? "#1E3A8A" : "#64748B",
-                  borderRadius: "999px",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  padding: "1px 8px",
-                }}>
-                  {viewCounts[key]}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+          <div
+            role="tablist"
+            style={{
+              display: "flex",
+              gap: "4px",
+              marginBottom: "14px",
+              overflowX: "auto",
+              scrollbarWidth: "none",
+              borderBottom: "1px solid #F1F5F9",
+            }}
+          >
+            {ENTITY_VIEWS.map(({ key, label }) => {
+              const active = view === key;
+              return (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setView(key)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    borderBottom: active
+                      ? "2px solid #1E3A8A"
+                      : "2px solid transparent",
+                    color: active ? "#1E3A8A" : "#64748B",
+                    padding: "8px 14px",
+                    fontSize: "13px",
+                    fontWeight: active ? 700 : 500,
+                    fontFamily: "Inter, sans-serif",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    transition: "color 0.15s ease",
+                  }}
+                >
+                  {label}
+                  <span
+                    style={{
+                      background: active ? "rgba(30, 58, 138,0.1)" : "#F1F5F9",
+                      color: active ? "#1E3A8A" : "#64748B",
+                      borderRadius: "999px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      padding: "1px 8px",
+                    }}
+                  >
+                    {viewCounts[key]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         )}
 
         {/* Custom missing-date hint */}
@@ -1750,13 +2277,31 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           <div className="d-flex justify-content-center my-2">
             <div
               className="text-center p-2"
-              style={{ background: "#FEF2F2", borderRadius: "6px", border: "1px solid #FEE2E2", maxWidth: 420, width: "100%" }}
+              style={{
+                background: "#FEF2F2",
+                borderRadius: "6px",
+                border: "1px solid #FEE2E2",
+                maxWidth: 420,
+                width: "100%",
+              }}
             >
-              <h6 style={{ fontFamily: "Inter", fontWeight: 600, color: "#1E3A8A", fontSize: "12px", marginBottom: "2px" }}>
+              <h6
+                style={{
+                  fontFamily: "Inter",
+                  fontWeight: 600,
+                  color: "#1E3A8A",
+                  fontSize: "12px",
+                  marginBottom: "2px",
+                }}
+              >
                 Custom Date Range
               </h6>
-              <p className="mb-0" style={{ fontSize: "11px", color: "#64748B" }}>
-                Please select both <strong>Start Date</strong> and <strong>End Date</strong> to query custom period.
+              <p
+                className="mb-0"
+                style={{ fontSize: "11px", color: "#64748B" }}
+              >
+                Please select both <strong>Start Date</strong> and{" "}
+                <strong>End Date</strong> to query custom period.
               </p>
             </div>
           </div>
@@ -1764,32 +2309,38 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
 
         {/* --- ROW 3: COMPACT FILTER TOOLBAR --- */}
         {!isDrillDown && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            gap: '12px',
-            marginTop: '4px',
-            flexWrap: 'wrap',
-            rowGap: '10px'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              flexWrap: 'wrap',
-              width: '100%'
-            }}>
-              {/* Period Selector Tabs */}
-              <div style={{
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              gap: "12px",
+              marginTop: "4px",
+              flexWrap: "wrap",
+              rowGap: "10px",
+            }}
+          >
+            <div
+              style={{
                 display: "flex",
-                background: "#F1F5F9",
-                borderRadius: "6px",
-                padding: "2px",
-                gap: "2px",
-              }}>
+                alignItems: "center",
+                gap: "12px",
+                flexWrap: "wrap",
+                width: "100%",
+              }}
+            >
+              {/* Period Selector Tabs */}
+              <div
+                style={{
+                  display: "flex",
+                  background: "#F1F5F9",
+                  borderRadius: "6px",
+                  padding: "2px",
+                  gap: "2px",
+                }}
+              >
                 <TimePeriodSelector
-                  value={alignment as TimePeriodMode}
+                  value={alignment}
                   onChange={(mode) => handleAlignmentChange({} as any, mode)}
                 />
               </div>
@@ -1828,7 +2379,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                 />
               )}
               {alignment === "custom" && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DatePicker
                       label="Start"
@@ -1840,10 +2393,18 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                         textField: {
                           size: "small",
                           sx: {
-                            "& .MuiOutlinedInput-root": { borderRadius: "6px", height: "32px", fontSize: "11px", width: "110px" },
-                            "& .MuiInputLabel-root": { fontSize: "11px", top: "-3px" }
-                          }
-                        }
+                            "& .MuiOutlinedInput-root": {
+                              borderRadius: "6px",
+                              height: "32px",
+                              fontSize: "11px",
+                              width: "110px",
+                            },
+                            "& .MuiInputLabel-root": {
+                              fontSize: "11px",
+                              top: "-3px",
+                            },
+                          },
+                        },
                       }}
                     />
                     <DatePicker
@@ -1856,10 +2417,18 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                         textField: {
                           size: "small",
                           sx: {
-                            "& .MuiOutlinedInput-root": { borderRadius: "6px", height: "32px", fontSize: "11px", width: "110px" },
-                            "& .MuiInputLabel-root": { fontSize: "11px", top: "-3px" }
-                          }
-                        }
+                            "& .MuiOutlinedInput-root": {
+                              borderRadius: "6px",
+                              height: "32px",
+                              fontSize: "11px",
+                              width: "110px",
+                            },
+                            "& .MuiInputLabel-root": {
+                              fontSize: "11px",
+                              top: "-3px",
+                            },
+                          },
+                        },
                       }}
                     />
                   </LocalizationProvider>
@@ -1879,7 +2448,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
                     height: FILTER_HEIGHT,
                     fontFamily: "Inter",
                     fontSize: "12px",
-                    "& fieldset": { borderColor: searchText ? "#1E3A8A" : "#E2E8F0" },
+                    "& fieldset": {
+                      borderColor: searchText ? "#1E3A8A" : "#E2E8F0",
+                    },
                     "&:hover fieldset": { borderColor: "#1E3A8A" },
                     "&.Mui-focused fieldset": { borderColor: "#1E3A8A" },
                   },
@@ -1895,29 +2466,85 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             </div>
 
             {/* Right side: KPI summary */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              border: '1px solid #E2E8F0',
-              borderRadius: '6px',
-              padding: '0 12px',
-              background: '#F8FAFC',
-              height: '32px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-              width: isMobile ? '100%' : 'auto'
-            }}>
-              {canViewCommercial(projectColumnsActive ? 'projects' : 'crm.leads') && (<>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Value:</span>
-                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>{formatCompactCurrency(totalFilteredCost)}</span>
-              </div>
-              <div style={{ width: '1px', height: '14px', backgroundColor: '#E2E8F0' }} />
-              </>)}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Results:</span>
-                <span style={{ fontSize: '14px', color: '#1E3A8A', fontWeight: 800, fontFamily: 'Inter, sans-serif' }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px",
+                border: "1px solid #E2E8F0",
+                borderRadius: "6px",
+                padding: "0 12px",
+                background: "#F8FAFC",
+                height: "32px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                width: isMobile ? "100%" : "auto",
+              }}
+            >
+              {canViewCommercial(
+                projectColumnsActive ? "projects" : "crm.leads",
+              ) && (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "#64748B",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      Value:
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "14px",
+                        color: "#1E3A8A",
+                        fontWeight: 800,
+                        fontFamily: "Inter, sans-serif",
+                      }}
+                    >
+                      {formatCompactCurrency(totalFilteredCost)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      width: "1px",
+                      height: "14px",
+                      backgroundColor: "#E2E8F0",
+                    }}
+                  />
+                </>
+              )}
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "4px" }}
+              >
+                <span
+                  style={{
+                    fontSize: "10px",
+                    color: "#64748B",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  Results:
+                </span>
+                <span
+                  style={{
+                    fontSize: "14px",
+                    color: "#1E3A8A",
+                    fontWeight: 800,
+                    fontFamily: "Inter, sans-serif",
+                  }}
+                >
                   {quickFilteredData?.length ?? 0} / {tableData?.length ?? 0}
                 </span>
               </div>
@@ -1929,7 +2556,11 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       <MaterialTable
         columns={columns}
         data={quickFilteredData}
-        tableName={isDrillDown ? drillTableName : `EntityTable_${projectColumnsActive ? 'projects' : 'pipeline'}`}
+        tableName={
+          isDrillDown
+            ? drillTableName
+            : `EntityTable_${projectColumnsActive ? "projects" : "pipeline"}`
+        }
         defaultSorting={[{ id: "inquiryDate", desc: true }]}
         renderExportActions={() => (
           <ExportButton
@@ -1973,74 +2604,90 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             // left accent, so "Received" (green) / "Not Received" (red) / "Pending"
             // (yellow) read at a glance, matching the colored status badges.
             const drillStatusColor = isDrillDown
-              ? (row.original?.isProject ? row.original?.projectStatus?.color : row.original?.status?.color) || null
+              ? (row.original?.isProject
+                  ? row.original?.projectStatus?.color
+                  : row.original?.status?.color) || null
               : null;
             return {
-            sx: {
-              cursor: "pointer",
-              backgroundColor: isDrillDown
-                ? (drillStatusColor ? `${drillStatusColor}14` : "#ffffff")
-                : rowBackground(row.original),
-              transition: "background-color 0.15s ease",
-              borderBottom: isDrillDown ? "1px solid #EEF1F5" : "none",
-              "& .MuiTableCell-root": {
-                fontSize: isDrillDown ? "13px" : "15.5px",
-                fontFamily: "Inter",
-                fontWeight: isDrillDown ? "400" : "500",
-                padding: isDrillDown ? "12px 14px !important" : "4px 8px !important",
-                border: "none",
-                color: "#374151",
-                whiteSpace: "nowrap",
-                backgroundColor: "transparent",
-              },
-              ...(isDrillDown ? {
-                "& .MuiTableCell-root:first-of-type": {
-                  borderLeft: drillStatusColor
-                    ? `3px solid ${drillStatusColor} !important`
-                    : "3px solid transparent !important",
-                },
-              } : {
-                "& .MuiTableCell-root:first-of-type": {
-                  borderTopLeftRadius: "12px",
-                  borderBottomLeftRadius: "12px",
-                  borderLeft: row.original?.isProject
-                    ? `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`
-                    : "3px solid transparent !important",
-                  transition: "border-color 0.2s ease-in-out !important",
-                },
-                "& .MuiTableCell-root:last-of-type": {
-                  borderTopRightRadius: "12px",
-                  borderBottomRightRadius: "12px",
-                },
-              }),
-              "&:hover": {
+              sx: {
+                cursor: "pointer",
                 backgroundColor: isDrillDown
-                  ? `${drillStatusColor ? `${drillStatusColor}26` : "#F3F4F6"} !important`
-                  : "#F8FAFC !important",
-                ...(isDrillDown ? {} : {
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                }),
+                  ? drillStatusColor
+                    ? `${drillStatusColor}14`
+                    : "#ffffff"
+                  : rowBackground(row.original),
+                transition: "background-color 0.15s ease",
+                borderBottom: isDrillDown ? "1px solid #EEF1F5" : "none",
                 "& .MuiTableCell-root": {
-                  backgroundColor: "transparent !important",
+                  fontSize: isDrillDown ? "13px" : "15.5px",
+                  fontFamily: "Inter",
+                  fontWeight: isDrillDown ? "400" : "500",
+                  padding: isDrillDown
+                    ? "12px 14px !important"
+                    : "4px 8px !important",
+                  border: "none",
+                  color: "#374151",
+                  whiteSpace: "nowrap",
+                  backgroundColor: "transparent",
                 },
-                ...(isDrillDown ? {} : {
-                  "& .MuiTableCell-root:first-of-type": {
-                    borderLeftColor: `${row.original?.status?.color || "#1E3A8A"} !important`,
+                ...(isDrillDown
+                  ? {
+                      "& .MuiTableCell-root:first-of-type": {
+                        borderLeft: drillStatusColor
+                          ? `3px solid ${drillStatusColor} !important`
+                          : "3px solid transparent !important",
+                      },
+                    }
+                  : {
+                      "& .MuiTableCell-root:first-of-type": {
+                        borderTopLeftRadius: "12px",
+                        borderBottomLeftRadius: "12px",
+                        borderLeft: row.original?.isProject
+                          ? `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`
+                          : "3px solid transparent !important",
+                        transition: "border-color 0.2s ease-in-out !important",
+                      },
+                      "& .MuiTableCell-root:last-of-type": {
+                        borderTopRightRadius: "12px",
+                        borderBottomRightRadius: "12px",
+                      },
+                    }),
+                "&:hover": {
+                  backgroundColor: isDrillDown
+                    ? `${drillStatusColor ? `${drillStatusColor}26` : "#F3F4F6"} !important`
+                    : "#F8FAFC !important",
+                  ...(isDrillDown
+                    ? {}
+                    : {
+                        transform: "translateY(-2px)",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                      }),
+                  "& .MuiTableCell-root": {
+                    backgroundColor: "transparent !important",
                   },
-                }),
+                  ...(isDrillDown
+                    ? {}
+                    : {
+                        "& .MuiTableCell-root:first-of-type": {
+                          borderLeftColor: `${row.original?.status?.color || "#1E3A8A"} !important`,
+                        },
+                      }),
+                },
               },
-            },
-            onClick: () => {
-              // The path IS the entry context (see the /project/:id route). The
-              // project views open the project lens; the Leads view opens the
-              // lead lens; in "All" the row itself decides, since that view
-              // deliberately mixes the two. Previously every view navigated to
-              // /leads/:id, so a project opened from the Projects view showed
-              // the lead page with the project tabs stripped out.
-              const asProject = projectColumnsActive || (view === "all" && isProjectEntity(row.original));
-              navigate(`${asProject ? "/project" : "/leads"}/${row.original.id}`);
-            },
+              onClick: () => {
+                // The path IS the entry context (see the /project/:id route). The
+                // project views open the project lens; the Leads view opens the
+                // lead lens; in "All" the row itself decides, since that view
+                // deliberately mixes the two. Previously every view navigated to
+                // /leads/:id, so a project opened from the Projects view showed
+                // the lead page with the project tabs stripped out.
+                const asProject =
+                  projectColumnsActive ||
+                  (view === "all" && isProjectEntity(row.original));
+                navigate(
+                  `${asProject ? "/project" : "/leads"}/${row.original.id}`,
+                );
+              },
             };
           },
         }}
@@ -2052,8 +2699,16 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           leadTemplateId={formValues?.leadTemplateId}
           open={true}
           onClose={() => setFormValues(null)}
-          title={formValues?.id ? `Edit ${formValues.title || formValues?.projectName} Lead` : "New Lead"}
-          initialData={formValues?.id ? { id: formValues?.leadTemplateId } : { ...formValues, title: '' }}
+          title={
+            formValues?.id
+              ? `Edit ${formValues.title || formValues?.projectName} Lead`
+              : "New Lead"
+          }
+          initialData={
+            formValues?.id
+              ? { id: formValues?.leadTemplateId }
+              : { ...formValues, title: "" }
+          }
           initialFormData={formValues}
           isEditMode={!!formValues?.id}
         />

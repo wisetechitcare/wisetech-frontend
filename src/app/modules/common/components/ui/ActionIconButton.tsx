@@ -6,6 +6,7 @@ import { T } from './tokens';
 import { TRIO, type Trio } from './patterns';
 import { KT_ICON_FULL } from './buttons';
 import WtTooltip from './WtTooltip';
+import { useCanDeleteHere } from './DeleteSection';
 
 export type ActionTone = 'brand' | 'indigo' | 'danger' | 'success' | 'onBrand';
 
@@ -95,6 +96,10 @@ export default function ActionIconButton({
   label,
   fullWidth = false,
 }: ActionIconButtonProps) {
+  // A trash button inside a DeleteSection shows only with Delete on that section.
+  const canDeleteHere = useCanDeleteHere();
+  const isDelete = iconName === 'trash' || (tone === 'danger' && /^delete\b/i.test(String(title ?? '')));
+  if (isDelete && !canDeleteHere) return null;
   const color = TONE_COLOR[tone];
   const px = SIZE_PX[size];
   const glyph = icon ?? <KTIcon iconName={iconName ?? ''} className={SIZE_ICON_CLASS[size]} />;
@@ -107,7 +112,10 @@ export default function ActionIconButton({
         size={size === 'sm' ? 'sm' : 'default'}
         onClick={onClick}
         disabled={disabled}
-        className={cn(KT_ICON_FULL, 'whitespace-nowrap', fullWidth && 'w-full')}
+        // `flex-1 min-w-0`, not just `w-full`: the ds Button is `shrink-0`, so several full-width
+        // buttons in one row each claimed 100% and pushed their siblings out of the card. flex-1
+        // (merged over shrink-0 by cn) shares the row evenly; w-full still fills a block parent.
+        className={cn(KT_ICON_FULL, 'whitespace-nowrap', fullWidth && 'w-full min-w-0 flex-1')}
         style={tint}
       >
         <span data-icon="inline-start" className="inline-flex">{glyph}</span>

@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+import { canDelete } from "@utils/can";
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack } from "@mui/material";
 import {
@@ -203,12 +205,12 @@ const BillingConfigurePage: React.FC = () => {
                    * but nobody reads a tooltip to find out what an icon they already
                    * recognise does.
                    */
-                  action={{
+                  action={canDelete("billing.configure") ? {
                     icon: "bi-arrow-counterclockwise",
                     title: `Restore ${entry.code} to its default label and colour`,
                     tone: "revert",
                     onClick: () => confirmReset(entry),
-                  }}
+                  } : undefined}
                 />
               ))}
             </ConfigChipGrid>
@@ -294,4 +296,4 @@ const BillingConfigurePage: React.FC = () => {
   );
 };
 
-export default BillingConfigurePage;
+export default withDeleteSection('billing.configure', BillingConfigurePage);

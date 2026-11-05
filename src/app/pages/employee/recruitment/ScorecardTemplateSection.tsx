@@ -10,7 +10,7 @@ import {
 import { ConfigSectionCard } from "@app/modules/configuration";
 import { queryKeys } from "@/lib/queryKeys";
 import { apiErrorMessage } from "@utils/apiError";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import { toPercentages } from "@utils/weightBalancer";
 import { useDepartmentDesignations } from "@/hooks/useDepartmentDesignations";
 import {
@@ -231,7 +231,7 @@ const ScorecardTemplateSection = () => {
                                 captionStrong
                                 disabled={busy}
                                 onEdit={canWrite ? () => openEdit(t) : undefined}
-                                action={canWrite ? {
+                                action={canDelete("recruitment") ? {
                                     icon: "bi-trash",
                                     title: `Delete ${t.name}`,
                                     danger: true,

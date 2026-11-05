@@ -13,6 +13,7 @@
 //   deleteStakeholderService,
 // } from "@services/projects";
 
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import {
   ActionIconButton, AppIcon, GridListViewSwitch,
 } from '@app/modules/common/components/ui';
@@ -950,4 +951,4 @@ const TasksConfigure = () => {
   );
 };
 
-export default TasksConfigure;
+export default withDeleteSection('tasks', TasksConfigure);

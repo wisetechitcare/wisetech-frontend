@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from "react";
+import { IfCanDelete } from '@app/modules/common/components/ui/DeleteSection';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { Button } from '@/ds/ui/button';
 
@@ -326,13 +327,13 @@ const CompanyTypeServiceTree: React.FC<Props> = ({
                   {node.kind === "type" && (
                     <>
                       <IconBtn icon="bi-pencil" title="Edit" color={ACTION.edit} onClick={() => onEditType(node.entity)} />
-                      <IconBtn icon="bi-trash" title="Delete" color={ACTION.remove} onClick={() => onDeleteType(node.id)} />
+                      <IfCanDelete><IconBtn icon="bi-trash" title="Delete" color={ACTION.remove} onClick={() => onDeleteType(node.id)} /></IfCanDelete>
                     </>
                   )}
                   {node.kind === "subservice" && (
                     <>
                       <IconBtn icon="bi-pencil" title="Edit sub-service" color={ACTION.edit} onClick={() => onEditSubService(node.entity)} />
-                      <IconBtn icon="bi-trash" title="Delete sub-service" color={ACTION.remove} onClick={() => onDeleteSubService(node.id)} />
+                      <IfCanDelete><IconBtn icon="bi-trash" title="Delete sub-service" color={ACTION.remove} onClick={() => onDeleteSubService(node.id)} /></IfCanDelete>
                     </>
                   )}
                 </div>

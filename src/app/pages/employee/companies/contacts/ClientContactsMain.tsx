@@ -15,7 +15,7 @@ import { getAllClientBranches } from "@services/lead";
 import eventBus from "@utils/EventBus";
 import { useNavigate } from "react-router-dom";
 import dayjs, { Dayjs } from "dayjs";
-import { can, canSection } from "@utils/can";
+import { can, canDelete, canSection } from "@utils/can";
 import { SegmentedControl, WtButton } from "@app/modules/common/components/ui";
 import GoogleContactsImportDialog from "./components/GoogleContactsImportDialog";
 import { toContactFormPrefill, type ContactFormPrefill, type GoogleContactCandidate } from "./components/googleContactPrefill";
@@ -454,7 +454,7 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
               >
                 <i className="fab fa-whatsapp fs-3 text-success"></i>
               </Button>
-              {canWrite && (
+              {canDelete("crm.contacts") && (
               <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete Contact"
                 onClick={() => handleDelete(row.original)}
                 title="Delete Contact"

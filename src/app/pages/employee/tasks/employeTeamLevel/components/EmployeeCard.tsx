@@ -1,7 +1,7 @@
 import React from 'react';
 import { EmployeeCardProps } from '../types';
 import LazyImage from './LazyImage';
-import { canSection } from '@utils/can';
+import { canDelete } from '@utils/can';
 
 const EmployeeCard: React.FC<EmployeeCardProps> = React.memo(({ employee, onEdit, onDelete }) => {
     // console.log("employee=====================>in the employeeCard",employee?.employee?.users?.firstName,employee?.employee?.users?.lastName)
@@ -68,7 +68,7 @@ const EmployeeCard: React.FC<EmployeeCardProps> = React.memo(({ employee, onEdit
                         strokeLinejoin="round"
                     />
                 </svg> */}
-                {canSection('settings.employeeLevel', 'write') && <svg
+                {canDelete('settings.employeeLevel') && <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="16"
                     height="18"

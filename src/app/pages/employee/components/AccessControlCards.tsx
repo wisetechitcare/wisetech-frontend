@@ -12,7 +12,9 @@ import { AppIcon, WtButton, WtIconButton, WtTooltip } from "@app/modules/common/
 
 import type { AccessControlProps } from "./accessControlTypes";
 import { AdvancedTabsButton, compositeLevel, setCompositeLevel } from "./AccessTabsDialog";
-import type { EffLevel } from "./accessControlTypes";
+import { atLeastWrite, type EffLevel } from "./accessControlTypes";
+import { isFullAccess } from "@utils/can";
+import { DELETABLE_SECTIONS, NOTHING_TO_DELETE } from "@utils/sectionTabs";
 import { SECTION_TABS } from "@utils/sectionTabs";
 import { SecurityPinRowChip, SECURITY_PIN_ROW_AREAS, SupportAccessPolicyChip } from "@app/modules/common/components/SecurityPin";
 
@@ -22,6 +24,7 @@ const KINDS = {
   read: { name: "Read", color: "#059669" },
   readAll: { name: "Read all", color: "#4f46e5" },
   write: { name: "Write", color: "#2563eb" },
+  delete: { name: "Delete", color: "#dc2626" },
   commercial: { name: "Commercials", color: "#d97706" },
 } as const;
 const OFF = "#94a3b8";
@@ -29,6 +32,7 @@ const OFF = "#94a3b8";
 const ToggleIcon: React.FC<{ kind: keyof typeof KINDS; on: boolean }> = ({ kind, on }) => {
   if (kind === "read") return <AppIcon name={on ? "bi-eye" : "bi-eye-slash"} className="fs-6" />;
   if (kind === "write") return <AppIcon name="bi-pencil" className="fs-6" />;
+  if (kind === "delete") return <AppIcon name="bi-trash" className="fs-6" />;
   const Icon = kind === "readAll" ? TravelExploreOutlined : PaymentsOutlined;
   return <Icon sx={{ fontSize: 16 }} />;
 };
@@ -147,8 +151,11 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
     const kids = node.composite ? node.children ?? [] : null;
     const level = kids ? compositeLevel(kids, levels) : levels[node.module] || "none";
     const setLevel = (l: EffLevel) => (kids ? setCompositeLevel(kids, l, onSetLevel) : onSetLevel(node.module, l));
-    const read = level === "view" || level === "edit";
-    const write = level === "edit";
+    const read = level !== "none";
+    const write = atLeastWrite(level);
+    const del = level === "delete";
+    const deletable = kids ? kids.some((c) => DELETABLE_SECTIONS.has(c.module)) : DELETABLE_SECTIONS.has(node.module);
+    const label = node.label;
     const isCustom = !kids && employee && (customModules?.has(node.module) ?? false);
     const dirty = kids ? kids.some((c) => dirtyModules.has(c.module)) : dirtyModules.has(node.module);
     const rec = recordCells?.[node.module];
@@ -209,7 +216,15 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.625 }}>
           <Toggle kind="read" on={read} disabled={readOnly} tip={`Open ${node.label} and see what is in it`} onClick={() => setLevel(read ? "none" : "view")} />
           {employee && rec && <Toggle kind="readAll" on={rec.readAll.checked} disabled={readOnly || rec.readAll.disabled} tip={rec.readAll.title ?? "Read all"} onClick={rec.readAll.onChange} />}
-          <Toggle kind="write" on={write} disabled={readOnly} tip={`Add, edit and delete in ${node.label} (turns Read on too)`} onClick={() => setLevel(write ? "view" : "edit")} />
+          <Toggle kind="write" on={write} disabled={readOnly} tip={`Add and edit in ${node.label} (turns Read on too)`} onClick={() => setLevel(write ? "view" : "edit")} />
+          {deletable ? (
+            <Toggle kind="delete" on={del} disabled={readOnly || !isFullAccess()} tip={`${isFullAccess() ? "Delete" : "Only a Super Admin can give Delete on"} ${label}`} onClick={() => setLevel(del ? "edit" : "delete")} />
+          ) : (
+            // A disabled button shows no tooltip, so the span carries it.
+            <WtTooltip title={NOTHING_TO_DELETE}>
+              <span style={{ display: "inline-flex" }}><Toggle kind="delete" on={false} disabled tip={NOTHING_TO_DELETE} onClick={() => undefined} /></span>
+            </WtTooltip>
+          )}
           {employee && rec && <Toggle kind="commercial" on={rec.commercial.checked} disabled={readOnly || rec.commercial.disabled} tip={rec.commercial.title ?? "Commercials"} onClick={rec.commercial.onChange} />}
         </Box>
       </Box>

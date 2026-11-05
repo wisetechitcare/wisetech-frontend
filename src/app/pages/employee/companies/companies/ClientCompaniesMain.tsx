@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 // import { Button } from "react-bootstrap";
 import { Button } from "@/ds/ui/button";
 import { useSelector } from "react-redux";
@@ -16,7 +16,7 @@ import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
 import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
-import { canSection, canViewCommercial } from "@utils/can";
+import { canDelete, canSection, canViewCommercial } from "@utils/can";
 import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
@@ -125,6 +125,7 @@ const ClientCompaniesMain = ({
     [allEmployees],
   );
 
+  const navigate = useNavigate();
   const [showNewCompanyForm, setShowNewCompanyForm] = useState(false);
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -485,6 +486,7 @@ const ClientCompaniesMain = ({
                   >
                     <KTIcon iconName="pencil" className="fs-3" />
                   </Button>
+                  {canDelete("crm.companies") && (
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -493,6 +495,7 @@ const ClientCompaniesMain = ({
                   >
                     <KTIcon iconName="trash" className="fs-3" />
                   </Button>
+                  )}
                 </div>
               ),
             },
@@ -593,9 +596,10 @@ const ClientCompaniesMain = ({
         muiTableProps={{
 
           muiTableBodyRowProps: ({ row }) => ({
-            // Row click opens the edit form, same as the pencil in the Actions column.
+            // Row click opens the company overview, same as clicking its name. Edit still
+            // happens via the pencil in the Actions column.
             onClick: (e: React.MouseEvent) => {
-              if (!isRowAction(e)) handleEditClick(row.original.id);
+              if (!isRowAction(e)) navigate(`/companies/${row.original.id}`);
             },
             // ACTIVE → soft green; CLOSED (Inactive) → soft slate. Blacklist still wins.
             sx: crmListRowSx(row.original.status === "ACTIVE", {

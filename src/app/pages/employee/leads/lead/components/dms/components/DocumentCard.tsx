@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
 import { useDMS } from '../store/DmsContext';
-import { canSection } from '@utils/can';
+import { canDelete, canSection } from '@utils/can';
 import { formatBytes, getStatusConfig } from '../utils/dmsUtils';
 import type { DMSFile } from '../types/dms.types';
 import * as dmsService from '../services/dmsService';
@@ -110,6 +110,8 @@ const FileActionsDropdown: React.FC<{ file: DMSFile; onClose: () => void; onPrev
     { icon: 'cloud-download', label: 'Download', action: handleDownload },
     ...(canWrite ? [
     { icon: 'pencil', label: 'Rename', action: () => { onRename(); onClose(); } },
+    ] : []),
+    ...(canDelete('crm.leads') ? [
     { icon: 'trash', label: 'Delete', action: async () => { 
       try {
         const confirmed = await genericConfirmation(

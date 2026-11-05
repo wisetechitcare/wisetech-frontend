@@ -41,3 +41,35 @@ export const Disabled: Story = {
     await expect(canvas.getByRole('checkbox')).toHaveAttribute('aria-disabled', 'true')
   },
 }
+
+/** Every state side by side: 22px tile, 7px radius, crisp 2px border, 16px stroke-3 tick. */
+export const States: Story = {
+  render: (args) => (
+    <div className="flex items-center gap-6">
+      {([
+        ['Off', {}],
+        ['On', { defaultChecked: true }],
+        ['Mixed', { indeterminate: true }],
+        ['Disabled', { disabled: true }],
+        ['Disabled on', { disabled: true, defaultChecked: true }],
+      ] as const).map(([label, state]) => (
+        <div key={label} className="flex items-center gap-2">
+          <Checkbox id={`cb-${label.replace(' ', '-')}`} {...args} {...state} />
+          <Label htmlFor={`cb-${label.replace(' ', '-')}`}>{label}</Label>
+        </div>
+      ))}
+    </div>
+  ),
+}
+
+/** Toggling bounces the box (movin.design "Bounce" style) — never on initial mount. */
+export const Bounce: Story = {
+  play: async ({ canvas }) => {
+    const box = canvas.getByRole('checkbox', { name: 'Send welcome email' })
+    await expect(box).not.toHaveAttribute('data-bounce')
+    await userEvent.click(box)
+    await expect(box).toHaveAttribute('data-bounce', 'in')
+    await userEvent.click(box)
+    await expect(box).toHaveAttribute('data-bounce', 'out')
+  },
+}

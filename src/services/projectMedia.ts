@@ -107,7 +107,7 @@ export const uploadProjectMedia = async (leadId: string, file: File, meta: Uploa
   } else {
     const form = new FormData();
     form.append("file", file);
-    const { data } = await axios.post(`${API_BASE_URL}/${FILE.UPLOAD}`, form, {
+    const { data } = await axios.post(`${API_BASE_URL}/${FILE.PROJECT_MEDIA}`, form, {
       headers: { "Content-Type": "multipart/form-data" },
       onUploadProgress: (e) => e.total && onProgress((e.loaded / e.total) * 100),
     });

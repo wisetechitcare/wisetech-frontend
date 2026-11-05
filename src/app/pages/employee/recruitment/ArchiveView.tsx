@@ -9,7 +9,7 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { actionsColumn, dateColumn } from "@app/modules/common/components/table/columns";
 import { queryKeys } from "@/lib/queryKeys";
 import { apiErrorMessage } from "@utils/apiError";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import {
   getRequisitions, restoreRequisition, permanentlyDeleteRequisition,
   getPostings, restorePosting, permanentlyDeletePosting,
@@ -129,6 +129,7 @@ const toCandidateRows = (rows: Applicant[]): ArchiveRow[] =>
  */
 const ArchiveView = ({ companyId }: OrgScoped) => {
   const canWrite = canSection("recruitment", "write");
+  const canRemove = canDelete("recruitment");
   const qc = useQueryClient();
   const [kind, setKind] = useState<ArchiveKind>("all");
   const scope = companyId ?? "";
@@ -245,6 +246,7 @@ const ArchiveView = ({ companyId }: OrgScoped) => {
           disabled={busy}
           onClick={() => void confirmRestore([row])}
         />
+        {canRemove && (
         <ActionIconButton
           iconName="trash"
           size="sm"
@@ -253,6 +255,7 @@ const ArchiveView = ({ companyId }: OrgScoped) => {
           disabled={busy}
           onClick={() => void confirmPermanent([row])}
         />
+        )}
       </Stack>
     );
   };
@@ -287,7 +290,7 @@ const ArchiveView = ({ companyId }: OrgScoped) => {
     ];
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rowActions closes over live mutators
-  }, [kind, canWrite, busy]);
+  }, [kind, canWrite, canRemove, busy]);
 
   const rows = useMemo((): ArchiveRow[] => {
     if (kind === "all") {
@@ -350,6 +353,7 @@ const ArchiveView = ({ companyId }: OrgScoped) => {
                 >
                   Restore selected
                 </WtButton>
+                {canRemove && (
                 <WtButton
                   size="small"
                   tone="danger"
@@ -358,6 +362,7 @@ const ArchiveView = ({ companyId }: OrgScoped) => {
                 >
                   Delete permanently
                 </WtButton>
+                )}
               </TableSelectionBar>
             )}
           />

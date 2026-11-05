@@ -15,7 +15,7 @@ export * from './ClearFiltersButton';
 // tintedSwitch sx, raw <Switch>, and Bootstrap form-switch).
 export { WtSwitch, WtSwitchField, wtSwitchSx } from './switch';
 export type { WtSwitchProps, WtSwitchFieldProps, WtSwitchSize } from './switch';
-// Canonical checkbox — same brand tint / size contract as WtSwitch.
+// Canonical checkbox — same shape as the ds/Storybook checkbox (src/ds/ui/checkbox.tsx).
 // Theme `MuiCheckbox` defaultProps also apply this look app-wide (see wisetechTheme).
 export {
   WtCheckbox,
@@ -25,9 +25,10 @@ export {
   wtCheckboxIcons,
   wtCheckboxThemeDefaultProps,
   wtCheckboxThemeRootSx,
+  installCheckboxBounce,
 } from './checkbox';
 export type { WtCheckboxProps, WtCheckboxFieldProps, WtCheckboxSize } from './checkbox';
-export { ToneChip, toneAlpha } from './chips';
+export { ToneChip, toneAlpha, StatusPill } from './chips';
 // Collection entity card — Roles / Adverts / Candidates / Projects. Composes GlassCard + ToneChip.
 export { EntityCard } from './EntityCard';
 export type { EntityCardProps, EntityCardTag } from './EntityCard';
@@ -185,6 +186,7 @@ export { WeightSliderList } from './WeightSliderList';
 export type { WeightSliderListProps, WeightSliderField } from './WeightSliderList';
 // Compact configure value row (colour rail + name + hover actions). Theme-token surfaces.
 export { ConfigColorChip, ConfigChipGrid } from './ConfigColorChip';
+export { DeleteSection, IfCanDelete, useCanDeleteHere, withDeleteSection } from './DeleteSection';
 export type { ConfigColorChipProps, ConfigChipAction } from './ConfigColorChip';
 // Drag-to-reorder list — neighbor living next to ui; re-exported so Rule zero finds it
 // on the kit barrel (README: Reorder → ReorderableGroup + DragHandle).

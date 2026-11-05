@@ -1,183 +1,125 @@
 import { forwardRef, type ReactNode } from 'react';
 import { Box, Checkbox, FormControlLabel, Typography, type CheckboxProps } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { alpha } from '@mui/material/styles';
-import { T } from './tokens';
+import { CheckIcon, MinusIcon } from 'lucide-react';
 
 /**
  * WtCheckbox — the ONE canonical checkbox for the whole app.
  *
- * The visual recipe (rounded tile, brand fill when on, soft border when off) is also applied
- * app-wide via MUI theme `MuiCheckbox` defaultProps in `wisetechTheme.ts`, so a leftover raw
- * `<Checkbox>` still matches. New code should still import WtCheckbox / WtCheckboxField —
- * same contract as WtSwitch: size, tone, labelled field helpers.
+ * Same shape as the design-system checkbox (src/ds/ui/checkbox.tsx, Storybook "Components/Checkbox"):
+ * 22px tile, 7px radius, 2px muted border, `--primary` fill + 16px lucide check (stroke 3). Applied app-wide via
+ * MUI theme `MuiCheckbox` defaultProps in `wisetechTheme.ts`, so a raw `<Checkbox>` matches too.
+ * Raw `<input type="checkbox">` gets the same look from main.css; the toggle bounce for both comes
+ * from `installCheckboxBounce` (main.tsx) + main.css.
  */
 
-export type WtCheckboxSize = 'sm' | 'md';
+const tileSx = {
+  width: 22,
+  height: 22,
+  borderRadius: '7px',
+  boxSizing: 'border-box',
+  border: '2px solid color-mix(in oklch, var(--muted-foreground) 45%, transparent)',
+  display: 'grid',
+  placeItems: 'center',
+  transition: 'box-shadow 150ms ease',
+  '.dark &': { bgcolor: 'color-mix(in oklch, var(--input) 30%, transparent)' },
+} as const;
 
-const BOX: Record<WtCheckboxSize, { px: number; hit: number; radius: number }> = {
-  sm: { px: 18, hit: 32, radius: 5 },
-  md: { px: 20, hit: 36, radius: 6 },
-};
-
-/** Soft bordered tile — off state. */
-function UncheckedIcon({ size, radius }: { size: number; radius: number }) {
-  return (
-    <Box
-      component="span"
-      aria-hidden
-      data-wt-cb="off"
-      sx={{
-        width: size,
-        height: size,
-        borderRadius: `${radius}px`,
-        boxSizing: 'border-box',
-        border: '1.5px solid',
-        borderColor: 'rgba(100, 116, 139, 0.55)',
-        bgcolor: '#fff',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 1px 2px rgba(15,23,42,0.04)',
-        display: 'block',
-        transition: 'border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease',
-        'html[data-theme="dark"] &': {
-          bgcolor: 'rgba(255,255,255,0.06)',
-          borderColor: 'rgba(255,255,255,0.28)',
-          boxShadow: 'none',
-        },
-      }}
-    />
-  );
+function UncheckedIcon() {
+  return <Box component="span" aria-hidden data-wt-cb="off" sx={tileSx} />;
 }
 
-/** Brand-filled tile + white check / dash — on / indeterminate. */
-function FilledIcon({
-  size,
-  radius,
-  tone,
-  kind,
-}: {
-  size: number;
-  radius: number;
-  tone: string;
-  kind: 'check' | 'dash';
-}) {
+function FilledIcon({ kind }: { kind: 'check' | 'dash' }) {
+  const Glyph = kind === 'check' ? CheckIcon : MinusIcon;
   return (
     <Box
       component="span"
       aria-hidden
       data-wt-cb="on"
       sx={{
-        width: size,
-        height: size,
-        borderRadius: `${radius}px`,
-        boxSizing: 'border-box',
-        display: 'grid',
-        placeItems: 'center',
-        background: `linear-gradient(135deg, ${tone} 0%, ${tone}cc 100%)`,
-        boxShadow: `0 1px 2px ${alpha(tone, 0.35)}, inset 0 1px 0 rgba(255,255,255,0.22)`,
-        transition: 'background 160ms ease, box-shadow 160ms ease',
+        ...tileSx,
+        borderColor: 'var(--primary)',
+        bgcolor: 'var(--primary)',
+        color: 'var(--primary-foreground)',
+        '.dark &': { bgcolor: 'var(--primary)' },
       }}
     >
-      <Box
-        component="svg"
-        viewBox="0 0 16 16"
-        sx={{ width: size * 0.62, height: size * 0.62, display: 'block' }}
-      >
-        {kind === 'check' ? (
-          <path
-            d="M3.2 8.2 6.4 11.4 12.8 4.6"
-            fill="none"
-            stroke="#fff"
-            strokeWidth="2.1"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ) : (
-          <path
-            d="M3.5 8h9"
-            fill="none"
-            stroke="#fff"
-            strokeWidth="2.1"
-            strokeLinecap="round"
-          />
-        )}
-      </Box>
+      <Glyph size={16} strokeWidth={3} />
     </Box>
   );
 }
 
 /** Icons shared by WtCheckbox and the MUI theme defaultProps (global fallback). */
-export function wtCheckboxIcons(
-  tone: string = T.color.brand,
-  size: WtCheckboxSize = 'md',
-): { icon: ReactNode; checkedIcon: ReactNode; indeterminateIcon: ReactNode } {
-  const s = BOX[size];
+export function wtCheckboxIcons(): { icon: ReactNode; checkedIcon: ReactNode; indeterminateIcon: ReactNode } {
   return {
-    icon: <UncheckedIcon size={s.px} radius={s.radius} />,
-    checkedIcon: <FilledIcon size={s.px} radius={s.radius} tone={tone} kind="check" />,
-    indeterminateIcon: <FilledIcon size={s.px} radius={s.radius} tone={tone} kind="dash" />,
+    icon: <UncheckedIcon />,
+    checkedIcon: <FilledIcon kind="check" />,
+    indeterminateIcon: <FilledIcon kind="dash" />,
   };
 }
 
-/** Hover / focus / hit-target recipe — theme + WtCheckbox both use this. */
-export const wtCheckboxSx = (tone: string = T.color.brand, size: WtCheckboxSize = 'md'): SxProps<Theme> => {
-  const s = BOX[size];
-  return {
-    p: 0,
-    m: 0,
-    flexShrink: 0,
-    width: s.hit,
-    height: s.hit,
-    borderRadius: `${s.radius + 2}px`,
-    transition: 'background-color 160ms ease',
-    '&:hover': { backgroundColor: alpha(tone, 0.08) },
-    '&.Mui-focusVisible': {
-      outline: `2px solid ${alpha(tone, 0.45)}`,
-      outlineOffset: 2,
-    },
-    '&.Mui-disabled': { opacity: 0.45 },
-    '&:hover [data-wt-cb="off"]': {
-      borderColor: alpha(tone, 0.55),
-    },
-    '@media (prefers-reduced-motion: reduce)': {
-      transition: 'none',
-      '& [data-wt-cb]': { transition: 'none' },
-    },
-  };
-};
+/** Focus / disabled / hit-target recipe — theme + WtCheckbox both use this. */
+/** Hit target only — the visible tile is always the ds 22px. */
+export type WtCheckboxSize = 'sm' | 'md';
+const HIT: Record<WtCheckboxSize, number> = { sm: 32, md: 36 };
 
-/**
- * MUI theme hooks — applied in `wisetechTheme` so every Checkbox inherits the look.
- * Call sites that need a custom `tone` / `size` still use `<WtCheckbox>`.
- */
-export function wtCheckboxThemeDefaultProps(tone: string = T.color.brand) {
+// Plain CSS keys (not sx shorthands): this object also feeds the theme's styleOverrides.
+export const wtCheckboxSx = (size: WtCheckboxSize = 'md'): SxProps<Theme> => ({
+  padding: 0,
+  margin: 0,
+  flexShrink: 0,
+  width: HIT[size],
+  height: HIT[size],
+  '&.Mui-focusVisible [data-wt-cb]': {
+    borderColor: 'var(--ring)',
+    boxShadow: '0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent)',
+  },
+  '&.Mui-disabled': { opacity: 0.5, cursor: 'not-allowed' },
+});
+
+/** MUI theme hooks — applied in `wisetechTheme` so every Checkbox inherits the look. */
+export function wtCheckboxThemeDefaultProps() {
   return {
     disableRipple: true as const,
-    ...wtCheckboxIcons(tone, 'md'),
+    ...wtCheckboxIcons(),
   };
 }
 
-export function wtCheckboxThemeRootSx(tone: string = T.color.brand): SxProps<Theme> {
-  return wtCheckboxSx(tone, 'md');
+export function wtCheckboxThemeRootSx(): SxProps<Theme> {
+  return wtCheckboxSx();
+}
+
+/**
+ * Bounces every non-ds checkbox on toggle (the ds one bounces itself): one delegated `change`
+ * listener tags the box with data-bounce="in|out"; main.css animates it; animationend clears it.
+ */
+export function installCheckboxBounce() {
+  document.addEventListener('change', (e) => {
+    const input = e.target;
+    if (!(input instanceof HTMLInputElement) || input.type !== 'checkbox') return;
+    if (input.matches('[aria-hidden="true"], [role="switch"], .btn-check, .form-switch *')) return;
+    (input.closest('.MuiCheckbox-root') ?? input).setAttribute('data-bounce', input.checked ? 'in' : 'out');
+  }, true);
+  document.addEventListener('animationend', (e) => {
+    if (e.animationName.startsWith('checkbox-bounce')) (e.target as Element).closest('[data-bounce]')?.removeAttribute('data-bounce');
+  }, true);
 }
 
 export interface WtCheckboxProps extends Omit<CheckboxProps, 'size' | 'color' | 'icon' | 'checkedIcon' | 'indeterminateIcon'> {
-  /** Fill / focus tint when checked (hex). Default = brand navy. */
-  tone?: string;
   /** 'md' (default) for forms; 'sm' for dense rows. */
   size?: WtCheckboxSize;
 }
 
 /** Canonical app-wide checkbox — prefer this over raw MUI Checkbox. */
 export const WtCheckbox = forwardRef<HTMLButtonElement, WtCheckboxProps>(function WtCheckbox(
-  { tone = T.color.brand, size = 'md', sx, disableRipple = true, ...rest }, ref,
+  { size = 'md', sx, disableRipple = true, ...rest }, ref,
 ) {
-  const icons = wtCheckboxIcons(tone, size);
   return (
     <Checkbox
       ref={ref}
       disableRipple={disableRipple}
-      {...icons}
-      sx={[wtCheckboxSx(tone, size), ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
+      {...wtCheckboxIcons()}
+      sx={[wtCheckboxSx(size), ...(Array.isArray(sx) ? sx : [sx])] as SxProps<Theme>}
       {...rest}
     />
   );
@@ -195,7 +137,7 @@ export interface WtCheckboxFieldProps extends WtCheckboxProps {
  * Use this for salary-exclusion / consent lines so FormControlLabel chrome never crowds the box.
  */
 export const WtCheckboxField = forwardRef<HTMLButtonElement, WtCheckboxFieldProps>(function WtCheckboxField(
-  { label, description, tone, size = 'md', sx, disabled, ...rest }, ref,
+  { label, description, size = 'md', sx, disabled, ...rest }, ref,
 ) {
   return (
     <FormControlLabel
@@ -209,7 +151,7 @@ export const WtCheckboxField = forwardRef<HTMLButtonElement, WtCheckboxFieldProp
         width: '100%',
         '& .MuiFormControlLabel-label': { m: '0 !important' },
       }}
-      control={<WtCheckbox ref={ref} tone={tone} size={size} sx={sx} disabled={disabled} {...rest} />}
+      control={<WtCheckbox ref={ref} size={size} sx={sx} disabled={disabled} {...rest} />}
       label={
         <Box sx={{ minWidth: 0, pt: description ? 0.35 : 0 }}>
           <Typography sx={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.4, color: 'text.primary' }}>

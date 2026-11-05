@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { KTIcon } from '@metronic/helpers';
 import { DmsViewSwitch } from '@app/modules/common/components/ui';
 import { useDMS } from '../store/DmsContext';
-import { canSection } from '@utils/can';
+import { canDelete } from '@utils/can';
 import type { SortField, SortOrder } from '../types/dms.types';
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal';
 import * as dmsService from '../services/dmsService';
@@ -15,7 +15,6 @@ interface ExplorerToolbarProps {
 
 export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick }) => {
   const { state, dispatch, deleteFiles } = useDMS();
-  const canWrite = canSection('crm.leads', 'write');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
@@ -190,7 +189,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
                 {state.selectedFiles.length} selected
               </span>
               <ToolbarButton icon="cloud-download" label="Download" onClick={handleBulkDownload} />
-              {canWrite && <ToolbarButton icon="trash" label="Delete" onClick={handleBulkDelete} danger />}
+              {canDelete('crm.leads') && <ToolbarButton icon="trash" label="Delete" onClick={handleBulkDelete} danger />}
             </motion.div>
           )}
         </AnimatePresence>

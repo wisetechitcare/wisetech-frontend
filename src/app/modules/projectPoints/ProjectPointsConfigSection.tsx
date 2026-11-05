@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { IfCanDelete } from '@app/modules/common/components/ui/DeleteSection';
 import { IconButton, Tooltip } from "@mui/material";
 import { ConfigSectionCard, ConfigSettingsRow, C, ICON_COLORS } from "@app/modules/configuration";
 import { deleteConfirmation } from "@utils/modal";
@@ -150,6 +151,7 @@ const ProjectPointsConfigSection: React.FC = () => {
                                             <AppIcon name="bi-pencil" className="fs-6" />
                                         </Button>
                                     </Tooltip>
+                                    <IfCanDelete>
                                     <Tooltip title="Delete">
                                         <Button
                                             variant="tinted"
@@ -161,6 +163,7 @@ const ProjectPointsConfigSection: React.FC = () => {
                                             <AppIcon name="bi-trash" className="fs-6" />
                                         </Button>
                                     </Tooltip>
+                                    </IfCanDelete>
                                 </div>
                             }
                         />

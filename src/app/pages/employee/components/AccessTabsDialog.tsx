@@ -7,7 +7,7 @@ import { coloredActionBtn } from "@app/modules/configuration";
 import { navIcon } from "@components/navigation/NavContainers/navIcons";
 import { SECTION_TABS, tabKey } from "@utils/sectionTabs";
 import type { AccessLayoutNode } from "@utils/accessSidebarLayout";
-import type { EffLevel, TabControls } from "./accessControlTypes";
+import { atLeastWrite, type EffLevel, type TabControls } from "./accessControlTypes";
 /**
  * A card whose tabs are sections of their own (KPI): each tab's switch sets that section — on at the
  * card's level (Configure needs Write), off = no access.
@@ -52,18 +52,18 @@ const rowsFor = ({ section, level, tabs, composite }: Pick<Props, "section" | "l
   if (composite) {
     return composite.children.map((c) => {
       const needsWrite = c.module.endsWith(".configure");
-      const reachable = needsWrite ? level === "edit" : level !== "none";
+      const reachable = needsWrite ? atLeastWrite(level) : level !== "none";
       const on = (composite.levels[c.module] || "none") !== "none";
       return {
         key: c.module, label: c.label, icon: c.icon, hint: c.hint ?? "", needsWrite, reachable, on,
-        toggle: () => composite.onSetLevel(c.module, on ? "none" : needsWrite || level === "edit" ? "edit" : "view"),
+        toggle: () => composite.onSetLevel(c.module, on ? "none" : level),
       };
     });
   }
   return (SECTION_TABS[section] ?? []).map((t) => {
     const key = tabKey(section, t.key);
     const needsWrite = !!t.needsWrite;
-    const reachable = needsWrite ? level === "edit" : level !== "none";
+    const reachable = needsWrite ? atLeastWrite(level) : level !== "none";
     const on = reachable && !tabs?.denied.has(key);
     return {
       key, label: t.label, icon: t.icon, hint: t.hint, needsWrite, reachable, on, custom: tabs?.custom?.has(key),
@@ -210,10 +210,12 @@ export const AdvancedTabsButton: React.FC<Omit<Props, "open" | "onClose"> & { co
 
 /** A composite card's own level, from its tabs: Write if any tab has it, else Read if any does. */
 export const compositeLevel = (children: AccessLayoutNode[], levels: Record<string, EffLevel>): EffLevel =>
-  children.some((c) => levels[c.module] === "edit") ? "edit" : children.some((c) => (levels[c.module] || "none") !== "none") ? "view" : "none";
+  children.some((c) => levels[c.module] === "delete") ? "delete"
+    : children.some((c) => levels[c.module] === "edit") ? "edit"
+    : children.some((c) => (levels[c.module] || "none") !== "none") ? "view" : "none";
 
 /** The card's Read / Write set every tab: on at that level (Configure only with Write), off = none. */
 export const setCompositeLevel = (children: AccessLayoutNode[], level: EffLevel, onSetLevel: (m: string, l: EffLevel) => void) =>
-  children.forEach((c) => onSetLevel(c.module, level === "none" ? "none" : c.module.endsWith(".configure") ? (level === "edit" ? "edit" : "none") : level));
+  children.forEach((c) => onSetLevel(c.module, level === "none" ? "none" : c.module.endsWith(".configure") ? (atLeastWrite(level) ? level : "none") : level));
 
 export default AccessTabsDialog;

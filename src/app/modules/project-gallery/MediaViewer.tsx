@@ -270,9 +270,11 @@ function ViewerBody({
               <Button variant="outline" className="col-span-2" onClick={() => onEditingChange(true)}>
                 <Pencil data-icon="inline-start" /> Edit details
               </Button>
-              <Button variant="destructive" className="col-span-2" onClick={() => actions.remove([item.id])}>
-                <Trash2 data-icon="inline-start" /> Delete
-              </Button>
+              {actions.remove && (
+                <Button variant="destructive" className="col-span-2" onClick={() => actions.remove?.([item.id])}>
+                  <Trash2 data-icon="inline-start" /> Delete
+                </Button>
+              )}
             </div>
           </div>
         )}

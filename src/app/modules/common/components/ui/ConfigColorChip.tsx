@@ -16,6 +16,7 @@ import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { AppIcon } from './AppIcon';
 import { WtIconButton } from './buttons';
 import { toneAlpha } from './chips';
+import { useCanDeleteHere } from './DeleteSection';
 
 export interface ConfigChipAction {
     /** Bootstrap icon class, e.g. "bi-trash". */
@@ -90,6 +91,8 @@ export const ConfigColorChip: React.FC<ConfigColorChipProps> = ({
     name, color, onEdit, action, caption, captionStrong = false, title, badge, disabled = false,
 }) => {
     const theme = useTheme();
+    // A trash action inside a DeleteSection shows only with Delete on that section.
+    const canDeleteHere = useCanDeleteHere();
     // No colour configured → the divider tone, which is legible in both modes.
     const rail = color || theme.palette.divider;
     const editTint = theme.palette.primary.main;
@@ -213,7 +216,7 @@ export const ConfigColorChip: React.FC<ConfigColorChipProps> = ({
                         <AppIcon name="bi-pencil" />
                     </WtIconButton>
                 )}
-                {action && (
+                {action && (canDeleteHere || !action.icon.includes('trash')) && (
                     <WtIconButton
                         className="cfg-chip-action"
                         title={action.title}

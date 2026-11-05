@@ -16,7 +16,8 @@
  * is pixel-identical to the same leave inside ApplyLeave's calendar. Soft alphas are raised so
  * status + meta chips stay readable on glass cards without a second MetaPill primitive.
  */
-import { Chip, type ChipProps } from '@mui/material';
+import React from 'react';
+import { Box, Chip, type ChipProps } from '@mui/material';
 // Canonical module, not the ./tokens shim — that file's own docblock says new consumers must
 // import from @app/theme/tokens directly (DESIGN_SYSTEM.md Phase 1).
 import { tonePair, type SemanticTone } from '@app/theme/tokens';
@@ -70,5 +71,68 @@ export function ToneChip({ tone = 'neutral', color, solid = false, dense = false
             ]}
             {...rest}
         />
+    );
+}
+
+/**
+ * StatusPill — the Leads table's status badge: solid admin-configured colour, 6px corners,
+ * white dot + white label. For CONFIGURED statuses (lead/project/agenda statuses carry their own
+ * colour); semantic states still use ToneChip.
+ *
+ * Pass `onClick` and it becomes a real button (keyboard-operable, focus ring) — e.g. a status you
+ * can change in place; `endIcon` then carries the affordance (a chevron).
+ */
+export function StatusPill({
+    label,
+    color,
+    onClick,
+    endIcon,
+    disabled,
+    ...aria
+}: {
+    label: React.ReactNode;
+    color?: string | null;
+    onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+    endIcon?: React.ReactNode;
+    disabled?: boolean;
+    'aria-label'?: string;
+    'aria-haspopup'?: 'menu' | 'listbox';
+    'aria-expanded'?: boolean;
+}) {
+    const interactive = !!onClick;
+    return (
+        <Box
+            component={interactive ? 'button' : 'span'}
+            type={interactive ? 'button' : undefined}
+            onClick={interactive && !disabled ? onClick : undefined}
+            disabled={interactive ? disabled : undefined}
+            {...aria}
+            sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                maxWidth: '100%',
+                bgcolor: color || '#64748B',
+                color: '#fff',
+                borderRadius: '6px',
+                border: 0,
+                p: '4px 10px 4px 8px',
+                font: 'inherit',
+                fontSize: 12,
+                fontWeight: 600,
+                lineHeight: 1.4,
+                whiteSpace: 'nowrap',
+                cursor: interactive && !disabled ? 'pointer' : 'default',
+                opacity: disabled ? 0.6 : 1,
+                ...(interactive && {
+                    '&:hover': { filter: 'brightness(0.93)' },
+                    '&:focus-visible': { outline: '2px solid', outlineColor: color || '#64748B', outlineOffset: 2 },
+                }),
+            }}
+        >
+            <Box component="span" aria-hidden sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#fff', flexShrink: 0 }} />
+            <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</Box>
+            {endIcon && <Box component="span" aria-hidden sx={{ display: 'inline-flex', ml: '-2px' }}>{endIcon}</Box>}
+        </Box>
     );
 }
