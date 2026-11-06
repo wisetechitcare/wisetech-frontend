@@ -9,7 +9,14 @@ export type ScreenState = {
   prepare?: (page: Page) => Promise<void>
 }
 
-export type Screen = { id: string; name: string; path: string; states: ScreenState[] }
+export type Screen = {
+  id: string
+  name: string
+  path: string
+  states: ScreenState[]
+  /** Capture the whole scrolling page, not just the viewport — for screens whose content runs below the fold. */
+  fullPage?: boolean
+}
 
 const loaded: ScreenState = { id: "loaded", name: "loaded" }
 
@@ -82,6 +89,21 @@ export const SCREENS: Screen[] = [
         states: [loaded],
       }]
     : []),
+  {
+    id: "reimb-mine",
+    name: "Reimbursement / My Reimbursements",
+    path: "/finance/reimbursements/my-reimbursements",
+    fullPage: true,
+    states: [loaded, { id: "all-time", name: "all time", prepare: clickTab(/^all time$/i) }],
+  },
+  {
+    // Same workspace as My Reimbursements, for the employee picked above it (you, until changed).
+    id: "reimb-search",
+    name: "Reimbursement / Search Employee",
+    path: "/finance/reimbursements/search-employee",
+    fullPage: true,
+    states: [loaded, { id: "all-time", name: "all time", prepare: clickTab(/^all time$/i) }],
+  },
   {
     id: "reimb-payment",
     name: "Reimbursement / Payment",
