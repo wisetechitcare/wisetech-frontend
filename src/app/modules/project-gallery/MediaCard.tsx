@@ -13,7 +13,7 @@ import {
   Trash2,
   Video,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/ds/ui/badge";
 import { Button } from "@/ds/ui/button";
@@ -137,24 +137,28 @@ export function MediaThumb({
   );
 }
 
-/** Native share sheet where the device has one (phones), else copy the public link. */
-export async function shareMedia(item: MediaItem) {
-  const title = mediaLabel(item);
+/**
+ * Native share sheet where the device has one (phones), else copy the link. `note` is added to the
+ * "Link copied" toast, e.g. when the link expires.
+ */
+export async function shareLink(title: string, url: string, note?: string) {
   if (navigator.share) {
     try {
-      await navigator.share({ title, url: item.src });
+      await navigator.share({ title, url });
     } catch {
       /* user closed the share sheet */
     }
     return;
   }
   try {
-    await navigator.clipboard.writeText(item.src);
-    toast.success("Link copied", { description: title });
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copied", { description: note ? `${title}. ${note}` : title });
   } catch {
     toast.error("Couldn't copy the link");
   }
 }
+
+export const shareMedia = (item: MediaItem) => shareLink(mediaLabel(item), item.src);
 
 export function CoverBadge({
   pop,
@@ -177,6 +181,79 @@ export function CoverBadge({
   );
 }
 
+/**
+ * The ⋯ menu on a gallery item, shared by every media-style collection (Project Gallery, Company
+ * Catalogues): Preview, Download, Share, an edit entry, an optional section of the screen's own items,
+ * then Delete. Omit `onEdit` / `onDelete` when the viewer may not do them.
+ */
+export function ItemActionsMenu({
+  label,
+  onPreview,
+  onDownload,
+  onShare,
+  onEdit,
+  editLabel = "Edit details",
+  extra,
+  onDelete,
+}: {
+  /** The item's name, for the trigger's accessible name. */
+  label: string;
+  onPreview: () => void;
+  onDownload: () => void;
+  onShare: () => void;
+  onEdit?: () => void;
+  editLabel?: ReactNode;
+  /** Screen-specific items, shown in their own section above Delete. */
+  extra?: ReactNode;
+  onDelete?: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Actions for ${label}`}
+          />
+        }
+      >
+        <MoreHorizontal />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuItem onClick={onPreview}>
+          <Eye /> Preview
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onDownload}>
+          <Download /> Download
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onShare}>
+          <Share2 /> Share
+        </DropdownMenuItem>
+        {onEdit && (
+          <DropdownMenuItem onClick={onEdit}>
+            <Pencil /> {editLabel}
+          </DropdownMenuItem>
+        )}
+        {extra && (
+          <>
+            <DropdownMenuSeparator />
+            {extra}
+          </>
+        )}
+        {onDelete && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={onDelete}>
+              <Trash2 /> Delete
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function MediaActionsMenu({
   item,
   isCover,
@@ -187,33 +264,15 @@ function MediaActionsMenu({
   actions: MediaActions;
 }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Actions for ${mediaLabel(item)}`}
-          />
-        }
-      >
-        <MoreHorizontal />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-56">
-        <DropdownMenuItem onClick={() => actions.preview(item.id)}>
-          <Eye /> Preview
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => actions.download(item.id)}>
-          <Download /> Download
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => shareMedia(item)}>
-          <Share2 /> Share
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => actions.edit(item.id)}>
-          <Pencil /> Edit caption &amp; details
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {item.kind === "video" ? (
+    <ItemActionsMenu
+      label={mediaLabel(item)}
+      onPreview={() => actions.preview(item.id)}
+      onDownload={() => actions.download(item.id)}
+      onShare={() => void shareMedia(item)}
+      onEdit={() => actions.edit(item.id)}
+      editLabel={<>Edit caption &amp; details</>}
+      extra={
+        item.kind === "video" ? (
           <DropdownMenuItem disabled>
             <Star /> Videos can't be covers yet
           </DropdownMenuItem>
@@ -225,20 +284,10 @@ function MediaActionsMenu({
           <DropdownMenuItem onClick={() => actions.setCover(item.id)}>
             <Star /> Set as Project Cover
           </DropdownMenuItem>
-        )}
-        {actions.remove && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => actions.remove?.([item.id])}
-            >
-              <Trash2 /> Delete
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        )
+      }
+      onDelete={actions.remove ? () => actions.remove?.([item.id]) : undefined}
+    />
   );
 }
 

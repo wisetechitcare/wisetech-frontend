@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate,  } from "react-router-dom";
 import { useTabKeyRoute } from "@app/hooks/useTabRoute";
 import { Box, Menu, MenuItem, Rating, Stack, Typography } from "@mui/material";
+import { Upload } from "lucide-react";
 import { getClientCompanyById } from "@services/companies";
 import Overview from "./CompanyOverview";
 import NewCompanyForm from "./NewCompanyForm";
@@ -352,7 +353,13 @@ const CompanyDetails = () => {
         onChange={(key) => ((key as string) === "audit" ? setAuditOpen(true) : setActiveTab(key))}
         ariaLabel="Company sections"
         actions={canWrite && addLabel ? (
-          <WtButton size="small" onClick={() => setAddRequested(true)} startIcon={<AppIcon name="plus" className="fs-5" />} sx={{ whiteSpace: "nowrap" }}>
+          <WtButton
+            size="small"
+            onClick={() => setAddRequested(true)}
+            // Uploading gets the gallery's "Upload Media" arrow; adding a record keeps the plus.
+            startIcon={activeTab === "catalogue" ? <Upload className="size-4" aria-hidden /> : <AppIcon name="plus" className="fs-5" />}
+            sx={{ whiteSpace: "nowrap" }}
+          >
             {addLabel}
           </WtButton>
         ) : undefined}
