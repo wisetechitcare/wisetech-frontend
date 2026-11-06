@@ -235,6 +235,9 @@ importers:
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
+      pdfjs-dist:
+        specifier: 4.8.69
+        version: 4.8.69
       pdfmake:
         specifier: ^0.2.10
         version: 0.2.23
