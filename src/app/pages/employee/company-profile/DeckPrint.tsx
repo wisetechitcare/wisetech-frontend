@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { SlideSpec } from "./profileBuilder";
+import type { SlideSpec } from "@app/modules/company-profile/profileBuilder";
 
 /**
  * Export PDF without a server (the backend export is a later phase): the shown slides, one 16:9 page each,

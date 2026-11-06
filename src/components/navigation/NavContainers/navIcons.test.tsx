@@ -33,6 +33,7 @@ describe('navIcon', () => {
       'bi-cash-coin',
       'bi-house-fill',
       'bi-gear',
+      'lucide-gallery-vertical-end',
     ];
 
     for (const name of sectionIcons) {

@@ -1,8 +1,25 @@
-import { createContext, useContext, type ReactNode } from "react"
+import { createContext, useContext, type ComponentProps, type ReactNode } from "react"
 import { BadgeCheck, Building, Building2, CalendarDays, Clipboard, Cog, FileCheck, Globe, Handshake, Lightbulb, MapPin, Network, ShieldCheck, Users, type LucideIcon } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
+import { Badge } from "@/ds/ui/badge"
 import { INDIA, WORLD, WORLD_INDIA, type DotGrid } from "./mapGrid"
-import { formatArea, initialsOf, plus, type CaptionField, type Facet, type Group, type Place, type ProfileCompany, type ProfileData, type ProfileProject, type ProfileService } from "./profile"
+import {
+  LOGO_COLS,
+  formatArea,
+  initialsOf,
+  plural,
+  plus,
+  projectsOf,
+  type CaptionField,
+  type Facet,
+  type Group,
+  type OrgProfile,
+  type Place,
+  type ProfileCompany,
+  type ProfileData,
+  type ProfileProject,
+  type ProfileService,
+} from "./profile"
 
 /*
  * Sizes are container units (cqw) so one slide renders identically as stage, thumbnail, fullscreen and PDF page.
@@ -11,8 +28,8 @@ import { formatArea, initialsOf, plus, type CaptionField, type Facet, type Group
  * accent; the logo's blue #2b5797 appears only in the wordmark.
  */
 
-/** Set by the deck per slide: the page number and the two-tone wordmark the footer prints. */
-export const SlideContext = createContext<{ page: number; wordmark: [string, string] }>({ page: 0, wordmark: ["", ""] })
+/** Set by the deck per slide: its place in the presentation (`page` of `total` shown slides) and the two-tone wordmark the footer prints. */
+export const SlideContext = createContext<{ page: number; total: number; wordmark: [string, string] }>({ page: 0, total: 0, wordmark: ["", ""] })
 
 function Wordmark() {
   const [a, b] = useContext(SlideContext).wordmark
@@ -25,7 +42,7 @@ function Wordmark() {
 }
 
 function Frame({ children, className, footer = true }: { children: ReactNode; className?: string; footer?: boolean }) {
-  const { page } = useContext(SlideContext)
+  const { page, total } = useContext(SlideContext)
   return (
     <div className="@container aspect-video w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm">
       <div className={cn("relative flex size-full flex-col", footer && "px-[4.4cqw] pt-[3.4cqw] pb-[2cqw]")}>
@@ -33,7 +50,9 @@ function Frame({ children, className, footer = true }: { children: ReactNode; cl
         {footer && (
           <footer className="relative mt-[1.6cqw] flex items-center justify-between border-t border-slate-200 pt-[1.1cqw] text-[1.25cqw]">
             <Wordmark />
-            <span className="text-slate-500 tabular-nums">{String(page).padStart(2, "0")}</span>
+            <span className="text-slate-500 tabular-nums" data-testid="slide-page">
+              {page} of {total}
+            </span>
           </footer>
         )}
       </div>
@@ -147,15 +166,28 @@ export function CoverSlide({ data }: { data: ProfileData }) {
   )
 }
 
+/** Our journey: the company's milestones on one horizontal line, oldest first (the cover already carries the numbers). */
+function MilestoneTimeline({ milestones }: { milestones: OrgProfile["milestones"] }) {
+  if (!milestones.length) return null
+  return (
+    <section className="mt-auto">
+      <p className="text-[1.15cqw] font-bold tracking-[0.3em] text-[#c62828] uppercase">Our journey</p>
+      <ol className="relative mt-[1.6cqw] grid auto-cols-fr grid-flow-col gap-[2.4cqw] before:absolute before:inset-x-0 before:top-[0.7cqw] before:h-[0.2cqw] before:bg-slate-200 before:content-['']">
+        {milestones.map((m) => (
+          <li key={`${m.year}-${m.title}`} className="relative">
+            <span aria-hidden className="block size-[1.6cqw] rounded-full border-[0.4cqw] border-[#1b2a4e] bg-white" />
+            <p className="mt-[1cqw] text-[2.6cqw] leading-none font-bold text-[#c62828] tabular-nums">{m.year}</p>
+            <p className="mt-[0.6cqw] text-[1.4cqw] leading-tight font-bold text-[#1b2a4e]">{m.title}</p>
+            <p className="mt-[0.4cqw] line-clamp-3 text-[1.15cqw] leading-snug text-slate-600">{m.text}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
 export function AboutSlide({ data }: { data: ProfileData }) {
-  const { org, totals } = data
-  const stats = [
-    [plus(totals.projects), "Projects"],
-    [plus(totals.completed), "Completed"],
-    [plus(totals.clients), "Clients"],
-    [plus(new Date().getFullYear() - org.foundedIn), "Years of experience"],
-    [plus(totals.team), "Team"],
-  ]
+  const { org } = data
   return (
     <Frame>
       <Heading>About us</Heading>
@@ -166,13 +198,7 @@ export function AboutSlide({ data }: { data: ProfileData }) {
           </p>
         ))}
       </div>
-      <ul className="mt-auto grid grid-cols-5 divide-x divide-slate-200 rounded-[1cqw] bg-slate-100 py-[2cqw]">
-        {stats.map(([value, label]) => (
-          <li key={label} className="px-[2cqw]">
-            <Figure n={value} label={label} />
-          </li>
-        ))}
-      </ul>
+      <MilestoneTimeline milestones={org.milestones} />
     </Frame>
   )
 }
@@ -263,6 +289,18 @@ const COLS = ["", "grid-cols-1", "grid-cols-2", "grid-cols-3", "grid-cols-4"]
 
 const EYEBROW: Record<Facet, string> = { typology: "Project category", tag: "Project category", city: "Projects in", client: "Projects for", architect: "Designed with" }
 
+type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>
+const STATUS_VARIANT: Record<string, BadgeVariant> = { completed: "success", ongoing: "info", "on going": "info", "on hold": "warning", cancelled: "danger" }
+
+/** A project status as the kit's status badge, one colour per meaning; an unknown status reads neutral. Size it with `className`. */
+export function ProjectStatusBadge({ status, className }: { status: string; className?: string }) {
+  return (
+    <Badge variant={STATUS_VARIANT[status.toLowerCase()] ?? "neutral"} dot className={className}>
+      {status}
+    </Badge>
+  )
+}
+
 function ProjectTile({ p, captions, hero }: { p: ProfileProject; captions: CaptionField[]; hero?: boolean }) {
   const line = [
     captions.includes("architect") && p.architect && `Arch. ${p.architect}`,
@@ -273,9 +311,13 @@ function ProjectTile({ p, captions, hero }: { p: ProfileProject; captions: Capti
     <div className="relative size-full min-h-0 overflow-hidden rounded-[0.4cqw] border border-slate-300 bg-slate-100">
       {p.cover && <img src={p.cover} alt="" className="absolute inset-0 size-full object-cover" />}
       {captions.includes("status") && p.status && (
-        <span className={cn("absolute top-[0.8cqw] right-[0.8cqw] rounded-full bg-[#1b2a4e]/85 px-[0.9cqw] py-[0.3cqw] font-bold text-white", hero ? "text-[1.2cqw]" : "text-[0.9cqw]")}>
-          {p.status}
-        </span>
+        <ProjectStatusBadge
+          status={p.status}
+          className={cn(
+            "absolute top-[0.8cqw] right-[0.8cqw] h-auto gap-[0.4cqw] px-[0.9cqw] py-[0.3cqw] font-bold shadow-sm before:size-[0.55cqw]",
+            hero ? "text-[1.2cqw]" : "text-[0.9cqw]",
+          )}
+        />
       )}
       <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-[#1b2a4e] via-[#1b2a4e]/70 to-transparent p-[1cqw] pt-[3cqw] text-white">
         <p className={cn("leading-tight font-bold", hero ? "text-[1.7cqw]" : "line-clamp-2 text-[1.1cqw]")}>{p.name}</p>
@@ -335,14 +377,13 @@ export function ProjectsSlide({
   )
 }
 
-/** Logo-wall geometry, shared with the deck's pagination: plates per row and plate rows per slide. */
-export const LOGO_COLS = 6
-export const LOGO_ROWS = 7
-
 const PLATE_COLS = ["", "grid-cols-[repeat(1,13.4cqw)]", "grid-cols-[repeat(2,13.4cqw)]", "grid-cols-[repeat(3,13.4cqw)]", "grid-cols-[repeat(4,13.4cqw)]", "grid-cols-[repeat(5,13.4cqw)]", "grid-cols-[repeat(6,13.4cqw)]"]
 
-/** Client logo wall: company-type groups side by side on shelves; what does not fit flows onto the next slide. */
-export function ClientsSlide({ title, shelves }: { title: string; shelves: Group<ProfileCompany>[][] }) {
+/**
+ * Client logo wall: company-type groups side by side on shelves; what does not fit flows onto the next slide.
+ * Each plate carries the logo, the name and how many projects the company did with us (as client or architect).
+ */
+export function ClientsSlide({ title, shelves, projects }: { title: string; shelves: Group<ProfileCompany>[][]; projects: ProfileProject[] }) {
   return (
     <Frame>
       <Heading>{title}</Heading>
@@ -354,8 +395,12 @@ export function ClientsSlide({ title, shelves }: { title: string; shelves: Group
                 <p className="mb-[0.6cqw] text-[1.1cqw] font-bold tracking-[0.2em] text-[#c62828] uppercase">{g.name}</p>
                 <ul className={cn("grid gap-[0.8cqw]", PLATE_COLS[Math.min(g.items.length, LOGO_COLS)])}>
                   {g.items.map((c) => (
-                    <li key={c.id} className="grid h-[4.8cqw] place-items-center overflow-hidden rounded-[0.7cqw] border border-slate-200 bg-white px-[0.8cqw] text-center text-[1.2cqw] font-bold text-slate-800">
-                      {c.logo ? <img src={c.logo} alt={c.name} className="max-h-full max-w-full object-contain" /> : c.name}
+                    <li key={c.id} className="flex h-[7.4cqw] flex-col items-center justify-center gap-[0.3cqw] overflow-hidden rounded-[0.7cqw] border border-slate-200 bg-white px-[0.8cqw] text-center">
+                      <span className="grid h-[3.4cqw] w-full place-items-center text-[1.2cqw] font-bold text-slate-800">
+                        {c.logo ? <img src={c.logo} alt="" className="max-h-full max-w-full object-contain" /> : initialsOf(c.name)}
+                      </span>
+                      <span className="w-full truncate text-[0.95cqw] font-semibold text-slate-700">{c.name}</span>
+                      <span className="text-[0.9cqw] font-bold text-[#c62828] tabular-nums">{plural(projectsOf(projects, c.name), "project")}</span>
                     </li>
                   ))}
                 </ul>

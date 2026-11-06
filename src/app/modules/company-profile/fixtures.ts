@@ -5,7 +5,8 @@
  */
 import { scene, type SceneName } from "../project-gallery/fixtures"
 import coverHero from "./cover-hero.jpg"
-import { PICK_LIMIT, autoPick, places, projectsOf, type OrgProfile, type ProfileCompany, type ProfileData, type ProfileProject, type ProfileService, type Section } from "./profile"
+import { PICK_LIMIT, places, type OrgProfile, type ProfileCompany, type ProfileData, type ProfileProject, type ProfileService, type Section } from "./profile"
+import { categorySections, clientsSection } from "./profileBuilder"
 
 const SCENE: Record<string, SceneName[]> = {
   Residential: ["exterior", "night"],
@@ -252,6 +253,15 @@ const DEMO_ORG: OrgProfile = {
     { label: "Team", text: "We build the most technical and knowledgeable team." },
     { label: "Working", text: "We do business on business ethics." },
   ],
+  // MOCK: only the first milestone is from the brochure (`foundedIn`, Mumbai). The rest are labelled
+  // placeholders showing the milestone kinds, NOT company history; replace them with verified milestones.
+  milestones: [
+    { year: 2005, title: "Company established", text: "Founded in Mumbai as an MEP design consultancy." },
+    { year: 2010, title: "First major project", text: "Sample milestone: replace with the verified project." },
+    { year: 2014, title: "New markets", text: "Sample milestone: replace with the first project abroad." },
+    { year: 2018, title: "Key partnership", text: "Sample milestone: replace with a verified partnership." },
+    { year: 2022, title: "Business growth", text: "Sample milestone: replace with a verified achievement." },
+  ],
   pillars: [
     { title: "MEP Design", text: "Innovative, efficient & sustainable design solutions." },
     { title: "Engineering Excellence", text: "Delivering precision-engineered systems across industries." },
@@ -273,39 +283,20 @@ export const DEMO_DATA: ProfileData = {
   services: DEMO_SERVICES,
 }
 
-/* ---------- The default deck: every fetched slide pre-picked; the logo wall holds every client and architect ---------- */
+/* ---------- The default deck: a section per project category; the logo wall holds every client and architect ---------- */
 
 const fixed = (kind: "cover" | "about" | "vision" | "contact", title: string): Section => ({ id: kind, kind, title, enabled: true })
-const projects = (id: string, facet: "typology" | "tag", value: string, count: number): Section => ({
-  id,
-  kind: "projects",
-  title: value,
-  enabled: true,
-  facet,
-  value,
-  projectIds: autoPick(DEMO_PROJECTS, facet, value, count),
-  captions: ["architect", "client", "area", "status"],
-})
-const topCompanies = (type: (types: string[]) => boolean, k: number) =>
-  DEMO_COMPANIES.filter((c) => type(c.types))
-    .sort((a, b) => projectsOf(DEMO_PROJECTS, b.name) - projectsOf(DEMO_PROJECTS, a.name))
-    .slice(0, k)
-    .map((c) => c.id)
-const isClient = (t: string[]) => !t.includes("Architect")
+const clients = clientsSection(DEMO_DATA)
 
 export const DEMO_SECTIONS: Section[] = [
   fixed("cover", "Cover"),
   fixed("about", "About us"),
   fixed("vision", "Who we are"),
   { id: "services", kind: "services", title: "Services we offer", enabled: true, ids: DEMO_SERVICES.slice(0, 8).map((s) => s.id) },
-  projects("high-rise", "tag", HR, 10),
-  projects("commercial", "typology", "Commercial", 5),
-  projects("hospitality", "typology", "Hospitality", 9),
-  projects("healthcare", "typology", "Healthcare", 5),
-  projects("institutional", "typology", "Institutional", 5),
-  projects("heritage", "tag", HER, 5),
-  { id: "clients", kind: "companies", title: "Our Clients", enabled: true, display: "logos", ids: [...topCompanies(isClient, Infinity), ...topCompanies((t) => t.includes("Architect"), Infinity)] },
-  { id: "repeat", kind: "companies", title: "Repeat clients", enabled: true, display: "chart", ids: topCompanies(isClient, 8) },
+  ...categorySections(DEMO_PROJECTS),
+  clients,
+  // The wall lists clients first, most projects first: the top 8 are the repeat clients.
+  { id: "repeat", kind: "companies", title: "Repeat clients", enabled: true, display: "chart", ids: clients.ids.slice(0, 8) },
   { id: "india", kind: "map", title: "Our projects across India", enabled: true, region: "india", ids: places(DEMO_PROJECTS, "india").slice(0, PICK_LIMIT.map).map((p) => p.id) },
   { id: "world", kind: "map", title: "Our projects worldwide", enabled: true, region: "world", ids: places(DEMO_PROJECTS, "world").map((p) => p.id) },
   fixed("contact", "Contact"),

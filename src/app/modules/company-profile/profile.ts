@@ -50,6 +50,8 @@ export type OrgProfile = {
   vision: string
   mission: string
   values: Array<{ label: string; text: string }>
+  /** About us → Our journey, oldest first. */
+  milestones: Array<{ year: number; title: string; text: string }>
   /** The cover's four pillars. */
   pillars: Array<{ title: string; text: string }>
   address: string
@@ -69,7 +71,8 @@ export type ProfileData = {
   services: ProfileService[]
 }
 
-/** The deck stays a presentation, not a catalogue. */
+/** The presentation stays a presentation, not a catalogue: at most this many slides are shown. The builder may
+ * generate more; those stay listed but hidden. */
 export const MAX_SLIDES = 20
 
 export type Facet = "typology" | "tag" | "city" | "client" | "architect"
@@ -89,21 +92,25 @@ export const CAPTION_FIELDS: Array<{ id: CaptionField; label: string }> = [
   { id: "status", label: "Status" },
 ]
 
-/** Projects per slide: up to 9 (one tall hero + 8 portrait tiles). Sections are spread evenly, so with at
- * least MIN_PROJECTS picked no slide ever holds fewer than 5. */
+/** Projects per slide: up to 9 (one tall hero + 8 portrait tiles). */
 export const MAX_PER_SLIDE = 9
-export const MIN_PROJECTS = 5
 
-/** `hidden`: numbers (1-based) of this section's own slides that are switched off, e.g. page 3 of High-rise. */
-type Base = { id: string; title: string; enabled: boolean; hidden?: number[] }
+/** Logo-wall geometry: plates per row, and plate rows per slide (group labels count half a row each). */
+export const LOGO_COLS = 6
+export const LOGO_ROWS = 5
+
+/** `hidden`: keys of this section's own slides that are switched off (see `sectionSlides`), e.g. page 3 of High-rise. */
+type Base = { id: string; title: string; enabled: boolean; hidden?: string[] }
 export type StaticKind = "cover" | "about" | "vision" | "contact"
 export type StaticSection = Base & { kind: StaticKind }
+/** One project slide: its projects in display order, the first one the hero. `key` stays with the slide when it moves. */
+export type ProjectSlide = { key: string; ids: string[] }
 export type ProjectSection = Base & {
   kind: "projects"
   facet: Facet
   value: string
-  /** Chosen projects, in display order. The first one is the hero of the first slide. */
-  projectIds: string[]
+  /** The section's slides in deck order; a project sits on one slide only. */
+  slides: ProjectSlide[]
   captions: CaptionField[]
 }
 export type ServicesSection = Base & { kind: "services"; ids: string[] }
@@ -240,6 +247,9 @@ export function formatArea(sqft: number) {
   if (sqft >= 100000) return `${+(sqft / 100000).toFixed(2)} L sq ft`
   return `${new Intl.NumberFormat("en-IN").format(sqft)} sq ft`
 }
+
+/** "1 project", "7 projects". */
+export const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`
 
 /** "650" → "650+", the way profile numbers are quoted: rounded down to a tidy figure. */
 export const plus = (n: number) => `${n >= 100 ? Math.floor(n / 50) * 50 : n >= 20 ? Math.floor(n / 5) * 5 : n}+`

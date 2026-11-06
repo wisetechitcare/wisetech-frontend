@@ -1,18 +1,18 @@
 import { useState } from "react"
-import { ChevronDown, Eye, EyeOff, Pencil, Trash2 } from "lucide-react"
+import { ChevronDown, Eye, EyeOff, Pencil } from "lucide-react"
 import ReorderableGroup, { DragHandle, nudgeItems } from "@app/modules/common/components/ReorderableGroup"
 import { Button } from "@/ds/ui/button"
 import { Item } from "@/ds/ui/item"
-import type { ProjectSection } from "@app/modules/company-profile/profile"
-import type { BuilderSection, EditableSection, SectionSlide } from "./profileBuilder"
+import type { ProjectSection, Section } from "./profile"
+import { isEditable, type EditableSection, type SectionSlide } from "./profileBuilder"
 
 /*
  * Rows are the kit's `Item`: it carries `data-slot`, which makes Bootstrap's colliding `!important` utilities
- * (`border`, `gap-*`) stand down, so the border colour and the dashed "hidden" state hold in the app. Text
- * sizes sit on spans (see DeckStage) and are one step up from the prototype's for the app's 13px root.
+ * (`border`, `gap-*`) stand down in the app, so the border colour and the dashed "hidden" state hold. Text
+ * sizes sit on spans (see DeckStage).
  */
 
-/** The eye on a section and on each of its slides: pressed means it is in the deck. */
+/** The eye on a section and on each of its slides: pressed means it is in the presentation. Show / hide only; nothing is deleted here. */
 function VisibilityToggle({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
   return (
     <Button size="icon-xs" variant="ghost" aria-pressed={on} aria-label={`Include ${label}`} onClick={onToggle}>
@@ -21,7 +21,7 @@ function VisibilityToggle({ on, label, onToggle }: { on: boolean; label: string;
   )
 }
 
-/** A project section's own slides (High-rise 1, 2…): reorder by drag or arrow keys, hide one at a time. */
+/** A section's own slides (High-rise 1, 2…): hide one at a time; with `onReorder`, drag or arrow keys reorder them. */
 function SlideList({
   label,
   slides,
@@ -32,25 +32,31 @@ function SlideList({
   label: string
   slides: SectionSlide[]
   onOpen: (n: number) => void
-  onToggle: (n: number) => void
-  onReorder: (order: number[]) => void
+  onToggle: (key: string) => void
+  onReorder?: (order: string[]) => void
 }) {
+  const keys = slides.map((x) => x.key)
   return (
     <div role="group" aria-label={label}>
       <ReorderableGroup
         items={slides}
         getItemId={(x) => x.key}
-        onReorder={(next) => onReorder(next.map((x) => x.n))}
+        onReorder={(next) => onReorder?.(next.map((x) => x.key))}
+        disabled={!onReorder}
         axis="y"
         withHandle
         className="mt-1 ml-6 flex flex-col gap-0.5"
         renderItem={(x, handleProps) => (
           <Item size="xs" data-off={x.hidden ? "" : undefined} className="group/part flex-nowrap gap-1 rounded-md py-0.5 pr-2 pl-0 data-off:border-dashed data-off:border-border">
-            <DragHandle handleProps={handleProps} onNudge={(d) => onReorder(nudgeItems(slides, x.n - 1, d).map((y) => y.n))} title={`Drag to reorder ${x.title}`} />
+            {onReorder ? (
+              <DragHandle handleProps={handleProps} onNudge={(d) => onReorder(nudgeItems(keys, x.n - 1, d))} title={`Drag to reorder ${x.title}`} />
+            ) : (
+              <span aria-hidden className="w-2" />
+            )}
             <button type="button" className="min-w-0 flex-1 rounded! text-left outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => !x.hidden && onOpen(x.n)}>
               <span className="block truncate text-sm group-data-off/part:text-muted-foreground group-data-off/part:line-through">{x.title}</span>
             </button>
-            <VisibilityToggle on={!x.hidden} label={x.title} onToggle={() => onToggle(x.n)} />
+            <VisibilityToggle on={!x.hidden} label={x.title} onToggle={() => onToggle(x.key)} />
           </Item>
         )}
       />
@@ -59,8 +65,9 @@ function SlideList({
 }
 
 /**
- * The builder's section list: drag (or arrow-key) to reorder, show / hide, edit, remove. A project section
- * lists its slides underneath, collapsible. Rendering only: every change goes back through the callbacks.
+ * The builder's section list: drag (or arrow-key) to reorder sections, show / hide, edit. A section with more
+ * than one slide lists them underneath, collapsible; project slides reorder there too. Rendering only: every
+ * change goes back through the callbacks.
  */
 export function SectionList({
   sections,
@@ -69,22 +76,20 @@ export function SectionList({
   onReorder,
   onOpen,
   onEdit,
-  onRemove,
   onToggle,
   onToggleSlide,
   onReorderSlides,
 }: {
-  sections: BuilderSection[]
-  slidesOf: (s: BuilderSection) => SectionSlide[]
-  metaOf: (s: BuilderSection) => string
-  onReorder: (next: BuilderSection[]) => void
+  sections: Section[]
+  slidesOf: (s: Section) => SectionSlide[]
+  metaOf: (s: Section) => string
+  onReorder: (next: Section[]) => void
   /** Show the section's first slide, or its slide `n`. */
-  onOpen: (s: BuilderSection, n?: number) => void
+  onOpen: (s: Section, n?: number) => void
   onEdit: (s: EditableSection) => void
-  onRemove: (s: ProjectSection) => void
-  onToggle: (s: BuilderSection) => void
-  onToggleSlide: (s: BuilderSection, n: number) => void
-  onReorderSlides: (s: ProjectSection, order: number[]) => void
+  onToggle: (s: Section) => void
+  onToggleSlide: (s: Section, key: string) => void
+  onReorderSlides: (s: ProjectSection, order: string[]) => void
 }) {
   const [collapsed, setCollapsed] = useState<string[]>([])
 
@@ -97,8 +102,8 @@ export function SectionList({
       withHandle
       className="flex flex-col gap-1.5"
       renderItem={(s, handleProps) => {
-        const slides = s.kind === "projects" && s.enabled ? slidesOf(s) : []
-        const nested = s.kind === "projects" && slides.length > 1
+        const slides = s.enabled ? slidesOf(s) : []
+        const nested = slides.length > 1
         const open = !collapsed.includes(s.id)
         return (
           <div>
@@ -120,25 +125,20 @@ export function SectionList({
                   <ChevronDown />
                 </Button>
               )}
-              {(s.kind === "services" || s.kind === "projects") && (
+              {isEditable(s) && (
                 <Button size="icon-xs" variant="ghost" aria-label={`Edit ${s.title}`} onClick={() => onEdit(s)}>
                   <Pencil />
                 </Button>
               )}
-              {s.kind === "projects" && (
-                <Button size="icon-xs" variant="ghost" aria-label={`Remove ${s.title}`} onClick={() => onRemove(s)}>
-                  <Trash2 />
-                </Button>
-              )}
               <VisibilityToggle on={s.enabled} label={s.title} onToggle={() => onToggle(s)} />
             </Item>
-            {s.kind === "projects" && nested && open && (
+            {nested && open && (
               <SlideList
                 label={`${s.title} slides`}
                 slides={slides}
                 onOpen={(n) => onOpen(s, n)}
-                onToggle={(n) => onToggleSlide(s, n)}
-                onReorder={(order) => onReorderSlides(s, order)}
+                onToggle={(key) => onToggleSlide(s, key)}
+                onReorder={s.kind === "projects" ? (order) => onReorderSlides(s, order) : undefined}
               />
             )}
           </div>

@@ -55,7 +55,7 @@ export function PickTile({
 }
 
 /** The picked items in slide order: drag a row (or focus its grip and use the arrow keys) to reorder, × to drop it. */
-function SelectedOrder({
+export function SelectedOrder({
   items,
   onChange,
 }: {
@@ -117,8 +117,9 @@ function SelectedOrder({
 }
 
 /**
- * The shell both section pickers share: slide title, search, the tiles (`children`, as `<li>`s), the
- * selected order and the save summary. The pickers own the draft and decide what can be picked.
+ * The shell the section pickers share: slide title, search, the tiles (`children`, as `<li>`s), the
+ * selection panel beside them (`order`: SelectedOrder, or the projects' slides) and the save summary. The
+ * pickers own the draft and decide what can be picked.
  */
 export function PickerDialog({
   heading,
@@ -127,8 +128,7 @@ export function PickerDialog({
   onTitle,
   query,
   onQuery,
-  selected,
-  onSelected,
+  order,
   summary,
   canSave,
   onSave,
@@ -141,8 +141,7 @@ export function PickerDialog({
   onTitle: (title: string) => void;
   query: string;
   onQuery: (query: string) => void;
-  selected: PickedItem[];
-  onSelected: (ids: string[]) => void;
+  order: ReactNode;
   summary: string;
   canSave: boolean;
   onSave: () => void;
@@ -190,7 +189,7 @@ export function PickerDialog({
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] content-start gap-3">
               {children}
             </ul>
-            <SelectedOrder items={selected} onChange={onSelected} />
+            {order}
           </div>
         </div>
       </DialogContent>

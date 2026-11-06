@@ -379,8 +379,8 @@ export function useNavigation() {
         type: 'item',
         id: 'crm-company-profile',
         to: '/company-profile',
-        title: 'Company Profile',
-        fontIcon: 'bi-easel',
+        title: 'Company Showcase',
+        fontIcon: 'lucide-gallery-vertical-end',
         // PSA pack + Companies section until a dedicated crm.companyProfile permission exists.
         visible: isPackEnabled('psa') && !isSectionBlocked('crm.companies'),
       },

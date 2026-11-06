@@ -4,19 +4,10 @@ import { Badge } from "@/ds/ui/badge"
 import { Button } from "@/ds/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ds/ui/dialog"
 import { Input } from "@/ds/ui/input"
-import {
-  CAPTION_FIELDS,
-  FACETS,
-  MAX_PER_SLIDE,
-  MIN_PROJECTS,
-  autoPick,
-  facetValues,
-  formatArea,
-  matches,
-  type Facet,
-  type ProfileProject,
-  type ProjectSection,
-} from "./profile"
+import { ProjectSlidesEditor, useSlideTarget } from "./ProjectSlidesEditor"
+import { CAPTION_FIELDS, FACETS, MAX_PER_SLIDE, autoPick, facetValues, formatArea, matches, type Facet, type ProfileProject, type ProjectSection } from "./profile"
+import { projectSlides } from "./profileBuilder"
+import { ProjectStatusBadge } from "./slides"
 
 /** Toggle chip: the one pattern for every on/off choice in the builder. */
 export function Chip({ on, onClick, children, disabled }: { on: boolean; onClick: () => void; children: React.ReactNode; disabled?: boolean }) {
@@ -28,48 +19,50 @@ export function Chip({ on, onClick, children, disabled }: { on: boolean; onClick
 }
 
 /**
- * Choose which projects a section shows, out of every project the company has. The section is a
- * facet (typology / tag / city / client / architect) plus a value; selection order is display
- * order, and #1 is the hero. Only projects with a Gallery cover can be picked.
+ * Choose which projects a section shows, out of every project the company has, and on which slide. The section
+ * is a facet (typology / tag / city / client / architect) plus a value; #1 of each slide is its hero. Only
+ * projects with a Gallery cover can be picked, and a project already on another section cannot.
  */
 export function ProjectPicker({
   projects,
   section,
+  taken,
   onSave,
   onClose,
   budget,
 }: {
   projects: ProfileProject[]
   section: ProjectSection
+  /** Projects on other sections, id → section title. */
+  taken: Map<string, string>
   onSave: (s: ProjectSection) => void
   onClose: () => void
-  /** Slides this section may use without the deck passing MAX_SLIDES. */
+  /** Slides this section may show without the presentation passing MAX_SLIDES. */
   budget: number
 }) {
   const [draft, setDraft] = useState(section)
   const [query, setQuery] = useState("")
   const [coverOnly, setCoverOnly] = useState(true)
+  const slideTarget = useSlideTarget(draft.slides)
   const set = (patch: Partial<ProjectSection>) => setDraft((d) => ({ ...d, ...patch }))
 
   const values = facetValues(projects, draft.facet)
-  const pickValue = (facet: Facet, value: string) => set({ facet, value, title: value, projectIds: autoPick(projects, facet, value, MAX_PER_SLIDE) })
+  const free = projects.filter((p) => !taken.has(p.id))
+  const pickValue = (facet: Facet, value: string) => set({ facet, value, title: value, slides: projectSlides(draft.id, autoPick(free, facet, value, MAX_PER_SLIDE)) })
   const inSection = projects.filter((p) => matches(p, draft.facet, draft.value))
   const withCover = inSection.filter((p) => p.cover).length
   const q = query.trim().toLowerCase()
   const shown = inSection.filter((p) => (!coverOnly || p.cover) && (!q || `${p.name} ${p.city} ${p.client ?? ""} ${p.architect ?? ""}`.toLowerCase().includes(q)))
-  const toggle = (id: string) =>
-    set({ projectIds: draft.projectIds.includes(id) ? draft.projectIds.filter((x) => x !== id) : [...draft.projectIds, id] })
-  const picked = draft.projectIds.length
-  const slides = Math.ceil(picked / MAX_PER_SLIDE)
-  const few = picked < MIN_PROJECTS
+  const ids = draft.slides.flatMap((s) => s.ids)
+  const slides = draft.slides.filter((s) => !draft.hidden?.includes(s.key)).length
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92svh] grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-4 sm:max-w-5xl">
+      <DialogContent className="max-h-[92svh] grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-4 sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>Choose projects</DialogTitle>
           <DialogDescription>
-            {inSection.length} projects in “{draft.value}”, {withCover} with a Gallery cover. Selection order is slide order; #1 is the hero. Pick at least {MIN_PROJECTS}; each slide shows up to {MAX_PER_SLIDE}.
+            {inSection.length} projects in “{draft.value}”, {withCover} with a Gallery cover. Picks join the slide marked “Add here”; each slide shows up to {MAX_PER_SLIDE}, its first project as the hero.
           </DialogDescription>
         </DialogHeader>
 
@@ -106,42 +99,46 @@ export function ProjectPicker({
           </div>
         </div>
 
-        <ul className="grid min-h-48 grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] content-start gap-3 overflow-y-auto pr-1">
-          {shown.map((p) => {
-            const pos = draft.projectIds.indexOf(p.id) + 1
-            return (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  aria-pressed={pos > 0}
-                  disabled={!p.cover}
-                  onClick={() => toggle(p.id)}
-                  className="group relative w-full overflow-hidden rounded-xl border border-border bg-card text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 aria-pressed:border-primary aria-pressed:ring-2 aria-pressed:ring-primary"
-                >
-                  {p.cover ? (
-                    <img src={p.cover} alt="" className="aspect-4/3 w-full object-cover" />
-                  ) : (
-                    <span className="grid aspect-4/3 w-full place-items-center gap-1 bg-muted text-xs text-muted-foreground">
-                      <ImageOff className="size-5" aria-hidden />
-                      No Gallery cover
+        <div className="grid min-h-48 gap-4 overflow-y-auto pr-1 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] content-start gap-3">
+            {shown.map((p) => {
+              const pos = ids.indexOf(p.id) + 1
+              const elsewhere = taken.get(p.id)
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    aria-pressed={pos > 0}
+                    disabled={!p.cover || !!elsewhere}
+                    onClick={() => set({ slides: slideTarget.toggle(p.id) })}
+                    className="group relative w-full overflow-hidden rounded-xl border border-border bg-card text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 aria-pressed:border-primary aria-pressed:ring-2 aria-pressed:ring-primary"
+                  >
+                    {p.cover ? (
+                      <img src={p.cover} alt="" className="aspect-4/3 w-full object-cover" />
+                    ) : (
+                      <span className="grid aspect-4/3 w-full place-items-center gap-1 bg-muted text-xs text-muted-foreground">
+                        <ImageOff className="size-5" aria-hidden />
+                        No Gallery cover
+                      </span>
+                    )}
+                    {pos > 0 && (
+                      <span className="absolute top-2 left-2 grid size-6 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{pos}</span>
+                    )}
+                    {p.status && <ProjectStatusBadge status={p.status} className="absolute top-2 right-2" />}
+                    <span className="block p-2">
+                      <span className="block truncate text-sm font-semibold">{p.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {elsewhere ? `On ${elsewhere}` : `${p.city}${p.areaSqft ? ` · ${formatArea(p.areaSqft)}` : ""}`}
+                      </span>
                     </span>
-                  )}
-                  {pos > 0 && (
-                    <span className="absolute top-2 left-2 grid size-6 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{pos}</span>
-                  )}
-                  <span className="block p-2">
-                    <span className="block truncate text-sm font-semibold">{p.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {p.city}
-                      {p.areaSqft ? ` · ${formatArea(p.areaSqft)}` : ""}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            )
-          })}
-          {!shown.length && <li className="col-span-full py-10 text-center text-sm text-muted-foreground">No projects match.</li>}
-        </ul>
+                  </button>
+                </li>
+              )
+            })}
+            {!shown.length && <li className="col-span-full py-10 text-center text-sm text-muted-foreground">No projects match.</li>}
+          </ul>
+          <ProjectSlidesEditor slides={draft.slides} projects={projects} target={slideTarget.target} onTarget={slideTarget.setTarget} onChange={(next) => set({ slides: next })} />
+        </div>
 
         <DialogFooter className="flex-wrap items-center gap-3 sm:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -160,13 +157,13 @@ export function ProjectPicker({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground" data-testid="picker-summary">
-              {picked} selected · {few ? `pick at least ${MIN_PROJECTS}` : `${slides} ${slides === 1 ? "slide" : "slides"}`}
-              {!few && slides > budget ? ` · only ${budget} left in the deck` : ""}
+              {ids.length} selected · {slides} {slides === 1 ? "slide" : "slides"}
+              {slides > budget ? ` · only ${budget} left in the presentation` : ""}
             </span>
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={() => onSave(draft)} disabled={few || !draft.title.trim() || slides > budget}>
+            <Button onClick={() => onSave(draft)} disabled={!ids.length || !draft.title.trim() || slides > budget}>
               Save section
             </Button>
           </div>
