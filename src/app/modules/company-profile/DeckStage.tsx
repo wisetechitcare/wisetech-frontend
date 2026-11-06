@@ -65,8 +65,10 @@ export function DeckStage({
         <ol className="flex gap-3">
           {slides.map((s, i) => (
             <li key={s.id} className="w-44 shrink-0">
+              {/* A filmstrip thumbnail, not an action button: an approved "tile" (docs/BUTTONS.md). */}
               <button
                 type="button"
+                data-wt-control="tile"
                 onClick={() => onGo(i)}
                 aria-current={i === current ? "true" : undefined}
                 className="group w-full rounded-lg! p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[current]:bg-accent"

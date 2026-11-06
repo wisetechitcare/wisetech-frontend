@@ -53,7 +53,8 @@ function SlideList({
             ) : (
               <span aria-hidden className="w-2" />
             )}
-            <button type="button" className="min-w-0 flex-1 rounded! text-left outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => !x.hidden && onOpen(x.n)}>
+            {/* The slide row's title opens it: an approved clickable "row", not an action button (docs/BUTTONS.md). */}
+            <button type="button" data-wt-control="row" className="min-w-0 flex-1 rounded! text-left outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => !x.hidden && onOpen(x.n)}>
               <span className="block truncate text-sm group-data-off/part:text-muted-foreground group-data-off/part:line-through">{x.title}</span>
             </button>
             <VisibilityToggle on={!x.hidden} label={x.title} onToggle={() => onToggle(x.key)} />
@@ -109,7 +110,8 @@ export function SectionList({
           <div>
             <Item variant="outline" size="xs" data-off={s.enabled ? undefined : ""} className="group/row flex-nowrap gap-1 rounded-lg bg-card p-1.5 pr-2 data-off:border-dashed">
               <DragHandle handleProps={handleProps} onNudge={(d) => onReorder(nudgeItems(sections, sections.indexOf(s), d))} title={`Drag to reorder ${s.title}`} />
-              <button type="button" className="min-w-0 flex-1 rounded! text-left outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => s.enabled && onOpen(s)}>
+              {/* The section row's title opens it: an approved clickable "row", not an action button (docs/BUTTONS.md). */}
+              <button type="button" data-wt-control="row" className="min-w-0 flex-1 rounded! text-left outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => s.enabled && onOpen(s)}>
                 <span className="block truncate text-base font-semibold group-data-off/row:text-muted-foreground group-data-off/row:line-through">{s.title}</span>
                 <span className="block truncate text-sm text-muted-foreground">{metaOf(s)}</span>
               </button>
