@@ -19,6 +19,7 @@ import { leadAndProjectTemplateTypeId } from "@constants/statistics";
 import Loader from "@app/modules/common/utils/Loader";
 import { getRatingByCompanyId } from "@services/projects";
 import SubCompanies from "./SubCompanies";
+import CompanyCatalogue from "./CompanyCatalogue";
 import CompanyReferences from "./CompanyReferences";
 import { AppIcon, GlassSurface, ToneChip, UnderlineTabs, WtButton, WtIconButton } from "@app/modules/common/components/ui";
 import LeadReferenceTab from "./LeadReferenceTab";
@@ -36,7 +37,8 @@ type TabType =
   | "branches"
   | "rating"
   | "references"
-  | "lead-reference";
+  | "lead-reference"
+  | "catalogue";
 
 // The section whose records a tab shows, where that isn't Companies itself.
 const TAB_SECTION: Partial<Record<TabType, string>> = {
@@ -48,7 +50,7 @@ const TAB_SECTION: Partial<Record<TabType, string>> = {
 
 /** Tab keys in render order — they ARE the path segment (/companies/<id>/branches). */
 const COMPANY_TAB_KEYS: TabType[] = [
-  "overview", "lead-reference", "references", "projects", "contacts", "subcompanies", "branches", "rating",
+  "overview", "lead-reference", "references", "projects", "contacts", "subcompanies", "branches", "catalogue", "rating",
 ];
 
 const CompanyDetails = () => {
@@ -154,6 +156,7 @@ const CompanyDetails = () => {
   const TAB_ADD_LABEL: Partial<Record<TabType, string>> = {
     subcompanies: "Add New Sub-Company",
     branches: "Add New Branch",
+    catalogue: "Upload Catalogue",
   };
   // Raised by the button above, lowered by the tab once it has opened its form.
   const [addRequested, setAddRequested] = useState(false);
@@ -171,6 +174,7 @@ const CompanyDetails = () => {
     { key: "contacts", label: "Contacts", icon: "bi bi-person-lines-fill" },
     { key: "subcompanies", label: "Subcompanies", icon: "bi bi-diagram-3" },
     { key: "branches", label: "Branches", icon: "bi bi-geo-alt" },
+    { key: "catalogue", label: "Catalogue", icon: "bi bi-file-earmark-pdf" },
     { key: "rating", label: "Rating", icon: "bi bi-star" },
     ...(canAudit ? [{ key: "audit", label: "Audit", icon: "bi bi-clock-history" }] : []),
   ].filter((t) => !TAB_SECTION[t.key as TabType] || canSection(TAB_SECTION[t.key as TabType]!)) as Array<{ key: TabType; label: string; icon: string }>;
@@ -204,6 +208,8 @@ const CompanyDetails = () => {
         return <CompaniesBranchForm companyId={company.id} addRequested={addRequested} onAddHandled={() => setAddRequested(false)} />;
       case "subcompanies":
         return <SubCompanies companyId={company.id} companyTypeId={company.companyTypeId} addRequested={addRequested} onAddHandled={() => setAddRequested(false)} />;
+      case "catalogue":
+        return <CompanyCatalogue companyId={company.id} canWrite={canWrite} addRequested={addRequested} onAddHandled={() => setAddRequested(false)} />;
       case "rating":
         return <CompaniesRating companyId={company.id} companyName={company.companyName} onRatingChange={setRating} />
       case "references":
