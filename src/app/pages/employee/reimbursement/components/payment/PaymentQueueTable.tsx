@@ -215,11 +215,9 @@ export default function PaymentQueueTable({
                 const payable = canPay && r.remainingAmount > 0;
                 return (
                     <Box onClick={(e) => e.stopPropagation()}>
-                        {/* Not the gradient CTA: it repeats on every row, and fourteen primaries in a
-                            column is noise. The one primary on this screen is "Process payment". */}
                         <Button
                             size="sm"
-                            variant={payable ? 'inverted' : 'outline'}
+                            variant={payable ? 'default' : 'outline'}
                             onClick={() => (payable ? onPay(r) : onView(r))}
                         >
                             {payable ? 'Pay' : 'View'}
@@ -446,7 +444,7 @@ export function PaymentMobileCard({
 
             <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
                 <Button variant="outline" size="sm" onClick={() => onView(row)}>View details</Button>
-                {payable && <Button variant="inverted" size="sm" onClick={() => onPay(row)}>Pay</Button>}
+                {payable && <Button size="sm" onClick={() => onPay(row)}>Pay</Button>}
             </Box>
         </Box>
     );
