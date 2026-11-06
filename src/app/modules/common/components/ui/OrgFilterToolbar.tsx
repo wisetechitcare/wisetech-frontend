@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Box } from '@mui/material';
 import { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
 import { useRootOrgNames } from '@hooks/useRootOrgNames';
@@ -87,22 +87,33 @@ export function useOrgFilters<T extends OrgFilterableRow>(
         (status !== defaultStatus ? 1 : 0) + (subOrg !== 'All' ? 1 : 0) +
         (branch !== 'All' ? 1 : 0) + (team !== 'All' ? 1 : 0);
 
-    return {
+    const reset = useCallback(() => {
+        setStatus(defaultStatus); setSubOrg('All'); setBranch('All'); setTeam('All');
+    }, [defaultStatus]);
+
+    const matches = useCallback((row: T) =>
+        // An unknown value is never filtered OUT by a filter it has no value for — hiding a
+        // row because its org data failed to load would silently shrink a money total.
+        (status === 'All' || row.isActive === undefined || (status === 'Active' ? row.isActive : !row.isActive)) &&
+        (subOrg === 'All' || row.subOrganization === subOrg) &&
+        (branch === 'All' || row.branch === branch) &&
+        (team === 'All' || row.team === team),
+    [status, subOrg, branch, team]);
+
+    // Identity changes only when a filter or an option list does. Callers memo on `filters`
+    // (`useMemo(() => rows.filter(filters.matches), [rows, filters])`); a fresh object per render
+    // re-derived every row list on every render, and the payment desk's selection-pruning effect
+    // turned that into an endless render loop (React #185 on desktop).
+    return useMemo(() => ({
         status, setStatus,
         subOrg, setSubOrg,
         branch, setBranch,
         team, setTeam,
         subOrgOptions, branchOptions, teamOptions,
         activeCount,
-        reset: () => { setStatus(defaultStatus); setSubOrg('All'); setBranch('All'); setTeam('All'); },
-        matches: (row: T) =>
-            // An unknown value is never filtered OUT by a filter it has no value for — hiding a
-            // row because its org data failed to load would silently shrink a money total.
-            (status === 'All' || row.isActive === undefined || (status === 'Active' ? row.isActive : !row.isActive)) &&
-            (subOrg === 'All' || row.subOrganization === subOrg) &&
-            (branch === 'All' || row.branch === branch) &&
-            (team === 'All' || row.team === team),
-    };
+        reset,
+        matches,
+    }), [status, subOrg, branch, team, subOrgOptions, branchOptions, teamOptions, activeCount, reset, matches]);
 }
 
 export function OrgFilterToolbar({ filters }: { filters: OrgFilterState<any> }) {

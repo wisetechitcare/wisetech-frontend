@@ -208,9 +208,23 @@ function PaymentTab() {
         () => queueRows.filter((r) => r.remainingAmount > 0).map((r) => r.id),
         [queueRows],
     );
+    // Returns the SAME array when nothing dropped out: a fresh array is a state change, and this
+    // effect re-running on it is how the page once looped until React gave up (#185).
     useEffect(() => {
-        setSelectedIds((ids) => ids.filter((id) => selectableIds.includes(id)));
+        setSelectedIds((ids) => {
+            const kept = ids.filter((id) => selectableIds.includes(id));
+            return kept.length === ids.length ? ids : kept;
+        });
     }, [selectableIds]);
+
+    const toggleSelect = useCallback((id: string) => {
+        setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    }, []);
+    const toggleSelectAll = useCallback(() => {
+        setSelectedIds((ids) => (ids.length === selectableIds.length ? [] : selectableIds));
+    }, [selectableIds]);
+    const payOne = useCallback((row: PaymentBatchRow) => setPayTarget([row]), []);
+    const renderOrgFilters = useCallback(() => <OrgFilterToolbar filters={filters} />, [filters]);
 
     const selectedRows = useMemo(
         () => selectedIds.map((id) => batchById.get(id)).filter(Boolean) as PaymentBatchRow[],
@@ -416,16 +430,14 @@ function PaymentTab() {
                         loading={loading}
                         canPay={canPay}
                         selectedIds={selectedIds}
-                        onToggleSelect={(id) =>
-                            setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))}
-                        onToggleSelectAll={() =>
-                            setSelectedIds((ids) => (ids.length === selectableIds.length ? [] : selectableIds))}
-                        onPay={(row) => setPayTarget([row])}
+                        onToggleSelect={toggleSelect}
+                        onToggleSelectAll={toggleSelectAll}
+                        onPay={payOne}
                         onView={setDrawerRow}
                         periodLabel={periodLabel}
                         filtered={activeFilterCount > 0}
                         onClearFilters={clearFilters}
-                        renderFilters={() => <OrgFilterToolbar filters={filters} />}
+                        renderFilters={renderOrgFilters}
                     />
                 </>
             ) : (
@@ -437,7 +449,7 @@ function PaymentTab() {
                     filtered={filters.activeCount > 0}
                     onClearFilters={clearFilters}
                     onView={setDrawerRow}
-                    renderFilters={() => <OrgFilterToolbar filters={filters} />}
+                    renderFilters={renderOrgFilters}
                 />
             )}
 
