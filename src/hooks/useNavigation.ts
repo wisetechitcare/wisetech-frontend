@@ -375,6 +375,15 @@ export function useNavigation() {
         // PSA pack + Contacts section until a dedicated crm.courtesyDesk permission exists.
         visible: isPackEnabled('psa') && !isSectionBlocked('crm.contacts'),
       },
+      {
+        type: 'item',
+        id: 'crm-company-profile',
+        to: '/company-profile',
+        title: 'Company Showcase',
+        fontIcon: 'lucide-gallery-vertical-end',
+        // PSA pack + Companies section until a dedicated crm.companyProfile permission exists.
+        visible: isPackEnabled('psa') && !isSectionBlocked('crm.companies'),
+      },
 
       // ── Project Department ────────────────────────────────────────────────
       // Organization USED to sit under this header (it preceded the next section
