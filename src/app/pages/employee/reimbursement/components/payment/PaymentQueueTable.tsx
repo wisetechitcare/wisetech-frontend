@@ -3,10 +3,11 @@ import { Box, Checkbox, Typography } from '@mui/material';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import ExportButton from '@app/modules/common/components/ExportButton';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
-import { StatusBadge } from '@app/modules/common/components/ui/patterns';
+import { SearchX } from 'lucide-react';
 import { fmtDate, formatMoney, PAYMENT_TONE } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow, PAYMENT_STATE_LABEL, COMPACT_BUTTON_SX } from './paymentData';
 import PaymentEmptyState from './PaymentEmptyState';
+import PaymentStateBadge from './PaymentStateBadge';
 
 /**
  * The work queue: approved batches with money still owed on them.
@@ -16,8 +17,6 @@ import PaymentEmptyState from './PaymentEmptyState';
  * columns with no indication of which one to act on; here Remaining is the emphatic one, because
  * it is the number being paid.
  */
-
-const trioFor = (color: string) => ({ c: color, bg: color + '1A', bd: color + '44' });
 
 const money = (v: number) => (
     <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{formatMoney(v)}</Box>
@@ -192,15 +191,7 @@ export default function PaymentQueueTable({
             header: 'Payment status',
             size: 140,
             enableSorting: false,
-            Cell: ({ row }: any) => {
-                const state = row.original.state as PaymentBatchRow['state'];
-                return (
-                    <StatusBadge
-                        trio={trioFor(PAYMENT_TONE[state]?.color ?? '#475569')}
-                        label={PAYMENT_STATE_LABEL[state]}
-                    />
-                );
-            },
+            Cell: ({ row }: any) => <PaymentStateBadge state={row.original.state} />,
         },
         {
             accessorKey: 'lastActivityAt',
@@ -252,8 +243,7 @@ export default function PaymentQueueTable({
     if (!loading && rows.length === 0) {
         return filtered ? (
             <PaymentEmptyState
-                icon="magnifier"
-                tone="#2563eb"
+                icon={<SearchX aria-hidden />}
                 title="No payments found"
                 body="Nothing matches the current status filter or search in this period."
                 actionLabel="Clear filters"
@@ -432,7 +422,7 @@ export function PaymentMobileCard({
                         {row.employeeCode} · {row.submissionId}
                     </Typography>
                 </Box>
-                <StatusBadge trio={trioFor(color)} label={PAYMENT_STATE_LABEL[row.state]} />
+                <PaymentStateBadge state={row.state} />
             </Box>
 
             {[

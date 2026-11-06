@@ -19,6 +19,11 @@ const openDialog = (button: RegExp) => async (page: Page) => {
   await page.getByRole("dialog").last().waitFor({ state: "visible" })
 }
 
+/** Selects a tab or segmented-control option by its label. Read-only: it only changes what is shown. */
+const clickTab = (label: RegExp) => async (page: Page) => {
+  await page.getByRole("tab", { name: label }).or(page.getByRole("button", { name: label })).first().click()
+}
+
 /**
  * Together these cover every WtButton variant (tones, ghost, inverted, sizes, icons, disabled,
  * sx overrides, component="label", title-casing) and the other button kinds (raw MUI,
@@ -67,4 +72,18 @@ export const SCREENS: Screen[] = [
     states: [loaded, { id: "new", name: "new branch", prepare: openDialog(/new branch/i) }],
   },
   { id: "appearance", name: "Settings / Appearance", path: "/admin/app-settings?area=appearance", states: [loaded] },
+  {
+    id: "reimb-payment",
+    name: "Reimbursement / Payment",
+    path: "/finance/reimbursements/payment",
+    states: [
+      loaded,
+      // The month the page opens on is often empty; All Time is what puts rows in the table.
+      { id: "all-time", name: "queue, all time", prepare: clickTab(/^all time$/i) },
+      { id: "history", name: "history, all time", prepare: async (page) => {
+        await clickTab(/^all time$/i)(page)
+        await clickTab(/^history/i)(page)
+      } },
+    ],
+  },
 ]

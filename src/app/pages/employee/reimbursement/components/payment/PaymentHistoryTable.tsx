@@ -3,10 +3,11 @@ import { Box, Typography } from '@mui/material';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import ExportButton from '@app/modules/common/components/ExportButton';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
-import { StatusBadge } from '@app/modules/common/components/ui/patterns';
-import { fmtDate, formatMoney, PAYMENT_TONE } from '../../utils/reimbursementFormat';
+import { FileText, SearchX } from 'lucide-react';
+import { fmtDate, formatMoney } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow, PaymentRecord } from './paymentData';
 import PaymentEmptyState from './PaymentEmptyState';
+import PaymentStateBadge from './PaymentStateBadge';
 
 /**
  * What has already been paid — one row per payment, not per batch.
@@ -19,8 +20,6 @@ import PaymentEmptyState from './PaymentEmptyState';
  * what has been paid, and it costs no extra request. A payment whose batch was deleted
  * (`batch_id` is nullable) has nothing to attach to and does not appear here.
  */
-
-const trioFor = (color: string) => ({ c: color, bg: color + '1A', bd: color + '44' });
 
 export default function PaymentHistoryTable({
     payments,
@@ -114,11 +113,11 @@ export default function PaymentHistoryTable({
             enableSorting: false,
             Cell: ({ renderedCellValue }: any) => {
                 const status = String(renderedCellValue);
+                // A payment record is PAID or PARTIAL — whether it settled the batch or part of
+                // it. The batch's own state lives in the queue.
                 return (
-                    <StatusBadge
-                        trio={trioFor(PAYMENT_TONE[status]?.color ?? '#475569')}
-                        // A payment record is PAID or PARTIAL — whether it settled the batch or
-                        // part of it. The batch's own state lives in the queue.
+                    <PaymentStateBadge
+                        state={status}
                         label={status === 'PARTIAL' ? 'Part payment' : 'Full payment'}
                     />
                 );
@@ -188,8 +187,7 @@ export default function PaymentHistoryTable({
     if (!loading && data.length === 0) {
         return filtered ? (
             <PaymentEmptyState
-                icon="magnifier"
-                tone="#2563eb"
+                icon={<SearchX aria-hidden />}
                 title="No payments found"
                 body="Nothing matches the current filters in this period."
                 actionLabel="Clear filters"
@@ -197,8 +195,7 @@ export default function PaymentHistoryTable({
             />
         ) : (
             <PaymentEmptyState
-                icon="document"
-                tone="#64748b"
+                icon={<FileText aria-hidden />}
                 title="No payment history"
                 body={`No payments were recorded in ${periodLabel}.`}
             />

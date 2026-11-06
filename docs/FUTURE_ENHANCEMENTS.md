@@ -38,6 +38,18 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Design system (ADR-001)
 
+- **App content background stays light in dark mode** — `#kt_content` (`.content`, `$content-background:
+  #F6F9FC` in `_metronic/.../layout/_content.scss`) has no dark override, so it shows through wherever a page
+  has no surface of its own (measured on Reimbursement → Payment and Company → Branches). Light-on-light text
+  is the symptom. — Give `.content` a `[data-bs-theme="dark"]` background from the `--gh-*` palette, then re-run
+  the whole visual suite: it changes every page's dark mode.
+- **Kit `Tabs` "line" variant draws no underline** — `src/ds/ui/tabs.tsx` positions the active underline with
+  `group-data-horizontal/tabs:*`, but the Base UI root sets `data-orientation="horizontal"`, not
+  `data-horizontal`, so the `::after` is zero-sized. Reimbursement → Payment uses the default (pill) variant
+  until this is fixed. — Key the variants on `data-[orientation=horizontal]`, with a story test.
+- **Shared table in dark mode** — `MaterialTableImpl`'s header row and search box stay light, and numeric
+  cells read dim on dark rows (visible in the reimbursement payment baselines). Due with the `DataTable` swap.
+
 - **One calendar for the whole app** — today: MUI X pickers (`WtDateField`, 20 files), `FiscalYearRangeField`,
   Apply Leave's `LeaveCalendar`, FullCalendar, flatpickr, plus the v2 kit Calendar. Decided 2026-10-28:
   the **v2 kit Calendar (React Aria)** is the single engine; month + year jump by **clicking the title**

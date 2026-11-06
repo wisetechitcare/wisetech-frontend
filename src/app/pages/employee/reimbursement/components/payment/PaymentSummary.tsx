@@ -1,90 +1,61 @@
 import { Box, ButtonBase, alpha } from '@mui/material';
-import { StatTile } from '@app/modules/common/components/ui/patterns';
-import { SkeletonKpiCard } from '@app/modules/common/components/Skeleton';
+import { CircleCheck, FileText, Users, Wallet } from 'lucide-react';
+import { StatCard } from '@/ds/patterns/stat-card';
+import { Skeleton } from '@/ds/ui/skeleton';
 import { formatMoney, PAYMENT_TONE } from '../../utils/reimbursementFormat';
 import { PaymentKpis, PaymentState, PAYMENT_STATE_LABEL } from './paymentData';
 
 /**
  * The four numbers, then the status rail.
  *
- * The cards are the salary module's `YearlyKpiCard` unchanged — the same component the employee
- * reimbursement screen uses — so a value and its context share one box instead of the eight
- * oversized tiles this page used to open with. This file chooses which four numbers matter and
- * what they are called, and nothing else.
+ * The cards are the design system's `StatCard` (src/ds) — the Storybook benchmark every card
+ * follows. This file chooses which four numbers matter and what they are called, and nothing else.
  */
 
-const KPI_GRID = {
-    display: 'grid',
-    gap: 1.25,
-    gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', lg: 'repeat(4, minmax(0,1fr))' },
-} as const;
-
-/**
- * Four numbers on one strip, ~64px tall.
- *
- * These were four full-height cards with a value, a footer band and two chips each — a third of
- * the screen spent on four figures, and the queue they exist to introduce pushed below the fold.
- * `StatTile` is the kit's compact version of the same idea; the context that earned its place
- * rides in the value line, and the rest was noise.
- */
-function Tile({ label, value, context, tone, icon }: {
-    label: string; value: string; context?: string; tone: string; icon: string;
-}) {
-    return (
-        <StatTile
-            label={label}
-            trio={{ c: tone, bg: tone + '14', bd: tone + '3D' }}
-            icon={icon}
-            value={
-                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
-                    <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>{value}</Box>
-                    {context && (
-                        <Box component="span" sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                            {context}
-                        </Box>
-                    )}
-                </Box>
-            }
-        />
-    );
-}
+const KPI_GRID = 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4';
 
 export function PaymentKpiCards({ kpis, loading }: { kpis: PaymentKpis; loading?: boolean }) {
     if (loading) {
-        return <Box sx={KPI_GRID}>{[0, 1, 2, 3].map((i) => <SkeletonKpiCard key={i} />)}</Box>;
+        return (
+            <div className={KPI_GRID} aria-busy="true">
+                {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
+            </div>
+        );
     }
 
     return (
-        <Box sx={KPI_GRID}>
-            <Tile
+        <div className={KPI_GRID}>
+            <StatCard
                 label="Pending payment"
                 value={formatMoney(kpis.pendingAmount)}
-                context={kpis.pendingBatches > 0 ? `${kpis.pendingBatches} batch${kpis.pendingBatches === 1 ? '' : 'es'}` : undefined}
-                tone="#d97706"
-                icon="wallet"
+                hint={kpis.pendingBatches > 0
+                    ? `${kpis.pendingBatches} batch${kpis.pendingBatches === 1 ? '' : 'es'}`
+                    : 'nothing owed'}
+                tone="warning"
+                icon={<Wallet aria-hidden />}
             />
-            <Tile
+            <StatCard
                 label="Total paid"
                 value={formatMoney(kpis.paidAmount)}
-                context={`${kpis.settledPct}% settled`}
-                tone="#16a34a"
-                icon="check-circle"
+                hint={`${kpis.settledPct}% settled`}
+                tone="success"
+                icon={<CircleCheck aria-hidden />}
             />
-            <Tile
+            <StatCard
                 label="Pending requests"
-                value={String(kpis.pendingRequests)}
-                context="awaiting payment"
-                tone="#2563eb"
-                icon="document"
+                value={kpis.pendingRequests}
+                hint="awaiting payment"
+                tone="info"
+                icon={<FileText aria-hidden />}
             />
-            <Tile
+            <StatCard
                 label="Employees awaiting"
-                value={String(kpis.employeesAwaiting)}
-                context={kpis.employeesAwaiting === 0 ? 'none' : 'to be paid'}
-                tone="#7c3aed"
-                icon="profile-user"
+                value={kpis.employeesAwaiting}
+                hint={kpis.employeesAwaiting === 0 ? 'none' : 'to be paid'}
+                tone="brand"
+                icon={<Users aria-hidden />}
             />
-        </Box>
+        </div>
     );
 }
 

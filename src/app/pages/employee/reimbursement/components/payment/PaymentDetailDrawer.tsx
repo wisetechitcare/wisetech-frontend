@@ -2,9 +2,9 @@ import { Box, Divider, Drawer, Typography } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { KTIcon } from '@metronic/helpers';
 import { WtButton, WtIconButton } from '@app/modules/common/components/ui/buttons';
-import { StatusBadge } from '@app/modules/common/components/ui/patterns';
-import { fmtDate, formatMoney, PAYMENT_TONE, STATUS_LABEL, StatusNum } from '../../utils/reimbursementFormat';
-import { PaymentBatchRow, PAYMENT_STATE_LABEL } from './paymentData';
+import { fmtDate, formatMoney, STATUS_LABEL, StatusNum } from '../../utils/reimbursementFormat';
+import { PaymentBatchRow } from './paymentData';
+import PaymentStateBadge from './PaymentStateBadge';
 
 /**
  * One batch, opened beside the queue rather than on top of it.
@@ -17,7 +17,6 @@ import { PaymentBatchRow, PAYMENT_STATE_LABEL } from './paymentData';
  * for. The approval history stays in the batch modal, one click further in.
  */
 
-const trioFor = (color: string) => ({ c: color, bg: color + '1A', bd: color + '44' });
 
 function Figure({ label, value, tone }: { label: string; value: string; tone?: string }) {
     return (
@@ -63,7 +62,6 @@ export default function PaymentDetailDrawer({
     onOpenBatch: (row: PaymentBatchRow) => void;
     canPay: boolean;
 }) {
-    const stateColor = row ? (PAYMENT_TONE[row.state]?.color ?? '#475569') : '#475569';
     const payable = !!row && row.remainingAmount > 0;
 
     return (
@@ -108,7 +106,7 @@ export default function PaymentDetailDrawer({
                             }}>
                                 {row.submissionId}
                             </Box>
-                            <StatusBadge trio={trioFor(stateColor)} label={PAYMENT_STATE_LABEL[row.state]} />
+                            <PaymentStateBadge state={row.state} />
                         </Box>
 
                         {/* Financial summary — the three numbers a payout decision needs */}

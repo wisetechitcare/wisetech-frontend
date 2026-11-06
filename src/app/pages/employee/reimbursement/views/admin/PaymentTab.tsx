@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Tab, Tabs, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import { Tabs, TabsList, TabsTrigger } from '@/ds/ui/tabs';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
@@ -333,17 +334,11 @@ function PaymentTab() {
                 mb: 2.5, pb: 1,
                 borderBottom: '1px solid', borderColor: 'divider',
             }}>
-                <Tabs
-                    value={tab}
-                    onChange={(_, v) => setTab(v)}
-                    sx={{
-                        minHeight: 34,
-                        '& .MuiTabs-indicator': { height: 2 },
-                        '& .MuiTab-root': { minHeight: 34, py: 0, px: 1.5, textTransform: 'none', fontSize: 13, fontWeight: 700 },
-                    }}
-                >
-                    <Tab value="queue" label={`Queue (${queueRows.length})`} />
-                    <Tab value="history" label={`History (${historyPayments.length})`} />
+                <Tabs value={tab} onValueChange={(v) => setTab(v as 'queue' | 'history')}>
+                    <TabsList aria-label="Payment view">
+                        <TabsTrigger value="queue">Queue ({queueRows.length})</TabsTrigger>
+                        <TabsTrigger value="history">History ({historyPayments.length})</TabsTrigger>
+                    </TabsList>
                 </Tabs>
 
                 {/* The status rail filters the LIST, so it sits with the tabs on the left, behind a
