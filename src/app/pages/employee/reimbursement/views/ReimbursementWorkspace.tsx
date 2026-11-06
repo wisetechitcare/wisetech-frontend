@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
 import { useDispatch } from 'react-redux';
 import { useMediaQuery } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
+import { FileDown, Loader2 } from 'lucide-react';
 import {
   fetchEmpAlltimeReimbursements,
   fetchEmpMonthlyReimbursements,
@@ -19,8 +19,8 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { usePersistedState } from '@app/modules/common/hooks/usePersistedState';
 import ReimbursementPeriodBar, { PeriodAlignment } from '../components/ReimbursementPeriodBar';
-import { TOOLBAR_ROW, lightToolbarButton } from '../utils/toolbarButton';
-import { WtButton } from '@app/modules/common/components/ui';
+import { TOOLBAR_ROW } from '../utils/toolbarButton';
+import { Button } from '@/ds/ui/button';
 import ReimbursementCharts from '../components/ReimbursementCharts';
 import NeedsYourAttention from '../components/NeedsYourAttention';
 import ReimbursementPaymentHistoryTable from '../components/ReimbursementPaymentHistoryTable';
@@ -218,19 +218,12 @@ export default function ReimbursementWorkspace({
               rows is empty for the same reason. handleDownloadBill keeps its own guard —
               this removes the dead end, it does not replace the check. */}
           {rows.length > 0 && (
-            <WtButton variant="text"
-              onClick={handleDownloadBill}
-              disabled={downloadingBill}
-              title="Download Reimbursement Slip"
-              startIcon={
-                downloadingBill
-                  ? <span className="spinner-border spinner-border-sm" style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
-                  : <KTIcon iconName="file-down" className="fs-3" />
-              }
-              sx={lightToolbarButton('danger', downloadingBill)}
-            >
+            <Button size="sm" variant="outline" onClick={handleDownloadBill} disabled={downloadingBill}>
+              {downloadingBill
+                ? <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden />
+                : <FileDown data-icon="inline-start" aria-hidden />}
               {downloadingBill ? 'Generating...' : 'Download Reimbursement Slip'}
-            </WtButton>
+            </Button>
           )}
         </div>
       }

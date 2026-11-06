@@ -123,7 +123,7 @@ export function StatCard({
         >
           <span className="min-w-0 truncate">{value}</span>
           {inlineHint && (
-            <span className="text-xs font-normal whitespace-nowrap text-muted-foreground">{hint}</span>
+            <span className="min-w-0 text-xs font-normal text-muted-foreground">{hint}</span>
           )}
         </CardTitle>
         {icon && (

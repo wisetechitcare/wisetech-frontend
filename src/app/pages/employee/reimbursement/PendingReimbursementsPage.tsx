@@ -19,7 +19,7 @@ import {
 import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
-import { TOOLBAR_ROW, lightToolbarButton } from './utils/toolbarButton';
+import { TOOLBAR_ROW } from './utils/toolbarButton';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
 import { ReimbursementDraft, ReimbursementOption } from './utils/reimbursementTypes';
@@ -35,15 +35,18 @@ import DateInput from '@app/modules/common/inputs/DateInput';
 import ReimbursementDropdown from '@app/modules/common/inputs/ReimbursementDropdown';
 import { Option } from '@models/dropdown';
 import { KTIcon } from '@metronic/helpers';
-import { Avatar, Box, Chip, Paper, Skeleton, Stack, Tooltip, Typography } from '@mui/material';
-import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import { Loader2, Plus, Send } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/ds/ui/avatar';
+import { Badge } from '@/ds/ui/badge';
+import { Card, CardContent } from '@/ds/ui/card';
+import { Skeleton } from '@/ds/ui/skeleton';
 import { getAvatar } from '@utils/avatar';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { IReimbursementsCreate } from '@models/employee';
 import { useEventBus } from '@hooks/useEventBus';
-import { WtButton, AppIcon } from '@app/modules/common/components/ui';
+import { AppIcon } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation, describeLimitBreach } from './utils/reimbursementSchema';
 import { currencyPrefix } from '@utils/currency';
@@ -70,117 +73,27 @@ const BACKEND = import.meta.env.VITE_APP_WISE_TECH_BACKEND as string;
 function ReimbEmployeeProfileCard({ employee }: { employee: any }) {
   const avatar = getAvatar(employee?.avatar || '', employee?.gender);
   const name = `${employee?.users?.firstName || ''} ${employee?.users?.lastName || ''}`.trim() || 'Employee';
+  const initials = name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase();
   const hasProfessionalFees = !!employee?.professionalFeesEnabled;
 
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        height: '100%',
-        p: { xs: 1.5, md: 1.75 },
-        borderRadius: '16px',
-        background: 'linear-gradient(180deg, #ffffff 0%, #fbfdff 100%)',
-        border: '1px solid #e9eef5',
-        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 16px rgba(15, 23, 42, 0.035)',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <Stack direction="row" spacing={{ xs: 1.5, md: 2 }} sx={{ mb: 1 }}>
-        <Avatar
-          src={avatar}
-          alt={name}
-          sx={{
-            width: { xs: 68, md: 74 },
-            height: { xs: 68, md: 74 },
-            borderRadius: '16px',
-            boxShadow: '0 6px 12px rgba(15, 23, 42, 0.08)',
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            flex: '0 0 auto',
-            '& .MuiAvatar-img': { objectFit: 'fill' },
-          }}
-        />
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Stack direction="row" alignItems="flex-start" justifyContent="space-between" gap={1} mb={0.45}>
-            <Box sx={{ minWidth: 0 }}>
-              <Tooltip title={name} arrow placement="top">
-                <Typography sx={{ color: '#0f172a', fontSize: { xs: '1.05rem', md: '1.14rem' }, fontWeight: 800, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {name}
-                </Typography>
-              </Tooltip>
-              <Typography sx={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 700, mt: 0.35 }}>
-                {employee?.employeeCode || '-'}
-              </Typography>
-            </Box>
-          </Stack>
-          <Typography sx={{ color: '#334155', fontSize: '0.84rem', fontWeight: 700, lineHeight: 1.3 }}>
-            {employee?.companyPhoneNumber || '-'}
-          </Typography>
-          <Box sx={{ mt: 0.75 }}>
-            <Chip
-              label={hasProfessionalFees ? 'CONTRACT BASED' : 'SALARY BASED'}
-              size="small"
-              sx={{
-                height: '22px',
-                fontSize: '0.65rem',
-                fontWeight: 800,
-                letterSpacing: '0.5px',
-                backgroundColor: hasProfessionalFees ? '#f5f3ff' : '#f0fdf4',
-                color: hasProfessionalFees ? '#7c3aed' : '#16a34a',
-                border: `1px solid ${hasProfessionalFees ? '#ede9fe' : '#dcfce7'}`,
-                '& .MuiChip-label': { px: 1 },
-              }}
-            />
-          </Box>
-        </Box>
-      </Stack>
-
-      {employee?.companyEmailId && (
-        <Box
-          sx={{
-            mt: 1.4,
-            pt: 1.25,
-            borderTop: '1px solid #edf2f7',
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: '1fr' },
-            gap: 0.85,
-          }}
-        >
-          <Box
-            sx={{
-              minWidth: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.7,
-              px: 1,
-              py: 0.75,
-              borderRadius: '10px',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e8eef5',
-            }}
-          >
-            <Box sx={{ color: '#64748b', display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
-              <EmailOutlinedIcon sx={{ fontSize: '14px' }} />
-            </Box>
-            <Typography
-              sx={{
-                minWidth: 0,
-                color: '#475569',
-                fontSize: '0.73rem',
-                fontWeight: 600,
-                lineHeight: 1.15,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {employee.companyEmailId}
-            </Typography>
-          </Box>
-        </Box>
-      )}
-    </Paper>
+    // Identity only — who these claims belong to. Phone and email are not reimbursement facts and
+    // are deliberately not shown on any reimbursement tab.
+    <Card size="sm" className="h-full justify-center">
+      <CardContent className="flex min-w-0 items-center gap-3">
+        <Avatar className="size-14 shrink-0 rounded-2xl after:rounded-2xl">
+          <AvatarImage src={avatar} alt={name} className="rounded-2xl object-cover" />
+          <AvatarFallback className="rounded-2xl">{initials}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-base font-bold leading-tight text-foreground" title={name}>{name}</div>
+          <div className="mt-0.5 text-xs font-semibold text-muted-foreground">{employee?.employeeCode || '-'}</div>
+          <Badge variant={hasProfessionalFees ? 'brand' : 'success'} className="mt-1.5 tracking-wide uppercase">
+            {hasProfessionalFees ? 'Contract based' : 'Salary based'}
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -188,16 +101,12 @@ function ReimbEmployeeProfileCard({ employee }: { employee: any }) {
 
 function EmployeeDetailsSkeleton() {
   return (
-    <Paper elevation={0} sx={{ p: 1.25, borderRadius: '20px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
-      <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.5}>
-        <Skeleton variant="rounded" width="100%" height={168} sx={{ maxWidth: { lg: 260 }, borderRadius: '16px' }} />
-        <Box sx={{ flex: 1, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', xl: 'repeat(5, 1fr)' }, gap: 1.25 }}>
-          {Array.from({ length: 10 }).map((_, i) => (
-            <Skeleton key={i} variant="rounded" height={80} sx={{ borderRadius: '16px' }} />
-          ))}
-        </Box>
-      </Stack>
-    </Paper>
+    <div className="grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)]" aria-busy="true">
+      <Skeleton className="h-40 w-full rounded-2xl" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
+      </div>
+    </div>
   );
 }
 
@@ -258,37 +167,18 @@ export function EmployeeDetailsSection({
   };
 
   return (
-    <Box sx={{ width: '100%', mb: 4 }}>
+    <div className="mb-6 w-full">
       {!employee ? (
         <EmployeeDetailsSkeleton />
       ) : (
-        <Paper
-          elevation={0}
-          sx={{
-            width: '100%',
-            p: { xs: 1, md: 1.25 },
-            borderRadius: '20px',
-            background: 'linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%)',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.03)',
-          }}
-        >
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', lg: '260px minmax(0, 1fr)' },
-              gap: 1.25,
-              alignItems: 'stretch',
-            }}
-          >
-            <ReimbEmployeeProfileCard employee={employee} />
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}>
-              <ReimbursementKpiRow kpis={kpis} loading={overviewLoading} showSensitiveData={sensitive.visible} />
-            </Box>
-          </Box>
-        </Paper>
+        <div className="grid items-stretch gap-3 lg:grid-cols-[260px_minmax(0,1fr)]">
+          <ReimbEmployeeProfileCard employee={employee} />
+          <div className="min-w-0">
+            <ReimbursementKpiRow kpis={kpis} loading={overviewLoading} showSensitiveData={sensitive.visible} />
+          </div>
+        </div>
       )}
-    </Box>
+    </div>
   );
 }
 
@@ -745,27 +635,18 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 // Same action, same emphasis as the one on the records bar below —
                 // this is the one the user sees once drafts exist, and the two must
                 // not disagree about how prominent "add a request" is.
-                <WtButton variant="text"
-                  onClick={handleNew}
-                  startIcon={<KTIcon iconName='plus' className='fs-3' />}
-                  sx={lightToolbarButton('accent')}
-                >
+                <KitButton size="sm" onClick={handleNew}>
+                  <Plus data-icon="inline-start" aria-hidden />
                   Add Reimbursement Request
-                </WtButton>
+                </KitButton>
               )}
             {drafts.length > 0 && (
-              <WtButton variant="text"
-                onClick={handleSendForApproval}
-                disabled={submitting}
-                startIcon={
-                  submitting
-                    ? <span className='spinner-border spinner-border-sm' style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
-                    : <KTIcon iconName='send' className='fs-3' />
-                }
-                sx={lightToolbarButton('success', submitting)}
-              >
+              <KitButton size="sm" variant="success" onClick={handleSendForApproval} disabled={submitting}>
+                {submitting
+                  ? <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden />
+                  : <Send data-icon="inline-start" aria-hidden />}
                 {submitting ? 'Submitting...' : 'Send for Approval'}
-              </WtButton>
+              </KitButton>
             )}
           </div>
         </div>

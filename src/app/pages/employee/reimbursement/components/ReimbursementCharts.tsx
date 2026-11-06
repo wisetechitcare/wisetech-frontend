@@ -38,11 +38,11 @@ import { Button } from '@/ds/ui/button';
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 
-const INK = '#0f172a';
-const MUTED = '#64748b';
-const FAINT = '#94a3b8';
-const LINE = '#e2e8f0';
-const RAIL = '#f1f5f9';
+const INK = 'var(--foreground)';
+const MUTED = 'var(--muted-foreground)';
+const FAINT = 'color-mix(in oklch, var(--muted-foreground) 70%, transparent)';
+const LINE = 'var(--border)';
+const RAIL = 'var(--muted)';
 
 const SERIES = {
     approved: '#16a34a',
@@ -52,13 +52,13 @@ const SERIES = {
     spend: '#7c3aed',
 } as const;
 
-const TONE_BG = { warn: '#fffbeb', info: '#eff6ff', good: '#f0fdf4' } as const;
-const TONE_BD = { warn: '#fcd34d', info: '#bfdbfe', good: '#bbf7d0' } as const;
-const TONE_FG = { warn: '#92400e', info: '#1e40af', good: '#166534' } as const;
+const TONE_BG = { warn: 'var(--warning-soft)', info: 'var(--info-soft)', good: 'var(--success-soft)' } as const;
+const TONE_BD = { warn: 'color-mix(in oklch, var(--warning) 45%, transparent)', info: 'color-mix(in oklch, var(--info) 35%, transparent)', good: 'color-mix(in oklch, var(--success) 35%, transparent)' } as const;
+const TONE_FG = { warn: 'var(--warning-foreground)', info: 'var(--info-foreground)', good: 'var(--success-foreground)' } as const;
 
 /** One card skeleton for all three, so the row can never look ragged. */
 const CARD: React.CSSProperties = {
-    background: '#fff',
+    background: 'var(--card)',
     border: `1px solid ${LINE}`,
     borderRadius: 14,
     padding: '14px 16px',
@@ -97,7 +97,7 @@ function EmptyBody({ text, height }: { text: string; height: number }) {
         <div style={{
             flex: 1, minHeight: height, display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: FAINT, fontSize: 12, textAlign: 'center', padding: '0 12px',
-            border: `1px dashed ${LINE}`, borderRadius: 10, background: '#fcfdfe',
+            border: `1px dashed ${LINE}`, borderRadius: 10, background: 'color-mix(in oklch, var(--muted) 40%, transparent)',
         }}>
             {text}
         </div>
@@ -112,7 +112,7 @@ function TrendTooltip({ active, payload, label }: any) {
     if (!point || rows.length === 0) return null;
     return (
         <div style={{
-            background: '#fff', border: `1px solid ${LINE}`, borderRadius: 10,
+            background: 'var(--card)', border: `1px solid ${LINE}`, borderRadius: 10,
             padding: '9px 11px', boxShadow: '0 8px 20px rgba(15,23,42,0.08)', fontSize: 12, minWidth: 180,
         }}>
             <div style={{ fontWeight: 700, color: INK }}>{label}</div>
@@ -161,7 +161,7 @@ function CycleStrip({ approval, payment, total }: { approval: number | null; pay
                     <div style={{ fontSize: 10, color: FAINT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {c.label}
                     </div>
-                    <div style={{ ...FIGURE, fontSize: 13, fontWeight: c.strong ? 800 : 700, color: c.strong ? INK : '#334155' }}>
+                    <div style={{ ...FIGURE, fontSize: 13, fontWeight: c.strong ? 800 : 700, color: c.strong ? INK : 'color-mix(in oklch, var(--foreground) 80%, transparent)' }}>
                         {c.value}
                         <span style={{ fontSize: 10, fontWeight: 500, color: FAINT, marginLeft: 3 }}>days</span>
                     </div>
@@ -251,7 +251,7 @@ export default function ReimbursementCharts({
     if (loading) {
         return (
             <Box sx={{ mb: 2, display: 'grid', gap: 1.5, gridTemplateColumns: ROW }}>
-                {[0, 1, 2].map((i) => <div key={i} style={{ ...CARD, height: BODY + 92, background: '#f8fafc' }} />)}
+                {[0, 1, 2].map((i) => <div key={i} style={{ ...CARD, height: BODY + 92, background: 'var(--muted)' }} />)}
             </Box>
         );
     }
@@ -304,7 +304,7 @@ export default function ReimbursementCharts({
                                     <CartesianGrid strokeDasharray="3 3" stroke={RAIL} vertical={false} />
                                     <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} interval={0} />
                                     <YAxis tickFormatter={money} tick={axisTick} axisLine={false} tickLine={false} width={48} />
-                                    <Tooltip content={<TrendTooltip />} cursor={{ fill: '#f8fafc' }} />
+                                    <Tooltip content={<TrendTooltip />} cursor={{ fill: 'var(--muted)' }} />
                                     {/* Stacked: approved + awaiting + rejected = what was claimed. Paid is
                                         a subset of approved, so it rides above as a line rather than a
                                         fourth bar counting the same money twice.
@@ -395,12 +395,12 @@ export default function ReimbursementCharts({
                                         style={{
                                             display: 'flex', alignItems: 'center', gap: 7,
                                             padding: '4px 6px', borderRadius: 8, fontSize: 11.5,
-                                            background: activeSlice === i ? '#f8fafc' : 'transparent',
+                                            background: activeSlice === i ? 'var(--muted)' : 'transparent',
                                             cursor: onSelectStatus ? 'pointer' : undefined,
                                         }}
                                     >
                                         <span style={{ width: 8, height: 8, borderRadius: 2, background: sl.color, flexShrink: 0 }} />
-                                        <span style={{ color: '#475569', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        <span style={{ color: MUTED, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {sl.name}
                                         </span>
                                         <span style={{ color: FAINT, fontSize: 10.5, fontVariantNumeric: 'tabular-nums' }}>{sl.count}</span>
@@ -450,8 +450,8 @@ export default function ReimbursementCharts({
                                             }}
                                             style={{
                                                 padding: '6px 8px', borderRadius: 10,
-                                                border: `1px solid ${selected ? '#c7d2fe' : 'transparent'}`,
-                                                background: selected ? '#eef2ff' : 'transparent',
+                                                border: `1px solid ${selected ? 'color-mix(in oklch, var(--primary) 30%, transparent)' : 'transparent'}`,
+                                                background: selected ? 'var(--accent)' : 'transparent',
                                                 cursor: onSelectCategory ? 'pointer' : undefined,
                                             }}
                                         >
