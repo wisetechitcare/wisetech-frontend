@@ -92,7 +92,12 @@ class ErrorBoundary extends React.Component<Props, State> {
       });
       // `keepalive` so the report survives the user immediately navigating away, which is
       // exactly what people do when a page breaks.
-      fetch('/api/client-error', {
+      // The backend's own origin, like every other call. A bare '/api/…' resolves against the
+      // page's host — the static Amplify site in production — which 404s, so no crash was
+      // ever logged server-side. Plain fetch, not apiClient: the reporter must not depend on
+      // the code that may have just crashed.
+      const apiBase = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
+      fetch(`${apiBase}/api/client-error`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
