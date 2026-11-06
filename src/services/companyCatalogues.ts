@@ -6,16 +6,30 @@ const base = (companyId: string) => `${API_BASE_URL}/api/lead-project-companies/
 /** Keep in sync with CATALOGUE_MAX_MB in the backend's utils/catalogueValidation.ts. */
 export const CATALOGUE_MAX_MB = 25;
 
+/** What the picker accepts: PDFs, plus JPG/PNG/WebP images. The server re-checks every file from its bytes. */
+export const CATALOGUE_ACCEPT = {
+  "application/pdf": [".pdf"],
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "image/webp": [".webp"],
+};
+export const CATALOGUE_NAME_MAX = 120;
+
 export interface CompanyCatalogue {
   id: string;
+  /** The name the uploader gave it; shown on its card. */
+  name: string;
+  kind: "pdf" | "image";
   fileName: string;
   sizeBytes: number;
   originalBytes: number;
   pageCount: number;
   uploadedByName: string | null;
   createdAt: string;
-  /** Short-lived link (12 hours) to open the PDF. */
+  /** Short-lived link (12 hours) to open the file. */
   url: string;
+  /** Same file, but the browser saves it as "<name>.<ext>" instead of opening it. */
+  downloadUrl: string;
   /** Previews of the leading pages, in order (the hover carousel). Empty when none were generated. */
   previewUrls: string[];
   previewCount: number;
@@ -24,13 +38,18 @@ export interface CompanyCatalogue {
 /** Keep in sync with MAX_PREVIEW_PAGES in the backend's handlers/companyCatalogues.ts. */
 export const MAX_PREVIEW_PAGES = 6;
 const previewTarget = (c: CompanyCatalogue) => Math.min(MAX_PREVIEW_PAGES, c.pageCount);
-export const needsPreviews = (c: CompanyCatalogue) => c.previewCount < previewTarget(c);
+/** Image catalogues are their own preview; only PDFs have pages to draw. */
+export const needsPreviews = (c: CompanyCatalogue) => c.kind === "pdf" && c.previewCount < previewTarget(c);
+
+/** The name field's starting value: the file name without its extension. */
+export const defaultCatalogueName = (file: File) => file.name.replace(/\.[^.]+$/, "").trim().slice(0, CATALOGUE_NAME_MAX);
 
 export const getCompanyCatalogues = async (companyId: string) =>
   (await axios.get(base(companyId))).data.catalogues as CompanyCatalogue[];
 
-export const uploadCompanyCatalogue = async (companyId: string, file: File, onProgress: (pct: number) => void) => {
+export const uploadCompanyCatalogue = async (companyId: string, file: File, name: string, onProgress: (pct: number) => void) => {
   const form = new FormData();
+  form.append("name", name); // before the file, so the server has it when the file part arrives
   form.append("file", file);
   const { data } = await axios.post(base(companyId), form, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -90,13 +109,21 @@ export const generatePreviews = async (companyId: string, c: CompanyCatalogue, o
   });
 };
 
+export const renameCompanyCatalogue = async (companyId: string, id: string, name: string) =>
+  (await axios.patch(`${base(companyId)}/${id}`, { name })).data.catalogue as CompanyCatalogue;
+
 export const deleteCompanyCatalogue = async (companyId: string, id: string) => {
   await axios.delete(`${base(companyId)}/${id}`);
 };
 
-/** Courtesy check before upload — the server re-checks everything from the bytes. */
-export const isPdfFile = async (file: File) => {
-  if (!/\.pdf$/i.test(file.name) || file.size === 0) return false;
-  const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
-  return String.fromCharCode(...head) === "%PDF-";
+/** Courtesy check before upload (does the content match the extension?) — the server re-checks the bytes. */
+export const isCatalogueFile = async (file: File) => {
+  if (file.size === 0) return false;
+  const b = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const ascii = (from: number, to: number) => String.fromCharCode(...b.slice(from, to));
+  if (/\.pdf$/i.test(file.name)) return ascii(0, 5) === "%PDF-";
+  if (/\.jpe?g$/i.test(file.name)) return b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+  if (/\.png$/i.test(file.name)) return b[0] === 0x89 && ascii(1, 4) === "PNG";
+  if (/\.webp$/i.test(file.name)) return ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP";
+  return false;
 };
