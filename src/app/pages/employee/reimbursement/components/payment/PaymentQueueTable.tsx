@@ -2,10 +2,10 @@ import { useMemo } from 'react';
 import { Box, Checkbox, Typography } from '@mui/material';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import ExportButton from '@app/modules/common/components/ExportButton';
-import { WtButton } from '@app/modules/common/components/ui/buttons';
+import { Button } from '@/ds/ui/button';
 import { SearchX } from 'lucide-react';
 import { fmtDate, formatMoney, PAYMENT_TONE } from '../../utils/reimbursementFormat';
-import { PaymentBatchRow, PAYMENT_STATE_LABEL, COMPACT_BUTTON_SX } from './paymentData';
+import { PaymentBatchRow, PAYMENT_STATE_LABEL } from './paymentData';
 import PaymentEmptyState from './PaymentEmptyState';
 import PaymentStateBadge from './PaymentStateBadge';
 
@@ -215,14 +215,15 @@ export default function PaymentQueueTable({
                 const payable = canPay && r.remainingAmount > 0;
                 return (
                     <Box onClick={(e) => e.stopPropagation()}>
-                        <WtButton
-                            size="small"
-                            ghost={!payable}
-                            sx={COMPACT_BUTTON_SX}
+                        {/* Not the gradient CTA: it repeats on every row, and fourteen primaries in a
+                            column is noise. The one primary on this screen is "Process payment". */}
+                        <Button
+                            size="sm"
+                            variant={payable ? 'inverted' : 'outline'}
                             onClick={() => (payable ? onPay(r) : onView(r))}
                         >
                             {payable ? 'Pay' : 'View'}
-                        </WtButton>
+                        </Button>
                     </Box>
                 );
             },
@@ -444,8 +445,8 @@ export function PaymentMobileCard({
             ))}
 
             <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
-                <WtButton ghost size="small" sx={COMPACT_BUTTON_SX} onClick={() => onView(row)}>View details</WtButton>
-                {payable && <WtButton size="small" sx={COMPACT_BUTTON_SX} onClick={() => onPay(row)}>Pay</WtButton>}
+                <Button variant="outline" size="sm" onClick={() => onView(row)}>View details</Button>
+                {payable && <Button variant="inverted" size="sm" onClick={() => onPay(row)}>Pay</Button>}
             </Box>
         </Box>
     );

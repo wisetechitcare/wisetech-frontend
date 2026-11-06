@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import ExportButton from '@app/modules/common/components/ExportButton';
-import { WtButton } from '@app/modules/common/components/ui/buttons';
+import { Button } from '@/ds/ui/button';
 import { FileText, SearchX } from 'lucide-react';
 import { fmtDate, formatMoney } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow, PaymentRecord } from './paymentData';
@@ -166,7 +166,7 @@ export default function PaymentHistoryTable({
                 if (!batch) return null;
                 return (
                     <Box onClick={(e) => e.stopPropagation()}>
-                        <WtButton ghost size="small" onClick={() => onView(batch)}>View</WtButton>
+                        <Button variant="outline" size="sm" onClick={() => onView(batch)}>View</Button>
                     </Box>
                 );
             },

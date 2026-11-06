@@ -7,7 +7,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import { canSection } from '@utils/can';
 import { toast, alertDialog } from '@app/modules/common/components/ui/feedback';
 import { escapeHtml } from '@app/modules/common/components/ui/safeHtml';
-import { WtButton } from '@app/modules/common/components/ui/buttons';
+import { Button } from '@/ds/ui/button';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
 import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
@@ -18,7 +18,7 @@ import LoadErrorState from '../../components/LoadErrorState';
 import { formatMoney } from '../../utils/reimbursementFormat';
 import {
     buildPaymentRows, filterQueueByPeriod, paymentKpis, stateBreakdown, mapOrgPayments,
-    PaymentBatchRow, PaymentState, PeriodFilter, QueueDateBasis, COMPACT_BUTTON_SX, EmployeeOrgDetail,
+    PaymentBatchRow, PaymentState, PeriodFilter, QueueDateBasis, EmployeeOrgDetail,
 } from '../../components/payment/paymentData';
 import { useOrgFilters, OrgFilterToolbar } from '@app/modules/common/components/ui/OrgFilterToolbar';
 import { PaymentKpiCards, PaymentStatusRail } from '../../components/payment/PaymentSummary';
@@ -411,12 +411,12 @@ function PaymentTab() {
                                     {formatMoney(selectedTotal)}
                                 </Box>
                             </Typography>
-                            <WtButton ghost size="small" sx={COMPACT_BUTTON_SX} onClick={() => setSelectedIds([])}>
+                            <Button variant="outline" size="sm" onClick={() => setSelectedIds([])}>
                                 Clear
-                            </WtButton>
-                            <WtButton size="small" sx={COMPACT_BUTTON_SX} onClick={() => setPayTarget(selectedRows)}>
+                            </Button>
+                            <Button size="sm" onClick={() => setPayTarget(selectedRows)}>
                                 Process payment
-                            </WtButton>
+                            </Button>
                         </Box>
                     )}
 

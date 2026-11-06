@@ -4,7 +4,7 @@ import {
 } from '@mui/material';
 import dayjs from 'dayjs';
 import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui/glass';
-import { WtButton } from '@app/modules/common/components/ui/buttons';
+import { Button } from '@/ds/ui/button';
 import { WtDateField } from '@app/modules/common/components/ui/dates';
 import { fmtAmount, formatMoney } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow } from './paymentData';
@@ -264,13 +264,13 @@ export default function RecordPaymentModal({
             </DialogContent>
 
             <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2.5, gap: 1 }}>
-                <WtButton ghost onClick={onClose} disabled={submitting}>Cancel</WtButton>
-                <WtButton onClick={handleConfirm} disabled={blocked}>
+                <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+                <Button onClick={handleConfirm} disabled={blocked}>
                     {submitting ? 'Recording…'
                         : isRun ? `Pay ${batches.length} batches · ${formatMoney(remainingTotal)}`
                         : isPartial ? `Record part payment · ${formatMoney(amount || 0)}`
                         : `Confirm payment · ${formatMoney(amount || 0)}`}
-                </WtButton>
+                </Button>
             </DialogActions>
         </GlassDialog>
     );

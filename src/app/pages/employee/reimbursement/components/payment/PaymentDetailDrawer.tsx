@@ -1,7 +1,8 @@
 import { Box, Divider, Drawer, Typography } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { KTIcon } from '@metronic/helpers';
-import { WtButton, WtIconButton } from '@app/modules/common/components/ui/buttons';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
+import { Button } from '@/ds/ui/button';
 import { fmtDate, formatMoney, STATUS_LABEL, StatusNum } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow } from './paymentData';
 import PaymentStateBadge from './PaymentStateBadge';
@@ -209,13 +210,13 @@ export default function PaymentDetailDrawer({
                         borderTop: '1px solid', borderColor: 'divider',
                     }}>
                         {canPay && payable && (
-                            <WtButton size="small" onClick={() => onPay(row)}>
+                            <Button size="sm" onClick={() => onPay(row)}>
                                 Record payment
-                            </WtButton>
+                            </Button>
                         )}
-                        <WtButton ghost size="small" onClick={() => onOpenBatch(row)}>
+                        <Button variant="outline" size="sm" onClick={() => onOpenBatch(row)}>
                             View reimbursement
-                        </WtButton>
+                        </Button>
                     </Box>
                 </Box>
             )}
