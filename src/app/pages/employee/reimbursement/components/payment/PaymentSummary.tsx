@@ -12,13 +12,13 @@ import { PaymentKpis, PaymentState, PAYMENT_STATE_LABEL } from './paymentData';
  * follows. This file chooses which four numbers matter and what they are called, and nothing else.
  */
 
-const KPI_GRID = 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4';
+const KPI_GRID = 'grid grid-cols-2 gap-3 xl:grid-cols-4';
 
 export function PaymentKpiCards({ kpis, loading }: { kpis: PaymentKpis; loading?: boolean }) {
     if (loading) {
         return (
             <div className={KPI_GRID} aria-busy="true">
-                {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}
+                {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
             </div>
         );
     }

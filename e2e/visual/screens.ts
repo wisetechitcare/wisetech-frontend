@@ -72,6 +72,16 @@ export const SCREENS: Screen[] = [
     states: [loaded, { id: "new", name: "new branch", prepare: openDialog(/new branch/i) }],
   },
   { id: "appearance", name: "Settings / Appearance", path: "/admin/app-settings?area=appearance", states: [loaded] },
+  { id: "meetings", name: "Meetings overview", path: "/employees/meetings", states: [loaded] },
+  // A project is a record in YOUR database, so its id comes from the environment, never this file.
+  ...(process.env.VISUAL_PROJECT_ID
+    ? [{
+        id: "project-gallery",
+        name: "Project gallery",
+        path: `/project/${process.env.VISUAL_PROJECT_ID}?tab=gallery`,
+        states: [loaded],
+      }]
+    : []),
   {
     id: "reimb-payment",
     name: "Reimbursement / Payment",

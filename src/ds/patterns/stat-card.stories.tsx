@@ -45,6 +45,36 @@ export const WithSparkline: Story = {
   },
 }
 
+/** Default (compact): a plain hint sits beside the value, so the card has no footer row. */
+export const CompactHint: Story = {
+  args: { label: 'Pending payment', value: '₹23,905.50', hint: '14 batches', tone: 'warning' },
+  play: async ({ canvasElement, canvas }) => {
+    await expect(canvas.getByText('14 batches')).toBeInTheDocument()
+    await expect(canvasElement.querySelector('[data-slot="card-footer"]')).toBeNull()
+  },
+}
+
+/** `size="comfortable"`: the roomy tile for a hero number — 3xl value, hint on its own footer row. */
+export const Comfortable: Story = {
+  args: { size: 'comfortable', label: 'Pending payment', value: '₹23,905.50', hint: '14 batches', tone: 'warning' },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[data-slot="card-footer"]')).not.toBeNull()
+  },
+}
+
+/** Four compact cards two-up, as on a phone. */
+export const CompactPhoneRow: Story = {
+  decorators: [(Story) => <div className="w-[358px]"><Story /></div>],
+  render: () => (
+    <div className="grid grid-cols-2 gap-3">
+      <StatCard label="Pending payment" value="₹23,905.50" hint="14 batches" tone="warning" icon={<Briefcase aria-hidden />} />
+      <StatCard label="Total paid" value="₹87,131.00" hint="0% settled" tone="success" icon={<CalendarCheck aria-hidden />} />
+      <StatCard label="Pending requests" value="124" hint="awaiting payment" tone="info" icon={<FolderKanban aria-hidden />} />
+      <StatCard label="Employees awaiting" value="8" hint="to be paid" tone="brand" icon={<Users aria-hidden />} />
+    </div>
+  ),
+}
+
 /** A dashboard KPI row: one tone per card, trend colour stays semantic. */
 export const KpiRow: Story = {
   decorators: [(Story) => <div className="w-[min(1400px,calc(100vw-2rem))]"><Story /></div>],

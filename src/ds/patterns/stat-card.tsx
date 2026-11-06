@@ -47,6 +47,13 @@ function Sparkline({ values }: { values: number[] }) {
 }
 
 /**
+ * `compact` (default): a KPI strip — 16px padding, a 2xl value and a plain hint sitting beside it, so
+ * four cards fit a phone two-up and a desktop row without dead space. `comfortable`: the original
+ * roomy tile (24px padding, 3xl value, hint on its own footer row) for a hero number.
+ */
+export type StatCardSize = "compact" | "comfortable"
+
+/**
  * KPI tile on shadcn's Card: label, big tabular number, tinted icon, optional trend, hint and sparkline.
  * Status is never colour-only: the trend carries an arrow and text. `children` render between the
  * header and the footer (e.g. a thumbnail and actions).
@@ -61,6 +68,7 @@ export function StatCard({
   hint,
   sparkline,
   tone = "brand",
+  size = "compact",
   className,
   children,
   ...props
@@ -74,14 +82,23 @@ export function StatCard({
   /** Recent values, oldest first; drawn as a small area chart. */
   sparkline?: number[]
   tone?: StatTone
+  size?: StatCardSize
 }) {
   const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp
-  const hasFooter = trend || hint || (sparkline && sparkline.length > 1)
+  const compact = size === "compact"
+  const hasSparkline = !!sparkline && sparkline.length > 1
+  // Compact puts a plain hint on the value's line; a footer row is only worth its height when it
+  // carries a trend badge or a sparkline.
+  const inlineHint = compact && hint && !trend && !hasSparkline
+  const hasFooter = trend || hasSparkline || (hint && !inlineHint)
   return (
     <Card
       {...props}
+      size={compact ? "sm" : "default"}
+      data-stat-size={size}
       className={cn(
-        "group/stat relative gap-4 overflow-hidden transition-[box-shadow,translate] duration-300 ease-spring hover:shadow-md motion-safe:hover:-translate-y-0.5",
+        "group/stat @container/stat relative overflow-hidden transition-[box-shadow,translate] duration-300 ease-spring hover:shadow-md motion-safe:hover:-translate-y-0.5",
+        compact ? "gap-2" : "gap-4",
         className,
       )}
       style={{ ...TONES[tone], ...props.style }}
@@ -94,13 +111,31 @@ export function StatCard({
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-(--tone) transition-transform duration-500 ease-spring group-hover/stat:scale-x-100"
       />
-      <CardHeader className="relative">
-        <CardDescription>{label}</CardDescription>
+      {/* `!` because Card's own `has-[card-action]:grid-cols-[1fr_auto]` outranks a plain class. */}
+      <CardHeader className={cn("relative", compact && "gap-1 @max-[210px]/stat:grid-cols-1!")}>
+        <CardDescription className={cn(compact && "truncate text-xs")}>{label}</CardDescription>
         {/* min-w-0: lets a long text value truncate instead of widening the card. */}
-        <CardTitle className="tabular min-w-0 text-3xl font-semibold motion-safe:animate-stat-rise">{value}</CardTitle>
+        <CardTitle
+          className={cn(
+            "tabular min-w-0 font-semibold motion-safe:animate-stat-rise",
+            compact ? "flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xl sm:text-2xl" : "text-3xl",
+          )}
+        >
+          <span className="min-w-0 truncate">{value}</span>
+          {inlineHint && (
+            <span className="text-xs font-normal whitespace-nowrap text-muted-foreground">{hint}</span>
+          )}
+        </CardTitle>
         {icon && (
-          <CardAction>
-            <span className="grid size-11 place-items-center rounded-2xl bg-[color-mix(in_oklch,var(--tone)_14%,transparent)] text-(--tone-ink) ring-1 ring-[color-mix(in_oklch,var(--tone)_22%,transparent)] transition-[scale,box-shadow] duration-300 group-hover/stat:scale-110 group-hover/stat:shadow-[0_8px_18px_-8px_var(--tone)] motion-safe:animate-stat-pop motion-safe:group-hover/stat:*:animate-stat-wiggle [&>svg]:size-5">
+          // A narrow compact card (two-up on a phone) gives the icon's width to the value: the icon is
+          // decoration, and a figure cut off with an ellipsis is a wrong figure.
+          <CardAction className={cn(compact && "@max-[210px]/stat:hidden")}>
+            <span
+              className={cn(
+                "grid place-items-center bg-[color-mix(in_oklch,var(--tone)_14%,transparent)] text-(--tone-ink) ring-1 ring-[color-mix(in_oklch,var(--tone)_22%,transparent)] transition-[scale,box-shadow] duration-300 group-hover/stat:scale-110 group-hover/stat:shadow-[0_8px_18px_-8px_var(--tone)] motion-safe:animate-stat-pop motion-safe:group-hover/stat:*:animate-stat-wiggle",
+                compact ? "size-9 rounded-xl [&>svg]:size-4" : "size-11 rounded-2xl [&>svg]:size-5",
+              )}
+            >
               {icon}
             </span>
           </CardAction>
@@ -116,7 +151,7 @@ export function StatCard({
                 {trend.value}
               </Badge>
             )}
-            {hint && <span className="text-muted-foreground">{hint}</span>}
+            {hint && !inlineHint && <span className="text-muted-foreground">{hint}</span>}
           </div>
           {sparkline && <Sparkline values={sparkline} />}
         </CardFooter>
