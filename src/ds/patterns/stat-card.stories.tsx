@@ -45,7 +45,7 @@ export const WithSparkline: Story = {
   },
 }
 
-/** Default (compact): a plain hint sits beside the value, so the card has no footer row. */
+/** Default (compact): a plain hint sits directly under the value, with no separate footer row. */
 export const CompactHint: Story = {
   args: { label: 'Pending payment', value: '₹23,905.50', hint: '14 batches', tone: 'warning' },
   play: async ({ canvasElement, canvas }) => {

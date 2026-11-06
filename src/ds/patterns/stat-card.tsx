@@ -47,8 +47,8 @@ function Sparkline({ values }: { values: number[] }) {
 }
 
 /**
- * `compact` (default): a KPI strip — 16px padding, a 2xl value and a plain hint sitting beside it, so
- * four cards fit a phone two-up and a desktop row without dead space. `comfortable`: the original
+ * `compact` (default): a KPI strip — 16px padding, a 2xl value and a plain hint on the line directly
+ * under it (never a separate footer row), so four cards fit a phone two-up and a desktop row without dead space. `comfortable`: the original
  * roomy tile (24px padding, 3xl value, hint on its own footer row) for a hero number.
  */
 export type StatCardSize = "compact" | "comfortable"
@@ -87,8 +87,8 @@ export function StatCard({
   const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp
   const compact = size === "compact"
   const hasSparkline = !!sparkline && sparkline.length > 1
-  // Compact puts a plain hint on the value's line; a footer row is only worth its height when it
-  // carries a trend badge or a sparkline.
+  // Compact puts a plain hint directly under the value; a footer row is only worth its height when
+  // it carries a trend badge or a sparkline.
   const inlineHint = compact && hint && !trend && !hasSparkline
   const hasFooter = trend || hasSparkline || (hint && !inlineHint)
   return (
@@ -118,10 +118,13 @@ export function StatCard({
         <CardTitle
           className={cn(
             "tabular min-w-0 font-semibold motion-safe:animate-stat-rise",
-            compact ? "flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xl sm:text-2xl" : "text-3xl",
+            compact ? "flex flex-col gap-0.5 text-xl sm:text-2xl" : "text-3xl",
           )}
         >
-          <span className="min-w-0 truncate">{value}</span>
+          {/* Clipped with an ellipsis like `truncate`, but `overflow: clip` rather than `hidden`: only
+              clip honours `overflow-clip-margin`, which lets a blurred (hidden) amount's soft edge fade
+              out 0.75rem past the box instead of being cut into a hard rectangle at the text's edge. */}
+          <span className="min-w-0 overflow-clip text-ellipsis whitespace-nowrap [overflow-clip-margin:0.75rem]">{value}</span>
           {inlineHint && (
             <span className="min-w-0 text-xs font-normal text-muted-foreground">{hint}</span>
           )}
