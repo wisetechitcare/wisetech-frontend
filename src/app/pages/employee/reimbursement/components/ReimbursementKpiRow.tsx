@@ -54,7 +54,9 @@ export default function ReimbursementKpiRow({
     // The headline in the card's own tone, as the old cards had it: hidden, it blurs to a coloured
     // smudge that still says which card is which, rather than a grey box.
     const headline = (n: number): ReactNode => (
-        <span className={`${cls} text-(--tone-ink)`}>{formatMoney(n)}</span>
+        // 1.6rem / 800 — the old KPI card's exact size and weight, so main's blur(5px) hides it the
+        // way it always did (at 24px the same blur let the digits read through).
+        <span className={`${cls} text-[1.6rem] font-extrabold tracking-tight text-(--tone-ink)`}>{formatMoney(n)}</span>
     );
     const none = kpis.totalRequests === 0;
     const unpaid = Math.max(0, kpis.approvedAmount - kpis.paidAmount);
