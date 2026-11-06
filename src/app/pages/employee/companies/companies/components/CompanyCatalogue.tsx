@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { cn } from "@/ds/lib/utils";
 import { AlertCircle, BookOpen, FileText, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/ds/ui/button";
+import { Item } from "@/ds/ui/item";
 import { Progress } from "@/ds/ui/progress";
 import { Skeleton } from "@/ds/ui/skeleton";
 import { EmptyState } from "@/ds/patterns/empty-state";
@@ -85,14 +86,15 @@ function CatalogueCover({ catalogue: c, onOpen }: { catalogue: Catalogue; onOpen
   const leave = () => setActive(false);
 
   return (
-    <button
-      type="button"
+    // Kit Item as a button: the documented clickable-card pattern (docs/BUTTONS.md), reshaped into a cover.
+    <Item
+      render={<button type="button" />}
       onClick={onOpen}
       onMouseEnter={enter}
       onMouseLeave={leave}
       onFocus={enter}
       onBlur={leave}
-      className="relative block aspect-[1/1.414] w-full overflow-hidden border-b bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+      className="relative block aspect-[1/1.414] w-full flex-nowrap gap-0 overflow-hidden rounded-none border-0 border-b bg-muted p-0 text-start"
     >
       {urls.length ? (
         <span
@@ -131,7 +133,7 @@ function CatalogueCover({ catalogue: c, onOpen }: { catalogue: Catalogue; onOpen
           ))}
         </span>
       )}
-    </button>
+    </Item>
   );
 }
 
