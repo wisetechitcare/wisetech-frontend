@@ -145,6 +145,8 @@ export interface ReimbursementDraft {
     createdAt?: string | null;
     /** Included by PendingReimbursementRepository (select: id, type, icon). */
     reimbursementType?: { id: string; type: string; icon?: string | null } | null;
+    /** The project (a Received lead), resolved by the server in one query for the whole list. */
+    lead?: { title?: string | null; originalProjectPrefix?: string | null } | null;
 }
 
 /**

@@ -146,12 +146,17 @@ export const fullName = (user?: { firstName?: string | null; lastName?: string |
  * printed "N/A" for every row that had a perfectly good project on it.
  */
 export const projectTitle = (row: {
-    lead?: { title?: string | null } | null;
+    lead?: { title?: string | null; originalProjectPrefix?: string | null } | null;
     project?: { title?: string | null } | null;
     projectId?: string | null;
     leadId?: string | null;
 }, resolve?: (id: string) => string | undefined): string => {
-    const direct = row.lead?.title || row.project?.title;
+    // The same label the reimbursement form's project picker shows: "WT/PROJECT/26-27/742 - 5th Floor …".
+    // The server attaches `lead` to drafts and submitted claims alike, so a row names its own project.
+    const lead = row.lead?.title
+        ? (row.lead.originalProjectPrefix ? `${row.lead.originalProjectPrefix} - ${row.lead.title}` : row.lead.title)
+        : null;
+    const direct = lead || row.project?.title;
     if (direct) return direct;
     const id = row.leadId || row.projectId;
     return (id && resolve?.(id)) || NO_VALUE;
