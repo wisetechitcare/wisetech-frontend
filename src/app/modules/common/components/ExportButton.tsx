@@ -160,6 +160,19 @@ function getCellColor<T>(row: T, col: ExportColumn<T>): string {
 
 // ─── CSV Export ───────────────────────────────────────────────────────────────
 
+/**
+ * CSV/formula injection guard (OWASP). A CSV cell is plain text, and spreadsheet apps EVALUATE any cell that
+ * starts with = + - @ (or a tab / carriage return): an employee's remark `=HYPERLINK("http://x","Open")` became
+ * a live link in finance's file. Such cells get a leading apostrophe, which spreadsheets read as "this is text".
+ * Genuine numbers ("-120.50", "+5") and the empty-value dash stay as they are, so negative amounts are not
+ * mangled. The .xlsx writer needs none of this: ExcelJS stores these as typed TEXT cells, never formulas.
+ */
+export function neutralizeCsvFormula(value: string): string {
+    if (value === '' || value === '-') return value;
+    if (/^[-+]?\d[\d,.\s]*$/.test(value)) return value;
+    return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
 export function exportCsv<T>(
     data: T[],
     columns: ExportColumn<T>[],
@@ -169,7 +182,9 @@ export function exportCsv<T>(
     totalLabel: string,
 ) {
     const cols = columns.filter(c => !c.csvSkip);
-    const escape = (v: string) => {
+    // Neutralise formulas first, then quote — every cell, title and headers included.
+    const escape = (cell: string) => {
+        const v = neutralizeCsvFormula(cell);
         if (/[",\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
         return v;
     };
