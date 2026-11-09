@@ -12,7 +12,9 @@ import {
 // TanStack Table v9: the features, row models and column types live in one place (shadcn's data-table guide).
 import { dataTableFeatures, type Column, type ColumnDef, type Header, type Row } from "./data-table-features"
 import { useLocale } from "react-aria-components"
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Columns3, Rows3, Search } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Columns3, GripVertical, Rows3, Search } from "lucide-react"
+// The app's one drag engine (also the Task board and the live table's column drag) — never a second one.
+import { mergeVisibleOrder, SortableProvider, type SortableProps } from "@/ds/lib/sortable"
 import { cn } from "@/ds/lib/utils"
 import { toneStyle, type Tone } from "@/ds/lib/tone"
 import { Button } from "@/ds/ui/button"
@@ -68,6 +70,51 @@ export function SortableHeader<T extends RowData>({ column, title }: { column: C
 }
 
 const SELECT_COLUMN_ID = "__select"
+const DRAG_COLUMN_ID = "__drag"
+/** One stable empty sizing, so "no widths yet" does not re-run the save effect every render. */
+const NO_SIZING: ColumnSizingState = Object.freeze({}) as ColumnSizingState
+/** The one container id rows live in for the drag engine. */
+const ROWS_CONTAINER = "rows"
+
+/** What the grip cells need, read live through a ref so the columns are not rebuilt on every move. */
+type ReorderHandle = { canDrag: boolean; pausedReason: string; move: (id: string, delta: -1 | 1) => void; position: (id: string) => [number, number] }
+
+function dragColumn<T extends RowData>(live: React.RefObject<ReorderHandle | null>): ColumnDef<T> {
+  return {
+    id: DRAG_COLUMN_ID,
+    enableSorting: false,
+    enableHiding: false,
+    enableResizing: false,
+    size: 40,
+    header: () => <span className="sr-only">Reorder</span>,
+    cell: ({ row }) => {
+      const h = live.current
+      const [pos, total] = h?.position(row.id) ?? [row.index + 1, row.index + 1]
+      return (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          data-row-grip=""
+          data-row-id={row.id}
+          disabled={!h?.canDrag}
+          aria-label={`Move row ${pos} of ${total}`}
+          aria-keyshortcuts="ArrowUp ArrowDown"
+          title={h?.canDrag ? "Drag to reorder, or use ↑ / ↓" : h?.pausedReason}
+          className="cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+          onKeyDown={(e) => {
+            if (!h?.canDrag) return
+            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+              e.preventDefault()
+              h.move(row.id, e.key === "ArrowUp" ? -1 : 1)
+            }
+          }}
+        >
+          <GripVertical aria-hidden />
+        </Button>
+      )
+    },
+  }
+}
 const EXPAND_COLUMN_ID = "__expand"
 
 function expandColumn<T extends RowData>(): ColumnDef<T> {
@@ -245,6 +292,7 @@ export function DataTable<T extends RowData>({
   renderCard,
   resizableColumns = true,
   stateKey,
+  rowReorder,
 }: {
   /** Names the table for assistive tech (rendered visually hidden). */
   caption: string
@@ -297,6 +345,12 @@ export function DataTable<T extends RowData>({
    * unique name per table, e.g. "reimbursement.inbox".
    */
   stateKey?: string
+  /**
+   * Rows can be dragged into a new order (a grip column; touch works too) or moved with ↑ / ↓ on the focused
+   * grip — every move announced. `onReorder` receives the full order of row ids (give `getRowId`); persist it.
+   * Paused while the table is sorted or searched, because the order on screen is then not the stored order.
+   */
+  rowReorder?: { onReorder: (orderedIds: string[]) => void }
 }) {
   // The kit's locale (KitProvider) — the same grouping as every other number in v2.
   const { locale } = useLocale()
@@ -317,9 +371,15 @@ export function DataTable<T extends RowData>({
   // Unique per table: several tables share a page (My Reimbursements has three), so a fixed id collides.
   const rowsPerPageId = React.useId()
 
+  const reorderLive = React.useRef<ReorderHandle | null>(null)
   const allColumns = React.useMemo(
-    () => [...(selectable ? [selectColumn<T>()] : []), ...(renderDetail ? [expandColumn<T>()] : []), ...columns],
-    [selectable, renderDetail, columns],
+    () => [
+      ...(rowReorder ? [dragColumn<T>(reorderLive)] : []),
+      ...(selectable ? [selectColumn<T>()] : []),
+      ...(renderDetail ? [expandColumn<T>()] : []),
+      ...columns,
+    ],
+    [rowReorder, selectable, renderDetail, columns],
   )
 
   const table = useTable({
@@ -359,7 +419,7 @@ export function DataTable<T extends RowData>({
   const cellPad = density === "compact" ? "py-1.5" : "py-3"
   const hasFooter = table.getAllLeafColumns().some((c) => c.columnDef.footer !== undefined)
   const visibleIds = table.getVisibleLeafColumns().map((c) => c.id)
-  const columnSizing: ColumnSizingState = table.state.columnSizing ?? {}
+  const columnSizing: ColumnSizingState = table.state.columnSizing ?? NO_SIZING
   // Debounced: a drag fires a sizing change per pointer move; storage needs only where it ended.
   React.useEffect(() => {
     if (!stateKey) return
@@ -381,7 +441,42 @@ export function DataTable<T extends RowData>({
     for (const [id, w] of Object.entries(missing)) naturalWidths.current.set(id, w)
     table.setColumnSizing((old) => ({ ...old, ...missing }))
   })
-  const narrowCol = (id: string) => (id === SELECT_COLUMN_ID || id === EXPAND_COLUMN_ID) && "w-10"
+  const narrowCol = (id: string) => (id === SELECT_COLUMN_ID || id === EXPAND_COLUMN_ID || id === DRAG_COLUMN_ID) && "w-10"
+
+  // ── Row reorder ────────────────────────────────────────────────────────────
+  const dragSurface = `rows-${React.useId()}`
+  const allIds = React.useMemo(() => data.map((r, i) => (getRowId ? getRowId(r, i) : String(i))), [data, getRowId])
+  const canDrag = !!rowReorder && sorting.length === 0 && !globalFilter
+  const [announcement, setAnnouncement] = React.useState("")
+  const refocusId = React.useRef<string | null>(null)
+  const commitOrder = (order: string[], movedId: string) => {
+    rowReorder?.onReorder(order)
+    setAnnouncement(`Moved to position ${order.indexOf(movedId) + 1} of ${order.length}.`)
+  }
+  reorderLive.current = rowReorder ? {
+    canDrag,
+    pausedReason: "Clear sorting and search to reorder",
+    position: (id) => [allIds.indexOf(id) + 1, allIds.length],
+    move: (id, delta) => {
+      const from = allIds.indexOf(id)
+      const to = from + delta
+      if (from < 0 || to < 0 || to >= allIds.length) return
+      const order = [...allIds]
+      order.splice(from, 1)
+      order.splice(to, 0, id)
+      refocusId.current = id // keep the grip focused as its row moves (and across a page boundary)
+      // Follow the row onto the next / previous page when it crosses one.
+      const page = Math.floor(to / pagination.pageSize)
+      if (!server && page !== pagination.pageIndex) table.setPageIndex(page)
+      commitOrder(order, id)
+    },
+  } : null
+  React.useEffect(() => {
+    const id = refocusId.current
+    if (!id) return
+    refocusId.current = null
+    document.querySelector<HTMLElement>(`[data-row-grip][data-row-id="${CSS.escape(id)}"]`)?.focus()
+  })
   // `meta: { pin: "end" }` keeps a column (row actions) at the right edge while the rest scrolls sideways —
   // otherwise on a wide table the actions are the first thing to fall off screen.
   const pinEnd = (c: Column<T, unknown>) =>
@@ -390,6 +485,7 @@ export function DataTable<T extends RowData>({
     "sticky right-0 z-[1] [background:linear-gradient(var(--row-bg,transparent),var(--row-bg,transparent)),var(--card)] shadow-[-10px_0_10px_-10px_rgb(0_0_0/0.18)]"
 
   let body: React.ReactNode
+  let rowsBody: ((sp?: SortableProps) => React.ReactNode) | null = null
   if (loading) {
     body = Array.from({ length: Math.min(pagination.pageSize, 5) }, (_, i) => (
       <TableRow key={i}>
@@ -433,14 +529,18 @@ export function DataTable<T extends RowData>({
       </TableRow>
     )
   } else {
-    body = rows.map((row) => {
+    rowsBody = (sp) => rows.map((row) => {
       const tone = rowTone?.(row.original)
+      // The engine's wiring for this row: drag starts only on the grip, so text stays selectable and
+      // controls keep their clicks. Its touch-action style merges with the tone style.
+      const { style: dragStyle, ...drag } = (sp?.itemProps(row.id, ROWS_CONTAINER, { handle: "[data-row-grip]", disabled: !canDrag }) ?? {}) as { style?: React.CSSProperties }
       return (
         <React.Fragment key={row.id}>
           <TableRow
+            {...drag}
             data-state={row.getIsSelected() ? "selected" : undefined}
             data-tone={tone ? "" : undefined}
-            style={tone ? toneStyle(tone) : undefined}
+            style={tone || dragStyle ? { ...dragStyle, ...(tone ? toneStyle(tone) : {}) } : undefined}
             // A soft tint and a 3px edge in the row's tone: the state reads at a glance, the text stays readable.
             className={cn(
               tone && "[--row-bg:color-mix(in_oklch,var(--tone)_7%,transparent)] bg-(--row-bg) shadow-[inset_3px_0_0_var(--tone)] hover:[--row-bg:color-mix(in_oklch,var(--tone)_12%,transparent)]",
@@ -477,6 +577,74 @@ export function DataTable<T extends RowData>({
       )
     })
   }
+
+  const renderFrame = (sp?: SortableProps) => (
+      <Card
+        variant="panel"
+        className={cn(
+          "gap-0 overflow-x-auto py-0",
+          // With cards, the table frame steps aside on narrow widths (loading / empty / error still show here).
+          renderCard && !loading && !error && rows.length > 0 && "@max-[640px]/data-table:hidden",
+        )}
+      >
+        <Table
+          // Fixed: columns take their widths and the table still fills its frame (extra space is shared out).
+          style={fixedLayout ? { width: table.getTotalSize(), minWidth: `max(${minWidth}px, 100%)` } : { minWidth }}
+          className={cn(fixedLayout && "table-fixed")}
+          aria-busy={loading || undefined}
+        >
+          <TableCaption className="sr-only">{caption}</TableCaption>
+          <TableHeader className="sticky top-0 z-10 bg-card">
+            {table.getHeaderGroups().map((hg) => (
+              <TableRow key={hg.id}>
+                {hg.headers.map((h) => {
+                  const dir = h.column.getIsSorted()
+                  return (
+                    <TableHead
+                      key={h.id}
+                      ref={(el) => {
+                        if (el) headRefs.current.set(h.column.id, el)
+                        else headRefs.current.delete(h.column.id)
+                      }}
+                      style={fixedLayout ? { width: h.getSize() } : undefined}
+                      aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : h.column.getCanSort() ? "none" : undefined}
+                      className={cn(narrowCol(h.column.id), pinEnd(h.column), fixedLayout && "relative")}
+                    >
+                      {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
+                      {fixedLayout && h.column.getCanResize() && !narrowCol(h.column.id) && (
+                        <ResizeHandle
+                          header={h}
+                          naturalWidth={naturalWidths.current.get(h.column.id)}
+                          label={
+                            typeof h.column.columnDef.meta === "object" && h.column.columnDef.meta && "label" in h.column.columnDef.meta
+                              ? String((h.column.columnDef.meta as { label: string }).label)
+                              : h.column.id
+                          }
+                        />
+                      )}
+                    </TableHead>
+                  )
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody {...(sp?.listProps(ROWS_CONTAINER, !canDrag) ?? {})}>{body ?? rowsBody?.(sp)}</TableBody>
+          {hasFooter && rows.length > 0 && !loading && !error && (
+            <TableFooter>
+              {table.getFooterGroups().map((fg) => (
+                <TableRow key={fg.id}>
+                  {fg.headers.map((h) => (
+                    <TableCell key={h.id} className={cn(cellPad, "font-semibold", narrowCol(h.column.id), pinEnd(h.column))}>
+                      {h.isPlaceholder ? null : flexRender(h.column.columnDef.footer, h.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableFooter>
+          )}
+        </Table>
+      </Card>
+  )
 
   return (
     <div data-slot="data-table" className="@container/data-table space-y-3">
@@ -568,71 +736,23 @@ export function DataTable<T extends RowData>({
         </ul>
       )}
 
-      <Card
-        variant="panel"
-        className={cn(
-          "gap-0 overflow-x-auto py-0",
-          // With cards, the table frame steps aside on narrow widths (loading / empty / error still show here).
-          renderCard && !loading && !error && rows.length > 0 && "@max-[640px]/data-table:hidden",
-        )}
-      >
-        <Table
-          // Fixed: columns take their widths and the table still fills its frame (extra space is shared out).
-          style={fixedLayout ? { width: table.getTotalSize(), minWidth: `max(${minWidth}px, 100%)` } : { minWidth }}
-          className={cn(fixedLayout && "table-fixed")}
-          aria-busy={loading || undefined}
+      {rowReorder ? (
+        <SortableProvider
+          surface={dragSurface}
+          axis="y"
+          // The rows ON SCREEN (this page, displayed order): the engine pairs them with the DOM at drop time.
+          itemsByContainer={{ [ROWS_CONTAINER]: rows.map((r) => r.id) }}
+          onDrop={(d) => {
+            if (d.unchanged) return
+            commitOrder(mergeVisibleOrder(allIds, d.order), d.id)
+          }}
         >
-          <TableCaption className="sr-only">{caption}</TableCaption>
-          <TableHeader className="sticky top-0 z-10 bg-card">
-            {table.getHeaderGroups().map((hg) => (
-              <TableRow key={hg.id}>
-                {hg.headers.map((h) => {
-                  const dir = h.column.getIsSorted()
-                  return (
-                    <TableHead
-                      key={h.id}
-                      ref={(el) => {
-                        if (el) headRefs.current.set(h.column.id, el)
-                        else headRefs.current.delete(h.column.id)
-                      }}
-                      style={fixedLayout ? { width: h.getSize() } : undefined}
-                      aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : h.column.getCanSort() ? "none" : undefined}
-                      className={cn(narrowCol(h.column.id), pinEnd(h.column), fixedLayout && "relative")}
-                    >
-                      {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
-                      {fixedLayout && h.column.getCanResize() && !narrowCol(h.column.id) && (
-                        <ResizeHandle
-                          header={h}
-                          naturalWidth={naturalWidths.current.get(h.column.id)}
-                          label={
-                            typeof h.column.columnDef.meta === "object" && h.column.columnDef.meta && "label" in h.column.columnDef.meta
-                              ? String((h.column.columnDef.meta as { label: string }).label)
-                              : h.column.id
-                          }
-                        />
-                      )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>{body}</TableBody>
-          {hasFooter && rows.length > 0 && !loading && !error && (
-            <TableFooter>
-              {table.getFooterGroups().map((fg) => (
-                <TableRow key={fg.id}>
-                  {fg.headers.map((h) => (
-                    <TableCell key={h.id} className={cn(cellPad, "font-semibold", narrowCol(h.column.id), pinEnd(h.column))}>
-                      {h.isPlaceholder ? null : flexRender(h.column.columnDef.footer, h.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableFooter>
-          )}
-        </Table>
-      </Card>
+          {(sp) => renderFrame(sp)}
+        </SortableProvider>
+      ) : (
+        renderFrame()
+      )}
+      <p aria-live="assertive" className="sr-only">{announcement}</p>
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <p aria-live="polite" className="tabular">

@@ -420,3 +420,64 @@ export const RemembersWidths: Story = {
     await expect(Number(again.getAttribute('aria-valuenow'))).toBe(before + 80)
   },
 }
+
+function ReorderableTable(props: React.ComponentProps<typeof DataTable<Employee>>) {
+  const [rows, setRows] = React.useState(props.data)
+  const byId = React.useMemo(() => new Map(props.data.map((r) => [r.id, r])), [props.data])
+  return (
+    <DataTable
+      {...props}
+      data={rows}
+      rowReorder={{ onReorder: (ids) => setRows(ids.map((id) => byId.get(id)!)) }}
+    />
+  )
+}
+
+/**
+ * Draggable rows: drag a row by its grip (mouse or touch), or focus the grip and press ↑ / ↓ — each move is
+ * announced. `onReorder` gets the full id order to persist. Reordering pauses while the table is sorted or
+ * searched, since the order on screen is then not the stored order. The same drag engine as the Task board.
+ */
+export const ReorderableRows: Story = {
+  render: (args) => <ReorderableTable {...args} />,
+  play: async ({ canvas }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    const first = EMPLOYEES[0].name
+    const second = EMPLOYEES[1].name
+    await expect(bodyRows(table)[0]).toHaveTextContent(first)
+    // Every row is wired to the drag engine, with drag starting only on its grip.
+    await expect(bodyRows(table)[0]).toHaveAttribute('data-sortable-id', EMPLOYEES[0].id)
+
+    // Keyboard: the focused grip moves its row and keeps focus as it goes.
+    const grip = canvas.getByRole('button', { name: 'Move row 1 of 34' })
+    grip.focus()
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => expect(bodyRows(table)[0]).toHaveTextContent(second))
+    await expect(bodyRows(table)[1]).toHaveTextContent(first)
+    await expect(canvas.getByText('Moved to position 2 of 34.')).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).toHaveAccessibleName('Move row 2 of 34'))
+    await userEvent.keyboard('{ArrowUp}')
+    await waitFor(() => expect(bodyRows(table)[0]).toHaveTextContent(first))
+
+    // Pointer: press the first grip, drag it below the third row, release — the row lands third.
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)))
+    const at = (el: Element) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }
+    const ptr = (type: string, x: number, y: number) =>
+      new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, isPrimary: true, button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: x, clientY: y })
+    const from = at(canvas.getByRole('button', { name: 'Move row 1 of 34' }))
+    const target = bodyRows(table)[2].getBoundingClientRect()
+    canvas.getByRole('button', { name: 'Move row 1 of 34' }).dispatchEvent(ptr('pointerdown', from.x, from.y))
+    for (let i = 1; i <= 8; i++) {
+      window.dispatchEvent(ptr('pointermove', from.x, from.y + ((target.bottom - 4 - from.y) * i) / 8))
+      await frame()
+    }
+    window.dispatchEvent(ptr('pointerup', from.x, target.bottom - 4))
+    await waitFor(() => expect(bodyRows(table)[2]).toHaveTextContent(first))
+    await expect(bodyRows(table)[0]).toHaveTextContent(second)
+    await expect(canvas.getByText('Moved to position 3 of 34.')).toBeInTheDocument()
+
+    // Sorted: the grips pause.
+    await userEvent.click(canvas.getByRole('button', { name: /^Joined/ }))
+    for (const g of canvas.getAllByRole('button', { name: /^Move row/ })) await expect(g).toBeDisabled()
+  },
+}
