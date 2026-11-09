@@ -257,8 +257,18 @@ function ReimbursementFields({
         isInvalid={date.invalid}
         errorMessage={date.error}
       />
-      {/* Keeps the date on its own row, as before: the next row pairs company type with company. */}
-      <div aria-hidden className="hidden sm:block" />
+      {/* Project status, company type and company name all narrow the project list, so they sit together
+          above it — and the status fills the space beside the date instead of leaving it empty. */}
+      <SearchSelect
+        id="reimb-project-status"
+        label="Project status"
+        placeholder={projectsLoading ? 'Loading…' : 'All statuses'}
+        options={asOptions(projectStatusOptions)}
+        value={selectedProjectStatus?.value ?? null}
+        disabled={projectsLoading || projectStatusOptions.length === 0}
+        // A view filter only — never part of the saved record.
+        onValueChange={(v, o) => handleProjectStatusChange(v ? { value: v, label: o?.label ?? v } : null)}
+      />
 
       <SearchSelect
         id="reimb-company-type"
@@ -268,7 +278,6 @@ function ReimbursementFields({
         value={clientType.value}
         onBlur={clientType.onBlur}
         onValueChange={(v, o) => handleClientTypeChange(v ? { value: v, label: o?.label ?? v } : null, setField)}
-        hint="Narrows the companies and projects below."
       />
       <SearchSelect
         id="reimb-company"
@@ -283,32 +292,23 @@ function ReimbursementFields({
         onValueChange={(v, o) => handleClientCompanyChange(v ? { value: v, label: o?.label ?? v } : null, setField)}
       />
 
-      <>
-        {/* A view filter only — never part of the saved record. */}
-        <SearchSelect
-          id="reimb-project-status"
-          label="Project status"
-          placeholder={projectsLoading ? 'Loading…' : 'All statuses'}
-          options={asOptions(projectStatusOptions)}
-          value={selectedProjectStatus?.value ?? null}
-          disabled={projectsLoading || projectStatusOptions.length === 0}
-          onValueChange={(v, o) => handleProjectStatusChange(v ? { value: v, label: o?.label ?? v } : null)}
-        />
-        <SearchSelect
-          id="reimb-project"
-          label="Project"
-          placeholder={projectsLoading ? 'Loading projects…' : 'Search projects'}
-          // Options keep the hook's order (ongoing first), so no sort here.
-          options={asOptions(projectOptions)}
-          value={project.value}
-          onBlur={project.onBlur}
-          disabled={projectsLoading}
-          required={!isEditing}
-          error={project.error}
-          emptyText="No ongoing projects found."
-          onValueChange={(v, o) => handleProjectChange(v ? { value: v, label: o?.label ?? v } : null, setField)}
-        />
-      </>
+      {/* The whole row: project names are long ("WT/PROJECT/26-27/742 - 5th Floor Criti Care Hospital…"). */}
+      <SearchSelect
+        id="reimb-project"
+        className="sm:col-span-2"
+        label="Project"
+        placeholder={projectsLoading ? 'Loading projects…' : 'Search projects'}
+        // Options keep the hook's order (ongoing first), so no sort here.
+        options={asOptions(projectOptions)}
+        value={project.value}
+        onBlur={project.onBlur}
+        disabled={projectsLoading}
+        required={!isEditing}
+        error={project.error}
+        emptyText="No ongoing projects found."
+        hint="Narrowed by the status, company type and company above."
+        onValueChange={(v, o) => handleProjectChange(v ? { value: v, label: o?.label ?? v } : null, setField)}
+      />
 
       <SearchSelect
         id="reimb-category"
