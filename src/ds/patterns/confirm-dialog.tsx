@@ -14,6 +14,9 @@ import {
 } from "@/ds/ui/alert-dialog"
 import { IconBox } from "./icon-box"
 
+/** How it was closed without confirming: the Cancel button, Escape, or a click outside. */
+export type ConfirmDismissReason = "cancel" | "esc" | "backdrop"
+
 export type ConfirmVariant = "confirm" | "delete" | "discard" | "warning" | "info" | "success" | "error"
 
 const VARIANTS: Record<
@@ -25,7 +28,7 @@ const VARIANTS: Record<
   discard: { icon: <Undo2 />, tone: "warning", button: "destructive", confirm: "Discard changes" },
   warning: { icon: <TriangleAlert />, tone: "warning", button: "default", confirm: "Continue" },
   info: { icon: <Info />, tone: "info", button: "default", confirm: "OK" },
-  success: { icon: <CircleCheck />, tone: "success", button: "success", confirm: "Done" },
+  success: { icon: <CircleCheck />, tone: "success", button: "success", confirm: "OK" },
   error: { icon: <CircleAlert />, tone: "danger", button: "default", confirm: "OK" },
 }
 
@@ -50,6 +53,9 @@ export function ConfirmDialog({
   showCancel = true,
   confirmDisabled,
   secondaryAction,
+  danger = false,
+  onDismiss,
+  layer = "modal",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -65,6 +71,12 @@ export function ConfirmDialog({
   confirmDisabled?: boolean
   /** A third choice, e.g. "Save as draft" beside "Discard". */
   secondaryAction?: { label: string; onClick: () => void }
+  /** A destructive confirm button whatever the variant (e.g. a warning that deletes). */
+  danger?: boolean
+  /** Told HOW it was dismissed (Cancel / Escape / outside click), before onOpenChange(false). */
+  onDismiss?: (reason: ConfirmDismissReason) => void
+  /** `alert`: above every other modal — for the imperative dialog service only. */
+  layer?: "modal" | "alert"
 }) {
   const v = VARIANTS[variant]
   const [busy, setBusy] = React.useState(false)
@@ -83,8 +95,18 @@ export function ConfirmDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <AlertDialogContent>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next, details) => {
+        if (busy) return
+        if (!next && onDismiss) {
+          const reason = details?.reason
+          onDismiss(reason === "escape-key" ? "esc" : reason === "outside-press" ? "backdrop" : "cancel")
+        }
+        onOpenChange(next)
+      }}
+    >
+      <AlertDialogContent layer={layer}>
         <AlertDialogHeader>
           <AlertDialogMedia className="bg-transparent">
             <IconBox icon={v.icon} tone={v.tone} size="lg" />
@@ -100,7 +122,7 @@ export function ConfirmDialog({
               {secondaryAction.label}
             </Button>
           )}
-          <Button variant={v.button} loading={busy} disabled={confirmDisabled} onClick={confirm}>
+          <Button variant={danger ? "destructive" : v.button} loading={busy} disabled={confirmDisabled} onClick={confirm}>
             {confirmLabel ?? v.confirm}
           </Button>
         </AlertDialogFooter>

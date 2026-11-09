@@ -120,6 +120,9 @@
      dropdown inside a dialog always opens above it. Use as z-(--z-modal) / z-(--z-popover). */
   --z-modal: 1300;
   --z-popover: 1400;
+  /* alert: the imperative dialog service (showDialog / successConfirmation…) — callable from inside ANY
+     open modal, legacy 1500-level ones included, so it must sit above every one of them. */
+  --z-alert: 2000;
 
   /* ── Glass chrome (used only when [data-surface="glass"]) ───────────── */
   --chrome: color-mix(in oklch, var(--card) 100%, transparent);

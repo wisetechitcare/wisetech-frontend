@@ -119,7 +119,7 @@ const NOTICES: Array<[ConfirmVariant, string, string]> = [
   ['error', "Couldn't send payslips", 'The mail server rejected the batch. Nothing was sent.'],
 ]
 
-/** Notices: one acknowledge button (`showCancel={false}`). */
+/** Notices: one acknowledge button, "OK" (`showCancel={false}`) — the title says what happened, the button only acknowledges it. */
 export const Notices: Story = {
   render: () => (
     <div className="flex flex-wrap gap-2">
@@ -132,7 +132,7 @@ export const Notices: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Show Success' }))
     await expect(await screen.findByRole('alertdialog', { name: 'Payslips Sent' })).toBeInTheDocument()
     await expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     await animationsSettled()
   },

@@ -23,6 +23,14 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+/**
+ * The ONE modal scrim: Dialog, AlertDialog and Sheet all use it, so every modal dims the page the same way.
+ * Same values as the app's GlassDialog (theme tokens glass.scrim / scrimBlur), so v2 and legacy modals match.
+ * The fade is Animate UI's (Motion) — no CSS animate-in beside it.
+ */
+export const modalScrimClassName =
+  "fixed inset-0 isolate bg-[rgb(16_24_40/0.32)] dark:bg-black/55 supports-backdrop-filter:backdrop-blur-[4px]"
+
 function DialogOverlay({
   className,
   ...props
@@ -31,8 +39,8 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        // Same scrim as the app's GlassDialog (theme tokens glass.scrim / scrimBlur), so v2 and legacy modals match.
-        "fixed inset-0 isolate z-(--z-modal) bg-[rgb(16_24_40/0.32)] dark:bg-black/55 supports-backdrop-filter:backdrop-blur-[4px]",
+        modalScrimClassName,
+        "z-(--z-modal)",
         className
       )}
       {...props}

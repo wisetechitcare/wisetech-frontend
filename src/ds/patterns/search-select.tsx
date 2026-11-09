@@ -1,4 +1,5 @@
 import * as React from "react"
+import { cn } from "@/ds/lib/utils"
 import {
   Combobox,
   ComboboxContent,
@@ -46,6 +47,7 @@ export function SearchSelect({
   disabled,
   clearable = true,
   onBlur,
+  limit = 100,
   className,
 }: {
   id: string
@@ -62,11 +64,24 @@ export function SearchSelect({
   disabled?: boolean
   clearable?: boolean
   onBlur?: () => void
+  /**
+   * Rows rendered at once. A long list (hundreds of projects) is searched, not scrolled: rendering every
+   * row costs a render per keystroke for rows nobody reads, so the list shows the first `limit` matches and
+   * says how to reach the rest.
+   */
+  limit?: number
   className?: string
 }) {
   const hintId = hint ? `${id}-hint` : undefined
   const errorId = error ? `${id}-error` : undefined
   const selected = React.useMemo(() => options.find((o) => o.value === value) ?? null, [options, value])
+  // The same match Base UI applies (case-insensitive "contains" on the label), so the note's count is true.
+  const [query, setQuery] = React.useState("")
+  const matches = React.useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q || q === selected?.label.toLowerCase()) return options.length
+    return options.reduce((n, o) => (o.label.toLowerCase().includes(q) ? n + 1 : n), 0)
+  }, [options, query, selected])
 
   return (
     <Field data-invalid={error ? true : undefined} data-disabled={disabled || undefined} className={className}>
@@ -80,6 +95,8 @@ export function SearchSelect({
         isItemEqualToValue={byValue}
         disabled={disabled}
         required={required}
+        limit={limit}
+        onInputValueChange={(q: string) => setQuery(q)}
       >
         <ComboboxInput
           id={id}
@@ -90,17 +107,42 @@ export function SearchSelect({
           aria-required={required || undefined}
           aria-describedby={[errorId, hintId].filter(Boolean).join(" ") || undefined}
           onBlur={onBlur}
-        />
+          title={selected?.label}
+          // An input is one line, so a long chosen value ("WT/PROJECT/26-27/742 - 5th Floor Criti Care Hospital
+          // at Kurla") would be cut. At rest the box shows the value as wrapped text and grows to fit; on focus
+          // that copy hides and the real input is back, one line, for searching. The input stays in place
+          // (transparent) underneath, so a click anywhere in the box still lands on it.
+          className={selected ? cn(
+            "h-auto min-h-10",
+            "[&:not(:focus-within)_[data-slot=input-group-control]]:absolute [&:not(:focus-within)_[data-slot=input-group-control]]:inset-0 [&:not(:focus-within)_[data-slot=input-group-control]]:text-transparent",
+          ) : undefined}
+        >
+          {selected && (
+            <span
+              aria-hidden
+              data-slot="search-select-value"
+              className="pointer-events-none order-first flex-1 py-2 pr-2 pl-3 text-base break-words whitespace-normal md:text-sm [:focus-within>&]:hidden"
+            >
+              {selected.label}
+            </span>
+          )}
+        </ComboboxInput>
         <ComboboxContent>
           <ComboboxEmpty>{emptyText}</ComboboxEmpty>
           <ComboboxList>
             {(o: SearchSelectOption) => (
               <ComboboxItem key={o.value} value={o} disabled={o.disabled}>
                 {o.icon != null && <OptionIcon icon={o.icon} />}
-                <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                {/* Wraps: a long project or company name is read in full, never cut to "WT/PROJECT/26…". */}
+                <span className="min-w-0 flex-1 break-words whitespace-normal">{o.label}</span>
               </ComboboxItem>
             )}
           </ComboboxList>
+          {matches > limit && (
+            <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+              Showing {limit} of {matches} — type to narrow the list.
+            </p>
+          )}
         </ComboboxContent>
       </Combobox>
       {error ? <FieldError id={errorId}>{error}</FieldError> : hint ? <FieldDescription id={hintId}>{hint}</FieldDescription> : null}

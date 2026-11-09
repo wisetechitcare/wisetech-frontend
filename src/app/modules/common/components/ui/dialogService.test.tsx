@@ -20,7 +20,7 @@ describe('dialogService', () => {
   it('shows a dialog queued BEFORE the host mounted', async () => {
     const pending = showDialog({ title: 'Queued early', message: 'Before mount' });
     render(<DialogServiceHost />);
-    expect(screen.getByText('Queued early')).toBeTruthy();
+    expect(screen.getByText(/^Queued\ early$/i)).toBeTruthy();
     expect(screen.getByText('Before mount')).toBeTruthy();
     fireEvent.click(button('confirm'));
     await expect(pending).resolves.toEqual({ isConfirmed: true, isDenied: false, isDismissed: false });
@@ -34,11 +34,11 @@ describe('dialogService', () => {
       first = showDialog({ title: 'First dialog' });
       second = showDialog({ title: 'Second dialog' });
     });
-    expect(screen.getByText('First dialog')).toBeTruthy();
+    expect(screen.getByText(/^First\ dialog$/i)).toBeTruthy();
     expect(screen.queryByText('Second dialog')).toBeNull();
     fireEvent.click(button('confirm'));
     await expect(first).resolves.toMatchObject({ isConfirmed: true });
-    await waitFor(() => expect(screen.getByText('Second dialog')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/^Second\ dialog$/i)).toBeTruthy());
     fireEvent.click(button('cancel'));
     await expect(second).resolves.toEqual({
       isConfirmed: false, isDenied: false, isDismissed: true, dismiss: 'cancel',
@@ -53,12 +53,13 @@ describe('dialogService', () => {
     await expect(res).resolves.toEqual({ isConfirmed: false, isDenied: true, isDismissed: false });
   });
 
-  it('reports the corner X as dismiss: close', async () => {
+  // The kit alert dialog has no corner X: it is answered with its buttons or dismissed with Escape.
+  it('reports Escape as dismiss: esc', async () => {
     render(<DialogServiceHost />);
     let res!: Promise<DialogResult>;
     act(() => { res = showDialog({ title: 'Closable' }); });
-    fireEvent.click(screen.getByRole('button', { name: /close/i }));
-    await expect(res).resolves.toMatchObject({ isDismissed: true, dismiss: 'close' });
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
+    await expect(res).resolves.toMatchObject({ isDismissed: true, dismiss: 'esc' });
   });
 
   it('returns the input value and blocks confirm while a required input is empty', async () => {
@@ -132,7 +133,7 @@ describe('feedback helpers on the dialog service', () => {
 
     let no!: Promise<boolean>;
     act(() => { no = confirmDialog({ title: 'Delete it?', danger: true }); });
-    await waitFor(() => expect(screen.getByText('Delete it?')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/^Delete\ it\?$/i)).toBeTruthy());
     fireEvent.click(button('cancel'));
     await expect(no).resolves.toBe(false);
   });

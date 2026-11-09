@@ -31,3 +31,25 @@ import { configure } from '@testing-library/dom';
  * so only a failing assertion ever spends the budget.
  */
 configure({ asyncUtilTimeout: 10_000 });
+
+/**
+ * jsdom has no `window.matchMedia`, and the design system asks it on every render (Motion's reduced-motion
+ * check, responsive dialogs). One default here — "no media query matches" — instead of a copy in each test
+ * file. A test that needs a phone or reduced motion still defines its own, which replaces this one.
+ */
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
+}

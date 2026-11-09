@@ -118,7 +118,9 @@
  * differently (Base UI: data-highlighted / data-selected; cmdk: data-selected="true" is the highlight, and
  * the kit passes data-checked for the value), so the mapping lives here once. Unlayered: wins over utilities. */
 :is([data-slot="select-item"], [data-slot="combobox-item"], [data-slot="command-item"]) {
-  border-radius: 0.75rem;
+  /* Concentric with the list (Maia): the popup is rounded-2xl (18px) with a 4px inset, so a row is
+     18 − 4 = 14px. A smaller radius inside a rounder frame reads as square corners. px: the app's root is 13px. */
+  border-radius: 14px;
 }
 :is([data-slot="select-item"][data-highlighted], [data-slot="combobox-item"][data-highlighted], [data-slot="command-item"][data-selected="true"], [data-slot^="dropdown-menu-"][data-slot$="item"][data-highlighted]:not([data-variant="destructive"])) {
   background-color: var(--muted);

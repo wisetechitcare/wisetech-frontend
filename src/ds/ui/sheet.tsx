@@ -6,6 +6,7 @@ import { cn } from "cn";
 import { Button } from "@/ds/ui/button";
 import { XIcon } from "lucide-react";
 import { useSettledRef } from "@/ds/lib/motion"
+import { modalScrimClassName } from "@/ds/ui/dialog";
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />;
@@ -28,7 +29,8 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-(--z-modal) bg-black/80 supports-backdrop-filter:backdrop-blur-xs",
+        modalScrimClassName,
+        "z-(--z-modal)",
         className,
       )}
       {...props}

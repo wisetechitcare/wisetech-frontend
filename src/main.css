@@ -34,6 +34,15 @@
   all: revert-layer;
 }
 
+/* The same opt-out for kit text elements. Bootstrap's unlayered `h1–h6 { color: var(--bs-heading-color);
+   margin-bottom; font-weight; line-height }`, `p { margin-bottom: 1rem }` and `label { display: inline-block }`
+   outrank the kit's layered utilities, so a kit dialog title took Metronic's heading colour (navy on the
+   dark surface — unreadable) instead of its own. Kit-only via [data-slot]; the kit's own unlayered rules
+   (floating labels in components.css) are more specific and still apply. */
+:is(h1, h2, h3, h4, h5, h6, p, label)[data-slot] {
+  all: revert-layer;
+}
+
 /* socicon (style.react.scss) prints any [data-icon] attribute as an icon-font glyph; the kit uses
    data-icon="inline-start|inline-end" to mark icon slots, which must not render as text — also on
    plain links styled with buttonVariants, which carry no data-slot. */
