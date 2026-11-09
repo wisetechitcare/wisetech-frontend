@@ -1,14 +1,6 @@
-import type { ColumnDef, DataTableToolbarContext } from '@/ds/patterns/data-table';
+import type { ColumnDef, DataTableColumnMeta, DataTableToolbarContext, RowData } from '@/ds/patterns/data-table';
 import ExportButton, { type ExportColumn } from '@app/modules/common/components/ExportButton';
 
-type ExportMeta<T> = {
-  /** The column's name in the file (and in the Columns menu). Columns without one are not exported. */
-  label?: string;
-  /** What the file holds when the cell decorates its value (a badge, a chip): the plain text. */
-  exportValue?: (row: T) => unknown;
-  /** `false` keeps a column out of the file (a thumbnail, a link). */
-  export?: boolean;
-};
 
 /** Kit-internal columns (selection, expand) and row actions never belong in a file. */
 const NOT_DATA = new Set(['__select', '__expand', 'actions']);
@@ -23,7 +15,7 @@ const NOT_DATA = new Set(['__select', '__expand', 'actions']);
  * only the columns the user has not hidden. A column is exported when it has `meta.label`; its value is
  * `meta.exportValue(row)`, else the column's accessor.
  */
-export function DataTableExport<T>({
+export function DataTableExport<T extends RowData>({
   columns,
   ctx,
   filename,
@@ -38,7 +30,8 @@ export function DataTableExport<T>({
 }) {
   const visible = new Set(ctx.visibleColumnIds);
   const exportColumns: ExportColumn<T>[] = columns.flatMap((col) => {
-    const meta = (col.meta ?? {}) as ExportMeta<T>;
+    // The kit's one column-meta shape (label, exportValue, export) — no second copy here.
+    const meta = (col.meta ?? {}) as DataTableColumnMeta<T>;
     const key = ('accessorKey' in col && col.accessorKey ? String(col.accessorKey) : col.id) ?? '';
     // TanStack ids a nested accessor 'a.b' as 'a_b'; match its id, not the raw key.
     const columnId = col.id ?? key.replace(/\./g, '_');

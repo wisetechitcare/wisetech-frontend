@@ -1,21 +1,15 @@
 import * as React from "react"
 import {
   flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type Column,
-  type ColumnDef,
-  type Header,
+  useTable,
   type PaginationState,
-  type Row,
   type RowSelectionState,
   type SortingState,
-  type VisibilityState,
+  type ColumnVisibilityState,
+  type RowData,
 } from "@tanstack/react-table"
+// TanStack Table v9: the features, row models and column types live in one place (shadcn's data-table guide).
+import { dataTableFeatures, type Column, type ColumnDef, type Header, type Row } from "./data-table-features"
 import { useLocale } from "react-aria-components"
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Columns3, Rows3, Search } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
@@ -38,7 +32,7 @@ import { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, Tabl
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem } from "@/ds/ui/pagination"
 import { EmptyState } from "./empty-state"
 
-export type { ColumnDef } from "@tanstack/react-table"
+export type { ColumnDef, DataTableColumnMeta, RowData } from "./data-table-features"
 
 /** What a toolbar control (Export, a bulk menu) needs to act on exactly what the table is showing. */
 export type DataTableToolbarContext<T> = {
@@ -54,7 +48,7 @@ export type DataTableToolbarContext<T> = {
  * A sortable column header: the button names the column and its sort state; the `<th>` carries
  * `aria-sort`. Use it in a column's `header` when that column may be sorted.
  */
-export function SortableHeader<T>({ column, title }: { column: Column<T, unknown>; title: string }) {
+export function SortableHeader<T extends RowData>({ column, title }: { column: Column<T, unknown>; title: string }) {
   const dir = column.getIsSorted()
   const Icon = dir === "asc" ? ArrowUp : dir === "desc" ? ArrowDown : ArrowUpDown
   return (
@@ -75,7 +69,7 @@ export function SortableHeader<T>({ column, title }: { column: Column<T, unknown
 const SELECT_COLUMN_ID = "__select"
 const EXPAND_COLUMN_ID = "__expand"
 
-function expandColumn<T>(): ColumnDef<T> {
+function expandColumn<T extends RowData>(): ColumnDef<T> {
   return {
     id: EXPAND_COLUMN_ID,
     enableSorting: false,
@@ -103,7 +97,7 @@ function expandColumn<T>(): ColumnDef<T> {
  * user resizes with ← / → (Shift = bigger steps) and a screen reader hears the width — a drag-only handle
  * shuts both out. Double-click (or Enter) puts the column back to its default width.
  */
-function ResizeHandle<T>({ header, label }: { header: Header<T, unknown>; label: string }) {
+function ResizeHandle<T extends RowData>({ header, label }: { header: Header<T, unknown>; label: string }) {
   const column = header.column
   const size = header.getSize()
   const set = (next: number) => {
@@ -158,7 +152,7 @@ function pageList(current: number, count: number): Array<number | "gap"> {
 const fromControl = (target: EventTarget | null) =>
   target instanceof Element && !!target.closest("button, a, input, select, textarea, label, [role=menuitem], [role=checkbox], [data-slot=checkbox]")
 
-function selectColumn<T>(): ColumnDef<T> {
+function selectColumn<T extends RowData>(): ColumnDef<T> {
   return {
     id: SELECT_COLUMN_ID,
     enableSorting: false,
@@ -190,7 +184,7 @@ function selectColumn<T>(): ColumnDef<T> {
  * Client-side by default. For server paging pass `rowCount` + `pagination` + `onPaginationChange`
  * (and do the search/sort on the server).
  */
-export function DataTable<T>({
+export function DataTable<T extends RowData>({
   caption,
   columns,
   data,
@@ -266,7 +260,7 @@ export function DataTable<T>({
   const { locale } = useLocale()
   const [sorting, setSorting] = React.useState<SortingState>(initialSorting ?? [])
   const [globalFilter, setGlobalFilter] = React.useState("")
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = React.useState<ColumnVisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [density, setDensity] = React.useState<"comfortable" | "compact">("comfortable")
   const [localPagination, setLocalPagination] = React.useState<PaginationState>({ pageIndex: 0, pageSize: initialPageSize })
@@ -281,7 +275,8 @@ export function DataTable<T>({
     [selectable, renderDetail, columns],
   )
 
-  const table = useReactTable({
+  const table = useTable({
+    features: dataTableFeatures,
     data,
     columns: allColumns,
     getRowId,
@@ -298,14 +293,9 @@ export function DataTable<T>({
     enableRowSelection: selectable,
     manualPagination: server,
     rowCount,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: server ? undefined : getPaginationRowModel(),
     enableColumnResizing: resizableColumns,
     columnResizeMode: "onChange",
-    getRowCanExpand: renderDetail ? () => true : undefined,
-    getExpandedRowModel: renderDetail ? getExpandedRowModel() : undefined,
+    getRowCanExpand: renderDetail ? () => true : () => false,
   })
 
   const rows = table.getRowModel().rows
