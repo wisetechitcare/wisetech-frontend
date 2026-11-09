@@ -306,7 +306,6 @@ function ReimbursementFields({
         required={!isEditing}
         error={project.error}
         emptyText="No ongoing projects found."
-        hint="Narrowed by the status, company type and company above."
         onValueChange={(v, o) => handleProjectChange(v ? { value: v, label: o?.label ?? v } : null, setField)}
       />
 
