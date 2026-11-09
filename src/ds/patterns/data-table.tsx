@@ -2,6 +2,7 @@ import * as React from "react"
 import {
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
@@ -15,8 +16,9 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table"
 import { useLocale } from "react-aria-components"
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Columns3, Rows3, Search } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Columns3, Rows3, Search } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
+import { toneStyle, type Tone } from "@/ds/lib/tone"
 import { Button } from "@/ds/ui/button"
 import { Card } from "@/ds/ui/card"
 import { Checkbox } from "@/ds/ui/checkbox"
@@ -31,7 +33,7 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/ds/ui/input-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ds/ui/select"
 import { Skeleton } from "@/ds/ui/skeleton"
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/ds/ui/table"
+import { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/ds/ui/table"
 import { EmptyState } from "./empty-state"
 
 export type { ColumnDef } from "@tanstack/react-table"
@@ -57,6 +59,34 @@ export function SortableHeader<T>({ column, title }: { column: Column<T, unknown
 }
 
 const SELECT_COLUMN_ID = "__select"
+const EXPAND_COLUMN_ID = "__expand"
+
+function expandColumn<T>(): ColumnDef<T> {
+  return {
+    id: EXPAND_COLUMN_ID,
+    enableSorting: false,
+    enableHiding: false,
+    header: () => <span className="sr-only">Details</span>,
+    cell: ({ row }) => (
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={row.getIsExpanded() ? "Hide details" : "Show details"}
+        aria-expanded={row.getIsExpanded()}
+        onClick={(e) => {
+          e.stopPropagation()
+          row.toggleExpanded()
+        }}
+      >
+        <ChevronDown aria-hidden className={cn("transition-transform duration-(--duration-control) ease-move", row.getIsExpanded() && "rotate-180")} />
+      </Button>
+    ),
+  }
+}
+
+/** A click inside a control (a button, link, input, menu) belongs to that control, not to the row. */
+const fromControl = (target: EventTarget | null) =>
+  target instanceof Element && !!target.closest("button, a, input, select, textarea, label, [role=menuitem], [role=checkbox], [data-slot=checkbox]")
 
 function selectColumn<T>(): ColumnDef<T> {
   return {
@@ -108,6 +138,12 @@ export function DataTable<T>({
   pagination: controlledPagination,
   onPaginationChange,
   minWidth = 720,
+  initialSorting,
+  onRowClick,
+  rowLabel,
+  rowTone,
+  renderDetail,
+  renderCard,
 }: {
   /** Names the table for assistive tech (rendered visually hidden). */
   caption: string
@@ -134,10 +170,25 @@ export function DataTable<T>({
   onPaginationChange?: (next: PaginationState) => void
   /** Columns keep at least this width (px); narrower screens scroll the table, not the page. */
   minWidth?: number
+  /** The order rows open in, e.g. newest first: `[{ id: "date", desc: true }]`. */
+  initialSorting?: SortingState
+  /** The whole row opens the record (also Enter / Space on the focused row). Controls inside keep their own clicks. */
+  onRowClick?: (row: T) => void
+  /** What a clickable row is called for assistive tech, e.g. "Batch RB-1042" (default: "Open row N"). */
+  rowLabel?: (row: T) => string
+  /** Tints a row by its state (a status, a category hue) — e.g. rejected rows in danger. */
+  rowTone?: (row: T) => Tone | (string & {}) | undefined
+  /** Adds a chevron to each row that opens this panel underneath it (the live `renderDetailPanel`). */
+  renderDetail?: (row: T) => React.ReactNode
+  /**
+   * Below 640px of table width the rows become these cards (the live `renderMobileCard`); search, paging and
+   * the toolbar stay. Measured on the table's own width, so a table in a narrow column gets cards too.
+   */
+  renderCard?: (row: T) => React.ReactNode
 }) {
   // The kit's locale (KitProvider) — the same grouping as every other number in v2.
   const { locale } = useLocale()
-  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [sorting, setSorting] = React.useState<SortingState>(initialSorting ?? [])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
@@ -146,7 +197,13 @@ export function DataTable<T>({
   const server = rowCount !== undefined
   const pagination = controlledPagination ?? localPagination
 
-  const allColumns = React.useMemo(() => (selectable ? [selectColumn<T>(), ...columns] : columns), [selectable, columns])
+  // Unique per table: several tables share a page (My Reimbursements has three), so a fixed id collides.
+  const rowsPerPageId = React.useId()
+
+  const allColumns = React.useMemo(
+    () => [...(selectable ? [selectColumn<T>()] : []), ...(renderDetail ? [expandColumn<T>()] : []), ...columns],
+    [selectable, renderDetail, columns],
+  )
 
   const table = useReactTable({
     data,
@@ -169,6 +226,8 @@ export function DataTable<T>({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: server ? undefined : getPaginationRowModel(),
+    getRowCanExpand: renderDetail ? () => true : undefined,
+    getExpandedRowModel: renderDetail ? getExpandedRowModel() : undefined,
   })
 
   const rows = table.getRowModel().rows
@@ -179,6 +238,8 @@ export function DataTable<T>({
   const visibleColumns = table.getVisibleLeafColumns().length
   const hideable = table.getAllLeafColumns().filter((c) => c.getCanHide())
   const cellPad = density === "compact" ? "py-1.5" : "py-3"
+  const hasFooter = table.getAllLeafColumns().some((c) => c.columnDef.footer !== undefined)
+  const narrowCol = (id: string) => (id === SELECT_COLUMN_ID || id === EXPAND_COLUMN_ID) && "w-10"
 
   let body: React.ReactNode
   if (loading) {
@@ -224,19 +285,49 @@ export function DataTable<T>({
       </TableRow>
     )
   } else {
-    body = rows.map((row) => (
-      <TableRow key={row.id} data-state={row.getIsSelected() ? "selected" : undefined}>
-        {row.getVisibleCells().map((cell) => (
-          <TableCell key={cell.id} className={cn(cellPad, cell.column.id === SELECT_COLUMN_ID && "w-10")}>
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </TableCell>
-        ))}
-      </TableRow>
-    ))
+    body = rows.map((row) => {
+      const tone = rowTone?.(row.original)
+      return (
+        <React.Fragment key={row.id}>
+          <TableRow
+            data-state={row.getIsSelected() ? "selected" : undefined}
+            data-tone={tone ? "" : undefined}
+            style={tone ? toneStyle(tone) : undefined}
+            // A soft tint and a 3px edge in the row's tone: the state reads at a glance, the text stays readable.
+            className={cn(
+              tone && "bg-[color-mix(in_oklch,var(--tone)_7%,transparent)] shadow-[inset_3px_0_0_var(--tone)] hover:bg-[color-mix(in_oklch,var(--tone)_12%,transparent)]",
+              onRowClick && "cursor-pointer outline-none focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset",
+            )}
+            tabIndex={onRowClick ? 0 : undefined}
+            aria-label={onRowClick ? (rowLabel?.(row.original) ?? `Open row ${row.index + 1}`) : undefined}
+            onClick={onRowClick ? (e) => { if (!fromControl(e.target)) onRowClick(row.original) } : undefined}
+            onKeyDown={onRowClick ? (e) => {
+              if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+                e.preventDefault()
+                onRowClick(row.original)
+              }
+            } : undefined}
+          >
+            {row.getVisibleCells().map((cell) => (
+              <TableCell key={cell.id} className={cn(cellPad, narrowCol(cell.column.id))}>
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableCell>
+            ))}
+          </TableRow>
+          {renderDetail && row.getIsExpanded() && (
+            <TableRow data-slot="data-table-detail" className="bg-muted/30 hover:bg-muted/30">
+              <TableCell colSpan={visibleColumns} className="p-4 whitespace-normal">
+                {renderDetail(row.original)}
+              </TableCell>
+            </TableRow>
+          )}
+        </React.Fragment>
+      )
+    })
   }
 
   return (
-    <div data-slot="data-table" className="space-y-3">
+    <div data-slot="data-table" className="@container/data-table space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         {selected.length > 0 && selectionActions ? (
           <div
@@ -307,7 +398,22 @@ export function DataTable<T>({
         )}
       </div>
 
-      <Card variant="panel" className="gap-0 overflow-x-auto py-0">
+      {renderCard && !loading && !error && rows.length > 0 && (
+        <ul data-slot="data-table-cards" aria-label={caption} className="hidden gap-3 @max-[640px]/data-table:grid">
+          {rows.map((row) => (
+            <li key={row.id}>{renderCard(row.original)}</li>
+          ))}
+        </ul>
+      )}
+
+      <Card
+        variant="panel"
+        className={cn(
+          "gap-0 overflow-x-auto py-0",
+          // With cards, the table frame steps aside on narrow widths (loading / empty / error still show here).
+          renderCard && !loading && !error && rows.length > 0 && "@max-[640px]/data-table:hidden",
+        )}
+      >
         <Table style={{ minWidth }} aria-busy={loading || undefined}>
           <TableCaption className="sr-only">{caption}</TableCaption>
           <TableHeader className="sticky top-0 z-10 bg-card">
@@ -319,7 +425,7 @@ export function DataTable<T>({
                     <TableHead
                       key={h.id}
                       aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : h.column.getCanSort() ? "none" : undefined}
-                      className={cn(h.column.id === SELECT_COLUMN_ID && "w-10")}
+                      className={cn(narrowCol(h.column.id))}
                     >
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                     </TableHead>
@@ -329,6 +435,19 @@ export function DataTable<T>({
             ))}
           </TableHeader>
           <TableBody>{body}</TableBody>
+          {hasFooter && rows.length > 0 && !loading && !error && (
+            <TableFooter>
+              {table.getFooterGroups().map((fg) => (
+                <TableRow key={fg.id}>
+                  {fg.headers.map((h) => (
+                    <TableCell key={h.id} className={cn(cellPad, "font-semibold", narrowCol(h.column.id))}>
+                      {h.isPlaceholder ? null : flexRender(h.column.columnDef.footer, h.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableFooter>
+          )}
         </Table>
       </Card>
 
@@ -337,13 +456,13 @@ export function DataTable<T>({
           {total === 0 ? "No rows" : `${from}–${to} of ${new Intl.NumberFormat(locale).format(total)}`}
         </p>
         <div className="flex items-center gap-2">
-          <span id="rows-per-page">Rows per page</span>
+          <span id={rowsPerPageId}>Rows per page</span>
           <Select
             items={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
             value={String(pagination.pageSize)}
             onValueChange={(v) => table.setPageSize(Number(v))}
           >
-            <SelectTrigger size="sm" aria-labelledby="rows-per-page" className="w-20">
+            <SelectTrigger size="sm" aria-labelledby={rowsPerPageId} className="w-20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

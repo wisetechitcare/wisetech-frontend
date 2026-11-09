@@ -229,3 +229,114 @@ export const LoadFailed: Story = {
     await expect(canvas.getByRole('alert')).toHaveTextContent("Couldn't Load This Table")
   },
 }
+
+const onOpen = fn()
+
+/** `initialSorting` opens newest first; `onRowClick` opens a record from anywhere on the row (or Enter). */
+export const ClickableRowsSorted: Story = {
+  args: {
+    initialSorting: [{ id: 'joined', desc: true }],
+    onRowClick: (r: Employee) => onOpen(r.id),
+    rowLabel: (r: Employee) => `Open ${r.name}`,
+  },
+  beforeEach: () => onOpen.mockReset(),
+  play: async ({ canvas }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    await expect(canvas.getByRole('columnheader', { name: /Joined/ })).toHaveAttribute('aria-sort', 'descending')
+    const first = bodyRows(table)[0]
+    await userEvent.click(within(first).getAllByRole('cell')[1])
+    await expect(onOpen).toHaveBeenCalledTimes(1)
+    // A control inside the row keeps its own click.
+    await userEvent.click(within(first).getByRole('button', { name: /Actions for/ }))
+    await expect(onOpen).toHaveBeenCalledTimes(1)
+    await userEvent.keyboard('{Escape}')
+    first.focus()
+    await userEvent.keyboard('{Enter}')
+    await expect(onOpen).toHaveBeenCalledTimes(2)
+    await animationsSettled()
+  },
+}
+
+/** `rowTone` tints a row by its state — here people on probation (warning) and on leave (info). */
+export const TonedRows: Story = {
+  args: {
+    rowTone: (r: Employee) => (r.status === 'Probation' ? 'warning' : r.status === 'On leave' ? 'info' : undefined),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('tbody tr[data-tone]').length).toBeGreaterThan(0)
+  },
+}
+
+/** `renderDetail`: a chevron per row opens a panel under it (the live `renderDetailPanel`). */
+export const ExpandableRows: Story = {
+  args: {
+    renderDetail: (r: Employee) => (
+      <p className="text-sm">
+        {r.name} joined on {r.joined} as {r.designation}, {r.branch}.
+      </p>
+    ),
+  },
+  play: async ({ canvas }) => {
+    const toggle = canvas.getAllByRole('button', { name: 'Show details' })[0]
+    await userEvent.click(toggle)
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await expect(canvas.getByText(/joined on/)).toBeInTheDocument()
+    await userEvent.click(toggle)
+    await expect(canvas.queryByText(/joined on/)).toBeNull()
+  },
+}
+
+type Claim = { id: string; employee: string; category: string; amount: number }
+const CLAIMS: Claim[] = [
+  { id: 'c1', employee: 'Meera Joshi', category: 'Cab', amount: 420 },
+  { id: 'c2', employee: 'Arjun Rao', category: 'Meal', amount: 280.5 },
+  { id: 'c3', employee: 'Tara Menon', category: 'Hotel', amount: 3600 },
+]
+const inr = (n: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(n)
+
+/** A totals row: give a column a `footer` and the table renders a footer row (the live `showColumnFooter`). */
+export const FooterTotals: StoryObj<typeof DataTable<Claim>> = {
+  render: () => (
+    <DataTable<Claim>
+      caption="Claims"
+      data={CLAIMS}
+      getRowId={(r) => r.id}
+      columns={[
+        { accessorKey: 'employee', header: 'Employee', footer: 'Total' },
+        { accessorKey: 'category', header: 'Category' },
+        {
+          accessorKey: 'amount',
+          header: () => <span className="block text-right">Amount</span>,
+          cell: ({ getValue }) => <span className="block text-right tabular">{inr(getValue() as number)}</span>,
+          footer: ({ table }) => (
+            <span className="block text-right tabular">
+              {inr(table.getFilteredRowModel().rows.reduce((s, r) => s + r.original.amount, 0))}
+            </span>
+          ),
+        },
+      ]}
+    />
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('Total')).toBeInTheDocument()
+    await expect(canvas.getByText(inr(4300.5))).toBeInTheDocument()
+  },
+}
+
+/** `renderCard`: below 640px of table width the rows become cards; search and paging stay. */
+export const PhoneCards: Story = {
+  decorators: [(Story) => <div className="w-[360px]"><Story /></div>],
+  args: {
+    renderCard: (r: Employee) => (
+      <div className="rounded-2xl border bg-card p-3 text-sm">
+        <div className="font-semibold">{r.name}</div>
+        <div className="text-muted-foreground">{r.designation} · {r.department}</div>
+      </div>
+    ),
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.getByRole('list', { name: 'Employees' })).toBeVisible()
+    await expect(canvasElement.querySelector('[data-slot="card"] table')?.closest('[data-slot="card"]')).not.toBeVisible()
+    await expect(canvas.getByText('1–10 of 34')).toBeInTheDocument()
+  },
+}
