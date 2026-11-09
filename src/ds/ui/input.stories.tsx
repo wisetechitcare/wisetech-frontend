@@ -22,7 +22,7 @@ type Story = StoryObj<typeof meta>
 /** Typing updates the value. */
 export const Default: Story = {
   play: async ({ canvas }) => {
-    const input = canvas.getByLabelText('Full name')
+    const input = canvas.getByLabelText('Full Name')
     await userEvent.type(input, 'Aarav Sharma')
     await expect(input).toHaveValue('Aarav Sharma')
   },
@@ -40,7 +40,7 @@ export const Invalid: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    const input = canvas.getByLabelText('Work email')
+    const input = canvas.getByLabelText('Work Email')
     await expect(input).toHaveAttribute('aria-invalid', 'true')
     await expect(input).toHaveAccessibleDescription('Enter a complete email address.')
   },
@@ -50,6 +50,6 @@ export const Invalid: Story = {
 export const Disabled: Story = {
   args: { disabled: true, defaultValue: 'E-1042' },
   play: async ({ canvas }) => {
-    await expect(canvas.getByLabelText('Full name')).toBeDisabled()
+    await expect(canvas.getByLabelText('Full Name')).toBeDisabled()
   },
 }

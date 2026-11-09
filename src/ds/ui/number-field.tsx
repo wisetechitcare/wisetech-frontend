@@ -51,7 +51,7 @@ function NumberField({
             {/* React Aria's own Input (shadcn's Input is Base UI); the slot gives InputGroup its focus ring. */}
             <Input
               data-slot="input-group-control"
-              placeholder={placeholder}
+              placeholder={placeholder ?? " "}
               className="h-full min-w-0 flex-1 bg-transparent px-3 text-base tabular-nums outline-none placeholder:text-muted-foreground md:text-sm"
             />
             <Button

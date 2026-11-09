@@ -100,6 +100,20 @@ export function DragHandle({ handleProps, disabled, onNudge, title = 'Drag to re
   return disabled ? grip : <Tooltip title={title}>{grip}</Tooltip>;
 }
 
+/**
+ * The keyboard half of reordering, for `DragHandle`'s `onNudge`: `items` with item `i` moved one
+ * step (-1 up, +1 down). A move past either end returns `items` itself, so callers can skip the update.
+ *
+ *   <DragHandle onNudge={(d) => onReorder(nudgeItems(rows, i, d))} />
+ */
+export function nudgeItems<T>(items: T[], i: number, dir: -1 | 1): T[] {
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= items.length) return items;
+  const next = [...items];
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
+}
+
 function ReorderableGroup<T>({
   items,
   getItemId,

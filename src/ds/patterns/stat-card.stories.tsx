@@ -87,7 +87,23 @@ export const KpiRow: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Open leads')).toBeInTheDocument()
+    await expect(canvas.getByText('Open Leads')).toBeInTheDocument()
     await expect(canvas.getByText('21.77%')).toBeInTheDocument()
+  },
+}
+
+/** Compact tiles (`size="sm"`) for dense rows — the live kit's StatTile. Category hues tell the figures apart. */
+export const CompactTiles: Story = {
+  decorators: [(Story) => <div className="w-[min(1100px,calc(100vw-2rem))]"><Story /></div>],
+  render: () => (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <StatCard size="sm" label="Present" value="212" tone="green" icon={<Users aria-hidden />} />
+      <StatCard size="sm" label="On leave" value="13" tone="blue" icon={<CalendarCheck aria-hidden />} />
+      <StatCard size="sm" label="Open roles" value="9" tone="purple" icon={<Briefcase aria-hidden />} />
+      <StatCard size="sm" label="Overdue approvals" value="5" tone="danger" icon={<FolderKanban aria-hidden />} trend={{ direction: 'up', value: '2', good: false }} />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('Overdue Approvals')).toBeInTheDocument()
   },
 }

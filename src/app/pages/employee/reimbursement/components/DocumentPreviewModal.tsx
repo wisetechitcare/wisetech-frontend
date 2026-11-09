@@ -85,7 +85,9 @@ export default function DocumentPreviewModal({ url, onClose, title, inPageOnly =
                         <WtIconButton
                             color="#dc2626"
                             onClick={onClose}
-                            title="Close preview (Esc)"
+                            // aria-label, not title: title adds an MUI tooltip (z-index 1500) that renders
+                            // UNDER this overlay (99999), leaving a clipped "Esc)" showing past the dialog edge.
+                            aria-label="Close preview (Esc)"
                         >
                             <KTIcon iconName="cross" className="fs-2" />
                         </WtIconButton>

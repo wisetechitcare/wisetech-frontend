@@ -79,12 +79,35 @@ export function exemptKitFromUtility(rule: Rule, kitClasses: Set<string>): boole
   return changed;
 }
 
+// A bare element selector (`h3`, `p`, `ul`): Bootstrap's reboot rules.
+const TYPE_SELECTOR = /^[a-z][a-z0-9]*$/;
+const ARTWORK = ':not(:where([data-artwork] *))';
+
+/**
+ * Artwork (`data-artwork`: the Company Profile slides, which are print pages) is drawn with Tailwind alone, as in
+ * Storybook. Bootstrap's unlayered element rules (h3 size, weight and colour; p and ul margins) outrank its layered
+ * utilities, so inside artwork they step aside: `h3` becomes `h3:not(:where([data-artwork] *))`. Opt-in by
+ * attribute, so nothing outside an artwork root changes.
+ */
+export function exemptArtworkFromElementRules(rule: Rule): boolean {
+  if (rule.parent?.type === 'atrule' && rule.parent.name?.endsWith('keyframes')) return false;
+  let changed = false;
+  rule.selectors = rule.selectors.map((s) => {
+    if (!TYPE_SELECTOR.test(s)) return s;
+    changed = true;
+    return s + ARTWORK;
+  });
+  return changed;
+}
+
 export function kitExemption(dsDir: string) {
   const kitClasses = kitClassNames(dsDir);
   return {
     postcssPlugin: 'wt-kit-exempt-from-legacy-utilities',
     Rule(rule: Rule) {
-      if (isLegacyStylesheet(rule.source?.input?.file)) exemptKitFromUtility(rule, kitClasses);
+      if (!isLegacyStylesheet(rule.source?.input?.file)) return;
+      exemptKitFromUtility(rule, kitClasses);
+      exemptArtworkFromElementRules(rule);
     },
   };
 }

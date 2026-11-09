@@ -32,12 +32,17 @@ risk this record exists to remove.
 
 ## 2. Decision
 
-**The WiseTech kit is the design system. It is owned code in this repository, built on Radix primitives and
-Tailwind CSS v4 (the shadcn model).** MUI, Emotion, react-bootstrap and Metronic are retired behind it.
+**The WiseTech kit is the design system. It is owned code in this repository, built on Base UI primitives and
+Tailwind CSS v4 (the shadcn model, style `base-maia`).** MUI, Emotion, react-bootstrap and Metronic are retired behind it.
+
+> **Amendment 2026-10-27.** The first draft of this record (2026-10-26) named Radix. The engine was changed the
+> next day, with the shadcn style choice: **Base UI** by default, **React Aria** for locale-sensitive inputs
+> (calendar, date, time, number), and **Animate UI** for primitive motion. Never mix two engines inside one
+> component. Commits `1df9df94` (kit on base-maia), `0db3109f` (React Aria fields), `89b3ca0a` (Animate UI).
 
 | Concern | Choice |
 |---|---|
-| Behaviour + accessibility primitives | **Radix UI** (WAI-ARIA dialogs, menus, popovers, tabs, tooltips, selects, checkbox/switch/radio) |
+| Behaviour + accessibility primitives | **Base UI** (WAI-ARIA dialogs, menus, popovers, tabs, tooltips, selects, checkbox/switch/radio); **React Aria** for calendar, date, time and number fields |
 | Styling | **Tailwind CSS v4**, compiled ahead of time — no runtime CSS-in-JS |
 | Component variants | **class-variance-authority** + `tailwind-merge` (`cn()` already exists in `ui/tw/cn.ts`) |
 | Design tokens | **One source, CSS custom properties** (colour roles, type scale, spacing/density, radii, elevation, motion), consumed by Tailwind and — during the transition — by the MUI theme |
@@ -45,7 +50,7 @@ Tailwind CSS v4 (the shadcn model).** MUI, Emotion, react-bootstrap and Metronic
 | Tables | **TanStack Table** + **TanStack Virtual** behind a kit `DataTable` |
 | Dialogs / confirms / notices | Kit `ConfirmDialog` + `showDialog` + one toast system (done 2026-10-23) |
 | Forms (target) | `react-hook-form` + `zod` behind kit fields; Formik remains until a form is migrated |
-| Motion | `framer-motion`, kit-scoped presets; `prefers-reduced-motion` always honoured |
+| Motion | `motion` via **Animate UI** primitive wrappers, kit-scoped presets; `prefers-reduced-motion` always honoured |
 
 **Rejected:** staying on MUI 7 (keeps runtime styling, Material defaults to fight, forced major upgrades);
 Ant Design / Mantine / Chakra (strong components, but an opinionated look that fights per-tenant branding and a
@@ -54,7 +59,7 @@ distinct product identity; both Ant and Mantine are installed and unused — rem
 ## 3. Non-negotiable rules
 
 1. **Screens import UI only from the kit** (`@app/modules/common/components/ui`). Only the kit may import
-   Radix, Tailwind helpers, MUI (during transition) or third-party UI.
+   Base UI, React Aria, Tailwind helpers, MUI (during transition) or third-party UI.
 2. **One component per job.** Before building, search the kit; if it is missing, add it to the kit — never a
    screen-local copy (`docs/DRY.md`, Rule Zero).
 3. **One token source.** No hex colours, no magic spacing, no per-screen fonts in feature code.
@@ -70,14 +75,15 @@ distinct product identity; both Ant and Mantine are installed and unused — rem
 
 ```
 Tokens (CSS variables: colour roles · type scale · spacing/density · radii · elevation · motion)
-  └─ Primitives (Radix: Dialog, Popover, Select, Tabs, Tooltip, Checkbox, Switch, RadioGroup …)
+  └─ Primitives (Base UI: Dialog, Popover, Select, Tabs, Tooltip, Checkbox, Switch, RadioGroup …;
+                 React Aria: Calendar, DateField, TimeField, NumberField)
        └─ WiseTech kit (owned: WtButton, WtField, ToneChip, DataTable, ConfirmDialog, DetailCard, Page, Stack …)
             └─ Patterns (wizard engine, review step, discard prompt, filters, list/detail layouts)
                  └─ Screens (import the kit barrel only)
 ```
 
 The kit's **public API is the contract**. Engines are swapped *inside* the kit, one component at a time, so
-screens do not change when a component's implementation moves from MUI to Radix + Tailwind.
+screens do not change when a component's implementation moves from MUI to Base UI + Tailwind.
 
 ## 5. Roadmap
 
@@ -104,7 +110,7 @@ Sizes are relative (S < M < L < XL). Each phase has an exit gate; the next phase
   shrinking to zero.
 - **Exit:** zero `@mui` / `react-bootstrap` imports outside the kit.
 
-### Phase 3 — Swap kit internals to Radix + Tailwind (XL)
+### Phase 3 — Swap kit internals to Base UI + Tailwind (XL)
 Ordered by usage × risk, each behind an unchanged API and a screenshot diff:
 1. Leaf components: `WtButton` (95 importers), `ToneChip` (82), `AppIcon`, `WtTooltip`, switch/checkbox/radio.
 2. Fields: `WtField` / `WtFieldFormik`, `WtSelect`, date fields (replace MUI X pickers), money/phone fields.
@@ -131,7 +137,7 @@ Ordered by usage × risk, each behind an unchanged API and a screenshot diff:
 |---|---|---|
 | Chart library (4 in use) | Phase 5 | One library with strong theming + accessibility; evaluate `recharts` vs `echarts` against real dashboards |
 | Toast library | Phase 3 | Keep `react-toastify` behind `toast()` unless the screenshot/a11y suite shows gaps |
-| Date picker | Phase 3.2 | Radix Popover + a headless calendar, wrapped as kit `WtDateField` |
+| Date picker | Phase 3.2 | **Decided:** React Aria DateField + Calendar in a kit popover (`src/ds/ui/date-picker.tsx`), wrapped as kit `WtDateField` |
 | Density modes (compact / comfortable) | Phase 1 tokens | Yes — token-driven, per-tenant default + per-user override (preference core) |
 | Next.js migration timing | Before Phase 4 | Do the shell replacement once, on the target framework |
 
@@ -141,7 +147,7 @@ Ordered by usage × risk, each behind an unchanged API and a screenshot diff:
 |---|---|
 | Stuck half-migrated (how four systems happened) | Kit-API contract (screens never see the engine), lint ratchets, phase exit gates |
 | Visual regressions during swaps | Screenshot suite blocks CI from Phase 1; one component per PR |
-| Accessibility regressions | Radix primitives + axe in CI + keyboard tests per kit component |
+| Accessibility regressions | Base UI / React Aria primitives + axe in CI + keyboard tests per kit component |
 | Feature work slowed | Swaps happen inside the kit; feature teams keep shipping against the same API |
 | Two styling methods during transition | Both read the same CSS variables; new kit code is Tailwind only |
 

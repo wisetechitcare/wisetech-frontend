@@ -40,7 +40,8 @@ CLAUDE.md
 # npm is not used here — pnpm-lock.yaml is the lockfile
 package-lock.json
 
-*storybook.log
+# Logs of any tool (Storybook debug logs, pnpm/vite errors) are local output, never source.
+*.log
 storybook-static
 
 # Local visual safety net (pnpm visual:*): screenshots of REAL data and a live session cookie.

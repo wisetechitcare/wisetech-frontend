@@ -18,8 +18,10 @@ const RULES: Array<[RegExp, string]> = [
     [/<textarea\b/, 'raw <textarea> — use Textarea'],
     [/<select\b/, 'raw <select> — use Select'],
     [/<kbd\b/, 'raw <kbd> — use Kbd'],
-    [/className="[^"]*\bborder\b[^"]*\bbg-card\b|className="[^"]*\bbg-card\b[^"]*\bborder\b/, 'hand-built card — use Card'],
+    // A card-shaped surface drawn by hand (bg-card with a border or radius), in className="…" or inside cn("…").
+    [/["'`][^"'`]*\bbg-card\b[^"'`]*\b(border|rounded-\w+)\b|["'`][^"'`]*\b(border|rounded-\w+)\b[^"'`]*\bbg-card\b/, 'hand-built card — use Card (rows: Item)'],
     [/duration-\[var\(/, 'arbitrary duration variable — use a Tailwind duration'],
+    [/from ['"]@(base-ui|animate-ui)\//, 'primitive imported directly — compose from src/ds/ui (it carries the Animate UI motion and kit styling)'],
 ];
 
 function tsxFiles(dir: string): string[] {
@@ -40,6 +42,36 @@ describe('v2 kit consistency', () => {
                     }
                 });
         }
+        expect(hits).toEqual([]);
+    });
+
+    // A command list's rows sit inside CommandGroup: its inset keeps each row's rounded highlight fully visible
+    // (rows placed straight in CommandList ran flush against the search box — the phone field's country list).
+    it('command rows are grouped', () => {
+        const hits = SCANNED.flatMap((d) => tsxFiles(join(DS, d)))
+            .filter((file) => !file.endsWith('.stories.tsx'))
+            .filter((file) => {
+                const src = readFileSync(file, 'utf8');
+                return /<CommandItem\b/.test(src) && !/<CommandGroup\b/.test(src);
+            })
+            .map((file) => relative(DS, file));
+        expect(hits).toEqual([]);
+    });
+
+    // ONE calendar engine (ui/calendar.tsx): pickers, Apply Leave, the fiscal year — every calendar inherits it and
+    // customises through its props (getDayState, rangeStyle, size). A second grid would drift in look and behaviour.
+    it('only the calendar engine builds a calendar', () => {
+        const ENGINE = join('ui', 'calendar.tsx');
+        const ARIA_CALENDAR = /\b(Calendar|RangeCalendar|CalendarGrid\w*|CalendarCell|CalendarHeaderCell|\w*CalendarStateContext)\b/;
+        const hits = tsxFiles(DS)
+            .filter((file) => relative(DS, file) !== ENGINE)
+            .flatMap((file) => {
+                const src = readFileSync(file, 'utf8');
+                const aria = [...src.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*["']react-aria-components["']/g)]
+                    .some((m) => ARIA_CALENDAR.test(m[1]));
+                const thirdParty = /from\s*["'](react-day-picker|react-datepicker|react-calendar)["']/.test(src);
+                return aria || thirdParty ? [relative(DS, file)] : [];
+            });
         expect(hits).toEqual([]);
     });
 

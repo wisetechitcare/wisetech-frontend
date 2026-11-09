@@ -62,7 +62,10 @@ export function SegmentedFilter({
       // current value, so "toggle back to All" stays the caller's decision.
       onValueChange={(next) => onValueChange(next[0] ?? value)}
       className={cn(
-        "h-8 w-fit max-w-full items-stretch overflow-x-auto overflow-y-hidden rounded-lg border border-border bg-card [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        // A control's shell, not a card's: `border-input bg-input/30` is what Input and the selected
+        // Tabs segment use, so this track lifts off the page in both themes without claiming to be a
+        // card surface (which `bg-card` + a radius does, and which the kit guard rightly rejects).
+        "h-8 w-fit max-w-full items-stretch overflow-x-auto overflow-y-hidden rounded-lg border border-input bg-input/30 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className,
       )}
     >

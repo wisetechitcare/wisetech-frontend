@@ -84,6 +84,42 @@ export function StatusColours() {
   )
 }
 
+const HUES: Array<[string, string, string]> = [
+  ["Blue", "blue", "Annual leave"],
+  ["Green", "green", "Engineering"],
+  ["Amber", "amber", "Comp-off"],
+  ["Rose", "rose", "Sick leave"],
+  ["Purple", "purple", "Recruitment"],
+  ["Cyan", "cyan", "Work from home"],
+  ["Slate", "slate", "Unpaid leave"],
+]
+
+export function CategoryHues() {
+  return (
+    <Section
+      title="Category hues"
+      description="Identity, not meaning: tell leave types, departments and modules apart. A hue never signals good or bad — that is what Status is for."
+    >
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        {HUES.map(([n, key, example]) => (
+          <div key={key} className="rounded-xl border bg-card p-3 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="size-3 rounded-full" style={{ background: `var(--tone-${key})` }} />
+              <p className="text-sm font-medium">{n}</p>
+            </div>
+            <div
+              className="mt-3 rounded-lg px-3 py-2 text-xs font-medium"
+              style={{ background: `var(--tone-${key}-soft)`, color: `var(--tone-${key}-foreground)` }}
+            >
+              {example}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
 export function TypeScale() {
   return (
     <Section title="Type scale" description="Inter (self-hosted) on shadcn's Tailwind scale. Body copy is text-sm; numbers use tabular figures so columns align.">
@@ -209,6 +245,7 @@ export function Foundations() {
     <div className="space-y-12">
       <ColourRoles />
       <StatusColours />
+      <CategoryHues />
       <TypeScale />
       <TypesetArticle />
       <RadiusElevation />
