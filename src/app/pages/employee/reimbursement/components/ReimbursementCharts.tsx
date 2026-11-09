@@ -1,9 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-    ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    PieChart, Pie, Cell, Sector,
-} from 'recharts';
-import { Box, useMediaQuery, useTheme } from '@mui/material';
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, Sector } from 'recharts';
 import { Dayjs } from 'dayjs';
 import {
     buildTrend, buildStatusSlices, buildCategories, buildInsight, buildCycleTimes,
@@ -13,92 +9,76 @@ import { formatMoney } from '../utils/reimbursementFormat';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { currencyPrefix } from '@utils/currency';
 import { Button } from '@/ds/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ds/ui/card';
+import { ChartContainer, ChartTooltip, type ChartConfig } from '@/ds/ui/chart';
+import { Skeleton } from '@/ds/ui/skeleton';
+import { cn } from '@/ds/lib/utils';
 
 /**
- * The three analytics — trend, status, categories — in one row. One set of components for all
- * three periods: the toggle changes the aggregation, labels and range, never the design.
+ * The three analytics — trend, status, categories — in one row, on the design system's Card and
+ * Chart (src/ds). One set of components for all three periods: the toggle changes the
+ * aggregation, labels and range, never the design.
  *
  * Left to right they read as the same question narrowing: when did it happen → where does it
  * stand → what was it for.
  *
- * Every card is the same skeleton: a header block of fixed height, then a body sharing one height
- * with the other two. That is what keeps a month holding one expense level with a year holding
- * two hundred, instead of the row going ragged.
- *
- * Every figure is set in tabular numerals and right-aligned to a shared rail, so amounts line up
- * down and across the cards. This is money; money should line up.
- *
- * `recharts@3.8.1` is already a dependency and already used by the payroll module. The
- * interaction conventions (hover-linked legend, live centre label, null-as-gap) are the salary
- * module's, so the two read as one product.
+ * Every card is the same skeleton: a header of fixed height, then a body sharing one height with
+ * the other two — that is what keeps a month holding one expense level with a year holding two
+ * hundred, instead of the row going ragged. Every figure is tabular and right-aligned to a shared
+ * rail. This is money; money should line up.
  *
  * Every chart is a filter, not a picture: clicking a bar opens that period, clicking a slice or a
  * category filters the tables below.
  */
 
-// ── Tokens ────────────────────────────────────────────────────────────────────
+// ── Series ────────────────────────────────────────────────────────────────────
+// Theme colours, not hex: the same meaning they carry on the status badges and rails, and correct
+// in dark mode. ChartContainer publishes each as `--color-<key>`.
 
-const INK = 'var(--foreground)';
-const MUTED = 'var(--muted-foreground)';
-const FAINT = 'color-mix(in oklch, var(--muted-foreground) 70%, transparent)';
-const LINE = 'var(--border)';
-const RAIL = 'var(--muted)';
+const TREND_CONFIG = {
+    approved: { label: 'Approved', color: 'var(--success)' },
+    pending: { label: 'Awaiting', color: 'var(--warning)' },
+    rejected: { label: 'Rejected', color: 'var(--destructive)' },
+    paid: { label: 'Paid out', color: 'var(--info)' },
+} satisfies ChartConfig;
 
-const SERIES = {
-    approved: '#16a34a',
-    pending: '#d97706',
-    rejected: '#dc2626',
-    paid: '#2563eb',
-    spend: '#7c3aed',
+/** Status slices arrive named by the chart-data helper; each name has one colour, here. */
+const SLICE_COLOR: Record<string, string> = {
+    'Paid': 'var(--success)',
+    'Awaiting payment': 'var(--info)',
+    'Awaiting approval': 'var(--warning)',
+    'Needs info': 'color-mix(in oklch, var(--warning) 70%, var(--foreground))',
+    'Rejected': 'var(--destructive)',
+};
+const sliceColor = (s: StatusSlice) => SLICE_COLOR[s.name] ?? s.color;
+
+const INSIGHT_TONE = {
+    warn: 'border-[color-mix(in_oklch,var(--warning)_45%,transparent)] bg-warning-soft text-warning-foreground',
+    info: 'border-[color-mix(in_oklch,var(--info)_35%,transparent)] bg-info-soft text-info-foreground',
+    good: 'border-[color-mix(in_oklch,var(--success)_35%,transparent)] bg-success-soft text-success-foreground',
 } as const;
 
-const TONE_BG = { warn: 'var(--warning-soft)', info: 'var(--info-soft)', good: 'var(--success-soft)' } as const;
-const TONE_BD = { warn: 'color-mix(in oklch, var(--warning) 45%, transparent)', info: 'color-mix(in oklch, var(--info) 35%, transparent)', good: 'color-mix(in oklch, var(--success) 35%, transparent)' } as const;
-const TONE_FG = { warn: 'var(--warning-foreground)', info: 'var(--info-foreground)', good: 'var(--success-foreground)' } as const;
-
-/** One card skeleton for all three, so the row can never look ragged. */
-const CARD: React.CSSProperties = {
-    background: 'var(--card)',
-    border: `1px solid ${LINE}`,
-    borderRadius: 14,
-    padding: '14px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0,
-};
-/** Both header lines always render, so every card's body starts on the same line. */
-const HEADER: React.CSSProperties = { minHeight: 36, marginBottom: 10 };
-const TITLE: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: INK, lineHeight: '18px' };
-const SUBTITLE: React.CSSProperties = { fontSize: 11, color: FAINT, lineHeight: '16px', marginTop: 1 };
-const HINT: React.CSSProperties = { fontWeight: 500, color: FAINT, marginLeft: 6, fontSize: 11 };
-/** The ledger rail: every amount in these cards uses it. */
-const FIGURE: React.CSSProperties = { fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: INK };
-const FOOTER: React.CSSProperties = { borderTop: `1px solid ${LINE}`, marginTop: 8, paddingTop: 8, flexShrink: 0 };
-
-const axisTick = { fontSize: 11, fill: MUTED } as const;
+/** One body height for all three cards — the grid stretches the cards, this keeps their insides level. */
+const BODY = 'min-h-[210px] sm:min-h-[244px]';
+const GRID = 'grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-[5fr_3fr_4fr]';
+const HINT = 'ml-1.5 text-[11px] font-medium text-muted-foreground/70';
+const axisTick = { fontSize: 11, fill: 'var(--muted-foreground)' } as const;
 const money = (v: number) => (v >= 1000 ? `${currencyPrefix()}${Math.round(v / 1000)}k` : `${currencyPrefix()}${v}`);
 
 /**
- * A currency figure that obeys the page's eye toggle.
- *
- * Every amount in these cards goes through here rather than each span carrying the class by
- * hand — that is how one of them gets missed and a total stays readable while the rest blur.
- * Only the figure is masked, never the bar or the label: a hidden chart still shows the shape
- * of the month, which is the part that is not confidential.
+ * A currency figure that obeys the page's eye toggle. Every amount in these cards goes through
+ * here, so none can be missed and stay readable while the rest blur. Only the figure is masked,
+ * never the bar or the label: a hidden chart still shows the shape of the month.
  */
-function Money({ value, style }: { value: number; style?: React.CSSProperties }) {
+function Money({ value, className }: { value: number; className?: string }) {
     const { cls } = useSensitiveData();
-    return <span className={cls} style={{ ...FIGURE, ...style }}>{formatMoney(value)}</span>;
+    return <span className={cn(cls, 'tabular font-bold text-foreground', className)}>{formatMoney(value)}</span>;
 }
 
 /** A body that keeps its height when empty, so switching period never makes the row jump. */
-function EmptyBody({ text, height }: { text: string; height: number }) {
+function EmptyBody({ text }: { text: string }) {
     return (
-        <div style={{
-            flex: 1, minHeight: height, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: FAINT, fontSize: 12, textAlign: 'center', padding: '0 12px',
-            border: `1px dashed ${LINE}`, borderRadius: 10, background: 'color-mix(in oklch, var(--muted) 40%, transparent)',
-        }}>
+        <div className={cn(BODY, 'flex flex-1 items-center justify-center rounded-xl border border-dashed border-border bg-muted/40 px-3 text-center text-xs text-muted-foreground')}>
             {text}
         </div>
     );
@@ -111,17 +91,17 @@ function TrendTooltip({ active, payload, label }: any) {
     const rows = payload.filter((p: any) => p?.value);
     if (!point || rows.length === 0) return null;
     return (
-        <div style={{
-            background: 'var(--card)', border: `1px solid ${LINE}`, borderRadius: 10,
-            padding: '9px 11px', boxShadow: '0 8px 20px rgba(15,23,42,0.08)', fontSize: 12, minWidth: 180,
-        }}>
-            <div style={{ fontWeight: 700, color: INK }}>{label}</div>
-            <div style={{ color: FAINT, fontSize: 11, marginBottom: 6 }}>
-                {point.count} request{point.count === 1 ? '' : 's'} · <Money value={point.total} style={{ fontWeight: 600, color: 'inherit' }} />
+        <div className="min-w-44 rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg">
+            <div className="font-bold">{label}</div>
+            <div className="mb-1.5 text-[11px] text-muted-foreground">
+                {point.count} request{point.count === 1 ? '' : 's'} · <Money value={point.total} className="font-semibold text-inherit" />
             </div>
             {rows.map((p: any) => (
-                <div key={p.dataKey} style={{ display: 'flex', gap: 14, justifyContent: 'space-between', lineHeight: '18px' }}>
-                    <span style={{ color: p.color ?? p.fill }}>{p.name}</span>
+                <div key={p.dataKey} className="flex justify-between gap-3.5 leading-[18px]">
+                    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <span aria-hidden className="size-2 rounded-[2px]" style={{ background: p.color ?? p.fill }} />
+                        {p.name}
+                    </span>
                     <Money value={p.value} />
                 </div>
             ))}
@@ -132,20 +112,12 @@ function TrendTooltip({ active, payload, label }: any) {
 /** The hover-expanded donut slice, matching the payroll pie's feel. */
 function ActiveSlice(props: any) {
     const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-    return (
-        <Sector
-            cx={cx} cy={cy}
-            innerRadius={innerRadius} outerRadius={outerRadius + 5}
-            startAngle={startAngle} endAngle={endAngle}
-            fill={fill}
-        />
-    );
+    return <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 5} startAngle={startAngle} endAngle={endAngle} fill={fill} />;
 }
 
 /**
  * How long a claim takes to clear. Sits under the status ring because it answers the question the
- * ring raises — "mine says awaiting payment, so how long is that?" — with the period's own number
- * instead of an expectation the reader has to invent.
+ * ring raises — "mine says awaiting payment, so how long is that?" — with the period's own number.
  */
 function CycleStrip({ approval, payment, total }: { approval: number | null; payment: number | null; total: number | null }) {
     const days = (v: number | null) => (v === null ? '—' : v.toFixed(1));
@@ -155,15 +127,13 @@ function CycleStrip({ approval, payment, total }: { approval: number | null; pay
         { label: 'Total', value: days(total), strong: true },
     ];
     return (
-        <div style={{ ...FOOTER, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-            {cells.map((c, i) => (
-                <div key={c.label} style={{ padding: '0 8px', minWidth: 0, borderLeft: i === 0 ? 'none' : `1px solid ${RAIL}` }}>
-                    <div style={{ fontSize: 10, color: FAINT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {c.label}
-                    </div>
-                    <div style={{ ...FIGURE, fontSize: 13, fontWeight: c.strong ? 800 : 700, color: c.strong ? INK : 'color-mix(in oklch, var(--foreground) 80%, transparent)' }}>
+        <div className="grid grid-cols-3 border-t border-border pt-2">
+            {cells.map((c) => (
+                <div key={c.label} className="min-w-0 border-l border-muted px-2 first:border-l-0">
+                    <div className="truncate text-[10px] text-muted-foreground">{c.label}</div>
+                    <div className={cn('tabular text-[13px]', c.strong ? 'font-extrabold text-foreground' : 'font-bold text-foreground/80')}>
                         {c.value}
-                        <span style={{ fontSize: 10, fontWeight: 500, color: FAINT, marginLeft: 3 }}>days</span>
+                        <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">days</span>
                     </div>
                 </div>
             ))}
@@ -171,16 +141,36 @@ function CycleStrip({ approval, payment, total }: { approval: number | null; pay
     );
 }
 
-function SeriesKey({ items }: { items: { label: string; color: string }[] }) {
+/** The series key, from the chart's own config — one place says what each colour means. */
+function SeriesKey({ config }: { config: ChartConfig }) {
     return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-            {items.map((s) => (
-                <span key={s.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: MUTED }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color }} />
-                    {s.label}
+        <div className="flex flex-wrap items-center gap-2.5">
+            {Object.entries(config).map(([key, c]) => (
+                <span key={key} className="inline-flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+                    <span aria-hidden className="size-2 rounded-[2px]" style={{ background: c.color }} />
+                    {c.label}
                 </span>
             ))}
         </div>
+    );
+}
+
+/** The card frame all three share: same header block, same body height, optional footer. */
+function ChartCard({ title, hint, subtitle, footer, children }: {
+    title: string; hint?: string | false; subtitle: React.ReactNode; footer?: React.ReactNode; children: React.ReactNode;
+}) {
+    return (
+        <Card size="sm" className="min-w-0 gap-2.5">
+            <CardHeader className="min-h-9 gap-0.5">
+                <CardTitle className="text-[13px] font-bold">
+                    {title}
+                    {hint && <span className={HINT}>· {hint}</span>}
+                </CardTitle>
+                <CardDescription className="text-[11px]">{subtitle}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-1 flex-col">{children}</CardContent>
+            {footer && <CardFooter className="block border-t border-border pt-2.5">{footer}</CardFooter>}
+        </Card>
     );
 }
 
@@ -209,8 +199,6 @@ export default function ReimbursementCharts({
     rows, grain, anchor, fyStart, fyLabel,
     onSelectPeriod, onSelectStatus, onSelectCategory, activeCategory = null, loading = false,
 }: ReimbursementChartsProps) {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const [activeSlice, setActiveSlice] = useState<number | undefined>(undefined);
     const [showAllCategories, setShowAllCategories] = useState(false);
     const { cls } = useSensitiveData();
@@ -220,10 +208,10 @@ export default function ReimbursementCharts({
     const { items: categories, total: categoryTotal } = useMemo(() => buildCategories(rows), [rows]);
     const insight = useMemo(() => buildInsight(rows), [rows]);
     const cycle = useMemo(() => buildCycleTimes(rows), [rows]);
-
-    // ONE body height for all three cards. They sit in a single row, so anything else shows up
-    // immediately as a ragged edge; the grid stretches the cards, this keeps their insides level.
-    const BODY = isMobile ? 210 : 244;
+    const sliceConfig = useMemo(
+        () => Object.fromEntries(slices.map((s, i) => [`s${i}`, { label: s.name, color: sliceColor(s) }])) satisfies ChartConfig,
+        [slices],
+    );
 
     const hasTrend = trend.some((p) => p.count > 0);
 
@@ -244,117 +232,84 @@ export default function ReimbursementCharts({
     const visibleCategories = showAllCategories ? categories : categories.slice(0, TOP);
     const hiddenCategories = Math.max(0, categories.length - visibleCategories.length);
 
-    // 5 / 3 / 4 of twelve: the trend carries an axis and needs the width, the donut needs the
-    // least, the category list wants room for names.
-    const ROW = { xs: '1fr', md: '1fr 1fr', lg: '5fr 3fr 4fr' };
-
     if (loading) {
         return (
-            <Box sx={{ mb: 2, display: 'grid', gap: 1.5, gridTemplateColumns: ROW }}>
-                {[0, 1, 2].map((i) => <div key={i} style={{ ...CARD, height: BODY + 92, background: 'var(--muted)' }} />)}
-            </Box>
+            <div className={cn(GRID, 'mb-4')} aria-busy="true">
+                {[0, 1, 2].map((i) => <Skeleton key={i} className="h-[300px] w-full rounded-2xl sm:h-[336px]" />)}
+            </div>
         );
     }
 
     return (
-        <Box sx={{ mb: 2, display: 'grid', gap: 1.5 }}>
-            {/*
-              * The insight line. One sentence, above the charts, doing the interpretation the
-              * reader would otherwise do by cross-referencing two tables. It always renders —
-              * when there is nothing to flag it says the good news, because a strip that only
-              * appears on bad news reads as "not loaded yet" the rest of the time.
-              */}
-            <div style={{
-                background: TONE_BG[insight.tone],
-                border: `1px solid ${TONE_BD[insight.tone]}`,
-                borderRadius: 12, padding: '9px 14px', marginTop: 8,
-                display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-                <span style={{ fontSize: 14, lineHeight: 1 }} aria-hidden>{insight.icon}</span>
-                <span className={cls} style={{ fontSize: 12.5, fontWeight: 600, color: TONE_FG[insight.tone] }}>
-                    {insight.text}
-                </span>
+        <div className="mb-4 grid gap-3">
+            {/* The insight line: one sentence doing the interpretation the reader would otherwise do
+                by cross-referencing two tables. It always renders — a strip that only appears on bad
+                news reads as "not loaded yet" the rest of the time. */}
+            <div className={cn('mt-2 flex items-center gap-2.5 rounded-xl border px-3.5 py-2', INSIGHT_TONE[insight.tone])}>
+                <span aria-hidden className="text-sm leading-none">{insight.icon}</span>
+                <span className={cn(cls, 'text-[12.5px] font-semibold')}>{insight.text}</span>
             </div>
 
-            <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: ROW, alignItems: 'stretch' }}>
+            <div className={cn(GRID, 'items-stretch')}>
                 {/* ── 1 · Trend — week / month / year, one chart ────────────────────── */}
-                <div style={CARD}>
-                    <div style={HEADER}>
-                        <div style={TITLE}>
-                            {title}
-                            {onSelectPeriod && grain !== 'monthly' && hasTrend && <span style={HINT}>· click a bar</span>}
-                        </div>
-                        <div style={SUBTITLE}>{subtitle}</div>
-                    </div>
-
+                <ChartCard
+                    title={title}
+                    hint={onSelectPeriod && grain !== 'monthly' && hasTrend && 'click a bar'}
+                    subtitle={subtitle}
+                    // The key sits under the chart, not in the header — headers stay one shape across
+                    // all three cards, which keeps the row's top edge straight.
+                    footer={<SeriesKey config={TREND_CONFIG} />}
+                >
                     {!hasTrend ? (
-                        <EmptyBody text="No reimbursement data for this period" height={BODY} />
+                        <EmptyBody text="No reimbursement data for this period" />
                     ) : (
-                        <div style={{ flex: 1, minHeight: BODY }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <ComposedChart
-                                    data={trend}
-                                    margin={{ top: 6, right: 8, bottom: 0, left: 0 }}
-                                    barCategoryGap="34%"
-                                    onClick={(state: any) => {
-                                        const point: TrendPoint | undefined = state?.activePayload?.[0]?.payload;
-                                        if (point?.key) onSelectPeriod?.(point.key);
-                                    }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" stroke={RAIL} vertical={false} />
-                                    <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} interval={0} />
-                                    <YAxis tickFormatter={money} tick={axisTick} axisLine={false} tickLine={false} width={48} />
-                                    <Tooltip content={<TrendTooltip />} cursor={{ fill: 'var(--muted)' }} />
-                                    {/* Stacked: approved + awaiting + rejected = what was claimed. Paid is
-                                        a subset of approved, so it rides above as a line rather than a
-                                        fourth bar counting the same money twice.
-                                        maxBarSize is what stops a single week's expense being drawn as a
-                                        wall across the whole card. */}
-                                    <Bar dataKey="approved" name="Approved" stackId="s" fill={SERIES.approved} maxBarSize={38} cursor={onSelectPeriod ? 'pointer' : undefined} />
-                                    <Bar dataKey="pending" name="Awaiting approval" stackId="s" fill={SERIES.pending} maxBarSize={38} cursor={onSelectPeriod ? 'pointer' : undefined} />
-                                    <Bar dataKey="rejected" name="Rejected" stackId="s" fill={SERIES.rejected} maxBarSize={38} radius={[5, 5, 0, 0]} cursor={onSelectPeriod ? 'pointer' : undefined} />
-                                    <Line dataKey="paid" name="Paid out" stroke={SERIES.paid} strokeWidth={2} dot={{ r: 2.5 }} connectNulls />
-                                </ComposedChart>
-                            </ResponsiveContainer>
-                        </div>
+                        <ChartContainer config={TREND_CONFIG} className={cn(BODY, 'aspect-auto w-full flex-1')}>
+                            <ComposedChart
+                                data={trend}
+                                margin={{ top: 6, right: 8, bottom: 0, left: 0 }}
+                                barCategoryGap="34%"
+                                onClick={(state: any) => {
+                                    const point: TrendPoint | undefined = state?.activePayload?.[0]?.payload;
+                                    if (point?.key) onSelectPeriod?.(point.key);
+                                }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--muted)" vertical={false} />
+                                <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} interval={0} />
+                                <YAxis tickFormatter={money} tick={axisTick} axisLine={false} tickLine={false} width={48} />
+                                <ChartTooltip content={<TrendTooltip />} cursor={{ fill: 'var(--muted)' }} />
+                                {/* Stacked: approved + awaiting + rejected = what was claimed. Paid is a
+                                    subset of approved, so it rides above as a line rather than a fourth
+                                    bar counting the same money twice. maxBarSize stops a single week's
+                                    expense being drawn as a wall across the whole card. */}
+                                <Bar dataKey="approved" name="Approved" stackId="s" fill="var(--color-approved)" maxBarSize={38} cursor={onSelectPeriod ? 'pointer' : undefined} />
+                                <Bar dataKey="pending" name="Awaiting approval" stackId="s" fill="var(--color-pending)" maxBarSize={38} cursor={onSelectPeriod ? 'pointer' : undefined} />
+                                <Bar dataKey="rejected" name="Rejected" stackId="s" fill="var(--color-rejected)" maxBarSize={38} radius={[5, 5, 0, 0]} cursor={onSelectPeriod ? 'pointer' : undefined} />
+                                <Line dataKey="paid" name="Paid out" stroke="var(--color-paid)" strokeWidth={2} dot={{ r: 2.5, fill: 'var(--color-paid)' }} connectNulls />
+                            </ComposedChart>
+                        </ChartContainer>
                     )}
-
-                    {/* The key sits under the chart rather than in the header — headers stay one
-                        shape across all three cards, which is what keeps the row's top edge straight. */}
-                    <div style={FOOTER}>
-                        <SeriesKey items={[
-                            { label: 'Approved', color: SERIES.approved },
-                            { label: 'Awaiting', color: SERIES.pending },
-                            { label: 'Rejected', color: SERIES.rejected },
-                            { label: 'Paid out', color: SERIES.paid },
-                        ]} />
-                    </div>
-                </div>
+                </ChartCard>
 
                 {/* ── 2 · Status ────────────────────────────────────────────────────── */}
-                <div style={CARD}>
-                    <div style={HEADER}>
-                        <div style={TITLE}>
-                            Reimbursement by Status
-                            {onSelectStatus && slices.length > 0 && <span style={HINT}>· click to filter</span>}
-                        </div>
-                        <div style={SUBTITLE}>
-                            {slices.length === 0 ? 'Where the money stands' : (<><Money value={slicesTotal} style={{ fontWeight: 600, color: 'inherit', fontSize: 11 }} /> claimed in this period</>)}
-                        </div>
-                    </div>
-
+                <ChartCard
+                    title="Reimbursement by Status"
+                    hint={onSelectStatus && slices.length > 0 && 'click to filter'}
+                    subtitle={slices.length === 0
+                        ? 'Where the money stands'
+                        : <><Money value={slicesTotal} className="font-semibold text-inherit" /> claimed in this period</>}
+                >
                     {slices.length === 0 ? (
-                        <EmptyBody text="No status data available" height={BODY} />
+                        <EmptyBody text="No status data available" />
                     ) : (
-                        <div style={{ flex: 1, minHeight: BODY, display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ position: 'relative', height: 142, flexShrink: 0 }}>
-                                <ResponsiveContainer width="100%" height={142}>
+                        <div className={cn(BODY, 'flex flex-1 flex-col')}>
+                            <div className="relative h-[142px] shrink-0">
+                                <ChartContainer config={sliceConfig} className="aspect-auto h-[142px] w-full">
                                     <PieChart>
                                         <Pie
                                             data={slices} dataKey="value" nameKey="name"
                                             cx="50%" cy="50%" innerRadius={44} outerRadius={65}
-                                            // A lone slice with padding renders as a broken ring — it
-                                            // read as a gauge, not a total.
+                                            // A lone slice with padding renders as a broken ring — it read
+                                            // as a gauge, not a total.
                                             paddingAngle={slices.length > 1 ? 3 : 0}
                                             cornerRadius={slices.length > 1 ? 4 : 0}
                                             startAngle={90} endAngle={-270}
@@ -364,23 +319,20 @@ export default function ReimbursementCharts({
                                             onClick={(_: unknown, i: number) => onSelectStatus?.(slices[i].status)}
                                             cursor={onSelectStatus ? 'pointer' : undefined}
                                         >
-                                            {slices.map((sl: StatusSlice) => <Cell key={sl.name} fill={sl.color} stroke="none" />)}
+                                            {slices.map((sl, i) => <Cell key={sl.name} fill={`var(--color-s${i})`} stroke="none" />)}
                                         </Pie>
                                     </PieChart>
-                                </ResponsiveContainer>
+                                </ChartContainer>
 
                                 {/* Live centre label — swaps to whatever is hovered, in the donut hole. */}
-                                <div style={{
-                                    position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-                                    alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
-                                }}>
-                                    <span style={{ fontSize: 9.5, color: FAINT }}>{centre.label}</span>
-                                    <Money value={centre.value} style={{ fontSize: 14, fontWeight: 800 }} />
+                                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                                    <span className="text-[9.5px] text-muted-foreground">{centre.label}</span>
+                                    <Money value={centre.value} className="text-sm font-extrabold" />
                                 </div>
                             </div>
 
                             {/* Legend rows highlight their slice, and vice-versa. */}
-                            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginTop: 2 }}>
+                            <div className="mt-0.5 min-h-0 flex-1 overflow-y-auto">
                                 {slices.map((sl, i) => (
                                     <div data-wt-control="row"
                                         key={sl.name}
@@ -392,19 +344,16 @@ export default function ReimbursementCharts({
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectStatus?.(sl.status); }
                                         }}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: 7,
-                                            padding: '4px 6px', borderRadius: 8, fontSize: 11.5,
-                                            background: activeSlice === i ? 'var(--muted)' : 'transparent',
-                                            cursor: onSelectStatus ? 'pointer' : undefined,
-                                        }}
+                                        className={cn(
+                                            'flex items-center gap-2 rounded-lg px-1.5 py-1 text-[11.5px] outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                            activeSlice === i && 'bg-muted',
+                                            onSelectStatus && 'cursor-pointer',
+                                        )}
                                     >
-                                        <span style={{ width: 8, height: 8, borderRadius: 2, background: sl.color, flexShrink: 0 }} />
-                                        <span style={{ color: MUTED, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {sl.name}
-                                        </span>
-                                        <span style={{ color: FAINT, fontSize: 10.5, fontVariantNumeric: 'tabular-nums' }}>{sl.count}</span>
-                                        <Money value={sl.value} style={{ fontSize: 11.5, minWidth: 76, textAlign: 'right' }} />
+                                        <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: sliceColor(sl) }} />
+                                        <span className="min-w-0 flex-1 truncate text-muted-foreground">{sl.name}</span>
+                                        <span className="tabular text-[10.5px] text-muted-foreground/70">{sl.count}</span>
+                                        <Money value={sl.value} className="min-w-[76px] text-right text-[11.5px]" />
                                     </div>
                                 ))}
                             </div>
@@ -412,31 +361,22 @@ export default function ReimbursementCharts({
                             <CycleStrip approval={cycle.approval} payment={cycle.payment} total={cycle.total} />
                         </div>
                     )}
-                </div>
+                </ChartCard>
 
-                {/*
-                  * ── 3 · Where it went ──────────────────────────────────────────────
-                  * CSS bars, not a chart canvas: the rows sit at a readable fixed height instead
-                  * of one category being stretched across a whole empty card.
-                  */}
-                <div style={CARD}>
-                    <div style={HEADER}>
-                        <div style={TITLE}>
-                            Where It Went
-                            {onSelectCategory && categories.length > 0 && <span style={HINT}>· click to filter</span>}
-                        </div>
-                        <div style={SUBTITLE}>
-                            {categories.length === 0
-                                ? 'Spend by expense category'
-                                : (<>{categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · <Money value={categoryTotal} style={{ fontWeight: 600, color: 'inherit', fontSize: 11 }} /></>)}
-                        </div>
-                    </div>
-
+                {/* ── 3 · Where it went — CSS bars, not a chart canvas: rows sit at a readable fixed
+                    height instead of one category being stretched across a whole empty card. ── */}
+                <ChartCard
+                    title="Where It Went"
+                    hint={onSelectCategory && categories.length > 0 && 'click to filter'}
+                    subtitle={categories.length === 0
+                        ? 'Spend by expense category'
+                        : <>{categories.length} categor{categories.length === 1 ? 'y' : 'ies'} · <Money value={categoryTotal} className="font-semibold text-inherit" /></>}
+                >
                     {categories.length === 0 ? (
-                        <EmptyBody text="No expense data for this period" height={BODY} />
+                        <EmptyBody text="No expense data for this period" />
                     ) : (
-                        <div style={{ flex: 1, minHeight: BODY, display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'grid', gap: 3, alignContent: 'start' }}>
+                        <div className={cn(BODY, 'flex flex-1 flex-col')}>
+                            <div className="grid min-h-0 flex-1 content-start gap-0.5 overflow-y-auto">
                                 {visibleCategories.map((c) => {
                                     const selected = activeCategory === c.name;
                                     return (
@@ -444,29 +384,25 @@ export default function ReimbursementCharts({
                                             key={c.name}
                                             role={onSelectCategory ? 'button' : undefined}
                                             tabIndex={onSelectCategory ? 0 : undefined}
+                                            aria-pressed={onSelectCategory ? selected : undefined}
                                             onClick={() => onSelectCategory?.(c.name)}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectCategory?.(c.name); }
                                             }}
-                                            style={{
-                                                padding: '6px 8px', borderRadius: 10,
-                                                border: `1px solid ${selected ? 'color-mix(in oklch, var(--primary) 30%, transparent)' : 'transparent'}`,
-                                                background: selected ? 'var(--accent)' : 'transparent',
-                                                cursor: onSelectCategory ? 'pointer' : undefined,
-                                            }}
+                                            className={cn(
+                                                'rounded-xl border px-2 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                                selected ? 'border-[color-mix(in_oklch,var(--primary)_30%,transparent)] bg-accent' : 'border-transparent',
+                                                onSelectCategory && 'cursor-pointer',
+                                            )}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 11.5 }}>
-                                                <span style={{ color: INK, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {c.name}
-                                                </span>
-                                                <span style={{ color: FAINT, fontSize: 10.5, fontVariantNumeric: 'tabular-nums' }}>{c.count}×</span>
-                                                <Money value={c.value} style={{ fontSize: 11.5, minWidth: 76, textAlign: 'right' }} />
-                                                <span style={{ color: MUTED, fontSize: 10.5, width: 32, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                                    {c.pct.toFixed(0)}%
-                                                </span>
+                                            <div className="flex items-baseline gap-2 text-[11.5px]">
+                                                <span className="min-w-0 flex-1 truncate font-semibold text-foreground">{c.name}</span>
+                                                <span className="tabular text-[10.5px] text-muted-foreground/70">{c.count}×</span>
+                                                <Money value={c.value} className="min-w-[76px] text-right text-[11.5px]" />
+                                                <span className="tabular w-8 text-right text-[10.5px] text-muted-foreground">{c.pct.toFixed(0)}%</span>
                                             </div>
-                                            <div style={{ height: 5, borderRadius: 3, background: RAIL, marginTop: 5, overflow: 'hidden' }}>
-                                                <div style={{ width: `${Math.max(2, c.pct)}%`, height: '100%', borderRadius: 3, background: SERIES.spend }} />
+                                            <div className="mt-1.5 h-[5px] overflow-hidden rounded-[3px] bg-muted">
+                                                <div className="h-full rounded-[3px] bg-[oklch(0.55_0.22_293)]" style={{ width: `${Math.max(2, c.pct)}%` }} />
                                             </div>
                                         </div>
                                     );
@@ -474,17 +410,14 @@ export default function ReimbursementCharts({
                             </div>
 
                             {(hiddenCategories > 0 || showAllCategories) && (
-                                <Button variant="link" size="xs" style={{ flexShrink: 0, marginTop: 4 }}
-                                    type="button"
-                                    onClick={() => setShowAllCategories((v) => !v)}
-                                >
+                                <Button variant="link" size="xs" className="mt-1 shrink-0 self-start" type="button" onClick={() => setShowAllCategories((v) => !v)}>
                                     {showAllCategories ? 'Show top 5' : `Show ${hiddenCategories} more`}
                                 </Button>
                             )}
                         </div>
                     )}
-                </div>
-            </Box>
-        </Box>
+                </ChartCard>
+            </div>
+        </div>
     );
 }
