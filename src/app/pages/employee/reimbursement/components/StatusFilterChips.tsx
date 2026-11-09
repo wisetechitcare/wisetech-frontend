@@ -1,5 +1,5 @@
-import { Box, ButtonBase, alpha } from '@mui/material';
-import { STATUS, STATUS_LABEL, STATUS_TONE, StatusNum } from '../utils/reimbursementFormat';
+import { SegmentedFilter, type SegmentOption, type SegmentTone } from '@/ds/patterns/segmented-filter';
+import { STATUS, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
 
 /**
  * Status filter for the records table.
@@ -41,119 +41,29 @@ interface StatusFilterChipsProps {
 // Needs-info sits next to pending because that is what it is — waiting on someone, not decided.
 const ORDER: StatusNum[] = [STATUS.PENDING, STATUS.NEEDS_INFO, STATUS.APPROVED, STATUS.REJECTED];
 
-/** The neutral tone for `All` — a total is not a status, so it does not borrow a status colour. */
-const ALL_TONE = { color: '#475569', bg: '#f1f5f9' };
+/** Each status's accent — the same meaning it has on the record chips. */
+const TONE: Record<StatusNum, SegmentTone> = {
+    [STATUS.PENDING]: 'warning',
+    [STATUS.NEEDS_INFO]: 'warning',
+    [STATUS.APPROVED]: 'success',
+    [STATUS.REJECTED]: 'danger',
+    [STATUS.MIXED]: 'neutral',
+};
 
+/** Rendered by the design system's `SegmentedFilter`; this file only says which statuses, in which order. */
 export default function StatusFilterChips({ value, onChange, counts }: StatusFilterChipsProps) {
-    const total = counts.all || 0;
-
-    const segment = (
-        key: string,
-        label: string,
-        count: number,
-        selected: boolean,
-        tone: { color: string; bg: string },
-        share: number,
-        onClick: () => void,
-    ) => (
-        <ButtonBase
-            key={key}
-            onClick={onClick}
-            aria-pressed={selected}
-            aria-label={`${label}, ${count} ${count === 1 ? 'record' : 'records'}`}
-            sx={(theme) => {
-                const dark = theme.palette.mode === 'dark';
-                return {
-                    position: 'relative',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.75,
-                    flex: '0 0 auto',
-                    px: 1.5,
-                    height: '100%',
-                    whiteSpace: 'nowrap',
-                    fontSize: 12,
-                    lineHeight: 1,
-                    color: selected ? tone.color : 'text.secondary',
-                    bgcolor: selected ? alpha(tone.color, dark ? 0.2 : 0.1) : 'transparent',
-                    borderLeft: '1px solid',
-                    borderColor: 'divider',
-                    '&:first-of-type': { borderLeft: 0 },
-                    transition: 'background-color 150ms ease, color 150ms ease',
-                    '&:hover': { bgcolor: selected ? alpha(tone.color, dark ? 0.26 : 0.14) : 'action.hover' },
-                    '&.Mui-focusVisible': { outline: `2px solid ${tone.color}`, outlineOffset: '-2px' },
-                    '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
-                };
-            }}
-        >
-            <Box
-                aria-hidden
-                sx={{
-                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                    bgcolor: tone.color,
-                    // An empty state stays legible but stops competing with the ones holding work.
-                    opacity: count === 0 && !selected ? 0.35 : 1,
-                }}
-            />
-            <Box component="span" sx={{ fontWeight: selected ? 700 : 600 }}>{label}</Box>
-            <Box
-                component="span"
-                sx={{
-                    // Tabular figures so the counts hold their column when one ticks 9 → 10.
-                    fontVariantNumeric: 'tabular-nums',
-                    fontWeight: 700,
-                    color: selected ? 'inherit' : 'text.primary',
-                    opacity: count === 0 && !selected ? 0.4 : 1,
-                }}
-            >
-                {count}
-            </Box>
-
-            {/* Solid bottom line drawn only when selected */}
-            {selected && (
-                <Box
-                    aria-hidden
-                    sx={{
-                        position: 'absolute', left: 0, right: 0, bottom: 0, height: 3,
-                        bgcolor: tone.color,
-                    }}
-                />
-            )}
-        </ButtonBase>
-    );
-
+    const options: SegmentOption[] = [
+        { value: 'all', label: 'All', count: counts.all || 0, tone: 'neutral' },
+        ...ORDER.map((s) => ({ value: String(s), label: STATUS_LABEL[s], count: counts[s] ?? 0, tone: TONE[s] })),
+    ];
     return (
-        <Box
-            role="group"
+        <SegmentedFilter
             aria-label="Filter records by approval status"
-            sx={{
-                display: 'flex',
-                alignItems: 'stretch',
-                height: 32,
-                maxWidth: '100%',
-                width: 'fit-content',
-                borderRadius: '8px',
-                border: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-                // Below ~500px the rail scrolls rather than wrapping — a broken rail would
-                // read as two controls, and the page must never scroll sideways itself.
-                overflowX: 'auto',
-                overflowY: 'hidden',
-                scrollbarWidth: 'none',
-                '&::-webkit-scrollbar': { display: 'none' },
-            }}
-        >
-            {segment('all', 'All', total, value === null, ALL_TONE, 1, () => onChange(null))}
-            {ORDER.map((s) => {
-                const count = counts[s] ?? 0;
-                return segment(
-                    String(s), STATUS_LABEL[s], count, value === s, STATUS_TONE[s],
-                    total > 0 ? count / total : 0,
-                    () => onChange(value === s ? null : s),
-                );
-            })}
-        </Box>
+            options={options}
+            value={value === null ? 'all' : String(value)}
+            // Clicking the selected status again returns to All.
+            onValueChange={(v) => onChange(v === 'all' || v === String(value) ? null : (Number(v) as StatusNum))}
+        />
     );
 }
 
