@@ -134,3 +134,12 @@ Format: **what** — evidence (file / screen) — suggested fix.
   type/size checks) from `ImageField`'s logic and use it in Apply Leave, documents and claims.
 - **Dates read through the tenant date format** — Apply Leave (Storybook) formats dates with a fixed
   `en-GB` `DateFormatter` (marked TODO). — Route it through the per-tenant date-format setting once it is built.
+- **`StatCard size="sm"` accepts `hint` and never renders it** — the one-row tile returns before the footer, so a
+  caller that passes `hint` loses it with no warning (no current caller does; found while merging the v2 stat card,
+  2026-11-09). — Either render it under the value in that branch or drop `hint` from the `sm` contract, so the prop
+  cannot be passed into a void.
+- **`MediaGallery` `UploadMedia` story asserts a photo limit that no longer exists** — it expects
+  `/over the 10 MB photo limit/` against a 12 MB fixture, but `IMAGE_MAX_MB` has been 100 since the merge base
+  (`38b13838` "Increased Uploading size of both Image & video"), so the warning never renders and the story has been
+  red on every branch since. — Derive both the regex and the fixture size from `IMAGE_MAX_MB` so raising the limit
+  cannot rot the test again.
