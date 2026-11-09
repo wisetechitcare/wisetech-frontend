@@ -5,6 +5,7 @@ import { cn } from "cn"
 
 import { Button } from "@/ds/ui/button"
 import { XIcon } from "lucide-react"
+import { useSettledRef } from "@/ds/lib/motion"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -31,7 +32,7 @@ function DialogOverlay({
       data-slot="dialog-overlay"
       className={cn(
         // Same scrim as the app's GlassDialog (theme tokens glass.scrim / scrimBlur), so v2 and legacy modals match.
-        "fixed inset-0 isolate z-[1300] bg-[rgb(16_24_40/0.32)] dark:bg-black/55 supports-backdrop-filter:backdrop-blur-[4px]",
+        "fixed inset-0 isolate z-(--z-modal) bg-[rgb(16_24_40/0.32)] dark:bg-black/55 supports-backdrop-filter:backdrop-blur-[4px]",
         className
       )}
       {...props}
@@ -47,13 +48,18 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  // Crisp text at rest: see useSettledWhenOpen (src/ds/lib/motion.ts).
+  const settledRef = useSettledRef()
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
+        ref={settledRef}
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-[1300] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 outline-none sm:max-w-md",
+          // Centred by layout (inset-0 + m-auto + h-fit), not translate(-50%): a -50% translate of an
+          // odd-sized box lands on a half pixel and blurs every line of text in it.
+          "fixed inset-0 z-(--z-modal) m-auto grid h-fit w-full max-w-[calc(100%-2rem)] gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 outline-none sm:max-w-md",
           className
         )}
         {...props}

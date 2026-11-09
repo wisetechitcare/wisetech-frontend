@@ -30,9 +30,14 @@ function NumberField({
   description,
   errorMessage,
   placeholder,
+  steppers = true,
   className,
   ...props
-}: NumberFieldProps & FieldChromeProps & { placeholder?: string }) {
+}: NumberFieldProps & FieldChromeProps & {
+  placeholder?: string
+  /** The −/+ buttons. Off for money and other values nobody nudges by one (keyboard arrows still step). */
+  steppers?: boolean
+}) {
   return (
     <AriaNumberField
       data-slot="number-field"
@@ -54,20 +59,24 @@ function NumberField({
               placeholder={placeholder ?? " "}
               className="h-full min-w-0 flex-1 bg-transparent px-3 text-base tabular-nums outline-none placeholder:text-muted-foreground md:text-sm"
             />
-            <Button
-              slot="decrement"
-              data-slot="number-field-decrement"
-              className={stepperClassName}
-            >
-              <MinusIcon />
-            </Button>
-            <Button
-              slot="increment"
-              data-slot="number-field-increment"
-              className={cn(stepperClassName, "me-0.5")}
-            >
-              <PlusIcon />
-            </Button>
+            {steppers && (
+              <>
+                <Button
+                  slot="decrement"
+                  data-slot="number-field-decrement"
+                  className={stepperClassName}
+                >
+                  <MinusIcon />
+                </Button>
+                <Button
+                  slot="increment"
+                  data-slot="number-field-increment"
+                  className={cn(stepperClassName, "me-0.5")}
+                >
+                  <PlusIcon />
+                </Button>
+              </>
+            )}
           </Group>
         </AriaInputGroup>
       </FieldChrome>

@@ -1,0 +1,159 @@
+/* ============================================================================
+ * Kit COMPONENT rules: the behaviour shared across many kit parts that one class list can't express —
+ * floating labels, one option look for every list, dropdown arrows, bold titles.
+ *
+ * Imported by BOTH entry points: globals.css (Storybook, v2 screens) and src/main.css (the live app, which
+ * cannot take globals.css because of its base reset). Every rule here is scoped to kit [data-slot] elements
+ * or menu triggers, so nothing leaks onto legacy screens. Living only in globals.css, these rules never
+ * reached the app: kit fields there showed a static label above a placeholder instead of floating.
+ * ========================================================================== */
+
+/* ── Floating labels (decided 2026-11-03: app-wide) ─────────────────────────────────────────────────
+ * Every vertical field built from fieldVariants() — Field, DateField, TimeField, NumberField, DatePicker —
+ * whose control is a text-like pill: the label rests inside the empty control and floats onto its top border
+ * on focus or once there is a value. One rule set here; no control re-implements it.
+ *
+ * "Filled" is read from each control's own state, so it is right after a programmatic reset too: a visible text
+ * input shows its placeholder (Select, Combobox and DatePicker also render a hidden input for form submission —
+ * ignored, however it is hidden) (Input/Textarea default it to one space), a Select trigger carries data-placeholder, a
+ * date segment carries data-placeholder, a multi-select shows chips. A control with a leading addon (search
+ * icon, phone country code) keeps the label floated so the two never overlap. `data-filled="true"` on the
+ * field forces it for anything else.
+ *
+ * The floated label masks the border with the surface behind the field (no measured notch — the bug class the
+ * live WtField was rebuilt to fight). Unlayered so it wins over the controls' utility colours.
+ *
+ * Tokens here are the RAW ones (--foreground, --card…), never Tailwind's --color-* aliases: a custom property
+ * resolves its var() where it is DECLARED, and the aliases are declared on :root, so they freeze the root
+ * theme. Raw tokens are redefined by every theme scope (.dark on <html>, or on a dark panel inside a light
+ * page). For the same reason --field-surface has no :root default: the label falls back to --background
+ * itself, resolved inside the field's own scope. */
+[data-slot="card"] {
+  --field-surface: var(--card);
+}
+:is([data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="sheet-content"], [data-slot="drawer-content"], [data-slot="popover-content"]) {
+  --field-surface: var(--popover);
+}
+
+/* Lengths here are px, not rem: kit controls are px-sized in the live app (root font-size 13px), so a rem
+   offset put the resting label 3.75px above the control's centre there while looking right in Storybook (16px). */
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])) {
+  position: relative;
+}
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])) > [data-slot="field-label"] {
+  position: absolute;
+  z-index: 1;
+  display: block; /* not flex: text-overflow needs a block box to show the ellipsis */
+  inset-inline-start: 12px;
+  top: 20px; /* centre of the 40px control */
+  translate: 0 -50%;
+  transform-origin: left center;
+  width: auto;
+  max-width: calc(100% - 52px); /* resting: stop short of a trailing chevron / calendar / clear icon */
+  margin-inline-start: -4px;
+  padding-inline: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  font-weight: 400;
+  color: var(--muted-foreground);
+  transition: top 200ms var(--ease-spring), scale 200ms var(--ease-spring), inset-inline-start 200ms var(--ease-spring),
+    color 150ms;
+}
+.field-floating:has([data-slot="number-field-decrement"]) > [data-slot="field-label"] {
+  max-width: calc(100% - 88px); /* resting: clear of the − / + steppers */
+}
+.field-floating:has(> [data-slot="textarea"]) > [data-slot="field-label"] {
+  top: 22px; /* first line of the textarea */
+}
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
+  top: 0;
+  scale: 0.85;
+  /* Start after the control's rounded end so the whole curve stays visible (a 40px pill curves for 20px):
+     the label's masking box begins 2px past it. */
+  inset-inline-start: 26px;
+  max-width: calc(100% - 40px);
+  font-weight: 500;
+  color: var(--foreground);
+  background: linear-gradient(to bottom, var(--field-surface, var(--background)) 55%, transparent 55%);
+}
+.field-floating:has(> [data-slot="textarea"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
+  inset-inline-start: 18px; /* textarea corners are 12px */
+}
+.field-floating:has(> [data-slot="combobox-chips"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
+  inset-inline-start: 38px; /* the chips box grows taller and reaches its full 32px radius */
+}
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):focus-within > [data-slot="field-label"] {
+  color: var(--primary);
+}
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):is([data-invalid="true"], :has([aria-invalid="true"])) > [data-slot="field-label"] {
+  color: var(--destructive);
+}
+/* While the label rests inside, the control shows nothing else (its placeholder appears once the label moves). */
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):not(:is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"])) :is(input, textarea)::placeholder,
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):not(:is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"])) :is([data-slot="select-value"], [role="spinbutton"], [data-type="literal"]) {
+  color: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])) > [data-slot="field-label"] {
+    transition: none;
+  }
+}
+
+/* ── Required fields carry a * — from the control's own state, never typed into a label ────────────────
+ * A field whose control is required (`required` / `aria-required`, which every kit control sets from its
+ * required / isRequired prop — Base UI's hidden form input included) shows a red asterisk after its label.
+ * The asterisk is presentation only ("*" / ""): screen readers already announce "required". */
+[data-slot="field"]:has(:is([aria-required="true"], :required)) > [data-slot="field-label"]::after,
+:is([data-slot="date-picker"], [data-slot="number-field"], [data-slot="date-field"], [data-slot="time-field"]):has(:is([aria-required="true"], :required)) [data-slot="field-label"]::after {
+  content: "\00a0*" / "";
+  color: var(--destructive);
+  font-weight: 600;
+}
+
+/* ── Options: one look for a selectable row in every list (Select, Combobox, Command) ─────────────────
+ * Action menus (DropdownMenu) share the highlighted look. Highlighted (pointer or arrow keys) is a neutral fill; the CHOSEN value is a brand tint, medium weight and the
+ * check — so the current value reads at a glance and the two never look alike. Each engine names the states
+ * differently (Base UI: data-highlighted / data-selected; cmdk: data-selected="true" is the highlight, and
+ * the kit passes data-checked for the value), so the mapping lives here once. Unlayered: wins over utilities. */
+:is([data-slot="select-item"], [data-slot="combobox-item"], [data-slot="command-item"]) {
+  border-radius: 0.75rem;
+}
+:is([data-slot="select-item"][data-highlighted], [data-slot="combobox-item"][data-highlighted], [data-slot="command-item"][data-selected="true"], [data-slot^="dropdown-menu-"][data-slot$="item"][data-highlighted]:not([data-variant="destructive"])) {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+/* The chosen tint is a layer behind the row's content, not the row's background: Animate UI pins each row's
+   background to transparent (inline !important) and draws its own highlight that glides between rows — the
+   smooth hover. A pseudo-element keeps the chosen value tinted underneath that motion. */
+:is([data-slot="select-item"][data-selected], [data-slot="combobox-item"][data-selected], [data-slot="command-item"][data-checked="true"]) {
+  isolation: isolate;
+  color: var(--accent-foreground);
+  font-weight: 500;
+}
+:is([data-slot="select-item"][data-selected], [data-slot="combobox-item"][data-selected], [data-slot="command-item"][data-checked="true"])::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-color: var(--accent);
+}
+
+/* ── Dropdown arrows point down when closed and flip up while their list is open ─────────────────────────
+ * Every trigger that opens a list or menu (aria-haspopup) — Select, Combobox, DropdownMenu, the Phone Field's
+ * country — inherits this; none rotates its own arrow. */
+[aria-haspopup] svg.lucide-chevron-down {
+  transition: rotate 200ms var(--ease-spring);
+}
+[aria-haspopup][aria-expanded="true"] svg.lucide-chevron-down {
+  rotate: 180deg;
+}
+
+/* ── Titles are bold — every one, from one rule ──────────────────────────────────────────────────────────
+ * Each kit title component also Title-Cases its text (src/ds/lib/text.ts), so a title is written once,
+ * any way, and always renders "Employee Onboarding", bold. */
+:is([data-slot="card-title"], [data-slot="dialog-title"], [data-slot="alert-dialog-title"], [data-slot="sheet-title"], [data-slot="drawer-title"], [data-slot="alert-title"], [data-slot="empty-title"], [data-slot="item-title"], [data-slot="popover-title"], [data-slot="field-legend"], [data-slot="page-title"], [data-slot="section-title"], [data-slot="entity-title"]) {
+  font-weight: 600;
+}

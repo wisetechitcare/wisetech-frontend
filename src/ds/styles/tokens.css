@@ -113,6 +113,14 @@
   --duration-panel: 300ms;
   --duration-screen: 450ms;
 
+  /* ── Layers: the only two z-indexes a kit overlay uses ──────────────── */
+  /* modal: dialogs, sheets, drawers, alert dialogs and their backdrops. 1300 = MUI's modal layer, so a
+     kit dialog and a legacy one stack by opening order (a later portal wins) during the migration.
+     popover: anything that opens FROM a control — lists, menus, popovers, tooltips, hover cards — so a
+     dropdown inside a dialog always opens above it. Use as z-(--z-modal) / z-(--z-popover). */
+  --z-modal: 1300;
+  --z-popover: 1400;
+
   /* ── Glass chrome (used only when [data-surface="glass"]) ───────────── */
   --chrome: color-mix(in oklch, var(--card) 100%, transparent);
   --chrome-blur: 0px;
@@ -445,4 +453,13 @@
   [data-slot="spinner"] > span:nth-child(4) { transform: rotate(-60deg); }
   [data-slot="spinner"] > span:nth-child(5) { transform: rotate(-80deg); }
   [data-slot="spinner"] > span:nth-child(6) { transform: rotate(-100deg); }
+}
+
+/* ── Settled surfaces render crisp (here, not globals.css: the app loads only this file) ────────────────────────────────────────────────────────────────────────
+ * An animated surface's resting transform/filter (identity, but 3D + filter) keeps it on a GPU layer drawn as
+ * a texture, so its text looks soft. Once the entrance is over (useSettledWhenOpen in src/ds/lib/motion.ts)
+ * both go, beating Motion's inline style; the flag is removed before the exit animation starts. */
+[data-settled] {
+  transform: none !important;
+  filter: none !important;
 }

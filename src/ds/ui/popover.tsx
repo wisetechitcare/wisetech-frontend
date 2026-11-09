@@ -2,6 +2,7 @@ import * as React from "react"
 import { titleCaseChildren } from "@/ds/lib/text"
 import { Popover as PopoverPrimitive } from "@animate-ui/react/primitives/base-ui/popover"
 import { cn } from "cn"
+import { useSettledRef } from "@/ds/lib/motion"
 
 function Popover({ ...props }: PopoverPrimitive.Root.Props) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />
@@ -28,6 +29,8 @@ function PopoverContent({
     PopoverPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset"
   >) {
+  // Crisp at rest: see useSettledWhenOpen (src/ds/lib/motion.ts).
+  const settledRef = useSettledRef()
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Positioner
@@ -35,13 +38,14 @@ function PopoverContent({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
-        className="isolate z-[1400]"
+        className="isolate z-(--z-popover)"
       >
         <PopoverPrimitive.Popup
+          ref={settledRef}
           data-slot="popover-content"
           className={cn(
             popoverSurfaceClassName,
-            "z-[1400] flex w-72 origin-(--transform-origin) flex-col gap-4 p-4",
+            "z-(--z-popover) flex w-72 origin-(--transform-origin) flex-col gap-4 p-4",
             className
           )}
           {...props}

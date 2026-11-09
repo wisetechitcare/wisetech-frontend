@@ -294,6 +294,17 @@ export const getActiveCurrency = (): string => {
 };
 
 /**
+ * The Intl options for an amount INPUT (the design system's NumberField takes `formatOptions`, not a
+ * formatter), so a money field follows the branch's currency like every formatted amount does — instead of
+ * each form writing its own `{ style: 'currency', currency: … }`.
+ */
+export const currencyInputFormat = (currencyCode?: string): Intl.NumberFormatOptions => ({
+  style: 'currency',
+  currency: resolveCurrency(currencyCode ?? getActiveCurrency()),
+  maximumFractionDigits: 2,
+});
+
+/**
  * Does this currency group in lakh and crore rather than thousand and million?
  *
  * Exported for the places that must build their OWN number format and cannot call

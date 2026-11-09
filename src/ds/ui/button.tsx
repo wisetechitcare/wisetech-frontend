@@ -2,7 +2,7 @@ import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { titleCaseChildren } from "@/ds/lib/text"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
-import { Loader2 } from "lucide-react"
+import { Spinner } from "@/ds/ui/spinner"
 
 // WiseTech override of shadcn's base-maia Button: the live app's WtButton recipe, exactly
 // (src/app/modules/common/components/ui/buttons.tsx), finalised 2026-10-28.
@@ -89,7 +89,8 @@ function Button({
   ...props
 }: ButtonProps) {
   const iconOnly = typeof size === "string" && size.startsWith("icon")
-  const spinner = <Loader2 data-icon={iconOnly ? undefined : "inline-start"} className="animate-spin" aria-hidden />
+  // The kit's one loader; hidden from the accessible name — aria-busy says "busy" and the label stays.
+  const spinner = <Spinner data-icon={iconOnly ? undefined : "inline-start"} aria-hidden />
   return (
     <ButtonPrimitive
       data-slot="button"
