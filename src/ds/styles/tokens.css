@@ -105,6 +105,14 @@
   /* ── Shape ──────────────────────────────────────────────────────────── */
   --radius: 0.625rem;
 
+  /* ── Motion: duration by the SIZE of what moves ──────────────────────── */
+  /* Small controls (toggle, chip, checkbox, hover) / panels and cards (popover, drawer, dialog, a row
+     expanding) / full-screen changes. An exit uses about 3/4 of its entrance: leaving should never make
+     you wait. Use as duration-(--duration-panel); pair with the ease-* below. */
+  --duration-control: 160ms;
+  --duration-panel: 300ms;
+  --duration-screen: 450ms;
+
   /* ── Glass chrome (used only when [data-surface="glass"]) ───────────── */
   --chrome: color-mix(in oklch, var(--card) 100%, transparent);
   --chrome-blur: 0px;
@@ -208,6 +216,16 @@
 
   /* Button physics from the live app's WtButton (Meridian recipe): quick, slightly springy. */
   --ease-spring: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* Motion: the curve is picked by DIRECTION (the classic easing set, cubic strength).
+     enter: arriving or answering a tap — fast start, soft landing (easeOutCubic).
+     exit:  leaving — gentle start, gone quickly (easeInCubic); pair with a shorter duration.
+     move:  travelling between two on-screen places — a highlight sliding, a panel resizing (easeInOutCubic).
+     Indeterminate loops with no start or end (progress bars) stay ease-linear; the Spinner's chase is the
+     one deliberate exception (below). Tailwind's own ease-in/out/in-out are left untouched. */
+  --ease-enter: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-exit: cubic-bezier(0.32, 0, 0.67, 0);
+  --ease-move: cubic-bezier(0.65, 0, 0.35, 1);
 
   /* Border beam (src/ds/effects/border-beam.tsx): timing comes from the component's --beam-* vars. */
   --animate-border-beam: border-beam var(--beam-duration) linear var(--beam-delay) infinite var(--beam-direction);
@@ -386,4 +404,45 @@
   0% { transform: scale(0.5); filter: blur(2px); opacity: 0; }
   60% { transform: scale(1.08); filter: blur(0); opacity: 1; }
   100% { transform: scale(1); }
+}
+
+/* ── Spinner (src/ds/ui/spinner.tsx): the kit's one loader ──────────────────────────────────────────────
+   Six dots run one lap each, easing in and out over the top; each starts a moment after the one ahead, so
+   they bunch where the lap is slow and string out where it is fast. Geometry is in % of the box, so the
+   size-* class on the spinner sizes everything; the colour is currentColor, so it follows the text (and any
+   theme scope) — white inside a filled button, brand where it is given text-primary. Reduced motion: a still
+   fan of dots, still readable as "busy". Top level (not @theme) so it always ships with this file. */
+[data-slot="spinner"] > span {
+  position: absolute;
+  inset: 0;
+  animation: spinner-lap 1.6s cubic-bezier(0.62, 0.04, 0.38, 0.96) infinite;
+}
+[data-slot="spinner"] > span::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 6%;
+  width: var(--dot);
+  height: var(--dot);
+  margin-left: calc(var(--dot) / -2);
+  border-radius: 50%;
+  background: currentColor;
+  opacity: var(--dot-o);
+}
+[data-slot="spinner"] > span:nth-child(1) { --dot: 18%; --dot-o: 1; }
+[data-slot="spinner"] > span:nth-child(2) { --dot: 17%; --dot-o: 0.87; animation-delay: 0.075s; }
+[data-slot="spinner"] > span:nth-child(3) { --dot: 16%; --dot-o: 0.74; animation-delay: 0.15s; }
+[data-slot="spinner"] > span:nth-child(4) { --dot: 15%; --dot-o: 0.61; animation-delay: 0.225s; }
+[data-slot="spinner"] > span:nth-child(5) { --dot: 14%; --dot-o: 0.48; animation-delay: 0.3s; }
+[data-slot="spinner"] > span:nth-child(6) { --dot: 13%; --dot-o: 0.35; animation-delay: 0.375s; }
+@keyframes spinner-lap {
+  to { transform: rotate(1turn); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="spinner"] > span { animation: none; }
+  [data-slot="spinner"] > span:nth-child(2) { transform: rotate(-20deg); }
+  [data-slot="spinner"] > span:nth-child(3) { transform: rotate(-40deg); }
+  [data-slot="spinner"] > span:nth-child(4) { transform: rotate(-60deg); }
+  [data-slot="spinner"] > span:nth-child(5) { transform: rotate(-80deg); }
+  [data-slot="spinner"] > span:nth-child(6) { transform: rotate(-100deg); }
 }

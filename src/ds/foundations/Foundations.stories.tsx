@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { CategoryHues, ColourRoles, Foundations, RadiusElevation, SpacingDensity, StatusColours, TypeScale, TypesetArticle } from './Foundations'
+import { CategoryHues, ColourRoles, Foundations, Motion, RadiusElevation, SpacingDensity, StatusColours, TypeScale, TypesetArticle } from './Foundations'
 
 /** Design tokens of Visual Language v2 — every value lives in `src/ds/styles/globals.css`. */
 const meta = {
@@ -34,3 +34,6 @@ export const RadiusElevationStory: Story = { name: 'Radius & shadow', render: ()
 
 /** 4-point spacing; switch Density in the toolbar to see the compact scale. */
 export const SpacingStory: Story = { name: 'Spacing & density', render: () => <SpacingDensity /> }
+
+/** Easing by direction (enter / exit / move) and duration by size; hover a row to run its curve. */
+export const MotionStory: Story = { name: 'Motion', render: () => <Motion /> }
