@@ -27,14 +27,12 @@ import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import StatusFilterChips, { countByStatus } from '../components/StatusFilterChips';
 import RecordsEmptyState, { findExpensesElsewhere } from '../components/RecordsEmptyState';
 import LoadErrorState from '../components/LoadErrorState';
-import { clickableRowProps, CLICKABLE_ROW_SX } from '../utils/rowInteraction';
 import { ReimbursementBatchDetail, ReimbursementLine } from '../utils/reimbursementTypes';
 import { buildReimbursementLineColumns, withPreviewHandler } from '../components/reimbursementLineColumns';
 import { fmtDate, fmtAmount, resolveStatusNum } from '../utils/reimbursementFormat';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
-import { resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
+import { resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, STATUS_TONE, StatusNum } from '../utils/reimbursementFormat';
 import SubmissionMobileCard from '../components/SubmissionMobileCard';
-import { SkeletonTable } from '@app/modules/common/components/Skeleton';
 import { ToneBadge, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
@@ -47,6 +45,11 @@ import { LEGACY_UIKIT as T, tonePair } from '@app/theme/tokens';
 import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 import { useStoredState } from '@app/hooks/useStoredState';
 import { Button } from '@/ds/ui/button';
+import { Badge } from '@/ds/ui/badge';
+import { Tooltip as KitTooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { usePermittedRows } from '@app/modules/common/components/table/usePermittedRows';
+import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
 
 // Sentinel batch id for reimbursements that have no batch (batch_id = NULL).
 // These are legacy/imported records that were never submitted through the
@@ -64,6 +67,24 @@ const UNGROUPED_BATCH_ID = '__ungrouped__';
 // `STATUS.MIXED` (9) is the module's own display-only sentinel for exactly this, deliberately
 // far out of range. One sentinel, defined once.
 const MIXED_STATUS = STATUS.MIXED;
+
+/** The batch's approval outcome in words — the table badge, the export and the tooltip agree. */
+const approvalLabel = (s: number): string =>
+  s === STATUS.APPROVED ? 'Approved'
+    : s === STATUS.REJECTED ? 'Rejected'
+      : s === STATUS.NEEDS_INFO ? 'Needs info'
+        : s === MIXED_STATUS ? 'Partly approved'
+          : 'Pending';
+
+const paymentLabel = (ps?: string | null): string | null =>
+  !ps ? null : ps === 'PAID' ? 'Paid' : ps === 'PARTIAL' ? 'Partially Paid' : 'Pending';
+
+/** "Jun 2026", or "Jun 2026 - Aug 2026" when a batch's expenses span months. */
+const expensePeriod = (r: any): string => {
+  if (!r?._expenseFrom) return '';
+  const a = dayjs(r._expenseFrom), b = dayjs(r._expenseTo ?? r._expenseFrom);
+  return a.isSame(b, 'month') ? a.format('MMM YYYY') : `${a.format('MMM YYYY')} - ${b.format('MMM YYYY')}`;
+};
 
 
 
@@ -1033,122 +1054,100 @@ function SubmissionsTable({
     [rows],
   );
 
-  const columns = useMemo<MRT_ColumnDef<any>[]>(
+  const columns = useMemo<ColumnDef<any, any>[]>(
     () => [
       {
         accessorKey: '_submissionId',
-        header: 'Batch ID',
-        size: 190,
-        Cell: ({ row }: any) => (
+        meta: { label: 'Batch ID' },
+        header: ({ column }) => <SortableHeader column={column} title="Batch ID" />,
+        cell: ({ row }) => (
           row.original._ungrouped ? (
-            <span className="text-muted fs-8 fst-italic">Unbatched</span>
+            <span className="text-xs text-muted-foreground italic">Unbatched</span>
           ) : (
-            <span
-              style={{
-                display: 'inline-block', background: '#eef2ff', color: '#3730a3',
-                fontWeight: 700, fontSize: 11, padding: '3px 8px', borderRadius: 6,
-                fontFamily: 'monospace', letterSpacing: '0.03em',
-              }}
-            >
-              {row.original._submissionId}
-            </span>
+            <Badge variant="brand" className="font-mono tracking-wide">{row.original._submissionId}</Badge>
           )
         ),
-        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
+        footer: () => <span className="uppercase">Total</span>,
       },
       {
         accessorKey: '_submittedAt',
-        header: 'Submitted On',
-        size: 140,
-        Cell: ({ row }: any) => (
-          <span className="text-dark fs-7">{fmtDate(row.original._submittedAt)}</span>
-        ),
+        meta: { label: 'Submitted on', exportValue: (r: any) => fmtDate(r._submittedAt) },
+        header: ({ column }) => <SortableHeader column={column} title="Submitted On" />,
+        cell: ({ row }) => fmtDate(row.original._submittedAt),
       },
       {
         accessorKey: '_totalRequests',
-        header: 'Expenses',
-        size: 110,
-        Cell: ({ row }: any) => (
-          <span className="text-dark fs-7">{row.original._totalRequests}</span>
-        ),
+        meta: { label: 'Expenses' },
+        header: ({ column }) => <SortableHeader column={column} title="Expenses" />,
+        cell: ({ row }) => <span className="tabular">{row.original._totalRequests}</span>,
       },
       // Only in the submission view: the months this batch's expenses fall in. It is the
       // bridge between the two tables — this is why a batch submitted in August can show
       // up under June in the records table.
       ...(mode === 'submission' ? [{
         accessorKey: '_expenseFrom',
+        meta: { label: 'Expense period', exportValue: (r: any) => expensePeriod(r) },
         header: 'Expense Period',
-        size: 170,
-        Cell: ({ row }: any) => {
-          const from = row.original._expenseFrom;
-          const to = row.original._expenseTo;
-          if (!from) return <span className="text-muted fs-7">-</span>;
-          const a = dayjs(from), b = dayjs(to ?? from);
-          return (
-            <span className="text-dark fs-7">
-              {a.isSame(b, 'month') ? a.format('MMM YYYY') : a.format('MMM YYYY') + ' - ' + b.format('MMM YYYY')}
-            </span>
-          );
-        },
-      }] : []),
+        cell: ({ row }: any) => expensePeriod(row.original) || <span className="text-muted-foreground">—</span>,
+      } as ColumnDef<any, any>] : []),
       {
         accessorKey: '_totalAmount',
-        header: `Amount (${getCurrencySymbol()})`,
-        size: 145,
-        Cell: ({ row }: any) => (
-          <span className={`fs-7 ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(row.original._totalAmount)}</span>
+        meta: { label: `Amount (${getCurrencySymbol()})`, exportValue: (r: any) => fmtAmount(r._totalAmount) },
+        header: ({ column }) => <SortableHeader column={column} title={`Amount (${getCurrencySymbol()})`} />,
+        cell: ({ row }) => (
+          <span className={`tabular ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(row.original._totalAmount)}</span>
         ),
-        Footer: () => <span className={`text-dark fw-bold fs-7 ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(rowsTotal)}</span>,
+        footer: () => <span className={`tabular ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(rowsTotal)}</span>,
       },
       {
         accessorKey: '_status',
+        meta: { label: 'Approval status', exportValue: (r: any) => approvalLabel(r._status) },
         header: 'Approval Status',
-        size: 130,
-        Cell: ({ row }: any) => {
-          const s = row.original._status;
-          if (s === 1) return <ToneBadge tone="success">Approved</ToneBadge>;
-          if (s === 2) return <ToneBadge tone="danger">Rejected</ToneBadge>;
-          // Every line questioned: the batch is waiting on the EMPLOYEE, not the approver, and
-          // saying "Pending" here sent them looking for someone else to chase.
-          if (s === STATUS.NEEDS_INFO) {
-            return (
-              <Tooltip title="Your approver asked a question — open the batch to read it and answer by editing the expense">
-                <span><ToneBadge tone="warning">Needs info</ToneBadge></span>
-              </Tooltip>
-            );
-          }
-          if (s === MIXED_STATUS) {
-            return (
-              <Tooltip title="This batch has mixed outcomes — some expenses may still be pending, approved, rejected, or awaiting your reply. Open it to see which. Approved lines are already payable on the Payment desk.">
-                <span><ToneBadge tone="cyan">Partly approved</ToneBadge></span>
-              </Tooltip>
-            );
-          }
-          return <ToneBadge tone="warning">Pending</ToneBadge>;
+        cell: ({ row }) => {
+          const s = row.original._status as number;
+          const badge = <Badge variant={STATUS_TONE[resolveStatus(s) as StatusNum] ?? 'warning'} dot>{approvalLabel(s)}</Badge>;
+          // Every line questioned: the batch waits on the EMPLOYEE, not the approver — saying only "Pending"
+          // sent them looking for someone else to chase. Mixed: some lines are already payable.
+          const hint = s === STATUS.NEEDS_INFO
+            ? 'Your approver asked a question — open the batch to read it and answer by editing the expense'
+            : s === MIXED_STATUS
+              ? 'This batch has mixed outcomes — some expenses may still be pending, approved, rejected, or awaiting your reply. Open it to see which. Approved lines are already payable on the Payment desk.'
+              : null;
+          if (!hint) return badge;
+          return (
+            <KitTooltip>
+              <TooltipTrigger render={<span tabIndex={0} className="inline-flex rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50" />}>
+                {badge}
+              </TooltipTrigger>
+              <TooltipContent className="max-w-72">{hint}</TooltipContent>
+            </KitTooltip>
+          );
         },
       },
       {
         accessorKey: '_approvedAt',
-        header: 'Approved On',
-        size: 140,
-        Cell: ({ row }: any) => {
-          if (row.original._status === 0) return <span className="text-muted fs-7">Awaiting</span>;
-          if (!row.original._approvedAt) return <span className="text-muted fs-7">—</span>;
-          return <span className="text-dark fs-7">{fmtDate(row.original._approvedAt)}</span>;
+        meta: { label: 'Approved on', exportValue: (r: any) => (r._status === 0 ? 'Awaiting' : r._approvedAt ? fmtDate(r._approvedAt) : '') },
+        header: ({ column }) => <SortableHeader column={column} title="Approved On" />,
+        cell: ({ row }) => {
+          if (row.original._status === 0) return <span className="text-muted-foreground">Awaiting</span>;
+          if (!row.original._approvedAt) return <span className="text-muted-foreground">—</span>;
+          return fmtDate(row.original._approvedAt);
         },
       },
       {
         accessorKey: '_paymentStatus',
+        meta: { label: 'Payment status', exportValue: (r: any) => paymentLabel(r._paymentStatus) ?? 'N/A' },
         header: 'Payment Status',
-        size: 145,
-        Cell: ({ row }: any) => {
+        cell: ({ row }) => {
           // Driven by whether anything in the row is approved, not by the row's own
           // status — a partly-approved batch still has approved lines to pay.
           const ps = row.original._paymentStatus;
-          if (!ps) return <span className="text-muted fs-7">N/A</span>;
-          if (ps === 'PAID') return <ToneBadge tone="success">Paid</ToneBadge>;
-          if (ps === 'PARTIAL') return <ToneBadge tone="cyan">Partially Paid</ToneBadge>;
-          return <ToneBadge tone="warning">Pending</ToneBadge>;
+          if (!ps) return <span className="text-muted-foreground">N/A</span>;
+          return (
+            <Badge variant={ps === 'PAID' ? 'success' : ps === 'PARTIAL' ? 'info' : 'warning'} dot>
+              {paymentLabel(ps)}
+            </Badge>
+          );
         },
       },
     ],
@@ -1165,6 +1164,12 @@ function SubmissionsTable({
     [rows],
   );
 
+  const openBatch = useCallback((r: any) => {
+    setDetailBatchId(r._batchId);
+    setDetailFilterStatus(r._status ?? null);
+    setDetailLineIds(r._lineIds ?? null);
+  }, []);
+
   const visibleRows = useMemo(() => {
     let out = statusFilter === null ? rows : rows.filter((r) => resolveStatus(r._status) === statusFilter);
     if (externalCategoryFilter) {
@@ -1180,6 +1185,9 @@ function SubmissionsTable({
     [allTimeLines, period, date],
   );
 
+  // The ABAC row rule the live MaterialTable applied (table/usePermittedRows), kept on the kit table.
+  const permittedRows = usePermittedRows(visibleRows, { resource, viewOwn, viewOthers, checkOwnWithOthers });
+
   const periodLabel = period === 'monthly'
     ? date.format('MMMM YYYY')
     : period === 'yearly' ? `FY ${date.format('YYYY')}` : 'all time';
@@ -1193,12 +1201,12 @@ function SubmissionsTable({
     <>
       {/* Heading and status rail share one line — the heading block used to sit in the page
           above with its own margins, leaving a band of empty space beside the chips. */}
-      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 gap-lg-3 mb-3 px-3 px-lg-0">
-        <div style={{ minWidth: 0 }}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-3 lg:gap-3 lg:px-0">
+        <div className="min-w-0">
           {title && <h2 className="m-0 text-base font-bold text-foreground lg:text-lg">{title}</h2>}
           {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
         </div>
-        <div className="d-flex align-items-center flex-wrap gap-2 w-100 w-md-auto mw-100 justify-content-start justify-content-md-end">
+        <div className="flex w-full max-w-full flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end">
           {/* A filter set from a chart the reader may have scrolled past needs to say so here,
               where the narrowed rows are — and be undoable from the same place. */}
           {externalCategoryFilter && (
@@ -1215,11 +1223,9 @@ function SubmissionsTable({
         </div>
       </div>
 
-      {tableLoading ? (
-        <SkeletonTable rows={5} cols={6} />
-      ) : loadError ? (
+      {loadError && !tableLoading ? (
         <LoadErrorState what="your expenses" onRetry={() => setRefreshKey((k) => k + 1)} />
-      ) : visibleRows.length === 0 ? (
+      ) : !tableLoading && permittedRows.length === 0 ? (
         <RecordsEmptyState
           periodLabel={periodLabel}
           elsewhere={elsewhere}
@@ -1228,62 +1234,23 @@ function SubmissionsTable({
           onClearStatusFilter={() => setStatusFilter(null)}
         />
       ) : (
-        <MaterialTable
+        <DataTable<any>
+          caption={title || 'Submissions'}
           columns={columns}
-          data={visibleRows}
-          tableName="Submissions"
-          resource={resource}
-          viewOwn={viewOwn}
-          viewOthers={viewOthers}
-          checkOwnWithOthers={checkOwnWithOthers}
-          employeeId={employeeId}
-          showColumnFooter={true}
+          data={permittedRows}
+          getRowId={(r, i) => String(r._batchId ?? r._submissionId ?? i)}
+          loading={tableLoading}
+          searchPlaceholder="Search submissions"
+          initialSorting={[{ id: '_submittedAt', desc: true }]}
+          onRowClick={openBatch}
+          rowLabel={(r) => `Open submission ${r._submissionId ?? ''}`.trim()}
+          // The same tone as the badge and the phone card (STATUS_TONE). Needs info carries no tint, as before:
+          // its badge already says who must act.
+          rowTone={(r) => (r._status === STATUS.NEEDS_INFO ? undefined : STATUS_TONE[resolveStatus(r._status) as StatusNum])}
           // Narrow screens get cards instead of an eight-column horizontal scroller. Same
           // click target as the wide table, so opening a submission works identically.
-          renderMobileCard={({ row }: any) => (
-            <SubmissionMobileCard
-              row={row.original}
-              onOpen={() => {
-                setDetailBatchId(row.original._batchId);
-                setDetailFilterStatus(row.original._status ?? null);
-                setDetailLineIds(row.original._lineIds ?? null);
-              }}
-            />
-          )}
-          muiTableProps={{
-            sx: {
-              '& .MuiTableBody-root .MuiTableCell-root': {
-                borderBottom: 'none',
-                paddingY: '5px',
-              },
-            },
-            muiTableBodyRowProps: ({ row }: any) => {
-              const s = row.original?._status ?? 0;
-              const colorMap: Record<number, { bg: string; border: string; hover: string }> = {
-                1: { bg: 'rgba(16,185,129,0.04)', border: '#10b981', hover: 'rgba(16,185,129,0.08)' },
-                2: { bg: 'rgba(239,68,68,0.04)', border: '#ef4444', hover: 'rgba(239,68,68,0.08)' },
-                0: { bg: 'rgba(245,158,11,0.04)', border: '#f59e0b', hover: 'rgba(245,158,11,0.08)' },
-                [MIXED_STATUS]: { bg: 'rgba(59,130,246,0.04)', border: '#3b82f6', hover: 'rgba(59,130,246,0.08)' },
-              };
-              const c = colorMap[s] ?? null;
-              return {
-                ...clickableRowProps(() => {
-                  setDetailBatchId(row.original._batchId);
-                  setDetailFilterStatus(row.original._status ?? null);
-                  setDetailLineIds(row.original._lineIds ?? null);
-                }, `Open submission ${row.original._submissionId ?? ''}`.trim()),
-                sx: {
-                  ...CLICKABLE_ROW_SX,
-                  backgroundColor: c ? c.bg : undefined,
-                  '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
-                  transition: 'background-color 0.12s ease',
-                  '&:hover td': {
-                    backgroundColor: c ? `${c.hover} !important` : '#F8FAFC',
-                  },
-                },
-              };
-            },
-          }}
+          renderCard={(r) => <SubmissionMobileCard row={r} onOpen={() => openBatch(r)} />}
+          toolbar={(ctx) => <DataTableExport columns={columns} ctx={ctx} filename={title || 'Submissions'} />}
         />
       )}
 

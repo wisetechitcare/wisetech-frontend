@@ -9,6 +9,11 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Backend
 
+- **The reimbursement form downloads whole lists on every open** — `GET .../projects/reimbursement-options`
+  (up to 10,000 leads, ~1.5s in the dev log) and `GET .../client-companies?pageSize=9999` (~1.6s), now
+  family-scoped but still full. (found 2026-11-09) — A typeahead search endpoint for each, plus a Redis cache
+  keyed by org family and cleared on lead/company writes.
+
 - **Dashboard chart endpoint returns HTTP 500** — `/dashboard` console: "Error fetching chart data"
   (seen 2026-10-27/28 on the local stack). — Find the endpoint from the network tab; fix the handler.
 - **Birthdays are computed in the browser from every user** — `BirthdayConfetti` fetches `GET api/users`
@@ -27,6 +32,10 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Frontend: bugs found in passing
 
+- **`.bg-slate-50 { … !important }` in `src/main.css`** — the `!important` beats every `dark:` override on an
+  element that also carries `bg-slate-50`, so it stays light in dark mode. (found 2026-11-09) — Drop the
+  `!important` (or the rule: it equals Tailwind's own slate-50) after checking its users.
+
 - **KPI page mounts the `KpiStatistics` table twice** sharing one preferences bucket, so they overwrite
   each other's columns and sorting (`[useTablePreferences]` console error on `/employee/report/kpis`).
 - **My Profile `Overview` list is missing `key`s** (React warning on `/employee/profile/overview`).
@@ -37,6 +46,18 @@ Format: **what** — evidence (file / screen) — suggested fix.
   explicit timeout, or mock the slow fetch they wait on.
 
 ## Design system (ADR-001)
+
+- **`ExportButton` (14 users) still draws an MUI menu and MUI icons** — the kit DataTable now reaches it
+  through `table/DataTableExport`, so the engine is shared but the button looks legacy. — Rebuild its menu on
+  the kit `DropdownMenu` + lucide icons; keep the CSV/Excel engine as is. (found 2026-11-09)
+- **Reimbursement: two colour maps left to fold into `STATUS_TONE`** — `PAYMENT_TONE` in
+  `utils/reimbursementFormat.ts` is a hex palette (light-only) used by `PaymentQueueTable`; `BatchWorkflowPanel`
+  keeps its own status map (Needs info = cyan "Query"). — Replace both with the tone tokens when the Payment
+  tables and the batch panel move to the kit. (found 2026-11-09)
+- **Reimbursement migration — what is still legacy** (tracking, 2026-11-09): the Submission detail modal
+  (MaterialTable + `UnsavedChangesModal`, a `<style>` block, hex backgrounds), the payment history table, the
+  Payment tab's queue/history tables, the admin tables (All Employee, By Project, limits), the module's
+  `MaterialHeaderTab` page tabs.
 
 - ~~**App content background stays light in dark mode**~~ **Fixed 2026-11-09 (`ae4e95ed`):** dark `.content` now uses the kit `--background` token (src/main.css). Original note — `#kt_content` (`.content`, `$content-background:
   #F6F9FC` in `_metronic/.../layout/_content.scss`) has no dark override, so it shows through wherever a page

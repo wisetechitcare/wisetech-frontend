@@ -1,5 +1,5 @@
 import { SegmentedFilter, type SegmentOption, type SegmentTone } from '@/ds/patterns/segmented-filter';
-import { STATUS, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
+import { STATUS, STATUS_LABEL, StatusNum, STATUS_TONE } from '../utils/reimbursementFormat';
 
 /**
  * Status filter for the records table.
@@ -42,13 +42,8 @@ interface StatusFilterChipsProps {
 const ORDER: StatusNum[] = [STATUS.PENDING, STATUS.NEEDS_INFO, STATUS.APPROVED, STATUS.REJECTED];
 
 /** Each status's accent — the same meaning it has on the record chips. */
-const TONE: Record<StatusNum, SegmentTone> = {
-    [STATUS.PENDING]: 'warning',
-    [STATUS.NEEDS_INFO]: 'warning',
-    [STATUS.APPROVED]: 'success',
-    [STATUS.REJECTED]: 'danger',
-    [STATUS.MIXED]: 'neutral',
-};
+// The module's one status palette (utils/reimbursementFormat STATUS_TONE).
+const TONE: Record<StatusNum, SegmentTone> = STATUS_TONE;
 
 /** Rendered by the design system's `SegmentedFilter`; this file only says which statuses, in which order. */
 export default function StatusFilterChips({ value, onChange, counts }: StatusFilterChipsProps) {

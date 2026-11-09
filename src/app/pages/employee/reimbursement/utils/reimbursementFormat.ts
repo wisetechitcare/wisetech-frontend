@@ -96,26 +96,28 @@ export const resolveStatusNum = (status: unknown): StatusNum => {
     return STATUS.PENDING;
 };
 
+/**
+ * THE colour of each status, for every surface that shows one — table row tint, badge, phone card, filter
+ * chip. Three surfaces each had their own map and disagreed (Mixed was blue in the table, grey on the chip,
+ * and amber on the phone card, which also painted Needs info blue because it read 3 as "mixed").
+ * Needs info is warning: like Pending, it waits on someone — here, the employee. Every consumer renders
+ * the LABEL beside the colour: colour alone is not a status. (Replaced a hex palette that had no users left
+ * and could not follow dark mode.)
+ */
+export const STATUS_TONE: Record<StatusNum, 'warning' | 'success' | 'danger' | 'info'> = {
+    [STATUS.PENDING]: 'warning',
+    [STATUS.NEEDS_INFO]: 'warning',
+    [STATUS.APPROVED]: 'success',
+    [STATUS.REJECTED]: 'danger',
+    [STATUS.MIXED]: 'info',
+};
+
 export const STATUS_LABEL: Record<StatusNum, string> = {
     [STATUS.PENDING]: 'Pending',
     [STATUS.APPROVED]: 'Approved',
     [STATUS.REJECTED]: 'Rejected',
     [STATUS.NEEDS_INFO]: 'Needs info',
     [STATUS.MIXED]: 'Mixed',
-};
-
-/**
- * Status colours, from the salary module's chip palette. Every consumer must render the LABEL
- * alongside the colour — colour alone is not a status, and the module previously encoded
- * "over limit" as a red tint with no text at all.
- */
-export const STATUS_TONE: Record<StatusNum, { color: string; bg: string }> = {
-    [STATUS.PENDING]: { color: '#d97706', bg: '#fff7e8' },
-    [STATUS.APPROVED]: { color: '#15803d', bg: '#ecfdf3' },
-    [STATUS.REJECTED]: { color: '#dc2626', bg: '#fef2f2' },
-    // Amber like pending, because that is what it is — waiting, not refused.
-    [STATUS.NEEDS_INFO]: { color: '#b45309', bg: '#fffbeb' },
-    [STATUS.MIXED]: { color: '#475569', bg: '#f1f5f9' },
 };
 
 export const PAYMENT_TONE: Record<string, { color: string; bg: string }> = {
