@@ -1,24 +1,20 @@
-import { MRT_ColumnDef } from 'material-react-table';
-import { Tooltip } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
-import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 import dayjs from 'dayjs';
+import { FileText, FileX } from 'lucide-react';
+import { SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { Button } from '@/ds/ui/button';
 import OverLimitChip from './OverLimitChip';
 import { fmtAmount, NO_VALUE, projectTitle } from '../utils/reimbursementFormat';
-import { ReimbursementLine } from '../utils/reimbursementTypes';
 import { currencyPrefix } from '@utils/currency';
 
 /**
- * The expense-line columns, shared by both batch detail modals.
+ * The expense-line columns of a batch (date … receipt), for the design system's DataTable.
  *
- * The two modals are NOT the same component — one does edit/delete/download-bill, the other does
- * approve/reject/bulk — but the table of lines inside them is identical: same ten columns, same
- * order, same renderers. Merging the modals behind a mode flag would produce a larger, more
- * conditional file than the two it replaced; merging the *table* removes the duplication that
- * actually existed.
+ * One definition: the employee's batch detail uses it today, and the approver's batch view should take it
+ * when it moves to the kit, so a batch's lines read the same to both. The caller supplies the resolvers (it
+ * owns its lookups instance) and appends its own columns (status, note, actions).
  *
- * The caller supplies the resolvers (each modal owns its own lookups instance) and appends its
- * own action columns.
+ * Every column has `meta.label` (the Columns menu and Export use it) and, where the cell decorates a value,
+ * `meta.exportValue` so a file holds the plain text.
  */
 
 export interface LineColumnResolvers {
@@ -27,141 +23,117 @@ export interface LineColumnResolvers {
     resolveProject?: (id: string | null | undefined) => string;
 }
 
+export interface LineColumnOptions {
+    /** Footer total for the amount column; omitted = no total. */
+    total?: number;
+    /** Opens a receipt. Without it the receipt column shows whether one is attached, no button. */
+    onPreview?: (url: string) => void;
+    /** "Hide amounts" class (useSensitiveData().cls) for the amount cells. */
+    sensitiveCls?: string;
+}
+
+const text = (v: unknown) => (v == null || v === '' ? NO_VALUE : String(v));
+
 export const buildReimbursementLineColumns = (
     { resolveClientType, resolveClientCompany, resolveProject }: LineColumnResolvers,
-    /** Footer total for the amount column; omitted when the caller shows no footer. */
-    detailTotal?: number,
-): MRT_ColumnDef<any>[] => [
+    { total, onPreview, sensitiveCls = '' }: LineColumnOptions = {},
+): ColumnDef<any, any>[] => [
     {
         accessorKey: 'expenseDate',
-        header: 'Date',
-        size: 150,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => {
+        meta: { label: 'Date', exportValue: (r: any) => (r.expenseDate ? dayjs(r.expenseDate).format('DD MMM YYYY') : '') },
+        header: ({ column }) => <SortableHeader column={column} title="Date" />,
+        cell: ({ row }) => {
             const d = row.original.expenseDate;
-            if (!d) return <span className="text-muted fs-7">{NO_VALUE}</span>;
+            if (!d) return <span className="text-muted-foreground">{NO_VALUE}</span>;
             return (
-                <div>
-                    <div style={{ fontWeight: 600, color: '#111827', fontSize: 13 }}>
-                        {dayjs(d).format('DD MMM YYYY')}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                        {dayjs(d).format('dddd')}
-                    </div>
+                <div className="whitespace-nowrap">
+                    <div className="font-semibold text-foreground">{dayjs(d).format('DD MMM YYYY')}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">{dayjs(d).format('dddd')}</div>
                 </div>
             );
         },
-        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
+        footer: () => (total === undefined ? null : <span className="uppercase">Total</span>),
     },
     {
-        accessorKey: 'clientType',
+        id: 'clientType',
+        accessorFn: (r: any) => resolveClientType(r.clientTypeId),
+        meta: { label: 'Company type' },
         header: 'Company Type',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => (
-            <span className="text-dark fs-7">{resolveClientType(row.original.clientTypeId)}</span>
-        ),
+        cell: ({ getValue }) => text(getValue()),
     },
     {
-        accessorKey: 'client',
+        id: 'client',
+        accessorFn: (r: any) => r.clientCompany?.companyName ?? resolveClientCompany?.(r.clientCompanyId) ?? '',
+        meta: { label: 'Company' },
         header: 'Company',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => (
-            <span className="text-dark fs-7">
-                {row.original.clientCompany?.companyName
-                    ?? resolveClientCompany?.(row.original.clientCompanyId)
-                    ?? NO_VALUE}
-            </span>
-        ),
+        cell: ({ getValue }) => text(getValue()),
     },
     {
-        accessorKey: 'project',
-        header: 'Project',
-        enableColumnActions: false,
-        // The whole chain: lead → project → resolver. Reading only `project.title` is why this
-        // column printed N/A on rows that had a perfectly good project (P1-5) — creation resolves
-        // the picked project to a lead and drops the original key.
-        Cell: ({ row }: any) => (
-            <span className="text-dark fs-7">{projectTitle(row.original, resolveProject)}</span>
-        ),
+        // The whole chain: lead → project → resolver. Reading only `project.title` is why this column printed
+        // N/A on rows that had a perfectly good project (P1-5) — creation resolves the project to a lead.
+        id: 'project',
+        accessorFn: (r: any) => projectTitle(r, resolveProject),
+        meta: { label: 'Project' },
+        header: ({ column }) => <SortableHeader column={column} title="Project" />,
+        cell: ({ getValue }) => <span className="block max-w-72 whitespace-normal">{text(getValue())}</span>,
     },
     {
-        accessorKey: 'type',
-        header: 'Category',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => (
-            <span className="text-dark fs-7">{row.original.reimbursementType?.type ?? NO_VALUE}</span>
-        ),
+        id: 'type',
+        accessorFn: (r: any) => r.reimbursementType?.type ?? '',
+        meta: { label: 'Category' },
+        header: ({ column }) => <SortableHeader column={column} title="Category" />,
+        cell: ({ getValue }) => text(getValue()),
     },
     {
         accessorKey: 'amount',
-        header: 'Amount',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => (
-            <span className="d-inline-flex align-items-center gap-2">
-                <span className="text-dark fw-bold fs-7">{currencyPrefix()}{fmtAmount(row.original.amount)}</span>
+        meta: { label: 'Amount', exportValue: (r: any) => fmtAmount(r.amount) },
+        header: ({ column }) => <SortableHeader column={column} title="Amount" />,
+        cell: ({ row }) => (
+            // Colour alone is not a status — the chip carries the word too.
+            <span className="inline-flex items-center gap-2">
+                <span className={`tabular font-semibold text-foreground ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(row.original.amount)}</span>
                 {row.original.isExceedingLimit && <OverLimitChip />}
             </span>
         ),
-        Footer: () =>
-            detailTotal === undefined
-                ? null
-                : <span style={{ fontWeight: 800, color: '#0f172a' }}>{currencyPrefix()}{fmtAmount(detailTotal)}</span>,
+        footer: () => (total === undefined ? null : <span className={`tabular ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(total)}</span>),
     },
     {
         accessorKey: 'fromLocation',
+        meta: { label: 'From' },
         header: 'From',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => (
-            <span className="text-dark fs-7">{row.original.fromLocation || NO_VALUE}</span>
-        ),
+        cell: ({ row }) => text(row.original.fromLocation),
     },
     {
         accessorKey: 'toLocation',
+        meta: { label: 'To' },
         header: 'To',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => (
-            <span className="text-dark fs-7">{row.original.toLocation || NO_VALUE}</span>
-        ),
+        cell: ({ row }) => text(row.original.toLocation),
     },
     {
         accessorKey: 'description',
+        meta: { label: 'Remark' },
         header: 'Remark',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => (
-            <span className="text-dark fs-7">{row.original.description || NO_VALUE}</span>
-        ),
+        cell: ({ row }) => <span className="block max-w-56 whitespace-normal">{text(row.original.description)}</span>,
     },
     {
-        accessorKey: 'document',
-        header: 'Receipt',
-        size: 90,
+        id: 'document',
         enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue, row }: any) => {
-            const url = renderedCellValue as string | null;
+        meta: { label: 'Receipt', export: false },
+        header: 'Receipt',
+        cell: ({ row }) => {
+            const url = row.original.document as string | null;
             return (
-                <Tooltip title={url ? 'Preview receipt' : 'No receipt attached'} arrow>
-                    <span>
-                        <WtIconButton
-                            color={url ? '#2563eb' : '#94a3b8'}
-                            disabled={!url}
-                            title={url ? 'Preview receipt' : 'No receipt attached'}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (url) (row.original as any).__onPreview?.(url);
-                            }}
-                        >
-                            <KTIcon iconName={url ? 'document' : 'cross-circle'} className="fs-4" />
-                        </WtIconButton>
-                    </span>
-                </Tooltip>
+                <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={!url || !onPreview}
+                    aria-label={url ? 'Preview receipt' : 'No receipt attached'}
+                    title={url ? 'Preview receipt' : 'No receipt attached'}
+                    onClick={() => { if (url) onPreview?.(url); }}
+                >
+                    {url ? <FileText aria-hidden className="text-primary" /> : <FileX aria-hidden className="text-muted-foreground" />}
+                </Button>
             );
         },
     },
 ];
-
-/** Attaches the preview callback each row's receipt button invokes. */
-export const withPreviewHandler = <T extends ReimbursementLine>(
-    rows: T[],
-    onPreview: (url: string) => void,
-): T[] => rows.map((r) => ({ ...r, __onPreview: onPreview }));
