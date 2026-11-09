@@ -1,6 +1,7 @@
 import * as React from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, fn, userEvent } from 'storybook/test'
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test'
+import { animationsSettled } from '@/ds/lib/motion'
 import { PeriodNavigator } from './period-navigator'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -40,4 +41,42 @@ export const Default: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Previous month' }))
     await expect(canvas.getByText('October 2026')).toBeInTheDocument()
   },
+}
+
+function MonthJumper() {
+  const [value, setValue] = React.useState('2026-10-01')
+  const [y, m] = value.split('-').map(Number)
+  const step = (d: number) => {
+    const n = new Date(Date.UTC(y, m - 1 + d, 1))
+    setValue(n.toISOString().slice(0, 10))
+  }
+  return (
+    <PeriodNavigator
+      label={`${MONTHS[m - 1]} ${y}`}
+      onPrevious={() => step(-1)}
+      onNext={() => step(1)}
+      onPick={setValue}
+      pickValue={value}
+      pickGranularity="month"
+      pickMax="2026-11-30"
+    />
+  )
+}
+
+/** Click the label to jump: the kit Calendar opens on the month grid; one click lands on the month. */
+export const JumpToMonth: Story = {
+  render: () => <MonthJumper />,
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /October 2026\s*, choose a month/ }))
+    const body = within(document.body)
+    await userEvent.click(await body.findByRole('button', { name: 'January 2026' }))
+    await waitFor(() => expect(canvas.getByText('January 2026')).toBeInTheDocument())
+    await animationsSettled()
+  },
+}
+
+/** On a phone the control fills its row and the label takes the slack. */
+export const Phone: Story = {
+  render: () => <MonthJumper />,
+  globals: { viewport: { value: 'mobile1' } },
 }

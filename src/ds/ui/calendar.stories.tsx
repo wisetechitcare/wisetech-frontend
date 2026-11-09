@@ -185,3 +185,39 @@ export const ContinuousRange: Story = {
     />
   ),
 }
+
+/**
+ * `granularity="month"`: a month picker on the same engine. It opens on the month grid, a click commits the
+ * 1st of that month, and months wholly past `maxValue` are disabled. The title still opens the year grid.
+ */
+export const MonthPicker: Story = {
+  args: {
+    'aria-label': 'Payroll month',
+    granularity: 'month',
+    defaultValue: parseDate('2026-10-01'),
+    maxValue: parseDate('2026-11-09'),
+  },
+  play: async ({ args, canvas }) => {
+    // The grid scales in on mount; let it settle so the a11y check measures the resting colours.
+    await animationsSettled()
+    await expect(canvas.getByRole('button', { name: 'October 2026' })).toHaveAttribute('aria-current', 'date')
+    await expect(canvas.getByRole('button', { name: 'December 2026' })).toBeDisabled()
+    // November is still pickable: the bound falls inside it.
+    await userEvent.click(canvas.getByRole('button', { name: 'November 2026' }))
+    await waitFor(() => expect(args.onChange).toHaveBeenCalledTimes(1))
+    await expect((mocked(args.onChange!).mock.lastCall?.[0] as DateValue).toString()).toBe('2026-11-01')
+    // The selected tile's colour transitions; let it finish so the a11y check measures resting colours.
+    await animationsSettled()
+  },
+}
+
+/** `granularity="year"`: the year grid alone; a click commits 1 January of that year. */
+export const YearPicker: Story = {
+  args: { 'aria-label': 'Year', granularity: 'year', defaultValue: parseDate('2026-01-01') },
+  play: async ({ args, canvas }) => {
+    await animationsSettled()
+    await userEvent.click(canvas.getByRole('button', { name: '2024' }))
+    await waitFor(() => expect(args.onChange).toHaveBeenCalledTimes(1))
+    await expect((mocked(args.onChange!).mock.lastCall?.[0] as DateValue).toString()).toBe('2024-01-01')
+  },
+}

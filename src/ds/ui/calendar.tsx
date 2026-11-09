@@ -38,6 +38,9 @@ import { buttonVariants } from "@/ds/ui/button"
  * - `rangeStyle`: "band" (default) — a continuous tinted band between the ends; "outline" — days keep their
  *   own tone and the range ends get a strong ring (Apply Leave, where the tone IS the information).
  * - `size`: "default" (compact pickers) or "lg" (roomy tiles for a full-screen planner).
+ * - `granularity` (Calendar only): "day" (default), "month" or "year". The jump grids then COMMIT instead of
+ *   drilling down: a month picker opens on the month grid and a click selects the 1st of that month; a year
+ *   picker is the year grid alone. Months/years wholly outside minValue/maxValue are disabled.
  *
  * Values are @internationalized/date CalendarDate (a calendar day, no time zone). Cross the API boundary with
  * value.toString() → 'YYYY-MM-DD'; a JS Date round-trip shifts days across IST/UTC.
@@ -84,24 +87,28 @@ const cellVariants = cva(
 const calendarClassName =
   "group/calendar w-fit bg-background p-3 [--cell-radius:var(--radius-4xl)] [--cell-size:--spacing(8)] [--range-edge:inset_0_1px_0_var(--primary),inset_0_-1px_0_var(--primary)] data-[size=lg]:w-full data-[size=lg]:[--cell-radius:var(--radius-xl)] data-[size=lg]:[--cell-size:--spacing(11)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent"
 
+export type CalendarGranularity = "day" | "month" | "year"
+
 function Calendar<T extends DateValue, M extends "single" | "multiple" = "single">({
   className,
   numberOfMonths = 1,
   getDayState,
   rangeStyle = "band",
   size = "default",
+  granularity = "day",
   ...props
-}: Omit<CalendarProps<T, M>, "visibleDuration"> & EngineProps) {
+}: Omit<CalendarProps<T, M>, "visibleDuration"> & EngineProps & { granularity?: CalendarGranularity }) {
   return (
     <AriaCalendar
       {...props}
       data-slot="calendar"
       data-size={size}
       data-range-style={rangeStyle}
+      data-granularity={granularity}
       visibleDuration={{ months: numberOfMonths }}
       className={composeRenderProps(className, (className) => cn(calendarClassName, className))}
     >
-      <CalendarInner numberOfMonths={numberOfMonths} getDayState={getDayState} />
+      <CalendarInner numberOfMonths={numberOfMonths} getDayState={getDayState} granularity={granularity} />
     </AriaCalendar>
   )
 }
@@ -132,27 +139,54 @@ function RangeCalendar<T extends DateValue>({
 const navButtonClassName = cn(buttonVariants({ variant: "ghost" }), "size-(--cell-size) p-0 select-none")
 const pickButtonClassName = cn(
   buttonVariants({ variant: "ghost" }),
-  "h-10 w-full rounded-(--radius-xl) px-2 text-sm font-normal data-[current=true]:bg-primary data-[current=true]:text-primary-foreground data-[current=true]:hover:bg-primary"
+  "h-10 w-full rounded-(--radius-xl) px-2 text-sm font-normal data-[current=true]:bg-primary data-[current=true]:text-primary-foreground data-[current=true]:hover:bg-primary data-disabled:pointer-events-none data-disabled:opacity-40"
 )
 
 /** Motion for a month change (slides the way you moved) and a view switch (soft scale-in). */
 const SPRING = { type: "spring", stiffness: 420, damping: 36, mass: 0.7 } as const
 
+type View = "days" | "months" | "years"
+const FLOOR: Record<CalendarGranularity, View> = { day: "days", month: "months", year: "years" }
+
 function CalendarInner({
   numberOfMonths,
   isRange,
   getDayState,
+  granularity = "day",
 }: {
   numberOfMonths: number
   isRange?: boolean
   getDayState?: EngineProps["getDayState"]
+  granularity?: CalendarGranularity
 }) {
   const single = React.useContext(CalendarStateContext)
   const range = React.useContext(RangeCalendarStateContext)
   const state = (isRange ? range : single)!
   const { locale } = useLocale()
-  const [view, setView] = React.useState<"days" | "months" | "years">("days")
+  // The lowest view this calendar goes to; the title cycles floor -> ... -> years -> back to the floor.
+  const floor = FLOOR[granularity]
+  const [view, setViewState] = React.useState<View>(floor)
+  // Only a view the user SWITCHED to scales in; the view a picker opens on just appears (its popover
+  // already animates, and a second entrance on mount would read as lag).
+  const [switched, setSwitched] = React.useState(false)
+  const setView = (next: View) => {
+    setSwitched(true)
+    setViewState(next)
+  }
   const focused = state.focusedDate
+  // In a month/year picker the highlighted tile is the VALUE; in a day calendar it is the focused month.
+  const raw = !isRange && floor !== "days" ? single?.value : null
+  // Multiple-selection calendars hold an array; a month/year picker is single-value only.
+  const picked = raw && !Array.isArray(raw) ? (raw as DateValue) : null
+  const { minValue, maxValue } = state
+  // A period is pickable unless it lies wholly outside [minValue, maxValue].
+  const outOfRange = (start: DateValue, end: DateValue) =>
+    (minValue != null && end.compare(minValue) < 0) || (maxValue != null && start.compare(maxValue) > 0)
+  const commit = (fields: { year: number; month: number }) => {
+    const date = focused.set({ ...fields, day: 1 })
+    state.setFocusedDate(date)
+    single?.selectDate(date)
+  }
 
   // Which way the month moved, so the grid slides in from that side.
   const monthKey = focused.year * 12 + focused.month
@@ -177,6 +211,9 @@ function CalendarInner({
 
   // Jump views (months / years) replace the day grid; one month only — a multi-month range keeps plain titles.
   const canJump = numberOfMonths === 1
+  const nextView: Record<View, View> = { days: "months", months: "years", years: floor }
+  // A year picker has nowhere above its grid to go: the title is a plain label.
+  const titleIsButton = canJump && floor !== "years"
 
   return (
     <div className="relative flex flex-col gap-4 md:flex-row">
@@ -215,20 +252,28 @@ function CalendarInner({
       {Array.from({ length: numberOfMonths }, (_, i) => (
         <div key={i} className="flex w-full flex-col gap-4">
           <div className="flex h-(--cell-size) w-full items-center justify-center gap-1 px-(--cell-size)">
-            {canJump ? (
+            {titleIsButton ? (
               <Button
                 slot={null}
                 data-slot="calendar-title"
                 aria-label={
-                  view === "days" ? `${title(0)}, choose a month` : view === "months" ? `${focused.year}, choose a year` : "Back to days"
+                  view === "days"
+                    ? `${title(0)}, choose a month`
+                    : view === "months"
+                      ? `${focused.year}, choose a year`
+                      : floor === "months"
+                        ? "Back to months"
+                        : "Back to days"
                 }
                 className="rounded-lg px-2 py-1 text-sm font-semibold outline-none select-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
-                onPress={() => setView(view === "days" ? "months" : view === "months" ? "years" : "days")}
+                onPress={() => setView(nextView[view])}
               >
                 {view === "days" ? title(0) : view === "months" ? focused.year : `${decadeStart} – ${decadeStart + 11}`}
               </Button>
             ) : (
-              <span className="text-sm font-semibold select-none">{title(i)}</span>
+              <span data-slot="calendar-title" className="text-sm font-semibold select-none">
+                {view === "years" ? `${decadeStart} – ${decadeStart + 11}` : title(i)}
+              </span>
             )}
           </div>
 
@@ -303,36 +348,52 @@ function CalendarInner({
             <motion.div
               key={view}
               data-slot={`calendar-${view}`}
-              initial={{ opacity: 0, scale: 0.96 }}
+              initial={switched ? { opacity: 0, scale: 0.96 } : false}
               animate={{ opacity: 1, scale: 1 }}
               transition={SPRING}
               className="grid grid-cols-3 gap-2"
             >
               {view === "months"
-                ? Array.from({ length: 12 }, (_, m) => (
-                    <Button
-                      key={m}
-                      slot={null}
-                      data-current={m + 1 === focused.month || undefined}
-                      aria-label={`${monthName(m + 1, "long")} ${focused.year}`}
-                      className={pickButtonClassName}
-                      onPress={() => {
-                        goTo({ month: m + 1 })
-                        setView("days")
-                      }}
-                    >
-                      {monthName(m + 1, "short")}
-                    </Button>
-                  ))
+                ? Array.from({ length: 12 }, (_, m) => {
+                    const start = focused.set({ month: m + 1, day: 1 })
+                    const current = picked
+                      ? picked.year === focused.year && picked.month === m + 1
+                      : m + 1 === focused.month
+                    return (
+                      <Button
+                        key={m}
+                        slot={null}
+                        data-current={current || undefined}
+                        aria-current={picked && current ? "date" : undefined}
+                        isDisabled={outOfRange(start, start.add({ months: 1 }).subtract({ days: 1 }))}
+                        className={pickButtonClassName}
+                        onPress={() => {
+                          if (floor === "months") return commit({ year: focused.year, month: m + 1 })
+                          goTo({ month: m + 1 })
+                          setView("days")
+                        }}
+                      >
+                        {/* Shows "Jan", is named "January 2026": the abbreviation is hidden from the accessible name and
+                            the full name is screen-reader text, so the name never contradicts what is on screen. */}
+                        <span aria-hidden>{monthName(m + 1, "short")}</span>
+                        <span className="sr-only">{`${monthName(m + 1, "long")} ${focused.year}`}</span>
+                      </Button>
+                    )
+                  })
                 : Array.from({ length: 12 }, (_, k) => {
                     const year = decadeStart + k
+                    const start = focused.set({ year, month: 1, day: 1 })
+                    const current = picked ? picked.year === year : year === focused.year
                     return (
                       <Button
                         key={year}
                         slot={null}
-                        data-current={year === focused.year || undefined}
+                        data-current={current || undefined}
+                        aria-current={picked && current ? "date" : undefined}
+                        isDisabled={outOfRange(start, start.set({ month: 12, day: 31 }))}
                         className={pickButtonClassName}
                         onPress={() => {
+                          if (floor === "years") return commit({ year, month: 1 })
                           goTo({ year })
                           setView("months")
                         }}
