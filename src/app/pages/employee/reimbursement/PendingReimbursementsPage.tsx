@@ -22,17 +22,13 @@ import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { TOOLBAR_ROW } from './utils/toolbarButton';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
-import { ReimbursementDraft, ReimbursementOption } from './utils/reimbursementTypes';
-import { useReimbursementFormLookups } from './hooks/useReimbursementFormLookups';
+import { ReimbursementDraft } from './utils/reimbursementTypes';
+import { ReimbursementFormDialog, type ReimbursementFormHelpers, type ReimbursementFormValues } from './components/ReimbursementFormDialog';
 import { fmtAmount, projectTitle } from './utils/reimbursementFormat';
 import LoadErrorState from './components/LoadErrorState';
 import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
-import TextInput from '@app/modules/common/inputs/TextInput';
-import { WtField, WtFieldFormik, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
-import DateInput from '@app/modules/common/inputs/DateInput';
-import ReimbursementDropdown from '@app/modules/common/inputs/ReimbursementDropdown';
 import { Option } from '@models/dropdown';
 import { KTIcon } from '@metronic/helpers';
 import { Loader2, Plus, Send } from 'lucide-react';
@@ -48,7 +44,7 @@ import { IReimbursementsCreate } from '@models/employee';
 import { useEventBus } from '@hooks/useEventBus';
 import { AppIcon } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { getReimbursementSchema, makeReimbursementInitialState, findDuplicateCandidate, categoryRequiresLocation, describeLimitBreach } from './utils/reimbursementSchema';
+import { makeReimbursementInitialState } from './utils/reimbursementSchema';
 import { currencyPrefix } from '@utils/currency';
 import { Button as KitButton } from '@/ds/ui/button';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
@@ -232,22 +228,6 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
 
   // Document preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  // Presigned URL for a receipt uploaded in this session but not yet saved as a draft.
-  const [justUploadedUrl, setJustUploadedUrl] = useState<string | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  // Dropdown option lists — same names as Reimbursement.tsx
-  // One hook for the whole lookup cascade — see hooks/useReimbursementFormLookups.
-  const {
-    reimbursementOptions, companyTypeOptions, filteredCompanies, projectOptions, projectsLoading,
-    projectStatusOptions,
-    selectedReimbursementFor, selectedClientType, selectedClientCompany, selectedProject,
-    selectedProjectStatus,
-    handleCategoryChange, handleClientTypeChange, handleClientCompanyChange, handleProjectChange,
-    handleProjectStatusChange,
-    reset: resetLookups,
-  } = useReimbursementFormLookups(currentReimbursement);
-
 
   // Table lookup resolvers
   const { resolveClientType, resolveClientCompany, resolveProject } = useReimbursementLookups(drafts);
@@ -292,15 +272,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   // loaded independently so a failure here doesn't block company type loading.
 
   const handleNew = () => {
-    resetLookups();
-// projectOptions is NOT reset here — it's owned by the reactive effect above,
-    // which recomputes it from allProjects/selectedClientType/selectedClientCompany.
-    // Clearing it imperatively here left it stuck empty on a fresh "Add" open,
-    // since selectedClientType/selectedClientCompany are already null at rest and
-    // setState with an unchanged value doesn't re-trigger that effect.
-
-    // (shared mutable initialState removed — makeReimbursementInitialState)
-
+    // The dialog resets its own lookups on every close, so each open starts clean.
     setShow(true);
     setEditMode(false);
     setCurrentReimbursement(null);
@@ -308,13 +280,31 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   handleNewRef.current = handleNew;
 
   const handleEdit = (draft: any) => {
-    resetLookups();
-// projectOptions is left alone here too — see handleNew for why.
-
     setCurrentReimbursement(draft);
     setEditMode(true);
     setShow(true);
   };
+
+  const formInitialValues = useMemo<ReimbursementFormValues>(() => ({
+    ...makeReimbursementInitialState(),
+    expenseDate: editMode && currentReimbursement?.expenseDate
+      ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
+      : (currentPeriod
+          ? (currentPeriod.isSame(dayjs(), 'month')
+              ? dayjs().format('YYYY-MM-DD')
+              : currentPeriod.startOf('month').format('YYYY-MM-DD'))
+          : dayjs().format('YYYY-MM-DD')),
+    ...(editMode && currentReimbursement && {
+      ...currentReimbursement,
+      clientTypeId: currentReimbursement?.clientTypeId ?? '',
+      clientCompanyId: currentReimbursement?.clientCompanyId ?? '',
+      projectId: currentReimbursement?.projectId ?? '',
+      fromLocation: currentReimbursement?.fromLocation ?? '',
+      toLocation: currentReimbursement?.toLocation ?? '',
+      description: currentReimbursement?.description ?? '',
+      document: currentReimbursement?.document ?? '',
+    }),
+  }), [editMode, currentReimbursement, currentPeriod]);
 
   const handleClose = () => {
     setShow(false);
@@ -322,7 +312,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     setCurrentReimbursement(null);
   };
 
-  const handleSubmit = async (values: any, actions: any) => {
+  const handleSubmit = async (values: any, helpers: ReimbursementFormHelpers) => {
     try {
       setFormLoading(true);
       if (editMode) {
@@ -361,67 +351,11 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       successConfirmation('Reimbursement saved to Pending Requests.');
       loadDrafts();
 
-      // Keep the modal open AND keep the project context — Date, Company Type, Company
-      // Name, Project Status and Project Name all stay put, so a run of expenses against
-      // one project is one selection followed by N amounts, not N full re-selections.
-      //
-      // Only the expense itself is cleared. `handleCategoryChange(null, …)` is what clears
-      // the category, because it owns BOTH halves of that field — the dropdown's selected
-      // Option and the Formik value. Clearing `reimbursementTypeId` alone would leave the
-      // dropdown still showing "Bike" over an empty value.
-      //
-      // This deliberately does NOT call resetLookups(): that clears all five selections,
-      // which blanked the project context the comment above promises to keep. It is still
-      // right for handleNew/handleEdit, where a genuinely fresh form is wanted.
-      handleCategoryChange(null, actions.setFieldValue);
-      actions.setFieldValue('amount', undefined);
-      actions.setFieldValue('fromLocation', '');
-      actions.setFieldValue('toLocation', '');
-      actions.setFieldValue('document', '');
-      actions.setFieldValue('description', '');
-      actions.setTouched({});
-      actions.setSubmitting(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      // Keep the dialog open AND the project context (date, company, project): a run of expenses
+      // against one project is one selection followed by N amounts. Only the expense itself clears.
+      helpers.startNextExpense();
     } catch (err) {
       setFormLoading(false);
-    }
-  };
-
-  const handleChange = (
-    selectedOption: any,
-    formikField: string,
-    setSelectedOptionState: React.Dispatch<React.SetStateAction<any>>,
-    setFieldValue: (field: string, value: any) => void
-  ) => {
-    setFieldValue(formikField, selectedOption ? selectedOption.value : '');
-    setSelectedOptionState(selectedOption || null);
-  };
-
-  const uploadFile = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-    formikProps: any,
-    fileMaxUploadSize: number
-  ) => {
-    const { target: { files } } = event;
-    if (files && files[0].size > fileMaxUploadSize) {
-      // A raw browser alert() in a fully styled app. The server caps uploads at 10 MB
-      // anyway (Phase 0); this is the friendly early warning, not the enforcement.
-      errorConfirmation("That file is over 5 MB. Please attach a smaller receipt.");
-      event.target.value = '';
-      return;
-    }
-    if (files && files.length > 0) {
-      const form = new FormData();
-      form.append('file', files[0]);
-      try {
-        const { data: { path, previewUrl: signedUrl } } = await uploadUserAsset(form, userId, undefined, 'reimbursement-docs');
-        formikProps.setFieldValue('document', path, true);
-        // Receipts are stored private, so `path` alone won't render. Saved drafts come back
-        // presigned from the API; this covers the gap before the draft is saved.
-        setJustUploadedUrl(signedUrl ?? path);
-      } catch (error) {
-        console.error('Failed to upload file. Please try again.');
-      }
     }
   };
 
@@ -721,394 +655,25 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
         <DocumentPreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
       )}
 
-      {/* Add / Edit modal — structure identical to Reimbursement.tsx */}
-      <Modal show={show} onHide={handleClose} centered size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>
-            {editMode ? 'Edit' : 'New'} Reimbursement Request
-            {currentPeriod && !editMode && (
-              <span style={{ fontSize: '0.8rem', fontWeight: 400, marginLeft: '0.5rem', color: '#666' }}>
-                — {currentPeriod.format('MMMM YYYY')}
-              </span>
-            )}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Formik
-            initialValues={{
-              ...makeReimbursementInitialState(),
-              expenseDate: editMode && currentReimbursement?.expenseDate
-                ? dayjs(currentReimbursement.expenseDate).format('YYYY-MM-DD')
-                : (currentPeriod
-                    ? (currentPeriod.isSame(dayjs(), 'month')
-                        ? dayjs().format('YYYY-MM-DD')
-                        : currentPeriod.startOf('month').format('YYYY-MM-DD'))
-                    : dayjs().format('YYYY-MM-DD')),
-              ...(editMode &&
-                currentReimbursement && {
-                ...currentReimbursement,
-                clientTypeId: currentReimbursement?.clientTypeId ?? '',
-                clientCompanyId: currentReimbursement?.clientCompanyId ?? '',
-                projectId: currentReimbursement?.projectId ?? '',
-                fromLocation: currentReimbursement?.fromLocation ?? '',
-                toLocation: currentReimbursement?.toLocation ?? '',
-                description: currentReimbursement?.description ?? '',
-                document: currentReimbursement?.document ?? '',
-              }),
-            }}
-            enableReinitialize={true}
-            onSubmit={handleSubmit}
-            // The schema now depends on the chosen category: From/To are required for travel
-            // and not collected at all for meals, instead of being demanded everywhere and
-            // filled with junk to get past them.
-            validationSchema={getReimbursementSchema({
-              isEditing: !!currentReimbursement,
-              category: selectedReimbursementFor,
-            })}
-          >
-            {(formikProps) => (
-              <Form className='d-flex flex-column' noValidate id='pending_reimbursement_form'>
-
-                {/* Row 1: Date */}
-                <div className='row gx-2 gx-lg-3'>
-                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
-                    <DateInput
-                      isRequired={currentReimbursement ? false : true}
-                      inputLabel='Select Date'
-                      formikProps={formikProps}
-                      formikField='expenseDate'
-                      placeHolder='Select Date'
-                      // Phase 1: Constrain to batch period (one month).
-                      // If viewing a specific month, only allow dates in that month.
-                      maxDate={currentPeriod ? currentPeriod.endOf('month') : true}
-                      minDate={currentPeriod ? currentPeriod.startOf('month') : dayjs().startOf('month')}
-                    />
-                  </div>
-                </div>
-
-
-
-                {/* Row 2: Company Type + Company Name */}
-                <div className='row gx-2 gx-lg-3'>
-                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
-                    <WtFieldFormik
-                      name='clientTypeId'
-                      label='Company Type'
-                      placeholder='Select Company Type'
-                      options={companyTypeOptions}
-                      searchable
-                      clearable
-                      onValueChange={(v) =>
-                        handleClientTypeChange(
-                          v
-                            ? { value: v, label: companyTypeOptions.find((o: any) => o.value === v)?.label ?? v }
-                            : null,
-                          formikProps.setFieldValue,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
-                    <WtFieldFormik
-                      name='clientCompanyId'
-                      label='Company Name'
-                      placeholder={
-                        !formikProps.values.clientTypeId
-                          ? 'Select Company Type First'
-                          : filteredCompanies.length === 0
-                            ? 'No clients for this type'
-                            : 'Select Company Name'
-                      }
-                      options={[...filteredCompanies]
-                        .sort((a: any, b: any) => a.companyName.localeCompare(b.companyName))
-                        .map((c: any) => ({ value: c.id, label: c.companyName }))}
-                      disabled={!formikProps.values.clientTypeId}
-                      searchable
-                      clearable
-                      onValueChange={(v) => {
-                        const opt = filteredCompanies.find((c: any) => c.id === v);
-                        handleClientCompanyChange(
-                          v ? { value: v, label: opt?.companyName ?? v } : null,
-                          formikProps.setFieldValue,
-                        );
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Row 3: Project status filter + Project */}
-                <div className='row gx-2 gx-lg-3'>
-                  <div className='col-12 col-lg-4 mb-5 mb-lg-7'>
-                    {/* Filter only — never part of the saved record. */}
-                    <WtField
-                      label='Project Status'
-                      placeholder={
-                        projectsLoading
-                          ? 'Loading...'
-                          : projectStatusOptions.length === 0
-                            ? 'No statuses'
-                            : 'All Statuses'
-                      }
-                      options={projectStatusOptions}
-                      disabled={projectsLoading || projectStatusOptions.length === 0}
-                      value={selectedProjectStatus?.value ?? ''}
-                      onChange={(v) =>
-                        handleProjectStatusChange(
-                          v
-                            ? projectStatusOptions.find((o: any) => o.value === v) ?? { value: v, label: v }
-                            : null,
-                        )
-                      }
-                      clearable
-                    />
-                  </div>
-                  <div className='col-12 col-lg-8 mb-5 mb-lg-7'>
-                    <WtFieldFormik
-                      required={!currentReimbursement}
-                      name='projectId'
-                      label='Choose Project Name'
-                      placeholder={
-                        projectsLoading
-                          ? 'Loading Projects...'
-                          : projectOptions.length === 0
-                            ? 'No Ongoing Projects Found'
-                            : 'Search Project'
-                      }
-                      options={projectOptions}
-                      disabled={projectsLoading}
-                      searchable
-                      clearable
-                      disableAlphabeticalSort
-                      onValueChange={(v) =>
-                        handleProjectChange(
-                          v
-                            ? projectOptions.find((o: any) => o.value === v) ?? { value: v, label: v }
-                            : null,
-                          formikProps.setFieldValue,
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* Row 4: Reimbursement For + Amount */}
-                <div className='row gx-2 gx-lg-3'>
-                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
-                    <ReimbursementDropdown
-                      isRequired={true}
-                      handleChange={(option: any) => handleCategoryChange(option, formikProps.setFieldValue)}
-                      formikField='reimbursementTypeId'
-                      inputLabel='Reimbursement For'
-                      options={reimbursementOptions}
-                      value={selectedReimbursementFor}
-                    />
-                  </div>
-                  <div className='col-12 col-lg-6'>
-                    <TextInput
-                      isRequired={true}
-                      label='Enter Amount'
-                      margin='mb-5 mb-lg-7'
-                      formikField='amount'
-                      inputValidation='decimal'
-                    />
-                    {/* The cap, as the amount is typed. `isExceedingLimit` is computed once at
-                        create and surfaced days later as a red row an approver finds — by then
-                        the only person who could have acted on it is long gone. */}
-                    {(() => {
-                      const breach = describeLimitBreach(formikProps.values.amount, {
-                        perRequest: perRequestLimit,
-                        category: selectedReimbursementFor?.amountLimit,
-                        categoryName: selectedReimbursementFor?.label,
-                      });
-                      if (!breach) return null;
-                      return (
-                        <div style={{
-                          marginTop: -18, marginBottom: 18,
-                          fontSize: '0.78rem', fontWeight: 600, color: '#b45309',
-                        }}>
-                          {breach} — it can still be submitted, but expect a question.
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                {/* Advisory duplicate check. Two cab rides on one day are a real thing, so this
-                    warns and never blocks — matched against the drafts already on screen rather
-                    than a new endpoint, because those are what the user is filing against. */}
-                {(() => {
-                  const dupe = findDuplicateCandidate(drafts, {
-                    expenseDate: formikProps.values.expenseDate,
-                    amount: formikProps.values.amount,
-                    reimbursementTypeId: formikProps.values.reimbursementTypeId,
-                  }, currentReimbursement?.id);
-                  if (!dupe) return null;
-                  return (
-                    <div className='row'>
-                      <div className='col-lg-12 mb-7'>
-                        <div style={{
-                          padding: '10px 14px', borderRadius: 10,
-                          background: '#fffbeb', border: '1px solid #fde68a',
-                          color: '#92400e', fontSize: '0.82rem', fontWeight: 600,
-                        }}>
-                          You already have a {currencyPrefix()}{fmtAmount(dupe.amount ?? 0)} expense in this category on{' '}
-                          {dayjs(formikProps.values.expenseDate).format('DD MMM')}. Submit anyway if this is a separate claim.
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* From/To render only for categories that involve travelling between two
-                    places. They used to be required on every category, including meals and
-                    accommodation, so people typed junk to get past them. */}
-                {categoryRequiresLocation(selectedReimbursementFor) && (
-                <div className='row gx-2 gx-lg-3'>
-                  <div className='col-12 col-lg-6'>
-                    <label className='form-label fw-bold'>From Location <span className='text-danger'>*</span></label>
-                    <input
-                      type='text'
-                      className={`form-control form-control-lg form-control-solid${formikProps.touched.fromLocation && formikProps.errors.fromLocation ? ' is-invalid' : ''}`}
-                      placeholder='From Location'
-                      {...formikProps.getFieldProps('fromLocation')}
-                    />
-                    {formikProps.touched.fromLocation && formikProps.errors.fromLocation && (
-                      <div className='fv-plugins-message-container'>
-                        <div className='fv-help-block'>{String(formikProps.errors.fromLocation)}</div>
-                      </div>
-                    )}
-                  </div>
-                  <div className='col-12 col-lg-6 mb-5 mb-lg-7'>
-                    <label className='form-label fw-bold'>To Location <span className='text-danger'>*</span></label>
-                    <input
-                      type='text'
-                      className={`form-control form-control-lg form-control-solid${formikProps.touched.toLocation && formikProps.errors.toLocation ? ' is-invalid' : ''}`}
-                      placeholder='To Location'
-                      {...formikProps.getFieldProps('toLocation')}
-                    />
-                    {formikProps.touched.toLocation && formikProps.errors.toLocation && (
-                      <div className='fv-plugins-message-container'>
-                        <div className='fv-help-block'>{String(formikProps.errors.toLocation)}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                )}
-                {/* Row 6: Document Upload */}
-                <div className='row mb-5 mb-lg-7'>
-                  <div className='col-12'>
-                    <label className='mb-2 fw-bold'>Upload Reimbursement Bill</label>
-
-                    {/* Hidden real file input */}
-                    <input
-                      ref={fileInputRef}
-                      type='file'
-                      // Opens the camera directly on a phone instead of a file browser — a receipt is
-                      // something you photograph, not something you already have on disk.
-                      capture='environment'
-                      accept='image/*,application/pdf'
-                      className='d-none'
-                      onChange={(event) => uploadFile(event, formikProps, 5 * 1024 * 1024)}
-                    />
-
-                    <div className='d-flex align-items-center gap-2'>
-                      {/* Custom file control */}
-                      <div
-                        className='d-flex align-items-center p-0 overflow-hidden'
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          height: '46px',
-                          borderRadius: '0.475rem',
-                          border: '1px solid #e4e6ef',
-                          backgroundColor: '#f5f8fa',
-                        }}
-                      >
-                        {/* Choose File button */}
-                        <KitButton variant="outline" size="sm" className="flex-shrink-0 h-100"
-                          type='button'
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <KTIcon iconName='paper-clip' className='fs-5' />
-                          Choose File
-                        </KitButton>
-
-                        {/* Filename / placeholder */}
-                        <div className='d-flex align-items-center gap-2 px-3 overflow-hidden flex-grow-1'>
-                          {formikProps.values.document ? (
-                            <>
-                              <KTIcon iconName='document' className='fs-5 text-danger flex-shrink-0' />
-                              <span className='text-truncate fs-7' style={{ color: '#5e6278' }}>
-                                {String(formikProps.values.document).split('/').pop() ?? 'document'}
-                              </span>
-                            </>
-                          ) : (
-                            <span className='fs-7' style={{ color: '#a1a5b7' }}>No file chosen</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Action buttons — appear only when a document is attached */}
-                      {formikProps.values.document && (
-                        <>
-                          <KitButton variant="outline" size="icon-sm"
-                            type='button'
-                            className="flex-shrink-0"
-                            aria-label='Preview document' title='Preview document'
-                            onClick={() => setPreviewUrl(justUploadedUrl ?? String(formikProps.values.document))}
-                          >
-                            <KTIcon iconName='eye' className='fs-3' />
-                          </KitButton>
-                          <KitButton variant="outline" size="icon-sm"
-                            type='button'
-                            className="flex-shrink-0"
-                            aria-label='Remove document' title='Remove document'
-                            onClick={() => {
-                              formikProps.setFieldValue('document', '');
-                              if (fileInputRef.current) fileInputRef.current.value = '';
-                            }}
-                          >
-                            <i className='bi bi-trash3 fs-3 text-danger' />
-                          </KitButton>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Row 7: Remark */}
-                <div className='row'>
-                  <div className='col-12'>
-                    <TextInput
-                      label='Remark'
-                      margin='mb-5 mb-lg-7'
-                      formikField='description'
-                      isRequired={false}
-                    />
-                  </div>
-                </div>
-
-                {/* Submit */}
-                <div className='d-flex justify-content-end gap-2 mt-5 flex-wrap'>
-                  <KitButton
-                    type='submit'
-                    disabled={formLoading || !formikProps.isValid || formikProps.isSubmitting}
-                  >
-                    {!formLoading && (editMode ? 'Save Changes' : 'Save to Pending Requests')}
-                    {formLoading && (
-                      <span className='indicator-progress' style={{ display: 'block' }}>
-                        Please wait...{' '}
-                        <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                      </span>
-                    )}
-                  </KitButton>
-                </div>
-
-              </Form>
-            )}
-          </Formik>
-        </Modal.Body>
-      </Modal>
+      {/* Add / Edit — the one reimbursement form (components/ReimbursementFormDialog). */}
+      <ReimbursementFormDialog
+        open={show}
+        onOpenChange={(next) => { if (!next) handleClose(); }}
+        mode={editMode ? 'edit' : 'create'}
+        title={editMode ? 'Edit reimbursement request' : 'New reimbursement request'}
+        description={currentPeriod && !editMode ? `For ${currentPeriod.format('MMMM YYYY')}` : undefined}
+        record={editMode ? currentReimbursement : null}
+        initialValues={formInitialValues}
+        // A batch is one month: dates stay inside the period being viewed, and never in the future.
+        minDate={(currentPeriod ? currentPeriod.startOf('month') : dayjs().startOf('month')).format('YYYY-MM-DD')}
+        maxDate={(currentPeriod && currentPeriod.endOf('month').isBefore(dayjs(), 'day') ? currentPeriod.endOf('month') : dayjs()).format('YYYY-MM-DD')}
+        submitLabel={editMode ? 'Save changes' : 'Save to pending requests'}
+        submitting={formLoading}
+        onSubmit={handleSubmit}
+        duplicatePool={drafts}
+        excludeId={currentReimbursement?.id}
+        perRequestLimit={perRequestLimit}
+      />
     </>
   );
 });
