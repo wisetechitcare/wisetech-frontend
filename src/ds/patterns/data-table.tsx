@@ -38,6 +38,16 @@ import { EmptyState } from "./empty-state"
 
 export type { ColumnDef } from "@tanstack/react-table"
 
+/** What a toolbar control (Export, a bulk menu) needs to act on exactly what the table is showing. */
+export type DataTableToolbarContext<T> = {
+  /** Rows after search, all pages. */
+  rows: T[]
+  /** Ticked rows (empty without `selectable`). */
+  selected: T[]
+  /** Columns currently shown, by id — an export should leave out what the user hid. */
+  visibleColumnIds: string[]
+}
+
 /**
  * A sortable column header: the button names the column and its sort state; the `<th>` carries
  * `aria-sort`. Use it in a column's `header` when that column may be sorted.
@@ -157,8 +167,8 @@ export function DataTable<T>({
   selectable?: boolean
   /** Bulk actions shown in the selection bar while rows are selected (live `TableSelectionBar`). */
   selectionActions?: (rows: Row<T>[], clear: () => void) => React.ReactNode
-  /** Extra controls in the toolbar (Filters button, export). */
-  toolbar?: React.ReactNode
+  /** Extra controls in the toolbar (Filters button, export). A function receives the table's live state. */
+  toolbar?: React.ReactNode | ((ctx: DataTableToolbarContext<T>) => React.ReactNode)
   loading?: boolean
   /** Loading failed: shown instead of rows, with Retry. */
   error?: string
@@ -368,7 +378,13 @@ export function DataTable<T>({
               />
             </InputGroup>
             <div className="ml-auto flex items-center gap-2">
-              {toolbar}
+              {typeof toolbar === "function"
+                ? toolbar({
+                    rows: table.getFilteredRowModel().rows.map((r) => r.original),
+                    selected: selected.map((r) => r.original),
+                    visibleColumnIds: table.getVisibleLeafColumns().map((c) => c.id),
+                  })
+                : toolbar}
               <Button
                 variant="outline"
                 size="icon"

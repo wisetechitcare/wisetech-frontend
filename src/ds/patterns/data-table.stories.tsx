@@ -4,6 +4,7 @@ import { Download, MoreHorizontal, UserPlus } from 'lucide-react'
 import { animationsSettled } from '@/ds/lib/motion'
 import { Badge } from '@/ds/ui/badge'
 import { Button } from '@/ds/ui/button'
+import { Card, CardContent } from '@/ds/ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ds/ui/dropdown-menu'
 import { DataTable, SortableHeader, type ColumnDef } from './data-table'
 import { EmptyState } from './empty-state'
@@ -328,15 +329,40 @@ export const PhoneCards: Story = {
   decorators: [(Story) => <div className="w-[360px]"><Story /></div>],
   args: {
     renderCard: (r: Employee) => (
-      <div className="rounded-2xl border bg-card p-3 text-sm">
-        <div className="font-semibold">{r.name}</div>
-        <div className="text-muted-foreground">{r.designation} · {r.department}</div>
-      </div>
+      <Card size="sm" variant="panel">
+        <CardContent className="text-sm">
+          <div className="font-semibold">{r.name}</div>
+          <div className="text-muted-foreground">{r.designation} · {r.department}</div>
+        </CardContent>
+      </Card>
     ),
   },
   play: async ({ canvas, canvasElement }) => {
     await expect(canvas.getByRole('list', { name: 'Employees' })).toBeVisible()
     await expect(canvasElement.querySelector('[data-slot="card"] table')?.closest('[data-slot="card"]')).not.toBeVisible()
     await expect(canvas.getByText('1–10 of 34')).toBeInTheDocument()
+  },
+}
+
+/** `toolbar` as a function gets the live table — rows after search, the selection, visible columns — so an
+ *  Export acts on exactly what is on screen. */
+export const ToolbarWithTableState: Story = {
+  args: {
+    selectable: true,
+    toolbar: ({ rows, selected, visibleColumnIds }) => (
+      <Button variant="outline" data-columns={visibleColumnIds.length}>
+        <Download data-icon="inline-start" aria-hidden /> Export {selected.length ? `${selected.length} selected` : `${rows.length} rows`}
+      </Button>
+    ),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('button', { name: 'Export 34 Rows' })).toBeInTheDocument()
+    // Search narrows what an export would take…
+    await userEvent.type(canvas.getByRole('textbox', { name: 'Search employees' }), 'Pune')
+    const narrowed = await canvas.findByRole('button', { name: /^Export \d+ Rows$/ })
+    await expect(Number(narrowed.textContent?.match(/\d+/)?.[0])).toBeLessThan(34)
+    // …and a selection wins over the search result.
+    await userEvent.click(canvas.getAllByRole('checkbox', { name: /Select row/ })[0])
+    await expect(await canvas.findByRole('button', { name: 'Export 1 Selected' })).toBeInTheDocument()
   },
 }

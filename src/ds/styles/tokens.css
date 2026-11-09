@@ -157,7 +157,9 @@
 
   --secondary: oklch(0.29 0.04 255);
   --secondary-foreground: oklch(0.92 0.006 250);
-  --accent: color-mix(in oklch, var(--primary) 16%, var(--card));
+  /* OKLab, not OKLCH: OKLCH mixing interpolates hue, so a tenant brand far from the navy surface (green, red)
+     would bend toward blue. OKLab blends the colour itself. */
+  --accent: color-mix(in oklab, var(--primary) 16%, var(--card));
   --accent-foreground: oklch(0.93 0.02 250);
 
   --success: oklch(0.7 0.15 155);
@@ -201,7 +203,7 @@
 
   --sidebar: oklch(0.205 0.045 255);
   --sidebar-foreground: oklch(0.86 0.01 250);
-  --sidebar-accent: color-mix(in oklch, var(--primary) 14%, var(--sidebar));
+  --sidebar-accent: color-mix(in oklab, var(--primary) 14%, var(--sidebar));
   --sidebar-accent-foreground: oklch(0.96 0.01 250);
 
 }
