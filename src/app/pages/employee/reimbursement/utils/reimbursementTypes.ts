@@ -143,6 +143,8 @@ export interface ReimbursementDraft {
     projectId?: string | null;
     isExceedingLimit?: boolean | null;
     createdAt?: string | null;
+    /** Included by PendingReimbursementRepository (select: id, type, icon). */
+    reimbursementType?: { id: string; type: string; icon?: string | null } | null;
 }
 
 /**

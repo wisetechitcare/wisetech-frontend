@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, us
 import ReactDOM from 'react-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
-import { MRT_ColumnDef } from 'material-react-table';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { toneStyle } from '@/ds/lib/tone';
 
 import { Form, Formik, FormikValues } from 'formik';
 import * as Yup from 'yup';
@@ -31,7 +31,7 @@ import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
 import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
 import { Option } from '@models/dropdown';
 import { KTIcon } from '@metronic/helpers';
-import { Loader2, Plus, Send } from 'lucide-react';
+import { Eye, FileX, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/ds/ui/avatar';
 import { Badge } from '@/ds/ui/badge';
 import { Card, CardContent } from '@/ds/ui/card';
@@ -405,130 +405,110 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     [filteredDrafts]
   );
 
-  const columns = useMemo<MRT_ColumnDef<any>[]>(() => [
+  const columns = useMemo<ColumnDef<ReimbursementDraft, any>[]>(() => [
     {
       accessorKey: 'expenseDate',
-      header: 'Date',
-      size: 150,
-      enableColumnActions: false,
-      Cell: ({ row }) => (
-        <span>
+      meta: { label: 'Date' },
+      header: ({ column }) => <SortableHeader column={column} title="Date" />,
+      cell: ({ row }) => (
+        <span className="whitespace-nowrap">
           {dayjs(row.original.expenseDate).format('DD MMM YYYY')}{' '}
-          <span style={{ color: '#94a3b8' }}>({dayjs(row.original.expenseDate).format('ddd')})</span>
+          <span className="text-muted-foreground">({dayjs(row.original.expenseDate).format('ddd')})</span>
         </span>
       ),
-      Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
+      footer: () => <span className="uppercase">Total</span>,
     },
     {
       accessorKey: 'clientTypeId',
+      meta: { label: 'Company type' },
       header: 'Company Type',
-      size: 130,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{resolveClientType(row.original.clientTypeId)}</span>,
+      cell: ({ row }) => resolveClientType(row.original.clientTypeId) || '—',
     },
     {
       accessorKey: 'clientCompanyId',
+      meta: { label: 'Company name' },
       header: 'Company Name',
-      size: 180,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{resolveClientCompany(row.original.clientCompanyId)}</span>,
+      cell: ({ row }) => resolveClientCompany(row.original.clientCompanyId) || '—',
     },
     {
-      accessorKey: 'projectId',
-      header: 'Project Name',
-      size: 200,
-      enableColumnActions: false,
-      Cell: ({ row }) => {
-        return <span>{projectTitle(row.original, resolveProject)}</span>;
-      },
+      id: 'project',
+      accessorFn: (r) => projectTitle(r, resolveProject),
+      meta: { label: 'Project' },
+      header: ({ column }) => <SortableHeader column={column} title="Project Name" />,
+      cell: ({ getValue }) => <span className="block max-w-72 whitespace-normal">{getValue() as string}</span>,
     },
     {
-      accessorKey: 'reimbursementType.type',
-      header: 'Type',
-      size: 140,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.reimbursementType?.type || 'N/A'}</span>,
+      id: 'type',
+      accessorFn: (r) => r.reimbursementType?.type ?? '',
+      meta: { label: 'Type' },
+      header: ({ column }) => <SortableHeader column={column} title="Type" />,
+      cell: ({ getValue }) => (getValue() as string) || '—',
     },
     {
       accessorKey: 'amount',
-      header: 'Amount',
-      size: 110,
-      enableColumnActions: false,
-      Cell: ({ row }) => (
+      meta: { label: 'Amount' },
+      header: ({ column }) => <SortableHeader column={column} title="Amount" />,
+      cell: ({ row }) => (
         // Colour alone is not a status — the chip carries the word too.
-        <span className='d-inline-flex align-items-center gap-2'>
-          <span className={`text-dark fw-bold fs-7 ${sensitive.cls}`}>{fmtAmount(row.original.amount)}</span>
+        <span className="inline-flex items-center gap-2">
+          <span className={`tabular font-semibold text-foreground ${sensitive.cls}`}>{fmtAmount(row.original.amount)}</span>
           {row.original.isExceedingLimit && <OverLimitChip />}
         </span>
       ),
-      Footer: () => <span className={`text-dark fw-bold fs-7 ${sensitive.cls}`}>{fmtAmount(totalAmount)}</span>,
+      footer: () => <span className={`tabular ${sensitive.cls}`}>{fmtAmount(totalAmount)}</span>,
     },
     {
       id: 'route',
-      accessorFn: (row: any) => [row.fromLocation, row.toLocation].filter(Boolean).join(' → '),
+      accessorFn: (r) => [r.fromLocation, r.toLocation].filter(Boolean).join(' → '),
+      meta: { label: 'Route' },
       header: 'Route',
-      size: 170,
-      enableColumnActions: false,
-      Cell: ({ row }) =>
+      cell: ({ row }) =>
         row.original.fromLocation || row.original.toLocation
-          ? <span>{row.original.fromLocation || '?'} → {row.original.toLocation || '?'}</span>
-          : <span>N/A</span>,
+          ? `${row.original.fromLocation || '?'} → ${row.original.toLocation || '?'}`
+          : '—',
     },
     {
       accessorKey: 'description',
+      meta: { label: 'Note' },
       header: 'Note',
-      size: 150,
-      enableColumnActions: false,
-      Cell: ({ row }) => <span>{row.original.description || 'N/A'}</span>,
+      cell: ({ row }) => <span className="block max-w-56 whitespace-normal">{row.original.description || '—'}</span>,
     },
     {
-      accessorKey: 'document',
-      header: 'Document',
-      size: 100,
+      id: 'document',
       enableSorting: false,
-      enableColumnActions: false,
-      Cell: ({ row }) => (
-        <KitButton variant="ghost" size="icon-sm" type="submit"
-          className="w-[20px]"
+      meta: { label: 'Receipt' },
+      header: 'Receipt',
+      cell: ({ row }) => (
+        <KitButton
+          variant="ghost"
+          size="icon-sm"
           onClick={() => { if (row.original.document) setPreviewUrl(row.original.document); }}
           disabled={!row.original.document}
           aria-label={row.original.document ? 'Preview receipt' : 'No receipt attached'}
-          title={row.original.document ? 'Preview document' : 'No document attached'}
+          title={row.original.document ? 'Preview receipt' : 'No receipt attached'}
         >
-          {row.original.document
-            ? <KTIcon iconName='eye' className='fs-3' />
-            : <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
-          }
+          {row.original.document ? <Eye aria-hidden /> : <FileX aria-hidden className="text-muted-foreground" />}
         </KitButton>
       ),
     },
     {
-      accessorKey: 'actions',
-      header: 'Action',
-      size: 130,
+      id: 'actions',
       enableSorting: false,
-      enableColumnActions: false,
-      Cell: ({ row }) => (
-        <div className='flex items-center justify-center space-x-4'>
-          <KitButton variant="ghost" size="icon-sm" type="submit"
-            className="w-[20px]"
-            onClick={() => handleEdit(row.original)}
-            aria-label='Edit this expense'
-            title='Edit'
-          >
-            <i className='bi bi-pencil fs-4 text-gray-500' />
+      enableHiding: false,
+      meta: { pin: 'end' },
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <KitButton variant="ghost" size="icon-sm" onClick={() => handleEdit(row.original)} aria-label="Edit this expense" title="Edit">
+            <Pencil aria-hidden />
           </KitButton>
-          <KitButton variant="ghost" size="icon-sm" type="submit"
-            className="w-4"
-            onClick={() => handleDelete(row.original.id)}
-            aria-label='Delete this expense'
-            title='Delete'
-          >
-            <i className='bi bi-trash3 fs-4 text-danger' />
+          <KitButton variant="ghost" size="icon-sm" onClick={() => handleDelete(row.original.id)} aria-label="Delete this expense" title="Delete">
+            <Trash2 aria-hidden className="text-destructive" />
           </KitButton>
         </div>
       ),
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleEdit/handleDelete are stable in effect (state setters + loadDrafts)
   ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount, sensitive.cls]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -559,7 +539,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           No `paddingRight` on the row: it pushed this row's right edge 1.25rem inside the
           period bar's above, so the buttons on the two rows could never line up. */}
       {(loading || drafts.length > 0) && (
-        <div className='d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4'>
+        <div className='mb-4 flex flex-wrap items-center justify-between gap-3'>
           <h2 className='m-0 text-base font-bold text-foreground lg:text-lg'>Reimbursement Request Inbox</h2>
           <div className={TOOLBAR_ROW}>
             {hasPermission(
@@ -575,11 +555,9 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 </KitButton>
               )}
             {drafts.length > 0 && (
-              <KitButton size="sm" variant="success" onClick={handleSendForApproval} disabled={submitting}>
-                {submitting
-                  ? <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden />
-                  : <Send data-icon="inline-start" aria-hidden />}
-                {submitting ? 'Submitting...' : 'Send for Approval'}
+              <KitButton size="sm" variant="success" onClick={handleSendForApproval} loading={submitting}>
+                {!submitting && <Send data-icon="inline-start" aria-hidden />}
+                {submitting ? 'Submitting…' : 'Send for Approval'}
               </KitButton>
             )}
           </div>
@@ -593,60 +571,43 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       {/* Table — only shown when there are drafts or while loading */}
       {/* Phase 1: Show filtered drafts for current period */}
       {!draftsError && (loading || filteredDrafts.length > 0) && (
-        <MaterialTable
+        <DataTable<ReimbursementDraft>
+          caption="Reimbursement request inbox"
           data={filteredDrafts}
           columns={columns}
-          tableName='Pending Reimbursements'
-          hideFilters={false}
-          showColumnFooter={true}
-          renderMobileCard={({ row }: any) => (
-            <div data-wt-control="row" {...pressableProps(() => handleEdit(row.original))}
-              onClick={() => handleEdit(row.original)}
-              style={{
-                padding: '12px', background: '#fff', border: `2px solid ${row.original?.isExceedingLimit ? '#ef4444' : '#f59e0b'}`,
-                borderRadius: '8px', marginBottom: '8px', cursor: 'pointer'
-              }}
+          getRowId={(r) => String(r.id)}
+          loading={loading}
+          searchPlaceholder="Search drafts"
+          initialSorting={[{ id: 'expenseDate', desc: true }]}
+          // A draft is waiting (warning); one over its cap is flagged (danger) — the word is in the OverLimitChip.
+          rowTone={(r) => (r.isExceedingLimit ? 'danger' : 'warning')}
+          renderCard={(r) => (
+            <div
+              data-wt-control="row"
+              {...pressableProps(() => handleEdit(r))}
+              onClick={() => handleEdit(r)}
+              aria-label={`Edit the ${r.reimbursementType?.type ?? ''} expense of ${dayjs(r.expenseDate).format('DD MMM')}`}
+              style={toneStyle(r.isExceedingLimit ? 'danger' : 'warning')}
+              className="cursor-pointer rounded-2xl border bg-card p-3 text-sm shadow-[inset_3px_0_0_var(--tone)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+              <div className="mb-2 flex items-start justify-between gap-3">
                 <div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Date</div>
-                  <div style={{ fontWeight: 600, color: '#0f172a' }}>{dayjs(row.original.expenseDate).format('DD MMM YYYY')}</div>
+                  <div className="text-xs text-muted-foreground uppercase">Date</div>
+                  <div className="font-semibold text-foreground">{dayjs(r.expenseDate).format('DD MMM YYYY')}</div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Amount</div>
-                  <div style={{ fontWeight: 700, color: '#0f172a' }} className={sensitive.cls}>{currencyPrefix()}{fmtAmount(row.original.amount)}</div>
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground uppercase">Amount</div>
+                  <div className={`tabular font-bold text-foreground ${sensitive.cls}`}>{currencyPrefix()}{fmtAmount(r.amount)}</div>
                 </div>
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#475569', marginBottom: '6px' }}>
-                <strong>{row.original.reimbursementType?.type || 'N/A'}</strong>
-              </div>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: '1.3' }}>
-                {row.original.clientTypeId && `${resolveClientType(row.original.clientTypeId)} • ${resolveClientCompany(row.original.clientCompanyId) || 'N/A'}`}
-              </div>
+              <div className="font-semibold text-foreground">{r.reimbursementType?.type || '—'}</div>
+              {r.clientTypeId && (
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {resolveClientType(r.clientTypeId)} · {resolveClientCompany(r.clientCompanyId) || '—'}
+                </div>
+              )}
             </div>
           )}
-          muiTableProps={{
-            muiTableBodyRowProps: ({ row }: any) => {
-              if (row.original?.isExceedingLimit) {
-                return {
-                  sx: {
-                    backgroundColor: 'rgba(239,68,68,0.08)',
-                    '& td:first-of-type': { borderLeft: '4px solid #ef4444 !important' },
-                    transition: 'background-color 0.12s ease',
-                    '&:hover td': { backgroundColor: 'rgba(239,68,68,0.14) !important' },
-                  },
-                };
-              }
-              return {
-                sx: {
-                  backgroundColor: 'rgba(245,158,11,0.04)',
-                  '& td:first-of-type': { borderLeft: '4px solid #f59e0b !important' },
-                  transition: 'background-color 0.12s ease',
-                  '&:hover td': { backgroundColor: 'rgba(245,158,11,0.08) !important' },
-                },
-              };
-            },
-          }}
         />
       )}
 

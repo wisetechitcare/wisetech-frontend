@@ -49,7 +49,9 @@ export function SortableHeader<T>({ column, title }: { column: Column<T, unknown
     <Button
       variant="ghost"
       size="sm"
-      className="-ml-2 h-8 px-2 font-medium tracking-normal"
+      // The header's own type (heading-case: uppercase, letter-spacing; size, weight): a sortable column must
+      // read exactly like its plain neighbours — the button only adds the arrow and the click.
+      className="-ml-2 h-8 px-2 font-[inherit] text-[length:inherit] tracking-[inherit] [text-transform:inherit]"
       onClick={() => column.toggleSorting(dir === "asc")}
     >
       {title}
@@ -240,6 +242,12 @@ export function DataTable<T>({
   const cellPad = density === "compact" ? "py-1.5" : "py-3"
   const hasFooter = table.getAllLeafColumns().some((c) => c.columnDef.footer !== undefined)
   const narrowCol = (id: string) => (id === SELECT_COLUMN_ID || id === EXPAND_COLUMN_ID) && "w-10"
+  // `meta: { pin: "end" }` keeps a column (row actions) at the right edge while the rest scrolls sideways —
+  // otherwise on a wide table the actions are the first thing to fall off screen.
+  const pinEnd = (c: Column<T, unknown>) =>
+    (c.columnDef.meta as { pin?: string } | undefined)?.pin === "end" &&
+    // Opaque (it covers scrolled cells) yet in its row's tint: the tint layered over the card colour.
+    "sticky right-0 z-[1] [background:linear-gradient(var(--row-bg,transparent),var(--row-bg,transparent)),var(--card)] shadow-[-10px_0_10px_-10px_rgb(0_0_0/0.18)]"
 
   let body: React.ReactNode
   if (loading) {
@@ -295,7 +303,7 @@ export function DataTable<T>({
             style={tone ? toneStyle(tone) : undefined}
             // A soft tint and a 3px edge in the row's tone: the state reads at a glance, the text stays readable.
             className={cn(
-              tone && "bg-[color-mix(in_oklch,var(--tone)_7%,transparent)] shadow-[inset_3px_0_0_var(--tone)] hover:bg-[color-mix(in_oklch,var(--tone)_12%,transparent)]",
+              tone && "[--row-bg:color-mix(in_oklch,var(--tone)_7%,transparent)] bg-(--row-bg) shadow-[inset_3px_0_0_var(--tone)] hover:[--row-bg:color-mix(in_oklch,var(--tone)_12%,transparent)]",
               onRowClick && "cursor-pointer outline-none focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset",
             )}
             tabIndex={onRowClick ? 0 : undefined}
@@ -309,7 +317,7 @@ export function DataTable<T>({
             } : undefined}
           >
             {row.getVisibleCells().map((cell) => (
-              <TableCell key={cell.id} className={cn(cellPad, narrowCol(cell.column.id))}>
+              <TableCell key={cell.id} className={cn(cellPad, narrowCol(cell.column.id), pinEnd(cell.column))}>
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
             ))}
@@ -425,7 +433,7 @@ export function DataTable<T>({
                     <TableHead
                       key={h.id}
                       aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : h.column.getCanSort() ? "none" : undefined}
-                      className={cn(narrowCol(h.column.id))}
+                      className={cn(narrowCol(h.column.id), pinEnd(h.column))}
                     >
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                     </TableHead>
@@ -440,7 +448,7 @@ export function DataTable<T>({
               {table.getFooterGroups().map((fg) => (
                 <TableRow key={fg.id}>
                   {fg.headers.map((h) => (
-                    <TableCell key={h.id} className={cn(cellPad, "font-semibold", narrowCol(h.column.id))}>
+                    <TableCell key={h.id} className={cn(cellPad, "font-semibold", narrowCol(h.column.id), pinEnd(h.column))}>
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.footer, h.getContext())}
                     </TableCell>
                   ))}

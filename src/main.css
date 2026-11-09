@@ -43,6 +43,15 @@
   all: revert-layer;
 }
 
+/* The page canvas in dark mode. Metronic's `.content` is `$content-background: #F6F9FC` with no dark override,
+   so in dark mode every page kept a LIGHT canvas, and anything drawn straight on it — section headings,
+   search boxes, toolbar buttons, pagers, all in light-on-dark tokens — went light-on-light and vanished.
+   Dark takes the design system's own canvas token, so canvas, surfaces and text come from ONE palette. Light
+   mode is untouched. (0,2,1) beats Metronic's `.content` (0,1,0) whatever the load order. */
+:root:is([data-bs-theme="dark"], .dark) .content {
+  background-color: var(--background);
+}
+
 /* socicon (style.react.scss) prints any [data-icon] attribute as an icon-font glyph; the kit uses
    data-icon="inline-start|inline-end" to mark icon slots, which must not render as text — also on
    plain links styled with buttonVariants, which carry no data-slot. */
