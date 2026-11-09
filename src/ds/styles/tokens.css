@@ -111,6 +111,19 @@
 }
 
 .dark {
+  /* Aliases re-declared with the SAME expressions as :root. A custom property resolves its var() where it
+     is declared, so a :root-only alias freezes the light theme for any .dark scope below <html> (a dark
+     panel in a light page, each story on a Storybook docs page): cards kept dark ink on a dark surface.
+     On <html> itself this is a no-op. Any new alias of another token belongs in both blocks. */
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+  --chart-1: var(--brand);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --chrome: color-mix(in oklch, var(--card) 100%, transparent);
+
   /* The brand itself stays the tenant's colour on buttons; text, links and rings that sit ON dark
      surfaces use a light shade derived from it. Surfaces are a deep brand-tinted navy, never black. */
   --primary: oklch(from var(--brand) 0.72 c h);

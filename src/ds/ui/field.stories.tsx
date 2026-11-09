@@ -25,9 +25,10 @@ import {
 } from './field'
 
 /**
- * THE labelled control: label above, control, then hint or error — for every input type. Replaces
- * the live kit's `WtField` frame (and its floating-label notch). The label is always visible; the
- * error is linked to the control so screen readers announce it.
+ * THE labelled control: a floating label, the control, then a hint or an error — for every input type.
+ * The label rests inside the empty control and floats onto its border on focus or once there is a value,
+ * so it is never lost; the error is linked to the control so screen readers announce it. Replaces the live
+ * kit's `WtField` frame (and its measured floating-label notch).
  */
 const meta = {
   title: 'Components/Field',

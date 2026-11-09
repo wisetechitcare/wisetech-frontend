@@ -53,15 +53,18 @@
  * field forces it for anything else.
  *
  * The floated label masks the border with the surface behind the field (no measured notch — the bug class the
- * live WtField was rebuilt to fight). Unlayered so it wins over the controls' utility colours. */
-:root {
-  --field-surface: var(--color-background);
-}
+ * live WtField was rebuilt to fight). Unlayered so it wins over the controls' utility colours.
+ *
+ * Tokens here are the RAW ones (--foreground, --card…), never Tailwind's --color-* aliases: a custom property
+ * resolves its var() where it is DECLARED, and the aliases are declared on :root, so they freeze the root
+ * theme. Raw tokens are redefined by every theme scope (.dark on <html>, or on a dark panel inside a light
+ * page). For the same reason --field-surface has no :root default: the label falls back to --background
+ * itself, resolved inside the field's own scope. */
 [data-slot="card"] {
-  --field-surface: var(--color-card);
+  --field-surface: var(--card);
 }
 :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="sheet-content"], [data-slot="drawer-content"], [data-slot="popover-content"]) {
-  --field-surface: var(--color-popover);
+  --field-surface: var(--popover);
 }
 
 .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])) {
@@ -84,7 +87,7 @@
   white-space: nowrap;
   pointer-events: none;
   font-weight: 400;
-  color: var(--color-muted-foreground);
+  color: var(--muted-foreground);
   transition: top 200ms var(--ease-spring), scale 200ms var(--ease-spring), inset-inline-start 200ms var(--ease-spring),
     color 150ms;
 }
@@ -102,8 +105,8 @@
   inset-inline-start: 1.625rem;
   max-width: calc(100% - 2.5rem);
   font-weight: 500;
-  color: var(--color-foreground);
-  background: linear-gradient(to bottom, var(--field-surface) 55%, transparent 55%);
+  color: var(--foreground);
+  background: linear-gradient(to bottom, var(--field-surface, var(--background)) 55%, transparent 55%);
 }
 .field-floating:has(> [data-slot="textarea"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
   inset-inline-start: 1.125rem; /* textarea corners are 12px */
@@ -112,10 +115,10 @@
   inset-inline-start: 2.375rem; /* the chips box grows taller and reaches its full 2rem radius */
 }
 .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):focus-within > [data-slot="field-label"] {
-  color: var(--color-primary);
+  color: var(--primary);
 }
 .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):is([data-invalid="true"], :has([aria-invalid="true"])) > [data-slot="field-label"] {
-  color: var(--color-destructive);
+  color: var(--destructive);
 }
 /* While the label rests inside, the control shows nothing else (its placeholder appears once the label moves). */
 .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):not(:is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"])) :is(input, textarea)::placeholder,
@@ -137,15 +140,15 @@
   border-radius: 0.75rem;
 }
 :is([data-slot="select-item"][data-highlighted], [data-slot="combobox-item"][data-highlighted], [data-slot="command-item"][data-selected="true"], [data-slot^="dropdown-menu-"][data-slot$="item"][data-highlighted]:not([data-variant="destructive"])) {
-  background-color: var(--color-muted);
-  color: var(--color-foreground);
+  background-color: var(--muted);
+  color: var(--foreground);
 }
 /* The chosen tint is a layer behind the row's content, not the row's background: Animate UI pins each row's
    background to transparent (inline !important) and draws its own highlight that glides between rows — the
    smooth hover. A pseudo-element keeps the chosen value tinted underneath that motion. */
 :is([data-slot="select-item"][data-selected], [data-slot="combobox-item"][data-selected], [data-slot="command-item"][data-checked="true"]) {
   isolation: isolate;
-  color: var(--color-accent-foreground);
+  color: var(--accent-foreground);
   font-weight: 500;
 }
 :is([data-slot="select-item"][data-selected], [data-slot="combobox-item"][data-selected], [data-slot="command-item"][data-checked="true"])::before {
@@ -154,7 +157,7 @@
   inset: 0;
   z-index: -1;
   border-radius: inherit;
-  background-color: var(--color-accent);
+  background-color: var(--accent);
 }
 
 /* ── Dropdown arrows point down when closed and flip up while their list is open ─────────────────────────

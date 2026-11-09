@@ -1,48 +1,53 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, userEvent } from 'storybook/test'
+import { expect, userEvent, waitFor } from 'storybook/test'
+import { Field, FieldDescription, FieldError, FieldLabel } from './field'
 import { Input } from './input'
-import { Label } from './label'
 
-/** Text input. Always paired with a visible `Label`; errors are linked with `aria-describedby`. */
+/**
+ * Text input. In a form it always sits in a `Field` with a `FieldLabel`, so it gets the app-wide floating
+ * label (rests inside the empty pill, floats onto the border on focus or once filled), a hint below, and
+ * an error linked with `aria-describedby`. The bare `Input` is only for places that label it otherwise
+ * (a table filter with an `aria-label`).
+ */
 const meta = {
   title: 'Components/Input',
   component: Input,
   args: { placeholder: 'e.g. Aarav Sharma' },
   render: (args) => (
-    <div className="w-80 space-y-1.5">
-      <Label htmlFor="name">Full name</Label>
-      <Input id="name" {...args} />
-    </div>
+    <Field className="w-80">
+      <FieldLabel htmlFor="name">Full name</FieldLabel>
+      <Input id="name" aria-describedby="name-hint" {...args} />
+      <FieldDescription id="name-hint">As it appears on the PAN card.</FieldDescription>
+    </Field>
   ),
 } satisfies Meta<typeof Input>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Typing updates the value. */
+/** Typing updates the value; the label floats on focus and stays up once there is a value. */
 export const Default: Story = {
   play: async ({ canvas }) => {
     const input = canvas.getByLabelText('Full Name')
     await userEvent.type(input, 'Aarav Sharma')
     await expect(input).toHaveValue('Aarav Sharma')
+    await expect(input).toHaveAccessibleDescription('As it appears on the PAN card.')
   },
 }
 
-/** Invalid input: `aria-invalid` plus a described error message. */
+/** Invalid input: `aria-invalid` plus a described error message; label, border and message turn red. */
 export const Invalid: Story = {
   render: () => (
-    <div className="w-80 space-y-1.5">
-      <Label htmlFor="email">Work email</Label>
+    <Field data-invalid className="w-80">
+      <FieldLabel htmlFor="email">Work email</FieldLabel>
       <Input id="email" type="email" defaultValue="aarav@" aria-invalid aria-describedby="email-error" />
-      <p id="email-error" className="text-xs text-destructive-foreground">
-        Enter a complete email address.
-      </p>
-    </div>
+      <FieldError id="email-error">Enter a complete email address.</FieldError>
+    </Field>
   ),
   play: async ({ canvas }) => {
     const input = canvas.getByLabelText('Work Email')
     await expect(input).toHaveAttribute('aria-invalid', 'true')
-    await expect(input).toHaveAccessibleDescription('Enter a complete email address.')
+    await waitFor(() => expect(input).toHaveAccessibleDescription('Enter a complete email address.'))
   },
 }
 
