@@ -1,3 +1,4 @@
+import * as React from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test'
 import { Download, MoreHorizontal, UserPlus } from 'lucide-react'
@@ -391,5 +392,31 @@ export const NumberedPages: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Page 3' }))
     await expect(canvas.getByText('21–30 of 34')).toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: 'Page 3' })).toHaveAttribute('aria-current', 'page')
+  },
+}
+
+/** `stateKey` remembers this viewer's widths, hidden columns and density: resize, remount, still resized. */
+function RemountableTable(props: React.ComponentProps<typeof DataTable<Employee>>) {
+  const [mounted, setMounted] = React.useState(true)
+  return (
+    <div className="space-y-3">
+      <Button variant="outline" size="sm" onClick={() => { setMounted(false); setTimeout(() => setMounted(true), 0) }}>Remount table</Button>
+      {mounted && <DataTable<Employee> {...props} stateKey="story.remembers-widths" />}
+    </div>
+  )
+}
+
+export const RemembersWidths: Story = {
+  render: (args) => <RemountableTable {...args} />,
+  beforeEach: () => { try { localStorage.removeItem('wt-table:story.remembers-widths') } catch { /* noop */ } },
+  play: async ({ canvas }) => {
+    const handle = await canvas.findByRole('separator', { name: 'Resize Branch' })
+    const before = Number(handle.getAttribute('aria-valuenow'))
+    handle.focus()
+    await userEvent.keyboard('{Shift>}{ArrowRight}{ArrowRight}{/Shift}')
+    await new Promise((r) => setTimeout(r, 400)) // the save is debounced
+    await userEvent.click(canvas.getByRole('button', { name: 'Remount Table' }))
+    const again = await canvas.findByRole('separator', { name: 'Resize Branch' })
+    await expect(Number(again.getAttribute('aria-valuenow'))).toBe(before + 80)
   },
 }

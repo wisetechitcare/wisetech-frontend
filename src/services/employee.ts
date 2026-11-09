@@ -1790,6 +1790,15 @@ export const deletePendingReimbursementDraft = async (id: string) => {
     return data;
 };
 
+/**
+ * Deletes several drafts in ONE request (the inbox's "Delete selected") — one auth check per owner and one
+ * delete on the server, instead of N round trips. Resolves to how many were deleted and how many were gone.
+ */
+export const deletePendingReimbursementDrafts = async (ids: string[]) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${EMPLOYEE.DELETE_PENDING_DRAFTS}`, { ids });
+    return data as { data?: { deleted: number; notFound: number; ids: string[] } };
+};
+
 export const submitReimbursementBatch = async (employeeId: string) => {
     const { data } = await axios.post(`${API_BASE_URL}/${EMPLOYEE.SUBMIT_REIMBURSEMENT_BATCH}`, { employeeId });
     return data;

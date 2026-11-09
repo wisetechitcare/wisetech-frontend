@@ -27,7 +27,8 @@ import {
  * DataTableExport (file column names and values). Typed through the features' `columnMeta` slot, so a typo in
  * a column's meta is a compile error, not a silently missing label.
  */
-export interface DataTableColumnMeta<TData = unknown> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- one meta type serves every row type's columns
+export interface DataTableColumnMeta<TData = any> {
   /** The column's name in the Columns menu and in an export. */
   label?: string
   /** `"end"`: stays at the right edge while the table scrolls sideways (row actions). */

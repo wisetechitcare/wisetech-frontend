@@ -14,8 +14,11 @@ import {
   createPendingReimbursementDraft,
   updatePendingReimbursementDraft,
   deletePendingReimbursementDraft,
+  deletePendingReimbursementDrafts,
   submitReimbursementBatch,
 } from '@services/employee';
+import { showDialog } from '@app/modules/common/components/ui/dialogStore';
+import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
 import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
@@ -370,6 +373,34 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     }
   };
 
+  /**
+   * "Delete selected": one confirmation naming the count, then ONE request for all of them (the server checks
+   * access per owner and deletes in one statement). Resolves true when the drafts are gone, so the table can
+   * clear its selection.
+   */
+  const handleDeleteMany = async (ids: string[]): Promise<boolean> => {
+    if (ids.length === 0) return false;
+    const n = ids.length;
+    const answer = await showDialog({
+      variant: 'delete',
+      title: `Delete ${n} draft${n === 1 ? '' : 's'}?`,
+      message: `${n === 1 ? 'This draft' : `These ${n} drafts`} and ${n === 1 ? 'its receipt' : 'their receipts'} will be removed. This cannot be undone.`,
+      confirmLabel: `Delete ${n}`,
+      cancelLabel: 'Cancel',
+    });
+    if (!answer.isConfirmed) return false;
+    try {
+      const res = await deletePendingReimbursementDrafts(ids);
+      const deleted = res?.data?.deleted ?? n;
+      successConfirmation(`${deleted} draft${deleted === 1 ? '' : 's'} deleted.`);
+      loadDrafts();
+      return true;
+    } catch {
+      errorConfirmation('Failed to delete the selected drafts');
+      return false;
+    }
+  };
+
   const handleSendForApproval = async () => {
     if (!drafts.length) { errorConfirmation('No pending requests to submit'); return; }
     const confirmed = await genericConfirmation(
@@ -408,7 +439,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   const columns = useMemo<ColumnDef<ReimbursementDraft, any>[]>(() => [
     {
       accessorKey: 'expenseDate',
-      meta: { label: 'Date' },
+      meta: { label: 'Date', exportValue: (r) => dayjs(r.expenseDate).format('DD MMM YYYY') },
       header: ({ column }) => <SortableHeader column={column} title="Date" />,
       cell: ({ row }) => (
         <span className="whitespace-nowrap">
@@ -420,13 +451,13 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     },
     {
       accessorKey: 'clientTypeId',
-      meta: { label: 'Company type' },
+      meta: { label: 'Company type', exportValue: (r) => resolveClientType(r.clientTypeId) },
       header: 'Company Type',
       cell: ({ row }) => resolveClientType(row.original.clientTypeId) || '—',
     },
     {
       accessorKey: 'clientCompanyId',
-      meta: { label: 'Company name' },
+      meta: { label: 'Company name', exportValue: (r) => resolveClientCompany(r.clientCompanyId) },
       header: 'Company Name',
       cell: ({ row }) => resolveClientCompany(row.original.clientCompanyId) || '—',
     },
@@ -476,7 +507,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     {
       id: 'document',
       enableSorting: false,
-      meta: { label: 'Receipt' },
+      meta: { label: 'Receipt', export: false },
       header: 'Receipt',
       cell: ({ row }) => (
         <KitButton
@@ -578,6 +609,18 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           getRowId={(r) => String(r.id)}
           loading={loading}
           searchPlaceholder="Search drafts"
+          stateKey="reimbursement.inbox"
+          selectable
+          selectionActions={(rows, clear, ctx) => (
+            <>
+              <KitButton size="sm" variant="destructive" onClick={async () => { if (await handleDeleteMany(rows.map((r) => String(r.original.id)))) clear(); }}>
+                <Trash2 data-icon="inline-start" aria-hidden />
+                Delete selected
+              </KitButton>
+              <DataTableExport columns={columns} ctx={ctx} filename="Reimbursement drafts" />
+            </>
+          )}
+          toolbar={(ctx) => <DataTableExport columns={columns} ctx={ctx} filename="Reimbursement drafts" />}
           initialSorting={[{ id: 'expenseDate', desc: true }]}
           // A draft is waiting (warning); one over its cap is flagged (danger) — the word is in the OverLimitChip.
           rowTone={(r) => (r.isExceedingLimit ? 'danger' : 'warning')}

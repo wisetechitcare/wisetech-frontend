@@ -427,6 +427,9 @@ function SubmissionDetailModal({
           getRowId={(r) => String(r.id)}
           loading={loading}
           searchPlaceholder="Search expenses"
+          stateKey="reimbursement.batch-lines"
+          selectable
+          selectionActions={(_rows, _clear, ctx) => <DataTableExport columns={detailColumns} ctx={ctx} filename={`Submission ${batch?.submissionId ?? ''}`.trim()} />}
           initialSorting={[{ id: 'expenseDate', desc: false }]}
           // Over its cap → danger (the OverLimitChip names it); otherwise the shared status tone. Needs info
           // carries no tint, as before: its badge already says who must act.
@@ -1041,6 +1044,9 @@ function SubmissionsTable({
           getRowId={(r, i) => String(r._batchId ?? r._submissionId ?? i)}
           loading={tableLoading}
           searchPlaceholder="Search submissions"
+          stateKey="reimbursement.submissions"
+          selectable
+          selectionActions={(_rows, _clear, ctx) => <DataTableExport columns={columns} ctx={ctx} filename={title || 'Submissions'} />}
           initialSorting={[{ id: '_submittedAt', desc: true }]}
           onRowClick={openBatch}
           rowLabel={(r) => `Open submission ${r._submissionId ?? ''}`.trim()}
