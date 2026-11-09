@@ -366,3 +366,30 @@ export const ToolbarWithTableState: Story = {
     await expect(await canvas.findByRole('button', { name: 'Export 1 Selected' })).toBeInTheDocument()
   },
 }
+
+/** `resizableColumns`: drag a column's edge — or focus it and use ← / → (Shift for bigger steps); Enter or a
+ *  double-click resets it. The handle is a separator that announces its width. */
+export const ResizableColumns: Story = {
+  args: { resizableColumns: true },
+  play: async ({ canvas }) => {
+    const handle = canvas.getByRole('separator', { name: 'Resize Department' })
+    const before = Number(handle.getAttribute('aria-valuenow'))
+    handle.focus()
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}')
+    await expect(Number(handle.getAttribute('aria-valuenow'))).toBe(before + 20)
+    await userEvent.keyboard('{Shift>}{ArrowLeft}{/Shift}')
+    await expect(Number(handle.getAttribute('aria-valuenow'))).toBe(before - 20)
+    await userEvent.keyboard('{Enter}')
+    await expect(Number(handle.getAttribute('aria-valuenow'))).toBe(before)
+  },
+}
+
+/** Numbered pages beside Previous / Next: first, last and the current page's neighbours (1 … 4 5 6 … 20). */
+export const NumberedPages: Story = {
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('button', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page')
+    await userEvent.click(canvas.getByRole('button', { name: 'Page 3' }))
+    await expect(canvas.getByText('21–30 of 34')).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Page 3' })).toHaveAttribute('aria-current', 'page')
+  },
+}

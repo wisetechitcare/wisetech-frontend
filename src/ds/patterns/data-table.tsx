@@ -9,6 +9,7 @@ import {
   useReactTable,
   type Column,
   type ColumnDef,
+  type Header,
   type PaginationState,
   type Row,
   type RowSelectionState,
@@ -34,6 +35,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/ds/ui/input-grou
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ds/ui/select"
 import { Skeleton } from "@/ds/ui/skeleton"
 import { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/ds/ui/table"
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem } from "@/ds/ui/pagination"
 import { EmptyState } from "./empty-state"
 
 export type { ColumnDef } from "@tanstack/react-table"
@@ -96,6 +98,62 @@ function expandColumn<T>(): ColumnDef<T> {
   }
 }
 
+/**
+ * A column's resize handle. Mouse/touch drag like any table; it is ALSO a focusable separator, so a keyboard
+ * user resizes with ← / → (Shift = bigger steps) and a screen reader hears the width — a drag-only handle
+ * shuts both out. Double-click (or Enter) puts the column back to its default width.
+ */
+function ResizeHandle<T>({ header, label }: { header: Header<T, unknown>; label: string }) {
+  const column = header.column
+  const size = header.getSize()
+  const set = (next: number) => {
+    const min = column.columnDef.minSize ?? 60
+    const max = column.columnDef.maxSize ?? 800
+    header.getContext().table.setColumnSizing((old) => ({ ...old, [column.id]: Math.min(max, Math.max(min, next)) }))
+  }
+  const handler = header.getResizeHandler()
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${label}`}
+      aria-valuenow={Math.round(size)}
+      aria-valuemin={column.columnDef.minSize ?? 60}
+      aria-valuemax={column.columnDef.maxSize ?? 800}
+      tabIndex={0}
+      onMouseDown={handler}
+      onTouchStart={handler}
+      onDoubleClick={() => column.resetSize()}
+      onKeyDown={(e) => {
+        const step = e.shiftKey ? 40 : 10
+        if (e.key === "ArrowLeft") { e.preventDefault(); set(size - step) }
+        else if (e.key === "ArrowRight") { e.preventDefault(); set(size + step) }
+        else if (e.key === "Enter") { e.preventDefault(); column.resetSize() }
+      }}
+      className={cn(
+        "absolute inset-y-1 -end-1 z-[2] w-2 cursor-col-resize touch-none select-none rounded-full outline-none",
+        "after:absolute after:inset-y-0 after:start-1/2 after:w-px after:-translate-x-1/2 after:bg-border",
+        "hover:after:w-0.5 hover:after:bg-primary focus-visible:after:w-0.5 focus-visible:after:bg-primary focus-visible:ring-2 focus-visible:ring-ring/50",
+        column.getIsResizing() && "after:w-0.5 after:bg-primary",
+      )}
+    />
+  )
+}
+
+/** Page numbers with gaps: 1 … 4 5 6 … 20 — first, last, and the current page's neighbours. */
+function pageList(current: number, count: number): Array<number | "gap"> {
+  if (count <= 7) return Array.from({ length: count }, (_, i) => i)
+  const keep = new Set([0, count - 1, current - 1, current, current + 1].filter((i) => i >= 0 && i < count))
+  const out: Array<number | "gap"> = []
+  let prev = -1
+  for (const i of [...keep].sort((a, b) => a - b)) {
+    if (prev >= 0 && i - prev > 1) out.push("gap")
+    out.push(i)
+    prev = i
+  }
+  return out
+}
+
 /** A click inside a control (a button, link, input, menu) belongs to that control, not to the row. */
 const fromControl = (target: EventTarget | null) =>
   target instanceof Element && !!target.closest("button, a, input, select, textarea, label, [role=menuitem], [role=checkbox], [data-slot=checkbox]")
@@ -156,6 +214,7 @@ export function DataTable<T>({
   rowTone,
   renderDetail,
   renderCard,
+  resizableColumns = false,
 }: {
   /** Names the table for assistive tech (rendered visually hidden). */
   caption: string
@@ -197,6 +256,11 @@ export function DataTable<T>({
    * the toolbar stay. Measured on the table's own width, so a table in a narrow column gets cards too.
    */
   renderCard?: (row: T) => React.ReactNode
+  /**
+   * Drag (or ← / → on the focused edge) to resize columns. Opt-in: the table switches to fixed layout,
+   * where each column takes its `size` (default 150, `minSize`/`maxSize` bound it) instead of its content.
+   */
+  resizableColumns?: boolean
 }) {
   // The kit's locale (KitProvider) — the same grouping as every other number in v2.
   const { locale } = useLocale()
@@ -238,6 +302,8 @@ export function DataTable<T>({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: server ? undefined : getPaginationRowModel(),
+    enableColumnResizing: resizableColumns,
+    columnResizeMode: "onChange",
     getRowCanExpand: renderDetail ? () => true : undefined,
     getExpandedRowModel: renderDetail ? getExpandedRowModel() : undefined,
   })
@@ -327,7 +393,11 @@ export function DataTable<T>({
             } : undefined}
           >
             {row.getVisibleCells().map((cell) => (
-              <TableCell key={cell.id} className={cn(cellPad, narrowCol(cell.column.id), pinEnd(cell.column))}>
+              <TableCell
+                key={cell.id}
+                style={resizableColumns ? { width: cell.column.getSize() } : undefined}
+                className={cn(cellPad, narrowCol(cell.column.id), pinEnd(cell.column), resizableColumns && "overflow-hidden text-ellipsis")}
+              >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
             ))}
@@ -438,7 +508,11 @@ export function DataTable<T>({
           renderCard && !loading && !error && rows.length > 0 && "@max-[640px]/data-table:hidden",
         )}
       >
-        <Table style={{ minWidth }} aria-busy={loading || undefined}>
+        <Table
+          style={resizableColumns ? { width: table.getTotalSize(), minWidth } : { minWidth }}
+          className={cn(resizableColumns && "table-fixed")}
+          aria-busy={loading || undefined}
+        >
           <TableCaption className="sr-only">{caption}</TableCaption>
           <TableHeader className="sticky top-0 z-10 bg-card">
             {table.getHeaderGroups().map((hg) => (
@@ -448,10 +522,21 @@ export function DataTable<T>({
                   return (
                     <TableHead
                       key={h.id}
+                      style={resizableColumns ? { width: h.getSize() } : undefined}
                       aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : h.column.getCanSort() ? "none" : undefined}
-                      className={cn(narrowCol(h.column.id), pinEnd(h.column))}
+                      className={cn(narrowCol(h.column.id), pinEnd(h.column), resizableColumns && "relative")}
                     >
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
+                      {resizableColumns && h.column.getCanResize() && !narrowCol(h.column.id) && (
+                        <ResizeHandle
+                          header={h}
+                          label={
+                            typeof h.column.columnDef.meta === "object" && h.column.columnDef.meta && "label" in h.column.columnDef.meta
+                              ? String((h.column.columnDef.meta as { label: string }).label)
+                              : h.column.id
+                          }
+                        />
+                      )}
                     </TableHead>
                   )
                 })}
@@ -506,6 +591,32 @@ export function DataTable<T>({
           >
             <ChevronLeft aria-hidden />
           </Button>
+          {table.getPageCount() > 1 && (
+            <Pagination className="mx-0 w-auto">
+              <PaginationContent>
+                {pageList(pagination.pageIndex, table.getPageCount()).map((p, i) =>
+                  p === "gap" ? (
+                    <PaginationItem key={`gap-${i}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={p}>
+                      <Button
+                        variant={p === pagination.pageIndex ? "outline" : "ghost"}
+                        size="icon-sm"
+                        aria-label={`Page ${p + 1}`}
+                        aria-current={p === pagination.pageIndex ? "page" : undefined}
+                        onClick={() => table.setPageIndex(p)}
+                        className="tabular"
+                      >
+                        {p + 1}
+                      </Button>
+                    </PaginationItem>
+                  ),
+                )}
+              </PaginationContent>
+            </Pagination>
+          )}
           <Button
             variant="outline"
             size="icon-sm"

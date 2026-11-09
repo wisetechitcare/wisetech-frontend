@@ -47,6 +47,12 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Design system (ADR-001)
 
+- **Kit DataTable: per-column / faceted filters and nested sub-rows are not built** — shadcn's examples
+  (ui.shadcn.com data-table, shadcn.io "Data Table with Filters" / "Expandable Sub-Rows", shadcnstudio blocks)
+  show both; the kit has a global search, `renderDetail` panels and the status rail (SegmentedFilter) instead,
+  which is all the reimbursement tables use. — Add `facets` (a status/category dropdown per column) and
+  `getSubRows` when the first screen needs them, not before. (found 2026-11-09)
+
 - **`ExportButton` (14 users) still draws an MUI menu and MUI icons** — the kit DataTable now reaches it
   through `table/DataTableExport`, so the engine is shared but the button looks legacy. — Rebuild its menu on
   the kit `DropdownMenu` + lucide icons; keep the CSV/Excel engine as is. (found 2026-11-09)
