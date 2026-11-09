@@ -198,6 +198,7 @@ the readable default on glass cards. Do **not** invent a private `MetaPill`, mut
 | Meta (location, CTC, notice, source) | `ToneChip tone="neutral\|brand\|cyan\|…" dense` |
 | Dot + label live status | `StatusBadge` (trio + optional pulse) |
 | Solid fill (rare) | `ToneChip solid` |
+| **Design-system v2 status chip** (screens migrated to `src/ds`) | `ToneBadge tone="success\|warning\|…"` — the kit tone names, rendered by the v2 `Badge`. Moving a `ToneChip` is `<ToneChip dense tone="x" label="Y" />` → `<ToneBadge tone="x">Y</ToneBadge>` |
 
 ```tsx
 <ToneChip tone="success" label="Published" dense />

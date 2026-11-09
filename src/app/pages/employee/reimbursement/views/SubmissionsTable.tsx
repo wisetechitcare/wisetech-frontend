@@ -35,7 +35,7 @@ import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 import { resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
 import SubmissionMobileCard from '../components/SubmissionMobileCard';
 import { SkeletonTable } from '@app/modules/common/components/Skeleton';
-import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { ToneBadge, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -220,14 +220,14 @@ function SubmissionDetailModal({
         enableColumnActions: false,
         Cell: ({ row }: any) => {
           const statusNum = resolveStatusNum(row.original.status);
-          if (statusNum === 1) return <ToneChip dense tone="success" label="Approved" />;
-          if (statusNum === 2) return <ToneChip dense tone="danger" label="Rejected" />;
+          if (statusNum === 1) return <ToneBadge tone="success">Approved</ToneBadge>;
+          if (statusNum === 2) return <ToneBadge tone="danger">Rejected</ToneBadge>;
           // A questioned line read as "Pending", so the one row the employee had to act on
           // looked exactly like the rows they had to wait on.
           if (statusNum === STATUS.NEEDS_INFO) {
-            return <ToneChip dense tone="warning" label="Needs info" />;
+            return <ToneBadge tone="warning">Needs info</ToneBadge>;
           }
-          return <ToneChip dense tone="warning" label="Pending" />;
+          return <ToneBadge tone="warning">Pending</ToneBadge>;
         },
       },
       // Shown for a QUESTION as well as a rejection. Both write the same column on the line, but
@@ -258,12 +258,12 @@ function SubmissionDetailModal({
                 return (
                   <div style={{ maxWidth: 240, lineHeight: 1.35 }} className="py-0.5">
                     <div style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline', rowGap: '4px' }}>
-                      <ToneChip
-                        dense
+                      <ToneBadge
                         tone={asking ? (hasAwaitingQuery ? 'warning' : 'neutral') : 'danger'}
-                        label={asking ? (hasAwaitingQuery ? 'Question' : 'Responded') : 'Rejected'}
-                        sx={{ alignSelf: 'center', mr: 0.75 }}
-                      />
+                        className="mr-1.5 self-center"
+                      >
+                        {asking ? (hasAwaitingQuery ? 'Question' : 'Responded') : 'Rejected'}
+                      </ToneBadge>
                       <span className="text-gray-800 fs-7 fw-normal" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                         {reason}
                       </span>
@@ -316,9 +316,9 @@ function SubmissionDetailModal({
                 if (statusNum === 2) return <span className="text-muted">N/A</span>;
                 if (statusNum !== 1) return <span className="text-muted">N/A</span>;
                 const ps = row.original.paymentStatus;
-                if (ps === 'PAID') return <ToneChip dense tone="success" label="Paid" />;
-                if (ps === 'PARTIAL') return <ToneChip dense tone="cyan" label="Partially Paid" />;
-                return <ToneChip dense tone="warning" label="Pending" />;
+                if (ps === 'PAID') return <ToneBadge tone="success">Paid</ToneBadge>;
+                if (ps === 'PARTIAL') return <ToneBadge tone="cyan">Partially Paid</ToneBadge>;
+                return <ToneBadge tone="warning">Pending</ToneBadge>;
               },
             },
           ]
@@ -1106,25 +1106,25 @@ function SubmissionsTable({
         size: 130,
         Cell: ({ row }: any) => {
           const s = row.original._status;
-          if (s === 1) return <ToneChip dense tone="success" label="Approved" />;
-          if (s === 2) return <ToneChip dense tone="danger" label="Rejected" />;
+          if (s === 1) return <ToneBadge tone="success">Approved</ToneBadge>;
+          if (s === 2) return <ToneBadge tone="danger">Rejected</ToneBadge>;
           // Every line questioned: the batch is waiting on the EMPLOYEE, not the approver, and
           // saying "Pending" here sent them looking for someone else to chase.
           if (s === STATUS.NEEDS_INFO) {
             return (
               <Tooltip title="Your approver asked a question — open the batch to read it and answer by editing the expense">
-                <span><ToneChip dense tone="warning" label="Needs info" /></span>
+                <span><ToneBadge tone="warning">Needs info</ToneBadge></span>
               </Tooltip>
             );
           }
           if (s === MIXED_STATUS) {
             return (
               <Tooltip title="This batch has mixed outcomes — some expenses may still be pending, approved, rejected, or awaiting your reply. Open it to see which. Approved lines are already payable on the Payment desk.">
-                <span><ToneChip dense tone="cyan" label="Partly approved" /></span>
+                <span><ToneBadge tone="cyan">Partly approved</ToneBadge></span>
               </Tooltip>
             );
           }
-          return <ToneChip dense tone="warning" label="Pending" />;
+          return <ToneBadge tone="warning">Pending</ToneBadge>;
         },
       },
       {
@@ -1146,9 +1146,9 @@ function SubmissionsTable({
           // status — a partly-approved batch still has approved lines to pay.
           const ps = row.original._paymentStatus;
           if (!ps) return <span className="text-muted fs-7">N/A</span>;
-          if (ps === 'PAID') return <ToneChip dense tone="success" label="Paid" />;
-          if (ps === 'PARTIAL') return <ToneChip dense tone="cyan" label="Partially Paid" />;
-          return <ToneChip dense tone="warning" label="Pending" />;
+          if (ps === 'PAID') return <ToneBadge tone="success">Paid</ToneBadge>;
+          if (ps === 'PARTIAL') return <ToneBadge tone="cyan">Partially Paid</ToneBadge>;
+          return <ToneBadge tone="warning">Pending</ToneBadge>;
         },
       },
     ],
@@ -1195,8 +1195,8 @@ function SubmissionsTable({
           above with its own margins, leaving a band of empty space beside the chips. */}
       <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 gap-lg-3 mb-3 px-3 px-lg-0">
         <div style={{ minWidth: 0 }}>
-          {title && <h2 className="mb-0 fs-5 fs-lg-4">{title}</h2>}
-          {subtitle && <div className="text-muted fs-9 fs-lg-8">{subtitle}</div>}
+          {title && <h2 className="m-0 text-base font-bold text-foreground lg:text-lg">{title}</h2>}
+          {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
         </div>
         <div className="d-flex align-items-center flex-wrap gap-2 w-100 w-md-auto mw-100 justify-content-start justify-content-md-end">
           {/* A filter set from a chart the reader may have scrolled past needs to say so here,

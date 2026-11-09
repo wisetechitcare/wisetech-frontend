@@ -1,6 +1,6 @@
 import dayjs, { Dayjs } from "dayjs";
 import React, { useEffect, useState } from "react";
-import PeriodTabs from "@app/modules/common/components/PeriodTabs";
+import { Tabs, TabsList, TabsTrigger } from "@/ds/ui/tabs";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
@@ -35,16 +35,13 @@ const ReimbursementPeriodBar = ({ alignment, date, onChange, actionSlot }: Props
     // Period tabs and date navigator on one line; collapse to stack on mobile.
     // The status filter rail renders immediately below at full width.
     <div className="d-flex flex-md-row flex-column justify-content-md-between align-items-md-center gap-3 mb-3">
-      <PeriodTabs
-        value={alignment}
-        options={[
-          { label: "Monthly", value: "monthly" },
-          { label: "Yearly", value: "yearly" },
-          { label: "All Time", value: "allTime" },
-        ]}
-        onChange={(val) => onChange(val as PeriodAlignment, date)}
-        ariaLabel="view selection"
-      />
+      <Tabs value={alignment} onValueChange={(val) => onChange(val as PeriodAlignment, date)}>
+        <TabsList aria-label="Reimbursement period">
+          <TabsTrigger value="monthly">Monthly</TabsTrigger>
+          <TabsTrigger value="yearly">Yearly</TabsTrigger>
+          <TabsTrigger value="allTime">All Time</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="d-flex align-items-center justify-content-center justify-content-md-end gap-3 flex-wrap w-100 w-md-auto">
         {actionSlot}

@@ -325,8 +325,8 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
         <>
         <div className="mt-4 mt-lg-8">
             <div className="mb-4 mb-lg-6 px-3 px-lg-0">
-                <h2 className="mb-1 fs-4 fs-lg-3">Reimbursement Payment History</h2>
-                <div className="text-muted fs-8 fs-lg-7">
+                <h2 className="m-0 mb-1 text-base font-bold text-foreground lg:text-lg">Reimbursement Payment History</h2>
+                <div className="text-xs text-muted-foreground">
                     What you were <strong>paid</strong> in {periodLabel} — by payment date. A batch
                     appears here once it has a payment recorded in this window.
                 </div>

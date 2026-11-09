@@ -29,6 +29,7 @@ export {
 } from './checkbox';
 export type { WtCheckboxProps, WtCheckboxFieldProps, WtCheckboxSize } from './checkbox';
 export { ToneChip, toneAlpha, StatusPill } from './chips';
+export { ToneBadge } from './ToneBadge';
 // Collection entity card — Roles / Adverts / Candidates / Projects. Composes GlassCard + ToneChip.
 export { EntityCard } from './EntityCard';
 export type { EntityCardProps, EntityCardTag } from './EntityCard';
