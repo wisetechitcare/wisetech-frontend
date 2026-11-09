@@ -14,10 +14,25 @@ Decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
   `src/ds/styles/globals.css` — never a hex value.
 - **One meaning per colour.** A single status set (success, warning, danger, info), each with a solid,
   a soft fill and readable text, in light and dark.
+- **Hues are identity, not meaning.** Seven category hues tell leave types, departments and modules apart;
+  a hue never signals good or bad. Patterns take either through one `tone` prop (`src/ds/lib/tone.ts`).
 - **shadcn's design, our colours.** Components come from the shadcn CLI unchanged in shape, type and
   motion; only the colour roles (navy brand, status set, per-tenant brand) are ours.
 - **Accessible by default.** Base UI and React Aria primitives, visible focus, keyboard-complete; every story is checked
   with axe and fails on a violation.
+- **One surface per job.** Card for every tile, panel and selectable option (it owns hover, focus, selected
+  and disabled); Item for rows in a list. Patterns are layouts on them, never new surfaces.
+- **Titles are Title Case and bold.** Every kit title component (CardTitle, DialogTitle, Label, Button, TableHead,
+  PageHeader, SectionHeader…) applies `titleCase()` (`src/ds/lib/text.ts`, the live kit's rule: minor words stay
+  lowercase, any word with a capital is untouched) and one rule in `globals.css` makes titles bold.
+- **Structural headings are UPPERCASE** (`heading-case`): titles that name a region — dialog, page, section,
+  settings card, column header, stat caption, eyebrow. Buttons, input labels, content titles (a person, a record)
+  and sentences keep their case. CSS only, so screen readers still read words.
+- **Labels float.** Every field's label rests inside the empty control and floats onto its border on focus or once
+  there is a value — one rule in `styles/globals.css`, keyed on `fieldVariants()`; no control re-implements it.
+- **Icons: cards right, rows left, dialogs left.** In a card the icon tile sits top-right, in the tone-glow corner
+  (Stat Card is the benchmark), so titles share one left edge. In a list row the icon or avatar leads on the
+  left, where the eye scans. In a dialog header it leads too — the top-right corner belongs to Close.
 - **Status is never colour alone.** Badges carry text (and a dot); trends carry an arrow.
 
 ## Where we differ from stock shadcn
@@ -25,7 +40,25 @@ Decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
 Everything in `src/ds/ui` comes from the shadcn CLI (`components.json`, style `base-maia`). Our only
 changes, each marked in the file:
 
-- **Badge** — the WiseTech status set (`success`, `warning`, `danger`, `info`, `brand`, `neutral`) and `dot`.
+- **Badge** — the WiseTech status set (`success`, `warning`, `danger`, `info`, `brand`, `neutral`) and `dot`; the
+  seven category hues (`blue`, `green`, `amber`, `rose`, `purple`, `cyan`, `slate`); and `custom` for an
+  admin-configured colour (`style={{ '--tone': hex }}`).
+- **Alert** — the same status set (`success`, `warning`, `danger`, `info`) as soft fills, beside shadcn's `default`
+  and `destructive`.
+- **Combobox** — the icon-only trigger, clear and chip-remove buttons carry accessible names ("Show options",
+  "Clear", "Remove …").
+- **Slider** — `aria-label` / `aria-labelledby` go to each thumb (what assistive tech focuses); a range names
+  its ends "… minimum" / "… maximum".
+- **Card** — the Stat Card benchmark is every card's default look (tone glow, accent bar, spring lift, icon motion;
+  `tone`); `variant="panel"` only for a table frame;
+  `interactive` (hover, focus, selected via a checked control inside, `aria-disabled`) and `CardLink`
+  (the whole card as one link): the states every card-shaped pattern shares.
+- **Dialog, AlertDialog, Sheet and Drawer titles, and TableHead** — `heading-case` (structural headings are
+  uppercase).
+- **Field** — `fieldVariants()` vertical carries `field-floating` (floating labels); **Input / Textarea / NumberField**
+  default their placeholder to one space so CSS can tell empty from filled.
+- **Pagination** — page links are real links styled with `buttonVariants()`; shadcn's Button-rendered link
+  carried `role="button"`.
 - **Button** — the live app's WtButton recipe: the CTA gradient from a brighter brand to the brand with an
   own-colour glow, an `inverted` variant (brand text on white, the "Choose Image" pill), bold labels with tight
   tracking, 1px lift on hover, press to 0.975, spring easing. See Components/Button → States.

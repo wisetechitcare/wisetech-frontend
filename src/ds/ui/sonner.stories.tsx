@@ -32,7 +32,7 @@ type Story = StoryObj<typeof meta>
 /** Clicking shows a toast with its title and description. */
 export const Success: Story = {
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Success toast' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Success Toast' }))
     await expect(await screen.findByText('Leave approved')).toBeInTheDocument()
     await expect(screen.getByText('Diya Nair · 28–30 Oct · 3 days')).toBeInTheDocument()
   },

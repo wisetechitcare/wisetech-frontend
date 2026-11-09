@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -125,7 +126,7 @@ function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
+function ItemTitle({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="item-title"
@@ -134,6 +135,7 @@ function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

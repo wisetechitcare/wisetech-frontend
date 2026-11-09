@@ -29,7 +29,7 @@ type Story = StoryObj<typeof meta>
 /** Typed digits are formatted as INR with Indian grouping on blur; ArrowUp adds one `step`. */
 export const Rupees: Story = {
   play: async ({ args, canvas }) => {
-    const input = canvas.getByRole('textbox', { name: 'Monthly basic pay' })
+    const input = canvas.getByRole('textbox', { name: 'Monthly Basic Pay' })
     await userEvent.type(input, '100000')
     await userEvent.tab()
     await expect(input).toHaveValue('₹1,00,000.00')
@@ -45,7 +45,7 @@ export const Rupees: Story = {
 export const ClampsToMax: Story = {
   args: { maxValue: 200000, description: 'Up to ₹2,00,000 for this grade.' },
   play: async ({ args, canvas }) => {
-    const input = canvas.getByRole('textbox', { name: 'Monthly basic pay' })
+    const input = canvas.getByRole('textbox', { name: 'Monthly Basic Pay' })
     await userEvent.type(input, '250000')
     await userEvent.tab()
     await expect(input).toHaveValue('₹2,00,000.00')

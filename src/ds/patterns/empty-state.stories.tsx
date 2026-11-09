@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent } from 'storybook/test'
-import { Plus, UserPlus } from 'lucide-react'
+import { Plus, RotateCw, UserPlus } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { EmptyState } from './empty-state'
 
@@ -34,12 +34,41 @@ export const WithAction: Story = {
     onAdd.mockClear()
   },
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Add candidate' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Add Candidate' }))
     await expect(onAdd).toHaveBeenCalledTimes(1)
   },
 }
 
-/** Informational only (e.g. a filter returned nothing). */
-export const NoAction: Story = {
-  args: { title: 'No one matches these filters', description: 'Try clearing the department or status filter.' },
+/** A search or filter found nothing: offer a different search, never "Create". */
+export const NoMatch: Story = {
+  args: {
+    variant: 'no-match',
+    icon: undefined,
+    title: 'No one matches these filters',
+    description: 'Try clearing the department or status filter.',
+    action: <Button size="sm" variant="outline">Clear filters</Button>,
+  },
+}
+
+/** Loading failed: say what failed and offer Retry. Announced as an alert. */
+export const LoadFailed: Story = {
+  args: {
+    variant: 'error',
+    icon: undefined,
+    title: "Couldn't load candidates",
+    description: 'The server did not respond. Your filters are kept.',
+    action: (
+      <Button size="sm" variant="outline">
+        <RotateCw aria-hidden /> Retry
+      </Button>
+    ),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('alert')).toHaveTextContent("Couldn't Load Candidates")
+  },
+}
+
+/** Compact, inside a card or table body. */
+export const Small: Story = {
+  args: { size: 'sm', title: 'No reminders today', description: 'Birthdays, anniversaries and payroll dates show here.' },
 }

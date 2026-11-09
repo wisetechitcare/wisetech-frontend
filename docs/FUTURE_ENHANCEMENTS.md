@@ -81,7 +81,44 @@ Format: **what** — evidence (file / screen) — suggested fix.
   own border, 8px corners, 11px text), `CsvUploadStep` / `MatchReviewTable` (danger text colour),
   `AddAnotherBtn` (dashed). They win over the kit by design, so they are not pills. — Replace each with a
   kit variant (`outline` / `destructive`, or a new tinted variant if approve/reject needs one) and drop the sx.
+- **Data Table must reach MaterialTable parity before the swap** — the v2 design (Storybook Patterns/Data Table,
+  2026-11-03) covers sort, search, column show/hide, selection bar, paging, density and the load/empty/error states.
+  The live `MaterialTableImpl` also has per-column filters (22 screens), column pinning (6), row virtualisation (5),
+  column drag (5), full screen (5), resizing (4), grouping (4), expandable rows (4), saved column preferences
+  (`useTablePreferences`, all screens) and export. — Build each into the kit Data Table before any screen moves,
+  so no screen silently loses one (Kit Map lists them).
+- **Self-host the phone flags** — v2 Phone Field (fixed 2026-11-03: emoji flags rendered as letters on Windows)
+  now uses `react-international-phone`'s `FlagImage`, like the live `WtPhoneField`; both load Twemoji SVGs from
+  cdnjs. — Serve the SVGs from our own origin (pass `src` to `FlagImage`) so the field needs no third-party
+  request (CSP, offline, privacy).
+- **Imperative confirm API for v2** — the live `showDialog()` / `confirmDialog()` / `alertDialog()` (and the
+  SweetAlert shim, 82 sites) render through `DialogServiceHost`. v2 has the `ConfirmDialog` component only. — At the
+  Wave 1 swap, point `DialogServiceHost` at the v2 ConfirmDialog so the 82 imperative call sites change with no edits.
+- **Configurable colours resolve through one helper in v2** — colours stay admin-configurable (decided
+  2026-11-03). The live picker stores a swatch NAME (`KIT_SWATCHES`, from `TRIO`) or a hex; v2's `toneStyle()`
+  resolves the same seven names plus any hex. — At each swap, read the stored value through `toneStyle()` /
+  `Badge variant="custom"` instead of `TRIO` lookups, so stored colours keep rendering unchanged.
+- **Charts onto Recharts** (decided 2026-11-03: one engine) — four libraries in use today (`Graphs`, ApexCharts,
+  Nivo, Recharts). — Move each chart to Components/Chart when its screen is rebuilt; drop each library when its
+  last chart has moved.
+- **Live `StatTile` users get a bigger tile** — the v2 compact Stat Card (its replacement) now follows the benchmark:
+  44px icon, 24px value, glow and lift (decided 2026-11-03). — Re-check the 11 `StatTile` screens' row density at
+  the swap.
 - **Project → Billing phone layout no longer stretches the row's main action** — `ProjectBillingTree.tsx`
   (`narrow` sx on the actions Stack) targets `.MuiButtonBase-root:not(.MuiIconButton-root)`, but the row's
   `WtButton`s render the kit Button since #316, so the full-width rule matches nothing. — Target
   `[data-slot="button"]:not(.billing-row-more)` and check the result on a phone.
+- **Every live calendar onto the one v2 calendar engine** (decided 2026-11-03: one engine, customised through
+  `getDayState` / `rangeStyle` / `size`; guarded in `src/ds/consistency.test.ts`). The live app has six calendar
+  systems: MUI X date pickers (20 files, mostly via `ui/dates.tsx`, `inputs/DateInput.tsx`,
+  `inputs/PlainDatePicker.tsx`, `TimePickerField.tsx`, `PeriodNavigator.tsx`), `FiscalYearRangeField` (9 users),
+  Apply Leave's own `LeaveCalendar`, `inputs/Flatpickr.tsx`, native `type="date"`/`"month"` inputs (4 files) and
+  FullCalendar (`CustomCalendar`, `MeetingFormBody`, `tw/MonthGrid`). — Swap the shared wrappers first (each one
+  converts its screens at once), then Apply Leave (Storybook Screens/Apply Leave is the target), then the native
+  inputs. FullCalendar is an event scheduler, not a date picker: keep it until a v2 scheduler is designed, but
+  give it the engine's tones.
+- **A generic File Field for attachments** — the kit has `ImageField` (one image) only; Apply Leave's "Attach
+  Document" is a plain button in Storybook. — Build a kit `FileField` (several files, any type, preview, remove,
+  type/size checks) from `ImageField`'s logic and use it in Apply Leave, documents and claims.
+- **Dates read through the tenant date format** — Apply Leave (Storybook) formats dates with a fixed
+  `en-GB` `DateFormatter` (marked TODO). — Route it through the per-tenant date-format setting once it is built.

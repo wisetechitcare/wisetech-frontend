@@ -1,4 +1,5 @@
 import { Tabs as TabsPrimitive } from "@animate-ui/react/primitives/base-ui/tabs"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
@@ -50,7 +51,7 @@ function TabsList({
   )
 }
 
-function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
+function TabsTrigger({ className, children, ...props }: TabsPrimitive.Tab.Props) {
   return (
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
@@ -62,6 +63,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

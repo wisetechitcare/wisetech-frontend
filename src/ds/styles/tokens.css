@@ -54,6 +54,32 @@
   --info-soft: oklch(0.965 0.025 235);
   --info-foreground: oklch(0.43 0.1 240);
 
+  /* ── Category hues ───────────────────────────────────────────────────
+   * Identity colour for things that differ but are not good or bad: leave types, departments,
+   * modules, icon tiles. Same triple as the status set (solid / soft fill / readable text). Never
+   * use a hue to mean a status; never use a status to mean a category. */
+  --tone-blue: oklch(0.6 0.15 255);
+  --tone-blue-soft: oklch(0.96 0.03 255);
+  --tone-blue-foreground: oklch(0.43 0.112 255);
+  --tone-green: oklch(0.6 0.14 150);
+  --tone-green-soft: oklch(0.96 0.028 150);
+  --tone-green-foreground: oklch(0.43 0.105 150);
+  --tone-amber: oklch(0.6 0.15 70);
+  --tone-amber-soft: oklch(0.96 0.03 70);
+  --tone-amber-foreground: oklch(0.43 0.112 70);
+  --tone-rose: oklch(0.6 0.17 15);
+  --tone-rose-soft: oklch(0.96 0.034 15);
+  --tone-rose-foreground: oklch(0.43 0.128 15);
+  --tone-purple: oklch(0.6 0.16 295);
+  --tone-purple-soft: oklch(0.96 0.032 295);
+  --tone-purple-foreground: oklch(0.43 0.12 295);
+  --tone-cyan: oklch(0.6 0.12 205);
+  --tone-cyan-soft: oklch(0.96 0.024 205);
+  --tone-cyan-foreground: oklch(0.43 0.09 205);
+  --tone-slate: oklch(0.6 0.03 255);
+  --tone-slate-soft: oklch(0.96 0.006 255);
+  --tone-slate-foreground: oklch(0.43 0.022 255);
+
   /* ── Lines & focus ──────────────────────────────────────────────────── */
   --border: oklch(0.915 0.008 250);
   --input: oklch(0.885 0.01 250);
@@ -114,6 +140,28 @@
   --info: oklch(0.72 0.12 235);
   --info-soft: oklch(0.31 0.06 240 / 55%);
   --info-foreground: oklch(0.83 0.09 235);
+
+  --tone-blue: oklch(0.72 0.14 255);
+  --tone-blue-soft: oklch(0.31 0.06 255 / 55%);
+  --tone-blue-foreground: oklch(0.84 0.098 255);
+  --tone-green: oklch(0.72 0.13 150);
+  --tone-green-soft: oklch(0.31 0.056 150 / 55%);
+  --tone-green-foreground: oklch(0.84 0.091 150);
+  --tone-amber: oklch(0.72 0.14 70);
+  --tone-amber-soft: oklch(0.31 0.06 70 / 55%);
+  --tone-amber-foreground: oklch(0.84 0.098 70);
+  --tone-rose: oklch(0.72 0.158 15);
+  --tone-rose-soft: oklch(0.31 0.068 15 / 55%);
+  --tone-rose-foreground: oklch(0.84 0.111 15);
+  --tone-purple: oklch(0.72 0.149 295);
+  --tone-purple-soft: oklch(0.31 0.064 295 / 55%);
+  --tone-purple-foreground: oklch(0.84 0.104 295);
+  --tone-cyan: oklch(0.72 0.112 205);
+  --tone-cyan-soft: oklch(0.31 0.048 205 / 55%);
+  --tone-cyan-foreground: oklch(0.84 0.078 205);
+  --tone-slate: oklch(0.72 0.028 255);
+  --tone-slate-soft: oklch(0.31 0.012 255 / 55%);
+  --tone-slate-foreground: oklch(0.84 0.019 255);
 
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 13%);
@@ -213,6 +261,27 @@
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --color-info-foreground: var(--info-foreground);
+  --color-tone-blue: var(--tone-blue);
+  --color-tone-blue-soft: var(--tone-blue-soft);
+  --color-tone-blue-foreground: var(--tone-blue-foreground);
+  --color-tone-green: var(--tone-green);
+  --color-tone-green-soft: var(--tone-green-soft);
+  --color-tone-green-foreground: var(--tone-green-foreground);
+  --color-tone-amber: var(--tone-amber);
+  --color-tone-amber-soft: var(--tone-amber-soft);
+  --color-tone-amber-foreground: var(--tone-amber-foreground);
+  --color-tone-rose: var(--tone-rose);
+  --color-tone-rose-soft: var(--tone-rose-soft);
+  --color-tone-rose-foreground: var(--tone-rose-foreground);
+  --color-tone-purple: var(--tone-purple);
+  --color-tone-purple-soft: var(--tone-purple-soft);
+  --color-tone-purple-foreground: var(--tone-purple-foreground);
+  --color-tone-cyan: var(--tone-cyan);
+  --color-tone-cyan-soft: var(--tone-cyan-soft);
+  --color-tone-cyan-foreground: var(--tone-cyan-foreground);
+  --color-tone-slate: var(--tone-slate);
+  --color-tone-slate-soft: var(--tone-slate-soft);
+  --color-tone-slate-foreground: var(--tone-slate-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -272,6 +341,15 @@
 }
 
 /* Numbers in tables, money and dates line up. */
+/* WiseTech house style: a STRUCTURAL heading (a title naming a region of the screen — dialog, page, section,
+   settings card, column header, stat caption, eyebrow) is uppercase. CSS over a title-cased string, so the
+   accessible name stays real words. Buttons, input labels, content titles (a person, a record) and sentences
+   are never uppercased. The v2 twin of the live kit's HEADING_CASE_SX — one constant, reversible here. */
+@utility heading-case {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }

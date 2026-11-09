@@ -39,7 +39,7 @@ export const SiteView: Story = {
 export const ListView: Story = {
   args: { initialLayout: 'list' },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('columnheader', { name: 'Uploaded by' })).toBeInTheDocument()
+    await expect(canvas.getByRole('columnheader', { name: 'Uploaded By' })).toBeInTheDocument()
   },
 }
 
@@ -74,7 +74,7 @@ export const ReplaceProjectCover: Story = {
 export const PreviewAndSetCover: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Preview Night view render' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Night view render' })
+    const dialog = await screen.findByRole('dialog', { name: 'Night View Render' })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Set as Project Cover' }))
     await expect(await within(dialog).findByText('This is the project cover')).toBeInTheDocument()
     await expect(within(dialog).getByRole('button', { name: 'Zoom in' })).toBeEnabled()
@@ -97,7 +97,7 @@ export const UploadMedia: Story = {
     const input = section.querySelector('input[type=file]') as HTMLInputElement
     await userEvent.upload(input, [new File(['x'], 'l4_ducting.jpg', { type: 'image/jpeg' }), big])
     await expect(await panel.findByText(/over the 10 MB photo limit/)).toBeInTheDocument()
-    await userEvent.click(panel.getByRole('button', { name: 'Upload 1 file' }))
+    await userEvent.click(panel.getByRole('button', { name: 'Upload 1 File' }))
     // All uploads succeeded, so the panel closes by itself.
     await expect(await canvas.findByRole('button', { name: 'Preview l4_ducting.jpg' }, { timeout: 5000 })).toBeInTheDocument()
     await expect(canvas.queryByRole('region', { name: 'Upload media' })).not.toBeInTheDocument()
@@ -109,11 +109,11 @@ export const EditInPreview: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Actions for Night view render' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: /Edit caption/ }))
-    const dialog = within(await screen.findByRole('dialog', { name: 'Night view render' }))
+    const dialog = within(await screen.findByRole('dialog', { name: 'Night View Render' }))
     const caption = dialog.getByLabelText('Caption')
     await userEvent.clear(caption)
     await userEvent.type(caption, 'Night view, final')
-    await userEvent.click(dialog.getByRole('button', { name: 'Save changes' }))
+    await userEvent.click(dialog.getByRole('button', { name: 'Save Changes' }))
     await expect(await dialog.findByText('Night view, final', { selector: 'dd' })).toBeInTheDocument()
   },
 }
@@ -123,9 +123,9 @@ export const BulkSelection: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Select Night view render' }))
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Select Lobby reception render' }))
-    await expect(canvas.getByText('2 selected')).toBeInTheDocument()
+    await expect(canvas.getByText('2 Selected')).toBeInTheDocument()
     await userEvent.click(canvas.getByRole('button', { name: 'Delete' }))
-    await expect(await screen.findByRole('dialog', { name: 'Delete 2 items?' })).toBeInTheDocument()
+    await expect(await screen.findByRole('dialog', { name: 'Delete 2 Items?' })).toBeInTheDocument()
     await animationsSettled()
   },
 }
@@ -143,6 +143,6 @@ export const NoCover: Story = {
 export const EmptyGallery: Story = {
   args: { empty: true },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Nothing in Project View yet')).toBeInTheDocument()
+    await expect(canvas.getByText('Nothing in Project View Yet')).toBeInTheDocument()
   },
 }

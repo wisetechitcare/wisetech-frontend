@@ -1,4 +1,5 @@
 import * as React from "react"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { Popover as PopoverPrimitive } from "@animate-ui/react/primitives/base-ui/popover"
 import { cn } from "cn"
 
@@ -60,12 +61,13 @@ function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function PopoverTitle({ className, ...props }: PopoverPrimitive.Title.Props) {
+function PopoverTitle({ className, children, ...props }: PopoverPrimitive.Title.Props) {
   return (
     <PopoverPrimitive.Title
       data-slot="popover-title"
       className={cn("text-base font-medium", className)}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

@@ -29,7 +29,7 @@ type Story = StoryObj<typeof meta>
 /** The everyday action: `default`, used for every main action in the app. Clicking calls `onClick`. */
 export const Default: Story = {
   play: async ({ args, canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Add employee' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Add Employee' }))
     await expect(args.onClick).toHaveBeenCalledTimes(1)
   },
 }
@@ -163,7 +163,7 @@ export const IconOnly: Story = {
 export const Disabled: Story = {
   args: { disabled: true },
   play: async ({ args, canvas }) => {
-    const button = canvas.getByRole('button', { name: 'Add employee' })
+    const button = canvas.getByRole('button', { name: 'Add Employee' })
     await expect(button).toBeDisabled()
     await userEvent.click(button, { pointerEventsCheck: 0 })
     await expect(args.onClick).not.toHaveBeenCalled()

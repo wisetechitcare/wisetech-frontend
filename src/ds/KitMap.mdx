@@ -1,0 +1,130 @@
+import { Meta } from '@storybook/addon-docs/blocks'
+
+<Meta title="Kit Map" />
+
+# Kit Map — live kit → v2
+
+Every shared component the live app uses today (`@app/modules/common/components/ui` and its neighbours),
+the v2 component in this Storybook that replaces it, and where it stands. **Nothing here changes the live app
+yet:** each v2 design is confirmed in Storybook first, then the live component is swapped onto it behind its
+existing API (the way `WtButton` now renders the v2 Button).
+
+✅ in Storybook · 🔨 next · ⏳ later
+
+## Actions, status and feedback
+
+| Live | v2 | |
+| --- | --- | --- |
+| `WtButton`, `WtIconButton`, `ActionIconButton`, Bootstrap `.btn` | Components/Button | ✅ (live app already on it) |
+| `ToneChip`, `StatusBadge` | Components/Badge — status set, category hues, `custom` colour | ✅ |
+| `InlineNotice`, `InlineHint` | Components/Alert | ✅ |
+| `toast`, `GlassNotification`, react-toastify, sonner | Components/Toaster | ✅ |
+| `ConfirmDialog`, `confirmDialog()`, `alertDialog()`, `useConfirmDialog`, `usePromptDialog`, SweetAlert | Patterns/Confirm Dialog | ✅ |
+| `WtTooltip` | Components/Tooltip | ✅ |
+| `PageLoader`, `Skeleton` (common) | Components/Skeleton, Components/Spinner | ✅ |
+| `WtEmptyState` | Patterns/Empty State (`empty`, `no-match`, `error`) | ✅ |
+| `ExportButton` | Components/ButtonGroup + DropdownMenu | ✅ |
+| `StatusCyclePill` | ToggleGroup with counts (in Patterns/Filter Toolbar) | ✅ |
+| `SensitiveData` (masked value) | Patterns/Sensitive Value | ✅ |
+
+## Surfaces, dialogs and panels
+
+**One card, one benchmark.** Everything card-shaped renders `Components/Card`, and every card carries the
+Stat Card design by default — tone glow, accent bar, spring lift, 44px icon tile with pop and wiggle — as
+decoration, clickable or not. The only exception is `variant="panel"`, the frame around a Data Table (lifting
+it would fight scrolling). The compact Stat Card is the same design at a smaller size. Card also owns focus, selected and
+disabled. **Icons: cards right, rows left, dialogs left** (see Introduction). Stat Card, Entity Card and Choice Cards are content layouts *on* Card, not
+separate cards; rows in a list use `Item`. Hover Preview is a popover, not a card. The consistency test fails
+the build on a hand-drawn card (`bg-card` with a border or radius).
+
+| Live | v2 | |
+| --- | --- | --- |
+| `GlassCard`, `GlassSurface`, `KTCard`, Bootstrap `.card` | Components/Card | ✅ |
+| `GlassDialog` + `GlassHeader` + `GlassDialogActions`, `ConfigureFormDialog`, `UnsavedChangesModal`, `ConfirmDiscardDialog` | Patterns/Form Dialog | ✅ |
+| `WtFormDialog` (long form with section nav) | Patterns/Form Dialog `sections` | ✅ |
+| `WtSheet`, `ShadcnDrawer` | Components/Sheet; Components/Drawer (phones) | ✅ |
+| `FilterSheet`, `FilterSheetButton` | Patterns/Filter Sheet (draft → Apply, count on the button) | ✅ |
+| `DrillDownDialog` | Patterns/Form Dialog — read-only, `size="xl"` | ✅ |
+| `OptionPickerDialog` | Components/Combobox — a single value is never a dialog | ✅ |
+| `WtStepper` | Patterns/Stepper | ✅ |
+| `WtWizardDialog` | Patterns/Form Dialog `subheader` (Stepper) + `footer` (Back / Next) | ✅ |
+
+## Data display
+
+| Live | v2 | |
+| --- | --- | --- |
+| `StatTile` | Patterns/Stat Card `size="sm"` | ✅ |
+| KPI cards | Patterns/Stat Card (tone, trend, sparkline) | ✅ |
+| `IconBox` (+ `TRIO` colours) | Patterns/Icon Box (any status, hue or hex) | ✅ |
+| `Graphs`, ApexCharts, Nivo | Components/Chart (Recharts on `--chart-*`) | ✅ |
+| `DetailCard`, `KeyValueList`, `KeyValueRow`, `DetailGrid`, `SectionDivider` | Patterns/Description List (+ Card + Section Header = the `DetailCard` look) | ✅ |
+| `EntityIdentityHeader`, `EmployeeIdentityCell` | Patterns/Person (`PersonHeader`, `PersonCell`) | ✅ |
+| `EntityCard` | Patterns/Entity Card | ✅ |
+| `NavCard` | Patterns/Entity Card with `href` (one tile for records and navigation) | ✅ |
+| `MaterialTable` / `MaterialTableImpl` (106 screens) | Patterns/Data Table (TanStack) — sort, search, column show/hide, selection, paging, density, loading / empty / error / no-match | ✅ design · ⏳ swap is last (see below) |
+| `TableSelectionBar` | Patterns/Data Table — selection bar | ✅ |
+
+## Inputs and forms
+
+| Live | v2 | |
+| --- | --- | --- |
+| `WtField`, `WtFieldFormik`, `FloatingLabels` | Components/Field + Input / Textarea / Select | ✅ |
+| `WtSelect` (engine), `DropdownInput`, `ToolbarFilterSelect`, `MultiSelectWithInlineCreate` | Components/Select (short lists), Components/Combobox (search, multi) | ✅ (inline "+ Add": Combobox → Inline Create) |
+| `WtMoneyField`, `CurrencySymbol` | Components/NumberField (currency) | ✅ |
+| `WtDateField`, `WtDateTimeField`, `TimePickerField`, `DateInput` | Components/DatePicker, DateField, TimeField | ✅ |
+| `FiscalYearRangeField` | Components/DatePicker — range | ✅ |
+| `WtSwitch`, `WtSwitchField` | Components/Switch (+ Field horizontal) | ✅ |
+| `WtCheckbox`, `WtCheckboxField`, `WtControlLabel` | Components/Checkbox (+ Field) | ✅ |
+| `WtChoice`, `WtChoiceField` | Patterns/Choice Cards (`cards`); Switch (`switch`); ToggleGroup (`segmented`) | ✅ |
+| `SegmentedControl`, `ViewModeSwitch` (+ 6 presets), `PeriodTabs` | Components/ToggleGroup | ✅ |
+| `PinInput` | Components/InputOTP | ✅ |
+| `WeightSliderList` | Components/Slider | ✅ |
+| `FormSection`, `WtFormSection` | Components/Field — FieldSet + FieldLegend | ✅ |
+| `WtPhoneField`, `WtPhoneFieldFormik` | Patterns/Phone Field | ✅ |
+| `WtImageField` | Patterns/Image Field (upload) | ✅ |
+| `WtColorPicker`, `IconPicker`, `SwatchPicker` | Patterns/Pickers (`ColorPicker`, `IconPicker`) | ✅ |
+| `EmployeePickerField`, `AllEmployeesSearchDropdown`, `EmployeeSelectionDialog` | Patterns/Person Picker (single and multiple, by name or code) | ✅ |
+
+## Layout and navigation
+
+| Live | v2 | |
+| --- | --- | --- |
+| `ListHeader`, `EntityPageHeader`, `Eyebrow` | Patterns/Page Header | ✅ |
+| `SectionHead` | Patterns/Section Header | ✅ |
+| `UnderlineTabs`, `MaterialHeaderTab` | Components/Tabs (`line` variant) | ✅ |
+| `Pager` | Components/Pagination | ✅ |
+| `PeriodNavigator` | Patterns/Period Navigator (‹ October 2026 ›) | ✅ |
+| `AutoGrid` | Patterns/Auto Grid | ✅ |
+| `SettingsSection` | Patterns/Settings Section (+ `SettingsRow`) | ✅ |
+| `MasterListSection`, `ReorderableGroup` + `DragHandle`, `ConfigColorChip`, `ConfigChipGrid` | Patterns/Master List (drag or arrow-key reorder) | ✅ |
+| `OrgFilterToolbar`, `ToolbarFilterSelect` | Patterns/Filter Toolbar | ✅ |
+| Metronic aside + header | Components/Sidebar; Screens/App shell | ✅ part · shell is Wave 2 |
+| `AppIcon` (KT names → Lucide), `bi-*` | Lucide icons directly | ✅ |
+
+### Data Table: what the live table has that v2 must gain before the swap
+
+The design above covers the core. These live `MaterialTableImpl` features (counted by how many screens enable
+them) are built into Data Table during the swap, so no screen loses one — a hand-written table that dropped
+them is how the recruitment drill-down regressed:
+
+| Feature | Screens | | Feature | Screens |
+| --- | --- | --- | --- | --- |
+| Per-column search / filters | 22 | | Column resizing | 4 |
+| Column pinning | 6 | | Grouping | 4 |
+| Row virtualisation (long lists) | 5 | | Expandable rows | 4 |
+| Column drag-reorder | 5 | | Saved column preferences | all |
+| Full-screen toggle | 5 | | Export (Excel / PDF) | many |
+
+## Design decisions (decided 2026-11-03)
+
+1. **Floating labels**, app-wide: the label rests inside an empty field and floats onto the border on focus or
+   once there is a value. (Today's app floats only where a screen opts in; v2 makes it the standard.) — Done:
+   every field built from `fieldVariants()` floats (Components/Field → Floating Labels).
+2. **Structural headings stay UPPERCASE** — dialog, page, section, settings card, column header, stat caption,
+   eyebrow — via the `heading-case` utility (the twin of `HEADING_CASE_SX`). Buttons, input labels, content
+   titles and sentences keep their case.
+3. **Colours stay admin-configurable.** The seven hues are the preset swatches of the colour picker — the same
+   seven names as the live `KIT_SWATCHES` — not fixed assignments; an admin's own hex works everywhere (`custom`).
+4. **One chart engine: Recharts** (Components/Chart). Existing charts move over as their screens are rebuilt.
+5. **A single value is never a dialog** (standing rule): `OptionPickerDialog` becomes a Combobox; dialogs remain
+   for multi-select.

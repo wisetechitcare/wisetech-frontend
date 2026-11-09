@@ -1,19 +1,22 @@
 import * as React from "react"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { Badge } from "@/ds/ui/badge"
-import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ds/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardLink, CardTitle } from "@/ds/ui/card"
 import { cn } from "@/ds/lib/utils"
+import type { Tone } from "@/ds/lib/tone"
+import { IconBox } from "./icon-box"
 
-/** Card accent: drives the corner glow, icon tile and sparkline. Trend colour stays semantic (good/bad), never the tone. */
-export type StatTone = "brand" | "success" | "warning" | "info" | "danger"
-
-const TONES: Record<StatTone, React.CSSProperties> = {
-  brand: { "--tone": "var(--primary)", "--tone-ink": "var(--accent-foreground)" } as React.CSSProperties,
-  success: { "--tone": "var(--success)", "--tone-ink": "var(--success-foreground)" } as React.CSSProperties,
-  warning: { "--tone": "var(--warning)", "--tone-ink": "var(--warning-foreground)" } as React.CSSProperties,
-  info: { "--tone": "var(--info)", "--tone-ink": "var(--info-foreground)" } as React.CSSProperties,
-  danger: { "--tone": "var(--destructive)", "--tone-ink": "var(--destructive-foreground)" } as React.CSSProperties,
-}
+/**
+ * Card accent: drives the corner glow, icon tile and sparkline. Trend colour stays semantic
+ * (good/bad), never the tone.
+ *
+ * This is the kit-wide `Tone`, not a list local to this file. The five status names (brand,
+ * success, warning, info, danger) are the same ones a local record would spell out, plus the
+ * hue tones and an admin-configured hex — and `toneStyle()` is what ten other components
+ * already use, so a stat card cannot drift from a chip beside it.
+ */
+export type StatTone = Tone
 
 /** Smooth path through the points (Catmull-Rom → cubic Bézier) in a 100×32 box. */
 function sparkPath(values: number[]) {
@@ -61,6 +64,8 @@ export function StatCard({
   hint,
   sparkline,
   tone = "brand",
+  size = "default",
+  href,
   className,
   children,
   ...props
@@ -73,42 +78,56 @@ export function StatCard({
   hint?: React.ReactNode
   /** Recent values, oldest first; drawn as a small area chart. */
   sparkline?: number[]
-  tone?: StatTone
+  /** A status, a category hue, or an admin-configured hex colour. */
+  tone?: StatTone | (string & {})
+  /** `sm`: compact horizontal tile (icon, label, value) for dense rows — the live kit's StatTile. */
+  size?: "default" | "sm"
+  /** The list behind the number (a KPI that filters the table below it). Makes the whole card a link. */
+  href?: string
+  className?: string
 }) {
   const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp
   const hasFooter = trend || hint || (sparkline && sparkline.length > 1)
+
+  // The compact tile is the benchmark at a smaller size, not a different design: same glow, accent
+  // bar, lift, 44px icon tile with pop and wiggle, same label style and number rise. Only what makes
+  // it compact changes — one row, tighter padding, a smaller number.
+  if (size === "sm") {
+    return (
+      <Card size="sm" tone={tone} interactive={!!href} className={cn("flex-row items-center gap-3 px-(--card-spacing)", className)}>
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="heading-case truncate text-sm text-muted-foreground">{href ? <CardLink href={href}>{titleCaseChildren(label)}</CardLink> : titleCaseChildren(label)}</p>
+          <p className="tabular text-2xl leading-tight font-semibold motion-safe:animate-stat-rise">{value}</p>
+        </div>
+        {trend && (
+          <Badge variant={trend.good ? "success" : "danger"}>
+            <TrendIcon data-icon="inline-start" aria-hidden />
+            {trend.value}
+          </Badge>
+        )}
+        {icon && <IconBox icon={icon} tone={tone} size="lg" />}
+      </Card>
+    )
+  }
+
   return (
-    <Card
-      {...props}
-      className={cn(
-        "group/stat relative gap-4 overflow-hidden transition-[box-shadow,translate] duration-300 ease-spring hover:shadow-md motion-safe:hover:-translate-y-0.5",
-        className,
-      )}
-      style={{ ...TONES[tone], ...props.style }}
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-20 -right-20 size-52 rounded-full bg-(--tone) opacity-[0.13] blur-3xl transition-[opacity,scale] duration-500 group-hover/stat:scale-125 group-hover/stat:opacity-[0.22] dark:opacity-[0.2] dark:group-hover/stat:opacity-[0.3]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-(--tone) transition-transform duration-500 ease-spring group-hover/stat:scale-x-100"
-      />
-      <CardHeader className="relative">
-        <CardDescription>{label}</CardDescription>
+    // The benchmark tile lives in Card (variant="tile"): glow, accent bar, lift and icon motion are
+    // drawn there once, so every tile in the kit matches this one.
+    <Card {...props} variant="tile" tone={tone} interactive={!!href} className={cn("gap-4", className)}>
+      <CardHeader>
+        <CardDescription className="heading-case">{href ? <CardLink href={href}>{titleCaseChildren(label)}</CardLink> : titleCaseChildren(label)}</CardDescription>
         {/* min-w-0: lets a long text value truncate instead of widening the card. */}
         <CardTitle className="tabular min-w-0 text-3xl font-semibold motion-safe:animate-stat-rise">{value}</CardTitle>
         {icon && (
           <CardAction>
-            <span className="grid size-11 place-items-center rounded-2xl bg-[color-mix(in_oklch,var(--tone)_14%,transparent)] text-(--tone-ink) ring-1 ring-[color-mix(in_oklch,var(--tone)_22%,transparent)] transition-[scale,box-shadow] duration-300 group-hover/stat:scale-110 group-hover/stat:shadow-[0_8px_18px_-8px_var(--tone)] motion-safe:animate-stat-pop motion-safe:group-hover/stat:*:animate-stat-wiggle [&>svg]:size-5">
-              {icon}
-            </span>
+            {/* Card's tile variant animates the icon (pop, hover scale, wiggle). */}
+            <IconBox icon={icon} tone={tone} size="lg" />
           </CardAction>
         )}
       </CardHeader>
-      {children && <CardContent className="relative">{children}</CardContent>}
+      {children && <CardContent>{children}</CardContent>}
       {hasFooter && (
-        <CardFooter className="relative items-end justify-between gap-3 text-xs">
+        <CardFooter className="items-end justify-between gap-3 text-xs">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {trend && (
               <Badge variant={trend.good ? "success" : "danger"}>
