@@ -160,7 +160,7 @@ function ChartCard({ title, hint, subtitle, footer, children }: {
     title: string; hint?: string | false; subtitle: React.ReactNode; footer?: React.ReactNode; children: React.ReactNode;
 }) {
     return (
-        <Card size="sm" className="min-w-0 gap-2.5">
+        <Card size="sm" variant="panel" className="min-w-0 gap-2.5">
             <CardHeader className="min-h-9 gap-0.5">
                 <CardTitle className="text-[13px] font-bold">
                     {title}
