@@ -38,7 +38,7 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Design system (ADR-001)
 
-- **App content background stays light in dark mode** — `#kt_content` (`.content`, `$content-background:
+- ~~**App content background stays light in dark mode**~~ **Fixed 2026-11-09 (`ae4e95ed`):** dark `.content` now uses the kit `--background` token (src/main.css). Original note — `#kt_content` (`.content`, `$content-background:
   #F6F9FC` in `_metronic/.../layout/_content.scss`) has no dark override, so it shows through wherever a page
   has no surface of its own (measured on Reimbursement → Payment and Company → Branches). Light-on-light text
   is the symptom. — Give `.content` a `[data-bs-theme="dark"]` background from the `--gh-*` palette, then re-run
