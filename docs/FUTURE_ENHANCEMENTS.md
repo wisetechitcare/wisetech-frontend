@@ -170,3 +170,7 @@ Format: **what** — evidence (file / screen) — suggested fix.
   (`38b13838` "Increased Uploading size of both Image & video"), so the warning never renders and the story has been
   red on every branch since. — Derive both the regex and the fixture size from `IMAGE_MAX_MB` so raising the limit
   cannot rot the test again.
+- **DataTable row reorder is client-paged only** — `rowReorder` reorders the rows the table holds; with
+  `server` paging it only sees the current page, so a keyboard move cannot cross a page boundary (2026-11-09). —
+  When a server-paged list needs ordering, pass a `position` offset or a move-relative callback
+  (`onMove(id, beforeId)`) so the server applies the move to the full list.
