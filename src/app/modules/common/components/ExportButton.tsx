@@ -166,11 +166,28 @@ function getCellColor<T>(row: T, col: ExportColumn<T>): string {
  * a live link in finance's file. Such cells get a leading apostrophe, which spreadsheets read as "this is text".
  * Genuine numbers ("-120.50", "+5") and the empty-value dash stay as they are, so negative amounts are not
  * mangled. The .xlsx writer needs none of this: ExcelJS stores these as typed TEXT cells, never formulas.
+ *
+ * The trigger is checked on the value as an importer may SEE it: NFKC-normalised (full-width "＝" is "=") and
+ * with leading whitespace dropped (" =1+1" — some importers trim before evaluating). The cell keeps its own
+ * text; it only gains the apostrophe.
  */
 export function neutralizeCsvFormula(value: string): string {
     if (value === '' || value === '-') return value;
-    if (/^[-+]?\d[\d,.\s]*$/.test(value)) return value;
-    return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+    // A leading tab or carriage return is itself a trigger — check it before trimming whitespace away.
+    if (/^[\t\r]/.test(value)) return `'${value}`;
+    const seen = value.normalize('NFKC').replace(/^[\s\u00a0\ufeff]+/, '');
+    if (/^[-+]?\d[\d,.\s]*$/.test(seen)) return value;
+    return /^[=+\-@]/.test(seen) ? `'${value}` : value;
+}
+
+/**
+ * One CSV cell: formula-neutralised, then ALWAYS quoted (inner quotes doubled). Quoting every cell, not only
+ * those with a comma or newline, keeps a ';' or tab inside the cell for locales whose Excel splits on ';' —
+ * an unquoted "a;=1+1" would become two cells, the second a formula. (No `sep=,` line: it breaks Excel's
+ * UTF-8 BOM detection — ₹ and names would garble — and is a junk first row everywhere else.)
+ */
+export function csvCell(value: string): string {
+    return `"${neutralizeCsvFormula(value).replace(/"/g, '""')}"`;
 }
 
 export function exportCsv<T>(
@@ -182,12 +199,8 @@ export function exportCsv<T>(
     totalLabel: string,
 ) {
     const cols = columns.filter(c => !c.csvSkip);
-    // Neutralise formulas first, then quote — every cell, title and headers included.
-    const escape = (cell: string) => {
-        const v = neutralizeCsvFormula(cell);
-        if (/[",\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
-        return v;
-    };
+    // Every cell, title and headers included: neutralised and quoted (csvCell).
+    const escape = csvCell;
 
     const rows: string[] = [];
 
@@ -216,7 +229,7 @@ export function exportCsv<T>(
         rows.push(totalCols.join(','));
     }
 
-    const bom = '﻿';
+    const bom = '\ufeff';
     const blob = new Blob([bom + rows.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     saveAs(blob, `${filename}.csv`);
 }
