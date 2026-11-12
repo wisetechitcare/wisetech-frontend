@@ -14,11 +14,15 @@ interface CompanyType {
 }
 
 // Get All Company Types
+// Cached (shared in-flight + 45 s): a page mounting three consumers fetched it three times. Every write below
+// invalidates, so an edit is visible on the next read.
 export const getAllCompanyTypes = async (): Promise<{ companyTypes: CompanyType[] }> => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_COMPANY_TYPES}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('companyTypes', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_ALL_COMPANY_TYPES}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        }, MUTABLE_TTL);
     } catch (err) {
         throw err;
     }
@@ -40,6 +44,7 @@ export const createCompanyType = async (payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.CREATE_COMPANY_TYPE}`;
         const { data } = await axios.post(endpoint, payload);
+        invalidateRequestCache('companyTypes');
         return data;
     } catch (err) {
         throw err;
@@ -51,6 +56,7 @@ export const updateCompanyType = async (id: string, payload: any) => {
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.UPDATE_COMPANY_TYPE.replace(':id', id)}`;
         const { data } = await axios.put(endpoint, payload);
+        invalidateRequestCache('companyTypes');
         return data;
     } catch (err) {
         throw err;
@@ -63,6 +69,7 @@ export const deleteCompanyType = async (id: string, targetId?: string) => {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.DELETE_COMPANY_TYPE.replace(':id', id)}`;
         const payload = targetId ? { targetId } : {};
         const { data } = await axios.delete(endpoint, { data: payload });
+        invalidateRequestCache('companyTypes');
         return data;
     } catch (err) {
         throw err;

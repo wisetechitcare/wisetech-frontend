@@ -104,7 +104,7 @@ export function ReimbursementFormDialog(props: ReimbursementFormDialogProps) {
 
   // Seeding only while open: closing clears the seed, so reopening the SAME record changes it again and the
   // saved selections are restored every time (the restore effect keys on the seed's ids).
-  const lookups = useReimbursementFormLookups(open ? record ?? null : null);
+  const lookups = useReimbursementFormLookups(open ? record ?? null : null, open);
   const { reset } = lookups;
   useEffect(() => {
     if (!open) reset();
