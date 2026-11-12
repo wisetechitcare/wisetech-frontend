@@ -58,7 +58,14 @@ function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          "fixed z-(--z-modal) flex flex-col bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
+          // The shadcn Drawer look (ui.shadcn.com/docs/components/base/drawer, the kit's drawer.tsx): a panel floating
+          // 8px off the viewport edges (`--drawer-inset`), rounded-4xl all round, bordered — not a square slab glued to
+          // one edge. Side panels are 75% wide, 24rem from `sm` (the drawer's x-axis sizing).
+          "fixed z-(--z-modal) flex flex-col overflow-hidden rounded-4xl border border-border bg-popover bg-clip-padding text-sm text-popover-foreground shadow-2xl",
+          "data-[side=bottom]:inset-x-2 data-[side=bottom]:bottom-2 data-[side=bottom]:h-auto data-[side=bottom]:max-h-[calc(100dvh-6rem)]",
+          "data-[side=top]:inset-x-2 data-[side=top]:top-2 data-[side=top]:h-auto data-[side=top]:max-h-[calc(100dvh-6rem)]",
+          "data-[side=left]:inset-y-2 data-[side=left]:left-2 data-[side=left]:w-[calc(75%-1rem)] data-[side=left]:sm:max-w-sm",
+          "data-[side=right]:inset-y-2 data-[side=right]:right-2 data-[side=right]:w-[calc(75%-1rem)] data-[side=right]:sm:max-w-sm",
           className,
         )}
         {...props}
