@@ -2,6 +2,8 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import dayjs from "dayjs";
+import { Provider } from "react-redux";
+import { configureStore } from "@reduxjs/toolkit";
 
 vi.mock("@services/employee", () => ({
   fetchReimbursementBatches: vi.fn().mockResolvedValue({ data: { batches: [] } }),
@@ -54,7 +56,7 @@ const fiscalLabelFor = (d: dayjs.Dayjs) => {
 
 describe("PaymentTab period navigation", () => {
   it("steps by month in monthly mode and by fiscal year in yearly mode", async () => {
-    const { container } = render(<PaymentTab />);
+    const { container } = render(<Provider store={configureStore({ reducer: () => ({}) })}><PaymentTab /></Provider>);
     const now = dayjs();
 
     expect(screen.getByText(now.format("MMM YYYY"))).toBeTruthy();
