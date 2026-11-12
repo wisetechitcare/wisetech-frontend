@@ -69,8 +69,8 @@ const trend = [
 
 const statusConfig = {
   paid: { label: 'Paid', color: 'var(--success)' },
-  awaitingPayment: { label: 'Awaiting payment', color: 'var(--info)' },
-  awaitingApproval: { label: 'Awaiting approval', color: 'var(--warning)' },
+  awaitingPayment: { label: 'Awaiting Payment', color: 'var(--info)' },
+  awaitingApproval: { label: 'Awaiting Approval', color: 'var(--warning)' },
   rejected: { label: 'Rejected', color: 'var(--destructive)' },
 } satisfies ChartConfig
 
@@ -157,7 +157,7 @@ export const Donut: Story = {
     </ChartContainer>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Awaiting payment')).toBeInTheDocument()
+    await expect(canvas.getByText('Awaiting Payment')).toBeInTheDocument()
   },
 }
 

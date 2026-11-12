@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent } from 'storybook/test'
+import { animationsSettled } from '@/ds/lib/motion'
 import { SegmentedFilter, type SegmentOption } from './segmented-filter'
 
 /**
@@ -19,7 +20,7 @@ type Story = StoryObj<typeof meta>
 const APPROVAL: SegmentOption[] = [
   { value: 'all', label: 'All', count: 7, tone: 'neutral', share: 1 },
   { value: 'pending', label: 'Pending', count: 2, tone: 'warning', share: 2 / 7 },
-  { value: 'needs-info', label: 'Needs info', count: 0, tone: 'warning', share: 0 },
+  { value: 'needs-info', label: 'Needs Info', count: 0, tone: 'warning', share: 0 },
   { value: 'approved', label: 'Approved', count: 4, tone: 'success', share: 4 / 7 },
   { value: 'rejected', label: 'Rejected', count: 1, tone: 'danger', share: 1 / 7 },
 ]
@@ -29,7 +30,7 @@ export const Basic: Story = {
   args: { options: APPROVAL, value: 'approved', 'aria-label': 'Filter by approval status' },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole('button', { name: /^Approved 4 records$/ })).toHaveAttribute('aria-pressed', 'true')
-    await expect(canvas.getByRole('button', { name: /^Needs info 0 records$/ })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: /^Needs Info 0 records$/ })).toBeInTheDocument()
   },
 }
 
@@ -60,6 +61,10 @@ export const Interactive: Story = {
     await userEvent.click(rejected)
     await expect(args.onValueChange).toHaveBeenCalledWith('rejected')
     await expect(rejected).toHaveAttribute('aria-pressed', 'true')
+    // The tint fades in (transition-colors). Let it finish — the accessibility check that follows the play
+    // function otherwise samples a half-blended background and reports a contrast failure that never rests.
+    await new Promise((r) => requestAnimationFrame(() => r(null)))
+    await animationsSettled()
   },
 }
 

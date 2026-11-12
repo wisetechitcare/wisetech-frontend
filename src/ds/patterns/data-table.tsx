@@ -613,7 +613,8 @@ export function DataTable<T extends RowData>({
                       }}
                       style={fixedLayout ? { width: h.getSize() } : undefined}
                       aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : h.column.getCanSort() ? "none" : undefined}
-                      className={cn(narrowCol(h.column.id), pinEnd(h.column), fixedLayout && "relative")}
+                      // `sticky` LAST: it also anchors the resize handle, and a later `relative` silently un-froze the header.
+                      className={cn(narrowCol(h.column.id), fixedLayout && "relative", pinEnd(h.column))}
                     >
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                       {fixedLayout && h.column.getCanResize() && !narrowCol(h.column.id) && (
@@ -635,7 +636,9 @@ export function DataTable<T extends RowData>({
           </TableHeader>
           <TableBody {...(sp?.listProps(ROWS_CONTAINER, !canDrag) ?? {})}>{body ?? rowsBody?.(sp)}</TableBody>
           {hasFooter && rows.length > 0 && !loading && !error && (
-            <TableFooter>
+            // The frozen cell paints `--row-bg` over the card colour; give the footer its own (TableFooter's
+            // `bg-muted/50`), or the pinned TOTAL cell shows as a white patch in a grey row.
+            <TableFooter className="[--row-bg:color-mix(in_oklab,var(--muted)_50%,transparent)]">
               {table.getFooterGroups().map((fg) => (
                 <TableRow key={fg.id}>
                   {fg.headers.map((h) => (

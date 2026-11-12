@@ -72,7 +72,7 @@ const COLUMNS: ColumnDef<Employee, any>[] = [
   {
     id: 'actions',
     enableHiding: false,
-    header: () => <span className="sr-only">Actions</span>,
+    header: 'Actions',
     cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${row.original.name}`} />}>
