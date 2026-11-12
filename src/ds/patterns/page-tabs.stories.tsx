@@ -62,6 +62,10 @@ export const WithHeaderAction: Story = {
     await expect(eye).toHaveAttribute('aria-pressed', 'false')
     await userEvent.click(eye)
     await waitFor(() => expect(canvas.getByText('₹18,450')).toBeVisible())
+    // The pointer is still over the eye, so its tooltip is open. Leave and wait for the tooltip to unmount,
+    // or the a11y check would measure it mid-way through its closing fade.
+    await userEvent.unhover(eye)
+    await waitFor(() => expect(document.querySelector('[data-slot="tooltip-content"]')).toBeNull())
   },
 }
 
@@ -108,8 +112,30 @@ export const PhoneOneTab: Story = {
   },
 }
 
-/** Phone, five tabs and the eye: too tight for names in a row, so icon over a short name (nav). */
+const barMode = () => document.querySelector('[data-slot="page-tabs-bar"]')?.getAttribute('data-phone-mode')
+
+/** Phone (375px), five tabs: room for every tab at 64px, so each shows its icon over a short name (nav). */
 export const PhoneFiveTabs: Story = {
+  globals: { viewport: { value: 'mobile2' } },
+  play: async ({ canvas }) => {
+    await expect(barMode()).toBe('nav')
+    await expect(canvas.getByText('Mine')).toBeVisible()
+  },
+}
+
+/** Phone (320px), five tabs: not enough for names, so icons, with the SELECTED tab named. */
+export const PhoneIconsMode: Story = {
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvas }) => {
+    await expect(barMode()).toBe('icons')
+    await expect(canvas.getByText('My Reimbursements')).toBeVisible()
+    await userEvent.click(canvas.getByRole('tab', { name: /Payment/ }))
+    await waitFor(() => expect(canvas.getByText('Payment')).toBeVisible())
+  },
+}
+
+/** Phone (320px), five tabs and the eye: the eye rail takes ~57px, so icons only (bare). Names stay as titles. */
+export const PhoneFiveTabsWithEye: Story = {
   render: (args) => (
     <SensitiveProvider>
       <PageTabs {...args} headerAction={<SensitiveToggle variant="onPrimary" />} />
@@ -117,7 +143,8 @@ export const PhoneFiveTabs: Story = {
   ),
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Mine')).toBeVisible()
+    await expect(barMode()).toBe('bare')
+    await expect(canvas.getByRole('tab', { name: /My Reimbursements/ })).toHaveAttribute('title', 'My Reimbursements')
     await expect(canvas.getByRole('button', { name: 'Show amounts' })).toBeVisible()
   },
 }
