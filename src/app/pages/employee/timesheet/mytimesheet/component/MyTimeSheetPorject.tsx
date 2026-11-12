@@ -1,7 +1,8 @@
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { KTIcon } from "@metronic/helpers";
-import { Avatar, Box, Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import { RootState } from "@redux/store";
 import { fetchConfiguration } from "@services/company";
 import { formatMoneyString } from "@utils/statistics";
@@ -246,12 +247,7 @@ const MyTimeSheetProject = ({
           if (!name) return <span style={{ color: "#7A8597" }}>—</span>;
           return (
             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-              <Avatar
-                src={row.original?.taskOwnerAvatar || undefined}
-                sx={{ width: 22, height: 22, fontSize: 10, fontWeight: 700 }}
-              >
-                {name.charAt(0)}
-              </Avatar>
+              <SmartAvatar name={name} src={row.original?.taskOwnerAvatar} size={22} decorative />
               <Typography variant="body2" noWrap>{name}</Typography>
             </Stack>
           );

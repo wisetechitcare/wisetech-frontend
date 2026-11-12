@@ -5,7 +5,8 @@ import { Button } from "@/ds/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ds/ui/dialog"
 import { Input } from "@/ds/ui/input"
 import { Chip } from "./ProjectPicker"
-import { countBy, initialsOf, pickLimit, type PickSection } from "./profile"
+import { countBy, pickLimit, type PickSection } from "./profile"
+import { SmartAvatar } from "@/ds/ui/smart-avatar"
 
 export type PickItem = { id: string; label: string; sub: string; image?: string | null; group?: string }
 
@@ -102,10 +103,8 @@ export function ItemPicker({
                   className="relative flex w-full items-center gap-2.5 rounded-xl border border-border bg-card p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 aria-pressed:border-primary aria-pressed:ring-2 aria-pressed:ring-primary"
                 >
                   {i.image !== undefined && (
-                    // White plate: logos are drawn for a light background.
-                    <span className="grid h-10 w-14 shrink-0 place-items-center overflow-hidden rounded-md border border-border bg-white p-1 text-xs font-bold text-slate-700">
-                      {i.image ? <img src={i.image} alt="" className="max-h-full max-w-full object-contain" /> : initialsOf(i.label)}
-                    </span>
+                    // The company's logo (contained, never cropped), else its initials.
+                    <SmartAvatar name={i.label} src={i.image} seed={i.id} size="default" shape="rounded" fit="contain" decorative />
                   )}
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold">{i.label}</span>

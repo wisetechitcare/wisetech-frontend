@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
-import { Col, Image, Row } from "react-bootstrap";
+import { Col, Row } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { getAvatar } from "@utils/avatar";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import ScoreBar from "./ScoreBar";
 import { ToneChip } from "@app/modules/common/components/ui";
 
@@ -44,8 +44,6 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
   const employee = useSelector((state: RootState) =>
     fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee
   );
-
-  const avatar = getAvatar(employee.avatar || "", employee.gender);
 
   const percentage = Math.max(0, Math.min((yourPoints / (maxTotal || 1)) * 100, 100));
 
@@ -212,9 +210,13 @@ const PerformanceBadge: React.FC<PerformanceBadgeProps> = ({
         <div className="card shadow-sm border-0 h-100" style={{ borderRadius: "12px" }}>
           <div className="card-body p-4 d-flex align-items-center">
             <div className="d-flex align-items-center gap-4 w-100">
-              <div className="symbol symbol-60px symbol-circle border border-2 border-white shadow-sm flex-shrink-0">
-                <Image src={avatar} alt="Profile" />
-              </div>
+              <SmartAvatar
+                src={employee?.avatar}
+                name={`${employee?.users?.firstName ?? ""} ${employee?.users?.lastName ?? ""}`}
+                seed={employee?.id}
+                size={60}
+                decorative
+              />
               <div className="d-flex flex-column min-w-0">
                 <h5 className="fw-boldest text-dark mb-1 fs-4" style={{ fontFamily: "Barlow", lineHeight: "1.2" }}>
                   {employee?.users?.firstName} {employee?.users?.lastName}

@@ -76,14 +76,14 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Apply commits the draft; the button then reads "Filters 2 applied". */
+/** Apply commits the draft (it counts what it will apply); the button then reads "Filters 2 applied". */
 export const ApplyFilters: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Filters' }))
     await screen.findByRole('dialog', { name: 'Filter Leave Requests' })
     await userEvent.click(screen.getByRole('checkbox', { name: 'Pending' }))
     await userEvent.click(screen.getByRole('switch', { name: 'Only My Team' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Apply (2)' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await expect(onApply).toHaveBeenCalledWith({ statuses: ['Pending'], mineOnly: true })
     await expect(canvas.getByRole('button', { name: 'Filters 2 applied' })).toBeInTheDocument()
@@ -102,5 +102,64 @@ export const CloseDiscardsDraft: Story = {
     await expect(onApply).not.toHaveBeenCalled()
     await expect(canvas.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
     await animationsSettled()
+  },
+}
+
+/** Nothing picked and nothing applied: Reset is disabled rather than a click that does nothing. */
+export const ResetNeedsSomethingToReset: Story = {
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Filters' }))
+    await screen.findByRole('dialog')
+    await expect(screen.getByRole('button', { name: 'Reset' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Rejected' }))
+    await expect(screen.getByRole('button', { name: 'Reset' })).toBeEnabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Reset' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await expect(onApply).toHaveBeenCalledWith({ statuses: [], mineOnly: false })
+    await animationsSettled()
+  },
+}
+
+/**
+ * Tablet and up: a fixed 384px right panel, always viewport-tall, so Apply / Reset sit at the bottom edge and never
+ * move as fields change.
+ */
+export const DesktopRightPanel: Story = {
+  globals: { viewport: { value: 'desktop' } },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Filters' }))
+    const dialog = await screen.findByRole('dialog')
+    await expect(dialog).toHaveAttribute('data-side', 'right')
+    await expect(dialog).toHaveAttribute('data-fit', 'full')
+    await animationsSettled()
+    await expect(Math.round(dialog.getBoundingClientRect().height)).toBe(window.innerHeight - 16)
+  },
+}
+
+/** Phones: a full-width bottom sheet with a fixed height, footer under the thumb. */
+export const PhoneBottomSheet: Story = {
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Filters' }))
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(dialog).toHaveAttribute('data-side', 'bottom'))
+    await animationsSettled()
+    const box = dialog.getBoundingClientRect()
+    await expect(Math.round(box.width)).toBe(window.innerWidth - 16)
+    await expect(Math.round(box.bottom)).toBe(window.innerHeight - 8)
+  },
+}
+
+/** `iconOnly`: the table toolbar's ToolButton — outline at rest, tinted with a count while filters apply. */
+export const IconOnlyTrigger: Story = {
+  render: () => (
+    <div className="flex gap-2">
+      <FilterSheetButton iconOnly count={0} onClick={fn()} />
+      <FilterSheetButton iconOnly count={3} onClick={fn()} />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Filters 3 applied' })).toHaveTextContent('3')
   },
 }

@@ -2,11 +2,11 @@ import type { ReactNode } from "react"
 import { ArrowLeft, Briefcase, Building2, CalendarDays, Mail, MapPin, MessageSquare, Pencil, Phone, ShieldCheck, Wallet } from "lucide-react"
 import { Button } from "@/ds/ui/button"
 import { Badge } from "@/ds/ui/badge"
-import { Avatar, AvatarFallback } from "@/ds/ui/avatar"
+import { SmartAvatar } from "@/ds/ui/smart-avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ds/ui/tabs"
 import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from "@/ds/ui/card"
 import { EmptyState } from "@/ds/patterns/empty-state"
-import { initials, STATUS_META, type Person } from "./fixtures"
+import { STATUS_META, type Person } from "./fixtures"
 
 function InfoCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
@@ -56,9 +56,7 @@ export function EmployeeDetailScreen({ person, onBack }: { person: Person; onBac
       <Card className="relative">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent" />
         <CardContent className="relative flex flex-wrap items-center gap-5">
-          <Avatar size="lg" className="size-20 ring-4 ring-card">
-            <AvatarFallback className="bg-primary text-2xl font-semibold text-primary-foreground">{initials(person.name)}</AvatarFallback>
-          </Avatar>
+          <SmartAvatar name={person.name} seed={person.id} size={80} className="ring-4 ring-card" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold">{person.name}</h1>

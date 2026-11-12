@@ -22,7 +22,7 @@ import { toneStyle, type Tone } from "@/ds/lib/tone"
 import { Button } from "@/ds/ui/button"
 import { ButtonGroup } from "@/ds/ui/button-group"
 import { Input } from "@/ds/ui/input"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip"
+
 import { Card } from "@/ds/ui/card"
 import { Checkbox } from "@/ds/ui/checkbox"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/ds/ui/input-group"
@@ -31,6 +31,7 @@ import { Skeleton } from "@/ds/ui/skeleton"
 import { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/ds/ui/table"
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem } from "@/ds/ui/pagination"
 import { EmptyState } from "./empty-state"
+import { ToolButton } from "./tool-button"
 
 export type { ColumnDef, DataTableColumnMeta, RowData } from "./data-table-features"
 
@@ -84,35 +85,6 @@ function displayTextFilter<T extends RowData>(meta: unknown) {
     const shown = exportValue ? exportValue(row.original) : row.getValue(columnId)
     return String(shown ?? "").toLowerCase().includes(needle)
   }) as unknown as NonNullable<ColumnDef<T>["filterFn"]>
-}
-
-/** One tool in the table's tool group (Tooltip + ButtonGroup story recipes): tinted while ON. */
-function ToolButton({ label, active, pressed, onClick, children }: {
-  label: string
-  active?: boolean
-  /** For on/off tools: exposes aria-pressed. */
-  pressed?: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant={active ? "tinted" : "outline"}
-            size="icon"
-            aria-label={label}
-            aria-pressed={pressed}
-            onClick={onClick}
-          />
-        }
-      >
-        {children}
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  )
 }
 
 const SELECT_COLUMN_ID = "__select"

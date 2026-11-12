@@ -1,5 +1,6 @@
 import React, { useCallback, useId, useMemo, useRef, useState } from 'react';
-import { Autocomplete, Avatar, Box, Chip, MenuItem, TextField, Typography, alpha } from '@mui/material';
+import { Autocomplete, Box, Chip, MenuItem, TextField, Typography, alpha } from '@mui/material';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import type { SxProps, Theme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { AppIcon } from './AppIcon';
@@ -66,11 +67,19 @@ export interface WtFieldOption {
     title?: string;
     /** Optional longer text inside the open menu (e.g. branch · company). Falls back to `label`. */
     menuLabel?: string;
-    /** Avatar URL — person pickers (Hiring Manager / Recruiter) on the searchable Autocomplete path. */
+    /**
+     * Avatar URL — person pickers (Hiring Manager / Recruiter) on the searchable Autocomplete path.
+     * Setting the key at all (even to `""` / `null`) marks a person option: no photo shows initials.
+     */
     avatar?: string | null;
+    /** Whose avatar it is, for the initials and colour (the label may carry a code prefix). Falls back to `label`. */
+    avatarName?: string;
     /** Secondary line under the label in the menu (and closed field when avatar is set). */
     description?: string;
 }
+
+/** A person option: the caller set `avatar` (a photo URL, or empty for initials). */
+const hasAvatar = (o: WtFieldOption): boolean => o.avatar !== undefined;
 
 /**
  * Single-select call sites pass `(v: string) => void` / `setState`; multi passes `string[]`.
@@ -494,7 +503,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                                         {...tagProps}
                                         size="small"
                                         label={option.label}
-                                        avatar={option.avatar ? <Avatar src={option.avatar} alt="" /> : undefined}
+                                        avatar={hasAvatar(option) ? <SmartAvatar name={option.avatarName ?? option.label} src={option.avatar} seed={option.value} size={18} decorative /> : undefined}
                                         sx={chipSx}
                                     />
                                 );
@@ -507,7 +516,7 @@ export const WtField: React.FC<WtFieldProps> = ({
                     renderOption={(props, option) => {
                         const { key, ...rest } = props as React.HTMLAttributes<HTMLLIElement> & { key?: string };
                         const isAdd = option.value === ADD_OPTION_VALUE;
-                        const rich = !isAdd && (option.avatar || option.description);
+                        const rich = !isAdd && (hasAvatar(option) || option.description);
                         return (
                             <Box
                                 component="li"
@@ -527,13 +536,8 @@ export const WtField: React.FC<WtFieldProps> = ({
                                     minWidth: 0,
                                 }}
                             >
-                                {option.avatar ? (
-                                    <Box
-                                        component="img"
-                                        src={option.avatar}
-                                        alt=""
-                                        sx={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                                    />
+                                {!isAdd && hasAvatar(option) ? (
+                                    <SmartAvatar name={option.avatarName ?? option.label} src={option.avatar} seed={option.value} size={22} decorative />
                                 ) : null}
                                 {rich ? (
                                     <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -566,12 +570,14 @@ export const WtField: React.FC<WtFieldProps> = ({
                         paper: { sx: [{ width: '100%', maxWidth: '100%', maxHeight: 320 }, menuOptionSx] },
                     }}
                     renderInput={(params) => {
-                        const avatarStart = !multiple && selected?.avatar ? (
-                            <Box
-                                component="img"
+                        const avatarStart = !multiple && selected && hasAvatar(selected) ? (
+                            <SmartAvatar
+                                name={selected.avatarName ?? selected.label}
                                 src={selected.avatar}
-                                alt=""
-                                sx={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', mr: 0.75, flexShrink: 0 }}
+                                seed={selected.value}
+                                size={20}
+                                className="me-1.5"
+                                decorative
                             />
                         ) : null;
                         return (

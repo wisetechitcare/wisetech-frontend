@@ -20,7 +20,7 @@ import {
 import { Item, ItemActions, ItemContent, ItemTitle } from "@/ds/ui/item";
 import { Tabs, TabsList, TabsTrigger } from "@/ds/ui/tabs";
 import { Checkbox } from "@/ds/ui/checkbox";
-import { Avatar, AvatarFallback } from "@/ds/ui/avatar";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import {
   Table,
   TableBody,
@@ -36,7 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/ds/ui/dropdown-menu";
 import { PageHeader } from "@/ds/patterns/page-header";
-import { initials, PEOPLE, STATUS_META, type Person } from "./fixtures";
+import { PEOPLE, STATUS_META, type Person } from "./fixtures";
 
 const VIEWS = [
   "All people",
@@ -194,11 +194,7 @@ export function EmployeesScreen({ onOpen }: { onOpen: (p: Person) => void }) {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback className="bg-accent text-xs font-semibold text-accent-foreground">
-                        {initials(p.name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <SmartAvatar name={p.name} seed={p.id} size="sm" decorative />
                     <div className="min-w-0">
                       <p className="truncate font-medium">{p.name}</p>
                       <p className="truncate text-xs text-muted-foreground">

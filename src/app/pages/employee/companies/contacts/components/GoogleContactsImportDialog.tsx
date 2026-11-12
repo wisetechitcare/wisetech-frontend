@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Avatar, Box, Checkbox, CircularProgress, Collapse, LinearProgress,
+    Box, Checkbox, CircularProgress, Collapse, LinearProgress,
     Stack, TextField, Typography,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import {
     GlassDialog, GlassHeader, WtButton, ToneChip, InlineNotice, WtEmptyState,
     SegmentedControl, toneAlpha, TRIO, disclosureSx, DISCLOSURE,
@@ -81,9 +82,6 @@ const FILTERS: Array<{ value: Filter; label: string; blurb?: string; match: (c: 
 
 /** Stable identity for a row. `resourceName` is unique per Google contact. */
 const keyOf = (c: GoogleContactCandidate) => c.googleResourceId ?? c.displayLabel;
-
-const initialsOf = (label: string) =>
-    label.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
 /**
  * The label column, shared by every line that has one, so values start on the same x.
@@ -210,16 +208,18 @@ function ContactCard({ candidate, checked, onToggle, onReview }: {
                       * contact is deleted over there.
                       *
                       * `no-referrer` is load-bearing: Google 403s some requests carrying a
-                      * Referer it does not expect, and MUI's Avatar falls back to initials
+                      * Referer it does not expect, and the avatar falls back to initials
                       * without a word, so the symptom is a correct URL that never appears.
                       */}
-                    <Avatar
-                        src={candidate.photoUrl ?? undefined}
-                        imgProps={{ referrerPolicy: 'no-referrer', loading: 'lazy' }}
-                        sx={{ width: 40, height: 40, flex: 'none', fontSize: '0.85rem', bgcolor: toneAlpha(accent, 0.18), color: accent, fontWeight: 700 }}
-                    >
-                        {initialsOf(candidate.displayLabel)}
-                    </Avatar>
+                    <SmartAvatar
+                        name={candidate.displayLabel}
+                        src={candidate.photoUrl}
+                        seed={keyOf(candidate)}
+                        size={40}
+                        referrerPolicy="no-referrer"
+                        decorative
+                        className="shrink-0"
+                    />
 
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
@@ -375,16 +375,16 @@ function ConfirmList({ chosen, organizationName }: {
                             <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, bgcolor: accent }} />
                             <Stack spacing={0.75} sx={{ p: 1.25, pl: 2 }}>
                                 <Stack direction="row" spacing={1.25} alignItems="center">
-                                    <Avatar
-                                        src={c.photoUrl ?? undefined}
-                                        imgProps={{ referrerPolicy: 'no-referrer', loading: 'lazy' }}
-                                        sx={{
-                                            width: 32, height: 32, flex: 'none', fontSize: '0.75rem', fontWeight: 700,
-                                            bgcolor: toneAlpha(accent, 0.18), color: accent,
-                                        }}
-                                    >
-                                        {initialsOf(c.displayLabel)}
-                                    </Avatar>
+                                    {/* `no-referrer` is load-bearing: see the candidate row above. */}
+                                    <SmartAvatar
+                                        name={f.fullName || c.displayLabel}
+                                        src={c.photoUrl}
+                                        seed={keyOf(c)}
+                                        size={32}
+                                        referrerPolicy="no-referrer"
+                                        decorative
+                                        className="shrink-0"
+                                    />
                                     <Typography sx={{ fontSize: 14, fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
                                         {f.fullName || c.displayLabel}
                                     </Typography>

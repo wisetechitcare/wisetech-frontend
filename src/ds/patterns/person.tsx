@@ -1,18 +1,12 @@
 import * as React from "react"
 import { ArrowLeft } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
-import { Avatar, AvatarFallback, AvatarImage } from "@/ds/ui/avatar"
+import { SmartAvatar, avatarInitials } from "@/ds/ui/smart-avatar"
 import { Badge } from "@/ds/ui/badge"
 import { Button } from "@/ds/ui/button"
 
-export function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join("")
-}
+/** The kit's one initials rule (see SmartAvatar). */
+export const initials = avatarInitials
 
 /**
  * A person in a table cell or list: avatar, name, code or role. Replaces the live `EmployeeIdentityCell`.
@@ -25,6 +19,7 @@ export function PersonCell({
   avatarUrl,
   inactive = false,
   size = "default",
+  showAvatar = true,
   className,
 }: {
   name: string
@@ -33,15 +28,23 @@ export function PersonCell({
   avatarUrl?: string | null
   inactive?: boolean
   size?: "default" | "sm"
+  /** `false` for text-first tables (money, payments) where the face adds width but no information. */
+  showAvatar?: boolean
   className?: string
 }) {
   const secondary = [code, subtitle].filter(Boolean).join(" · ")
   return (
     <div data-slot="person-cell" className={cn("flex min-w-0 items-center gap-2.5", className)}>
-      <Avatar className={cn(size === "sm" && "size-7", inactive && "grayscale")}>
-        {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
-        <AvatarFallback className="bg-accent text-accent-foreground">{initials(name)}</AvatarFallback>
-      </Avatar>
+      {showAvatar && (
+        <SmartAvatar
+          name={name}
+          seed={code || name}
+          src={avatarUrl}
+          size={size === "sm" ? 28 : "default"}
+          decorative
+          className={cn(inactive && "grayscale")}
+        />
+      )}
       <div className="min-w-0">
         <p className="flex items-center gap-1.5 truncate font-medium">
           <span className="truncate">{name}</span>
@@ -88,10 +91,7 @@ export function PersonHeader({
             <ArrowLeft aria-hidden />
           </Button>
         )}
-        <Avatar className="size-14 text-lg">
-          {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
-          <AvatarFallback className="bg-accent text-accent-foreground">{initials(name)}</AvatarFallback>
-        </Avatar>
+        <SmartAvatar name={name} src={avatarUrl} size="lg" shape="rounded" preview decorative />
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-2xl font-semibold tracking-tight">{name}</h1>

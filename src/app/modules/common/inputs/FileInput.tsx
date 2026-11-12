@@ -2,6 +2,7 @@ import { ChangeEvent, useRef, useState } from "react";
 import ObFileUpload from "@pages/employee/wizard/components/ObFileUpload";
 import { DOCUMENT_ACCEPT, DOCUMENT_HINT, validateDocumentFile } from "@utils/fileValidation";
 import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 interface FileInputProps {
     placeholder: string;
@@ -17,6 +18,10 @@ interface FileInputProps {
     onDisabledClick?: () => void;
     /** Use onboarding wizard upload styling */
     onboardingStyle?: boolean;
+    /** `hidden` (avatar preview) mode: whose photo it is, for the initials fallback and its accessible name. */
+    avatarName?: string;
+    /** `hidden` mode: stable colour key for the initials tile (the employee id). */
+    avatarSeed?: string | number;
 }
 
 function FileInput({
@@ -31,6 +36,8 @@ function FileInput({
     disabled = false,
     onDisabledClick,
     onboardingStyle = false,
+    avatarName,
+    avatarSeed,
 }: FileInputProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     // Only used by the plain (non-onboarding) branch; ObFileUpload renders its own.
@@ -68,13 +75,11 @@ function FileInput({
     }
 
     if (hidden) {
+        // The avatar preview: the photo when there is one, else the person's initials.
         return (
-            <img
-                className='rounded-circle object-fit-contain image-input-wrapper w-125px h-125px position-relative'
-                src={path}
-                onClick={handleFileClick}
-                alt={placeholder}
-            />
+            <span className="inline-flex" onClick={handleFileClick}>
+                <SmartAvatar name={avatarName || placeholder} src={path} seed={avatarSeed} size={125} />
+            </span>
         );
     }
 

@@ -15,7 +15,8 @@ import {
     MEETING_STATUS_CANCELLED, MEETING_STATUS_AWAITING, MEETING_STATUS_HELD,
     MEETING_TIMESHEET_FILLED, MEETING_TIMESHEET_PENDING, MEETING_TODAY_COLOR,
 } from '@constants/configurations-key';
-import { Avatar, Box, Dialog, DialogContent, useMediaQuery } from '@mui/material';
+import { Box, Dialog, DialogContent, useMediaQuery } from '@mui/material';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 // Direct module, NOT the `ui` barrel. The barrel re-exports 58 symbols, one of which
 // transitively loads _metronic/layout/core — and that module calls getLayout() at import
 // time, which reads localStorage. Pulling the barrel in here made halfColors.test.ts and
@@ -1926,15 +1927,14 @@ const AttendeeRoster: React.FC<{
                 border: `1px solid ${owes ? toneAlpha('#B45309', 0.28) : '#E2E8F0'}`,
             }}
         >
-            <Avatar
-                src={avatar || undefined}
-                sx={{
-                    width: 26, height: 26, fontSize: 10.5, fontWeight: 700, flexShrink: 0,
-                    bgcolor: tag ? '#1E3A8A' : '#CBD5E1', color: tag ? '#fff' : '#334155',
-                }}
-            >
-                {name.charAt(0).toUpperCase()}
-            </Avatar>
+            {tag ? (
+                // Organiser / client: a primary ring marks them out; the tag chip beside it says why.
+                <span className="inline-flex shrink-0 rounded-full ring-2 ring-primary">
+                    <SmartAvatar name={name} src={avatar} size={26} decorative />
+                </span>
+            ) : (
+                <SmartAvatar name={name} src={avatar} size={26} decorative />
+            )}
             <span style={{ fontSize: 12, fontWeight: 600, color: '#1E293B', whiteSpace: 'nowrap' }}>
                 {name}
             </span>

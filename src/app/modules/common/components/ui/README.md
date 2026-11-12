@@ -59,6 +59,7 @@ are built from.
 | Multi-select + “+ Add” | `MultiSelectWithInlineCreate` (`externalCreate` when parent owns the modal; uses `addOption` under the hood) | raw `react-select` multi |
 | “+ Add …” on any labelled select | `addOption={{ onAdd, label? }}` (`WtAddOption`) | a hand-rolled button beside the field |
 | Currency glyph / code / formatter | `CurrencySymbol` + `useCurrency()` (`hooks/useCurrency`) | `KTIcon iconName="dollar"`, a typed-in `₹`, or `{ style: 'currency', currency: 'INR' }` inline |
+| **Avatar** (employee, user, contact, attendee, company logo) | **`SmartAvatar`** (`@/ds/ui/smart-avatar`) — THE avatar: pass the photo/logo as `src` (empty/broken falls back to initials), the full `name`, the id as `seed`; `decorative` when the name is printed beside it; `fit="contain"` for logos. `avatarInitials(name)` is the one initials rule | MUI `Avatar`, Metronic `symbol` / `symbol-label` initials tiles, gender cartoons (`getAvatar` fallbacks, `media/svg/avatars/*`, `blank.png`, `300-*.jpg`), `ui-avatars.com` (sends names to a third party) |
 | Tooltip / hint on hover | `WtTooltip` (`wrap` for a DISABLED child; an empty title renders nothing) | MUI `Tooltip` imported per screen — 17 files set their own `arrow`/`placement`/delays — or a native `title=`, which never shows on touch |
 | Hover on a tinted tile / card | `hoverTileSx(trio, dark)` | another `'&:hover': { transform: 'translateY(-2px)' }` — 61 files have their own |
 | Dropdown ENGINE (multi / creatable / avatar) | `WtSelect` — **inside adapters only** | `react-select` from a feature file |

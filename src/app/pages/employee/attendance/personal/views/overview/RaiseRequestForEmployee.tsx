@@ -30,7 +30,7 @@
 // // Custom Option component with avatar
 // const EmployeeOptionComponent = (props: any) => {
 //   const { data } = props;
-//   const avatarUrl = data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.label)}&background=eeeeee&color=888888&size=20&rounded=true`;
+//   const avatarUrl = data.avatar; // no third-party avatar service: no photo = initials (SmartAvatar)
 
 //   return (
 //     <components.Option {...props}>
@@ -45,9 +45,6 @@
 //             objectFit: "cover",
 //             marginRight: 10,
 //           }}
-//           onError={(e) => {
-//             (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(data.label)}&background=eeeeee&color=888888&size=20&rounded=true`;
-//           }}
 //         />
 //         <span>{data.label}</span>
 //       </div>
@@ -58,7 +55,7 @@
 // // Custom SingleValue component with avatar (shown when selected)
 // const EmployeeSingleValue = (props: any) => {
 //   const { data } = props;
-//   const avatarUrl = data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.label)}&background=eeeeee&color=888888&size=20&rounded=true`;
+//   const avatarUrl = data.avatar; // no third-party avatar service: no photo = initials (SmartAvatar)
 
 //   return (
 //     <components.SingleValue {...props}>
@@ -72,9 +69,6 @@
 //             borderRadius: "50%",
 //             objectFit: "cover",
 //             marginRight: 8,
-//           }}
-//           onError={(e) => {
-//             (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(data.label)}&background=eeeeee&color=888888&size=20&rounded=true`;
 //           }}
 //         />
 //         <span>{data.label}</span>

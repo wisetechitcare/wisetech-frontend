@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, fn, userEvent } from 'storybook/test'
+import { expect, fn, userEvent, waitFor } from 'storybook/test'
 import { Mail, Pencil, Phone } from 'lucide-react'
 import { Badge } from '@/ds/ui/badge'
 import { Button } from '@/ds/ui/button'
+import portrait from '@/ds/ui/__fixtures__/portrait.svg'
 import { PersonCell, PersonHeader } from './person'
 
 /**
@@ -36,6 +37,25 @@ export const InactiveCell: Story = {
 
 /** Compact, name only (dense tables). */
 export const SmallCell: Story = { args: { size: 'sm' } }
+
+/** With the employee's photo: the photo replaces the initials once it loads (Smart Avatar). */
+export const PhotoCell: Story = {
+  args: { avatarUrl: portrait },
+  play: async ({ canvasElement }) => {
+    const avatar = canvasElement.querySelector('[data-slot="smart-avatar"]')!
+    await waitFor(() => expect(avatar).toHaveAttribute('data-image'))
+    await expect(avatar.querySelector('img')).toHaveAttribute('src', portrait)
+  },
+}
+
+/** `showAvatar={false}`: text only, for money and payment tables where a face adds width, not information. */
+export const TextOnlyCell: Story = {
+  args: { showAvatar: false, avatarUrl: portrait },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvasElement.querySelector('[data-slot="smart-avatar"]')).toBeNull()
+    await expect(canvas.getByText('Meera Joshi')).toBeInTheDocument()
+  },
+}
 
 const onBack = fn()
 

@@ -1192,6 +1192,8 @@ export interface ApprovalChainLevel {
     isActive: boolean;
     approverName?: string;
     approverRole?: string;
+    /** The approver's own photo URL (null = none; SmartAvatar shows initials). */
+    approverAvatar?: string | null;
 }
 
 /**

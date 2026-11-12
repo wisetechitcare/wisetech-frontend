@@ -1,5 +1,6 @@
 import * as React from "react"
 import { SlidersHorizontal } from "lucide-react"
+import { useIsMobile } from "@/ds/hooks/use-mobile"
 import { Badge } from "@/ds/ui/badge"
 import { Button } from "@/ds/ui/button"
 import {
@@ -10,6 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/ds/ui/sheet"
+import { ToolButton } from "./tool-button"
 
 /** How many fields differ from the empty filter — the number shown on the Filters button. */
 export function countActiveFilters<T extends object>(value: T, empty: T): number {
@@ -18,8 +20,26 @@ export function countActiveFilters<T extends object>(value: T, empty: T): number
   ).length
 }
 
-/** Opens the filter sheet; says how many filters are applied, in text as well as the count badge. */
-export function FilterSheetButton({ count, onClick }: { count: number; onClick: () => void }) {
+/**
+ * Opens the filter sheet; says how many filters are applied, in text as well as the count badge.
+ * `iconOnly`: the table toolbar form — the kit `ToolButton` (outline, tinted while filters apply, count badge).
+ */
+export function FilterSheetButton({
+  count,
+  onClick,
+  iconOnly = false,
+}: {
+  count: number
+  onClick: () => void
+  iconOnly?: boolean
+}) {
+  if (iconOnly) {
+    return (
+      <ToolButton label="Filters" active={count > 0} count={count} onClick={onClick}>
+        <SlidersHorizontal aria-hidden />
+      </ToolButton>
+    )
+  }
   return (
     <Button variant={count > 0 ? "tinted" : "outline"} onClick={onClick}>
       <SlidersHorizontal data-icon="inline-start" aria-hidden />
@@ -74,20 +94,34 @@ export function FilterSheet<T extends object>({
     onOpenChange(false)
   }
 
+  const isPhone = useIsMobile()
+  const draftCount = countActiveFilters(draft, empty)
+  // Nothing picked and nothing applied: Reset would do nothing, so it says so instead of being a dead click.
+  const nothingToReset = draftCount === 0 && countActiveFilters(value, empty) === 0
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex flex-col">
+      {/*
+        Always full height, so the footer never moves while cascading fields come and go (Apply/Reset stay under
+        the thumb). Phones get a full-width bottom sheet; tablet and up a fixed 384px right panel. The width is
+        fixed on purpose: a panel that grows with its content shifts under the pointer as options change.
+      */}
+      <SheetContent
+        side={isPhone ? "bottom" : "right"}
+        fit="full"
+        className="flex flex-col data-[side=bottom]:h-[calc(100dvh-6rem)]"
+      >
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           {description && <SheetDescription>{description}</SheetDescription>}
         </SheetHeader>
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4">{children(draft, set)}</div>
         <SheetFooter className="flex-row border-t">
-          <Button variant="outline" className="flex-1" onClick={() => apply(empty)}>
+          <Button variant="outline" className="flex-1" disabled={nothingToReset} onClick={() => apply(empty)}>
             Reset
           </Button>
           <Button className="flex-1" onClick={() => apply(draft)}>
-            Apply
+            {draftCount > 0 ? `Apply (${draftCount})` : "Apply"}
           </Button>
         </SheetFooter>
       </SheetContent>
