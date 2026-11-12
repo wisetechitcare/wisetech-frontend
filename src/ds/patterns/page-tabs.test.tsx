@@ -136,10 +136,16 @@ describe("PageTabs phone naming", () => {
 
   it("renders the icons mode with the selected tab named and the others sr-only", () => {
     mockWidth(250) // 4 tabs: nav needs 4*64+12=268 > 250 >= icons 4*36+12+92=248
-    const four = [...items.slice(0, 2), { value: "c", label: "Third", content: null }, { value: "d", label: "Fourth", content: null }]
+    const four = [{ ...items[0], shortLabel: "Mine" }, items[1], { value: "c", label: "Third", content: null }, { value: "d", label: "Fourth", content: null }]
     render(<PageTabs items={four} />)
     expect(document.querySelector('[data-slot="page-tabs-bar"]')?.getAttribute("data-phone-mode")).toBe("icons")
-    expect(screen.getByText("My Reimbursements").className).not.toContain("max-sm:sr-only")
-    expect(screen.getByText("Details").className).toContain("max-sm:sr-only")
+    // The selected tab shows its SHORT name visibly; the full label stays as the accessible name.
+    const short = screen.getByText("Mine")
+    expect(short.getAttribute("aria-hidden")).toBe("true")
+    expect(short.className).not.toContain("sr-only")
+    expect(screen.getByRole("tab", { name: /My Reimbursements/ })).toBeTruthy()
+    expect(screen.getByText("My Reimbursements").className).toContain("max-sm:sr-only")
+    // Unselected tabs say nothing visible beside their icon.
+    expect(screen.queryByText("Details", { selector: '[aria-hidden="true"]' })).toBeNull()
   })
 })

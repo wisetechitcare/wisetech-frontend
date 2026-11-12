@@ -192,10 +192,19 @@ function PageTab({ item, selected, mode }: { item: PageTabItem; selected: boolea
       )}
     >
       {item.icon && <IconSlot icon={item.icon} className="size-[19px] max-sm:size-[21px]" />}
-      {/* Full name: desktop always; phone only where the mode names it. Never removed (screen readers). */}
-      <span className={cn(!named && "max-sm:sr-only", named && "max-sm:min-w-0 max-sm:truncate")}>{label}</span>
-      {nav && (
-        <span aria-hidden className="line-clamp-2 max-w-full text-center text-[10.5px] leading-[1.15] font-semibold group-data-active/page-tab:font-bold sm:hidden">
+      {/* Full name: desktop only visually; on a phone it stays for screen readers (the tab's accessible name). */}
+      <span className="max-sm:sr-only">{label}</span>
+      {/* Phone: what the bar can say is the SHORT name (the one measured), in nav under the icon or beside it. */}
+      {(nav || named) && (
+        <span
+          aria-hidden
+          className={cn(
+            "sm:hidden",
+            nav
+              ? "line-clamp-2 max-w-full text-center text-[10.5px] leading-[1.15] font-semibold group-data-active/page-tab:font-bold"
+              : "min-w-0 truncate",
+          )}
+        >
           {shortLabel}
         </span>
       )}

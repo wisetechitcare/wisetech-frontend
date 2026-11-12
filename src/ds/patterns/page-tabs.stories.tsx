@@ -9,7 +9,7 @@ const items: PageTabItem[] = [
   { value: 'mine', label: 'My Reimbursements', shortLabel: 'Mine', icon: ReceiptText, content: <p className="text-sm">Your claims this month.</p> },
   { value: 'details', label: 'Reimbursement Details', shortLabel: 'Details', icon: Clipboard, content: <p className="text-sm">Every employee, by period.</p> },
   { value: 'search', label: 'Search Employee', shortLabel: 'Search', icon: Search, content: <p className="text-sm">Find the claims of one person.</p> },
-  { value: 'payment', label: 'Payment', icon: CreditCard, badge: 4, content: <p className="text-sm">Payouts waiting on you.</p> },
+  { value: 'payment', label: 'Payment', shortLabel: 'Pay', icon: CreditCard, badge: 4, content: <p className="text-sm">Payouts waiting on you.</p> },
   { value: 'configure', label: 'Configure', icon: Settings, content: <p className="text-sm">Categories and limits.</p> },
 ]
 
@@ -114,7 +114,7 @@ export const PhoneOneTab: Story = {
 
 const barMode = () => document.querySelector('[data-slot="page-tabs-bar"]')?.getAttribute('data-phone-mode')
 
-/** Phone (375px), five tabs: room for every tab at 64px, so each shows its icon over a short name (nav). */
+/** Phone (414px), five tabs: room for every tab at 64px, so each shows its icon over a short name (nav). */
 export const PhoneFiveTabs: Story = {
   globals: { viewport: { value: 'mobile2' } },
   play: async ({ canvas }) => {
@@ -128,9 +128,9 @@ export const PhoneIconsMode: Story = {
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvas }) => {
     await expect(barMode()).toBe('icons')
-    await expect(canvas.getByText('My Reimbursements')).toBeVisible()
+    await expect(canvas.getByText('Mine')).toBeVisible()
     await userEvent.click(canvas.getByRole('tab', { name: /Payment/ }))
-    await waitFor(() => expect(canvas.getByText('Payment')).toBeVisible())
+    await waitFor(() => expect(canvas.getByText('Pay')).toBeVisible())
   },
 }
 
