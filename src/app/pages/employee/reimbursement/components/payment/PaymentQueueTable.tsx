@@ -80,11 +80,11 @@ export default function PaymentQueueTable({
             meta: { label: 'Employee' },
             header: ({ column }) => <SortableHeader column={column} title="Employee" />,
             cell: ({ row }) => (
-                <PersonCell name={row.original.employeeName} code={row.original.employeeCode} inactive={!row.original.isActive} />
+                <PersonCell showAvatar={false} name={row.original.employeeName} inactive={!row.original.isActive} />
             ),
         },
         {
-            // The cell above shows the code under the name; a spreadsheet wants it as its own column.
+            // Names only on screen (the user's call); a spreadsheet still wants the ID as its own column.
             accessorKey: 'employeeCode',
             meta: { label: 'Employee ID', exportOnly: true },
             header: 'Employee ID',
@@ -288,7 +288,7 @@ export function PaymentMobileCard({
             className="rounded-2xl border bg-[color-mix(in_oklab,var(--tone)_6%,var(--card))] px-4 py-3.5 shadow-[inset_3px_0_0_var(--tone)]"
         >
             <div className="mb-2.5 flex items-start justify-between gap-2">
-                <PersonCell name={row.employeeName} code={`${row.employeeCode} · ${row.submissionId}`} inactive={!row.isActive} />
+                <PersonCell showAvatar={false} name={row.employeeName} code={row.submissionId} inactive={!row.isActive} />
                 <PaymentStateBadge state={row.state} />
             </div>
             <dl className="grid gap-1 text-sm">

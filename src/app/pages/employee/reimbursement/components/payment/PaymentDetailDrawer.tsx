@@ -57,7 +57,7 @@ export default function PaymentDetailDrawer({
                     <>
                         <SheetHeader className="border-b border-border">
                             <SheetTitle>Payment Details</SheetTitle>
-                            <SheetDescription>{row.employeeName} · {row.employeeCode}</SheetDescription>
+                            <SheetDescription>{row.employeeName}</SheetDescription>
                         </SheetHeader>
 
                         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">

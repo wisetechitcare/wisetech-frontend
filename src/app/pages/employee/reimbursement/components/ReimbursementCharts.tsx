@@ -39,7 +39,7 @@ const TREND_CONFIG = {
     approved: { label: 'Approved', color: 'var(--success)' },
     pending: { label: 'Awaiting', color: 'var(--warning)' },
     rejected: { label: 'Rejected', color: 'var(--destructive)' },
-    paid: { label: 'Paid out', color: 'var(--info)' },
+    paid: { label: 'Paid Out', color: 'var(--info)' },
 } satisfies ChartConfig;
 
 /** Status slices arrive named by the chart-data helper; each name has one colour, here. */
@@ -290,7 +290,7 @@ export default function ReimbursementCharts({
                                 <Bar dataKey="approved" name="Approved" stackId="s" fill="var(--color-approved)" maxBarSize={38} cursor={onSelectPeriod ? 'pointer' : undefined} />
                                 <Bar dataKey="pending" name="Awaiting approval" stackId="s" fill="var(--color-pending)" maxBarSize={38} cursor={onSelectPeriod ? 'pointer' : undefined} />
                                 <Bar dataKey="rejected" name="Rejected" stackId="s" fill="var(--color-rejected)" maxBarSize={38} radius={[5, 5, 0, 0]} cursor={onSelectPeriod ? 'pointer' : undefined} />
-                                <Line dataKey="paid" name="Paid out" stroke="var(--color-paid)" strokeWidth={2} dot={{ r: 2.5, fill: 'var(--color-paid)' }} connectNulls />
+                                <Line dataKey="paid" name="Paid Out" stroke="var(--color-paid)" strokeWidth={2} dot={{ r: 2.5, fill: 'var(--color-paid)' }} connectNulls />
                             </ComposedChart>
                         </ChartContainer>
                     )}

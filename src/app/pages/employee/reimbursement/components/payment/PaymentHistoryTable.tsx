@@ -91,7 +91,6 @@ export default function PaymentHistoryTable({
             Cell: ({ row }: any) => (
                 <Box sx={{ minWidth: 0 }}>
                     <Typography noWrap sx={{ fontSize: 13, fontWeight: 700 }}>{row.original.employeeName}</Typography>
-                    <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>{row.original.employeeCode}</Typography>
                 </Box>
             ),
         },
@@ -236,7 +235,7 @@ export default function PaymentHistoryTable({
                             <Box sx={{ minWidth: 0 }}>
                                 <Typography noWrap sx={{ fontSize: 14, fontWeight: 800 }}>{r.employeeName}</Typography>
                                 <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>
-                                    {r.employeeCode} · {r.submissionId}
+                                    {r.submissionId}
                                 </Typography>
                             </Box>
                             <Typography sx={{

@@ -67,16 +67,16 @@ export default function ReimbursementKpiRow({
                 // "Unsubmitted drafts" was cut to "UNSUBMITTED DRAF…" four cards across; the hint says "N to submit".
                 label="Drafts"
                 value={headline(kpis.inboxAmount)}
-                hint={kpis.inboxCount === 0 ? 'Nothing to submit' : `${kpis.inboxCount} to submit`}
+                hint={kpis.inboxCount === 0 ? 'Nothing to Submit' : `${kpis.inboxCount} to Submit`}
                 tone="info"
                 icon={<Inbox aria-hidden />}
             />
             <StatCard
-                label="Pending approval"
+                label="Pending Approval"
                 value={headline(none ? 0 : kpis.pendingAmount)}
                 hint={none
-                    ? 'No submissions this period'
-                    : <>of {money(kpis.totalAmount)} · {kpis.pendingCount} / {kpis.totalRequests} awaiting</>}
+                    ? 'No Submissions This Period'
+                    : <>of {money(kpis.totalAmount)} · {kpis.pendingCount} / {kpis.totalRequests} Awaiting</>}
                 tone="warning"
                 icon={<Clock aria-hidden />}
             />
@@ -84,19 +84,19 @@ export default function ReimbursementKpiRow({
                 label="Approved"
                 value={headline(none ? 0 : kpis.approvedAmount)}
                 hint={none
-                    ? 'No submissions this period'
+                    ? 'No Submissions This Period'
                     : kpis.approvedCount === 0
-                        ? 'None approved yet'
-                        : <>of {money(kpis.totalAmount)} · {kpis.approvedCount} / {kpis.totalRequests} approved</>}
+                        ? 'None Approved Yet'
+                        : <>of {money(kpis.totalAmount)} · {kpis.approvedCount} / {kpis.totalRequests} Approved</>}
                 tone="success"
                 icon={<CircleCheck aria-hidden />}
             />
             <StatCard
-                label="Paid out"
+                label="Paid Out"
                 value={headline(kpis.approvedAmount === 0 ? 0 : kpis.paidAmount)}
                 hint={kpis.approvedAmount === 0
-                    ? 'No approved balance yet'
-                    : <>of {money(kpis.approvedAmount)} · {money(unpaid)} unpaid</>}
+                    ? 'No Approved Balance Yet'
+                    : <>of {money(kpis.approvedAmount)} · {money(unpaid)} Unpaid</>}
                 tone="brand"
                 icon={<Wallet aria-hidden />}
             />

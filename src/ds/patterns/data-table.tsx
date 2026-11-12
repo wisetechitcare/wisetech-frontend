@@ -961,7 +961,8 @@ export function DataTable<T extends RowData>({
               </InputGroup>
               {filters}
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            {/* Wraps (right-aligned) on a phone, where exports + the tool group are wider than the screen. */}
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
               {typeof toolbar === "function"
                 ? toolbar({
                     rows: table.getFilteredRowModel().rows.map((r) => r.original),

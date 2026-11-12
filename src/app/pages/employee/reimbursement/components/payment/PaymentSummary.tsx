@@ -29,15 +29,15 @@ export function PaymentKpiCards({ kpis, loading }: { kpis: PaymentKpis; loading?
                 label="Pending Payment"
                 value={formatMoney(kpis.pendingAmount)}
                 hint={kpis.pendingBatches > 0
-                    ? `${kpis.pendingBatches} batch${kpis.pendingBatches === 1 ? '' : 'es'}`
-                    : 'nothing owed'}
+                    ? `${kpis.pendingBatches} Batch${kpis.pendingBatches === 1 ? '' : 'es'}`
+                    : 'Nothing Owed'}
                 tone="warning"
                 icon={<Wallet aria-hidden />}
             />
             <StatCard
                 label="Total Paid"
                 value={formatMoney(kpis.paidAmount)}
-                hint={`${kpis.settledPct}% settled`}
+                hint={`${kpis.settledPct}% Settled`}
                 tone="success"
                 icon={<CircleCheck aria-hidden />}
             />
@@ -45,14 +45,14 @@ export function PaymentKpiCards({ kpis, loading }: { kpis: PaymentKpis; loading?
                 // Not "Pending requests" beside "Pending Payment" — two "pending"s counting different things.
                 label="Requests Awaiting Payment"
                 value={kpis.pendingRequests}
-                hint="approved, not yet paid"
+                hint="Approved, Not Yet Paid"
                 tone="info"
                 icon={<FileText aria-hidden />}
             />
             <StatCard
                 label="Employees Awaiting"
                 value={kpis.employeesAwaiting}
-                hint={kpis.employeesAwaiting === 0 ? 'none' : 'to be paid'}
+                hint={kpis.employeesAwaiting === 0 ? 'None' : 'To Be Paid'}
                 tone="brand"
                 icon={<Users aria-hidden />}
             />
