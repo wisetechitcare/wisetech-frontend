@@ -1,5 +1,4 @@
-import { Box, ButtonBase } from '@mui/material';
-import { WtButton } from '@app/modules/common/components/ui/buttons';
+import { Button } from '@/ds/ui/button';
 import dayjs, { Dayjs } from 'dayjs';
 import { FileText } from 'lucide-react';
 
@@ -53,39 +52,22 @@ export default function RecordsEmptyState({
         // button — inside 2rem of padding, so an empty month left a ~230px hole and two empty
         // sections filled a screen with nothing. Same words, laid along one line: it reads at a
         // glance and the table below stays where the eye expects it.
-        <Box
-            sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                flexWrap: 'nowrap',
-                px: 2,
-                py: 1.25,
-                borderRadius: '10px',
-                border: '1px dashed',
-                borderColor: 'divider',
-                bgcolor: 'action.hover',
-            }}
-        >
-            <Box
+        <div className="flex flex-nowrap items-center gap-3 rounded-[10px] border border-dashed border-border bg-muted/50 px-4 py-2.5">
+            <div
                 aria-hidden="true"
-                sx={{
-                    width: 28, height: 28, borderRadius: '8px', display: 'grid', placeItems: 'center',
-                    flexShrink: 0, color: 'primary.main', bgcolor: 'background.paper',
-                    border: '1px solid', borderColor: 'divider',
-                }}
+                className="grid size-7 shrink-0 place-items-center rounded-lg border border-border bg-card text-primary"
             >
                 <FileText className="size-[16px]" />
-            </Box>
+            </div>
 
-            <Box sx={{ minWidth: 0, flex: '1 1 auto', fontSize: '0.82rem', lineHeight: 1.5 }}>
-                <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
+            <div className="min-w-0 flex-auto text-[13px] leading-normal">
+                <span className="font-bold text-foreground">
                     {isFiltered
                         ? `No ${activeStatusFilter!.toLowerCase()} expenses in ${periodLabel}`
                         : `No expenses in ${periodLabel}`}
-                </Box>
+                </span>
                 {((!isFiltered && elsewhere.length > 0) || isFiltered) && (
-                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                    <span className="text-muted-foreground">
                         {' — '}
                         {isFiltered ? (
                             `other statuses are hidden by this filter.`
@@ -95,35 +77,32 @@ export default function RecordsEmptyState({
                                 {elsewhere.map((p, i) => (
                                     <span key={p.date.toISOString()}>
                                         {i > 0 && (i === elsewhere.length - 1 ? ' and ' : ', ')}
-                                        <ButtonBase
+                                        <button
+                                            type="button"
                                             onClick={() => onGoToPeriod?.(p.date)}
-                                            sx={{
-                                                font: 'inherit', fontWeight: 700, color: 'primary.main',
-                                                textDecoration: 'underline', textUnderlineOffset: '2px',
-                                                verticalAlign: 'baseline',
-                                            }}
+                                            className="cursor-pointer rounded-sm border-0 bg-transparent p-0 align-baseline font-[inherit] font-bold text-primary underline underline-offset-2 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                         >
                                             {p.count} in {p.date.format('MMMM YYYY')}
-                                        </ButtonBase>
+                                        </button>
                                     </span>
                                 ))}
                             </>
                         )}
-                    </Box>
+                    </span>
                 )}
-            </Box>
+            </div>
 
             {isFiltered && onClearStatusFilter && (
-                <WtButton ghost size="small" onClick={onClearStatusFilter}>
+                <Button variant="outline" size="sm" onClick={onClearStatusFilter}>
                     Show all statuses
-                </WtButton>
+                </Button>
             )}
             {!isFiltered && onAddExpense && (
-                <WtButton size="small" onClick={onAddExpense}>
+                <Button size="sm" onClick={onAddExpense}>
                     Add an expense
-                </WtButton>
+                </Button>
             )}
-        </Box>
+        </div>
     );
 }
 

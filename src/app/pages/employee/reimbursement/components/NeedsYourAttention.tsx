@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { fetchInboxTasks, type InboxTask } from '@services/inbox';
-import { WtButton, ToneChip, tonePair } from '@app/modules/common/components/ui';
-import type { SemanticTone } from '@app/theme/tokens';
+import { Badge } from '@/ds/ui/badge';
+import { Button } from '@/ds/ui/button';
 import { formatDateTime } from '@utils/dateFormats';
 import QueryConversationDialog from './QueryConversation';
 import VersionHistoryDialog from './VersionHistoryDialog';
@@ -35,9 +34,9 @@ import { Info } from 'lucide-react';
 const EMPLOYEE_TASK_TYPES = new Set(['QUERY_RECEIVED', 'ACTION_REQUIRED']);
 const REIMBURSEMENT_ENTITY = /^(Reimbursement|ReimbursementBatch|ReimbursementQuery)$/;
 
-const STYLE: Record<string, { tone: SemanticTone; icon: string; cta: string }> = {
-    QUERY_RECEIVED: { tone: 'warning', icon: 'question', cta: 'Respond' },
-    ACTION_REQUIRED: { tone: 'warning', icon: 'information', cta: 'Open' },
+const STYLE: Record<string, { icon: string; cta: string }> = {
+    QUERY_RECEIVED: { icon: 'question', cta: 'Respond' },
+    ACTION_REQUIRED: { icon: 'information', cta: 'Open' },
 };
 
 export interface NeedsYourAttentionProps {
@@ -49,7 +48,6 @@ export interface NeedsYourAttentionProps {
 }
 
 export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAttentionProps) {
-    const theme = useTheme();
     const [tasks, setTasks] = useState<InboxTask[]>([]);
     // A query response is edited inline, right here, rather than on a page of its own — the
     // employee stays where the list is.
@@ -114,78 +112,65 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
 
     return (
         <>
-            <Box sx={{
-                borderRadius: '12px', p: 1.25, mb: 1.5, minWidth: 0,
-                border: `1px solid ${tonePair('warning').fg}33`,
-                bgcolor: tonePair('warning').soft,
-            }}>
-                <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 1 }}>
+            <div className="mb-3 min-w-0 rounded-xl border border-warning/20 bg-warning-soft p-2.5">
+                <div className="mb-2 flex items-center gap-2">
                     <Info className="size-[21px]" />
-                    <Typography sx={{ fontSize: 13.5, fontWeight: 800 }}>
-                        Needs your attention
-                    </Typography>
-                    <ToneChip tone="warning" label={`${open.length}`} size="small" solid />
-                </Stack>
+                    <h4 className="m-0 text-[13.5px] font-extrabold">Needs your attention</h4>
+                    <Badge variant="warning">{open.length}</Badge>
+                </div>
 
-                <Stack gap={0.75}>
+                <div className="flex flex-col gap-1.5">
                     {open.map((task) => {
                         const style = STYLE[task.type] ?? STYLE.ACTION_REQUIRED;
                         const payload = (task.payload ?? {}) as Record<string, unknown>;
                         return (
-                            <Stack
+                            <div
                                 key={task.id}
-                                direction={{ xs: 'column', sm: 'row' }}
-                                gap={0.75}
-                                alignItems={{ sm: 'center' }}
-                                sx={{
-                                    p: 1, borderRadius: '8px', minWidth: 0,
-                                    bgcolor: theme.palette.background.paper,
-                                    borderLeft: `3px solid ${tonePair(style.tone).fg}`,
-                                }}
+                                className="flex min-w-0 flex-col gap-1.5 rounded-lg border-l-[3px] border-l-warning bg-card p-2 sm:flex-row sm:items-center"
                             >
-                                <Box sx={{ minWidth: 0, flex: 1 }}>
-                                    <Stack direction="row" gap={0.75} alignItems="center" flexWrap="wrap">
-                                        <ToneChip tone={style.tone} label={task.title} size="small" />
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <Badge variant="warning" className="h-auto max-w-full whitespace-normal">{task.title}</Badge>
                                         {typeof payload.level === 'number' && (
-                                            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                                            <span className="text-[11px] text-muted-foreground">
                                                 asked at level {payload.level}
-                                            </Typography>
+                                            </span>
                                         )}
-                                        <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>
+                                        <span className="text-[11px] text-muted-foreground/70">
                                             {formatDateTime(task.createdAt)}
-                                        </Typography>
-                                    </Stack>
+                                        </span>
+                                    </div>
                                     {task.message && (
-                                        <Typography sx={{ fontSize: 12.5, color: 'text.primary', mt: 0.4, lineHeight: 1.45 }}>
+                                        <p className="m-0 mt-1 break-words text-[12.5px] leading-[1.45] text-foreground">
                                             {task.message}
-                                        </Typography>
+                                        </p>
                                     )}
-                                </Box>
-                                <Stack direction="row" gap={1} flexWrap="wrap" sx={{ flexShrink: 0, mt: { xs: 1, sm: 0 } }}>
+                                </div>
+                                <div className="mt-2 flex shrink-0 flex-wrap gap-2 sm:mt-0">
                                     {typeof payload.reimbursementId === 'string' && (
-                                        <WtButton size="small" ghost
+                                        <Button size="sm" variant="outline"
                                             onClick={() => setVersionsFor({
                                                 id: payload.reimbursementId as string,
                                                 label: task.title,
                                             })}>
                                             History
-                                        </WtButton>
+                                        </Button>
                                     )}
-                                    <WtButton size="small"
+                                    <Button size="sm"
                                         disabled={editLoadingId !== null && editLoadingId === payload.reimbursementId}
                                         onClick={() => handle(task)}>
                                         {style.cta}
-                                    </WtButton>
-                                </Stack>
-                            </Stack>
+                                    </Button>
+                                </div>
+                            </div>
                         );
                     })}
-                </Stack>
+                </div>
 
-                <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: 1 }}>
+                <p className="m-0 mt-2 text-[11.5px] text-muted-foreground">
                     Answering a question keeps your approvals. Changing the expense restarts approval from level 1.
-                </Typography>
-            </Box>
+                </p>
+            </div>
 
             {conversation && (
                 <QueryConversationDialog
