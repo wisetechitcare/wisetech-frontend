@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import IconPickerModal from "./IconPickerModal";
 
 afterEach(cleanup);
@@ -23,11 +23,27 @@ function previewCircle() {
 
 describe("IconPickerModal selected-icon preview", () => {
   it("draws a stored system name as a Lucide svg at the preview size", () => {
-    // "wallet" is registered; legacy names the registry does not know (e.g. "car") draw nothing.
+    // "wallet" is a registered system name.
     renderPicker({ source: "system", name: "wallet", label: "Wallet" });
     const svg = previewCircle().querySelector("svg.lucide-wallet");
     expect(svg).not.toBeNull();
     expect(svg!.classList.contains("size-[23px]")).toBe(true);
+  });
+
+  it("draws a glyph on every system icon tile in every group", () => {
+    // Each tile's name is stored on the reimbursement type when picked, so a tile the
+    // registry cannot resolve is a category that saves with no icon at all.
+    renderPicker(null);
+    const blank: string[] = [];
+    const groups = document.querySelectorAll<HTMLButtonElement>('[data-wt-control="chip"]');
+    expect(groups.length).toBeGreaterThan(0);
+    for (const group of groups) {
+      fireEvent.click(group);
+      for (const tile of document.querySelectorAll<HTMLButtonElement>('[data-wt-control="swatch"]')) {
+        if (!tile.querySelector("svg.lucide")) blank.push(`${group.textContent}: ${tile.title}`);
+      }
+    }
+    expect(blank).toEqual([]);
   });
 
   it("draws a stored Iconify URL as an <img> and no svg", () => {

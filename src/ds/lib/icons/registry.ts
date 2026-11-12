@@ -56,6 +56,9 @@ import {
     Wifi, Zap,
     CircleArrowLeft, PanelLeft, PanelRight, Minimize,
     CirclePause, Pause, CirclePlay, Play,
+    Plane, PlaneTakeoff, Car, CarFront, CarTaxiFront, Bus, HouseWifi, HouseHeart, WalletCards,
+    ShoppingBag, ShoppingCart, Laptop, MonitorSmartphone, CircuitBoard, PlugZap, Store, Pill,
+    BookOpen, Library, Presentation,
 } from 'lucide-react';
 
 /**
@@ -171,6 +174,18 @@ const KEENICON: Record<string, AppIconComponent> = {
     // Keenicon names that only ever appeared through the bi-* map.
     'alarm': AlarmClock, 'archive': Archive, 'arrow-down-right': ArrowDownRight,
     'book': Book, 'calculator': Calculator, 'tag': Flag, 'award': Award,
+    // The reimbursement icon picker's system set (IconPickerModal SYSTEM_ICON_GROUPS). The
+    // picked name is STORED on the reimbursement type, so an unregistered one saved a
+    // category with no icon — 24 of the 44 tiles were blank before these. Names that sit
+    // side by side in one picker group get distinct glyphs (home-1 vs home-2, purchase vs
+    // lots-shopping), or the admin is offering two identical tiles.
+    'airplane': Plane, 'airplane-square': PlaneTakeoff, 'car': Car, 'car-2': CarFront,
+    'car-3': CarTaxiFront, 'bus': Bus, 'coffee': Coffee, 'wifi-home': HouseWifi,
+    'home-1': HouseHeart, 'two-credit-cart': WalletCards, 'purchase': ShoppingBag,
+    'finance-calculator': Calculator, 'laptop': Laptop, 'devices': MonitorSmartphone,
+    'technology': CircuitBoard, 'electricity': PlugZap, 'shop': Store,
+    'handcart': ShoppingCart, 'delivery-geolocation': Truck, 'lots-shopping': ShoppingBasket,
+    'pill': Pill, 'book-open': BookOpen, 'book-square': Library, 'educare': Presentation,
 };
 
 /**
