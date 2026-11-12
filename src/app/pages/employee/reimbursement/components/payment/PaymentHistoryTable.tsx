@@ -1,10 +1,15 @@
 import { useMemo } from 'react';
-import { Box, Typography } from '@mui/material';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
-import ExportButton from '@app/modules/common/components/ExportButton';
-import { Button } from '@/ds/ui/button';
 import { FileText, SearchX } from 'lucide-react';
-import { fmtDate, formatMoney } from '../../utils/reimbursementFormat';
+import { cn } from '@/ds/lib/utils';
+import { Badge } from '@/ds/ui/badge';
+import { Button } from '@/ds/ui/button';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { PersonCell } from '@/ds/patterns/person';
+import { SensitiveValue } from '@/ds/patterns/sensitive';
+import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { formatDate } from '@utils/dateFormats';
+import { formatMoney } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow, PaymentRecord } from './paymentData';
 import PaymentEmptyState from './PaymentEmptyState';
 import PaymentStateBadge from './PaymentStateBadge';
@@ -19,7 +24,35 @@ import PaymentStateBadge from './PaymentStateBadge';
  * It reads the payments carried on the batch payload, so it cannot disagree with the queue about
  * what has been paid, and it costs no extra request. A payment whose batch was deleted
  * (`batch_id` is nullable) has nothing to attach to and does not appear here.
+ *
+ * On the kit DataTable, like the queue beside it: sortable columns, persisted column prefs, footer total,
+ * export, and a card per payment on a phone.
  */
+
+/** One payment, as the table and its phone card read it. */
+export interface HistoryRow {
+    id: string;
+    paymentDate: string | null;
+    submissionId: string;
+    employeeName: string;
+    employeeCode: string;
+    amountPaid: number;
+    status: string;
+    paymentMethod: string;
+    transactionId: string;
+    processedBy: string;
+    _batchId: string;
+}
+
+const NO_REFERENCE = '—';
+
+const money = (v: number, className?: string) => (
+    <SensitiveValue className={cn('tabular', className)}>{formatMoney(v)}</SensitiveValue>
+);
+
+// A payment record is PAID or PARTIAL — whether it settled the batch or part of it. The batch's own state
+// lives in the queue.
+const paymentLabel = (status: string) => (status === 'PARTIAL' ? 'Part payment' : 'Full payment');
 
 export default function PaymentHistoryTable({
     payments,
@@ -41,7 +74,7 @@ export default function PaymentHistoryTable({
     /** The org filter row, rendered inside the table's own toolbar beside the search box. */
     renderFilters?: () => React.ReactNode;
 }) {
-    const data = useMemo(
+    const data = useMemo<HistoryRow[]>(
         () => payments.map((p) => ({
             id: p.id,
             paymentDate: p.paymentDate,
@@ -51,7 +84,7 @@ export default function PaymentHistoryTable({
             amountPaid: p.amountPaid,
             status: p.status,
             paymentMethod: (p.paymentMethod || '—').replace(/_/g, ' '),
-            transactionId: p.transactionId || '—',
+            transactionId: p.transactionId || NO_REFERENCE,
             processedBy: p.processedBy,
             _batchId: p.batchId,
         })),
@@ -60,128 +93,81 @@ export default function PaymentHistoryTable({
 
     const total = useMemo(() => payments.reduce((s, p) => s + p.amountPaid, 0), [payments]);
 
-    const columns = useMemo(() => [
+    const columns = useMemo<ColumnDef<HistoryRow, any>[]>(() => [
         {
             accessorKey: 'paymentDate',
-            header: 'Payment date',
-            size: 130,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{ fontSize: 12.5, fontWeight: 600 }}>{fmtDate(renderedCellValue)}</Box>
-            ),
-            Footer: () => <span style={{ fontWeight: 800 }}>TOTAL</span>,
+            meta: { label: 'Payment Date', exportValue: (r: HistoryRow) => formatDate(r.paymentDate) },
+            header: ({ column }) => <SortableHeader column={column} title="Payment Date" />,
+            cell: ({ row }) => <span className="text-[13px] font-semibold">{formatDate(row.original.paymentDate)}</span>,
+            footer: () => <span className="font-extrabold uppercase">Total</span>,
         },
         {
             accessorKey: 'submissionId',
-            header: 'Batch ID',
-            size: 165,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{
-                    fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
-                    px: 1, py: '3px', borderRadius: '6px',
-                    bgcolor: 'action.hover', color: 'text.primary',
-                }}>
-                    {renderedCellValue}
-                </Box>
-            ),
+            meta: { label: 'Batch ID' },
+            header: ({ column }) => <SortableHeader column={column} title="Batch ID" />,
+            cell: ({ row }) => <Badge variant="brand" className="font-mono tracking-wide">{row.original.submissionId}</Badge>,
         },
         {
             accessorKey: 'employeeName',
-            header: 'Employee',
-            size: 190,
-            Cell: ({ row }: any) => (
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography noWrap sx={{ fontSize: 13, fontWeight: 700 }}>{row.original.employeeName}</Typography>
-                </Box>
-            ),
+            meta: { label: 'Employee' },
+            header: ({ column }) => <SortableHeader column={column} title="Employee" />,
+            cell: ({ row }) => <PersonCell showAvatar={false} name={row.original.employeeName} />,
+        },
+        {
+            // Names only on screen; a spreadsheet still wants the ID as its own column.
+            accessorKey: 'employeeCode',
+            meta: { label: 'Employee ID', exportOnly: true },
+            header: 'Employee ID',
+            enableHiding: false,
         },
         {
             accessorKey: 'amountPaid',
-            header: 'Amount paid',
-            size: 135,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: '#16a34a' }}>
-                    {formatMoney(Number(renderedCellValue))}
-                </Box>
-            ),
-            Footer: () => <span style={{ fontWeight: 800, color: '#16a34a' }}>{formatMoney(total)}</span>,
+            meta: { label: 'Amount Paid', exportType: 'currency', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Amount Paid" />,
+            cell: ({ row }) => money(row.original.amountPaid, 'font-extrabold text-success-foreground'),
+            footer: () => money(total, 'font-extrabold text-success-foreground'),
         },
         {
             accessorKey: 'status',
-            header: 'Payment status',
-            size: 140,
+            header: 'Payment Status',
             enableSorting: false,
-            Cell: ({ renderedCellValue }: any) => {
-                const status = String(renderedCellValue);
-                // A payment record is PAID or PARTIAL — whether it settled the batch or part of
-                // it. The batch's own state lives in the queue.
-                return (
-                    <PaymentStateBadge
-                        state={status}
-                        label={status === 'PARTIAL' ? 'Part payment' : 'Full payment'}
-                    />
-                );
-            },
+            cell: ({ row }) => <PaymentStateBadge state={row.original.status} label={paymentLabel(row.original.status)} />,
         },
         {
             accessorKey: 'paymentMethod',
-            header: 'Method',
-            size: 130,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{ fontSize: 12, textTransform: 'capitalize' }}>
-                    {String(renderedCellValue).toLowerCase()}
-                </Box>
-            ),
+            meta: { label: 'Method' },
+            header: ({ column }) => <SortableHeader column={column} title="Method" />,
+            cell: ({ row }) => <span className="text-xs capitalize">{row.original.paymentMethod.toLowerCase()}</span>,
         },
         {
             accessorKey: 'transactionId',
-            header: 'Reference',
-            size: 150,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{
-                    fontSize: 11.5, fontFamily: 'monospace',
-                    color: renderedCellValue === '—' ? 'text.secondary' : 'text.primary',
-                }}>
-                    {renderedCellValue}
-                </Box>
+            meta: { label: 'Reference' },
+            header: ({ column }) => <SortableHeader column={column} title="Reference" />,
+            cell: ({ row }) => (
+                <span className={cn('font-mono text-[11.5px]', row.original.transactionId === NO_REFERENCE && 'text-muted-foreground')}>
+                    {row.original.transactionId}
+                </span>
             ),
         },
         {
             accessorKey: 'processedBy',
-            header: 'Recorded by',
-            size: 150,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>{renderedCellValue}</Box>
-            ),
+            meta: { label: 'Recorded By' },
+            header: ({ column }) => <SortableHeader column={column} title="Recorded By" />,
+            cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.processedBy}</span>,
         },
         {
-            id: 'action',
-            header: 'Action',
-            size: 100,
+            id: 'actions',
             enableSorting: false,
-            enableColumnFilter: false,
-            enableColumnActions: false,
-            Cell: ({ row }: any) => {
+            enableHiding: false,
+            meta: { pin: 'end' },
+            header: 'Action',
+            cell: ({ row }) => {
                 const batch = batchById.get(row.original._batchId);
                 if (!batch) return null;
-                return (
-                    <Box onClick={(e) => e.stopPropagation()}>
-                        <Button variant="outline" size="sm" onClick={() => onView(batch)}>View</Button>
-                    </Box>
-                );
+                return <Button variant="outline" size="sm" onClick={() => onView(batch)}>View</Button>;
             },
         },
     ], [total, batchById, onView]);
-
-    const exportColumns = useMemo(() => [
-        { key: 'paymentDate', header: 'Payment Date', type: 'text' as const },
-        { key: 'submissionId', header: 'Batch ID', type: 'text' as const },
-        { key: 'employeeCode', header: 'Employee ID', type: 'text' as const },
-        { key: 'employeeName', header: 'Employee', type: 'text' as const },
-        { key: 'amountPaid', header: 'Amount Paid', type: 'currency' as const, showTotal: true },
-        { key: 'paymentMethod', header: 'Method', type: 'text' as const },
-        { key: 'transactionId', header: 'Reference', type: 'text' as const },
-        { key: 'processedBy', header: 'Recorded By', type: 'text' as const },
-    ], []);
 
     if (!loading && data.length === 0) {
         return filtered ? (
@@ -201,57 +187,56 @@ export default function PaymentHistoryTable({
         );
     }
 
+    const exportName = `payment-history-${periodLabel.toLowerCase().replace(/\s+/g, '-')}`;
+    const exportTitle = `Payment History — ${periodLabel}`;
+    const exportSubtitle = 'Reimbursement payments recorded in this period';
+
     return (
-        <MaterialTable
-            data={data}
+        <DataTable<HistoryRow>
+            caption={`Payment history, ${periodLabel}`}
             columns={columns}
-            tableName="ReimbursementPaymentHistory"
-            isLoading={loading}
-            showColumnFooter
-            enableStatusColorCoding={false}
+            data={data}
+            getRowId={(r) => r.id}
+            loading={loading}
             searchPlaceholder="Search employee, employee ID, batch ID or reference…"
-            renderTopToolbarRightActions={renderFilters}
-            renderExportActions={() => (
-                <ExportButton
-                    data={data}
-                    columns={exportColumns}
-                    filename={`payment-history-${periodLabel.toLowerCase().replace(/\s+/g, '-')}`}
-                    title={`Payment History — ${periodLabel}`}
-                    subtitle="Reimbursement payments recorded in this period"
-                    sheetName="Payment History"
-                    showTotals
-                    totalLabel="TOTAL"
+            stateKey="reimbursement.payment-history.admin"
+            filters={renderFilters?.()}
+            toolbar={(ctx) => (
+                <DataTableExport
+                    columns={columns}
+                    ctx={ctx}
+                    filename={exportName}
+                    title={exportTitle}
+                    subtitle={exportSubtitle}
                     disabled={data.length === 0}
                 />
             )}
-            renderMobileCard={({ row }: any) => {
-                const r = row.original;
-                return (
-                    <Box sx={{
-                        p: 1.75, borderRadius: '12px', border: '1px solid', borderColor: 'divider',
-                        borderLeft: '3px solid #16a34a', bgcolor: 'background.paper',
-                    }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mb: 1 }}>
-                            <Box sx={{ minWidth: 0 }}>
-                                <Typography noWrap sx={{ fontSize: 14, fontWeight: 800 }}>{r.employeeName}</Typography>
-                                <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>
-                                    {r.submissionId}
-                                </Typography>
-                            </Box>
-                            <Typography sx={{
-                                fontSize: 15, fontWeight: 800, color: '#16a34a',
-                                fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-                            }}>
-                                {formatMoney(r.amountPaid)}
-                            </Typography>
-                        </Box>
-                        <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
-                            {fmtDate(r.paymentDate)} · {String(r.paymentMethod).toLowerCase()}
-                            {r.transactionId !== '—' ? ` · ${r.transactionId}` : ''}
-                        </Typography>
-                    </Box>
-                );
-            }}
+            renderCard={(r) => <PaymentHistoryCard row={r} />}
+            empty={
+                <EmptyState
+                    variant="no-match"
+                    size="sm"
+                    icon={<SearchX aria-hidden />}
+                    title="No payments match your search"
+                    description="Nothing in this period matches."
+                />
+            }
         />
+    );
+}
+
+/** One payment on a phone: who and how much lead; the date, method and reference follow. */
+export function PaymentHistoryCard({ row }: { row: HistoryRow }) {
+    return (
+        <div className="rounded-2xl border bg-card px-4 py-3.5 shadow-[inset_3px_0_0_var(--success)]">
+            <div className="mb-2 flex items-start justify-between gap-2">
+                <PersonCell showAvatar={false} name={row.employeeName} code={row.submissionId} />
+                {money(row.amountPaid, 'whitespace-nowrap text-[15px] font-extrabold text-success-foreground')}
+            </div>
+            <div className="text-[11.5px] text-muted-foreground">
+                {formatDate(row.paymentDate)} · <span className="capitalize">{row.paymentMethod.toLowerCase()}</span>
+                {row.transactionId !== NO_REFERENCE ? ` · ${row.transactionId}` : ''}
+            </div>
+        </div>
     );
 }
