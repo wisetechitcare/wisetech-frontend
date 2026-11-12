@@ -430,7 +430,10 @@ export function DataTable<T extends RowData>({
   // the table lays out naturally, which is exactly what gets measured.
   const fixedLayout = resizableColumns && visibleIds.every((id) => columnSizing[id] !== undefined)
   React.useLayoutEffect(() => {
-    if (!resizableColumns || loading || fixedLayout) return
+    // Only from REAL rows: an empty, failed or loading table lays out on its headers alone, and those widths
+    // would lock in and clip the data that arrives next (a screen renders empty, not yet loading, before its
+    // first fetch). Until rows exist the table keeps its natural layout.
+    if (!resizableColumns || loading || error || rows.length === 0 || fixedLayout) return
     const missing: ColumnSizingState = {}
     for (const id of visibleIds) {
       if (columnSizing[id] !== undefined) continue
@@ -652,7 +655,8 @@ export function DataTable<T extends RowData>({
         {selected.length > 0 && selectionActions ? (
           <div
             role="region"
-            aria-label="Selection"
+            // Named after the table: two tables on one page must not expose two identical landmarks.
+            aria-label={`Selection in ${caption}`}
             className="flex flex-1 flex-wrap items-center gap-2 rounded-xl bg-accent px-3 py-1.5 text-accent-foreground"
           >
             <span className="text-sm font-medium" aria-live="polite">
@@ -786,7 +790,7 @@ export function DataTable<T extends RowData>({
             <ChevronLeft aria-hidden />
           </Button>
           {table.getPageCount() > 1 && (
-            <Pagination className="mx-0 w-auto">
+            <Pagination className="mx-0 w-auto" aria-label={`${caption} pages`}>
               <PaginationContent>
                 {pageList(pagination.pageIndex, table.getPageCount()).map((p, i) =>
                   p === "gap" ? (

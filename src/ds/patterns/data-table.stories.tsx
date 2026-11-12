@@ -162,10 +162,10 @@ export const BulkSelection: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Select row 1' }))
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Select row 2' }))
-    await expect(canvas.getByRole('region', { name: 'Selection' })).toHaveTextContent('2 selected')
+    await expect(canvas.getByRole('region', { name: 'Selection in Employees' })).toHaveTextContent('2 selected')
     await userEvent.click(canvas.getByRole('button', { name: 'Send Payslips' }))
     await expect(onBulk).toHaveBeenCalledWith(['1', '2'])
-    await waitFor(() => expect(canvas.queryByRole('region', { name: 'Selection' })).not.toBeInTheDocument())
+    await waitFor(() => expect(canvas.queryByRole('region', { name: 'Selection in Employees' })).not.toBeInTheDocument())
   },
 }
 
@@ -479,5 +479,37 @@ export const ReorderableRows: Story = {
     // Sorted: the grips pause.
     await userEvent.click(canvas.getByRole('button', { name: /^Joined/ }))
     for (const g of canvas.getAllByRole('button', { name: /^Move row/ })) await expect(g).toBeDisabled()
+  },
+}
+
+function LateDataTable(props: React.ComponentProps<typeof DataTable<Employee>>) {
+  // Starts empty and NOT loading — how a screen looks before its first fetch resolves.
+  const [rows, setRows] = React.useState<Employee[]>([])
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setRows(props.data), 150)
+    return () => window.clearTimeout(t)
+  }, [props.data])
+  return <DataTable {...props} data={rows} />
+}
+
+/**
+ * Rows that arrive after the first render get the same column widths as rows that were there from the start:
+ * natural widths are measured from real rows, never from the header-only empty state (which clipped a Batch ID
+ * badge in the app when a screen rendered empty and not-yet-loading before its first fetch).
+ */
+export const DataArrivesLater: Story = {
+  render: (args) => (
+    <div className="grid gap-6">
+      <DataTable {...args} caption="From the start" />
+      <LateDataTable {...args} caption="Arrives later" />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const late = canvas.getByRole('table', { name: 'Arrives later' })
+    await waitFor(() => expect(bodyRows(late).length).toBe(10))
+    await new Promise((r) => setTimeout(r, 100))
+    const widths = (name: string) =>
+      within(canvas.getByRole('table', { name })).getAllByRole('columnheader').map((h) => Math.round(h.getBoundingClientRect().width))
+    await expect(widths('Arrives later')).toEqual(widths('From the start'))
   },
 }
