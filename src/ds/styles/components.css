@@ -159,3 +159,17 @@
 :is([data-slot="card-title"], [data-slot="dialog-title"], [data-slot="alert-dialog-title"], [data-slot="sheet-title"], [data-slot="drawer-title"], [data-slot="alert-title"], [data-slot="empty-title"], [data-slot="item-title"], [data-slot="popover-title"], [data-slot="field-legend"], [data-slot="page-title"], [data-slot="section-title"], [data-slot="entity-title"]) {
   font-weight: 600;
 }
+
+/* ── Lucide icon defaults (decided: one rule replaces what the legacy AppIcon wrapper added per icon) ──────
+ * Every lucide-react <svg> gets the same stroke weight, baseline alignment and no-shrink behaviour, so call
+ * sites only choose a size and a colour. Colour needs no rule: lucide strokes with currentColor.
+ * In @layer base on purpose: every Tailwind utility (size-*, stroke-*, align-*, shrink) is in a later layer and
+ * wins. aria-hidden is not set here — lucide-react already adds it when no accessible name is passed. */
+@layer base {
+  svg.lucide {
+    stroke-width: 1.75;
+    display: inline-block;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+}
