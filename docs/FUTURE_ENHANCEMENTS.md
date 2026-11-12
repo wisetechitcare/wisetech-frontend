@@ -51,6 +51,11 @@ Format: **what** — evidence (file / screen) — suggested fix.
   by pointer drag only, while rows move with ↑ / ↓ on a focused grip. Suggested: Move Left / Move Right in the
   Columns panel (`data-table-columns.tsx`), announced like the row moves.
 
+- **Kit DataTable: sort, page size and search text are not remembered** — `stateKey` persists column
+  visibility, order, pin and width only; the legacy `MaterialTable` also kept sort, rows-per-page and the search box
+  between visits, so every kit table (Payment History, Payment Queue, Submissions) now opens on its defaults.
+  — Persist `sorting`, `pageSize` and `globalFilter` under the same `stateKey`. (found 2026-11-13)
+
 - **Kit DataTable: per-column / faceted filters and nested sub-rows are not built** — shadcn's examples
   (ui.shadcn.com data-table, shadcn.io "Data Table with Filters" / "Expandable Sub-Rows", shadcnstudio blocks)
   show both; the kit has a global search, `renderDetail` panels and the status rail (SegmentedFilter) instead,
