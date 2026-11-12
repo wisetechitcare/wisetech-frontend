@@ -47,6 +47,10 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Design system (ADR-001)
 
+- **Column reorder has no keyboard path yet** — kit `DataTable` (`src/ds/patterns/data-table.tsx`): headers move
+  by pointer drag only, while rows move with ↑ / ↓ on a focused grip. Suggested: Move Left / Move Right in the
+  Columns panel (`data-table-columns.tsx`), announced like the row moves.
+
 - **Kit DataTable: per-column / faceted filters and nested sub-rows are not built** — shadcn's examples
   (ui.shadcn.com data-table, shadcn.io "Data Table with Filters" / "Expandable Sub-Rows", shadcnstudio blocks)
   show both; the kit has a global search, `renderDetail` panels and the status rail (SegmentedFilter) instead,

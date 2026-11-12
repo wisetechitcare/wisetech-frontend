@@ -1,5 +1,7 @@
 import {
   columnFilteringFeature,
+  columnOrderingFeature,
+  columnPinningFeature,
   columnResizingFeature,
   columnSizingFeature,
   columnVisibilityFeature,
@@ -31,8 +33,11 @@ import {
 export interface DataTableColumnMeta<TData = any> {
   /** The column's name in the Columns menu and in an export. */
   label?: string
-  /** `"end"`: stays at the right edge while the table scrolls sideways (row actions). */
-  pin?: "end"
+  /**
+   * Pinned by default (the viewer can change it in the Columns panel): `"end"` stays at the right edge while the
+   * table scrolls sideways (row actions); `"start"` at the left (the record's name).
+   */
+  pin?: "start" | "end"
   /** The plain value an export writes when the cell decorates it (a badge, a chip). */
   exportValue?: (row: TData) => unknown
   /** `false` keeps the column out of exports (a thumbnail, a button). */
@@ -64,6 +69,8 @@ export const dataTableFeatures = tableFeatures({
   rowExpandingFeature,
   columnSizingFeature,
   columnResizingFeature,
+  columnOrderingFeature,
+  columnPinningFeature,
   sortedRowModel: createSortedRowModel(),
   filteredRowModel: createFilteredRowModel(),
   paginatedRowModel: createPaginatedRowModel(),

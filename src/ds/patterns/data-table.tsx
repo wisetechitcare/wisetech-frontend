@@ -7,12 +7,14 @@ import {
   type SortingState,
   type ColumnSizingState,
   type ColumnVisibilityState,
+  type ColumnOrderState,
   type RowData,
 } from "@tanstack/react-table"
 // TanStack Table v9: the features, row models and column types live in one place (shadcn's data-table guide).
 import { dataTableFeatures, type Column, type ColumnDef, type Header, type Row } from "./data-table-features"
 import { useLocale } from "react-aria-components"
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Eye, GripVertical, ListFilter, Maximize2, Minimize2, RotateCcw, Rows3, Search } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, GripVertical, ListFilter, Maximize2, Minimize2, RotateCcw, Rows3, Search } from "lucide-react"
+import { ColumnsPanel, type ColumnPin } from "./data-table-columns"
 // The app's one drag engine (also the Task board and the live table's column drag) — never a second one.
 import { mergeVisibleOrder, SortableProvider, type SortableProps } from "@/ds/lib/sortable"
 import { cn } from "@/ds/lib/utils"
@@ -23,14 +25,6 @@ import { Input } from "@/ds/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip"
 import { Card } from "@/ds/ui/card"
 import { Checkbox } from "@/ds/ui/checkbox"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/ds/ui/dropdown-menu"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/ds/ui/input-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ds/ui/select"
 import { Skeleton } from "@/ds/ui/skeleton"
@@ -127,6 +121,9 @@ const DRAG_COLUMN_ID = "__drag"
 const NO_SIZING: ColumnSizingState = Object.freeze({}) as ColumnSizingState
 /** The one container id rows live in for the drag engine. */
 const ROWS_CONTAINER = "rows"
+const COLS_CONTAINER = "cols"
+/** Where a column drag may start: the header cell, and the sort button inside it (a click still sorts). */
+const COL_HANDLE = "[data-col-handle], [data-col-handle] [data-slot=button]"
 
 /** What the grip cells need, read live through a ref so the columns are not rebuilt on every move. */
 type ReorderHandle = { canDrag: boolean; pausedReason: string; move: (id: string, delta: -1 | 1) => void; position: (id: string) => [number, number] }
@@ -247,7 +244,16 @@ function ResizeHandle<T extends RowData>({ header, label, naturalWidth }: { head
 }
 
 /** What a table remembers for its viewer (`stateKey`): widths, hidden columns, density. Per-viewer convenience. */
-type SavedTableState = { sizing?: ColumnSizingState; visibility?: ColumnVisibilityState; density?: "comfortable" | "compact" }
+type PinState = { start: string[]; end: string[] }
+type SavedTableState = {
+  sizing?: ColumnSizingState
+  visibility?: ColumnVisibilityState
+  density?: "comfortable" | "compact"
+  /** Column order the viewer dragged to (data columns only; utility columns always lead). */
+  order?: ColumnOrderState
+  /** Columns the viewer pinned (data columns only). */
+  pinning?: PinState
+}
 const storageKey = (key: string) => `wt-table:${key}`
 function readTableState(key?: string): SavedTableState {
   if (!key) return {}
@@ -347,6 +353,8 @@ export function DataTable<T extends RowData>({
   rowReorder,
   canSelectRow,
   filters,
+  reorderableColumns = true,
+  pinnableColumns = true,
 }: {
   /** Names the table for assistive tech (rendered visually hidden). */
   caption: string
@@ -415,6 +423,16 @@ export function DataTable<T extends RowData>({
    * sit together; `toolbar` actions (export…) stay on the right.
    */
   filters?: React.ReactNode
+  /**
+   * Drag a column header sideways to move the column (the same engine, ghost and reflow as row drag and the Task
+   * board). On by default, like the old table. The order is remembered with `stateKey`.
+   */
+  reorderableColumns?: boolean
+  /**
+   * Pin columns to the left or right edge from the Columns panel, so they stay in view while the table scrolls
+   * sideways. On by default, like the old table. `meta.pin` sets a column's default.
+   */
+  pinnableColumns?: boolean
 }) {
   // The kit's locale (KitProvider) — the same grouping as every other number in v2.
   const { locale } = useLocale()
@@ -432,6 +450,16 @@ export function DataTable<T extends RowData>({
     ),
   }))
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
+  // Pins the columns ask for (`meta.pin`): the default, and what Reset layout returns to.
+  const defaultPinning = React.useMemo<PinState>(() => {
+    const idOf = (c: ColumnDef<T>) => c.id ?? String((c as { accessorKey?: unknown }).accessorKey)
+    const pinOf = (c: ColumnDef<T>) => (c.meta as { pin?: string } | undefined)?.pin
+    return { start: columns.filter((c) => pinOf(c) === "start").map(idOf), end: columns.filter((c) => pinOf(c) === "end").map(idOf) }
+  }, [columns])
+  const [columnOrder, setColumnOrder] = React.useState<ColumnOrderState>(saved.order ?? [])
+  const [userPinning, setUserPinning] = React.useState<PinState | null>(saved.pinning ?? null)
+  // null = the columns' own defaults (so a page that changes `meta.pin` is followed until the viewer pins).
+  const pins = userPinning ?? defaultPinning
   const [density, setDensity] = React.useState<"comfortable" | "compact">(saved.density ?? "comfortable")
   const [showFilters, setShowFilters] = React.useState(false)
   const [fullscreen, setFullscreen] = React.useState(false)
@@ -456,12 +484,27 @@ export function DataTable<T extends RowData>({
     [rowReorder, selectable, renderDetail, columns],
   )
 
+  // Utility columns (grip, checkbox, chevron) always lead: first in the order, and pinned with the first pinned
+  // column, since a checkbox scrolled away from its pinned name would select a row you can no longer see.
+  const utilityIds = React.useMemo(
+    () => [rowReorder && DRAG_COLUMN_ID, selectable && SELECT_COLUMN_ID, renderDetail && EXPAND_COLUMN_ID].filter(Boolean) as string[],
+    [rowReorder, selectable, renderDetail],
+  )
+  const effectiveOrder = React.useMemo(
+    () => (columnOrder.length ? [...utilityIds, ...columnOrder.filter((id) => !utilityIds.includes(id))] : []),
+    [columnOrder, utilityIds],
+  )
+  const effectivePinning = React.useMemo(() => {
+    const p = pinnableColumns ? pins : defaultPinning
+    return { start: p.start.length ? [...utilityIds, ...p.start] : [], end: p.end }
+  }, [pinnableColumns, pins, defaultPinning, utilityIds])
+
   const table = useTable({
     features: dataTableFeatures,
     data,
     columns: allColumns,
     getRowId,
-    state: { sorting, globalFilter, columnVisibility, rowSelection, pagination },
+    state: { sorting, globalFilter, columnVisibility, rowSelection, pagination, columnOrder: effectiveOrder, columnPinning: effectivePinning },
     // Column sizing is OWNED by the table (v9): with an onColumnSizingChange the table stops writing its own
     // sizing and reads ours back a render late, so widths lagged behind the drag/keys. Start from what the
     // viewer saved; read the live value from table.state.
@@ -501,6 +544,8 @@ export function DataTable<T extends RowData>({
       ),
     )
     setDensity("comfortable")
+    setColumnOrder([])
+    setUserPinning(null)
     setSorting(initialSorting ?? [])
     table.resetColumnFilters()
     if (stateKey) {
@@ -524,7 +569,22 @@ export function DataTable<T extends RowData>({
   const from = total === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1
   const to = Math.min(total, (pagination.pageIndex + 1) * pagination.pageSize)
   const visibleColumns = table.getVisibleLeafColumns().length
-  const hideable = table.getAllLeafColumns().filter((c) => c.getCanHide())
+  // In the table's CURRENT order (the panel lists what you see, left to right); export-only columns never show.
+  const hideable = table.getAllLeafColumns().filter((c) => c.getCanHide() && !(c.columnDef.meta as { exportOnly?: boolean } | undefined)?.exportOnly)
+  const pinColumn = (id: string, pin: ColumnPin) =>
+    setUserPinning((prev) => {
+      const p = prev ?? defaultPinning
+      return {
+        start: pin === "start" ? [...p.start.filter((x) => x !== id), id] : p.start.filter((x) => x !== id),
+        end: pin === "end" ? [id, ...p.end.filter((x) => x !== id)] : p.end.filter((x) => x !== id),
+      }
+    })
+  const setAllVisible = (on: boolean) =>
+    setColumnVisibility((v) => ({
+      ...v,
+      // Hide All keeps the first column (the record's name): a table of no columns has nothing to show.
+      ...Object.fromEntries(hideable.map((c, i) => [c.id, on || i === 0])),
+    }))
   const cellPad = density === "compact" ? "py-1.5" : "py-3"
   const hasFooter = table.getAllLeafColumns().some((c) => c.columnDef.footer !== undefined)
   const visibleIds = table.getVisibleLeafColumns().map((c) => c.id)
@@ -532,9 +592,15 @@ export function DataTable<T extends RowData>({
   // Debounced: a drag fires a sizing change per pointer move; storage needs only where it ended.
   React.useEffect(() => {
     if (!stateKey) return
-    const t = window.setTimeout(() => writeTableState(stateKey, { sizing: columnSizing, visibility: columnVisibility, density }), 300)
+    const t = window.setTimeout(() => writeTableState(stateKey, {
+      sizing: columnSizing,
+      visibility: columnVisibility,
+      density,
+      order: columnOrder.length ? columnOrder : undefined,
+      pinning: userPinning ?? undefined,
+    }), 300)
     return () => window.clearTimeout(t)
-  }, [stateKey, columnSizing, columnVisibility, density])
+  }, [stateKey, columnSizing, columnVisibility, density, columnOrder, userPinning])
   // Fixed layout (drag to resize) once every visible column has a width — measured or remembered. Until then
   // the table lays out naturally, which is exactly what gets measured.
   const fixedLayout = resizableColumns && visibleIds.every((id) => columnSizing[id] !== undefined)
@@ -589,15 +655,47 @@ export function DataTable<T extends RowData>({
     refocusId.current = null
     document.querySelector<HTMLElement>(`[data-row-grip][data-row-id="${CSS.escape(id)}"]`)?.focus()
   })
-  // `meta: { pin: "end" }` keeps a column (row actions) at the right edge while the rest scrolls sideways —
-  // otherwise on a wide table the actions are the first thing to fall off screen.
-  const pinEnd = (c: Column<T, unknown>) =>
-    (c.columnDef.meta as { pin?: string } | undefined)?.pin === "end" &&
-    // Opaque (it covers scrolled cells) yet painted exactly like the rest of its row, over the card colour: at rest
-    // the row's tone (--row-bg); hovered / expanded / selected, the row's tint (--row-hover, published by TableRow)
-    // REPLACES the tone — just as the row's own hover background replaces it for every other cell. (Layering the
-    // two left the frozen cell a different shade from the rest of a hovered toned row.)
-    "sticky right-0 z-[1] transition-colors [background:linear-gradient(var(--row-hover,var(--row-bg,transparent)),var(--row-hover,var(--row-bg,transparent))),var(--card)] shadow-[-10px_0_10px_-10px_rgb(0_0_0/0.18)]"
+  // A pinned column stays at its edge while the rest scrolls sideways: row actions at the right by default
+  // (otherwise on a wide table they are the first thing to fall off screen), and anything the viewer pins.
+  // Offsets come from the columns' widths, so a column away from the very edge freezes once widths are known.
+  const pinOffset = (c: Column<T, unknown>) => {
+    const pos = c.getIsPinned()
+    if (!pos) return undefined
+    const offset = pos === "start" ? c.getStart("start") : c.getAfter("end")
+    return fixedLayout || offset === 0 ? { pos, offset } : undefined
+  }
+  const pinStyle = (c: Column<T, unknown>): React.CSSProperties | undefined => {
+    const p = pinOffset(c)
+    return p && (p.pos === "start" ? { left: p.offset } : { right: p.offset })
+  }
+  const pinClass = (c: Column<T, unknown>) => {
+    const p = pinOffset(c)
+    return p && cn(
+      // Opaque (it covers scrolled cells) yet painted exactly like the rest of its row, over the card colour: at
+      // rest the row's tone (--row-bg); hovered / expanded / selected, the row's tint (--row-hover, published by
+      // TableRow) REPLACES the tone, just as the row's own hover background replaces it for every other cell.
+      "sticky z-[1] transition-colors [background:linear-gradient(var(--row-hover,var(--row-bg,transparent)),var(--row-hover,var(--row-bg,transparent))),var(--card)]",
+      // A soft shadow on the side the content scrolls under, on the innermost pinned column only.
+      p.pos === "start" && c.getIsLastColumn("start") && "shadow-[10px_0_10px_-10px_rgb(0_0_0/0.18)]",
+      p.pos === "end" && c.getIsFirstColumn("end") && "shadow-[-10px_0_10px_-10px_rgb(0_0_0/0.18)]",
+    )
+  }
+  const withWidth = (c: Column<T, unknown>, width?: number): React.CSSProperties | undefined => {
+    const pin = pinStyle(c)
+    return width === undefined && !pin ? undefined : { ...(width !== undefined ? { width } : {}), ...pin }
+  }
+
+  // ── Column reorder (drag a header sideways) ────────────────────────────────
+  const colSurface = `cols-${React.useId()}`
+  // Utility and pinned columns stay put; the rest move.
+  const movableColumnIds = table.getCenterVisibleLeafColumns().map((c) => c.id).filter((id) => !utilityIds.includes(id))
+  const canDragColumns = reorderableColumns && movableColumnIds.length > 1
+  // A drop ends with a click on the header under the pointer; that click must not also sort the column.
+  const swallowClick = React.useRef(false)
+  const dropColumn = (order: string[]) => {
+    const full = table.getAllLeafColumns().map((c) => c.id).filter((id) => !utilityIds.includes(id))
+    setColumnOrder(mergeVisibleOrder(full, order))
+  }
 
   let body: React.ReactNode
   let rowsBody: ((sp?: SortableProps) => React.ReactNode) | null = null
@@ -674,10 +772,10 @@ export function DataTable<T extends RowData>({
             {row.getVisibleCells().map((cell) => (
               <TableCell
                 key={cell.id}
-                style={fixedLayout ? { width: cell.column.getSize() } : undefined}
+                style={withWidth(cell.column, fixedLayout ? cell.column.getSize() : undefined)}
                 // Once widths are fixed, text that no longer fits WRAPS — never "…". Widths are measured from the first
                 // rows shown, so later, longer data ("office → station") used to be cut off: hidden content.
-                className={cn(cellPad, narrowCol(cell.column.id), pinEnd(cell.column), fixedLayout && "whitespace-normal break-words")}
+                className={cn(cellPad, narrowCol(cell.column.id), pinClass(cell.column), fixedLayout && "whitespace-normal break-words")}
               >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
@@ -695,7 +793,26 @@ export function DataTable<T extends RowData>({
     })
   }
 
-  const renderFrame = (sp?: SortableProps) => (
+  /** The frame, inside the row-drag surface when rows reorder. `cp`: the column-drag surface's props. */
+  const framed = (cp?: SortableProps) =>
+    rowReorder ? (
+      <SortableProvider
+        surface={dragSurface}
+        axis="y"
+        // The rows ON SCREEN (this page, displayed order): the engine pairs them with the DOM at drop time.
+        itemsByContainer={{ [ROWS_CONTAINER]: rows.map((r) => r.id) }}
+        onDrop={(d) => {
+          if (d.unchanged) return
+          commitOrder(mergeVisibleOrder(allIds, d.order), d.id)
+        }}
+      >
+        {(sp) => renderFrame(sp, cp)}
+      </SortableProvider>
+    ) : (
+      renderFrame(undefined, cp)
+    )
+
+  const renderFrame = (sp?: SortableProps, cp?: SortableProps) => (
       <Card
         variant="panel"
         className={cn(
@@ -713,9 +830,19 @@ export function DataTable<T extends RowData>({
           <TableCaption className="sr-only">{caption}</TableCaption>
           <TableHeader className="sticky top-0 z-10 bg-card">
             {table.getHeaderGroups().map((hg) => (
-              <TableRow key={hg.id}>
+              <TableRow
+                key={hg.id}
+                {...(cp?.listProps(COLS_CONTAINER, !canDragColumns) ?? {})}
+                onClickCapture={(e) => {
+                  if (!swallowClick.current) return
+                  swallowClick.current = false
+                  e.stopPropagation()
+                  e.preventDefault()
+                }}
+              >
                 {hg.headers.map((h) => {
                   const dir = h.column.getIsSorted()
+                  const movable = !!cp && canDragColumns && movableColumnIds.includes(h.column.id)
                   return (
                     <TableHead
                       key={h.id}
@@ -723,10 +850,12 @@ export function DataTable<T extends RowData>({
                         if (el) headRefs.current.set(h.column.id, el)
                         else headRefs.current.delete(h.column.id)
                       }}
-                      style={fixedLayout ? { width: h.getSize() } : undefined}
+                      {...(movable ? cp!.itemProps(h.column.id, COLS_CONTAINER, { handle: COL_HANDLE, exclude: "[role=separator]" }) : {})}
+                      data-col-handle={movable ? "" : undefined}
+                      style={{ ...(movable ? { touchAction: "none" } : {}), ...withWidth(h.column, fixedLayout ? h.getSize() : undefined) }}
                       aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : h.column.getCanSort() ? "none" : undefined}
                       // `sticky` LAST: it also anchors the resize handle, and a later `relative` silently un-froze the header.
-                      className={cn(narrowCol(h.column.id), fixedLayout && "relative", pinEnd(h.column))}
+                      className={cn(narrowCol(h.column.id), fixedLayout && "relative", movable && "cursor-grab active:cursor-grabbing", pinClass(h.column))}
                     >
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                       {fixedLayout && h.column.getCanResize() && !narrowCol(h.column.id) && (
@@ -745,7 +874,7 @@ export function DataTable<T extends RowData>({
               <TableRow className="hover:bg-transparent">
                 {/* Cells, not headers: they hold inputs (an empty <th> is an a11y error for columns with no filter). */}
                 {table.getVisibleLeafColumns().map((c) => (
-                  <TableCell key={c.id} className={cn("px-3 py-1.5", narrowCol(c.id), pinEnd(c))}>
+                  <TableCell key={c.id} style={pinStyle(c)} className={cn("px-3 py-1.5", narrowCol(c.id), pinClass(c))}>
                     {c.getCanFilter() ? (
                       <Input
                         value={String(c.getFilterValue() ?? "")}
@@ -771,7 +900,7 @@ export function DataTable<T extends RowData>({
               {table.getFooterGroups().map((fg) => (
                 <TableRow key={fg.id}>
                   {fg.headers.map((h) => (
-                    <TableCell key={h.id} className={cn(cellPad, "font-semibold", narrowCol(h.column.id), pinEnd(h.column))}>
+                    <TableCell key={h.id} style={pinStyle(h.column)} className={cn(cellPad, "font-semibold", narrowCol(h.column.id), pinClass(h.column))}>
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.footer, h.getContext())}
                     </TableCell>
                   ))}
@@ -862,32 +991,20 @@ export function DataTable<T extends RowData>({
                   <Rows3 aria-hidden />
                 </ToolButton>
                 {hideable.length > 0 && (
-                  // A tooltip like every other tool: the Tooltip and Menu triggers compose onto one Button
-                  // (Base UI `render`), so hover/focus shows the label and a click opens the menu.
-                  <DropdownMenu>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={<DropdownMenuTrigger render={<Button variant="outline" size="icon" aria-label="Show or hide columns" />} />}
-                      >
-                        <Eye aria-hidden />
-                      </TooltipTrigger>
-                      <TooltipContent>Show or hide columns</TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent align="end" className="w-52">
-                      <DropdownMenuGroup>
-                        <DropdownMenuLabel>Show columns</DropdownMenuLabel>
-                        {hideable.map((c) => (
-                          <DropdownMenuCheckboxItem
-                            key={c.id}
-                            checked={c.getIsVisible()}
-                            onCheckedChange={(on) => c.toggleVisibility(!!on)}
-                          >
-                            {columnLabel(c)}
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                      </DropdownMenuGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <ColumnsPanel
+                    items={hideable.map((c) => ({
+                      id: c.id,
+                      label: columnLabel(c),
+                      visible: c.getIsVisible(),
+                      pin: pins.start.includes(c.id) ? "start" : pins.end.includes(c.id) ? "end" : false,
+                    }))}
+                    onToggle={(id, on) => table.getColumn(id)?.toggleVisibility(on)}
+                    onShowAll={() => setAllVisible(true)}
+                    onHideAll={() => setAllVisible(false)}
+                    onPin={pinColumn}
+                    pinnable={pinnableColumns}
+                    reorderable={reorderableColumns}
+                  />
                 )}
                 <ToolButton label="Reset layout" onClick={resetLayout}>
                   <RotateCcw aria-hidden />
@@ -914,21 +1031,22 @@ export function DataTable<T extends RowData>({
         </ul>
       )}
 
-      {rowReorder ? (
+      {reorderableColumns ? (
+        // Columns: one surface per table, sideways. The engine moves the header AND that column's body cells.
         <SortableProvider
-          surface={dragSurface}
-          axis="y"
-          // The rows ON SCREEN (this page, displayed order): the engine pairs them with the DOM at drop time.
-          itemsByContainer={{ [ROWS_CONTAINER]: rows.map((r) => r.id) }}
+          surface={colSurface}
+          axis="x"
+          itemsByContainer={{ [COLS_CONTAINER]: movableColumnIds }}
           onDrop={(d) => {
-            if (d.unchanged) return
-            commitOrder(mergeVisibleOrder(allIds, d.order), d.id)
+            swallowClick.current = true
+            window.setTimeout(() => { swallowClick.current = false }, 0)
+            if (!d.unchanged) dropColumn(d.order)
           }}
         >
-          {(sp) => renderFrame(sp)}
+          {(cp) => framed(cp)}
         </SortableProvider>
       ) : (
-        renderFrame()
+        framed()
       )}
       <p aria-live="assertive" className="sr-only">{announcement}</p>
 
