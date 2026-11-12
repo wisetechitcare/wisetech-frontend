@@ -215,7 +215,7 @@ const tint = (color: string) => ({ '--tint': color }) as CSSProperties;
 /** A line of facts with a leading icon (route, client · project). */
 function FactLine({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
     return (
-        <p className="m-0 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground [&>svg]:size-3.5 [&>svg]:shrink-0">
+        <p data-slot="workflow-note" className="m-0 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground [&>svg]:size-3.5 [&>svg]:shrink-0">
             {icon}
             <span className="min-w-0 break-words">{children}</span>
         </p>
@@ -268,8 +268,8 @@ export function RequestWorkflowRow({
                         {request.isExceedingLimit && <Badge variant="danger"><TriangleAlert aria-hidden /> Over Limit</Badge>}
                         {request.paymentStatus === 'PAID' && <Badge variant="success">Paid</Badge>}
                     </div>
-                    <h4 className="m-0 pt-1 text-sm font-semibold text-foreground">{label}</h4>
-                    <p className="m-0 text-xs text-muted-foreground">
+                    <h4 data-slot="workflow-line-label" className="m-0 pt-1 text-sm font-semibold text-foreground">{label}</h4>
+                    <p data-slot="workflow-line-caption" className="m-0 text-xs text-muted-foreground">
                         {[fmtDate(request.expenseDate), request.reimbursementType?.type, caption].filter(Boolean).join(' · ')}
                     </p>
                     {(request.fromLocation || request.toLocation) && (
@@ -376,7 +376,7 @@ export function RequestWorkflowRow({
 
             {/* Per-level history — who decided what, and what they said. */}
             {approval && approval.steps.some((s) => s.status !== 'pending') && (
-                <ul aria-label="Approval steps" className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+                <ul data-slot="approval-steps" aria-label="Approval steps" className="m-0 flex list-none flex-wrap gap-1.5 p-0">
                     {approval.steps.map((step) => {
                         // A rejection ends the request there — the levels above it are never asked.
                         // Their steps stay 'pending' in the table, and rendering that verbatim put
@@ -403,7 +403,7 @@ export function RequestWorkflowRow({
                             step.comments || null,
                         ].filter(Boolean).join(' — ');
                         return (
-                            <li key={step.id}>
+                            <li data-slot="approval-step" key={step.id}>
                                 <Tooltip>
                                     <TooltipTrigger render={<Badge variant={tone} tabIndex={0} />}>{text}</TooltipTrigger>
                                     <TooltipContent>{detail}</TooltipContent>

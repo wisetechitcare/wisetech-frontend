@@ -592,7 +592,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
           period bar's above, so the buttons on the two rows could never line up. */}
       {(loading || drafts.length > 0) && (
         <div className='mb-4 flex flex-wrap items-center justify-between gap-3'>
-          <h2 className='m-0 text-base font-bold text-foreground lg:text-lg'>Reimbursement Request Inbox</h2>
+          <h2 data-slot="inbox-title" className='m-0 text-base font-bold text-foreground lg:text-lg'>Reimbursement Request Inbox</h2>
           <div className={TOOLBAR_ROW}>
             {hasPermission(
               resourceNameMapWithCamelCase.reimbursement,

@@ -52,7 +52,7 @@ export default function PaymentDetailPanel({ payments }: { payments: PaymentDeta
 
     if (rows.length === 0) {
         return (
-            <p className="px-4 py-5 text-sm text-muted-foreground italic">
+            <p data-slot="payment-empty" className="px-4 py-5 text-sm text-muted-foreground italic">
                 No payment records found for this period.
             </p>
         );

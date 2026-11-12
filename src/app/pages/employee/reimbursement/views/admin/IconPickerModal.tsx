@@ -343,9 +343,9 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
             )}
           </div>
           <div className="min-w-0">
-            <p className="m-0 text-xs text-muted-foreground">Selected Icon</p>
-            <p className="m-0 truncate text-sm font-semibold capitalize">{selectedIcon.label}</p>
-            <p className="m-0 text-xs text-muted-foreground">
+            <p data-slot="selected-icon-eyebrow" className="m-0 text-xs text-muted-foreground">Selected Icon</p>
+            <p data-slot="selected-icon-label" className="m-0 truncate text-sm font-semibold capitalize">{selectedIcon.label}</p>
+            <p data-slot="selected-icon-source" className="m-0 text-xs text-muted-foreground">
               {selectedIcon.source === "system" ? "System Icon" : "Iconify"}
             </p>
           </div>
@@ -443,7 +443,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
             />
           )}
           {iconifyLoading && (
-            <p role="status" className="m-0 flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+            <p data-slot="icon-search-status" role="status" className="m-0 flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
               <Spinner /> Searching icons…
             </p>
           )}
@@ -469,9 +469,9 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
               ))}
             </div>
           )}
-          <p className="m-0 mt-3 text-right text-[11px] text-muted-foreground">
+          <p data-slot="icon-credit" className="m-0 mt-3 text-right text-[11px] text-muted-foreground">
             Icons via{" "}
-            <a href="https://iconify.design" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+            <a data-slot="icon-credit-link" href="https://iconify.design" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
               Iconify
             </a>
           </p>

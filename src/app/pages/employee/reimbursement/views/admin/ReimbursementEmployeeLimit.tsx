@@ -98,7 +98,7 @@ function LimitCell({ row }: { row: LimitRow }) {
             }}
           />
         </InputGroup>
-        {e.editError && <p id={errorId} role="alert" className="m-0 text-xs text-destructive">{e.editError}</p>}
+        {e.editError && <p data-slot="limit-error" id={errorId} role="alert" className="m-0 text-xs text-destructive">{e.editError}</p>}
       </div>
     );
   }

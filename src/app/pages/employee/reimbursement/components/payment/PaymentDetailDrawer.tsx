@@ -24,15 +24,15 @@ import PaymentStateBadge from './PaymentStateBadge';
 function Figure({ label, value, className }: { label: string; value: string; className?: string }) {
     return (
         <div className="min-w-0">
-            <p className="m-0 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">{label}</p>
-            <p className={cn('tabular m-0 text-lg leading-snug font-extrabold text-foreground', className)}>{value}</p>
+            <p data-slot="stat-label" className="m-0 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">{label}</p>
+            <p data-slot="stat-value" className={cn('tabular m-0 text-lg leading-snug font-extrabold text-foreground', className)}>{value}</p>
         </div>
     );
 }
 
 /** A small uppercase section title inside the drawer. */
 function SectionTitle({ children }: { children: React.ReactNode }) {
-    return <h3 className="m-0 mb-2 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">{children}</h3>;
+    return <h3 data-slot="section-heading" className="m-0 mb-2 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">{children}</h3>;
 }
 
 export default function PaymentDetailDrawer({
@@ -94,12 +94,12 @@ export default function PaymentDetailDrawer({
                                 <section>
                                     <Separator className="mb-4" />
                                     <SectionTitle>Payments Recorded</SectionTitle>
-                                    <ul className="m-0 list-none divide-y divide-border p-0">
+                                    <ul data-slot="payment-list" className="m-0 list-none divide-y divide-border p-0">
                                         {row.payments.map((p) => (
-                                            <li key={p.id} className="flex justify-between gap-3 py-2">
+                                            <li data-slot="payment-item" key={p.id} className="flex justify-between gap-3 py-2">
                                                 <div className="min-w-0">
-                                                    <p className="m-0 text-sm font-semibold">{fmtDate(p.paymentDate)}</p>
-                                                    <p className="m-0 text-xs text-muted-foreground">
+                                                    <p data-slot="payment-date" className="m-0 text-sm font-semibold">{fmtDate(p.paymentDate)}</p>
+                                                    <p data-slot="payment-method" className="m-0 text-xs text-muted-foreground">
                                                         {(p.paymentMethod || '—').replace(/_/g, ' ')}
                                                         {p.transactionId ? ` · ${p.transactionId}` : ''}
                                                         {p.processedBy !== 'N/A' ? ` · by ${p.processedBy}` : ''}
@@ -118,15 +118,15 @@ export default function PaymentDetailDrawer({
                             <section>
                                 <Separator className="mb-4" />
                                 <SectionTitle>Reimbursement Items</SectionTitle>
-                                <ul className="m-0 list-none divide-y divide-border p-0">
+                                <ul data-slot="line-list" className="m-0 list-none divide-y divide-border p-0">
                                     {row.lines.map((line) => {
                                         const status = resolveStatusNum(line.status);
                                         const approved = status === STATUS.APPROVED;
                                         return (
-                                            <li key={line.id} className={cn('flex justify-between gap-3 py-2', !approved && 'opacity-60')}>
+                                            <li data-slot="line-item" key={line.id} className={cn('flex justify-between gap-3 py-2', !approved && 'opacity-60')}>
                                                 <div className="min-w-0">
-                                                    <p className="m-0 truncate text-sm font-semibold">{line.category}</p>
-                                                    <p className="m-0 truncate text-xs text-muted-foreground">
+                                                    <p data-slot="line-category" className="m-0 truncate text-sm font-semibold">{line.category}</p>
+                                                    <p data-slot="line-detail" className="m-0 truncate text-xs text-muted-foreground">
                                                         {fmtDate(line.expenseDate)} · {line.project}
                                                         {/* A rejected line sits in the batch but is never payable — saying so
                                                             is what stops "the total doesn't match the lines". */}
