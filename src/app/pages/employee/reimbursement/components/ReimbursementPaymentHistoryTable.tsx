@@ -281,8 +281,8 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
         <>
         <div className="mt-4 lg:mt-8">
             <div className="mb-4 px-3 lg:mb-6 lg:px-0">
-                <h2 className="m-0 mb-1 text-base font-bold text-foreground lg:text-lg">Reimbursement Payment History</h2>
-                <p className="m-0 text-xs text-muted-foreground">
+                <h2 data-slot="payment-history-title" className="m-0 mb-1 text-base font-bold text-foreground lg:text-lg">Reimbursement Payment History</h2>
+                <p data-slot="payment-history-caption" className="m-0 text-xs text-muted-foreground">
                     What you were <strong>paid</strong> in {periodLabel} — by payment date. A batch
                     appears here once it has a payment recorded in this window.
                 </p>
@@ -339,7 +339,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
 function PaymentHistoryCard({ row, onOpen }: { row: BatchRow; onOpen: () => void }) {
     const settled = row.totalRemainingAmount <= 0;
     return (
-        <button
+        <button data-slot="payment-history-row"
             type="button"
             data-wt-control="row"
             onClick={onOpen}

@@ -9,13 +9,9 @@ vi.mock("@services/reimbursementVersions", () => ({
 
 import { fetchVersionHistory } from "@services/reimbursementVersions";
 import VersionHistoryDialog, { ChangeSummaryTable, RestartNotice } from "./VersionHistoryDialog";
+import { findBareElements } from "../test-utils/rebootShield";
 
 afterEach(cleanup);
-
-const bare = (root: ParentNode) =>
-  [...root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a")].filter(
-    (el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot=button]"),
-  );
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -72,7 +68,7 @@ describe("VersionHistoryDialog", () => {
     vi.mocked(fetchVersionHistory).mockResolvedValueOnce([]);
     const a = render(<VersionHistoryDialog reimbursementId="r1" onClose={() => {}} />);
     expect(await screen.findByText("No version history for this expense.")).toBeTruthy();
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
     a.unmount();
     vi.mocked(fetchVersionHistory).mockResolvedValueOnce([{ ...v1, isCurrent: true }] as never);
     render(<VersionHistoryDialog reimbursementId="r1" onClose={() => {}} />);
@@ -123,6 +119,6 @@ describe("Reboot shield", () => {
     vi.mocked(fetchVersionHistory).mockResolvedValue([v2, v1] as never);
     render(<VersionHistoryDialog reimbursementId="r1" requestLabel="x" onClose={() => {}} />);
     await screen.findByText("2 versions. Newest first.");
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
   });
 });

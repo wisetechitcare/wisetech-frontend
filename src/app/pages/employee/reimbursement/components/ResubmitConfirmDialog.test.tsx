@@ -2,13 +2,9 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ResubmitConfirmDialog from "./ResubmitConfirmDialog";
+import { findBareElements } from "../test-utils/rebootShield";
 
 afterEach(cleanup);
-
-const bare = (root: ParentNode) =>
-  [...root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a")].filter(
-    (el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot=button]"),
-  );
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -68,13 +64,13 @@ describe("ResubmitConfirmDialog", () => {
     expect(screen.getByText(/Nothing about the claim has changed/)).toBeTruthy();
     expect(screen.queryByText("What is changing")).toBeNull();
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
   });
 
   it("shows a spinner and blocks the confirm button while the preview loads", () => {
     const { onConfirm } = setup({ loading: true, preview: null });
     expect(screen.getByRole("status", { name: "Loading" })).toBeTruthy();
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
     const confirm = screen.getByRole("button", { name: "Save" }) as HTMLButtonElement;
     expect(confirm.disabled || confirm.getAttribute("aria-disabled") === "true").toBe(true);
     fireEvent.click(confirm);
@@ -107,6 +103,6 @@ describe("ResubmitConfirmDialog", () => {
 describe("Reboot shield", () => {
   it("every raw heading, paragraph, list, link and button carries data-slot", () => {
     setup();
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
   });
 });

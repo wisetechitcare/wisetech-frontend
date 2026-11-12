@@ -20,6 +20,7 @@ vi.mock("./ByProject", () => ({ default: () => null }));
 vi.mock("./ReimbursementSummaryCard", () => ({ default: () => null }));
 
 import AllEmployee from "./AllEmployee";
+import { findBareElements } from "../../test-utils/rebootShield";
 
 afterEach(cleanup);
 
@@ -35,13 +36,6 @@ beforeAll(() => {
     });
   }
 });
-
-/** Reboot (unlayered Metronic CSS) beats the kit's layered utilities on any raw element that lacks a data-slot. */
-function bare(root: ParentNode) {
-  return Array.from(root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a"))
-    .filter((el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot]"))
-    .map((el) => el.outerHTML.slice(0, 80));
-}
 
 describe("AllEmployee period navigation", () => {
   it("steps the month from the kit arrows and refetches for that month", async () => {
@@ -60,6 +54,6 @@ describe("AllEmployee period navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next month" }));
     await waitFor(() => expect(screen.getByText(now.add(1, "month").format("MMM YYYY"))).toBeTruthy());
 
-    expect(bare(container)).toEqual([]);
+    expect(findBareElements(container)).toEqual([]);
   });
 });

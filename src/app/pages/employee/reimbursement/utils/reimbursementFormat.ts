@@ -18,7 +18,8 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { IST_TZ } from '@constants/timezone';
 
-// Pure module: the plugins are extended here rather than relying on `@utils/date` (which imports the store).
+// The plugins are extended here rather than relying on `@utils/date` (which imports the store). Note `fmtDate` below
+// delegates to `@utils/dateFormats`, which does read the store, so this module is not store-free.
 dayjs.extend(utc);
 dayjs.extend(timezone);
 

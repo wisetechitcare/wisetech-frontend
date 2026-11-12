@@ -408,7 +408,7 @@ function SubmissionDetailModal({
       >
         {approvalInstanceId && (
           <section aria-label="Approval progress" className="mb-5 rounded-2xl bg-muted/50 p-4">
-            <h3 className="heading-case m-0 mb-3 text-xs font-bold text-muted-foreground">Approval Progress</h3>
+            <h3 data-slot="approval-progress-heading" className="heading-case m-0 mb-3 text-xs font-bold text-muted-foreground">Approval Progress</h3>
             <ApprovalStatusTracker
               instanceId={approvalInstanceId}
               compact
@@ -998,7 +998,7 @@ function SubmissionsTable({
           above with its own margins, leaving a band of empty space beside the chips. */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-3 lg:gap-3 lg:px-0">
         <div className="min-w-0">
-          {title && <h2 className="m-0 text-base font-bold text-foreground lg:text-lg">{title}</h2>}
+          {title && <h2 data-slot="submissions-title" className="m-0 text-base font-bold text-foreground lg:text-lg">{title}</h2>}
           {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
         </div>
         <div className="flex w-full max-w-full flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end">

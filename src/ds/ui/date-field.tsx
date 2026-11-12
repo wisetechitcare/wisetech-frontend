@@ -55,7 +55,9 @@ function DateInput({
           data-slot="input-group-control"
           // Only the DATE separators ("-" in en-CA, "/" elsewhere) become the company ".". A time
           // separator (":") or a date-time joiner (", ") stays, so a minute-granularity field reads
-          // "2026.11.13, 14:30" rather than "2026.11.13.14.30".
+          // "2026.11.13, 14:30" rather than "2026.11.13.14.30". The ", 14:30" shape assumes `hourCycle={24}`: the
+          // en-CA default is 12-hour ("2:30 p.m."), and React Aria's built-in range messages format with hyphens.
+          // No live consumer is affected yet.
           segment={literal && segment.type === "literal" && DATE_LITERAL.test(segment.text) ? { ...segment, text: literal } : segment}
           className="rounded-md px-0.5 tabular-nums outline-none data-disabled:opacity-50 data-focused:bg-primary data-focused:text-primary-foreground data-placeholder:not-data-focused:text-muted-foreground data-[type=literal]:px-0 data-[type=literal]:whitespace-pre"
         />

@@ -25,7 +25,7 @@ const ReimbursementConfiguration: React.FC = () => {
   return (
     <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)} className="gap-4 py-4">
       {/* Scrolls sideways on a phone instead of wrapping — a wrapped tab bar reads as two controls. */}
-      <div className="max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="max-w-full overflow-x-auto scrollbar-none">
         <TabsList aria-label="Configuration">
           {TABS.map(({ id, label, icon: Icon }) => (
             <TabsTrigger key={id} value={id}>

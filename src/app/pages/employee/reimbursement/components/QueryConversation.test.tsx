@@ -31,6 +31,7 @@ import { errorConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import QueryConversationDialog from "./QueryConversation";
+import { findBareElements } from "../test-utils/rebootShield";
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -48,10 +49,6 @@ beforeAll(() => {
 
 beforeEach(() => vi.clearAllMocks());
 
-const bare = (root: ParentNode) =>
-  [...root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a")].filter(
-    (el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot=button]"),
-  );
 afterEach(cleanup);
 
 const store = configureStore({ reducer: { auth: () => ({ user: { employeeId: "me" } }) } });
@@ -91,7 +88,7 @@ describe("QueryConversation", () => {
     vi.mocked(fetchParticipantRole).mockResolvedValue("EMPLOYEE");
     render(<Provider store={store}><QueryConversationDialog reimbursementId="r1" onClose={() => {}} /></Provider>);
     expect(await screen.findByText("No questions have been asked about this expense.")).toBeTruthy();
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
   });
 
   it("shows the header, the thread state, and the messages in order with mine marked", async () => {
@@ -196,17 +193,17 @@ describe("QueryConversation", () => {
     await setup("APPROVER", thread({ status: "OPEN" }));
     expect(screen.getByText(/Awaiting the employee's response/)).toBeTruthy();
     expect(screen.queryByRole("textbox")).toBeNull();
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
     cleanup();
     await setup("EMPLOYEE", thread({ status: "ANSWERED" }));
     expect(screen.getByText("Awaiting your approver's response.")).toBeTruthy();
     expect(screen.queryByRole("textbox")).toBeNull();
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
     cleanup();
     await setup("EMPLOYEE", thread({ status: "RESOLVED" }));
     expect(screen.getByText(/This query is resolved/)).toBeTruthy();
     expect(screen.queryByRole("textbox")).toBeNull();
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
   });
 
   it("makes the approver type a question before reopening a resolved thread", async () => {
@@ -254,6 +251,6 @@ describe("Reboot shield", () => {
     vi.mocked(uploadUserAsset).mockResolvedValue({ data: { path: "docs/new.png" } } as never);
     fireEvent.change(input, { target: { files: [new File(["x"], "a.png")] } });
     await screen.findByRole("button", { name: "Remove attachment 1" });
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
   });
 });

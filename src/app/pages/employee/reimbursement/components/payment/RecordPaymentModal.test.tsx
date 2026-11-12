@@ -8,6 +8,7 @@ import { currencyPrefix } from "@utils/currency";
 import { fmtAmount, formatMoney } from "../../utils/reimbursementFormat";
 import RecordPaymentModal from "./RecordPaymentModal";
 import type { PaymentBatchRow } from "./paymentData";
+import { findBareElements } from "../../test-utils/rebootShield";
 
 afterEach(cleanup);
 
@@ -286,15 +287,10 @@ describe("RecordPaymentModal: lifecycle", () => {
 });
 
 describe("Reboot shield", () => {
-  const bare = (root: ParentNode) =>
-    [...root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a")].filter(
-      (el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot=button]"),
-    );
-
   it("every raw heading, paragraph, label, list, link and button carries data-slot", async () => {
     mount([row()]);
     await userEvent.clear(amountBox());
     await userEvent.type(amountBox(), "100");
-    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(document.body).map((e) => e.outerHTML)).toEqual([]);
   });
 });

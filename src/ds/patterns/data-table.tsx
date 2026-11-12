@@ -999,7 +999,7 @@ export function DataTable<T extends RowData>({
       {renderCard && !loading && !error && rows.length > 0 && (
         <ul data-slot="data-table-cards" aria-label={caption} className="hidden gap-3 @max-[640px]/data-table:grid">
           {rows.map((row) => (
-            <li key={row.id}>{renderCard(row.original)}</li>
+            <li key={row.id} data-slot="data-table-card-item">{renderCard(row.original)}</li>
           ))}
         </ul>
       )}
@@ -1021,10 +1021,10 @@ export function DataTable<T extends RowData>({
       ) : (
         framed()
       )}
-      <p aria-live="assertive" className="sr-only">{announcement}</p>
+      <p data-slot="data-table-announcer" aria-live="assertive" className="sr-only">{announcement}</p>
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-        <p aria-live="polite" className="tabular">
+        <p data-slot="data-table-range" aria-live="polite" className="tabular">
           {total === 0 ? "No rows" : `${from}–${to} of ${new Intl.NumberFormat(locale).format(total)}`}
         </p>
         <div className="flex items-center gap-2">

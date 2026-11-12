@@ -219,7 +219,7 @@ function QueryTopics() {
         </ItemGroup>
 
         {topics.length === 0 && (
-          <p className="m-0 text-center text-sm text-muted-foreground">
+          <p data-slot="topics-empty" className="m-0 text-center text-sm text-muted-foreground">
             No topics yet — every question will be filed under “{OTHER_TOPIC}”.
           </p>
         )}

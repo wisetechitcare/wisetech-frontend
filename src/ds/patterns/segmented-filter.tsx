@@ -68,7 +68,7 @@ export function SegmentedFilter({
       // Base UI reports [] when the pressed item is pressed again; pass that back as a click on the
       // current value, so "toggle back to All" stays the caller's decision.
       onValueChange={(next) => onValueChange(next[0] ?? value)}
-      className={cn("max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", className)}
+      className={cn("max-w-full overflow-x-auto scrollbar-none", className)}
     >
       {options.map((o) => {
         const selected = o.value === value

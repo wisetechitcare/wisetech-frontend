@@ -410,6 +410,18 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A horizontally scrolling strip with NO visible scrollbar (tab bars, segmented filters).
+   `!important` on purpose: the app's unlayered `* { scrollbar-width: thin }` (src/main.css) outranks every
+   layered utility, so a plain `[scrollbar-width:none]` computed to "thin" in the app (not in Storybook, which
+   never loads main.css). The thin bar then ate the strip's height and added a vertical scroll that clipped
+   the Payment tab's count badge. Important layered declarations beat unlayered normal ones. */
+@utility scrollbar-none {
+  scrollbar-width: none !important;
+  &::-webkit-scrollbar {
+    display: none !important;
+  }
+}
+
 /* Checkbox bounce (see --animate-checkbox-*). Top-level, not in @theme, so they are always emitted. */
 @keyframes checkbox-bounce-in {
   0% { transform: scale(1); }

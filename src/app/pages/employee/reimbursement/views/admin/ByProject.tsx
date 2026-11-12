@@ -171,11 +171,11 @@ function ByProject({ rows, loading, periodLabel }: ByProjectProps) {
                 // Phones: one card per project instead of an eight-column table scrolled sideways.
                 renderCard={(r) => (
                     <div className="rounded-2xl border border-border bg-card px-4 py-3.5">
-                        <p className={cn('m-0 font-semibold', r.projectId === UNASSIGNED ? 'text-muted-foreground' : 'text-foreground')}>{r.projectName}</p>
-                        <p className="m-0 text-xs text-muted-foreground">
+                        <p data-slot="project-name" className={cn('m-0 font-semibold', r.projectId === UNASSIGNED ? 'text-muted-foreground' : 'text-foreground')}>{r.projectName}</p>
+                        <p data-slot="project-meta" className="m-0 text-xs text-muted-foreground">
                             {r.employees} employee{r.employees === 1 ? '' : 's'} · {r.totalRequests} request{r.totalRequests === 1 ? '' : 's'}
                         </p>
-                        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                        <dl data-slot="amount-summary" className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
                             {[
                                 { label: 'Claimed', value: r.totalAmount, tone: 'text-foreground' },
                                 { label: 'Approved', value: r.approvedAmount, tone: 'text-success-foreground' },
@@ -183,8 +183,8 @@ function ByProject({ rows, loading, periodLabel }: ByProjectProps) {
                                 { label: 'Still Owed', value: r.outstandingAmount, tone: 'text-primary' },
                             ].map((f) => (
                                 <div key={f.label} className="flex justify-between gap-2">
-                                    <dt className="text-muted-foreground">{f.label}</dt>
-                                    <dd className={cn('tabular m-0 font-semibold', f.tone)}>{formatMoney(f.value)}</dd>
+                                    <dt data-slot="amount-label" className="text-muted-foreground">{f.label}</dt>
+                                    <dd data-slot="amount-value" className={cn('tabular m-0 font-semibold', f.tone)}>{formatMoney(f.value)}</dd>
                                 </div>
                             ))}
                         </dl>

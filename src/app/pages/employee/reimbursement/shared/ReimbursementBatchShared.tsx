@@ -249,9 +249,9 @@ function StatusSummaryBar({ summary, waits, actionableCount, actionableAmount }:
       {/* First row: count breakdown. `pending` counts every undecided line, so a batch whose
           lines had cleared level 1 still read "5 pending" over five rows saying "L2 now" — the
           part already past a level is split out as its own count instead. */}
-      <ul className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0 text-sm font-semibold">
+      <ul data-slot="batch-counts" className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0 text-sm font-semibold">
         {counts.map((c, i) => (
-          <li key={c.label} style={toneStyle(c.tone)} className={cn('tabular flex items-center gap-1.5', i > 0 && 'border-l border-border pl-3')}>
+          <li data-slot="batch-count" key={c.label} style={toneStyle(c.tone)} className={cn('tabular flex items-center gap-1.5', i > 0 && 'border-l border-border pl-3')}>
             <span aria-hidden className="size-2 shrink-0 rounded-full bg-(--tone)" />
             {c.label}
           </li>
@@ -263,9 +263,9 @@ function StatusSummaryBar({ summary, waits, actionableCount, actionableAmount }:
       {(waits.length > 0 || actionableCount > 0) && (
         <div className="flex min-w-0 flex-wrap items-start gap-3 text-xs">
           {waits.length > 0 && (
-            <ul className="m-0 flex min-w-0 list-none flex-col gap-1.5 p-0">
+            <ul data-slot="batch-waits" className="m-0 flex min-w-0 list-none flex-col gap-1.5 p-0">
               {waits.map((w) => (
-                <li key={`${w.reason}·${w.who}·${w.detail ?? ''}`} className="flex min-w-0 items-center gap-2">
+                <li data-slot="batch-wait" key={`${w.reason}·${w.who}·${w.detail ?? ''}`} className="flex min-w-0 items-center gap-2">
                   <Badge variant={w.tone} className="uppercase tracking-wide">{w.reason}</Badge>
                   <span className="tabular shrink-0 font-semibold">{w.count} · {formatMoney(w.amount)}</span>
                   <span aria-hidden className="shrink-0 text-muted-foreground">→</span>
@@ -718,10 +718,10 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
                 submission as a whole and — deliberately — block none of them. */}
             {batchQueries.length > 0 && (
               <section aria-label="Batch queries" style={toneStyle('cyan')} className="min-w-0 space-y-2 rounded-2xl bg-[color-mix(in_oklab,var(--tone)_10%,transparent)] p-3.5">
-                <h4 className="heading-case m-0 text-xs font-bold text-(--tone-ink)">Batch Queries</h4>
+                <h4 data-slot="batch-queries-heading" className="heading-case m-0 text-xs font-bold text-(--tone-ink)">Batch Queries</h4>
                 {batchQueries.map((q) => (
                   <div key={q.id} className="flex flex-wrap items-center gap-2">
-                    <p className="m-0 min-w-0 flex-1 text-sm">
+                    <p data-slot="batch-query-text" className="m-0 min-w-0 flex-1 text-sm">
                       {q.lastMessage} <b>({q.status.toLowerCase()})</b>
                     </p>
                     <Button

@@ -26,6 +26,7 @@ vi.mock("../../components/payment/RecordPaymentModal", () => ({ default: () => n
 
 import PaymentTab from "./PaymentTab";
 import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
+import { findBareElements } from "../../test-utils/rebootShield";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -41,13 +42,6 @@ beforeAll(() => {
     });
   }
 });
-
-/** Reboot (unlayered Metronic CSS) beats the kit's layered utilities on any raw element that lacks a data-slot. */
-function bare(root: ParentNode) {
-  return Array.from(root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a"))
-    .filter((el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot]"))
-    .map((el) => el.outerHTML.slice(0, 80));
-}
 
 const fiscalLabelFor = (d: dayjs.Dayjs) => {
   const y = d.month() < 3 ? d.year() - 1 : d.year();
@@ -71,6 +65,6 @@ describe("PaymentTab period navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Previous year" }));
     await waitFor(() => expect(screen.getByText(fiscalLabelFor(anchor.subtract(1, "year")))).toBeTruthy());
 
-    expect(bare(container)).toEqual([]);
+    expect(findBareElements(container)).toEqual([]);
   });
 });

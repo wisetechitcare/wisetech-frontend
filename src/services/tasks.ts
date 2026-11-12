@@ -1,6 +1,5 @@
 import axios from "axios";
 import { TASKS } from "@constants/api-endpoint";
-import { Task } from "@mui/icons-material";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
 

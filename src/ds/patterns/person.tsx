@@ -46,11 +46,11 @@ export function PersonCell({
         />
       )}
       <div className="min-w-0">
-        <p className="flex items-center gap-1.5 truncate font-medium">
+        <p data-slot="person-name" className="flex items-center gap-1.5 truncate font-medium">
           <span className="truncate">{name}</span>
           {inactive && <Badge variant="neutral">Inactive</Badge>}
         </p>
-        {secondary && size !== "sm" && <p className="truncate text-xs text-muted-foreground">{secondary}</p>}
+        {secondary && size !== "sm" && <p data-slot="person-secondary" className="truncate text-xs text-muted-foreground">{secondary}</p>}
       </div>
     </div>
   )
@@ -98,7 +98,7 @@ export function PersonHeader({
             {badges}
           </div>
           {meta.length > 0 && (
-            <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+            <p data-slot="person-meta" className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
               {meta.map((m, i) => (
                 <React.Fragment key={i}>
                   {i > 0 && <span aria-hidden>·</span>}
@@ -108,7 +108,7 @@ export function PersonHeader({
             </p>
           )}
           {links && links.length > 0 && (
-            <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <p data-slot="person-meta" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               {links.map((l) => (
                 <a key={l.href} href={l.href} className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline [&>svg]:size-3.5">
                   {l.icon}

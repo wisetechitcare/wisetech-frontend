@@ -291,15 +291,15 @@ export function PaymentMobileCard({
                 <PersonCell showAvatar={false} name={row.employeeName} code={row.submissionId} inactive={!row.isActive} />
                 <PaymentStateBadge state={row.state} />
             </div>
-            <dl className="grid gap-1 text-sm">
+            <dl data-slot="amount-summary" className="grid gap-1 text-sm">
                 {[
                     { label: 'Approved', value: row.approvedAmount },
                     { label: 'Paid', value: row.paidAmount },
                     { label: 'Remaining', value: row.remainingAmount, strong: true },
                 ].map((f) => (
                     <div key={f.label} className="flex justify-between gap-2">
-                        <dt className="text-muted-foreground">{f.label}</dt>
-                        <dd className={cn('tabular m-0', f.strong ? 'font-bold text-foreground' : 'font-semibold')}>{formatMoney(f.value)}</dd>
+                        <dt data-slot="amount-label" className="text-muted-foreground">{f.label}</dt>
+                        <dd data-slot="amount-value" className={cn('tabular m-0', f.strong ? 'font-bold text-foreground' : 'font-semibold')}>{formatMoney(f.value)}</dd>
                     </div>
                 ))}
             </dl>
