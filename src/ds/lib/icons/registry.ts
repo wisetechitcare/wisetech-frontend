@@ -22,6 +22,7 @@
  * in `brandIcons.tsx` as inline paths, which is also where they lived before, because the
  * duotone font faded half of every logo away.
  */
+import { cn } from 'cn';
 import { createElement, forwardRef } from 'react';
 import type { ComponentType } from 'react';
 import type { LucideIcon, LucideProps } from 'lucide-react';
@@ -72,8 +73,10 @@ export type AppIconComponent = LucideIcon;
  * The brand components already take `size` and paint from `currentColor`; the only thing
  * missing was the forwarded ref that `LucideIcon` promises.
  */
+/** `lucide` joins the class list so the global `svg.lucide` rule (display, vertical-align, no-shrink) covers brand marks too.
+ * They are filled and carry no stroke-width attribute, so the stroke-weight half of that rule never applies. */
 const brand = (Mark: ComponentType<Record<string, unknown>>): AppIconComponent =>
-    forwardRef<SVGSVGElement, LucideProps>((props, ref) => createElement(Mark, { ...props, ref }));
+    forwardRef<SVGSVGElement, LucideProps>(({ className, ...props }, ref) => createElement(Mark, { ...props, className: cn('lucide', className), ref }));
 
 /** Keenicon names — the largest namespace, 135 in use across ~570 call sites. */
 const KEENICON: Record<string, AppIconComponent> = {

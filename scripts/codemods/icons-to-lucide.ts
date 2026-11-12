@@ -76,7 +76,8 @@ function brandExportName(component: unknown): string | null {
     if (brandCache.has(component)) return brandCache.get(component)!;
     let found: string | null = null;
     try {
-        const markup = renderToStaticMarkup(createElement(component as never));
+        // The registry's brand() wrapper adds class="lucide"; the bare brand component does not.
+        const markup = renderToStaticMarkup(createElement(component as never)).replace(' class="lucide"', '');
         for (const [k, v] of Object.entries(brandIcons)) {
             if (typeof v === 'function' && /^[A-Z]/.test(k) && renderToStaticMarkup(createElement(v as never)) === markup) {
                 found = k;
