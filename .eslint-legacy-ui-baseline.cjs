@@ -2,7 +2,7 @@
  *
  * THE RATCHET: these files already used MUI, emotion, react-bootstrap, material-react-table or a Bootstrap-only class when `wisetech/no-legacy-ui` landed.
  * They warn; ANY file NOT listed here fails hard. New code cannot regress, and this list can
- * only shrink. Burn it down by migrating the file to src/ds.
+ * only shrink: regenerating refuses to add a file (growth requires an explicit `--grow`). Burn it down by migrating the file to src/ds.
  *
  * Burn-down: 849 files at baseline. Delete a path once the file is migrated.
  */
