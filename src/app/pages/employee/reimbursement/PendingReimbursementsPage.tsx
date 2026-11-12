@@ -29,9 +29,8 @@ import { ReimbursementDraft } from './utils/reimbursementTypes';
 import { ReimbursementFormDialog, type ReimbursementFormHelpers, type ReimbursementFormValues } from './components/ReimbursementFormDialog';
 import { expenseMonthKey, fmtAmount, monthKeyLabel, projectTitle } from './utils/reimbursementFormat';
 import LoadErrorState from './components/LoadErrorState';
-import { Eye, FileX, MoreHorizontal, Pencil, Plus, Send, Trash2 } from 'lucide-react';
+import { Eye, FileX, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/ds/ui/alert';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ds/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/ds/ui/avatar';
 import { Badge } from '@/ds/ui/badge';
 import { Card, CardContent } from '@/ds/ui/card';
@@ -549,25 +548,17 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       enableSorting: false,
       enableHiding: false,
       meta: { pin: 'end' },
-      header: () => <span className="sr-only">Actions</span>,
+      header: 'Actions',
       cell: ({ row }) => (
-        <div className="flex items-center gap-1">
+        // Both one click, side by side; 8px apart (not 4) so a slip on Edit cannot land on Delete — which is red
+        // and still asks to confirm.
+        <div className="flex items-center gap-2">
           <KitButton variant="ghost" size="icon-sm" onClick={() => handleEdit(row.original)} aria-label="Edit this expense" title="Edit">
             <Pencil aria-hidden />
           </KitButton>
-          {/* Delete lives behind ⋯, not 4px from Edit: a slip on the frequent action must not land on the
-              destructive one (it still confirms). The kit's row-menu pattern (DataTable story). */}
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<KitButton variant="ghost" size="icon-sm" aria-label="More actions for this expense" title="More" />}>
-              <MoreHorizontal aria-hidden />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem variant="destructive" onClick={() => handleDelete(row.original.id)}>
-                <Trash2 aria-hidden />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <KitButton variant="ghost" size="icon-sm" onClick={() => handleDelete(row.original.id)} aria-label="Delete this expense" title="Delete">
+            <Trash2 aria-hidden className="text-destructive" />
+          </KitButton>
         </div>
       ),
     },

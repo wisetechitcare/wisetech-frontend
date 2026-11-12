@@ -33,7 +33,7 @@ import {
 // Re-exported, not re-implemented. Other modules (DomainApprovalQueue) import fmtAmount from
 // this file, so the export surface stays while the behaviour comes from the one shared copy.
 // `export ... from` alone re-exports without binding locally, and this file uses both.
-import { fmtDate, fmtAmount, resolveStatusNum, STATUS, downloadBlob } from '../utils/reimbursementFormat';
+import { fmtDate, fmtAmount, resolveStatusNum, STATUS, STATUS_LABEL, downloadBlob } from '../utils/reimbursementFormat';
 export { fmtDate, fmtAmount };
 
 export function statusBadge(status: number) {
@@ -41,7 +41,7 @@ export function statusBadge(status: number) {
   if (status === 2) return <ToneChip dense tone='danger' label='Rejected' />;
   // NEEDS_INFO rendered as "Pending" here, so a line the approver had asked a question about
   // looked identical to one nobody had touched — and the employee had no reason to open it.
-  if (status === STATUS.NEEDS_INFO) return <ToneChip dense tone='warning' label='Needs info' />;
+  if (status === STATUS.NEEDS_INFO) return <ToneChip dense tone='warning' label={STATUS_LABEL[STATUS.NEEDS_INFO]} />;
   return <ToneChip dense tone='warning' label='Pending' />;
 }
 

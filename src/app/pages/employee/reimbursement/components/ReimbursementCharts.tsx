@@ -45,9 +45,9 @@ const TREND_CONFIG = {
 /** Status slices arrive named by the chart-data helper; each name has one colour, here. */
 const SLICE_COLOR: Record<string, string> = {
     'Paid': 'var(--success)',
-    'Awaiting payment': 'var(--info)',
-    'Awaiting approval': 'var(--warning)',
-    'Needs info': 'color-mix(in oklch, var(--warning) 70%, var(--foreground))',
+    'Awaiting Payment': 'var(--info)',
+    'Awaiting Approval': 'var(--warning)',
+    'Needs Info': 'color-mix(in oklab, var(--warning) 70%, var(--foreground))',
     'Rejected': 'var(--destructive)',
 };
 const sliceColor = (s: StatusSlice) => SLICE_COLOR[s.name] ?? s.color;

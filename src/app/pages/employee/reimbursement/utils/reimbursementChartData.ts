@@ -1,6 +1,6 @@
 import dayjs, { Dayjs } from 'dayjs';
 import { summariseReimbursements } from './reimbursementSummary';
-import { formatMoney, resolveStatusNum, STATUS } from './reimbursementFormat';
+import { formatMoney, PAYMENT_LABEL, resolveStatusNum, STATUS, STATUS_LABEL } from './reimbursementFormat';
 
 /**
  * Chart data, derived from the rows the page already has.
@@ -166,9 +166,9 @@ export const buildStatusSlices = (rows: any[]): StatusSlice[] => {
 
     return [
         { name: 'Paid', value: s.paidAmount, count: paidCount, status: STATUS.APPROVED, color: '#16a34a' },
-        { name: 'Awaiting payment', value: s.remainingAmount, count: approved.length - paidCount, status: STATUS.APPROVED, color: '#2563eb' },
-        { name: 'Awaiting approval', value: s.pendingAmount, count: s.pendingCount, status: STATUS.PENDING, color: '#d97706' },
-        { name: 'Needs info', value: needsInfoAmount, count: needsInfo.length, status: STATUS.NEEDS_INFO, color: '#b45309' },
+        { name: PAYMENT_LABEL.UNPAID, value: s.remainingAmount, count: approved.length - paidCount, status: STATUS.APPROVED, color: '#2563eb' },
+        { name: 'Awaiting Approval', value: s.pendingAmount, count: s.pendingCount, status: STATUS.PENDING, color: '#d97706' },
+        { name: STATUS_LABEL[STATUS.NEEDS_INFO], value: needsInfoAmount, count: needsInfo.length, status: STATUS.NEEDS_INFO, color: '#b45309' },
         { name: 'Rejected', value: s.rejectedAmount, count: s.rejectedCount, status: STATUS.REJECTED, color: '#dc2626' },
     ].filter((slice) => slice.value > 0);
 };

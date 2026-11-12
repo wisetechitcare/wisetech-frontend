@@ -27,7 +27,7 @@ import { ReimbursementBatchDetail, ReimbursementLine } from '../utils/reimbursem
 import { buildReimbursementLineColumns } from '../components/reimbursementLineColumns';
 import { fmtDate, fmtAmount, resolveStatusNum } from '../utils/reimbursementFormat';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
-import { resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, STATUS_TONE, StatusNum } from '../utils/reimbursementFormat';
+import { PAYMENT_LABEL, resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, STATUS_TONE, StatusNum } from '../utils/reimbursementFormat';
 import SubmissionMobileCard from '../components/SubmissionMobileCard';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
@@ -65,19 +65,14 @@ const UNGROUPED_BATCH_ID = '__ungrouped__';
 const MIXED_STATUS = STATUS.MIXED;
 
 /** The batch's approval outcome in words — the table badge, the export and the tooltip agree. */
-const approvalLabel = (s: number): string =>
-  s === STATUS.APPROVED ? 'Approved'
-    : s === STATUS.REJECTED ? 'Rejected'
-      : s === STATUS.NEEDS_INFO ? 'Needs info'
-        : s === MIXED_STATUS ? 'Partly approved'
-          : 'Pending';
+const approvalLabel = (s: number): string => STATUS_LABEL[s as StatusNum] ?? STATUS_LABEL[STATUS.PENDING];
 
 /** One expense line's status in words (a line is never "mixed"). */
 const lineStatusLabel = (n: number): string =>
-  n === STATUS.APPROVED ? 'Approved' : n === STATUS.REJECTED ? 'Rejected' : n === STATUS.NEEDS_INFO ? 'Needs info' : 'Pending';
+  n === MIXED_STATUS ? STATUS_LABEL[STATUS.PENDING] : STATUS_LABEL[n as StatusNum] ?? STATUS_LABEL[STATUS.PENDING];
 
 const paymentLabel = (ps?: string | null): string | null =>
-  !ps ? null : ps === 'PAID' ? 'Paid' : ps === 'PARTIAL' ? 'Partially Paid' : 'Pending';
+  !ps ? null : ps === 'PAID' ? PAYMENT_LABEL.PAID : ps === 'PARTIAL' ? PAYMENT_LABEL.PARTIAL : PAYMENT_LABEL.UNPAID;
 
 /** "Jun 2026", or "Jun 2026 - Aug 2026" when a batch's expenses span months. */
 const expensePeriod = (r: any): string => {
@@ -311,7 +306,7 @@ function SubmissionDetailModal({
             enableSorting: false,
             enableHiding: false,
             meta: { pin: 'end' },
-            header: () => <span className="sr-only">Actions</span>,
+            header: 'Actions',
             cell: ({ row }: any) => {
               const r = row.original;
               const n = resolveStatusNum(r.status);

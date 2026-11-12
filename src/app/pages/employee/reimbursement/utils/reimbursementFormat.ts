@@ -135,9 +135,21 @@ export const STATUS_LABEL: Record<StatusNum, string> = {
     [STATUS.PENDING]: 'Pending',
     [STATUS.APPROVED]: 'Approved',
     [STATUS.REJECTED]: 'Rejected',
-    [STATUS.NEEDS_INFO]: 'Needs info',
-    [STATUS.MIXED]: 'Mixed',
+    [STATUS.NEEDS_INFO]: 'Needs Info',
+    // A batch whose lines were decided differently — the badge, export, card and filter all say this.
+    [STATUS.MIXED]: 'Partly Approved',
 };
+
+/**
+ * Payment state in words — the table badge, the phone card, the chart and exports read THIS (Title Case).
+ * The table said "Pending" and "Partially Paid" while the card said "Awaiting payment" and "Part paid" for the
+ * same two states.
+ */
+export const PAYMENT_LABEL = {
+    PAID: 'Paid',
+    PARTIAL: 'Partially Paid',
+    UNPAID: 'Awaiting Payment',
+} as const;
 
 export const PAYMENT_TONE: Record<string, { color: string; bg: string }> = {
     PAID: { color: '#15803d', bg: '#ecfdf3' },

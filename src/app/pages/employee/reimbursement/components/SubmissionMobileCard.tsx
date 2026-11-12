@@ -3,7 +3,7 @@ import { cn } from '@/ds/lib/utils';
 import { toneStyle } from '@/ds/lib/tone';
 import { Badge } from '@/ds/ui/badge';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
-import { formatMoney, STATUS, STATUS_LABEL, STATUS_TONE, type StatusNum } from '../utils/reimbursementFormat';
+import { formatMoney, PAYMENT_LABEL, STATUS, STATUS_LABEL, STATUS_TONE, type StatusNum } from '../utils/reimbursementFormat';
 
 /**
  * One submission, as it reads on a phone.
@@ -19,9 +19,9 @@ import { formatMoney, STATUS, STATUS_LABEL, STATUS_TONE, type StatusNum } from '
  */
 
 const PAYMENT: Record<string, { label: string; className: string }> = {
-    PAID: { label: 'Paid', className: 'text-success-foreground' },
-    PARTIAL: { label: 'Part paid', className: 'text-warning-foreground' },
-    UNPAID: { label: 'Awaiting payment', className: 'text-muted-foreground' },
+    PAID: { label: PAYMENT_LABEL.PAID, className: 'text-success-foreground' },
+    PARTIAL: { label: PAYMENT_LABEL.PARTIAL, className: 'text-warning-foreground' },
+    UNPAID: { label: PAYMENT_LABEL.UNPAID, className: 'text-muted-foreground' },
 };
 
 export interface SubmissionMobileCardProps {
