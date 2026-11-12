@@ -9,6 +9,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { SensitiveProvider, SensitiveToggle } from "@/ds/patterns/sensitive";
 import PaymentHistoryTable from "./PaymentHistoryTable";
 import type { PaymentBatchRow, PaymentRecord } from "./paymentData";
+import { findBareElements } from "../../test-utils/rebootShield";
 
 afterEach(cleanup);
 
@@ -24,13 +25,6 @@ beforeAll(() => {
     });
   }
 });
-
-/** Reboot (unlayered Metronic CSS) beats the kit's layered utilities on any raw element that lacks a data-slot. */
-function bare(root: ParentNode) {
-  return Array.from(root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a"))
-    .filter((el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot]"))
-    .map((el) => el.outerHTML.slice(0, 80));
-}
 
 const pay = (over: Partial<PaymentRecord>): PaymentRecord => ({
   id: "p1", paymentDate: "2026-11-05", amountPaid: 1000, paymentMethod: "BANK_TRANSFER", transactionId: "UTR1",
@@ -140,6 +134,6 @@ describe("PaymentHistoryTable (kit DataTable)", () => {
 
   it("leaves no bare element for Reboot to restyle", () => {
     const { container } = setup();
-    expect(bare(container)).toEqual([]);
+    expect(findBareElements(container)).toEqual([]);
   });
 });

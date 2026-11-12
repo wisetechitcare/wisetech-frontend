@@ -32,7 +32,7 @@ export function SectionHeader({
     <div data-slot="section-header" className={cn("flex flex-wrap items-center gap-3", className)}>
       <div className="min-w-0 flex-1 basis-48">
         <Heading data-slot="section-title" className="heading-case line-clamp-2 text-base leading-snug break-words sm:line-clamp-none sm:truncate">{titleCaseChildren(title)}</Heading>
-        {description && <p className="line-clamp-2 text-sm text-muted-foreground sm:line-clamp-1">{description}</p>}
+        {description && <p data-slot="section-description" className="line-clamp-2 text-sm text-muted-foreground sm:line-clamp-1">{description}</p>}
       </div>
       {/* Icon top-right — the card rule (cards right, rows left, dialogs left); it stays beside the title when the
           action wraps below. */}

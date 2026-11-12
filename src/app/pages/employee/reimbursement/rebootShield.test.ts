@@ -1,12 +1,12 @@
 // Bootstrap Reboot (unlayered Metronic CSS) overrides Tailwind utilities on raw
-// h1-h6, p, label, ul, ol, li, button and a. src/main.css shields them only when they
+// h1-h6, p, label, ul, ol, li, dl, dt, dd, button and a. src/main.css shields them only when they
 // carry `data-slot`, so every lowercase intrinsic of those tags in this module needs one.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const MODULE_DIR = __dirname;
-const SHIELDED = /^(h[1-6]|p|label|ul|ol|li|button|a)$/;
+const SHIELDED = /^(h[1-6]|p|label|ul|ol|li|dl|dt|dd|button|a)$/;
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -93,9 +93,11 @@ describe("Reboot shield: raw typographic and interactive elements carry data-slo
     expect(findUnshielded('<a\n  href="/x"\n  onClick={() => go()}\n>y</a>')).toEqual([1]);
     expect(findUnshielded('<button data-slot="x" onClick={() => a > b}>z</button>')).toEqual([]);
     expect(findUnshielded("<Label>k</Label><span>s</span>")).toEqual([]);
+    expect(findUnshielded('<dl data-slot="s"><dt>k</dt><dd data-slot="v">x</dd></dl>')).toEqual([1]);
+    expect(findUnshielded('<dt className="font-bold">k</dt>')).toEqual([1]);
   });
 
-  it("every h1-h6/p/label/ul/ol/li/button/a in the module has data-slot", () => {
+  it("every h1-h6/p/label/ul/ol/li/dl/dt/dd/button/a in the module has data-slot", () => {
     const offenders = sourceFiles(MODULE_DIR).flatMap((file) =>
       findUnshielded(readFileSync(file, "utf8")).map((line) => `${relative(MODULE_DIR, file).split(sep).join("/")}:${line} raw element without data-slot (Reboot would override its Tailwind classes)`),
     );

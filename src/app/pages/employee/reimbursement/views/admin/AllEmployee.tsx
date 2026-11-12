@@ -485,7 +485,7 @@ function AllEmployee() {
               className="w-full rounded-2xl border border-border bg-card px-4 py-3.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <PersonCell showAvatar={false} name={r.name} subtitle={text(r.department)} inactive={!r.isActive} />
-              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+              <dl data-slot="amount-summary" className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
                 {[
                   { label: 'Requested', value: r.totalRequestAmount, tone: 'text-foreground' },
                   { label: 'Approved', value: r.totalApprovedAmount, tone: 'text-success-foreground' },
@@ -493,8 +493,8 @@ function AllEmployee() {
                   { label: 'Remaining', value: r.totalRemainingAmount, tone: 'text-tone-purple-foreground' },
                 ].map((f) => (
                   <div key={f.label} className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">{f.label}</dt>
-                    <dd className={cn('tabular m-0 font-semibold', f.tone)}>{formatMoney(f.value)}</dd>
+                    <dt data-slot="amount-label" className="text-muted-foreground">{f.label}</dt>
+                    <dd data-slot="amount-value" className={cn('tabular m-0 font-semibold', f.tone)}>{formatMoney(f.value)}</dd>
                   </div>
                 ))}
               </dl>

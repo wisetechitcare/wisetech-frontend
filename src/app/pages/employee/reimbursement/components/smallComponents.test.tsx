@@ -22,6 +22,7 @@ import NeedsYourAttention from "./NeedsYourAttention";
 import EditBanner from "./EditBanner";
 import RecordsEmptyState from "./RecordsEmptyState";
 import DocumentPreviewModal from "./DocumentPreviewModal";
+import { findBareElements } from "../test-utils/rebootShield";
 
 afterEach(cleanup);
 
@@ -211,28 +212,21 @@ describe("DocumentPreviewModal", () => {
 });
 
 describe("Reboot shield", () => {
-  // Bootstrap Reboot is unlayered and beats Tailwind utilities on bare h4/p; src/main.css reverts it only for
-  // elements carrying data-slot. jsdom has no cascade, so assert the attribute itself.
-  const bare = (root: ParentNode) =>
-    [...root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a")].filter(
-      (el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot=button]"),
-    );
-
   it("every raw heading, paragraph, link and button carries data-slot", async () => {
     vi.mocked(fetchInboxTasks).mockResolvedValue([
       { id: "t1", type: "QUERY_RECEIVED", entityType: "Reimbursement", status: "OPEN", title: "Q", message: "m", createdAt: "2026-11-10T10:00:00Z", batchId: null, payload: { queryId: "q", reimbursementId: "r" } },
     ] as never);
     const a = render(<NeedsYourAttention employeeId="e1" isSelf />);
     await screen.findByText("Needs your attention");
-    expect(bare(a.container).map((e) => e.outerHTML)).toEqual([]);
+    expect(findBareElements(a.container).map((e) => e.outerHTML)).toEqual([]);
     a.unmount();
     const b = render(<EditBanner context="query" queryText="x" level={1} />);
-    expect(bare(b.container)).toEqual([]);
+    expect(findBareElements(b.container)).toEqual([]);
     b.unmount();
     const c = render(<RecordsEmptyState periodLabel="p" elsewhere={[{ date: dayjs("2026-06-01"), count: 1 }]} />);
-    expect(bare(c.container)).toEqual([]);
+    expect(findBareElements(c.container)).toEqual([]);
     c.unmount();
     render(<DocumentPreviewModal url="https://x.test/d.docx" onClose={() => {}} />);
-    expect(bare(document.body)).toEqual([]);
+    expect(findBareElements(document.body)).toEqual([]);
   });
 });
