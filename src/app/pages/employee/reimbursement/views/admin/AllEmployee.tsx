@@ -14,7 +14,7 @@ import {
 import { fetchAllEmployees } from '@services/employee';
 import { IReimbursementsFetch } from '@models/employee';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
-import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
+import { PeriodNavigator } from '@/ds/patterns/period-navigator';
 import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
 import { useOrgFilters, OrgFilterSheetButton } from '@app/modules/common/components/ui/OrgFilterToolbar';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
@@ -411,9 +411,10 @@ function AllEmployee() {
               label={month.format('MMM YYYY')}
               onPrevious={handlePrevMonth}
               onNext={handleNextMonth}
+              unit="month"
               pickGranularity="month"
               pickValue={month.startOf('month').format('YYYY-MM-DD')}
-              onPickDate={(v) => setMonth(dayjs(v).startOf('month'))}
+              onPick={(v) => setMonth(dayjs(v).startOf('month'))}
             />
           )}
           {alignment === 'yearly' && (
@@ -421,9 +422,10 @@ function AllEmployee() {
               label={periodLabel ?? year.format('YYYY')}
               onPrevious={handlePrevYear}
               onNext={handleNextYear}
+              unit="year"
               pickGranularity="year"
               pickValue={year.startOf('year').format('YYYY-MM-DD')}
-              onPickDate={(v) => setYear(dayjs(v).startOf('year'))}
+              onPick={(v) => setYear(dayjs(v).startOf('year'))}
             />
           )}
         </div>
