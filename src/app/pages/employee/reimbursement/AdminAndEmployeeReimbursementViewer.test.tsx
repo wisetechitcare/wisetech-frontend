@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 
-const perms = vi.hoisted(() => ({ own: true, others: false, write: false }));
+const perms = vi.hoisted(() => ({ own: true, others: false, write: false, off: new Set<string>() }));
 
 vi.mock("@utils/authAbac", () => ({
   hasPermission: (_r: string, p: string) => (p === "readOwn" ? perms.own : perms.others),
@@ -16,21 +16,30 @@ vi.mock("@constants/statistics", () => ({
 }));
 vi.mock("@utils/can", () => ({
   canSection: () => perms.write,
-  isTabTurnedOff: () => false,
+  isTabTurnedOff: (_section: string, slug: string) => perms.off.has(slug),
 }));
 vi.mock("@services/employee", () => ({ fetchReimbursementPaymentQueueCount: async () => ({ count: 3 }) }));
 vi.mock("@redux/slices/rolesAndPermissions", () => ({ fetchRolesAndPermissions: () => ({ type: "noop" }) }));
 vi.mock("@hooks/useEventBus", () => ({ useEventBus: () => undefined }));
 vi.mock("@metronic/layout/core", () => ({ PageTitle: () => null }));
-vi.mock("./Reimbursement", () => ({ default: () => <div>my-panel</div> }));
+vi.mock("./Reimbursement", async () => {
+  const { SensitiveValue } = await import("@/ds/patterns/sensitive");
+  return { default: () => <div>my-panel <SensitiveValue>1,000</SensitiveValue></div> };
+});
 vi.mock("./views/admin/AllEmployee", () => ({ default: () => <div>all-panel</div> }));
-vi.mock("./views/admin/SearchEmployee", () => ({ default: () => <div>search-panel</div> }));
-vi.mock("./views/admin/PaymentTab", () => ({ default: () => <div>pay-panel</div> }));
+vi.mock("./views/admin/SearchEmployee", async () => {
+  const { SensitiveValue } = await import("@/ds/patterns/sensitive");
+  return { default: () => <div>search-panel <SensitiveValue>3,000</SensitiveValue></div> };
+});
+vi.mock("./views/admin/PaymentTab", async () => {
+  const { SensitiveValue } = await import("@/ds/patterns/sensitive");
+  return { default: () => <div>pay-panel <SensitiveValue>2,000</SensitiveValue></div> };
+});
 vi.mock("./views/admin/ReimbursementConfiguration", () => ({ default: () => <div>cfg-panel</div> }));
 
 import Viewer from "./AdminAndEmployeeReimbursementViewer";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); perms.off.clear(); });
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
   window.scrollTo = (() => undefined) as typeof window.scrollTo;
@@ -82,5 +91,38 @@ describe("reimbursement tab bar", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(3);
     expect(screen.getByText("search-panel")).toBeTruthy();
     expect(document.querySelector('[data-slot="page-tabs-bar"] button[aria-pressed]')).toBeTruthy();
+  });
+
+  it("a tab turned off in Access is absent, and the selection falls back off it", () => {
+    Object.assign(perms, { own: true, others: true, write: true });
+    perms.off.add("payment");
+    mount("/finance/reimbursements/payment");
+    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    expect(screen.queryByRole("tab", { name: /Payment/i })).toBeNull();
+    expect(screen.queryByText(/pay-panel/)).toBeNull();
+    // Fell back to a tab that is open.
+    expect(screen.getByRole("tab", { selected: true })).toBeTruthy();
+  });
+
+  it("figures are in clear on a tab with no eye, and the eye state survives a round trip", () => {
+    Object.assign(perms, { own: true, others: true, write: true });
+    mount("/finance/reimbursements/my-reimbursements");
+    const panel = () => document.querySelector('[role="tabpanel"]') as HTMLElement;
+
+    // Eye tab, hidden by default.
+    expect(panel().textContent).toContain("Hidden");
+    fireEvent.click(screen.getByRole("button", { name: "Show amounts" }));
+    expect(panel().textContent).not.toContain("Hidden");
+
+    // Payment has no eye: clear, and no toggle in the bar.
+    fireEvent.click(screen.getByRole("tab", { name: /Payment/i }));
+    expect(panel().textContent).toContain("2,000");
+    expect(panel().textContent).not.toContain("Hidden");
+    expect(document.querySelector('[data-slot="page-tabs-bar"] button[aria-pressed]')).toBeNull();
+
+    // Back on an eye tab the choice is as it was left (shown), not reset to hidden.
+    fireEvent.click(screen.getByRole("tab", { name: /Search Employee/i }));
+    expect(panel().textContent).toContain("3,000");
+    expect(panel().textContent).not.toContain("Hidden");
   });
 });

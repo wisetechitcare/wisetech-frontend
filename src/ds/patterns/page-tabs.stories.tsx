@@ -154,3 +154,21 @@ export const PhoneManyTabs: Story = {
   args: { items: [...items, { value: 'x', label: 'Reports', icon: Clipboard }, { value: 'y', label: 'Audit', icon: Search }] },
   globals: { viewport: { value: 'mobile1' } },
 }
+
+/** Tablet (768px), seven tabs and the eye: the strip overflows, so start/end arrows appear and the end one scrolls. */
+export const TabletOverflowArrows: Story = {
+  args: {
+    items: [...items, { value: 'x', label: 'Reports And Analytics', icon: Clipboard }, { value: 'y', label: 'Audit Trail', icon: Search }],
+    headerAction: <span className="px-3 text-[13px] font-semibold">Show amounts</span>,
+  },
+  decorators: [(Story) => <div className="w-[600px]"><Story /></div>],
+  play: async ({ canvas }) => {
+    const end = canvas.getByRole('button', { name: 'Scroll tabs right' })
+    await expect(end).toBeVisible()
+    await expect(canvas.getByRole('button', { name: 'Scroll tabs left' })).toBeDisabled()
+    await userEvent.click(end)
+    const strip = document.querySelector('[data-slot="page-tabs-bar"] .overflow-x-auto') as HTMLElement
+    await waitFor(() => expect(strip.scrollLeft).toBeGreaterThan(0))
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Scroll tabs left' })).toBeEnabled())
+  },
+}

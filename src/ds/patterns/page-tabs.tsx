@@ -1,6 +1,8 @@
 import * as React from "react"
 import { titleCase } from "@/ds/lib/text"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
+import { Button } from "@/ds/ui/button"
 import { IconSlot, type IconSource } from "@/ds/ui/dynamic-icon"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ds/ui/tabs"
 
@@ -71,6 +73,12 @@ function measureRowNeeded(names: string[]): number {
  * pointing at a `hidden` tab falls back to the first visible one and reports it through `onValueChange`.
  * Changing tab scrolls the page to the top (`scrollOnChange`), instantly under reduced motion.
  */
+/** Overflow state of the tab strip, from its scroll metrics. 1px of slack absorbs sub-pixel rounding. */
+export function scrollEdges(scrollLeft: number, scrollWidth: number, clientWidth: number) {
+  const overflow = scrollWidth - clientWidth > 1
+  return { overflow, atStart: scrollLeft <= 1, atEnd: scrollLeft + clientWidth >= scrollWidth - 1 }
+}
+
 export function PageTabs({
   items,
   value,
@@ -119,6 +127,35 @@ export function PageTabs({
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
+  const [edges, setEdges] = React.useState({ overflow: false, atStart: true, atEnd: true })
+  const measureEdges = React.useCallback(() => {
+    const el = listRef.current
+    if (!el) return
+    const next = scrollEdges(el.scrollLeft, el.scrollWidth, el.clientWidth)
+    setEdges((prev) => (prev.overflow === next.overflow && prev.atStart === next.atStart && prev.atEnd === next.atEnd ? prev : next))
+  }, [])
+  const itemsKey = shown.map((item) => `${item.value}:${item.label}:${item.badge ?? ""}`).join("|")
+  React.useLayoutEffect(() => {
+    measureEdges()
+    const el = listRef.current
+    if (!el) return
+    const observer = new ResizeObserver(measureEdges)
+    observer.observe(el)
+    if (el.firstElementChild) observer.observe(el.firstElementChild)
+    return () => observer.disconnect()
+  }, [measureEdges, itemsKey, headerAction])
+  // Scroll by about one viewport of tabs; the arrows are a mouse affordance (keyboard moves with the arrow keys).
+  const scrollTabs = (direction: -1 | 1) => {
+    const el = listRef.current
+    if (!el) return
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    el.scrollBy({ left: direction * Math.max(el.clientWidth * 0.8, 120), behavior: reduced ? "auto" : "smooth" })
+  }
+  // The selected tab must be on screen, whatever moved the selection (URL, click, keyboard).
+  React.useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+    if (el && typeof el.scrollIntoView === "function") el.scrollIntoView({ inline: "nearest", block: "nearest" })
+  }, [selected])
   const namesKey = shown.map((item) => titleCase(item.shortLabel ?? item.label)).join("|")
   const rowNeeded = React.useMemo(() => measureRowNeeded(namesKey.split("|")), [namesKey])
   const mode = pickPhoneTabMode(width, shown.length, rowNeeded)
@@ -138,7 +175,14 @@ export function PageTabs({
           className,
         )}
       >
-        <div ref={listRef} className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {edges.overflow && (
+          <ScrollButton direction={-1} disabled={edges.atStart} onClick={() => scrollTabs(-1)} />
+        )}
+        <div
+          ref={listRef}
+          onScroll={measureEdges}
+          className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           <TabsList
             aria-label="Sections"
             className="h-auto w-max justify-start gap-1 rounded-none bg-transparent px-3 py-[9px] max-sm:w-full max-sm:min-w-max max-sm:justify-between max-sm:px-0 max-sm:py-[8px]"
@@ -148,6 +192,9 @@ export function PageTabs({
             ))}
           </TabsList>
         </div>
+        {edges.overflow && (
+          <ScrollButton direction={1} disabled={edges.atEnd} onClick={() => scrollTabs(1)} />
+        )}
         {headerAction && (
           <div className="flex shrink-0 items-center gap-2 pr-3 pl-2.5 max-sm:ml-0.5 max-sm:self-stretch max-sm:border-l max-sm:border-primary-foreground/20 max-sm:pr-1 max-sm:pl-2 sm:pr-6">
             {headerAction}
@@ -162,6 +209,26 @@ export function PageTabs({
         ),
       )}
     </Tabs>
+  )
+}
+
+/** Start/end scroll arrow for an overflowing tab strip (tablet and up; a phone swipes). */
+function ScrollButton({ direction, disabled, onClick }: { direction: -1 | 1; disabled: boolean; onClick: () => void }) {
+  const Icon = direction === -1 ? ChevronLeft : ChevronRight
+  return (
+    <Button
+      variant="tinted"
+      size="icon-sm"
+      tabIndex={-1}
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={direction === -1 ? "Scroll tabs left" : "Scroll tabs right"}
+      data-slot="page-tabs-scroll"
+      // White ink on the primary bar (the Button story's on-dark tint); faded at the end it cannot go past.
+      className="[--tint:white] [--tint-ink:white] shrink-0 disabled:opacity-30 max-sm:hidden"
+    >
+      <Icon aria-hidden />
+    </Button>
   )
 }
 

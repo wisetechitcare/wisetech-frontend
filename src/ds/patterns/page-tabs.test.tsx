@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { Clipboard, ReceiptText } from "lucide-react"
 import { Button } from "@/ds/ui/button"
-import { PageTabs, pickPhoneTabMode, type PageTabItem } from "./page-tabs"
+import { PageTabs, pickPhoneTabMode, scrollEdges, type PageTabItem } from "./page-tabs"
 
 afterEach(cleanup)
 
@@ -147,5 +147,43 @@ describe("PageTabs phone naming", () => {
     expect(screen.getByText("My Reimbursements").className).toContain("max-sm:sr-only")
     // Unselected tabs say nothing visible beside their icon.
     expect(screen.queryByText("Details", { selector: '[aria-hidden="true"]' })).toBeNull()
+  })
+})
+
+describe("PageTabs overflow arrows", () => {
+  const defineMetrics = (scrollWidth: number, clientWidth: number) => {
+    Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, get: () => scrollWidth })
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => clientWidth })
+  }
+  afterEach(() => {
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollWidth
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth
+  })
+
+  it("scrollEdges reports overflow and the two ends", () => {
+    expect(scrollEdges(0, 500, 500)).toEqual({ overflow: false, atStart: true, atEnd: true })
+    expect(scrollEdges(0, 900, 500)).toEqual({ overflow: true, atStart: true, atEnd: false })
+    expect(scrollEdges(200, 900, 500)).toEqual({ overflow: true, atStart: false, atEnd: false })
+    expect(scrollEdges(400, 900, 500).atEnd).toBe(true)
+  })
+
+  it("has no arrows while the strip fits", () => {
+    defineMetrics(500, 500)
+    render(<PageTabs items={items} />)
+    expect(screen.queryByRole("button", { name: /Scroll tabs/ })).toBeNull()
+  })
+
+  it("shows both arrows when it overflows, the start one disabled at scrollLeft 0, and scrolls on click", () => {
+    defineMetrics(900, 500)
+    const scrollBy = vi.fn()
+    HTMLElement.prototype.scrollBy = scrollBy as unknown as typeof HTMLElement.prototype.scrollBy
+    render(<PageTabs items={items} />)
+    const left = screen.getByRole("button", { name: "Scroll tabs left" }) as HTMLButtonElement
+    const right = screen.getByRole("button", { name: "Scroll tabs right" }) as HTMLButtonElement
+    expect(left.disabled).toBe(true)
+    expect(right.disabled).toBe(false)
+    expect(right.tabIndex).toBe(-1)
+    fireEvent.click(right)
+    expect(scrollBy).toHaveBeenCalledWith(expect.objectContaining({ left: 400 }))
   })
 })

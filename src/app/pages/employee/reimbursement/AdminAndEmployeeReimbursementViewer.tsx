@@ -24,12 +24,14 @@ import { SensitiveProvider, SensitiveToggle } from "@/ds/patterns/sensitive";
 import { ReceiptText, Clipboard, Search, CreditCard, Settings } from 'lucide-react';
 
 /**
- * Tabs whose figures are wired for the eye — both render ReimbursementWorkspace, which
- * carries the `sensitive-data-*` class on every amount. The remaining tabs are left
- * exactly as they are: blurring a figure on a tab with no switch would hide it with no
- * way to read it back.
+ * Tabs whose figures are wired for the eye — both render ReimbursementWorkspace, whose
+ * amounts are <SensitiveValue>s (the KPI row keeps its own `sensitive-data-*` classes,
+ * fed from the same switch). The remaining tabs are left exactly as they are: blurring a
+ * figure on a tab with no switch would hide it with no way to read it back.
  */
 const EYE_TABS = ["My Reimbursements", "Search Employee"];
+
+type Tab = { title: string; component: React.ReactNode; icon: IconSource; badge?: number };
 
 const ACCESS_SECTION = "finance.reimbursements";
 
@@ -76,7 +78,6 @@ function AdminAndEmployeeReimbursementViewer() {
     return isTabTurnedOff(ACCESS_SECTION, slug) || (slug === "configure" && !canSection(ACCESS_SECTION, "write"));
   };
 
-  type Tab = { title: string; component: React.ReactNode; icon: IconSource; badge?: number };
   const tabItems: Tab[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Reimbursements",

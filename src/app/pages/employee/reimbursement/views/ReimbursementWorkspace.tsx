@@ -91,8 +91,8 @@ export default function ReimbursementWorkspace({
   checkOwnWithOthers = false,
 }: ReimbursementWorkspaceProps) {
   const dispatch = useDispatch();
-  // <768px; the legacy query was <=768px, so exactly 768px wide is now desktop.
-  const isMobile = useIsMobile();
+  // The exact legacy query; correct on first paint, so the charts never flash on a phone.
+  const isMobile = useIsMobile('(max-width: 768px)');
 
   // One period for the whole screen. The mode survives a refresh; the anchor resets to today.
   const [alignment, setAlignment] = usePersistedState<PeriodAlignment>(
