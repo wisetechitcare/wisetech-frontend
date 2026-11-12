@@ -545,18 +545,6 @@ const ProjectBillingWorkspace: React.FC<{ projectId: string }> = ({ projectId })
                     value={filterTab}
                     onChange={(v) => setFilterTab(v as BillingFilterTab)}
                     ariaLabel="Filter deliverables"
-                    // Phones: one swipeable row instead of a two-row wrap; tabs keep a
-                    // readable width and a 40px touch height.
-                    sx={{
-                        "@media (max-width: 599.95px)": {
-                            flexWrap: "nowrap",
-                            overflowX: "auto",
-                            scrollbarWidth: "none",
-                            "&::-webkit-scrollbar": { display: "none" },                        },
-                        "&& .MuiToggleButtonGroup-grouped": {
-                            "@media (max-width: 599.95px)": { flex: "0 0 auto", minHeight: 40, px: 1.75 },
-                        },
-                    }}
                     options={(Object.keys(FILTERS) as BillingFilterTab[]).map((tab) => ({
                         value: tab,
                         label: tab === "ALL" ? FILTERS[tab].label : `${FILTERS[tab].label} ${filterCount(tab)}`,
