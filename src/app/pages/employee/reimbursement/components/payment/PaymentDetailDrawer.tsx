@@ -92,7 +92,7 @@ export default function PaymentDetailDrawer({
                             aria-label="Close payment details"
                             sx={{ ml: 'auto' }}
                         >
-                            <X className="size-[16px]" />
+                            <X />
                         </WtIconButton>
                     </Box>
 

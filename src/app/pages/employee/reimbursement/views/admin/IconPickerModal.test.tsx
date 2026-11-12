@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import IconPickerModal from "./IconPickerModal";
 
 afterEach(cleanup);
@@ -16,21 +16,16 @@ function renderPicker(currentIcon: Parameters<typeof IconPickerModal>[0]["curren
   );
 }
 
-/** The 44px circle that holds the selected icon, found from the "Selected Icon" caption. */
+/** The circle that holds the selected icon. */
 function previewCircle() {
-  const caption = Array.from(document.body.querySelectorAll("div")).find(
-    (d) => d.textContent === "Selected Icon",
-  );
-  const circle = caption?.parentElement?.previousElementSibling as HTMLElement | undefined;
-  expect(circle).toBeTruthy();
-  return circle as HTMLElement;
+  return screen.getByTestId("selected-icon-preview");
 }
 
 describe("IconPickerModal selected-icon preview", () => {
   it("draws a stored system name as a Lucide svg at the preview size", () => {
     // "wallet" is registered; legacy names the registry does not know (e.g. "car") draw nothing.
     renderPicker({ source: "system", name: "wallet", label: "Wallet" });
-    const svg = previewCircle().querySelector("svg.lucide");
+    const svg = previewCircle().querySelector("svg.lucide-wallet");
     expect(svg).not.toBeNull();
     expect(svg!.classList.contains("size-[23px]")).toBe(true);
   });

@@ -77,7 +77,7 @@ export default function DocumentPreviewModal({ url, onClose, title, inPageOnly =
                                 // window.open rather than `component="a"`: WtButton is typed as a
                                 // button, and an anchor's props do not fit through it.
                                 onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
-                                startIcon={<LogOut className="size-[17px]" />}
+                                startIcon={<LogOut />}
                             >
                                 Open in tab
                             </WtButton>
@@ -89,7 +89,7 @@ export default function DocumentPreviewModal({ url, onClose, title, inPageOnly =
                             // UNDER this overlay (99999), leaving a clipped "Esc)" showing past the dialog edge.
                             aria-label="Close preview (Esc)"
                         >
-                            <X className="size-[23px]" />
+                            <X />
                         </WtIconButton>
                     </div>
                 </div>

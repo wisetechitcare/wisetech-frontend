@@ -184,11 +184,11 @@ function SystemIconItem({
     >
       {/*
        * ✅ FIX (Image 2 & 3):
-       * The icon takes no style prop, so this span carries the
-       * flex alignment and font-size. Stored names resolve through
-       * DynamicIcon, which draws nothing for a name the registry lacks.
+       * The span carries the flex alignment; the icon is sized by its own size class.
+       * Stored names resolve through DynamicIcon, which draws nothing for a name
+       * the registry lacks.
        */}
-      <span style={{ display: "flex", alignItems: "center", fontSize: "24px", lineHeight: 1 }}>
+      <span style={{ display: "flex", alignItems: "center", lineHeight: 1 }}>
         <DynamicIcon name={icon.name} className="text-gray-700 size-[26px]" />
       </span>
       <span style={{ fontSize: "10px", color: "#5E6278", textAlign: "center", lineHeight: 1.2 }}>
@@ -312,7 +312,7 @@ function SearchInput({
           type="button"
           onClick={onClear}
         >
-          <X className="size-[16px]" />
+          <X />
         </Button>
       )}
     </div>
@@ -469,6 +469,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
             }}
           >
             <div
+              data-testid="selected-icon-preview"
               style={{
                 width: 44, height: 44, borderRadius: "50%",
                 background: "#EEF6FF", border: "2px solid #3E97FF",
@@ -503,7 +504,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
               type="button"
               onClick={() => setSelectedIcon(null)}
             >
-              <X className="size-[17px]" />
+              <X />
             </Button>
           </div>
         )}
@@ -721,7 +722,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
           style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
         >
           <span style={{ display: "flex", alignItems: "center" }}>
-            <Check className="size-[17px]" />
+            <Check />
           </span>
           Select This Icon
         </Button>

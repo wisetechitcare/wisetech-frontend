@@ -41,7 +41,7 @@ const RowIconBtn: React.FC<{
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
     >
-      <Icon className="size-[16px]" />
+      <Icon />
     </Button>
   );
 };

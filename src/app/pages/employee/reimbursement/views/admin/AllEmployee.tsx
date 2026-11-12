@@ -403,7 +403,7 @@ function AllEmployee() {
           onClick={() => { setStatusFilter('All'); setSubOrgFilter('All'); setBranchFilter('All'); setTeamFilter('All'); }}
           title="Reset filters to defaults"
         >
-          <RefreshCw className="size-[14px]" />
+          <RefreshCw />
           Reset
         </Button>
       )}

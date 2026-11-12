@@ -209,13 +209,13 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit
           <Button variant="ghost" size="icon-xs" type="submit" aria-label="Edit"
             onClick={onEdit}
           >
-            <Pencil className="size-[13px]" />
+            <Pencil />
           </Button>
           {onDelete && (
           <Button variant="tinted" size="icon-xs" type="submit" aria-label="Delete" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
             onClick={onDelete}
           >
-            <Trash2 className="size-[13px]" />
+            <Trash2 />
           </Button>
           )}
         </div>
@@ -232,7 +232,7 @@ const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const EmptyState: React.FC = () => (
   <div style={{ textAlign: "center", padding: "28px 16px", color: C.textMuted, fontFamily: FONT.body, fontSize: "13px" }}>
-    <Mail className="size-[29px]" style={{ display: "block", marginBottom: "8px", opacity: 0.4 }} />
+    <Mail className="size-[29px]" style={{ marginBottom: "8px", opacity: 0.4 }} />
     No reimbursement categories configured yet
   </div>
 );

@@ -162,11 +162,11 @@ function QueryTopics() {
             {canWrite && (
               <>
                 <WtIconButton size="small" onClick={() => handleEdit(topic)} aria-label={`Edit ${topic.label}`}>
-                  <Pencil className="size-[14px]" />
+                  <Pencil />
                 </WtIconButton>
                 {canDelete('finance.reimbursements') && (
                 <WtIconButton color="var(--cta-danger)" size="small" onClick={() => handleDelete(topic)} aria-label={`Delete ${topic.label}`}>
-                  <Trash2 className="size-[14px]" />
+                  <Trash2 />
                 </WtIconButton>
                 )}
               </>
