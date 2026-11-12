@@ -123,6 +123,9 @@
   /* alert: the imperative dialog service (showDialog / successConfirmation…) — callable from inside ANY
      open modal, legacy 1500-level ones included, so it must sit above every one of them. */
   --z-alert: 2000;
+  /* top: a menu that may open from inside the legacy chart drill-down dialog (DRILLDOWN_Z_INDEX 2100) or an
+     alert — above everything. Opt in per menu (DropdownMenuContent layer="top"); default menus stay at popover. */
+  --z-top: 2200;
 
   /* ── Glass chrome (used only when [data-surface="glass"]) ───────────── */
   --chrome: color-mix(in oklch, var(--card) 100%, transparent);

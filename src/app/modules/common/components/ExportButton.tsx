@@ -1,22 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-    Box, Menu, MenuItem, ListItemIcon, ListItemText, Divider,
-} from '@mui/material';
+import React, { useState } from 'react';
+import { ChevronDown, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { Button } from '@/ds/ui/button';
-import DownloadIconModule from '@mui/icons-material/Download';
-import ArrowDropDownIconModule from '@mui/icons-material/ArrowDropDown';
-import TableChartIconModule from '@mui/icons-material/TableChart';
-import GridOnIconModule from '@mui/icons-material/GridOn';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
+} from '@/ds/ui/dropdown-menu';
 import { saveAs } from 'file-saver';
-import { DRILLDOWN_Z_INDEX } from '@app/modules/common/components/DrillDownDialog';
 import { formatCurrencyDecimal, usesIndianGrouping, currencyPrefix } from '@utils/currency';
 import { toast } from '@app/modules/common/components/ui/feedback';
-import { resolveReactComponent } from '@utils/resolveReactComponent';
 
-const DownloadIcon = resolveReactComponent<typeof DownloadIconModule>(DownloadIconModule);
-const ArrowDropDownIcon = resolveReactComponent<typeof ArrowDropDownIconModule>(ArrowDropDownIconModule);
-const TableChartIcon = resolveReactComponent<typeof TableChartIconModule>(TableChartIconModule);
-const GridOnIcon = resolveReactComponent<typeof GridOnIconModule>(GridOnIconModule);
 
 // ─── Column definition ─────────────────────────────────────────────────────────
 
@@ -82,8 +78,11 @@ export interface ExportButtonProps<T = any> {
      * is a coin toss, and the reader finds out which one they wanted only after opening the file.
      */
     label?: string;
-    /** Extra sx applied to the outer ButtonGroup */
-    sx?: object;
+    /**
+     * What will be exported, shown at the top of the menu (e.g. "2 selected rows"). Defaults to the row and
+     * column counts, so the reader knows before downloading whether a filter or a selection applies.
+     */
+    scope?: string;
     /**
      * One square download button instead of the "Export ▾" split button — for card headers on
      * phones, where the split button wrapped onto a row of its own. Same menu, same formats;
@@ -432,46 +431,20 @@ function ExportButton<T = any>({
     showTotals = false,
     totalLabel = 'TOTAL',
     disabled = false,
-    size = 'small',
+    size: _size = 'small',
     label = 'Export',
-    sx = {},
+    scope,
     iconOnly = false,
 }: ExportButtonProps<T>) {
-    /**
-     * The menu anchors to a REF, not to the node captured from the click event.
-     *
-     * It used to store `e.currentTarget`. This toolbar re-renders on every page change, filter
-     * and data refresh, and when React replaces the button node the stored one is detached from
-     * the document — `getBoundingClientRect()` on a detached node is all zeros, so MUI parked the
-     * menu in the top-left corner of the viewport, over the sidebar. That is the "it jumps to the
-     * top" report, and clicking anything that re-rendered the toolbar is what triggered it.
-     *
-     * A function anchor is re-evaluated every time the popover positions itself, so it always
-     * reads the node that is on screen right now.
-     */
+    // Inside a table, drop the columns the viewer hid, so the file matches the screen.
     const visibility = React.useContext(ExportVisibilityContext);
     const exportCols = React.useMemo(
         () => (visibility ? columns.filter(c => visibility[c.key] !== false) : columns),
         [columns, visibility],
     );
-
-    const groupRef = useRef<HTMLDivElement>(null);
-    const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState<'xlsx' | 'csv' | null>(null);
 
-    const handleOpen = () => setOpen(true);
-    const handleClose = useCallback(() => setOpen(false), []);
-
-    // An open menu whose anchor scrolls out from under it is worse than no menu: it hangs in
-    // place pointing at nothing. Any scroll of an ancestor closes it.
-    useEffect(() => {
-        if (!open) return;
-        window.addEventListener('scroll', handleClose, true);
-        return () => window.removeEventListener('scroll', handleClose, true);
-    }, [open, handleClose]);
-
     const runExport = async (type: 'xlsx' | 'csv') => {
-        handleClose();
         setLoading(type);
         try {
             const rows = getData ? await getData() : data;
@@ -492,131 +465,57 @@ function ExportButton<T = any>({
     };
 
     const busy = loading !== null;
+    const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    // Say what the file will hold BEFORE the download — whether a filter or a selection applies.
+    const what = scope
+        ?? (getData ? `All matching rows · ${plural(exportCols.length, 'column')}`
+            : `${plural(data.length, 'row')} · ${plural(exportCols.length, 'column')}`);
 
+    /*
+     * One button, one menu (Storybook "Components/Dropdown Menu"). It used to be a split button whose two halves
+     * both opened the same MUI menu — two targets for one action — with hex colours and no word on what the file
+     * would contain. The menu sits on the top layer: Export also lives inside chart drill-downs (2100).
+     */
     return (
-        <>
-            {iconOnly ? (
-                <Box ref={groupRef} sx={{ display: 'inline-flex', ...sx }}>
-                    <Button
-                        variant="tinted"
-                        size="icon"
-                        onClick={handleOpen}
-                        disabled={disabled}
-                        loading={busy}
-                        aria-label={label}
-                        title={label}
-                        aria-controls={open ? 'export-menu' : undefined}
-                        aria-haspopup="true"
-                        aria-expanded={open ? 'true' : undefined}
-                    >
-                        <DownloadIcon sx={{ fontSize: 19 }} />
-                    </Button>
-                </Box>
-            ) : (
-            // The split button: two joined kit buttons in the menu's anchor box (`sx` lands
-            // here, as it did on the ButtonGroup).
-            <Box ref={groupRef} sx={{ display: 'inline-flex', ...sx }}>
-                {/* Main Export button — clicking it opens the menu too */}
-                <Button
-                    variant="outline"
-                    size={size === 'small' ? 'sm' : 'default'}
-                    className="rounded-r-none"
-                    onClick={handleOpen}
-                    disabled={disabled}
-                    loading={busy}
-                >
-                    {!busy && (
-                        <span data-icon="inline-start" className="inline-flex">
-                            <DownloadIcon sx={{ fontSize: 15 }} />
-                        </span>
-                    )}
-                    {busy ? 'Exporting…' : label}
-                </Button>
-
-                {/* Arrow to open menu */}
-                <Button
-                    variant="outline"
-                    size={size === 'small' ? 'icon-sm' : 'icon'}
-                    className="-ml-px rounded-l-none"
-                    onClick={handleOpen}
-                    disabled={disabled || busy}
-                    aria-label={`${label} options`}
-                    aria-controls={open ? 'export-menu' : undefined}
-                    aria-haspopup="true"
-                    aria-expanded={open ? 'true' : undefined}
-                >
-                    <ArrowDropDownIcon sx={{ fontSize: 18 }} />
-                </Button>
-            </Box>
-            )}
-
-            <Menu
-                id="export-menu"
-                anchorEl={() => groupRef.current as HTMLElement}
-                open={open && !!groupRef.current}
-                onClose={handleClose}
-                /**
-                 * No scroll lock, no auto-focus. MUI's lock sets `overflow: hidden` on the body, and
-                 * on phones that reset the page to the top the moment the menu opened; focusing the
-                 * first item could scroll it again. The menu already closes on any scroll (above),
-                 * so the lock protected nothing. Keyboard users still Tab / arrow into the items.
-                 */
-                disableScrollLock
-                disableAutoFocusItem
-                /**
-                 * A Menu is a portal at the theme's modal layer (1300). Inside a chart
-                 * drill-down — which pins its Dialog at DRILLDOWN_Z_INDEX so it can clear
-                 * a fullscreen chart — that puts the menu BEHIND the dialog: the button
-                 * "does nothing" because the format list is painted underneath. Sit above
-                 * the highest surface this button can be rendered on.
-                 */
-                sx={{ zIndex: DRILLDOWN_Z_INDEX + 100 }}
-                slotProps={{
-                    paper: {
-                        elevation: 3,
-                        sx: {
-                            mt: 0.5,
-                            minWidth: 200,
-                            borderRadius: '12px',
-                            border: '1px solid #e2e8f0',
-                            overflow: 'hidden',
-                            '& .MuiMenuItem-root': {
-                                px: 2,
-                                py: 1.2,
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: '#1e293b',
-                                '&:hover': { bgcolor: '#eff6ff', color: '#1d4ed8' },
-                            },
-                        },
-                    },
-                }}
-                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        <DropdownMenu>
+            <DropdownMenuTrigger
+                disabled={disabled || busy}
+                render={iconOnly
+                    ? <Button variant="tinted" size="icon" loading={busy} aria-label={label} title={label} />
+                    : <Button variant="outline" loading={busy} />}
             >
-                <MenuItem onClick={() => runExport('xlsx')}>
-                    <ListItemIcon>
-                        <TableChartIcon sx={{ fontSize: 18, color: '#1d6f42' }} />
-                    </ListItemIcon>
-                    <ListItemText
-                        primary="Excel (.xlsx)"
-                        secondary="Styled with colours"
-                        secondaryTypographyProps={{ style: { fontSize: 11, color: '#64748b' } }}
-                    />
-                </MenuItem>
-                <Divider sx={{ my: 0.25 }} />
-                <MenuItem onClick={() => runExport('csv')}>
-                    <ListItemIcon>
-                        <GridOnIcon sx={{ fontSize: 18, color: '#0369a1' }} />
-                    </ListItemIcon>
-                    <ListItemText
-                        primary="CSV (.csv)"
-                        secondary="Plain data, any app"
-                        secondaryTypographyProps={{ style: { fontSize: 11, color: '#64748b' } }}
-                    />
-                </MenuItem>
-            </Menu>
-        </>
+                {iconOnly ? (
+                    <Download aria-hidden />
+                ) : (
+                    <>
+                        {!busy && <Download data-icon="inline-start" aria-hidden />}
+                        {busy ? 'Exporting…' : label}
+                        {!busy && <ChevronDown data-icon="inline-end" aria-hidden />}
+                    </>
+                )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" layer="top" className="w-64">
+                <DropdownMenuGroup>
+                    <DropdownMenuLabel className="font-normal text-muted-foreground">{what}</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => runExport('xlsx')}>
+                        <FileSpreadsheet aria-hidden className="text-success-foreground" />
+                        <span className="flex flex-col">
+                            <span className="font-medium">Excel (.xlsx)</span>
+                            <span className="text-xs text-muted-foreground">
+                                {showTotals ? 'Formatted, with totals' : 'Formatted for Excel'}
+                            </span>
+                        </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => runExport('csv')}>
+                        <FileText aria-hidden className="text-info-foreground" />
+                        <span className="flex flex-col">
+                            <span className="font-medium">CSV (.csv)</span>
+                            <span className="text-xs text-muted-foreground">Plain text, opens anywhere</span>
+                        </span>
+                    </DropdownMenuItem>
+                </DropdownMenuGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }
 

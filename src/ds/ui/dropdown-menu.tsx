@@ -20,17 +20,21 @@ function DropdownMenuContent({
   alignOffset = 0,
   side = "bottom",
   sideOffset = 4,
+  layer = "popover",
   className,
   ...props
 }: MenuPrimitive.Popup.Props &
   Pick<
     MenuPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset"
-  >) {
+  > & {
+    /** `top`: for a menu that can open inside a top-most surface (a chart drill-down, an alert). */
+    layer?: "popover" | "top"
+  }) {
   return (
     <MenuPrimitive.Portal>
       <MenuPrimitive.Positioner
-        className="isolate z-(--z-popover) outline-none"
+        className={cn("isolate outline-none", layer === "top" ? "z-(--z-top)" : "z-(--z-popover)")}
         align={align}
         alignOffset={alignOffset}
         side={side}

@@ -54,6 +54,11 @@ export function DataTableExport<T extends RowData>({
   });
   const showTotals = exportColumns.some((c) => c.showTotal);
   const rows = ctx.selected.length > 0 ? ctx.selected : ctx.rows;
+  const n = (k: number, w: string) => `${k} ${w}${k === 1 ? '' : 's'}`;
+  // The menu says what the file holds: the ticked rows, or every row the search / filters leave.
+  const scope = ctx.selected.length > 0
+    ? `${n(ctx.selected.length, 'selected row')} · ${n(exportColumns.length, 'column')}`
+    : `${n(ctx.rows.length, 'row')} · ${n(exportColumns.length, 'column')}`;
   // File and sheet names cannot hold \ / : * ? [ ]
   const safe = filename.replace(/[\\/:*?[\]]+/g, ' ').trim();
   return (
@@ -63,6 +68,7 @@ export function DataTableExport<T extends RowData>({
       filename={safe}
       title={title ?? filename}
       subtitle={subtitle}
+      scope={scope}
       sheetName={safe.slice(0, 31)}
       showTotals={showTotals}
       totalLabel="TOTAL"
