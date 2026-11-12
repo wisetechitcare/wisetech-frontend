@@ -16,7 +16,7 @@ module.exports = {
     sourceType: 'module',
     ecmaFeatures: { jsx: true },
   },
-  plugins: ['@typescript-eslint', 'react-hooks', 'react-refresh'],
+  plugins: ['@typescript-eslint', 'react-hooks', 'react-refresh', 'wisetech'],
   extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'plugin:react-hooks/recommended', 'plugin:storybook/recommended'],
   ignorePatterns: [
     'dist',
@@ -29,6 +29,8 @@ module.exports = {
   rules: {
     /* --- Real-bug rules: keep as ERROR (these are the point of linting here) --- */
     'react-hooks/rules-of-hooks': 'error',
+    /* Legacy icon systems (KTIcon, AppIcon, bi-/fa-/la-/ki- classes, MUI icons). Own rule + own baseline. */
+    'wisetech/no-legacy-icons': 'error',
     'no-unsafe-optional-chaining': 'error',
     '@typescript-eslint/no-non-null-asserted-optional-chain': 'error',
     'no-debugger': 'error',
@@ -413,6 +415,30 @@ module.exports = {
         'src/app/pages/employee/personal-rules/components/SalarySection.tsx',
       ],
       rules: { 'no-restricted-syntax': 'off' },
+    },
+    {
+      /* ICON RATCHET (see .eslint-icon-baseline.cjs; its own list so it never touches the UI baseline).
+       * Existing offenders warn; every other file errors. The list can only shrink.
+       * ORDER MATTERS: the baseline warn comes first and the 'off' exemptions after it, because the
+       * last matching override wins. */
+      files: require('./.eslint-icon-baseline.cjs'),
+      rules: { 'wisetech/no-legacy-icons': 'warn' },
+    },
+    {
+      /* The icon system itself, the deprecated shims that wrap it, and fixtures that pin legacy
+       * names on purpose. */
+      files: [
+        'src/ds/lib/icons/**',
+        'src/ds/ui/dynamic-icon.tsx',
+        'src/app/modules/common/components/ui/iconRegistry.ts',
+        'src/app/modules/common/components/ui/iconMap.ts',
+        'src/app/modules/common/components/ui/brandIcons.tsx',
+        'src/app/modules/common/components/ui/AppIcon.tsx',
+        '**/*.test.ts',
+        '**/*.test.tsx',
+        '**/*.stories.tsx',
+      ],
+      rules: { 'wisetech/no-legacy-icons': 'off' },
     },
   ],
 }

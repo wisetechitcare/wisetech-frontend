@@ -35,7 +35,8 @@
     "visual:login": "playwright test --project=login --headed",
     "visual:baseline": "playwright test --project=light --project=dark --update-snapshots",
     "visual:check": "playwright test --project=light --project=dark",
-    "visual:report": "playwright show-report e2e/.visual/report"
+    "visual:report": "playwright show-report e2e/.visual/report",
+    "lint:icons:baseline": "node scripts/gen-icon-baseline.cjs"
   },
   "dependencies": {
     "@animate-ui/react": "2.4.1",
@@ -197,6 +198,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.3",
     "eslint-plugin-storybook": "^10.6.4",
+    "eslint-plugin-wisetech": "link:./eslint-rules",
     "husky": "^9.1.7",
     "jsdom": "^30.0.1",
     "lint-staged": "^17.3.0",

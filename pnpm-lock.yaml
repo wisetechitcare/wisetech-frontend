@@ -500,6 +500,9 @@ importers:
       eslint-plugin-storybook:
         specifier: ^10.6.4
         version: 10.6.4(eslint@8.57.1(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+      eslint-plugin-wisetech:
+        specifier: link:./eslint-rules
+        version: link:eslint-rules
       husky:
         specifier: ^9.1.7
         version: 9.1.7
