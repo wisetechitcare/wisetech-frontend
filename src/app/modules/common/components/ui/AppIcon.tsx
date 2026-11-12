@@ -12,7 +12,7 @@ export interface AppIconProps extends Omit<React.HTMLAttributes<HTMLElement>, 'c
     /**
      * Any name the app already uses — a keenicon name (`setting-2`), a Bootstrap name
      * (`bi-gear`), or a FontAwesome name (`fa-gear`). All three resolve through
-     * `iconRegistry`, so a call site migrates by changing its element, never its string.
+     * `src/ds/lib/icons/registry.ts`, so a call site migrates by changing its element, never its string.
      */
     name: string;
     /**
@@ -58,7 +58,7 @@ export function AppIcon({ name, className = 'fs-4', color, fallbackSize, style, 
 
     if (!Glyph) {
         if (import.meta.env.DEV) {
-            console.warn(`[AppIcon] no icon registered for "${name}" — add it to iconRegistry.ts`);
+            console.warn(`[AppIcon] no icon registered for "${name}" — add it to src/ds/lib/icons/registry.ts`);
         }
         return null;
     }

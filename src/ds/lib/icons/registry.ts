@@ -15,7 +15,7 @@
  * hit "grid-1x2", "inbox" and "exclamation" and pointed the dashboard, inbox and warning
  * icons all at a cross. Add an explicit entry; never reintroduce fuzzy matching.
  *
- * Every value is verified against lucide-react's exports by `iconRegistry.test.ts`. A
+ * Every value is verified against lucide-react's exports by `registry.test.ts`. A
  * typo here is a build error, not a blank square at runtime.
  *
  * Brand marks are NOT here — Lucide removed brand icons for trademark reasons. They live
@@ -79,7 +79,7 @@ const brand = (Mark: ComponentType<Record<string, unknown>>): AppIconComponent =
 const KEENICON: Record<string, AppIconComponent> = {
     // Names reaching the registry from an OPTIONS ARRAY rather than a JSX literal — view
     // toggles, document-type maps, status maps, the global search index. The font migration
-    // could not see them (`iconRegistry.test.ts` scanned JSX only), so each rendered nothing
+    // could not see them (`registry.test.ts` scanned JSX only), so each rendered nothing
     // at all: the Tasks board's Table toggle was a blank button.
     'burger-menu-1': List, 'grid-2': LayoutGrid, 'grid': Grid2x2, 'element-equal': Grid2x2,
     'abstract-8': Component, 'auto-brightness': Sun, 'calendar-2': Calendar,
@@ -134,7 +134,7 @@ const KEENICON: Record<string, AppIconComponent> = {
     'moon': Moon, 'night-day': SunMoon, 'note-2': StickyNote, 'notepad-edit': NotebookPen,
     'notification': Bell, 'notification-on': BellRing, 'office-bag': Briefcase,
     // Names the billing and task screens were already passing when the icon fonts were
-    // replaced with Lucide. Unmapped, they render nothing at all — `iconRegistry.test.ts`
+    // replaced with Lucide. Unmapped, they render nothing at all — `registry.test.ts`
     // scans every call site for exactly this.
     'arrow-down-left': ArrowDownLeft, 'data': Database, 'dots-vertical': EllipsisVertical,
     'inbox': Inbox, 'link': Link, 'lock-2': Lock, 'printer': Printer,
@@ -156,7 +156,7 @@ const KEENICON: Record<string, AppIconComponent> = {
     // showed up in an `iconName` scan until the font was being removed.
     'burger-menu': Menu, 'files': Files,
     // Chosen inside a JSX ternary — `iconName={cond ? 'a' : 'b'}` — which the call-site scan
-    // could not see until iconRegistry.test.ts learned to read the branches. All four were
+    // could not see until registry.test.ts learned to read the branches. All four were
     // rendering nothing: the nav-style toggle in shell mode, the general-task glyph on a task
     // detail, the PDF row in the DMS explorer, and unarchive on a proforma.
     'panel-left': PanelLeft, 'home-2': House, 'pdf': FileText,

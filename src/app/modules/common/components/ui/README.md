@@ -144,6 +144,12 @@ Changed markers are opt-in through `editMode` and disappear after Formik
 | Employee picker | `EmployeeSelectionDialog` | a bespoke picker |
 | Org filter data | `useOrgScope` | re-deriving an org list per feature |
 
+## Icons
+
+- Static icon: import it from `lucide-react` and size it with a px class (`size-[18px]`); never an `<Icon>` wrapper or an icon barrel.
+- Icon whose name is data (DB column, persisted config): `DynamicIcon` from `@/ds/ui/dynamic-icon`; unknown names render nothing and warn in DEV.
+- Shared components that accept `icon` type it `IconSource` and render it with `IconSlot` (same file). `IconSlot` is for those internals only, never call sites.
+
 ## Buttons — one public API (`WtButton`)
 
 Wizard close ownership: `WtWizardDialog` confirms dirty closes by default.
