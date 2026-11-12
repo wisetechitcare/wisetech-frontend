@@ -22,11 +22,12 @@
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import {
-    Avatar, Box, Chip, CircularProgress, InputAdornment, Stack, TextField,
+    Box, Chip, CircularProgress, InputAdornment, Stack, TextField,
     Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { employeeName, initialsOf } from '../taskDomain';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
+import { employeeName } from '../taskDomain';
 import { usePinnedProjects, partitionPinned } from '../usePinnedProjects';
 import { TaskStateBlock } from './primitives';
 
@@ -326,16 +327,14 @@ export const ProjectRail = ({
 
                             {t.assignedTo && (
                                 <Tooltip title={employeeName(t.assignedTo)}>
-                                    <Avatar
-                                        src={t.assignedTo.avatar || undefined}
-                                        sx={{
-                                            width: 22, height: 22, fontSize: 9, fontWeight: 700,
-                                            bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.3 : 0.16),
-                                            color: theme.palette.primary.main,
-                                        }}
-                                    >
-                                        {initialsOf(employeeName(t.assignedTo))}
-                                    </Avatar>
+                                    <span className="inline-flex shrink-0">
+                                        <SmartAvatar
+                                            name={employeeName(t.assignedTo)}
+                                            src={t.assignedTo.avatar}
+                                            seed={t.assignedTo.id}
+                                            size={22}
+                                        />
+                                    </span>
                                 </Tooltip>
                             )}
                         </Box>

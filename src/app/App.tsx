@@ -20,6 +20,8 @@ import { DialogServiceHost } from '@app/modules/common/components/ui/dialogServi
 import { UnsavedChangesProvider } from '@app/modules/common/components/ui/UnsavedChangesProvider';
 import { useTimeFormat } from '@hooks/useTimeFormat';
 import { useCurrencyCode } from '@hooks/useCurrency';
+import { getCurrencyLocale } from '@utils/currency';
+import { KitProvider } from '@/ds/provider';
 import { PwaHost } from './pwa/PwaHost';
 import { useScrollLockGuard } from './hooks/useScrollLockGuard';
 // import { MaintenancePage } from './modules/errors/MaintenancePage';
@@ -213,6 +215,12 @@ const App = () => {
                   glass). GlassToastProvider makes useGlassToast() available app-wide.
                   No CssBaseline so Metronic/Bootstrap global styles stay intact. */}
               <ColorModeProvider>
+                {/* The design system's context (src/ds/provider.tsx) — React Aria's locale for date, time
+                    and number fields, Motion's reduced-motion setting, tooltip timing. Without it every kit
+                    field formatted by the BROWSER's language. Locale follows the org currency's grouping
+                    (en-IN: 1,00,000) and is otherwise en-GB: day-first dates, which en-US would get wrong
+                    for every non-US branch. */}
+                <KitProvider locale={getCurrencyLocale(currency) === 'en-IN' ? 'en-IN' : 'en-GB'}>
                 <GlassToastProvider>
                   <UnsavedChangesProvider>
                     <Outlet key={`${timeFormat}:${currency}`} />
@@ -234,6 +242,7 @@ const App = () => {
                       protected page, and idle re-lock. */}
                   {isAuthenticated && <SecurityPinHost />}
                 </GlassToastProvider>
+                </KitProvider>
               </ColorModeProvider>
             </ThemeModeProvider>
           </LayoutProvider>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { KTIcon } from '@metronic/helpers';
-import { WtButton, WtIconButton } from '@app/modules/common/components/ui/buttons';
+import { Button } from '@/ds/ui/button';
+import { FileText, LogOut, X } from 'lucide-react';
 
 /**
  * Receipt preview. The one copy.
@@ -44,79 +44,69 @@ export default function DocumentPreviewModal({ url, onClose, title, inPageOnly =
 
     const modalContent = (
         <div
-            style={{
-                position: 'fixed', inset: 0, zIndex: 99999, display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-                backgroundColor: 'rgba(15, 23, 42, 0.65)', padding: '1rem',
-            }}
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/65 p-4"
             onClick={onClose}
             role="dialog"
             aria-modal="true"
             aria-label={`Preview of ${filename}`}
         >
-            <div data-wt-control="container"
-                className="d-flex flex-column bg-white shadow overflow-hidden"
-                style={{
-                    // Fills a phone, stays a dialog on a desktop. The old fixed 95vw did neither.
-                    width: 'min(100%, 900px)',
-                    height: 'min(100%, 710px)',
-                    borderRadius: '16px',
-                }}
+            {/* Fills a phone, stays a dialog on a desktop. The old fixed 95vw did neither. */}
+            <div
+                data-wt-control="container"
+                className="flex h-[min(100%,710px)] w-[min(100%,900px)] flex-col overflow-hidden rounded-2xl bg-card text-card-foreground shadow-lg"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="d-flex align-items-center justify-content-between px-4 py-3 border-bottom bg-light flex-shrink-0">
-                    <div className="d-flex align-items-center gap-2 text-gray-700 fw-semibold fs-7 text-truncate">
-                        <KTIcon iconName="document" className="fs-4 text-primary" />
-                        <span className="text-truncate">{filename}</span>
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-muted px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+                        <FileText className="size-[18px] shrink-0 text-primary" />
+                        <span className="truncate">{filename}</span>
                     </div>
-                    <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                    <div className="flex shrink-0 items-center gap-2">
                         {!inPageOnly && (
-                            <WtButton
-                                ghost
-                                size="small"
-                                // window.open rather than `component="a"`: WtButton is typed as a
-                                // button, and an anchor's props do not fit through it.
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                // window.open rather than an anchor: keeps the button a button (and `noopener` explicit).
                                 onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
-                                startIcon={<KTIcon iconName="exit-right-corner" className="fs-5" />}
                             >
+                                <LogOut data-icon="inline-start" />
                                 Open in tab
-                            </WtButton>
+                            </Button>
                         )}
-                        <WtIconButton
-                            color="#dc2626"
+                        <Button
+                            variant="tinted"
+                            size="icon-sm"
+                            className="[--tint:var(--cta-danger)]"
                             onClick={onClose}
-                            // aria-label, not title: title adds an MUI tooltip (z-index 1500) that renders
-                            // UNDER this overlay (99999), leaving a clipped "Esc)" showing past the dialog edge.
+                            // aria-label, not a tooltip: a tooltip would portal UNDER this overlay (z-index 99999),
+                            // leaving a clipped "Esc)" showing past the dialog edge.
                             aria-label="Close preview (Esc)"
                         >
-                            <KTIcon iconName="cross" className="fs-2" />
-                        </WtIconButton>
+                            <X />
+                        </Button>
                     </div>
                 </div>
 
-                <div
-                    className="flex-grow-1 overflow-hidden bg-light d-flex align-items-center justify-content-center"
-                    style={{ minHeight: 0 }}
-                >
+                <div className="flex min-h-0 grow items-center justify-center overflow-hidden bg-muted">
                     {isImage ? (
                         <img
                             src={url}
                             alt={`Receipt: ${filename}`}
-                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', padding: '1rem' }}
+                            className="max-h-full max-w-full object-contain p-4"
                         />
                     ) : isPdf ? (
-                        <iframe src={url} title={`PDF preview: ${filename}`} style={{ width: '100%', height: '100%', border: 'none' }} />
+                        <iframe src={url} title={`PDF preview: ${filename}`} className="size-full border-0" />
                     ) : (
-                        <div className="d-flex flex-column align-items-center gap-3 p-5 text-center w-100 h-100">
+                        <div className="flex size-full flex-col items-center gap-3 p-6 text-center">
                             <iframe
                                 src={url}
                                 title={`Preview: ${filename}`}
-                                style={{ width: '100%', flex: 1, border: 'none', borderRadius: 8, minHeight: 0 }}
+                                className="min-h-0 w-full flex-1 rounded-lg border-0"
                             />
                             {!inPageOnly && (
-                                <p className="text-muted fs-7 mb-0">
+                                <p data-slot="preview-fallback" className="m-0 text-sm text-muted-foreground">
                                     If the document does not display,{' '}
-                                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary">
+                                    <a data-slot="preview-fallback-link" href={url} target="_blank" rel="noopener noreferrer" className="text-primary">
                                         open it in a new tab
                                     </a>.
                                 </p>

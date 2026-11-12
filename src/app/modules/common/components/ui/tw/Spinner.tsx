@@ -1,18 +1,18 @@
+import { Spinner as KitSpinner } from '@/ds/ui/spinner';
 import { cn } from './cn';
 
 /**
- * Tailwind spinner for surfaces already on the TW kit (`ui/tw`).
- * Product / Formik screens use MUI `CircularProgress` or `PageLoader` instead —
- * do not grow a parallel form loading API here. `size` is px; `color` defaults
- * to brand navy (pass `#fff` inside CTA buttons).
+ * Adapter for the TW kit's spinner API, so its call sites keep their props: the loader itself is the design
+ * system's one Spinner (src/ds/ui/spinner.tsx — the chasing dots). `size` is px; `color` paints the dots
+ * (pass `#fff` inside CTA buttons) and otherwise they take the brand colour. `thickness` belonged to the old
+ * ring and is accepted but unused.
  */
-export function Spinner({ size = 18, color = '#1E3A8A', className, thickness = 2 }: { size?: number; color?: string; className?: string; thickness?: number }) {
+export function Spinner({ size = 18, color, className }: { size?: number; color?: string; className?: string; thickness?: number }) {
   return (
-    <span
-      role="status"
-      aria-label="Loading"
-      className={cn('inline-block animate-spin rounded-full align-[-0.125em]', className)}
-      style={{ width: size, height: size, borderWidth: thickness, borderStyle: 'solid', borderColor: `${color}33`, borderTopColor: color }}
+    <KitSpinner
+      className={cn(!color && 'text-primary', className)}
+      // Arbitrary px size and caller colours are runtime values, so they ride on style (the kit sizes by class).
+      style={{ width: size, height: size, ...(color ? { color } : {}) }}
     />
   );
 }

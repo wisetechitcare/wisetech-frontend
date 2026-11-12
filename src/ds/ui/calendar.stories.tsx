@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { parseDate, type DateValue } from '@internationalized/date'
 import type { RangeValue } from 'react-aria-components'
 import { expect, fn, mocked, userEvent, waitFor } from 'storybook/test'
-import { Calendar, RangeCalendar } from './calendar'
+import { animationsSettled } from '@/ds/lib/motion'
+import { Calendar, CalendarLegend, RangeCalendar } from './calendar'
 
 /**
  * Month grid on React Aria: arrow keys move between days, Page Up/Down between months, and labels
@@ -27,6 +28,9 @@ export const Keyboard: Story = {
     await userEvent.tab()
     await expect(document.activeElement).toHaveAccessibleName('Previous')
     await userEvent.tab()
+    await userEvent.tab()
+    // The title is a stop of its own: it opens the month and year views.
+    await expect(document.activeElement).toHaveAccessibleName('October 2026, choose a month')
     await userEvent.tab()
     await expect(document.activeElement).toHaveAccessibleName(/28 October 2026/)
     await userEvent.keyboard('{ArrowLeft}{ArrowUp}')
@@ -100,5 +104,120 @@ export const RangeDark: Story = {
     await expect(contrast(srgb(edge!, surface), srgb(surface, surface))).toBeGreaterThanOrEqual(3)
     const band = srgb(middle.backgroundColor, surface)
     await expect(contrast(srgb(middle.color, surface), band)).toBeGreaterThanOrEqual(4.5)
+  },
+}
+
+/** Month and year jump: click the title for the month grid, again for years — two clicks to any date. */
+export const MonthYearJump: Story = {
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'October 2026, choose a month' }))
+    await userEvent.click(await canvas.findByRole('button', { name: '2026, choose a year' }))
+    await userEvent.click(await canvas.findByRole('button', { name: '2030' }))
+    await userEvent.click(await canvas.findByRole('button', { name: 'January 2030' }))
+    await expect(await canvas.findByRole('button', { name: 'January 2030, choose a month' })).toBeInTheDocument()
+    await expect(canvas.getByRole('grid')).toBeInTheDocument()
+    // The new month slides in; judge the settled frame.
+    await animationsSettled()
+  },
+}
+
+const ISO = (d: DateValue) => d.toString()
+const HOLIDAYS = new Set(['2026-11-09', '2026-11-10', '2026-11-11'])
+const CHARGED = new Set(['2026-11-18', '2026-11-19'])
+const SANDWICH = new Set(['2026-11-20', '2026-11-21', '2026-11-22', '2026-11-23', '2026-11-24'])
+const TEAM_OFF = new Set(['2026-11-12'])
+
+/**
+ * Day states, as Apply Leave uses them: the engine only paints tones — the consumer maps its own rules
+ * (holidays, charged leave, sandwich) to them. Large tiles; the range keeps each day's tone and rings its ends.
+ */
+export const DayStatesWithLegend: Story = {
+  render: () => {
+    const getDayState = (d: DateValue) => {
+      const iso = ISO(d)
+      if (SANDWICH.has(iso)) return { tone: 'amber' as const, marker: true, label: 'Sandwich — unpaid' }
+      if (CHARGED.has(iso)) return { tone: 'warning' as const, label: 'Charged' }
+      if (HOLIDAYS.has(iso)) return { tone: 'rose' as const, label: 'Holiday' }
+      if (TEAM_OFF.has(iso)) return { tone: 'cyan' as const, pattern: 'dashed' as const, label: 'Team off' }
+      const dow = new Date(iso + 'T00:00:00Z').getUTCDay()
+      if (dow === 0) return { tone: 'rose' as const, label: 'Sunday' }
+      if (dow === 6) return { tone: 'slate' as const, label: 'Saturday' }
+      return undefined
+    }
+    return (
+      <div className="w-[min(34rem,calc(100vw-2rem))] space-y-3 rounded-2xl border p-2">
+        <RangeCalendar
+          aria-label="Leave dates"
+          size="lg"
+          rangeStyle="outline"
+          firstDayOfWeek="mon"
+          defaultValue={{ start: parseDate('2026-11-18'), end: parseDate('2026-11-25') }}
+          getDayState={getDayState}
+        />
+        <CalendarLegend
+          className="px-3 pb-2"
+          items={[
+            { label: 'Today', today: true },
+            { label: 'Charged', tone: 'warning' },
+            { label: 'Team Off', tone: 'cyan', pattern: 'dashed' },
+            { label: 'Holiday', tone: 'rose' },
+            { label: 'Saturday', tone: 'slate' },
+            { label: 'Sunday', tone: 'rose' },
+            { label: 'Sandwich · Unpaid', tone: 'amber', marker: true },
+          ]}
+        />
+      </div>
+    )
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[title="Holiday"]')).toBeTruthy()
+    await expect(canvasElement.querySelectorAll('[data-marker]').length).toBeGreaterThan(0)
+  },
+}
+
+/** Range band: one continuous tint from start to end — no gaps between days (the fiscal year improvement). */
+export const ContinuousRange: Story = {
+  render: () => (
+    <RangeCalendar
+      aria-label="Fiscal year"
+      defaultFocusedValue={parseDate('2025-04-01')}
+      defaultValue={{ start: parseDate('2025-04-01'), end: parseDate('2026-03-31') }}
+    />
+  ),
+}
+
+/**
+ * `granularity="month"`: a month picker on the same engine. It opens on the month grid, a click commits the
+ * 1st of that month, and months wholly past `maxValue` are disabled. The title still opens the year grid.
+ */
+export const MonthPicker: Story = {
+  args: {
+    'aria-label': 'Payroll month',
+    granularity: 'month',
+    defaultValue: parseDate('2026-10-01'),
+    maxValue: parseDate('2026-11-09'),
+  },
+  play: async ({ args, canvas }) => {
+    // The grid scales in on mount; let it settle so the a11y check measures the resting colours.
+    await animationsSettled()
+    await expect(canvas.getByRole('button', { name: 'October 2026' })).toHaveAttribute('aria-current', 'date')
+    await expect(canvas.getByRole('button', { name: 'December 2026' })).toBeDisabled()
+    // November is still pickable: the bound falls inside it.
+    await userEvent.click(canvas.getByRole('button', { name: 'November 2026' }))
+    await waitFor(() => expect(args.onChange).toHaveBeenCalledTimes(1))
+    await expect((mocked(args.onChange!).mock.lastCall?.[0] as DateValue).toString()).toBe('2026-11-01')
+    // The selected tile's colour transitions; let it finish so the a11y check measures resting colours.
+    await animationsSettled()
+  },
+}
+
+/** `granularity="year"`: the year grid alone; a click commits 1 January of that year. */
+export const YearPicker: Story = {
+  args: { 'aria-label': 'Year', granularity: 'year', defaultValue: parseDate('2026-01-01') },
+  play: async ({ args, canvas }) => {
+    await animationsSettled()
+    await userEvent.click(canvas.getByRole('button', { name: '2024' }))
+    await waitFor(() => expect(args.onChange).toHaveBeenCalledTimes(1))
+    await expect((mocked(args.onChange!).mock.lastCall?.[0] as DateValue).toString()).toBe('2024-01-01')
   },
 }

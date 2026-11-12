@@ -40,7 +40,7 @@ const ProjectFilterBanner: React.FC<{
             size="small"
             onClick={onBackToProject}
             startIcon={<KTIcon iconName="arrow-left" className="fs-7" />}
-            sx={{ minHeight: 30, borderRadius: "8px", fontSize: 12 }}
+            sx={{ minHeight: 30 }}
           >
             Back to project
           </WtButton>

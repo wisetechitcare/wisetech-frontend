@@ -5,6 +5,7 @@ import duration from 'dayjs/plugin/duration';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { store } from "@redux/store";
 import { getTimeTokens } from "./timeFormat";
+import { IST_TZ } from "@constants/timezone";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -21,7 +22,7 @@ dayjs.extend(customParseFormat);
  * record's own `branches.timezone` (or the viewed employee's) when present.
  * Consolidated here so the same constant isn't redeclared per-file.
  */
-export const MUMBAI_TZ = 'Asia/Kolkata';
+export const MUMBAI_TZ = IST_TZ;
 
 export const dateFormatter = new Intl.DateTimeFormat('en-IN', {
     timeZone: 'Asia/Kolkata',

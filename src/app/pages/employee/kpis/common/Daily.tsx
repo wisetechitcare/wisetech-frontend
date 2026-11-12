@@ -14,7 +14,6 @@ import {
   fetchAllStarEmployeeByStartAndEndDate,
   getAllKPIModules,
 } from "@services/employee";
-import { getAvatar } from "@utils/avatar";
 import { convertToTimeZone, formatTime } from "@utils/date";
 import {
   currentDayWorkingHours,

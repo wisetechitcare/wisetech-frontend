@@ -1,4 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
+import dayjs from 'dayjs';
+import { Check, CircleCheck, CircleX, X } from 'lucide-react';
+import { cn } from '@/ds/lib/utils';
+import { toneStyle, type Tone } from '@/ds/lib/tone';
+import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert';
+import { Badge } from '@/ds/ui/badge';
+import { Spinner } from '@/ds/ui/spinner';
 import { fetchApprovalStatus } from '@services/employee';
 import { getSocket } from '@utils/socketClient';
 
@@ -48,7 +55,7 @@ interface InstanceStatus {
 
 interface Props {
   instanceId: string;
-  compact?: boolean;          // smaller variant used inside the reject modal
+  compact?: boolean;          // smaller variant used inside dialogs and side rails
   showAuditLog?: boolean;     // show the audit section below the stepper
   /** When provided, overrides the terminal banner status so the UI reflects the actual
    *  batch outcome even when the approval workflow instance has a different status
@@ -58,23 +65,21 @@ interface Props {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function fmt(d?: string | null): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
+/** "05 Oct 2026, 11:39" — the same output the tracker always printed. */
+const fmt = (d?: string | null) => (d ? dayjs(d).format('DD MMM YYYY, HH:mm') : '—');
+const fmtDate = (d?: string | null) => (d ? dayjs(d).format('DD MMM YYYY') : '—');
 
-function fmtDate(d?: string | null): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
+/** Status → kit tone (Badge variant / toneStyle). Pending is the brand blue it always was. */
+const STATUS_TONE: Record<string, Tone> = {
+  approved: 'success',
+  rejected: 'danger',
+  pending: 'info',
+};
 
-const STATUS_COLORS: Record<string, string> = {
-  approved: '#50cd89',
-  rejected: '#f1416c',
-  pending: '#009ef7',
+const ACTION_TONE: Record<string, Tone> = {
+  approved: 'success',
+  rejected: 'danger',
+  created: 'info',
 };
 
 const WORKFLOW_LABELS: Record<string, string> = {
@@ -84,103 +89,79 @@ const WORKFLOW_LABELS: Record<string, string> = {
   billing_request: 'Billing Request',
 };
 
-// ─── Step node ────────────────────────────────────────────────────────────────
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function StepNode({ step, isCurrent, compact }: { step: StepData; isCurrent: boolean; compact: boolean }) {
+// ─── Step node ───────────────────────────────────────────────────────────────
+
+function StepNode({ step, isCurrent, compact, last }: { step: StepData; isCurrent: boolean; compact: boolean; last: boolean }) {
   const isApproved = step.status === 'approved';
   const isRejected = step.status === 'rejected';
   const isPending = step.status === 'pending';
-
-  let circleColor = '#e4e6ef';
-  let iconContent: React.ReactNode = <span style={{ color: '#a1a5b7', fontWeight: 700, fontSize: compact ? 11 : 13 }}>{step.level}</span>;
-
-  if (isApproved) {
-    circleColor = '#50cd89';
-    iconContent = <span style={{ color: 'white', fontWeight: 700, fontSize: compact ? 11 : 14 }}>✓</span>;
-  } else if (isRejected) {
-    circleColor = '#f1416c';
-    iconContent = <span style={{ color: 'white', fontWeight: 700, fontSize: compact ? 11 : 14 }}>✕</span>;
-  } else if (isCurrent) {
-    circleColor = '#009ef7';
-    iconContent = <span style={{ color: 'white', fontWeight: 700, fontSize: compact ? 11 : 13 }}>{step.level}</span>;
-  }
-
-  const circleSize = compact ? 30 : 38;
+  const awaiting = isCurrent && isPending;
+  const tone: Tone = isApproved ? 'success' : isRejected ? 'danger' : awaiting ? 'info' : 'neutral';
 
   return (
-    <div style={{ display: 'flex', gap: compact ? 10 : 14, alignItems: 'flex-start', marginBottom: compact ? 10 : 16 }}>
-      {/* Circle + connector line */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-        <div style={{
-          width: circleSize, height: circleSize, borderRadius: '50%',
-          backgroundColor: circleColor,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: isCurrent && isPending ? `0 0 0 4px rgba(0,158,247,0.15)` : 'none',
-          transition: 'box-shadow 0.3s ease',
-          animation: isCurrent && isPending ? 'pulse-ring 2s infinite' : 'none',
-        }}>
-          {iconContent}
-        </div>
-      </div>
+    <li data-slot="approval-step" className={cn('relative flex items-start', compact ? 'gap-2.5 pb-3' : 'gap-3.5 pb-4', last && 'pb-0')}>
+      {/* The connector to the next step: a rule from this circle down to the next one. */}
+      {!last && (
+        <span aria-hidden className={cn('absolute w-0.5 bg-border', compact ? 'top-8 bottom-0 left-[14px]' : 'top-10 bottom-0 left-[18px]')} />
+      )}
+      <span
+        aria-hidden
+        style={toneStyle(tone)}
+        className={cn(
+          'relative z-[1] grid shrink-0 place-items-center rounded-full text-xs font-bold',
+          compact ? 'size-[30px]' : 'size-[38px] text-sm',
+          isApproved || isRejected || awaiting ? 'bg-(--tone) text-white' : 'bg-muted text-muted-foreground',
+          // The current level breathes, so the eye finds whose turn it is (still for reduced motion).
+          awaiting && 'ring-4 ring-[color-mix(in_oklab,var(--tone)_20%,transparent)] motion-safe:animate-pulse',
+        )}
+      >
+        {isApproved ? <Check className="size-4" strokeWidth={3} /> : isRejected ? <X className="size-4" strokeWidth={3} /> : step.level}
+      </span>
 
-      {/* Content */}
-      <div style={{ flex: 1, paddingBottom: compact ? 8 : 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 600, fontSize: compact ? 12 : 14, color: '#181c32' }}>
+      <div className="min-w-0 flex-1 pt-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cn('font-semibold text-foreground', compact ? 'text-xs' : 'text-sm')}>
             Level {step.level} — {step.approverName}
           </span>
-          <span style={{
-            fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
-            backgroundColor: isApproved ? '#e8fff3' : isRejected ? '#fff5f8' : isCurrent ? '#f1faff' : '#f5f5f5',
-            color: isApproved ? '#50cd89' : isRejected ? '#f1416c' : isCurrent ? '#009ef7' : '#a1a5b7',
-            textTransform: 'uppercase', letterSpacing: '0.5px',
-          }}>
-            {isCurrent && isPending ? 'Awaiting' : step.status}
-          </span>
+          <Badge variant={tone}>{awaiting ? 'Awaiting' : titleCase(step.status)}</Badge>
         </div>
-
         {step.actedAt && (
-          <div style={{ fontSize: compact ? 11 : 12, color: '#a1a5b7', marginTop: 2 }}>
-            {fmt(step.actedAt)}
-          </div>
+          <p className={cn('m-0 mt-0.5 text-muted-foreground', compact ? 'text-[11px]' : 'text-xs')}>{fmt(step.actedAt)}</p>
         )}
-
-        {!step.actedAt && isCurrent && (
-          <div style={{ fontSize: compact ? 11 : 12, color: '#009ef7', marginTop: 2 }}>
+        {!step.actedAt && awaiting && (
+          <p className={cn('m-0 mt-0.5 text-info-foreground', compact ? 'text-[11px]' : 'text-xs')}>
             Pending action from {step.approverName}
-          </div>
+          </p>
         )}
-
         {isRejected && step.comments && (
-          <div style={{
-            marginTop: 6, padding: compact ? '6px 10px' : '8px 12px',
-            backgroundColor: '#fff5f8', border: '1px solid #f1416c33',
-            borderRadius: 6, borderLeft: '3px solid #f1416c',
-          }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#f1416c', textTransform: 'uppercase', marginBottom: 2 }}>
-              Rejection Reason
-            </div>
-            <div style={{ fontSize: compact ? 11 : 12, color: '#3f4254' }}>{step.comments}</div>
-          </div>
+          <Alert variant="danger" role="note" className="mt-2 py-2">
+            <AlertTitle className="text-xs">Rejection Reason</AlertTitle>
+            <AlertDescription className="text-xs text-foreground">{step.comments}</AlertDescription>
+          </Alert>
         )}
-
         {isApproved && step.comments && (
-          <div style={{
-            marginTop: 6, padding: compact ? '5px 10px' : '6px 12px',
-            backgroundColor: '#e8fff3', borderRadius: 6,
-            fontSize: compact ? 11 : 12, color: '#3f4254',
-            borderLeft: '3px solid #50cd89',
-          }}>
-            {step.comments}
-          </div>
+          <Alert variant="success" role="note" className="mt-2 py-2">
+            <AlertDescription className="text-xs text-foreground">{step.comments}</AlertDescription>
+          </Alert>
         )}
       </div>
-    </div>
+    </li>
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Main component ──────────────────────────────────────────────────────────
 
+/**
+ * Where an approval request stands: one row per level (who, their decision, when, their note), the
+ * outcome, and — optionally — the audit trail. Live: it reloads on `approval:updated` /
+ * `approval:cancelled` for its instance.
+ *
+ * Shared by every approval surface (leave, attendance, billing, reimbursement, the approvals queue).
+ * On the design system: kit Badge / Alert / Spinner and the status tones, light and dark — it was
+ * inline styles in fixed Metronic hex colours, a Bootstrap spinner and a `<style>` block.
+ */
 function ApprovalStatusTracker({ instanceId, compact = false, showAuditLog = false, overrideStatus }: Props) {
   const [data, setData] = useState<InstanceStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -217,218 +198,103 @@ function ApprovalStatusTracker({ instanceId, compact = false, showAuditLog = fal
 
   if (loading) {
     return (
-      <div style={{ padding: compact ? '12px 0' : '20px 0', textAlign: 'center' }}>
-        <span className='spinner-border spinner-border-sm text-primary me-2' />
-        <span style={{ fontSize: 13, color: '#a1a5b7' }}>Loading status...</span>
+      <div className={cn('flex items-center justify-center gap-2 text-sm text-muted-foreground', compact ? 'py-3' : 'py-5')}>
+        <Spinner className="size-4 text-primary" />
+        Loading Status…
       </div>
     );
   }
 
   if (error || !data) {
-    return (
-      <div style={{ padding: '12px 0', color: '#a1a5b7', fontSize: 13 }}>
-        Status unavailable
-      </div>
-    );
+    return <p className="m-0 py-3 text-sm text-muted-foreground">Status Unavailable</p>;
   }
 
   const { instance, steps, auditLogs } = data;
   const overallStatus = instance.status;
   const effectiveStatus = overrideStatus ?? overallStatus;
   const rd = instance.requestDetails;
-
-  const overallColor = STATUS_COLORS[effectiveStatus] ?? '#a1a5b7';
   const overallLabel = effectiveStatus === 'pending'
     ? `Level ${instance.currentLevel} of ${instance.totalLevels}`
-    : effectiveStatus.charAt(0).toUpperCase() + effectiveStatus.slice(1);
+    : titleCase(effectiveStatus);
+  const rejectedStep = steps.find((s) => s.status === 'rejected');
 
   return (
-    <div>
+    <div data-slot="approval-status-tracker">
       {/* ── Header ── */}
       {!compact && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-          marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #eff2f5',
-        }}>
-          <span style={{
-            fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-            backgroundColor: '#f1faff', color: '#009ef7', textTransform: 'uppercase',
-          }}>
-            {WORKFLOW_LABELS[instance.workflowType] ?? instance.workflowType}
-          </span>
-
-          {rd?.subType && (
-            <span style={{
-              fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-              backgroundColor: '#f5f5f5', color: '#3f4254',
-            }}>
-              {rd.subType}
-            </span>
-          )}
-
-          <span style={{
-            fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-            backgroundColor: effectiveStatus === 'approved' ? '#e8fff3'
-              : effectiveStatus === 'rejected' ? '#fff5f8' : '#f1faff',
-            color: overallColor,
-            textTransform: 'uppercase', marginLeft: 'auto',
-          }}>
-            {overallLabel}
-          </span>
+        <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border pb-3">
+          <Badge variant="info">{WORKFLOW_LABELS[instance.workflowType] ?? instance.workflowType}</Badge>
+          {rd?.subType && <Badge variant="neutral">{rd.subType}</Badge>}
+          <Badge variant={STATUS_TONE[effectiveStatus] ?? 'neutral'} dot className="ml-auto">{overallLabel}</Badge>
         </div>
       )}
 
       {/* ── Request summary ── */}
       {!compact && rd && (rd.dateFrom || rd.reason || rd.description) && (
-        <div style={{
-          background: '#f8f9fa', borderRadius: 8, padding: '10px 14px',
-          marginBottom: 16, fontSize: 12, color: '#3f4254',
-          display: 'flex', gap: 20, flexWrap: 'wrap',
-        }}>
+        <dl className="mb-4 flex flex-wrap gap-x-5 gap-y-1 rounded-xl bg-muted/60 px-3.5 py-2.5 text-xs text-foreground">
           {rd.dateFrom && (
-            <div>
-              <span style={{ color: '#a1a5b7', fontWeight: 600 }}>From: </span>
-              <span>{fmtDate(rd.dateFrom)}</span>
-            </div>
+            <div className="flex gap-1"><dt className="font-semibold text-muted-foreground">From:</dt><dd className="m-0">{fmtDate(rd.dateFrom)}</dd></div>
           )}
           {rd.dateTo && rd.dateTo !== rd.dateFrom && (
-            <div>
-              <span style={{ color: '#a1a5b7', fontWeight: 600 }}>To: </span>
-              <span>{fmtDate(rd.dateTo)}</span>
-            </div>
+            <div className="flex gap-1"><dt className="font-semibold text-muted-foreground">To:</dt><dd className="m-0">{fmtDate(rd.dateTo)}</dd></div>
           )}
           {(rd.reason || rd.description) && (
-            <div>
-              <span style={{ color: '#a1a5b7', fontWeight: 600 }}>Reason: </span>
-              <span>{rd.reason ?? rd.description}</span>
-            </div>
+            <div className="flex gap-1"><dt className="font-semibold text-muted-foreground">Reason:</dt><dd className="m-0">{rd.reason ?? rd.description}</dd></div>
           )}
-        </div>
+        </dl>
       )}
 
       {/* ── Stepper ── */}
-      <div style={{ position: 'relative' }}>
-        {/* Vertical connector line */}
-        <div style={{
-          position: 'absolute',
-          left: compact ? 14 : 18,
-          top: compact ? 15 : 19,
-          bottom: compact ? 15 : 19,
-          width: 2,
-          backgroundColor: '#eff2f5',
-          zIndex: 0,
-        }} />
+      <ol aria-label="Approval levels" className="m-0 list-none p-0">
+        {steps.map((step, i) => (
+          <StepNode
+            key={step.id}
+            step={step}
+            isCurrent={step.level === instance.currentLevel && overallStatus === 'pending'}
+            compact={compact}
+            last={i === steps.length - 1}
+          />
+        ))}
+      </ol>
 
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          {steps.map((step) => (
-            <StepNode
-              key={step.id}
-              step={step}
-              isCurrent={step.level === instance.currentLevel && overallStatus === 'pending'}
-              compact={compact}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* ── Terminal banner ── */}
+      {/* ── Outcome ── */}
       {effectiveStatus === 'approved' && (
-        <div style={{
-          marginTop: 8, padding: compact ? '8px 12px' : '12px 16px',
-          backgroundColor: '#e8fff3', borderRadius: 8,
-          border: '1px solid #50cd8933',
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <span style={{ color: '#50cd89', fontSize: 18 }}>✓</span>
-          <span style={{ color: '#50cd89', fontWeight: 600, fontSize: compact ? 12 : 14 }}>
-            Request fully approved
-          </span>
-        </div>
+        <Alert variant="success" role="status" className="mt-3">
+          <CircleCheck aria-hidden />
+          <AlertTitle>Request Fully Approved</AlertTitle>
+        </Alert>
       )}
-
       {effectiveStatus === 'rejected' && overallStatus === 'rejected' && (
-        <div style={{
-          marginTop: 8, padding: compact ? '8px 12px' : '12px 16px',
-          backgroundColor: '#fff5f8', borderRadius: 8,
-          border: '1px solid #f1416c33',
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <span style={{ color: '#f1416c', fontSize: 18 }}>✕</span>
-          <span style={{ color: '#f1416c', fontWeight: 600, fontSize: compact ? 12 : 14 }}>
-            {(() => {
-              const rejectedStep = steps.find((s) => s.status === 'rejected');
-              if (rejectedStep) {
-                return `Rejected at Level ${rejectedStep.level} by ${rejectedStep.approverName}`;
-              }
-              return 'Request rejected';
-            })()}
-          </span>
-        </div>
+        <Alert variant="danger" role="status" className="mt-3">
+          <CircleX aria-hidden />
+          <AlertTitle>
+            {rejectedStep ? `Rejected at Level ${rejectedStep.level} by ${rejectedStep.approverName}` : 'Request Rejected'}
+          </AlertTitle>
+        </Alert>
       )}
-
       {effectiveStatus === 'rejected' && overallStatus === 'approved' && (
-        <div style={{
-          marginTop: 8, padding: compact ? '8px 12px' : '12px 16px',
-          backgroundColor: '#fff5f8', borderRadius: 8,
-          border: '1px solid #f1416c33',
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <span style={{ color: '#f1416c', fontSize: 18 }}>✕</span>
-          <span style={{ color: '#f1416c', fontWeight: 600, fontSize: compact ? 12 : 14 }}>
-            Items rejected individually during batch review
-          </span>
-        </div>
+        <Alert variant="danger" role="status" className="mt-3">
+          <CircleX aria-hidden />
+          <AlertTitle>Items Rejected Individually During Batch Review</AlertTitle>
+        </Alert>
       )}
 
-      {/* ── Audit log summary ── */}
+      {/* ── Audit trail ── */}
       {showAuditLog && auditLogs.length > 0 && (
-        <div style={{ marginTop: 20 }}>
-          <div style={{
-            fontSize: 11, fontWeight: 700, color: '#a1a5b7', textTransform: 'uppercase',
-            letterSpacing: '0.5px', marginBottom: 8,
-          }}>
-            Audit Trail
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <section aria-label="Audit trail" className="mt-5">
+          <h4 className="heading-case m-0 mb-2 text-xs font-bold text-muted-foreground">Audit Trail</h4>
+          <ul className="m-0 list-none divide-y divide-border p-0">
             {auditLogs.map((log) => (
-              <div key={log.id} style={{
-                display: 'flex', gap: 10, alignItems: 'flex-start',
-                fontSize: 12, color: '#3f4254', padding: '6px 0',
-                borderBottom: '1px solid #f5f5f5',
-              }}>
-                <span style={{ color: '#a1a5b7', minWidth: 130 }}>{fmt(log.createdAt)}</span>
-                <span style={{ fontWeight: 600, minWidth: 100 }}>{log.actorName}</span>
-                <span style={{
-                  fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
-                  backgroundColor: log.action === 'approved' ? '#e8fff3'
-                    : log.action === 'rejected' ? '#fff5f8'
-                    : log.action === 'created' ? '#f1faff' : '#f5f5f5',
-                  color: log.action === 'approved' ? '#50cd89'
-                    : log.action === 'rejected' ? '#f1416c'
-                    : log.action === 'created' ? '#009ef7' : '#a1a5b7',
-                  textTransform: 'uppercase', minWidth: 64, textAlign: 'center',
-                }}>
-                  {log.action}
-                </span>
-                {log.comments && (
-                  <span style={{ color: '#a1a5b7', fontStyle: 'italic', fontSize: 11 }}>
-                    "{log.comments}"
-                  </span>
-                )}
-              </div>
+              <li key={log.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-xs text-foreground">
+                <span className="min-w-32 text-muted-foreground tabular">{fmt(log.createdAt)}</span>
+                <span className="min-w-24 font-semibold">{log.actorName}</span>
+                <Badge variant={ACTION_TONE[log.action] ?? 'neutral'}>{titleCase(log.action)}</Badge>
+                {log.comments && <span className="text-muted-foreground italic">“{log.comments}”</span>}
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </section>
       )}
-
-      {/* Pulse animation for current-level indicator */}
-      <style>{`
-        @keyframes pulse-ring {
-          0% { box-shadow: 0 0 0 0 rgba(0,158,247,0.3); }
-          70% { box-shadow: 0 0 0 8px rgba(0,158,247,0); }
-          100% { box-shadow: 0 0 0 0 rgba(0,158,247,0); }
-        }
-      `}</style>
     </div>
   );
 }

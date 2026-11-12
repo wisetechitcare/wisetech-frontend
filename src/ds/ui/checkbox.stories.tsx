@@ -22,9 +22,9 @@ type Story = StoryObj<typeof meta>
 /** Clicking the label toggles the box. */
 export const Toggle: Story = {
   play: async ({ args, canvas }) => {
-    const box = canvas.getByRole('checkbox', { name: 'Send welcome email' })
+    const box = canvas.getByRole('checkbox', { name: 'Send Welcome Email' })
     await expect(box).not.toBeChecked()
-    await userEvent.click(canvas.getByText('Send welcome email'))
+    await userEvent.click(canvas.getByText('Send Welcome Email'))
     await expect(box).toBeChecked()
     await expect(args.onCheckedChange).toHaveBeenCalledWith(true, expect.anything())
   },
@@ -65,7 +65,7 @@ export const States: Story = {
 /** Toggling bounces the box (movin.design "Bounce" style) — never on initial mount. */
 export const Bounce: Story = {
   play: async ({ canvas }) => {
-    const box = canvas.getByRole('checkbox', { name: 'Send welcome email' })
+    const box = canvas.getByRole('checkbox', { name: 'Send Welcome Email' })
     await expect(box).not.toHaveAttribute('data-bounce')
     await userEvent.click(box)
     await expect(box).toHaveAttribute('data-bounce', 'in')

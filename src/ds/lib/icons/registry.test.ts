@@ -1,9 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { iconFor, registeredNames } from './iconRegistry';
+import { keeniconFor } from './biToKeenicon';
+import { iconFor, registeredNames } from './registry';
 
-const SRC = join(__dirname, '..', '..', '..', '..', '..');
+const SRC = join(__dirname, '..', '..', '..');
 // The v2 kit imports Lucide components directly and never resolves a registry name; its
 // cva maps (`icon: 'size-9'`) look like icon options to the scan below.
 const V2_KIT = join(SRC, 'ds');
@@ -48,7 +49,7 @@ function iconNamesIn(source: string): string[] {
     return names;
 }
 
-describe('iconRegistry', () => {
+describe('icon registry', () => {
     it('resolves every icon name written at a call site', () => {
         const missing = new Map<string, string>();
         for (const file of tsxFiles(SRC)) {
@@ -69,5 +70,18 @@ describe('iconRegistry', () => {
         // `forwardRef`, so a perfectly good icon is an object.
         const broken = registeredNames().filter((name) => !iconFor(name));
         expect(broken).toEqual([]);
+    });
+
+    it("ignores inherited Object.prototype keys", () => {
+        // A stored name is data. "constructor" must not resolve to Object itself.
+        for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+            expect(iconFor(name), name).toBeNull();
+        }
+    });
+
+    it("keeniconFor ignores inherited Object.prototype keys", () => {
+        for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+            expect(keeniconFor(name), name).toBeNull();
+        }
     });
 });

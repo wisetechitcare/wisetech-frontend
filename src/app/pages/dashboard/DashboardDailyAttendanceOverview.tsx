@@ -1,6 +1,7 @@
 import { safeJsonParse } from "@utils/safeJson";
 import { useCallback, useEffect, useState, useMemo, memo } from "react";
-import { Avatar, Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import { RootState } from "@redux/store";
 import { parseWorkingDays } from "@utils/workingDays";
@@ -34,7 +35,6 @@ import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 // import { EARLY_CHECKOUT } from "@constants/statistics";
 // import { multipleRadialBarData } from "@utils/statistics";
 import dayjs from "dayjs";
-import { toAbsoluteUrl } from "@metronic/helpers";
 import { Link } from "react-router-dom";
 import { Button, buttonVariants } from "@/ds/ui/button";
 import { Item } from "@/ds/ui/item";
@@ -120,16 +120,13 @@ const LEAVE_COLUMNS = [
     header: "Employee",
     Cell: ({ row }: any) => (
       <div className="d-flex align-items-center">
-        <Avatar
+        <SmartAvatar
           src={row.original.avatarSrc}
-          alt={row.original.employeeName}
-          sx={{ width: 40, height: 40, mr: 1.5 }}
-          imgProps={{
-            onError: (e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = toAbsoluteUrl("media/svg/avatars/043-boy-18.svg");
-            },
-          }}
+          name={row.original.employeeName}
+          seed={row.original.employeeId || row.original.id}
+          size="default"
+          decorative
+          className="mr-3"
         />
         <div>
           <div className="fw-bold">
@@ -711,10 +708,8 @@ const DashboardDailyAttendanceOverview = () => {
               employeeName:
                 `${user.firstName || ""} ${user.lastName || ""}`.trim(),
               employeeCode: employeeData.employeeCode || emp.employeeCode || "",
-              avatarSrc:
-                employeeData.avatar ||
-                emp.avatar ||
-                toAbsoluteUrl("media/svg/avatars/043-boy-18.svg"),
+              employeeId: employeeData.id || emp.employeeId || "",
+              avatarSrc: employeeData.avatar || emp.avatar || "",
               designation:
                 employeeData.designations?.role ||
                 emp.designations?.role ||
@@ -1301,28 +1296,19 @@ const DashboardDailyAttendanceOverview = () => {
                       const user = employeeData.users || emp.users || {};
                       const fullName =
                         `${user.firstName || ""} ${user.lastName || ""}`.trim();
-                      const avatarSrc =
-                        employeeData.avatar ||
-                        emp.avatar ||
-                        toAbsoluteUrl("media/svg/avatars/043-boy-18.svg");
+                      const avatarSrc = employeeData.avatar || emp.avatar;
 
                       return (
                         <div
                           key={emp.id || index}
                           className="d-flex align-items-center gap-2"
                         >
-                          <Avatar
+                          <SmartAvatar
                             src={avatarSrc}
-                            alt={fullName}
-                            sx={{ width: 24, height: 24 }}
-                            imgProps={{
-                              onError: (e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = toAbsoluteUrl(
-                                  "media/svg/avatars/043-boy-18.svg",
-                                );
-                              },
-                            }}
+                            name={fullName}
+                            seed={employeeData.id || emp.employeeId}
+                            size="xs"
+                            decorative
                           />
                           <span
                             style={{ fontSize: "15px", fontFamily: "Inter" }}
@@ -1407,21 +1393,12 @@ const DashboardDailyAttendanceOverview = () => {
                         key={emp._id || index}
                         className="d-flex align-items-center gap-2"
                       >
-                        <Avatar
-                          src={
-                            emp.avatar ||
-                            toAbsoluteUrl("media/svg/avatars/043-boy-18.svg")
-                          }
-                          alt={`${emp.firstName} ${emp.lastName}`}
-                          sx={{ width: 24, height: 24 }}
-                          imgProps={{
-                            onError: (e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = toAbsoluteUrl(
-                                "media/svg/avatars/043-boy-18.svg",
-                              );
-                            },
-                          }}
+                        <SmartAvatar
+                          src={emp.avatar}
+                          name={`${emp.firstName} ${emp.lastName}`}
+                          seed={emp._id}
+                          size="xs"
+                          decorative
                         />
                         <span style={{ fontSize: "15px", fontFamily: "Inter" }}>
                           {emp.firstName} {emp.lastName}
@@ -1503,21 +1480,12 @@ const DashboardDailyAttendanceOverview = () => {
                         key={emp._id || index}
                         className="d-flex align-items-center gap-2"
                       >
-                        <Avatar
-                          src={
-                            emp.avatar ||
-                            toAbsoluteUrl("media/svg/avatars/043-boy-18.svg")
-                          }
-                          alt={`${emp.firstName} ${emp.lastName}`}
-                          sx={{ width: 24, height: 24 }}
-                          imgProps={{
-                            onError: (e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = toAbsoluteUrl(
-                                "media/svg/avatars/043-boy-18.svg",
-                              );
-                            },
-                          }}
+                        <SmartAvatar
+                          src={emp.avatar}
+                          name={`${emp.firstName} ${emp.lastName}`}
+                          seed={emp._id}
+                          size="xs"
+                          decorative
                         />
                         <span style={{ fontSize: "15px", fontFamily: "Inter" }}>
                           {emp.firstName} {emp.lastName}
@@ -1599,21 +1567,12 @@ const DashboardDailyAttendanceOverview = () => {
                         key={emp._id || index}
                         className="d-flex align-items-center gap-2"
                       >
-                        <Avatar
-                          src={
-                            emp.avatar ||
-                            toAbsoluteUrl("media/svg/avatars/043-boy-18.svg")
-                          }
-                          alt={`${emp.firstName} ${emp.lastName}`}
-                          sx={{ width: 24, height: 24 }}
-                          imgProps={{
-                            onError: (e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = toAbsoluteUrl(
-                                "media/svg/avatars/043-boy-18.svg",
-                              );
-                            },
-                          }}
+                        <SmartAvatar
+                          src={emp.avatar}
+                          name={`${emp.firstName} ${emp.lastName}`}
+                          seed={emp._id}
+                          size="xs"
+                          decorative
                         />
                         <span style={{ fontSize: "15px", fontFamily: "Inter" }}>
                           {emp.firstName} {emp.lastName}
@@ -1695,21 +1654,12 @@ const DashboardDailyAttendanceOverview = () => {
                         key={emp._id || index}
                         className="d-flex align-items-center gap-2"
                       >
-                        <Avatar
-                          src={
-                            emp.avatar ||
-                            toAbsoluteUrl("media/svg/avatars/043-boy-18.svg")
-                          }
-                          alt={`${emp.firstName} ${emp.lastName}`}
-                          sx={{ width: 24, height: 24 }}
-                          imgProps={{
-                            onError: (e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = toAbsoluteUrl(
-                                "media/svg/avatars/043-boy-18.svg",
-                              );
-                            },
-                          }}
+                        <SmartAvatar
+                          src={emp.avatar}
+                          name={`${emp.firstName} ${emp.lastName}`}
+                          seed={emp._id}
+                          size="xs"
+                          decorative
                         />
                         <span style={{ fontSize: "15px", fontFamily: "Inter" }}>
                           {emp.firstName} {emp.lastName}

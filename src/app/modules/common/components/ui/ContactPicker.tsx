@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Autocomplete, Avatar, Box, Chip, TextField, Typography, alpha, useTheme,
+    Autocomplete, Box, Chip, TextField, Typography,
 } from '@mui/material';
 import { getAllClientContacts, getClientContactById } from '@services/companies';
 import { SkeletonList } from '@app/modules/common/components/Skeleton';
@@ -11,6 +11,7 @@ import { useDropdownBoundary } from './dropdownBoundary';
 import { InlineNotice } from './InlineNotice';
 import { WtTooltip } from './WtTooltip';
 import { TRIO } from './tw/tokens';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 /**
  * Pick CRM contacts out of an address book too big to load.
@@ -166,7 +167,6 @@ export function ContactPicker({
     placeholder = 'Search by name, company, number or email',
     extraOptions, rosterOnly = false, loading = false, disabled = false,
 }: ContactPickerProps) {
-    const theme = useTheme();
     /**
      * The list stays inside whatever sheet this picker is dropped into.
      *
@@ -402,9 +402,7 @@ export function ContactPicker({
                                     </Box>
                                 ) : o.label}
                                 avatar={(
-                                    <Avatar src={o.avatar || undefined} sx={{ width: 24, height: 24, fontSize: 10, fontWeight: 700 }}>
-                                        {o.label.charAt(0).toUpperCase()}
-                                    </Avatar>
+                                    <SmartAvatar name={o.label} src={o.avatar} seed={o.value} size="xs" decorative />
                                 )}
                             />
                         </WtTooltip>
@@ -412,16 +410,7 @@ export function ContactPicker({
                 })}
                 renderOption={(props, o) => (
                     <Box component="li" {...props} key={o.value} sx={{ gap: 1.25 }}>
-                        <Avatar
-                            src={o.avatar || undefined}
-                            sx={{
-                                width: 26, height: 26, fontSize: 11, fontWeight: 700,
-                                bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.3 : 0.16),
-                                color: 'primary.main',
-                            }}
-                        >
-                            {o.label.charAt(0).toUpperCase()}
-                        </Avatar>
+                        <SmartAvatar name={o.label} src={o.avatar} seed={o.value} size={26} decorative />
                         <Box sx={{ minWidth: 0 }}>
                             <Typography sx={{ fontSize: 13.5, fontWeight: 600 }} noWrap>{o.label}</Typography>
                             {o.caption && (

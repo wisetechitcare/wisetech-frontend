@@ -20,11 +20,12 @@
  * something every viewer of a board should be handed.
  */
 import { useState } from 'react';
-import { Avatar, Box, Stack, Typography, alpha, useTheme } from '@mui/material';
+import { Box, Stack, Typography, alpha, useTheme } from '@mui/material';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { KTIcon } from '@metronic/helpers';
 import { GlassDialog, GlassHeader, WtButton, WhatsAppIcon } from '@app/modules/common/components/ui';
 import { getTaskWhatsAppNudge } from '@services/tasks';
-import { apiErrorMessage, employeeName, initialsOf } from '../taskDomain';
+import { apiErrorMessage, employeeName } from '../taskDomain';
 
 /** One person the task is now on. */
 export interface NotifiablePerson {
@@ -142,12 +143,7 @@ export const NotifyOnWhatsAppDialog = ({
                                         bgcolor: alpha(theme.palette.text.primary, dark ? 0.05 : 0.028),
                                     }}
                                 >
-                                    <Avatar
-                                        src={person.avatar || undefined}
-                                        sx={{ width: 32, height: 32, fontSize: 12, fontWeight: 700 }}
-                                    >
-                                        {initialsOf(person.name)}
-                                    </Avatar>
+                                    <SmartAvatar name={person.name} src={person.avatar} seed={person.employeeId} size="sm" decorative />
 
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>

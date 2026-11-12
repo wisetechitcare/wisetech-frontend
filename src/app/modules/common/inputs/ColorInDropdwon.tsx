@@ -1,13 +1,6 @@
 import { components } from "react-select";
-import SmartAvatar from "@app/modules/common/components/SmartAvatar";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import DropdownChevron from "./DropdownChevron";
-
-const getAvatarUrl = (data: any) => {
-  if (data.avatar) return data.avatar;
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    data.label || "User"
-  )}&background=eeeeee&color=888888&size=20&rounded=true`;
-};
 
 /** Soft tint of a hex colour for chip backgrounds (≈14% opacity). */
 function softTint(hex?: string, alpha = 0.14): string | undefined {
@@ -46,24 +39,9 @@ const StatusDot = ({ color, size = 12 }: { color: string; size?: number }) => (
 
 const renderIcon = (data: any) => {
   if (data.avatar || data.avatar === null) {
-    return (
-      <img
-        src={getAvatarUrl(data)}
-        alt={data.label}
-        onError={(e) => {
-          const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            data.label || "User"
-          )}&background=eeeeee&color=888888&size=20&rounded=true`;
-          (e.target as HTMLImageElement).src = fallbackUrl;
-        }}
-        style={{
-          width: "25px",
-          height: "25px",
-          borderRadius: "50%",
-          objectFit: "cover",
-        }}
-      />
-    );
+    // Photo when there is one, else the one initials tile. No third-party avatar service:
+    // that leaked every name to ui-avatars.com.
+    return <SmartAvatar name={data.label} src={data.avatar} seed={data.value} size={25} decorative />;
   }
 
   if (data.color) {
@@ -157,13 +135,7 @@ export const SingleValue = (props: any) => {
 export const AvatarOption = (props: any) => (
   <components.Option {...props}>
     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-      <SmartAvatar
-        name={props.data.label}
-        id={props.data.value}
-        imageUrl={props.data.avatar}
-        size={24}
-        imageFit="cover"
-      />
+      <SmartAvatar name={props.data.label} seed={props.data.value} src={props.data.avatar} size="xs" decorative />
       <span>{props.data.label}</span>
     </div>
   </components.Option>
@@ -187,13 +159,7 @@ export const AvatarSingleValue = (props: any) => {
         }}
       >
         <span style={{ flexShrink: 0, display: "flex" }}>
-          <SmartAvatar
-            name={props.data.label}
-            id={props.data.value}
-            imageUrl={props.data.avatar}
-            size={22}
-            imageFit="cover"
-          />
+          <SmartAvatar name={props.data.label} seed={props.data.value} src={props.data.avatar} size={22} decorative />
         </span>
         <span
           style={

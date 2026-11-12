@@ -2,7 +2,8 @@
 
 import { useThemeMode } from "@/ds/hooks/use-theme-mode"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
+import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon } from "lucide-react"
+import { Spinner } from "@/ds/ui/spinner"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   // The appearance engine owns light/dark (the .dark class), not next-themes.
@@ -26,7 +27,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           <OctagonXIcon className="size-4" />
         ),
         loading: (
-          <Loader2Icon className="size-4 animate-spin" />
+          <Spinner aria-hidden />
         ),
       }}
       style={

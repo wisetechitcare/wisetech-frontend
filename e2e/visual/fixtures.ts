@@ -69,9 +69,10 @@ export async function settle(page: Page) {
 const SELF_ANIMATING_CSS = 'img[src*=".gif" i], video, canvas[data-slot="celebrate"] { visibility: hidden !important; }'
 
 /** The one screenshot rule for every screen: the page as shown, self-animating media hidden. */
-export async function snapshot(page: Page, name: string) {
+export async function snapshot(page: Page, name: string, options: { fullPage?: boolean } = {}) {
   await page.addStyleTag({ content: SELF_ANIMATING_CSS })
-  await expect(page).toHaveScreenshot(name)
+  // A full-page capture of a long screen takes longer than the default 5s retry window allows.
+  await expect(page).toHaveScreenshot(name, { fullPage: options.fullPage, timeout: options.fullPage ? 20_000 : undefined })
 }
 
 const AXE_BUDGET_MS = 30_000

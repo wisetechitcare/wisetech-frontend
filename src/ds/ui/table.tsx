@@ -1,4 +1,5 @@
 "use client"
+import { titleCaseChildren } from "@/ds/lib/text"
 
 import * as React from "react"
 import { cn } from "cn"
@@ -57,6 +58,8 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
       data-slot="table-row"
       className={cn(
         "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        // The same tints as a variable, for opaque cells (a frozen column) that would otherwise hide them.
+        "hover:[--row-hover:color-mix(in_oklab,var(--muted)_50%,transparent)] has-aria-expanded:[--row-hover:color-mix(in_oklab,var(--muted)_50%,transparent)] data-[state=selected]:[--row-hover:var(--muted)]",
         className
       )}
       {...props}
@@ -64,15 +67,16 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+function TableHead({ className, children, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
       className={cn(
-        "h-12 px-3 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "heading-case h-12 px-3 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

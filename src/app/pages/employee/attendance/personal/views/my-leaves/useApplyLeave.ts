@@ -405,7 +405,7 @@ export function useApplyLeave(args: UseApplyLeaveArgs) {
                             ? `${e.users?.firstName ?? e.firstName ?? ''} ${e.users?.lastName ?? e.lastName ?? ''}`.trim()
                             : undefined;
                         const role = e?.designations?.role ?? e?.designation ?? e?.role ?? undefined;
-                        return { ...c, approverName: name || c.approverId, approverRole: role };
+                        return { ...c, approverName: name || c.approverId, approverRole: role, approverAvatar: e?.avatar ?? null };
                     }),
                 );
             } finally {

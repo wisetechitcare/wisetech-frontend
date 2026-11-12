@@ -11,6 +11,8 @@ import {
   Group,
   Popover,
   composeRenderProps,
+  I18nProvider,
+  useLocale,
   type DatePickerProps,
   type DateRangePickerProps,
   type DateValue,
@@ -19,7 +21,7 @@ import {
 import { AriaInputGroup, FieldChrome, type FieldChromeProps } from "@/ds/ui/aria-field"
 import { buttonVariants } from "@/ds/ui/button"
 import { Calendar, RangeCalendar } from "@/ds/ui/calendar"
-import { DateInput } from "@/ds/ui/date-field"
+import { DateInput, DisplayDateLocale, DISPLAY_DATE_SEPARATOR } from "@/ds/ui/date-field"
 import { fieldVariants } from "@/ds/ui/field"
 import { popoverSurfaceClassName } from "@/ds/ui/popover"
 
@@ -65,7 +67,9 @@ function DatePicker<T extends DateValue>({
   className,
   ...props
 }: DatePickerProps<T> & FieldChromeProps) {
+  const { locale } = useLocale()
   return (
+    <DisplayDateLocale>
     <AriaDatePicker
       data-slot="date-picker"
       className={composeRenderProps(className, (className) =>
@@ -80,15 +84,16 @@ function DatePicker<T extends DateValue>({
       >
         <AriaInputGroup>
           <Group data-slot="date-picker-group" className="flex h-full w-full min-w-0 items-center">
-            <DateInput className="flex-1" />
+            <DateInput className="flex-1" literal={DISPLAY_DATE_SEPARATOR} />
             <PickerTrigger />
           </Group>
         </AriaInputGroup>
       </FieldChrome>
       <PickerPopover>
-        <Calendar />
+        <I18nProvider locale={locale}><Calendar /></I18nProvider>
       </PickerPopover>
     </AriaDatePicker>
+    </DisplayDateLocale>
   )
 }
 
@@ -99,7 +104,9 @@ function DateRangePicker<T extends DateValue>({
   className,
   ...props
 }: DateRangePickerProps<T> & FieldChromeProps) {
+  const { locale } = useLocale()
   return (
+    <DisplayDateLocale>
     <AriaDateRangePicker
       data-slot="date-range-picker"
       className={composeRenderProps(className, (className) =>
@@ -117,19 +124,20 @@ function DateRangePicker<T extends DateValue>({
             data-slot="date-range-picker-group"
             className="flex h-full w-full min-w-0 items-center"
           >
-            <DateInput slot="start" className="pe-1" />
+            <DateInput slot="start" className="pe-1" literal={DISPLAY_DATE_SEPARATOR} />
             <span aria-hidden="true" className="text-muted-foreground">
               –
             </span>
-            <DateInput slot="end" className="flex-1 ps-1" />
+            <DateInput slot="end" className="flex-1 ps-1" literal={DISPLAY_DATE_SEPARATOR} />
             <PickerTrigger />
           </Group>
         </AriaInputGroup>
       </FieldChrome>
       <PickerPopover>
-        <RangeCalendar />
+        <I18nProvider locale={locale}><RangeCalendar /></I18nProvider>
       </PickerPopover>
     </AriaDateRangePicker>
+    </DisplayDateLocale>
   )
 }
 

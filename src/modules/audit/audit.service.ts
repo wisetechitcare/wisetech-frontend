@@ -58,6 +58,8 @@ export interface AuditChangeSet {
   changedByEmployeeId: string;
   changedByFirstName?: string | null;
   changedByLastName?: string | null;
+  /** The actor's own photo URL (null = none; SmartAvatar shows initials). */
+  changedByAvatar?: string | null;
   summary: string;
   category: string;
   changeSource: string;

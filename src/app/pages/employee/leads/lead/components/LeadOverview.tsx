@@ -3,7 +3,7 @@ import { projectOverviewIcons } from "@metronic/assets/sidepanelicons";
 import { getClientCompanyById, getClientContactById, getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
 import { fetchAllCities, fetchAllCountries, fetchAllStates } from "@services/options";
 import { getAllProjectServices, getPorjectById } from "@services/projects";
-import { getAvatar } from "@utils/avatar";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
@@ -560,12 +560,13 @@ const LeadOverview = ({ lead }: { lead: any }) => {
           </div>
         ) : (label.toLowerCase() === 'company' || label.toLowerCase() === 'contact') ? (
           <div className="d-flex align-items-center" style={{ gap: "4px" }}>
-            {label.toLowerCase() === 'contact' && getAvatar(contactData?.avatar, contactData?.gender == "MALE"? 0 : contactData?.gender == "FEMALE"? 1 : 2) &&
-              <img
-                src={getAvatar(contactData?.avatar, contactData?.gender == "MALE"? 0 : contactData?.gender == "FEMALE"? 1 : 2)}
-                alt=""
-                className="rounded-circle"
-                style={{ width: "24px", height: "24px" }}
+            {label.toLowerCase() === 'contact' &&
+              <SmartAvatar
+                src={contactData?.profilePhoto || contactData?.avatar}
+                name={value && value !== '-' ? value : contactData?.fullName}
+                seed={contactData?.id}
+                size="xs"
+                decorative
               />
             }
             <Link

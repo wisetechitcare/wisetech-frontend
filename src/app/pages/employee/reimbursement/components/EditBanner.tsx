@@ -1,7 +1,7 @@
-import { Box, Stack, Typography, useTheme } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
-import { ToneChip, tonePair } from '@app/modules/common/components/ui';
-import type { SemanticTone } from '@app/theme/tokens';
+import { Badge } from '@/ds/ui/badge';
+import type { IconComponent } from '@/ds/ui/dynamic-icon';
+import { cn } from '@/ds/lib/utils';
+import { CircleX, CircleQuestionMark, Pencil } from 'lucide-react';
 
 /**
  * Contextual banner displayed at the top of an edit form.
@@ -22,28 +22,42 @@ export interface EditBannerProps {
 const CONTEXT_CONFIG: Record<
   EditContext,
   {
-    icon: string;
+    icon: IconComponent;
     title: string;
-    tone: SemanticTone;
+    /** The kit Badge variant for the chip. */
+    badge: 'danger' | 'warning' | 'brand';
+    /** Soft fill + edge for the strip, and the readable ink for the icon and eyebrow, per tone. */
+    strip: string;
+    inner: string;
+    ink: string;
     label: string;
   }
 > = {
   rejection: {
-    icon: 'cross-circle',
+    icon: CircleX,
     title: 'Editing After Rejection',
-    tone: 'danger',
+    badge: 'danger',
+    strip: 'bg-destructive-soft border-destructive/25',
+    inner: 'border-destructive/15',
+    ink: 'text-destructive-foreground',
     label: 'Rejected',
   },
   query: {
-    icon: 'question',
+    icon: CircleQuestionMark,
     title: 'Updating Based on Query',
-    tone: 'warning',
+    badge: 'warning',
+    strip: 'bg-warning-soft border-warning/25',
+    inner: 'border-warning/15',
+    ink: 'text-warning-foreground',
     label: 'Query',
   },
   edit: {
-    icon: 'pencil',
+    icon: Pencil,
     title: 'Editing Reimbursement',
-    tone: 'brand',
+    badge: 'brand',
+    strip: 'bg-accent border-primary/25',
+    inner: 'border-primary/15',
+    ink: 'text-accent-foreground',
     label: 'Edit',
   },
 };
@@ -54,93 +68,50 @@ export default function EditBanner({
   queryText,
   level,
 }: EditBannerProps) {
-  const theme = useTheme();
   const config = CONTEXT_CONFIG[context];
-  const pair = tonePair(config.tone);
+  const eyebrow = cn('text-[10.5px] font-extrabold uppercase tracking-[0.04em]', config.ink);
 
   return (
-    <Box
-      sx={{
-        p: 1.5,
-        borderRadius: '12px',
-        bgcolor: pair.soft,
-        border: `1px solid ${pair.fg}40`,
-        minWidth: 0,
-      }}
-    >
-      <Stack gap={1}>
-        {/* Header */}
-        <Stack direction="row" alignItems="center" gap={0.75}>
-          <Box sx={{ color: pair.fg }}>
-            <KTIcon iconName={config.icon} className="fs-4" />
-          </Box>
-          <Typography sx={{ fontSize: 13, fontWeight: 800, color: 'text.primary' }}>
-            {config.title}
-          </Typography>
-          <ToneChip tone={config.tone} label={config.label} size="small" sx={{ ml: 'auto' }} />
-        </Stack>
+    <div className={cn('flex min-w-0 flex-col gap-2 rounded-xl border p-3', config.strip)}>
+      {/* Header */}
+      <div className="flex items-center gap-1.5">
+        <span className={config.ink}>
+          <config.icon className="size-[18px]" />
+        </span>
+        <h4 data-slot="banner-title" className="m-0 text-[13px] font-extrabold text-foreground">{config.title}</h4>
+        <Badge variant={config.badge} className="ml-auto border-current/40 bg-card">{config.label}</Badge>
+      </div>
 
-        {/* Reason/Query text */}
-        {(rejectionReason || queryText) && (
-          <Box
-            sx={{
-              p: 1,
-              borderRadius: '8px',
-              bgcolor: theme.palette.background.paper,
-              border: `1px solid ${pair.fg}20`,
-              minWidth: 0,
-            }}
-          >
-            {rejectionReason && (
-              <Stack gap={0.5}>
-                <Typography
-                  sx={{
-                    fontSize: 10.5,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    color: pair.fg,
-                  }}
-                >
-                  Rejection Reason
-                </Typography>
-                <Typography sx={{ fontSize: 12.5, color: 'text.primary', lineHeight: 1.4 }}>
-                  "{rejectionReason}"
-                </Typography>
-              </Stack>
-            )}
-            {queryText && (
-              <Stack gap={0.5}>
-                <Typography
-                  sx={{
-                    fontSize: 10.5,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    color: pair.fg,
-                  }}
-                >
-                  Approver Query
-                  {level && ` (Level ${level})`}
-                </Typography>
-                <Typography sx={{ fontSize: 12.5, color: 'text.primary', lineHeight: 1.4 }}>
-                  "{queryText}"
-                </Typography>
-              </Stack>
-            )}
-          </Box>
-        )}
+      {/* Reason/Query text */}
+      {(rejectionReason || queryText) && (
+        <div className={cn('min-w-0 rounded-lg border bg-card p-2', config.inner)}>
+          {rejectionReason && (
+            <div className="flex flex-col gap-1">
+              <p data-slot="banner-eyebrow" className={cn('m-0', eyebrow)}>Rejection Reason</p>
+              <p data-slot="banner-text" className="m-0 break-words text-[12.5px] leading-[1.4] text-foreground">"{rejectionReason}"</p>
+            </div>
+          )}
+          {queryText && (
+            <div className="flex flex-col gap-1">
+              <p data-slot="banner-eyebrow" className={cn('m-0', eyebrow)}>
+                Approver Query
+                {level && ` (Level ${level})`}
+              </p>
+              <p data-slot="banner-text" className="m-0 break-words text-[12.5px] leading-[1.4] text-foreground">"{queryText}"</p>
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* Helper text */}
-        <Typography sx={{ fontSize: 11, color: 'text.secondary', fontStyle: 'italic' }}>
-          {context === 'rejection' &&
-            'Make the necessary corrections and resubmit for approval.'}
-          {context === 'query' &&
-            'Update your reimbursement based on the approver feedback and resubmit.'}
-          {context === 'edit' &&
-            'Update your reimbursement and resubmit for approval.'}
-        </Typography>
-      </Stack>
-    </Box>
+      {/* Helper text */}
+      <p data-slot="banner-hint" className="m-0 text-[11px] italic text-muted-foreground">
+        {context === 'rejection' &&
+          'Make the necessary corrections and resubmit for approval.'}
+        {context === 'query' &&
+          'Update your reimbursement based on the approver feedback and resubmit.'}
+        {context === 'edit' &&
+          'Update your reimbursement and resubmit for approval.'}
+      </p>
+    </div>
   );
 }

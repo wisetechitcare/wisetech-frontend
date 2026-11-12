@@ -8,6 +8,7 @@ import { fetchEmployeesPage, fetchEmployeeFacets } from "@services/employee";
 import { useServerPagination } from "@hooks/useServerPagination";
 import {
   buildEmployeeListParams,
+  idForName,
   employeeFilterKey,
   type EmployeeListFilters,
   type FacetOption,
@@ -488,9 +489,14 @@ const EmployeeListContent = () => {
   // Dropdown options come from the API, scoped by status/payType/search but NOT by the
   // branch/sub-org filters themselves — otherwise picking a branch would remove every
   // other branch from the list you picked it from.
+  // The chosen sub-org narrows the BRANCH facet (sub-org → branch cascade; the server keeps the sub-org facet whole).
+  const subOrgId = useMemo(
+    () => (subOrgFilter === 'All' ? undefined : idForName(facets.subOrganizations, subOrgFilter)),
+    [facets.subOrganizations, subOrgFilter],
+  );
   useEffect(() => {
-    fetchEmployeeFacets(
-      buildEmployeeListParams({
+    fetchEmployeeFacets({
+      ...buildEmployeeListParams({
         status: selectedStatus,
         branchName: "All",
         subOrgName: "All",
@@ -499,10 +505,11 @@ const EmployeeListContent = () => {
         sorting: [],
         facets: { branches: [], subOrganizations: [] },
       }),
-    )
+      ...(subOrgId ? { companyId: subOrgId } : {}),
+    })
       .then((res) => setFacets(res.data ?? { branches: [], subOrganizations: [] }))
       .catch((error) => console.error("Error fetching employee facets:", error));
-  }, [selectedStatus, payTypeFilter, search]);
+  }, [selectedStatus, payTypeFilter, search, subOrgId]);
 
   const filters: EmployeeListFilters = useMemo(
     () => ({
@@ -614,6 +621,11 @@ const EmployeeListContent = () => {
     () => facets.subOrganizations.map((o) => o.name).filter((n) => !rootOrgNames.has(n)).sort(),
     [facets, rootOrgNames],
   );
+
+  // A branch the (new) sub-organisation does not contain is cleared — the shared cascade rule.
+  useEffect(() => {
+    if (branchFilter !== 'All' && facets.branches.length > 0 && !branchOptions.includes(branchFilter)) setBranchFilter('All');
+  }, [branchFilter, branchOptions, facets.branches.length]);
 
   const hasActiveFilters = branchFilter !== 'All' || subOrgFilter !== 'All' || payTypeFilter !== 'All';
 

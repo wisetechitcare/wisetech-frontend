@@ -34,12 +34,12 @@ import { KTIcon, PAGE_SIZE_OPTIONS, PageSizeOption } from "@metronic/helpers";
 import { SortableProvider, mergeVisibleOrder, type SortableProps } from "@components/dnd/SortableList";
 import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import { WT_CONTROL_HEIGHT } from "@app/modules/common/components/ui/buttons";
-import { hasPermission } from "@utils/authAbac";
-import { permissionConstToUseWithHasPermission, Status } from "@constants/statistics";
+import { Status } from "@constants/statistics";
 import useTablePreferences from "@hooks/useTablePreferences";
 import { fitColumnWidth } from "./fitColumnWidth";
 import { rowId, resolveSelectedRows, selectionSignature } from "./table/rowSelection";
 import { useGridNavigation } from "./table/useGridNavigation";
+import { usePermittedRows } from "./table/usePermittedRows";
 import { ColumnsSheet } from "./table/ColumnsSheet";
 import {
   HighlightMatch,
@@ -689,56 +689,8 @@ function MaterialTable({
 
   const globalTheme = useTheme();
 
-  // Memoize finalData to prevent infinite re-renders
-  const finalData = useMemo(() => {
-    let processedData: any = [];
-    const dataExtractedWithEmployeeId = data.filter(
-      (v: any) => v.employeeId != null,
-    );
-    const dataExtractedWithoutEmployeeId = data.filter(
-      (v: any) => v.employeeId == null,
-    );
-
-    if (resource) {
-      if (viewOthers) {
-        const newData = dataExtractedWithEmployeeId.filter((val: any) => {
-          return hasPermission(
-            resource,
-            permissionConstToUseWithHasPermission.readOthers,
-            val,
-          );
-        });
-        processedData = [...processedData, ...newData];
-      } else if (viewOwn) {
-        const newData = dataExtractedWithEmployeeId.filter((val: any) => {
-          return hasPermission(
-            resource,
-            permissionConstToUseWithHasPermission.readOwn,
-            val,
-          );
-        });
-        processedData = [...processedData, ...newData];
-      }
-      if (checkOwnWithOthers) {
-        const newData = dataExtractedWithEmployeeId.filter((val: any) => {
-          return hasPermission(
-            resource,
-            permissionConstToUseWithHasPermission.readOwn,
-            val,
-          );
-        });
-        processedData = [...processedData, ...newData];
-      }
-      processedData = [...processedData, ...dataExtractedWithoutEmployeeId];
-    } else {
-      processedData = data;
-    }
-
-    // Both viewOthers and checkOwnWithOthers filter from the same source array,
-    // so a row that passes both permission checks gets appended twice. Deduplicate
-    // by object reference before returning.
-    return Array.from(new Set(processedData));
-  }, [data, resource, viewOthers, viewOwn, checkOwnWithOthers]);
+  // The ABAC row filter — shared with the design-system DataTable screens (table/usePermittedRows).
+  const finalData = usePermittedRows(data, { resource, viewOthers, viewOwn, checkOwnWithOthers });
 
   const { mode: metronicMode } = useThemeMode();
   const mode = metronicMode === "system" ? "light" : metronicMode;
