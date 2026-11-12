@@ -1,8 +1,10 @@
-import { Box, Divider, Drawer, Typography } from '@mui/material';
-import { X } from 'lucide-react';
-import { WtIconButton } from '@app/modules/common/components/ui/buttons';
+import { cn } from '@/ds/lib/utils';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
-import { fmtDate, formatMoney, STATUS_LABEL, StatusNum } from '../../utils/reimbursementFormat';
+import { Separator } from '@/ds/ui/separator';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/ds/ui/sheet';
+import { DescriptionList } from '@/ds/patterns/description-list';
+import { fmtDate, formatMoney, resolveStatusNum, STATUS, STATUS_LABEL } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow } from './paymentData';
 import PaymentStateBadge from './PaymentStateBadge';
 
@@ -15,38 +17,22 @@ import PaymentStateBadge from './PaymentStateBadge';
  *
  * It shows what a payment decision needs and stops: who, how much is left, what the money was
  * for. The approval history stays in the batch modal, one click further in.
+ *
+ * The kit Sheet — the rounded floating drawer (shadcn base drawer look); no MUI.
  */
 
-
-function Figure({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Figure({ label, value, className }: { label: string; value: string; className?: string }) {
     return (
-        <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{
-                fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em',
-                textTransform: 'uppercase', color: 'text.secondary',
-            }}>
-                {label}
-            </Typography>
-            <Typography sx={{
-                fontSize: 17, fontWeight: 800, lineHeight: 1.3,
-                fontVariantNumeric: 'tabular-nums',
-                color: tone ?? 'text.primary',
-            }}>
-                {value}
-            </Typography>
-        </Box>
+        <div className="min-w-0">
+            <p className="m-0 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">{label}</p>
+            <p className={cn('tabular m-0 text-lg leading-snug font-extrabold text-foreground', className)}>{value}</p>
+        </div>
     );
 }
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
-    return (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, py: 0.75 }}>
-            <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>{label}</Typography>
-            <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: 'text.primary', textAlign: 'right', minWidth: 0 }}>
-                {value}
-            </Typography>
-        </Box>
-    );
+/** A small uppercase section title inside the drawer. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+    return <h3 className="m-0 mb-2 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">{children}</h3>;
 }
 
 export default function PaymentDetailDrawer({
@@ -65,160 +51,114 @@ export default function PaymentDetailDrawer({
     const payable = !!row && row.remainingAmount > 0;
 
     return (
-        <Drawer
-            anchor="right"
-            open={!!row}
-            onClose={onClose}
-            PaperProps={{ sx: { width: { xs: '100%', sm: 460 }, maxWidth: '100%' } }}
-        >
-            {row && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                    {/* Header */}
-                    <Box sx={{
-                        px: 2.5, py: 2, display: 'flex', alignItems: 'flex-start', gap: 1.5,
-                        borderBottom: '1px solid', borderColor: 'divider',
-                    }}>
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography sx={{ fontSize: 15, fontWeight: 800, color: 'text.primary' }}>
-                                Payment details
-                            </Typography>
-                            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                                {row.employeeName} · {row.employeeCode}
-                            </Typography>
-                        </Box>
-                        <WtIconButton
-                            onClick={onClose}
-                            size="small"
-                            aria-label="Close payment details"
-                            sx={{ ml: 'auto' }}
-                        >
-                            <X />
-                        </WtIconButton>
-                    </Box>
+        <Sheet open={!!row} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <SheetContent side="right" className="sm:max-w-md">
+                {row && (
+                    <>
+                        <SheetHeader className="border-b border-border">
+                            <SheetTitle>Payment Details</SheetTitle>
+                            <SheetDescription>{row.employeeName} · {row.employeeCode}</SheetDescription>
+                        </SheetHeader>
 
-                    {/* Scrolling body */}
-                    <Box sx={{ flex: 1, overflowY: 'auto', px: 2.5, py: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                            <Box component="span" sx={{
-                                fontFamily: 'monospace', fontSize: 11.5, fontWeight: 700,
-                                px: 1, py: '3px', borderRadius: '6px',
-                                bgcolor: 'action.hover', color: 'text.primary',
-                            }}>
-                                {row.submissionId}
-                            </Box>
-                            <PaymentStateBadge state={row.state} />
-                        </Box>
+                        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="brand" className="font-mono tracking-wide">{row.submissionId}</Badge>
+                                <PaymentStateBadge state={row.state} />
+                            </div>
 
-                        {/* Financial summary — the three numbers a payout decision needs */}
-                        <Box sx={{
-                            display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 1.5,
-                            p: 1.75, mb: 2, borderRadius: '12px',
-                            border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover',
-                        }}>
-                            <Figure label="Approved" value={formatMoney(row.approvedAmount)} />
-                            <Figure label="Paid" value={formatMoney(row.paidAmount)} tone="#16a34a" />
-                            <Figure label="Remaining" value={formatMoney(row.remainingAmount)} tone={row.remainingAmount > 0 ? '#1E3A8A' : '#16a34a'} />
-                        </Box>
+                            {/* The three numbers a payout decision needs */}
+                            <div className="grid grid-cols-3 gap-3 rounded-2xl border border-border bg-muted/50 p-3.5">
+                                <Figure label="Approved" value={formatMoney(row.approvedAmount)} />
+                                <Figure label="Paid" value={formatMoney(row.paidAmount)} className="text-success-foreground" />
+                                <Figure
+                                    label="Remaining"
+                                    value={formatMoney(row.remainingAmount)}
+                                    className={row.remainingAmount > 0 ? 'text-foreground' : 'text-success-foreground'}
+                                />
+                            </div>
 
-                        <Field label="Requests" value={`${row.totalRequests} approved`} />
-                        <Field label="Submitted" value={fmtDate(row.submittedAt)} />
-                        <Field label="Approved on" value={fmtDate(row.approvedAt)} />
-                        {row.periodStart && (
-                            <Field
-                                label="Expense period"
-                                value={`${fmtDate(row.periodStart)} – ${fmtDate(row.periodEnd)}`}
+                            <DescriptionList
+                                columns={1}
+                                rows={[
+                                    { label: 'Requests', value: `${row.totalRequests} approved` },
+                                    { label: 'Submitted', value: fmtDate(row.submittedAt) },
+                                    { label: 'Approved On', value: fmtDate(row.approvedAt) },
+                                    ...(row.periodStart
+                                        ? [{ label: 'Expense Period', value: `${fmtDate(row.periodStart)} – ${fmtDate(row.periodEnd)}` }]
+                                        : []),
+                                ]}
                             />
-                        )}
 
-                        {/* Payments already recorded against this batch */}
-                        {row.payments.length > 0 && (
-                            <>
-                                <Divider sx={{ my: 2 }} />
-                                <Typography sx={{
-                                    fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em',
-                                    textTransform: 'uppercase', color: 'text.secondary', mb: 1,
-                                }}>
-                                    Payments recorded
-                                </Typography>
-                                {row.payments.map((p) => (
-                                    <Box key={p.id} sx={{
-                                        display: 'flex', justifyContent: 'space-between', gap: 1.5,
-                                        py: 1, borderBottom: '1px solid', borderColor: 'divider',
-                                    }}>
-                                        <Box sx={{ minWidth: 0 }}>
-                                            <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>
-                                                {fmtDate(p.paymentDate)}
-                                            </Typography>
-                                            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
-                                                {(p.paymentMethod || '—').replace(/_/g, ' ')}
-                                                {p.transactionId ? ` · ${p.transactionId}` : ''}
-                                                {p.processedBy !== 'N/A' ? ` · by ${p.processedBy}` : ''}
-                                            </Typography>
-                                        </Box>
-                                        <Typography sx={{
-                                            fontSize: 13, fontWeight: 700, color: '#16a34a',
-                                            fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-                                        }}>
-                                            {formatMoney(p.amountPaid)}
-                                        </Typography>
-                                    </Box>
-                                ))}
-                            </>
-                        )}
+                            {/* Payments already recorded against this batch */}
+                            {row.payments.length > 0 && (
+                                <section>
+                                    <Separator className="mb-4" />
+                                    <SectionTitle>Payments Recorded</SectionTitle>
+                                    <ul className="m-0 list-none divide-y divide-border p-0">
+                                        {row.payments.map((p) => (
+                                            <li key={p.id} className="flex justify-between gap-3 py-2">
+                                                <div className="min-w-0">
+                                                    <p className="m-0 text-sm font-semibold">{fmtDate(p.paymentDate)}</p>
+                                                    <p className="m-0 text-xs text-muted-foreground">
+                                                        {(p.paymentMethod || '—').replace(/_/g, ' ')}
+                                                        {p.transactionId ? ` · ${p.transactionId}` : ''}
+                                                        {p.processedBy !== 'N/A' ? ` · by ${p.processedBy}` : ''}
+                                                    </p>
+                                                </div>
+                                                <span className="tabular text-sm font-bold whitespace-nowrap text-success-foreground">
+                                                    {formatMoney(p.amountPaid)}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+                            )}
 
-                        {/* The expenses this payout covers */}
-                        <Divider sx={{ my: 2 }} />
-                        <Typography sx={{
-                            fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em',
-                            textTransform: 'uppercase', color: 'text.secondary', mb: 1,
-                        }}>
-                            Reimbursement items
-                        </Typography>
-                        {row.lines.map((line) => (
-                            <Box key={line.id} sx={{
-                                display: 'flex', justifyContent: 'space-between', gap: 1.5,
-                                py: 1, borderBottom: '1px solid', borderColor: 'divider',
-                                opacity: line.status === 1 ? 1 : 0.55,
-                            }}>
-                                <Box sx={{ minWidth: 0 }}>
-                                    <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600 }}>
-                                        {line.category}
-                                    </Typography>
-                                    <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>
-                                        {fmtDate(line.expenseDate)} · {line.project}
-                                        {/* A rejected line sits in the batch but is never payable — saying so
-                                            is what stops "the total doesn't match the lines". */}
-                                        {line.status !== 1 ? ` · ${STATUS_LABEL[line.status as StatusNum] ?? 'Not approved'}` : ''}
-                                    </Typography>
-                                </Box>
-                                <Typography sx={{
-                                    fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
-                                    fontVariantNumeric: 'tabular-nums',
-                                    color: line.status === 1 ? 'text.primary' : 'text.secondary',
-                                    textDecoration: line.status === 2 ? 'line-through' : 'none',
-                                }}>
-                                    {formatMoney(line.amount)}
-                                </Typography>
-                            </Box>
-                        ))}
-                    </Box>
+                            {/* The expenses this payout covers */}
+                            <section>
+                                <Separator className="mb-4" />
+                                <SectionTitle>Reimbursement Items</SectionTitle>
+                                <ul className="m-0 list-none divide-y divide-border p-0">
+                                    {row.lines.map((line) => {
+                                        const status = resolveStatusNum(line.status);
+                                        const approved = status === STATUS.APPROVED;
+                                        return (
+                                            <li key={line.id} className={cn('flex justify-between gap-3 py-2', !approved && 'opacity-60')}>
+                                                <div className="min-w-0">
+                                                    <p className="m-0 truncate text-sm font-semibold">{line.category}</p>
+                                                    <p className="m-0 truncate text-xs text-muted-foreground">
+                                                        {fmtDate(line.expenseDate)} · {line.project}
+                                                        {/* A rejected line sits in the batch but is never payable — saying so
+                                                            is what stops "the total doesn't match the lines". */}
+                                                        {!approved ? ` · ${STATUS_LABEL[status] ?? 'Not Approved'}` : ''}
+                                                    </p>
+                                                </div>
+                                                <span
+                                                    className={cn(
+                                                        'tabular text-sm font-bold whitespace-nowrap',
+                                                        approved ? 'text-foreground' : 'text-muted-foreground',
+                                                        status === STATUS.REJECTED && 'line-through',
+                                                    )}
+                                                >
+                                                    {formatMoney(line.amount)}
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </section>
+                        </div>
 
-                    {/* Actions — only what this state and this user actually allow */}
-                    <Box sx={{
-                        px: 2.5, py: 2, display: 'flex', gap: 1, flexWrap: 'wrap',
-                        borderTop: '1px solid', borderColor: 'divider',
-                    }}>
-                        {canPay && payable && (
-                            <Button size="sm" onClick={() => onPay(row)}>
-                                Record payment
-                            </Button>
-                        )}
-                        <Button variant="outline" size="sm" onClick={() => onOpenBatch(row)}>
-                            View reimbursement
-                        </Button>
-                    </Box>
-                </Box>
-            )}
-        </Drawer>
+                        {/* Actions — only what this state and this user actually allow */}
+                        <SheetFooter className="flex-row flex-wrap border-t border-border">
+                            {canPay && payable && (
+                                <Button onClick={() => onPay(row)}>Record Payment</Button>
+                            )}
+                            <Button variant="outline" onClick={() => onOpenBatch(row)}>View Reimbursement</Button>
+                        </SheetFooter>
+                    </>
+                )}
+            </SheetContent>
+        </Sheet>
     );
 }
