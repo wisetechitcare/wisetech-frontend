@@ -194,11 +194,9 @@ export default function PaymentQueueTable({
                     </>
                 );
             }}
+            filters={renderFilters?.()}
             toolbar={(ctx) => (
-                <>
-                    {renderFilters?.()}
-                    <DataTableExport columns={columns} ctx={ctx} filename={exportName} subtitle="Approved reimbursement batches awaiting payment" />
-                </>
+                <DataTableExport columns={columns} ctx={ctx} filename={exportName} subtitle="Approved reimbursement batches awaiting payment" />
             )}
             onRowClick={onView}
             rowLabel={(r) => `Open ${r.submissionId}, ${r.employeeName}`}

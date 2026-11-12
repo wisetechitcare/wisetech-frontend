@@ -174,7 +174,7 @@ export function OrgFilterToolbar({ filters }: { filters: OrgFilterState<any> }) 
             <ToggleGroup
                 aria-label="Employee Status"
                 variant="outline"
-                size="sm"
+                size="lg"
                 spacing={0}
                 value={[status]}
                 onValueChange={(v: string[]) => v[0] && setStatus(v[0] as EmployeeStatusFilter)}
