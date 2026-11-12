@@ -39,8 +39,8 @@ export const WithShare: Story = {
   args: {
     options: [
       { value: 'all', label: 'All', count: 14, tone: 'neutral', share: 1, detail: '₹23,905.50' },
-      { value: 'UNPAID', label: 'Ready to pay', count: 10, tone: 'danger', share: 10 / 14, detail: '₹18,200.00' },
-      { value: 'PARTIAL', label: 'Partially paid', count: 3, tone: 'warning', share: 3 / 14, detail: '₹4,705.50' },
+      { value: 'UNPAID', label: 'Ready to Pay', count: 10, tone: 'danger', share: 10 / 14, detail: '₹18,200.00' },
+      { value: 'PARTIAL', label: 'Partially Paid', count: 3, tone: 'warning', share: 3 / 14, detail: '₹4,705.50' },
       { value: 'PAID', label: 'Paid', count: 1, tone: 'success', share: 1 / 14, detail: '₹1,000.00' },
     ],
     value: 'all',

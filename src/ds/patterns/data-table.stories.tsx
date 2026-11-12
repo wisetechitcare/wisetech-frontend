@@ -513,3 +513,25 @@ export const DataArrivesLater: Story = {
     await expect(widths('Arrives later')).toEqual(widths('From the start'))
   },
 }
+
+/**
+ * Only some rows can be selected (e.g. only batches with money still owed join a payment run): the others show a
+ * disabled checkbox, and "select all" skips them.
+ */
+export const SomeRowsSelectable: Story = {
+  args: {
+    selectable: true,
+    canSelectRow: (r: Employee) => r.status === 'Active',
+    selectionActions: (rows) => <Button size="sm">Notify {rows.length}</Button>,
+  },
+  play: async ({ canvas }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    const rows = bodyRows(table)
+    const activeOnPage = rows.filter((r) => within(r).queryByText('Active')).length
+    await userEvent.click(canvas.getByRole('checkbox', { name: 'Select all rows on this page' }))
+    await expect(canvas.getByRole('region', { name: 'Selection in Employees' })).toHaveTextContent(`${activeOnPage} selected`)
+    const notSelectable = rows.find((r) => !within(r).queryByText('Active'))!
+    // Base UI's checkbox is role="checkbox" with aria-disabled (the native input is hidden) — as the Checkbox story.
+    await expect(within(notSelectable).getByRole('checkbox')).toHaveAttribute('aria-disabled', 'true')
+  },
+}

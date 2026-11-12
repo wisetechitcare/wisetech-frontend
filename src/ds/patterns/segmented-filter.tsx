@@ -27,7 +27,7 @@ export interface SegmentOption {
 }
 
 /**
- * A filter as one connected rail of counted segments — "All 14 · Ready to pay 14 · Partially paid 0".
+ * A filter as one connected rail of counted segments — "All 14 · Ready to Pay 14 · Partially Paid 0".
  *
  * Three signals, one job each: the dot says which state, weight + tint say which one is selected,
  * and (with `showShare`) a 3px rule under each segment fills to that state's share, so the shape of

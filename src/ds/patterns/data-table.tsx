@@ -293,6 +293,7 @@ export function DataTable<T extends RowData>({
   resizableColumns = true,
   stateKey,
   rowReorder,
+  canSelectRow,
 }: {
   /** Names the table for assistive tech (rendered visually hidden). */
   caption: string
@@ -351,6 +352,11 @@ export function DataTable<T extends RowData>({
    * Paused while the table is sorted or searched, because the order on screen is then not the stored order.
    */
   rowReorder?: { onReorder: (orderedIds: string[]) => void }
+  /**
+   * With `selectable`: which rows may be ticked (others show a disabled checkbox, and "select all" skips them) —
+   * e.g. only batches with money still owed can join a payment run.
+   */
+  canSelectRow?: (row: T) => boolean
 }) {
   // The kit's locale (KitProvider) — the same grouping as every other number in v2.
   const { locale } = useLocale()
@@ -358,7 +364,15 @@ export function DataTable<T extends RowData>({
   const [globalFilter, setGlobalFilter] = React.useState("")
   // Read once per table: what this viewer chose last time (widths, hidden columns, density).
   const saved = React.useMemo(() => readTableState(stateKey), [stateKey])
-  const [columnVisibility, setColumnVisibility] = React.useState<ColumnVisibilityState>(saved.visibility ?? {})
+  // Export-only columns are never shown; that wins over anything remembered.
+  const [columnVisibility, setColumnVisibility] = React.useState<ColumnVisibilityState>(() => ({
+    ...(saved.visibility ?? {}),
+    ...Object.fromEntries(
+      columns
+        .filter((c) => (c.meta as { exportOnly?: boolean } | undefined)?.exportOnly)
+        .map((c) => [c.id ?? String((c as { accessorKey?: unknown }).accessorKey), false]),
+    ),
+  }))
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [density, setDensity] = React.useState<"comfortable" | "compact">(saved.density ?? "comfortable")
   const headRefs = React.useRef(new Map<string, HTMLTableCellElement>())
@@ -401,7 +415,7 @@ export function DataTable<T extends RowData>({
       if (onPaginationChange) onPaginationChange(next)
       else setLocalPagination(next)
     },
-    enableRowSelection: selectable,
+    enableRowSelection: selectable ? (canSelectRow ? (row) => canSelectRow(row.original) : true) : false,
     manualPagination: server,
     rowCount,
     enableColumnResizing: resizableColumns,

@@ -13,19 +13,23 @@ const NOT_DATA = new Set(['__select', '__expand', 'actions']);
  *
  * It exports what the table shows: the ticked rows if any, otherwise every row after search (all pages), and
  * only the columns the user has not hidden. A column is exported when it has `meta.label`; its value is
- * `meta.exportValue(row)`, else the column's accessor.
+ * `meta.exportValue(row)`, else the column's accessor. `meta.exportType` writes money / counts as typed cells and
+ * `meta.exportTotal` sums the column into a TOTAL row (added when any column asks for one).
  */
 export function DataTableExport<T extends RowData>({
   columns,
   ctx,
   filename,
   title,
+  subtitle,
   disabled,
 }: {
   columns: ColumnDef<T, any>[];
   ctx: DataTableToolbarContext<T>;
   filename: string;
   title?: string;
+  /** A line under the title in the file, e.g. what the rows are. */
+  subtitle?: string;
   disabled?: boolean;
 }) {
   const visible = new Set(ctx.visibleColumnIds);
@@ -35,16 +39,20 @@ export function DataTableExport<T extends RowData>({
     const key = ('accessorKey' in col && col.accessorKey ? String(col.accessorKey) : col.id) ?? '';
     // TanStack ids a nested accessor 'a.b' as 'a_b'; match its id, not the raw key.
     const columnId = col.id ?? key.replace(/\./g, '_');
-    if (!key || !meta.label || meta.export === false || NOT_DATA.has(key) || !visible.has(columnId)) return [];
+    if (!key || !meta.label || meta.export === false || NOT_DATA.has(key)) return [];
+    // Hidden by the viewer → left out; export-only columns are hidden on screen by design → always in.
+    if (!visible.has(columnId) && !meta.exportOnly) return [];
     const accessorFn = 'accessorFn' in col ? col.accessorFn : undefined;
     const value = meta.exportValue ?? (accessorFn ? (row: T) => accessorFn(row, 0) : undefined);
     return [{
       key,
       header: meta.label,
-      type: 'text' as const,
+      type: meta.exportType ?? ('text' as const),
+      ...(meta.exportTotal ? { showTotal: true } : {}),
       ...(value ? { format: (_v: unknown, row: T) => String(value(row) ?? '') } : {}),
     }];
   });
+  const showTotals = exportColumns.some((c) => c.showTotal);
   const rows = ctx.selected.length > 0 ? ctx.selected : ctx.rows;
   // File and sheet names cannot hold \ / : * ? [ ]
   const safe = filename.replace(/[\\/:*?[\]]+/g, ' ').trim();
@@ -54,7 +62,10 @@ export function DataTableExport<T extends RowData>({
       columns={exportColumns}
       filename={safe}
       title={title ?? filename}
+      subtitle={subtitle}
       sheetName={safe.slice(0, 31)}
+      showTotals={showTotals}
+      totalLabel="TOTAL"
       disabled={disabled || rows.length === 0}
     />
   );

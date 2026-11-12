@@ -37,6 +37,15 @@ export interface DataTableColumnMeta<TData = any> {
   exportValue?: (row: TData) => unknown
   /** `false` keeps the column out of exports (a thumbnail, a button). */
   export?: boolean
+  /** How an export writes the value: money and counts as typed, right-aligned cells (default text). */
+  exportType?: "text" | "number" | "currency"
+  /** Sum this column in the export's TOTAL row (number / currency columns). */
+  exportTotal?: boolean
+  /**
+   * In the export only — never drawn in the table or offered in the Columns menu. For a value the screen already
+   * shows inside another cell (an employee code under the name) that a spreadsheet still wants as its own column.
+   */
+  exportOnly?: boolean
 }
 
 /**
