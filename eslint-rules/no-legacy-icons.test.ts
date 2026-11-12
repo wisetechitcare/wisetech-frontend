@@ -31,6 +31,7 @@ tester.run('no-legacy-icons', rule, {
     'const x = { icon: Receipt };',
     "const x = { title: 'bi bi-pencil' };",
     "import { KTIconFoo } from './foo';",
+    '<Field name="bi-weekly" />',
   ],
   invalid: [
     bad("import { Close } from '@mui/icons-material';"),
@@ -56,5 +57,7 @@ tester.run('no-legacy-icons', rule, {
     bad('<X iconName="la-file" />'),
     bad('<i className={`me-2 bi bi-${n}`} />'),
     bad("<i className={on ? 'bi bi-x' : ''} />"),
+    bad('<KTIcon name="bi-x" />'),
+    bad('<UI.AppIcon name="bi-x" />'),
   ],
 });

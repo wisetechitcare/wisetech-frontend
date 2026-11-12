@@ -31,6 +31,15 @@ const CLASS_PREFIX = /^(bi|fa|la|ki)-/;
 const ATTRS = new Set(['className', 'icon', 'iconName', 'name']);
 const PROPS = new Set(['icon', 'iconName']);
 
+const ICON_TAG = /Icon$/;
+
+/** Last segment of a JSX tag: `KTIcon`, or `AppIcon` for `<UI.AppIcon>`. */
+function tagName(nameNode) {
+  if (nameNode.type === 'JSXIdentifier') return nameNode.name;
+  if (nameNode.type === 'JSXMemberExpression') return nameNode.property.name;
+  return '';
+}
+
 const isLegacyClass = (s) => CLASS_TOKEN.test(s) || CLASS_PREFIX.test(s);
 
 function* literals(node) {
@@ -76,6 +85,8 @@ module.exports = {
       },
       JSXAttribute(node) {
         if (node.name.type !== 'JSXIdentifier' || !ATTRS.has(node.name.name)) return;
+        // `name` is only an icon name on an icon component; `<Field name="bi-weekly" />` is a form field.
+        if (node.name.name === 'name' && !ICON_TAG.test(tagName(node.parent.name))) return;
         checkValue(node.value);
       },
       Property(node) {
