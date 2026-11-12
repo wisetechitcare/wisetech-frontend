@@ -59,6 +59,8 @@ export interface ReimbursementWorkspaceProps {
     periodBar: React.ReactNode;
     // Phase 1: Current month/year for constraining batch forms
     currentPeriod?: any; // Dayjs object, only set when viewing monthly
+    /** Switch the page to a month — so a note about another month's drafts can take you there. */
+    goToMonth: (month: Dayjs) => void;
   }) => React.ReactNode;
   /** Extra buttons for the period bar, beside "Download Reimbursement Slip". */
   extraActions?: React.ReactNode;
@@ -69,8 +71,9 @@ export interface ReimbursementWorkspaceProps {
 }
 
 /**
- * The reimbursement screen: one period, KPI totals, charts, and the three tables that read the
- * same window on three different date axes (expense, submission, payment).
+ * The reimbursement screen: one period, KPI totals, charts, and three tables. The period is the EXPENSE month for
+ * drafts, KPIs, charts and submission batches (a batch holds one expense month); Payment History alone reads the
+ * PAYMENT date — the record of money received.
  *
  * Both the employee's own screen and the admin's Search Employee tab render this. They used to
  * be two copies that had already drifted — only one had charts and submission batches, and their
@@ -240,6 +243,7 @@ export default function ReimbursementWorkspace({
         periodBar,
         // Phase 1: Pass current month for batch period awareness in forms
         currentPeriod: alignment === 'monthly' ? periodDate : undefined,
+        goToMonth: (month) => handlePeriodChange('monthly', month.startOf('month')),
       })}
 
       {employeeId && (
@@ -278,12 +282,13 @@ export default function ReimbursementWorkspace({
             />
           )}
 
-          {/* Three tables, three date axes — expense, submission, payment. The subtitles say
-              which, which is what stops "why is my June expense under July?". Both take the
-              chart filters, so a donut slice or a category narrows what you scroll to. */}
+          {/* Batches are filtered by their EXPENSE month (SubmissionsTable: "filter by expense period"), like the
+              drafts and KPIs above; Payment History reads the payment date. The subtitles say which — the old one
+              here claimed "by submission date", which was never what the table did. Both take the chart filters,
+              so a donut slice or a category narrows what you scroll to. */}
           <SubmissionsTable
             title="Submission Batches"
-            subtitle={<>What was <strong>submitted</strong> in {periodLabel} — by submission date, whole batch.</>}
+            subtitle={<>Batches for expenses in <strong>{periodLabel}</strong> — by expense month, whole batch.</>}
             mode="submission"
             period={alignment}
             date={periodDate}

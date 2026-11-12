@@ -1799,8 +1799,25 @@ export const deletePendingReimbursementDrafts = async (ids: string[]) => {
     return data as { data?: { deleted: number; notFound: number; ids: string[] } };
 };
 
-export const submitReimbursementBatch = async (employeeId: string) => {
-    const { data } = await axios.post(`${API_BASE_URL}/${EMPLOYEE.SUBMIT_REIMBURSEMENT_BATCH}`, { employeeId });
+export interface SubmittedReimbursementBatch {
+    batchId: string;
+    submissionId: string;
+    approvalInstanceId: string;
+    totalRequests: number;
+    totalAmount: string;
+    /** Expense month the batch holds, `YYYY-MM`. */
+    month: string;
+}
+
+/**
+ * Send drafts for approval — one batch per expense month. `month` (`YYYY-MM`) sends only that month's drafts;
+ * omitted, every draft. `data.batches` lists each batch created (older servers return only the first, top-level).
+ */
+export const submitReimbursementBatch = async (
+    employeeId: string,
+    month?: string,
+): Promise<{ data?: { batches?: SubmittedReimbursementBatch[]; batchId?: string; submissionId?: string; approvalInstanceId?: string } }> => {
+    const { data } = await axios.post(`${API_BASE_URL}/${EMPLOYEE.SUBMIT_REIMBURSEMENT_BATCH}`, { employeeId, ...(month ? { month } : {}) });
     return data;
 };
 

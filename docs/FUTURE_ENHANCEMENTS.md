@@ -174,3 +174,7 @@ Format: **what** — evidence (file / screen) — suggested fix.
   `server` paging it only sees the current page, so a keyboard move cannot cross a page boundary (2026-11-09). —
   When a server-paged list needs ordering, pass a `position` offset or a move-relative callback
   (`onMove(id, beforeId)`) so the server applies the move to the full list.
+- **"Send for Approval" is all-or-nothing only for the approver check** — the backend now resolves the approval
+  chain before writing (no more batch-with-no-approver), but each month's batch commits in its own transaction and
+  `createApprovalInstanceForApprovers` opens its own, so a database failure between months leaves earlier months
+  sent (2026-11-12). — Let the approval engine accept a Prisma transaction client, then wrap the whole send in one.

@@ -27,14 +27,10 @@ import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
 import { ReimbursementDraft } from './utils/reimbursementTypes';
 import { ReimbursementFormDialog, type ReimbursementFormHelpers, type ReimbursementFormValues } from './components/ReimbursementFormDialog';
-import { fmtAmount, projectTitle } from './utils/reimbursementFormat';
+import { expenseMonthKey, fmtAmount, monthKeyLabel, projectTitle } from './utils/reimbursementFormat';
 import LoadErrorState from './components/LoadErrorState';
-import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
-import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
-import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
-import { Option } from '@models/dropdown';
-import { KTIcon } from '@metronic/helpers';
 import { Eye, FileX, Pencil, Plus, Send, Trash2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/ds/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/ds/ui/avatar';
 import { Badge } from '@/ds/ui/badge';
 import { Card, CardContent } from '@/ds/ui/card';
@@ -193,6 +189,8 @@ interface PendingReimbursementsPageProps extends Partial<EmployeeDetailsSectionP
   periodSlot?: React.ReactNode;
   /** Current period (month/year) for constraining date picker. Format: dayjs Dayjs object. */
   currentPeriod?: any; // Dayjs object
+  /** Switch the page to another month (the note about drafts waiting in other months links there). */
+  onGoToMonth?: (month: dayjs.Dayjs) => void;
 }
 
 const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, PendingReimbursementsPageProps>(function PendingReimbursementsPage({
@@ -210,6 +208,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   onDraftsChange,
   periodSlot,
   currentPeriod,
+  onGoToMonth,
 }, ref) {
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   // Per-request cap for the live limit warning under the Amount field.
@@ -235,14 +234,22 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   // Table lookup resolvers
   const { resolveClientType, resolveClientCompany, resolveProject } = useReimbursementLookups(drafts);
 
-  // Phase 1: Filter drafts by current period for month-aware inbox
-  const filteredDrafts = useMemo(() => {
-    if (!currentPeriod) return drafts;
-    return drafts.filter(draft => {
-      const draftMonth = dayjs(draft.expenseDate);
-      return draftMonth.month() === currentPeriod.month() && draftMonth.year() === currentPeriod.year();
-    });
-  }, [drafts, currentPeriod]);
+  // The inbox is month-wise (pay closes monthly). Months are IST business months — the server's batch rule.
+  const monthKey: string | null = currentPeriod ? currentPeriod.format('YYYY-MM') : null;
+  const filteredDrafts = useMemo(
+    () => (monthKey ? drafts.filter((d) => expenseMonthKey(d.expenseDate) === monthKey) : drafts),
+    [drafts, monthKey],
+  );
+  // Drafts waiting in OTHER months. Shown, never sent silently: "Send" sends the month on screen only.
+  const otherMonths = useMemo(() => {
+    if (!monthKey) return [];
+    const counts = new Map<string, number>();
+    for (const d of drafts) {
+      const key = expenseMonthKey(d.expenseDate);
+      if (key !== monthKey) counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, count]) => ({ key, count }));
+  }, [drafts, monthKey]);
 
   // ── Load drafts ────────────────────────────────────────────────────────────
 
@@ -401,24 +408,38 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
     }
   };
 
-  const handleSendForApproval = async () => {
-    if (!drafts.length) { errorConfirmation('No pending requests to submit'); return; }
+  /**
+   * `month` sends the month on screen (the default — what the employee is looking at); `all` sends every month's
+   * drafts, one batch per month. Each send makes NEW batches, so several batches a month keep working.
+   */
+  const handleSendForApproval = async (scope: 'month' | 'all') => {
+    const sendMonth = scope === 'month' ? monthKey : null;
+    const sending = sendMonth ? filteredDrafts : drafts;
+    if (!sending.length) { errorConfirmation('No pending requests to submit'); return; }
+    const months = [...new Set(sending.map((d) => expenseMonthKey(d.expenseDate)))].sort();
+    const expenses = `${sending.length} expense${sending.length === 1 ? '' : 's'}`;
     const confirmed = await genericConfirmation(
-      'Confirm Submission for Approval',
-      'Are you sure you want to send all pending reimbursement requests for approval?',
+      sendMonth ? `Send ${monthKeyLabel(sendMonth)} for Approval?` : 'Send All Months for Approval?',
+      months.length === 1
+        ? `${expenses} from ${monthKeyLabel(months[0])} will go to your approver as one batch.`
+        : `${expenses} will go to your approver as ${months.length} batches, one per month: ${months.map(monthKeyLabel).join(', ')}.`,
       'Send for Approval',
       'warning',
     );
     if (!confirmed) return;
     setSubmitting(true);
     try {
-      const res = await submitReimbursementBatch(employeeId);
-      const payload = res?.data ?? res ?? {};
-      const submissionId = payload?.submissionId || '';
-      const hasInstance = !!payload?.approvalInstanceId;
+      const res = await submitReimbursementBatch(employeeId, sendMonth ?? undefined);
+      const payload = res?.data ?? {};
+      // Every batch created is named — a multi-month send used to report only the first.
+      const sent = payload.batches?.length
+        ? payload.batches.map((b) => `${b.submissionId} (${monthKeyLabel(b.month)})`)
+        : payload.submissionId ? [payload.submissionId] : [];
       successConfirmation(
-        `Batch submitted! Submission ID: ${submissionId}${hasInstance ? '\nYour request has been routed to your approver.' : ''}`,
-        'Submitted for Approval'
+        sent.length > 1
+          ? `${sent.length} batches are with your approver: ${sent.join(', ')}.`
+          : `Batch ${sent[0] ?? ''} is with your approver.`,
+        'Sent for Approval',
       );
       loadDrafts();
     } catch (err: any) {
@@ -585,14 +606,47 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                   Add Reimbursement Request
                 </KitButton>
               )}
-            {drafts.length > 0 && (
-              <KitButton size="sm" variant="success" onClick={handleSendForApproval} loading={submitting}>
+            {filteredDrafts.length > 0 && (
+              <KitButton size="sm" variant="success" onClick={() => handleSendForApproval('month')} loading={submitting}>
                 {!submitting && <Send data-icon="inline-start" aria-hidden />}
-                {submitting ? 'Submitting…' : 'Send for Approval'}
+                {submitting
+                  ? 'Submitting…'
+                  : monthKey
+                    ? `Send ${currentPeriod.format('MMM YYYY')} (${filteredDrafts.length})`
+                    : `Send for Approval (${drafts.length})`}
+              </KitButton>
+            )}
+            {otherMonths.length > 0 && (
+              <KitButton size="sm" variant="outline" onClick={() => handleSendForApproval('all')} disabled={submitting}>
+                Send All Months ({drafts.length})
               </KitButton>
             )}
           </div>
         </div>
+      )}
+
+      {/* Drafts in other months are named, with a way there — never sent without being seen. */}
+      {!loading && otherMonths.length > 0 && (
+        <Alert variant="info" className="mb-4">
+          <AlertDescription className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span>Also waiting to be sent:</span>
+            {otherMonths.map((m, i) => {
+              const text = `${m.count} draft${m.count === 1 ? '' : 's'} in ${monthKeyLabel(m.key)}`;
+              return (
+                <React.Fragment key={m.key}>
+                  {i > 0 && <span aria-hidden>·</span>}
+                  {onGoToMonth ? (
+                    <KitButton variant="link" size="sm" className="h-auto p-0" onClick={() => onGoToMonth(dayjs(`${m.key}-01`))}>
+                      {text}
+                    </KitButton>
+                  ) : (
+                    <span className="font-medium">{text}</span>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </AlertDescription>
+        </Alert>
       )}
 
       {draftsError && !loading && (

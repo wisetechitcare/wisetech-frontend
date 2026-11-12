@@ -13,6 +13,19 @@
 
 import dayjs from 'dayjs';
 import { formatCurrencyDecimal, getCurrencyLocale } from '@utils/currency';
+import { MUMBAI_TZ } from '@utils/date';
+
+/**
+ * The business month of an expense date, `YYYY-MM` — read in IST, exactly as the server groups drafts into batches
+ * (`getMonthYear`). Expense dates are stored as UTC or IST midnight; reading them in the browser's own zone put an
+ * IST-midnight expense on the 1st into the previous month for anyone outside India (e.g. the Dubai branch), so the
+ * inbox and "Send <month>" could disagree with the server.
+ */
+export const expenseMonthKey = (value: string | Date | null | undefined): string =>
+    value ? dayjs(value).tz(MUMBAI_TZ).format('YYYY-MM') : '';
+
+/** "November 2026" for a `YYYY-MM` key. */
+export const monthKeyLabel = (key: string): string => dayjs(`${key}-01`).format('MMMM YYYY');
 
 /**
  * The single placeholder for "there is no value here".
