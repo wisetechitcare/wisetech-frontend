@@ -80,6 +80,21 @@ describe("SensitiveProvider", () => {
     expect(screen.getByText("inner figure")).toBeTruthy()
     expect(screen.queryByText("Hidden")).toBeNull()
   })
+
+  it("an inner defaultVisible=false provider under a disabled outer shows figures, and hides once re-enabled", () => {
+    const tree = (disabled: boolean) => (
+      <SensitiveProvider disabled={disabled}>
+        <SensitiveProvider defaultVisible={false}>
+          <SensitiveValue>inner figure</SensitiveValue>
+        </SensitiveProvider>
+      </SensitiveProvider>
+    )
+    const { rerender } = render(tree(true))
+    expect(screen.queryByText("Hidden")).toBeNull()
+    expect(screen.getByText("inner figure")).toBeTruthy()
+    rerender(tree(false))
+    expect(screen.getByText("Hidden")).toBeTruthy()
+  })
 })
 
 describe("useSensitive", () => {

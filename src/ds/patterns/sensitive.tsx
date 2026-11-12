@@ -107,7 +107,8 @@ export function SensitiveToggle({
           {visible ? <Eye aria-hidden className="size-[17px] max-sm:size-[20px]" /> : <EyeOff aria-hidden className="size-[17px] max-sm:size-[20px]" />}
           <span className="max-sm:sr-only">Show amounts</span>
         </TooltipTrigger>
-        <TooltipContent>{visible ? "Hide amounts" : "Show amounts"}</TooltipContent>
+        {/* Constant, like the accessible name: a flipping tooltip next to a fixed label contradicts aria-pressed. */}
+        <TooltipContent>Show amounts</TooltipContent>
       </Tooltip>
     )
   }
