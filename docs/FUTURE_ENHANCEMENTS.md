@@ -208,3 +208,17 @@ Format: **what** — evidence (file / screen) — suggested fix.
   used for it: the smallest icon size is `size-6`, which is the full height of an `h-6` badge, so each
   site writes its own 16px button and marks it `data-wt-control="chip"`. — Add `onRemove` to the kit
   `Badge` (with its own story), then delete the hand-rolled buttons and their markers.
+- **`pnpm run lint:ui:baseline` fails under pnpm on Windows** — the script uses a shell redirect, `rm -f` and an
+  unexpanded `"src/**/*.{ts,tsx}"` glob, so it reports "No files matching" (found regenerating the baselines,
+  2026-11-13). Run the same steps by hand with `eslint src --ext ts,tsx -f json`. — Port it to a Node script like
+  `gen-rule-baseline.cjs`.
+- **`.eslint-ui-baseline.cjs` was stale** — regenerating it dropped 121 files unrelated to Reimbursement (their
+  `no-restricted-syntax` Bootstrap-class reports moved to `wisetech/no-legacy-ui`) and added 3 that grew new
+  violations since the last run (`ProfileDetails`, `AppSettingsModal`, `KPISettings`). — Regenerate it in the PR
+  that touches each module, and migrate those 3.
+- **Pre-existing hard lint errors outside Reimbursement** — `CompanyLeadReferences.tsx` (hardcoded currency
+  symbol, line 100), `leads/overview/components/Custom.tsx` (`no-unused-expressions`, line 476) and
+  `constants/eventKeys.ts` (`{}` type, lines 93-97) fail `eslint --quiet src`. — Fix in their own modules.
+- **`rebootShield.test.ts` guards Reimbursement only** — the Reboot override on raw `h1-h6`, `p`, `label`, `ul`,
+  `ol`, `li`, `button` and `a` bites every module. Its scanner skips tags on a line that opens a template
+  literal (HTML strings). — Promote the scan to a repo-wide test (or an ESLint rule) as each module is converted.
