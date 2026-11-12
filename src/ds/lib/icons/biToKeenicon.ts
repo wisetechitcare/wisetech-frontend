@@ -66,6 +66,14 @@
     bi-trophy-fill
     bi-x-octagon-fill
  */
+/**
+ * Own-property lookup for the icon name maps. A name is data (it can come from a DB column), and a
+ * plain object also answers "constructor", "toString" and "__proto__" from Object.prototype, which
+ * would hand a non-icon to the renderer. Every name-map read goes through this one helper.
+ */
+export const own = <T,>(map: Record<string, T>, key: string): T | undefined =>
+    Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined;
+
 export const BI_TO_KEENICON: Record<string, string> = {
     // ─── Gap-fill: names found in real call sites after the first pass ───────────
     'bi-arrow-return-right': 'arrow-right',

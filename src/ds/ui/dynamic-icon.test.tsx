@@ -32,6 +32,17 @@ describe('DynamicIcon', () => {
   })
 })
 
+describe('DynamicIcon inherited keys', () => {
+  it('renders nothing and does not throw for Object.prototype member names', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    for (const name of ['constructor', 'toString', '__proto__']) {
+      const { container } = render(<DynamicIcon name={name} />)
+      expect(container.innerHTML).toBe('')
+      cleanup()
+    }
+  })
+})
+
 describe('IconSlot', () => {
   it('renders a component source with its className', () => {
     const { container } = render(<IconSlot icon={Trash2} className="size-4" />)

@@ -70,4 +70,11 @@ describe('icon registry', () => {
         const broken = registeredNames().filter((name) => !iconFor(name));
         expect(broken).toEqual([]);
     });
+
+    it("ignores inherited Object.prototype keys", () => {
+        // A stored name is data. "constructor" must not resolve to Object itself.
+        for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+            expect(iconFor(name), name).toBeNull();
+        }
+    });
 });

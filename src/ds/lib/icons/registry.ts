@@ -25,7 +25,7 @@
 import { createElement, forwardRef } from 'react';
 import type { ComponentType } from 'react';
 import type { LucideIcon, LucideProps } from 'lucide-react';
-import { BI_TO_KEENICON } from './biToKeenicon';
+import { BI_TO_KEENICON, own } from './biToKeenicon';
 import { FacebookIcon, TwitterIcon, WhatsAppIcon } from './brandIcons';
 import {
     List, User, Circle, Share2, Sheet, Images, Cake, Pin, Truck, UserX, Cpu, Frown, Smile,
@@ -231,10 +231,10 @@ const BI_DIRECT: Record<string, AppIconComponent> = {
  */
 export function iconFor(name: string): AppIconComponent | null {
     if (!name) return null;
-    const direct = BI_DIRECT[name] ?? KEENICON[name] ?? KEENICON_VIA_BI[name];
+    const direct = own(BI_DIRECT, name) ?? own(KEENICON, name) ?? own(KEENICON_VIA_BI, name);
     if (direct) return direct;
-    const keenicon = BI_TO_KEENICON[name];
-    return (keenicon && (KEENICON[keenicon] ?? KEENICON_VIA_BI[keenicon])) || null;
+    const keenicon = own(BI_TO_KEENICON, name);
+    return (keenicon && (own(KEENICON, keenicon) ?? own(KEENICON_VIA_BI, keenicon))) || null;
 }
 
 /** Every name the registry can resolve — used by the test to prove no call site 404s. */
