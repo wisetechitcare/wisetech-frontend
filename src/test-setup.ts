@@ -53,3 +53,56 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
     }),
   });
 }
+
+/**
+ * jsdom has no `ResizeObserver`, and the kit's Animate UI primitives construct one on mount — the tabs'
+ * sliding indicator measures the selected tab to place itself. Without this, any test that renders a kit
+ * tab strip dies on `new ResizeObserver(...)` before a single assertion runs, which is how
+ * RecruitmentOverview started failing with "ResizeObserver is not defined".
+ *
+ * A no-op is the correct default rather than a measuring fake: jsdom reports every box as 0x0 anyway, and
+ * these tests assert content and behaviour, never geometry. A test that genuinely needs a size can still
+ * define its own.
+ *
+ * One default here instead of a copy per file — the same argument as matchMedia above, and
+ * MaterialHeaderTab.test.tsx is the copy that had to exist before this. (It installs its own only when the
+ * global is absent, so it now leaves this one alone and no longer deletes it in teardown.)
+ */
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
+/**
+ * jsdom never fetches or decodes images, so every `<img>` stays at `naturalWidth: 0` and
+ * `complete: false` forever. That is invisible for a plain `<img>`, but Base UI's Avatar (which
+ * SmartAvatar is built on) renders NO `<img>` at all until loading succeeds — so a photo avatar was
+ * permanently stuck on its initials fallback under test, and EntityIdentityHeader's "renders a photo
+ * when src is given" could never pass.
+ *
+ * Base UI has a synchronous escape hatch, and this aims at exactly it: `useImageLoadingStatus` ends
+ * with a "fast path for cached/decoded images" — `if (image.complete) status = naturalWidth > 0`.
+ * Reporting an image that HAS a src as already decoded takes that path inside the layout effect, so
+ * the avatar resolves to `loaded` during the same commit and synchronous tests keep working. No faked
+ * load event, no async rewrite of every avatar test.
+ *
+ * An image with NO src still reports `complete: false` / `naturalWidth: 0`, so Base UI sets `error`
+ * and the initials fallback renders — which is what EntityIdentityHeader's first test asserts.
+ */
+if (typeof window !== 'undefined' && typeof window.HTMLImageElement === 'function') {
+  const proto = window.HTMLImageElement.prototype;
+  const decoded = (el: HTMLImageElement) => Boolean(el.getAttribute('src'));
+  Object.defineProperty(proto, 'complete', {
+    configurable: true,
+    get(this: HTMLImageElement) { return decoded(this); },
+  });
+  for (const dimension of ['naturalWidth', 'naturalHeight'] as const) {
+    Object.defineProperty(proto, dimension, {
+      configurable: true,
+      get(this: HTMLImageElement) { return decoded(this) ? 1 : 0; },
+    });
+  }
+}

@@ -139,7 +139,16 @@ describe('kit purity', () => {
         },
         f,
       );
-      for (const m of msgs) reports.push(`${path.relative(root, f)}:${m.line} ${m.message}`);
+      // Only this rule's findings. The Linter is built with `wisetech/no-legacy-ui` alone, so an
+      // `eslint-disable` comment in kit code that names any OTHER rule makes ESLint emit its own
+      // problem — "Definition for rule 'react-hooks/exhaustive-deps' was not found" — with a null
+      // ruleId. Collecting those made this test fail over a legitimate disable comment in
+      // page-tabs.tsx, which has nothing to do with Bootstrap classes. The test is about the rule's
+      // own output, so filter to it rather than teach this Linter every plugin the real config has.
+      for (const m of msgs) {
+        if (m.ruleId !== 'wisetech/no-legacy-ui') continue;
+        reports.push(`${path.relative(root, f)}:${m.line} ${m.message}`);
+      }
     }
     expect(reports).toEqual([]);
   });
