@@ -114,7 +114,9 @@ export function reachLegacyUi(root, startDir) {
     if (seen.has(key)) return [];
     seen.add(key);
     const p = parse(file);
-    if (!p.isBarrel || names === '*') return [file];
+    if (!p.isBarrel) return [file];
+    // Whole-module arrival (namespace import, import()/lazy, side-effect import): the barrel's own imports AND every re-export target count.
+    if (names === '*') return [file + '#all'];
     const res = [];
     const unresolved = [];
     for (const n of names) {
@@ -154,16 +156,28 @@ export function reachLegacyUi(root, startDir) {
   const parent = new Map();
   const queue = [];
   for (const s of starts) {
-    parent.set(s, null);
-    queue.push(s);
+    parent.set(s + '#all', null);
+    queue.push(s + '#all');
   }
   const hits = new Map(); // file -> Set<legacy spec>
   while (queue.length) {
     const raw = queue.shift();
-    const file = raw.replace(/#local$/, '');
+    const file = raw.replace(/#(local|all)$/, '');
     const p = parse(file);
     // A barrel contributes its own imports only when something it defines itself is used.
-    const deps = raw.endsWith('#local') || !p.isBarrel ? p.imports : [];
+    const deps = raw.endsWith('#local') || raw.endsWith('#all') || !p.isBarrel ? p.imports : [];
+    if (raw.endsWith('#all')) {
+      for (const r of p.reexports) {
+        const t = resolve(r.spec, file);
+        if (!t || !t.startsWith(SRC)) continue;
+        for (const target of targetsFor(t, '*')) {
+          if (!parent.has(target)) {
+            parent.set(target, raw);
+            queue.push(target);
+          }
+        }
+      }
+    }
     for (const imp of deps) {
       if (LEGACY_SPEC.test(imp.spec)) {
         if (!hits.has(file)) hits.set(file, new Set());
@@ -181,11 +195,11 @@ export function reachLegacyUi(root, startDir) {
     }
   }
 
-  const rel = (f) => norm(path.relative(root, f.replace(/#local$/, '')));
+  const rel = (f) => norm(path.relative(root, f.replace(/#(local|all)$/, '')));
   const rows = [];
   for (const [file, specs] of hits) {
     const chain = [];
-    let cur = parent.has(file) ? file : file + '#local';
+    let cur = [file, file + '#all', file + '#local'].find((k) => parent.has(k));
     while (cur) {
       const r = rel(cur);
       if (chain[0] !== r) chain.unshift(r);

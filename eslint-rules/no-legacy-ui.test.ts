@@ -52,6 +52,12 @@ tester.run('no-legacy-ui', rule, {
     bad("import 'react-bootstrap/dist/x';"),
     bad("import { type MRT_ColumnDef, MaterialReactTable } from 'material-react-table';"),
     bad("export { Box } from '@mui/material';"),
+    bad("const B = lazy(() => import('@mui/material/Button'));"),
+    bad("const B = require('react-bootstrap');"),
+    bad('<div className="data-[state=open]:d-flex" />'),
+    bad('<div className="aria-[expanded=true]:fw-bold" />'),
+    bad('<div className="supports-[display:grid]:d-flex" />'),
+    bad('<div className="group-hover/menu:d-flex" />'),
     { code: '<div className="d-flex fw-bold" />', errors: 1 }, // one report per string literal
     { code: "import { Box } from '@mui/material'; <div className=\"row\" />", errors: 2 },
     {

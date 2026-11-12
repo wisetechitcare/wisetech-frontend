@@ -98,6 +98,17 @@ module.exports = {
         if (node.specifiers && node.specifiers.length && node.specifiers.every((s) => s.exportKind === 'type')) return;
         context.report({ node, messageId: 'import', data: { src: node.source.value } });
       };
+      out.ImportExpression = (node) => {
+        if (node.source.type === 'Literal' && isLegacy(node.source.value)) {
+          context.report({ node, messageId: 'import', data: { src: node.source.value } });
+        }
+      };
+      out.CallExpression = (node) => {
+        const a = node.arguments[0];
+        if (node.callee.type === 'Identifier' && node.callee.name === 'require' && a && a.type === 'Literal' && isLegacy(a.value)) {
+          context.report({ node, messageId: 'import', data: { src: a.value } });
+        }
+      };
       out.ExportNamedDeclaration = reexport;
       out.ExportAllDeclaration = reexport;
     }

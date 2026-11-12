@@ -1,7 +1,9 @@
 /**
  * Bootstrap/Metronic-ONLY class tokens (names Tailwind does not define), for wisetech/no-legacy-ui.
  *
- * Every family here is absent from Tailwind. Names Tailwind ALSO generates must never be listed,
+ * Every family here is absent from Tailwind, with ONE deliberate exception: `text-muted` is also a real
+ * Tailwind utility here (tokens.css defines --color-muted) but is kept because it almost always means
+ * `text-muted-foreground`. Names Tailwind ALSO generates must never be listed,
  * because the same className carries both vocabularies in this repo: px-5, gap-3, text-gray-700,
  * flex-row, text-start, w-100, table, table-row, col-span-*, col-auto, flex-wrap, shrink-0,
  * cursor-pointer, ms-/me-/ps-/pe-N, rounded-2xl, border-t. The kit-purity test
@@ -29,6 +31,8 @@ const FAMILIES = [
     'use `justify-between` / `justify-center` / `items-center` / `self-start` / `content-center`'],
   ['flex-direction', new RegExp(`^(?:flex-(?:column|column-reverse|stack|root|center)|flex-${BP}-(?:row|column|column-reverse|wrap|nowrap))$`),
     'use `flex-col`, `flex-col-reverse`, `flex-row`, `flex-wrap` (responsive: `md:flex-row`) and `items-center justify-center`'],
+  ['muted', /^text-muted$/,
+    '`text-muted` is also a Tailwind utility here (a muted colour token) but almost always means `text-muted-foreground`; use that, or `text-foreground` / `font-semibold` as appropriate'],
   ['type', /^(?:fw-.+|fs-\d+x?|fs-base|lh-.+|text-(?:muted|dark|truncate|uppercase|lowercase|capitalize|decoration-none)|text-hover-.+|text-active-.+)$/,
     'use `font-semibold` / `font-bold`, `text-sm` / `text-base`, `leading-*`, `text-muted-foreground`, `text-foreground`, `truncate`, `uppercase`, `no-underline`'],
   ['background', /^(?:bg-light|bg-light-.+|bg-hover-.+|bg-active-.+|bg-body)$/,
@@ -54,7 +58,7 @@ const FAMILIES = [
 function stripVariants(token) {
   let t = token;
   for (;;) {
-    const m = t.match(/^(?:\[[^\]]*\]|[\w-]+|\*):(.+)$/);
+    const m = t.match(/^(?:[\w-]*\[[^\]]*\](?:\/[\w-]+)?|[\w-]+(?:\/[\w-]+)?|\*):(.+)$/);
     if (!m) break;
     t = m[1];
   }
