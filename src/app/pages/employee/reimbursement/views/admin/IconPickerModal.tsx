@@ -1,9 +1,14 @@
-import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useRef, useCallback, useEffect } from "react";
-
-import { Button } from '@/ds/ui/button';
-import { DynamicIcon, type IconComponent } from "@/ds/ui/dynamic-icon";
-import { Search, X, LayoutGrid, Check, ListFilter, Info } from "lucide-react";
+import { Check, Info, LayoutGrid, ListFilter, Search, X } from "lucide-react";
+import { cn } from "@/ds/lib/utils";
+import { Button } from "@/ds/ui/button";
+import { DynamicIcon } from "@/ds/ui/dynamic-icon";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/ds/ui/input-group";
+import { Spinner } from "@/ds/ui/spinner";
+import { Tabs, TabsList, TabsTrigger } from "@/ds/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip";
+import { EmptyState } from "@/ds/patterns/empty-state";
+import { FormDialog } from "@/ds/patterns/form-dialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -133,132 +138,45 @@ async function searchIconify(query: string): Promise<RemoteIcon[]> {
   }));
 }
 
+// ─── Tiles ────────────────────────────────────────────────────────────────────
 
-// ─── Shared card styles ───────────────────────────────────────────────────────
-
-const cardBase: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "4px",
-  padding: "8px 6px",
-  border: "1.5px solid #E4E6EF",
-  borderRadius: "10px",
-  background: "#FAFAFA",
-  cursor: "pointer",
-  transition: "all 0.15s ease",
-  minWidth: "68px",
-  minHeight: "68px",
-};
-
-// ─── SystemIconItem ───────────────────────────────────────────────────────────
-
-function SystemIconItem({
-  icon,
-  isSelected,
+/**
+ * One pickable icon: the glyph over its name, a square tile. Selected = the brand ring and tint
+ * (aria-pressed), the same "chosen" language as the kit's toggles.
+ */
+function IconTile({
+  label,
+  selected,
   onClick,
+  children,
 }: {
-  icon: { name: string; label: string };
-  isSelected: boolean;
+  label: string;
+  selected: boolean;
   onClick: () => void;
+  children: React.ReactNode;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const style: React.CSSProperties = {
-    ...cardBase,
-    ...(isSelected
-      ? { border: "2px solid #3E97FF", background: "#EEF6FF" }
-      : hovered
-      ? { borderColor: "#3E97FF", background: "#F5F8FF" }
-      : {}),
-  };
-
   return (
-    <button data-wt-control="swatch"
+    <button
+      data-slot="icon-picker-tile"
+      data-wt-control="swatch"
       type="button"
-      title={icon.label}
+      aria-pressed={selected}
       onClick={onClick}
-      style={style}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className={cn(
+        "flex min-h-[72px] w-[76px] flex-col items-center justify-center gap-1 rounded-2xl border border-border bg-card p-2 text-foreground outline-none transition-colors",
+        "hover:border-primary/60 hover:bg-accent/40 focus-visible:ring-3 focus-visible:ring-ring/50",
+        selected && "border-primary bg-accent ring-2 ring-primary/30",
+      )}
     >
-      {/*
-       * ✅ FIX (Image 2 & 3):
-       * The span carries the flex alignment; the icon is sized by its own size class.
-       * Stored names resolve through DynamicIcon, which draws nothing for a name
-       * the registry lacks.
-       */}
-      <span style={{ display: "flex", alignItems: "center", lineHeight: 1 }}>
-        <DynamicIcon name={icon.name} className="text-gray-700 size-[26px]" />
-      </span>
-      <span style={{ fontSize: "10px", color: "#5E6278", textAlign: "center", lineHeight: 1.2 }}>
-        {icon.label}
-      </span>
-    </button>
-  );
-}
-
-// ─── RemoteIconItem ───────────────────────────────────────────────────────────
-
-function RemoteIconItem({
-  icon,
-  isSelected,
-  onClick,
-}: {
-  icon: RemoteIcon;
-  isSelected: boolean;
-  onClick: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const style: React.CSSProperties = {
-    ...cardBase,
-    ...(isSelected
-      ? { border: "2px solid #3E97FF", background: "#EEF6FF" }
-      : hovered
-      ? { borderColor: "#3E97FF", background: "#F5F8FF" }
-      : {}),
-  };
-
-  return (
-    <button data-wt-control="swatch"
-      type="button"
-      title={icon.label}
-      onClick={onClick}
-      style={style}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <img
-        src={icon.url}
-        alt={icon.label}
-        style={{ width: 28, height: 28, objectFit: "contain" }}
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.opacity = "0.3";
-        }}
-      />
-      <span
-        style={{
-          fontSize: "10px",
-          color: "#5E6278",
-          textAlign: "center",
-          lineHeight: 1.2,
-          maxWidth: 60,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {icon.label}
-      </span>
+      {children}
+      <span className="w-full truncate text-center text-[11px] leading-tight text-muted-foreground">{label}</span>
     </button>
   );
 }
 
 // ─── SearchInput ──────────────────────────────────────────────────────────────
-// Extracted component so the icon never receives a `style` prop.
-// The magnifier icon sits inside a <span> that is absolutely positioned —
-// the icon itself gets only className (which is valid) and nothing else.
 
+/** The kit InputGroup search recipe: a magnifier inside, and a clear button once there is text. */
 function SearchInput({
   value,
   onChange,
@@ -273,80 +191,25 @@ function SearchInput({
   autoFocus?: boolean;
 }) {
   return (
-    <div style={{ position: "relative", marginBottom: "16px" }}>
-      {/* ✅ FIX: <span> positioned absolutely — the icon has NO style prop */}
-      <span
-        style={{
-          position: "absolute",
-          left: 12,
-          top: "50%",
-          transform: "translateY(-50%)",
-          pointerEvents: "none",
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        <Search className="text-muted size-[17px]" />
-      </span>
-
-      <input
-        type="text"
+    <InputGroup className="mb-4">
+      <InputGroupAddon>
+        <Search aria-hidden />
+      </InputGroupAddon>
+      <InputGroupInput
+        aria-label={placeholder}
         placeholder={placeholder}
         value={value}
         autoFocus={autoFocus}
         onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          padding: "9px 36px 9px 36px",
-          border: "1.5px solid #E4E6EF",
-          borderRadius: "8px",
-          fontSize: "13px",
-          color: "#181C32",
-          background: "#FAFAFA",
-          outline: "none",
-        }}
       />
-
       {value && (
-        <Button variant="ghost" size="icon-xs" aria-label="Clear search" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)" }}
-          type="button"
-          onClick={onClear}
-        >
-          <X />
-        </Button>
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={onClear}>
+            <X aria-hidden />
+          </InputGroupButton>
+        </InputGroupAddon>
       )}
-    </div>
-  );
-}
-
-// ─── EmptyState / LoadingState ────────────────────────────────────────────────
-
-function EmptyState({
-  icon: Icon,
-  title,
-  subtitle,
-}: {
-  icon: IconComponent;
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <div style={{ textAlign: "center", padding: "40px 0", color: "#A1A5B7" }}>
-      <span style={{ display: "block", marginBottom: 12 }}>
-        <Icon className="text-muted size-[26px]" />
-      </span>
-      <div style={{ fontSize: "13px", marginBottom: subtitle ? 4 : 0 }}>{title}</div>
-      {subtitle && <div style={{ fontSize: "11px" }}>{subtitle}</div>}
-    </div>
-  );
-}
-
-function LoadingState({ label }: { label: string }) {
-  return (
-    <div style={{ textAlign: "center", padding: "40px 0", color: "#A1A5B7" }}>
-      <span className="spinner-border spinner-border-sm text-primary me-2" />
-      {label}
-    </div>
+    </InputGroup>
   );
 }
 
@@ -354,11 +217,10 @@ function LoadingState({ label }: { label: string }) {
 
 type TabKey = "system" | "iconify";
 
-const TABS: { key: TabKey; label: string; icon: IconComponent }[] = [
-  { key: "system",   label: "System Icons", icon: LayoutGrid },
-  { key: "iconify",  label: "Iconify",      icon: Search },
-];
-
+/**
+ * Choose a category's icon: a curated set of system icons by group, or any icon from Iconify.
+ * The kit FormDialog (lg) with Cancel / Select This Icon in its footer.
+ */
 const IconPickerModal: React.FC<IconPickerModalProps> = ({
   show,
   onHide,
@@ -372,14 +234,14 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
   const [sysQuery, setSysQuery] = useState("");
 
   // Iconify tab
-  const [iconifyQuery,   setIconifyQuery]   = useState("");
+  const [iconifyQuery, setIconifyQuery] = useState("");
   const [iconifyResults, setIconifyResults] = useState<RemoteIcon[]>([]);
   const [iconifyLoading, setIconifyLoading] = useState(false);
-  const [iconifyError,   setIconifyError]   = useState<string | null>(null);
+  const [iconifyError, setIconifyError] = useState<string | null>(null);
 
   const [selectedIcon, setSelectedIcon] = useState<SelectedIcon | null>(currentIcon ?? null);
 
-  const iconifyTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const iconifyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reset when modal opens
   useEffect(() => {
@@ -388,8 +250,9 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
       setActiveTab("system");
       setSysQuery("");
       setActiveGroup(SYSTEM_ICON_GROUPS[0].label);
-      setIconifyQuery("");  setIconifyResults([]);  setIconifyError(null);
+      setIconifyQuery(""); setIconifyResults([]); setIconifyError(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on open only, as before
   }, [show]);
 
   // Debounced Iconify search
@@ -431,303 +294,190 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
     if (selectedIcon) { onSelect(selectedIcon); onHide(); }
   };
 
+  const systemTile = (icon: { name: string; label: string }) => (
+    <IconTile
+      key={icon.name}
+      label={icon.label}
+      selected={isSystemSelected(icon.name)}
+      onClick={() => setSelectedIcon({ source: "system", name: icon.name, label: icon.label })}
+    >
+      <DynamicIcon name={icon.name} className="size-[26px]" />
+    </IconTile>
+  );
+
   return (
-    <Modal show={show} onHide={onHide} centered size="lg">
-      {/* ── Header ────────────────────────────────────────────────────── */}
-      <Modal.Header
-        closeButton
-        style={{ borderBottom: "1.5px solid #EEF0F8", padding: "20px 24px" }}
-      >
-        <Modal.Title
-          style={{
-            fontSize: "16px",
-            fontWeight: 700,
-            color: "#181C32",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <span style={{ display: "flex", alignItems: "center" }}>
-            <LayoutGrid className="text-primary size-[21px]" />
-          </span>
-          Choose Icon
-        </Modal.Title>
-      </Modal.Header>
-
-      <Modal.Body style={{ padding: 0 }}>
-        {/* ── Selected preview strip ─────────────────────────────────── */}
-        {selectedIcon && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              padding: "12px 24px",
-              background: "#F8FAFF",
-              borderBottom: "1.5px solid #EEF0F8",
-            }}
-          >
-            <div
-              data-testid="selected-icon-preview"
-              style={{
-                width: 44, height: 44, borderRadius: "50%",
-                background: "#EEF6FF", border: "2px solid #3E97FF",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              {selectedIcon.source === "system" ? (
-                <DynamicIcon name={selectedIcon.name!} className="text-primary size-[23px]" />
-              ) : (
-                <img
-                  src={selectedIcon.url}
-                  alt={selectedIcon.label}
-                  style={{ width: 26, height: 26, objectFit: "contain" }}
-                />
-              )}
-            </div>
-            <div>
-              <div style={{ fontSize: "12px", color: "#A1A5B7", marginBottom: 2 }}>
-                Selected Icon
-              </div>
-              <div style={{ fontSize: "13px", fontWeight: 600, color: "#181C32" }}>
-                {selectedIcon.label}
-              </div>
-              <div style={{ fontSize: "11px", color: "#A1A5B7" }}>
-                {selectedIcon.source === "system"
-                  ? "System Icon"
-                  : "Iconify"}
-              </div>
-            </div>
-            <Button variant="link" size="xs" style={{ marginLeft: "auto" }}
-              type="button"
-              onClick={() => setSelectedIcon(null)}
-            >
-              <X />
-            </Button>
-          </div>
-        )}
-
-        {/* ── Tabs ──────────────────────────────────────────────────── */}
-        <div style={{ display: "flex", borderBottom: "1.5px solid #EEF0F8", padding: "0 24px" }}>
-          {TABS.map((tab) => (
-            <button data-wt-control="tab"
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              style={{
-                padding: "14px 16px",
-                border: "none",
-                background: "none",
-                cursor: "pointer",
-                fontSize: "13px",
-                fontWeight: activeTab === tab.key ? 700 : 500,
-                color: activeTab === tab.key ? "#3E97FF" : "#7E8299",
-                borderBottom:
-                  activeTab === tab.key ? "2.5px solid #3E97FF" : "2.5px solid transparent",
-                marginBottom: "-1.5px",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                transition: "all 0.15s",
-              }}
-            >
-              {/* span wrapper keeps the flex alignment around the icon */}
-              <span style={{ display: "flex", alignItems: "center" }}>
-                <tab.icon className={`size-[17px] ${activeTab === tab.key ? "text-primary" : "text-muted"}`} />
-              </span>
-              {tab.label}
-            </button>
-          ))}
+    <FormDialog
+      open={show}
+      onOpenChange={(open) => { if (!open) onHide(); }}
+      size="lg"
+      title="Choose Icon"
+      icon={<LayoutGrid />}
+      subheader={
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
+          <TabsList aria-label="Icon source">
+            <TabsTrigger value="system"><LayoutGrid aria-hidden /> System Icons</TabsTrigger>
+            <TabsTrigger value="iconify"><Search aria-hidden /> Iconify</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      }
+      footer={(close) => (
+        <div className="flex w-full flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" onClick={close}>Cancel</Button>
+          <Button onClick={handleConfirm} disabled={!selectedIcon}>
+            <Check data-icon="inline-start" aria-hidden /> Select This Icon
+          </Button>
         </div>
-
-        {/* ── System Tab ────────────────────────────────────────────── */}
-        {activeTab === "system" && (
-          <div style={{ padding: "16px 24px" }}>
-            <SearchInput
-              value={sysQuery}
-              onChange={setSysQuery}
-              onClear={() => setSysQuery("")}
-              placeholder="Filter icons…"
-            />
-
-            {filteredSystem ? (
-              filteredSystem.length === 0 ? (
-                <EmptyState
-                  icon={ListFilter}
-                  title={`No system icons matched "${sysQuery}"`}
-                />
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                  {filteredSystem.map((icon) => (
-                    <SystemIconItem
-                      key={icon.name}
-                      icon={icon}
-                      isSelected={isSystemSelected(icon.name)}
-                      onClick={() =>
-                        setSelectedIcon({ source: "system", name: icon.name, label: icon.label })
-                      }
-                    />
-                  ))}
-                </div>
-              )
+      )}
+    >
+      {/* ── Selected preview strip ─────────────────────────────────── */}
+      {selectedIcon && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-border bg-muted/50 p-3">
+          <div
+            data-testid="selected-icon-preview"
+            className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-primary ring-2 ring-primary/40"
+          >
+            {selectedIcon.source === "system" ? (
+              <DynamicIcon name={selectedIcon.name!} className="size-[23px]" />
             ) : (
-              <>
-                {/* Group pills */}
-                <div
-                  style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "14px" }}
-                >
-                  {SYSTEM_ICON_GROUPS.map((g) => (
-                    <button data-wt-control="chip"
+              <img src={selectedIcon.url} alt={selectedIcon.label} className="size-[26px] object-contain" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="m-0 text-xs text-muted-foreground">Selected Icon</p>
+            <p className="m-0 truncate text-sm font-semibold capitalize">{selectedIcon.label}</p>
+            <p className="m-0 text-xs text-muted-foreground">
+              {selectedIcon.source === "system" ? "System Icon" : "Iconify"}
+            </p>
+          </div>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="tinted"
+                  size="icon-sm"
+                  className="ml-auto [--tint:var(--muted-foreground)]"
+                  aria-label="Clear selected icon"
+                  onClick={() => setSelectedIcon(null)}
+                />
+              }
+            >
+              <X aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent>Clear selected icon</TooltipContent>
+          </Tooltip>
+        </div>
+      )}
+
+      {/* ── System Tab ────────────────────────────────────────────── */}
+      {activeTab === "system" && (
+        <div>
+          <SearchInput
+            value={sysQuery}
+            onChange={setSysQuery}
+            onClear={() => setSysQuery("")}
+            placeholder="Filter icons…"
+          />
+
+          {filteredSystem ? (
+            filteredSystem.length === 0 ? (
+              <EmptyState
+                variant="no-match"
+                size="sm"
+                icon={<ListFilter />}
+                title={`No system icons matched "${sysQuery}"`}
+              />
+            ) : (
+              <div className="flex flex-wrap gap-2">{filteredSystem.map(systemTile)}</div>
+            )
+          ) : (
+            <>
+              {/* Group pills — one chosen at a time, the kit's pressed (brand) look. */}
+              <div role="group" aria-label="Icon groups" className="mb-3.5 flex flex-wrap gap-1.5">
+                {SYSTEM_ICON_GROUPS.map((g) => {
+                  const active = activeGroup === g.label;
+                  return (
+                    <Button
                       key={g.label}
-                      type="button"
+                      data-wt-control="chip"
+                      size="sm"
+                      variant={active ? "default" : "outline"}
+                      aria-pressed={active}
                       onClick={() => setActiveGroup(g.label)}
-                      style={{
-                        padding: "5px 12px",
-                        borderRadius: "20px",
-                        border: `1.5px solid ${activeGroup === g.label ? "#3E97FF" : "#E4E6EF"}`,
-                        background: activeGroup === g.label ? "#EEF6FF" : "#FAFAFA",
-                        color: activeGroup === g.label ? "#3E97FF" : "#5E6278",
-                        fontSize: "12px",
-                        fontWeight: activeGroup === g.label ? 600 : 400,
-                        cursor: "pointer",
-                        transition: "all 0.15s",
-                      }}
                     >
                       {g.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Icons grid */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "8px",
-                    maxHeight: "240px",
-                    overflowY: "auto",
-                    paddingRight: "4px",
-                  }}
-                >
-                  {SYSTEM_ICON_GROUPS.find((g) => g.label === activeGroup)?.icons.map((icon) => (
-                    <SystemIconItem
-                      key={icon.name}
-                      icon={icon}
-                      isSelected={isSystemSelected(icon.name)}
-                      onClick={() =>
-                        setSelectedIcon({
-                          source: "system",
-                          name: icon.name,
-                          label: icon.label,
-                        })
-                      }
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── Iconify Tab ───────────────────────────────────────────── */}
-        {activeTab === "iconify" && (
-          <div style={{ padding: "16px 24px" }}>
-            <SearchInput
-              value={iconifyQuery}
-              onChange={handleIconifySearch}
-              onClear={() => {
-                setIconifyQuery("");
-                setIconifyResults([]);
-                setIconifyError(null);
-              }}
-              placeholder="Search icons (e.g. travel, food, hotel)…"
-              autoFocus
-            />
-
-            {!iconifyQuery && (
-              <EmptyState
-                icon={Search}
-                title="Search from thousands of icons"
-                subtitle="Try: travel, food, hotel, medical, laptop…"
-              />
-            )}
-            {iconifyLoading && <LoadingState label="Searching icons…" />}
-            {iconifyError && !iconifyLoading && (
-              <EmptyState icon={Info} title={iconifyError} />
-            )}
-            {!iconifyLoading && iconifyResults.length > 0 && (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "8px",
-                  maxHeight: "280px",
-                  overflowY: "auto",
-                  paddingRight: "4px",
-                }}
-              >
-                {iconifyResults.map((icon) => (
-                  <RemoteIconItem
-                    key={icon.name}
-                    icon={icon}
-                    isSelected={isRemoteSelected(icon.url)}
-                    onClick={() =>
-                      setSelectedIcon({ source: "iconify", url: icon.url, label: icon.label })
-                    }
-                  />
-                ))}
+                    </Button>
+                  );
+                })}
               </div>
-            )}
-            <div
-              style={{ marginTop: "12px", fontSize: "10px", color: "#C4C8D8", textAlign: "right" }}
-            >
-              Icons via{" "}
-              <a
-                href="https://iconify.design"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "#C4C8D8" }}
-              >
-                Iconify
-              </a>
+
+              {/* Icons grid */}
+              <div className="flex max-h-60 flex-wrap gap-2 overflow-y-auto pr-1">
+                {SYSTEM_ICON_GROUPS.find((g) => g.label === activeGroup)?.icons.map(systemTile)}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Iconify Tab ───────────────────────────────────────────── */}
+      {activeTab === "iconify" && (
+        <div>
+          <SearchInput
+            value={iconifyQuery}
+            onChange={handleIconifySearch}
+            onClear={() => {
+              setIconifyQuery("");
+              setIconifyResults([]);
+              setIconifyError(null);
+            }}
+            placeholder="Search icons (e.g. travel, food, hotel)…"
+            autoFocus
+          />
+
+          {!iconifyQuery && (
+            <EmptyState
+              size="sm"
+              icon={<Search />}
+              title="Search From Thousands of Icons"
+              description="Try: travel, food, hotel, medical, laptop…"
+            />
+          )}
+          {iconifyLoading && (
+            <p role="status" className="m-0 flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+              <Spinner /> Searching icons…
+            </p>
+          )}
+          {iconifyError && !iconifyLoading && (
+            <EmptyState variant="no-match" size="sm" icon={<Info />} title={iconifyError} />
+          )}
+          {!iconifyLoading && iconifyResults.length > 0 && (
+            <div className="flex max-h-72 flex-wrap gap-2 overflow-y-auto pr-1">
+              {iconifyResults.map((icon) => (
+                <IconTile
+                  key={icon.name}
+                  label={icon.label}
+                  selected={isRemoteSelected(icon.url)}
+                  onClick={() => setSelectedIcon({ source: "iconify", url: icon.url, label: icon.label })}
+                >
+                  <img
+                    src={icon.url}
+                    alt=""
+                    className="size-7 object-contain dark:invert"
+                    onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
+                  />
+                </IconTile>
+              ))}
             </div>
-          </div>
-        )}
-
-      </Modal.Body>
-
-      {/* ── Footer ────────────────────────────────────────────────────── */}
-      <Modal.Footer
-        style={{
-          borderTop: "1.5px solid #EEF0F8",
-          padding: "14px 24px",
-          justifyContent: "flex-end",
-          gap: "10px",
-        }}
-      >
-        <Button variant="outline" size="sm"
-          type="button"
-          data-unsaved-changes-close
-          onClick={onHide}
-          style={{ fontWeight: 600 }}
-        >
-          Cancel
-        </Button>
-        <Button size="sm"
-          type="button"
-          onClick={handleConfirm}
-          disabled={!selectedIcon}
-          style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
-        >
-          <span style={{ display: "flex", alignItems: "center" }}>
-            <Check />
-          </span>
-          Select This Icon
-        </Button>
-      </Modal.Footer>
-    </Modal>
+          )}
+          <p className="m-0 mt-3 text-right text-[11px] text-muted-foreground">
+            Icons via{" "}
+            <a href="https://iconify.design" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+              Iconify
+            </a>
+          </p>
+        </div>
+      )}
+    </FormDialog>
   );
 };
 

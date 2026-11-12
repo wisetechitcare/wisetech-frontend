@@ -1,9 +1,23 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import IconPickerModal from "./IconPickerModal";
 
 afterEach(cleanup);
+
+beforeAll(() => {
+  // jsdom has no ResizeObserver or matchMedia; the kit dialog (floating labels, motion) uses both.
+  globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
+  if (!window.matchMedia) {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: (query: string) => ({
+        matches: false, media: query, onchange: null,
+        addListener: () => {}, removeListener: () => {}, addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+      }),
+    });
+  }
+});
 
 /**
  * A reimbursement type's icon is STORED DATA: either a system icon name or an Iconify URL.

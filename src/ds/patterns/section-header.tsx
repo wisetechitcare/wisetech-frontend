@@ -27,14 +27,17 @@ export function SectionHeader({
   className?: string
 }) {
   return (
-    <div data-slot="section-header" className={cn("flex items-center gap-3", className)}>
-      <div className="min-w-0 flex-1">
-        <Heading data-slot="section-title" className="heading-case truncate text-base leading-snug">{titleCaseChildren(title)}</Heading>
-        {description && <p className="truncate text-sm text-muted-foreground">{description}</p>}
+    // Wraps on a narrow card: the action drops to its own line instead of running off the edge (on a phone
+    // a Settings Section's "Add" button and half its description used to sit outside the card, unreachable).
+    <div data-slot="section-header" className={cn("flex flex-wrap items-center gap-3", className)}>
+      <div className="min-w-0 flex-1 basis-48">
+        <Heading data-slot="section-title" className="heading-case line-clamp-2 text-base leading-snug break-words sm:line-clamp-none sm:truncate">{titleCaseChildren(title)}</Heading>
+        {description && <p className="line-clamp-2 text-sm text-muted-foreground sm:line-clamp-1">{description}</p>}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
-      {/* Icon top-right — the card rule (cards right, rows left, dialogs left). */}
-      {icon && <IconBox icon={icon} tone={tone} size="lg" />}
+      {/* Icon top-right — the card rule (cards right, rows left, dialogs left); it stays beside the title when the
+          action wraps below. */}
+      {icon && <IconBox icon={icon} tone={tone} size="lg" className="order-2 sm:order-3" />}
+      {action && <div className="order-3 max-w-full shrink-0 sm:order-2">{action}</div>}
     </div>
   )
 }
