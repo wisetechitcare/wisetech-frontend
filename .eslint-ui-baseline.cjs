@@ -308,7 +308,6 @@ module.exports = [
   "src/app/pages/employee/reimbursement/components/ReimbursementEditModal.tsx",
   "src/app/pages/employee/reimbursement/components/ReimbursementPaymentHistoryTable.tsx",
   "src/app/pages/employee/reimbursement/components/SubmissionMobileCard.tsx",
-  "src/app/pages/employee/reimbursement/shared/ReimbursementBatchShared.tsx",
   "src/app/pages/employee/reimbursement/utils/toolbarButton.ts",
   "src/app/pages/employee/reimbursement/views/SubmissionsTable.tsx",
   "src/app/pages/employee/reimbursement/views/admin/AllEmployee.tsx",

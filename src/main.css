@@ -11,6 +11,16 @@
 /* Kit component rules (floating labels, option states…): all [data-slot]-scoped, safe beside Metronic. */
 @import "./ds/styles/components.css";
 
+/* The kit's default border colour, as Storybook's globals.css sets it. Tailwind v4's Preflight leaves a bare
+   `border` / `border-t` at currentColor, so in the app (which never imports globals.css) every kit divider without
+   an explicit colour drew in the text colour — near-black rules under a dialog header, white ones in dark mode.
+   In @layer base: any colour a utility, Bootstrap or MUI states still wins; only the default changes. */
+@layer base {
+  *, ::before, ::after {
+    border-color: var(--border);
+  }
+}
+
 /* Drive `dark:` utilities off the app-wide `.dark` class that ColorModeProvider stamps on <html>
    (Tailwind v4 defaults `dark:` to prefers-color-scheme; we want it tied to the in-app toggle). */
 @custom-variant dark (&:where(.dark, .dark *));
