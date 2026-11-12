@@ -13,6 +13,7 @@
 
 import dayjs from 'dayjs';
 import { formatCurrencyDecimal, getCurrencyLocale } from '@utils/currency';
+import { formatDate } from '@utils/dateFormats';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { IST_TZ } from '@constants/timezone';
@@ -47,7 +48,7 @@ export const LEGACY_SUBMISSION_LABEL = 'Legacy (not submitted)';
 // ── Dates ─────────────────────────────────────────────────────────────────────
 
 /**
- * Display format for every date in the module.
+ * Display format for every date in the module: the company standard (`formatDate`, YYYY.MM.DD).
  *
  * Takes the raw value, never a pre-formatted string: mappers used to overwrite `expenseDate`
  * with `"05 Jan 2026"` and the table then sorted *that*, so dates ordered alphabetically —
@@ -55,9 +56,7 @@ export const LEGACY_SUBMISSION_LABEL = 'Legacy (not submitted)';
  * at the point of render.
  */
 export const fmtDate = (value?: string | Date | null): string => {
-    if (!value) return NO_VALUE;
-    const d = dayjs(value);
-    return d.isValid() ? d.format('DD MMM YYYY') : NO_VALUE;
+    return formatDate(value, NO_VALUE);
 };
 
 /** Month heading used to group the records table by expense month. */
