@@ -198,3 +198,8 @@ Format: **what** — evidence (file / screen) — suggested fix.
   `animate-spin` (Tailwind) for icon spinners, and delete the local class once AuditSection is converted.
 - **`NeedsYourAttention` `STYLE[].icon` is dead data** — the reimbursement attention cards declare an icon per
   style that nothing renders (found in the pilot). — Render it or delete the field.
+- **Dismissal belongs in the kit `Badge`** — `Badge` has no `onRemove`, so a chip that can be dismissed
+  hand-rolls the affordance (QueryConversation's attachment chips, 2026-11-13). The kit Button cannot be
+  used for it: the smallest icon size is `size-6`, which is the full height of an `h-6` badge, so each
+  site writes its own 16px button and marks it `data-wt-control="chip"`. — Add `onRemove` to the kit
+  `Badge` (with its own story), then delete the hand-rolled buttons and their markers.

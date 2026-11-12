@@ -257,8 +257,15 @@ function Thread({
                                 {attachments.map((url, i) => (
                                     <Badge key={url} variant="neutral" className="h-6 gap-1 pr-1">
                                         {`Attachment ${i + 1}`}
+                                        {/* The chip's own dismiss affordance, not a standalone action:
+                                            16px inside a 24px Badge. The kit Button cannot serve here —
+                                            its smallest icon size is `size-6`, the badge's full height.
+                                            Dismissal belongs in the kit Badge eventually (logged in
+                                            docs/FUTURE_ENHANCEMENTS.md); until then this is the
+                                            documented `chip` control, as ExplorerToolbar does it. */}
                                         <button
                                             type="button"
+                                            data-wt-control="chip"
                                             data-slot="attachment-remove"
                                             aria-label={`Remove attachment ${i + 1}`}
                                             className="inline-grid size-4 place-items-center rounded-full border-0 bg-transparent p-0 text-current hover:bg-foreground/10"
