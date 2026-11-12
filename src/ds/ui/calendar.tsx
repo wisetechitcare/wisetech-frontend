@@ -229,8 +229,11 @@ function CalendarInner({
           </>
         ) : (
           <>
+            {/* data-slot on every kit button: it is what opts it out of Bootstrap's Reboot (`button { border-radius: 0 }`
+                and friends) in the app. Without it the month/year tiles rendered square. */}
             <Button
               slot={null}
+              data-slot="calendar-previous"
               aria-label={view === "months" ? "Previous year" : "Previous years"}
               className={navButtonClassName}
               onPress={() => goTo({ year: focused.year - (view === "months" ? 1 : 12) })}
@@ -239,6 +242,7 @@ function CalendarInner({
             </Button>
             <Button
               slot={null}
+              data-slot="calendar-next"
               aria-label={view === "months" ? "Next year" : "Next years"}
               className={navButtonClassName}
               onPress={() => goTo({ year: focused.year + (view === "months" ? 1 : 12) })}
@@ -363,6 +367,7 @@ function CalendarInner({
                       <Button
                         key={m}
                         slot={null}
+                        data-slot="calendar-month"
                         data-current={current || undefined}
                         aria-current={picked && current ? "date" : undefined}
                         isDisabled={outOfRange(start, start.add({ months: 1 }).subtract({ days: 1 }))}
@@ -388,6 +393,7 @@ function CalendarInner({
                       <Button
                         key={year}
                         slot={null}
+                        data-slot="calendar-year"
                         data-current={current || undefined}
                         aria-current={picked && current ? "date" : undefined}
                         isDisabled={outOfRange(start, start.set({ month: 12, day: 31 }))}
