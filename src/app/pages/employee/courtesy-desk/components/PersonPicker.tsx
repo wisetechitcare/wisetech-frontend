@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { Avatar, Box, Checkbox, Chip, CircularProgress, InputAdornment, Link, Stack, Tab, Tabs, TextField, Typography, alpha, useTheme } from "@mui/material";
+import { Box, Checkbox, Chip, CircularProgress, InputAdornment, Link, Stack, Tab, Tabs, TextField, Typography, alpha, useTheme } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { getAllClientContacts } from "@services/companies";
-import { initialsOf } from "@app/modules/common/components/EmployeeIdentityCell";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import {
   ActionIconButton,
   ConfirmDialog,
@@ -137,30 +137,11 @@ export function PersonAvatar({
   person,
   size = 32,
 }: {
-  person: Pick<PersonRef, "fullName" | "avatarUrl">;
+  person: Pick<PersonRef, "fullName" | "avatarUrl"> & { personId?: string };
   size?: number;
 }) {
-  const theme = useTheme();
-  return (
-    <Avatar
-      src={person.avatarUrl || undefined}
-      alt=""
-      sx={{
-        width: size,
-        height: size,
-        fontSize: size * 0.38,
-        fontWeight: 700,
-        bgcolor: alpha(
-          SELECTED_TRIO.c,
-          theme.palette.mode === "dark" ? 0.35 : 0.15,
-        ),
-        color: SELECTED_TRIO.c,
-        flexShrink: 0,
-      }}
-    >
-      {initialsOf(person.fullName)}
-    </Avatar>
-  );
+  // Every call site prints the name beside the avatar, so it is decorative.
+  return <SmartAvatar src={person.avatarUrl} name={person.fullName} seed={person.personId} size={size} decorative />;
 }
 
 function PersonChipRow({

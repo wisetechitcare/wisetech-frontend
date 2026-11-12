@@ -84,6 +84,42 @@ export function StatusColours() {
   )
 }
 
+const HUES: Array<[string, string, string]> = [
+  ["Blue", "blue", "Annual leave"],
+  ["Green", "green", "Engineering"],
+  ["Amber", "amber", "Comp-off"],
+  ["Rose", "rose", "Sick leave"],
+  ["Purple", "purple", "Recruitment"],
+  ["Cyan", "cyan", "Work from home"],
+  ["Slate", "slate", "Unpaid leave"],
+]
+
+export function CategoryHues() {
+  return (
+    <Section
+      title="Category hues"
+      description="Identity, not meaning: tell leave types, departments and modules apart. A hue never signals good or bad — that is what Status is for."
+    >
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        {HUES.map(([n, key, example]) => (
+          <div key={key} className="rounded-xl border bg-card p-3 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="size-3 rounded-full" style={{ background: `var(--tone-${key})` }} />
+              <p className="text-sm font-medium">{n}</p>
+            </div>
+            <div
+              className="mt-3 rounded-lg px-3 py-2 text-xs font-medium"
+              style={{ background: `var(--tone-${key}-soft)`, color: `var(--tone-${key}-foreground)` }}
+            >
+              {example}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
 export function TypeScale() {
   return (
     <Section title="Type scale" description="Inter (self-hosted) on shadcn's Tailwind scale. Body copy is text-sm; numbers use tabular figures so columns align.">
@@ -203,16 +239,64 @@ export function SpacingDensity() {
   )
 }
 
+const EASES: Array<[string, string, string]> = [
+  ["ease-enter", "Arriving, answering a tap", "easeOutCubic"],
+  ["ease-exit", "Leaving (with a shorter duration)", "easeInCubic"],
+  ["ease-move", "Between two places on screen", "easeInOutCubic"],
+  ["ease-spring", "Buttons: quick, slightly springy", "WtButton recipe"],
+]
+const DURATIONS: Array<[string, string]> = [
+  ["--duration-control", "160ms · toggles, chips, hovers"],
+  ["--duration-panel", "300ms · popovers, drawers, dialogs, cards"],
+  ["--duration-screen", "450ms · full-screen changes"],
+]
+
+export function Motion() {
+  return (
+    <Section
+      title="Motion"
+      description="The curve follows the direction of travel; the duration follows the size of what moves. Hover a row to run it. Reduced motion skips the travel."
+    >
+      <div className="space-y-2 rounded-xl border bg-card p-5 shadow-xs">
+        {EASES.map(([name, use, curve]) => (
+          <div key={name} className="group/ease grid grid-cols-[9rem_minmax(0,1fr)] items-center gap-4 sm:grid-cols-[9rem_14rem_minmax(0,1fr)]">
+            <code className="font-mono text-xs">{name}</code>
+            <span className="hidden text-xs text-muted-foreground sm:block">
+              {use} ({curve})
+            </span>
+            <div className="relative h-6 rounded-full bg-muted">
+              <span
+                aria-hidden
+                className={`absolute top-1 left-1 size-4 rounded-full bg-primary transition-[left] duration-(--duration-screen) motion-reduce:transition-none group-hover/ease:left-[calc(100%-1.25rem)] ${name}`}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {DURATIONS.map(([token, use]) => (
+          <div key={token} className="rounded-xl border bg-card p-4 shadow-xs">
+            <code className="font-mono text-xs">{token}</code>
+            <p className="mt-1 text-xs text-muted-foreground">{use}</p>
+          </div>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
 /** All foundations on one page. */
 export function Foundations() {
   return (
     <div className="space-y-12">
       <ColourRoles />
       <StatusColours />
+      <CategoryHues />
       <TypeScale />
       <TypesetArticle />
       <RadiusElevation />
       <SpacingDensity />
+      <Motion />
     </div>
   )
 }

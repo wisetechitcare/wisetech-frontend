@@ -15,14 +15,15 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert, Autocomplete, Avatar, Box, Chip, CircularProgress, Grid, MenuItem,
-    Slider, Stack, TextField, Typography, alpha, useTheme,
+    Alert, Autocomplete, Box, Chip, CircularProgress, Grid, MenuItem,
+    Slider, Stack, TextField, Typography, useTheme,
 } from '@mui/material';
 import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { KTIcon } from '@metronic/helpers';
 import {
     TaskFormValues, TaskScope, TaskTypeMode, buildTaskPayload, fieldsForScope, validateScopeShape,
-    apiErrorMessage, employeeName, initialsOf, clampProgress, PresetTask, progressForStage, TaskStatusRef,
+    apiErrorMessage, employeeName, clampProgress, PresetTask, progressForStage, TaskStatusRef,
 } from '../taskDomain';
 import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
 import { useProjectDeliverables } from '../useProjectDeliverables';
@@ -899,9 +900,7 @@ export const TaskFormDialog = ({
                                         key={option.id}
                                         size="small"
                                         avatar={
-                                            <Avatar src={option.avatar || undefined}>
-                                                {initialsOf(employeeName(option))}
-                                            </Avatar>
+                                            <SmartAvatar name={employeeName(option)} src={option.avatar} seed={option.id} size="xs" decorative />
                                         }
                                         label={employeeName(option)}
                                         // The owner is stated, not implied by position — a chip
@@ -914,16 +913,7 @@ export const TaskFormDialog = ({
                                 ))}
                                 renderOption={(props, option) => (
                                     <Box component="li" {...props} key={option.id} sx={{ gap: 1 }}>
-                                        <Avatar
-                                            src={option.avatar || undefined}
-                                            sx={{
-                                                width: 24, height: 24, fontSize: 10, fontWeight: 700,
-                                                bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.3 : 0.16),
-                                                color: 'primary.main',
-                                            }}
-                                        >
-                                            {initialsOf(employeeName(option))}
-                                        </Avatar>
+                                        <SmartAvatar name={employeeName(option)} src={option.avatar} seed={option.id} size="xs" decorative />
                                         <Typography variant="body2" noWrap>{employeeName(option)}</Typography>
                                     </Box>
                                 )}

@@ -1,19 +1,22 @@
 import * as React from "react"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { Badge } from "@/ds/ui/badge"
-import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ds/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardLink, CardTitle } from "@/ds/ui/card"
 import { cn } from "@/ds/lib/utils"
+import type { Tone } from "@/ds/lib/tone"
+import { IconBox } from "./icon-box"
 
-/** Card accent: drives the corner glow, icon tile and sparkline. Trend colour stays semantic (good/bad), never the tone. */
-export type StatTone = "brand" | "success" | "warning" | "info" | "danger"
-
-const TONES: Record<StatTone, React.CSSProperties> = {
-  brand: { "--tone": "var(--primary)", "--tone-ink": "var(--accent-foreground)" } as React.CSSProperties,
-  success: { "--tone": "var(--success)", "--tone-ink": "var(--success-foreground)" } as React.CSSProperties,
-  warning: { "--tone": "var(--warning)", "--tone-ink": "var(--warning-foreground)" } as React.CSSProperties,
-  info: { "--tone": "var(--info)", "--tone-ink": "var(--info-foreground)" } as React.CSSProperties,
-  danger: { "--tone": "var(--destructive)", "--tone-ink": "var(--destructive-foreground)" } as React.CSSProperties,
-}
+/**
+ * Card accent: drives the corner glow, icon tile and sparkline. Trend colour stays semantic
+ * (good/bad), never the tone.
+ *
+ * This is the kit-wide `Tone`, not a list local to this file. The five status names (brand,
+ * success, warning, info, danger) are the same ones a local record would spell out, plus the
+ * hue tones and an admin-configured hex — and `toneStyle()` is what ten other components
+ * already use, so a stat card cannot drift from a chip beside it.
+ */
+export type StatTone = Tone
 
 /** Smooth path through the points (Catmull-Rom → cubic Bézier) in a 100×32 box. */
 function sparkPath(values: number[]) {
@@ -47,11 +50,29 @@ function Sparkline({ values }: { values: number[] }) {
 }
 
 /**
+ * Three sizes, two layouts.
+ *
+ * `compact` (default) and `comfortable` are the same vertical tile at two densities: compact is a KPI
+ * strip — 16px padding, a 2xl value and a plain hint on the line directly under it (never a separate
+ * footer row), so four cards fit a phone two-up and a desktop row without dead space; comfortable is
+ * the roomy original (24px padding, 3xl value, hint on its own footer row) for a hero number.
+ *
+ * `sm` is the other layout: one horizontal row (label and value left, icon right) for a dense grid of
+ * small figures — the live kit's StatTile.
+ *
+ * `compact` and `sm` are both 16px-padding cards, so `data-size` on the Card cannot tell them apart;
+ * `data-stat-size` on the same element names the stat size itself.
+ */
+export type StatCardSize = "compact" | "comfortable" | "sm"
+
+/**
  * KPI tile on shadcn's Card: label, big tabular number, tinted icon, optional trend, hint and sparkline.
  * Status is never colour-only: the trend carries an arrow and text. `children` render between the
  * header and the footer (e.g. a thumbnail and actions).
- * Motion (all `motion-safe`, transform-only): the icon pops in and the value rises on mount; on hover
- * the card lifts, its glow brightens, the icon wiggles and a tone bar sweeps along the bottom edge.
+ *
+ * The glow, accent bar, hover lift and icon motion are NOT drawn here — they live in `Card`
+ * (`variant="tile"`), so every tile in the kit matches this one. All of it is `motion-safe` and
+ * transform-only.
  */
 export function StatCard({
   label,
@@ -61,6 +82,8 @@ export function StatCard({
   hint,
   sparkline,
   tone = "brand",
+  size = "compact",
+  href,
   className,
   children,
   ...props
@@ -73,42 +96,87 @@ export function StatCard({
   hint?: React.ReactNode
   /** Recent values, oldest first; drawn as a small area chart. */
   sparkline?: number[]
-  tone?: StatTone
+  /** A status, a category hue, or an admin-configured hex colour. */
+  tone?: StatTone | (string & {})
+  size?: StatCardSize
+  /** The list behind the number (a KPI that filters the table below it). Makes the whole card a link. */
+  href?: string
 }) {
   const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp
-  const hasFooter = trend || hint || (sparkline && sparkline.length > 1)
+  const compact = size === "compact"
+  const hasSparkline = !!sparkline && sparkline.length > 1
+  // Compact puts a plain hint directly under the value; a footer row is only worth its height when it
+  // carries a trend badge or a sparkline.
+  const inlineHint = compact && hint && !trend && !hasSparkline
+  const hasFooter = trend || hasSparkline || (hint && !inlineHint)
+  const labelText = href ? <CardLink href={href}>{titleCaseChildren(label)}</CardLink> : titleCaseChildren(label)
+
+  // The horizontal tile is the benchmark at a smaller size, not a different design: same glow, accent
+  // bar, lift, icon tile with pop and wiggle, same label style and number rise. Only what makes it
+  // compact changes — one row, tighter padding, a smaller number.
+  if (size === "sm") {
+    return (
+      <Card
+        {...props}
+        size="sm"
+        tone={tone}
+        interactive={!!href}
+        data-stat-size={size}
+        className={cn("flex-row items-center gap-3 px-(--card-spacing)", className)}
+      >
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="heading-case truncate text-sm text-muted-foreground">{labelText}</p>
+          <p className="tabular text-2xl leading-tight font-semibold motion-safe:animate-stat-rise">{value}</p>
+        </div>
+        {trend && (
+          <Badge variant={trend.good ? "success" : "danger"}>
+            <TrendIcon data-icon="inline-start" aria-hidden />
+            {trend.value}
+          </Badge>
+        )}
+        {icon && <IconBox icon={icon} tone={tone} size="lg" />}
+      </Card>
+    )
+  }
+
   return (
     <Card
       {...props}
-      className={cn(
-        "group/stat relative gap-4 overflow-hidden transition-[box-shadow,translate] duration-300 ease-spring hover:shadow-md motion-safe:hover:-translate-y-0.5",
-        className,
-      )}
-      style={{ ...TONES[tone], ...props.style }}
+      variant="tile"
+      tone={tone}
+      interactive={!!href}
+      size={compact ? "sm" : "default"}
+      data-stat-size={size}
+      className={cn("@container/stat", compact ? "gap-2" : "gap-4", className)}
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-20 -right-20 size-52 rounded-full bg-(--tone) opacity-[0.13] blur-3xl transition-[opacity,scale] duration-500 group-hover/stat:scale-125 group-hover/stat:opacity-[0.22] dark:opacity-[0.2] dark:group-hover/stat:opacity-[0.3]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-(--tone) transition-transform duration-500 ease-spring group-hover/stat:scale-x-100"
-      />
-      <CardHeader className="relative">
-        <CardDescription>{label}</CardDescription>
+      {/* `!` because Card's own `has-data-[slot=card-action]:grid-cols-[1fr_auto]` outranks a plain class. */}
+      <CardHeader className={cn(compact && "gap-1 @max-[210px]/stat:grid-cols-1!")}>
+        <CardDescription className={cn("heading-case", compact && "truncate text-xs")}>{labelText}</CardDescription>
         {/* min-w-0: lets a long text value truncate instead of widening the card. */}
-        <CardTitle className="tabular min-w-0 text-3xl font-semibold motion-safe:animate-stat-rise">{value}</CardTitle>
+        <CardTitle
+          className={cn(
+            "tabular min-w-0 font-semibold motion-safe:animate-stat-rise",
+            compact ? "flex flex-col gap-0.5 text-xl sm:text-2xl" : "text-3xl",
+          )}
+        >
+          {/* Clipped with an ellipsis like `truncate`, but `overflow: clip` rather than `hidden`: only
+              clip honours `overflow-clip-margin`, which lets a blurred (hidden) amount's soft edge fade
+              out 0.75rem past the box instead of being cut into a hard rectangle at the text's edge. */}
+          <span className="min-w-0 overflow-clip text-ellipsis whitespace-nowrap [overflow-clip-margin:0.75rem]">{value}</span>
+          {inlineHint && <span className="min-w-0 text-xs font-normal text-muted-foreground">{hint}</span>}
+        </CardTitle>
         {icon && (
-          <CardAction>
-            <span className="grid size-11 place-items-center rounded-2xl bg-[color-mix(in_oklch,var(--tone)_14%,transparent)] text-(--tone-ink) ring-1 ring-[color-mix(in_oklch,var(--tone)_22%,transparent)] transition-[scale,box-shadow] duration-300 group-hover/stat:scale-110 group-hover/stat:shadow-[0_8px_18px_-8px_var(--tone)] motion-safe:animate-stat-pop motion-safe:group-hover/stat:*:animate-stat-wiggle [&>svg]:size-5">
-              {icon}
-            </span>
+          // A narrow compact card (two-up on a phone) gives the icon's width to the value: the icon is
+          // decoration, and a figure cut off with an ellipsis is a wrong figure.
+          <CardAction className={cn(compact && "@max-[210px]/stat:hidden")}>
+            {/* Card's tile variant animates the icon (pop, hover scale, wiggle). */}
+            <IconBox icon={icon} tone={tone} size={compact ? "default" : "lg"} />
           </CardAction>
         )}
       </CardHeader>
-      {children && <CardContent className="relative">{children}</CardContent>}
+      {children && <CardContent>{children}</CardContent>}
       {hasFooter && (
-        <CardFooter className="relative items-end justify-between gap-3 text-xs">
+        <CardFooter className="items-end justify-between gap-3 text-xs">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {trend && (
               <Badge variant={trend.good ? "success" : "danger"}>
@@ -116,7 +184,7 @@ export function StatCard({
                 {trend.value}
               </Badge>
             )}
-            {hint && <span className="text-muted-foreground">{hint}</span>}
+            {hint && !inlineHint && <span className="text-muted-foreground">{hint}</span>}
           </div>
           {sparkline && <Sparkline values={sparkline} />}
         </CardFooter>

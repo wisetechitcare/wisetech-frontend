@@ -411,11 +411,20 @@ export const getAllProjects = async (fields?: string[]) => {
 // readable by ANY authenticated employee and returns only the fields the
 // reimbursement modal needs. Same response shape as getAllProjects
 // ({ data: { projects: [...] } }) so existing parsing keeps working.
-export const getReimbursementProjectOptions = async () => {
+/**
+ * The expense form's project + File Location company options (slim, family-scoped by the server). Cached for the
+ * default minute and shared in flight: the drafts inbox, its name lookups and the form all read it on one page.
+ * Projects are created from many lead screens, so this expires rather than being invalidated per write.
+ */
+export const getReimbursementProjectOptions = async (): Promise<{
+    data?: { projects?: any[]; companies?: { id: string; companyName: string; companyTypeId: string | null }[]; truncated?: boolean };
+}> => {
     try {
-        const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_REIMBURSEMENT_PROJECT_OPTIONS}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest('reimbursementProjectOptions', async () => {
+            const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_REIMBURSEMENT_PROJECT_OPTIONS}`;
+            const { data } = await axios.get(endpoint);
+            return data;
+        });
     } catch (err) {
         throw err;
     }

@@ -13,6 +13,26 @@
 
 import dayjs from 'dayjs';
 import { formatCurrencyDecimal, getCurrencyLocale } from '@utils/currency';
+import { formatDate } from '@utils/dateFormats';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+import { IST_TZ } from '@constants/timezone';
+
+// Pure module: the plugins are extended here rather than relying on `@utils/date` (which imports the store).
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+/**
+ * The business month of an expense date, `YYYY-MM` — read in IST, exactly as the server groups drafts into batches
+ * (`getMonthYear`). Expense dates are stored as UTC or IST midnight; reading them in the browser's own zone put an
+ * IST-midnight expense on the 1st into the previous month for anyone outside India (e.g. the Dubai branch), so the
+ * inbox and "Send <month>" could disagree with the server.
+ */
+export const expenseMonthKey = (value: string | Date | null | undefined): string =>
+    value ? dayjs(value).tz(IST_TZ).format('YYYY-MM') : '';
+
+/** "November 2026" for a `YYYY-MM` key. */
+export const monthKeyLabel = (key: string): string => dayjs(`${key}-01`).format('MMMM YYYY');
 
 /**
  * The single placeholder for "there is no value here".
@@ -28,7 +48,7 @@ export const LEGACY_SUBMISSION_LABEL = 'Legacy (not submitted)';
 // ── Dates ─────────────────────────────────────────────────────────────────────
 
 /**
- * Display format for every date in the module.
+ * Display format for every date in the module: the company standard (`formatDate`, YYYY.MM.DD).
  *
  * Takes the raw value, never a pre-formatted string: mappers used to overwrite `expenseDate`
  * with `"05 Jan 2026"` and the table then sorted *that*, so dates ordered alphabetically —
@@ -36,9 +56,7 @@ export const LEGACY_SUBMISSION_LABEL = 'Legacy (not submitted)';
  * at the point of render.
  */
 export const fmtDate = (value?: string | Date | null): string => {
-    if (!value) return NO_VALUE;
-    const d = dayjs(value);
-    return d.isValid() ? d.format('DD MMM YYYY') : NO_VALUE;
+    return formatDate(value, NO_VALUE);
 };
 
 /** Month heading used to group the records table by expense month. */
@@ -96,33 +114,41 @@ export const resolveStatusNum = (status: unknown): StatusNum => {
     return STATUS.PENDING;
 };
 
+/**
+ * THE colour of each status, for every surface that shows one — table row tint, badge, phone card, filter
+ * chip. Three surfaces each had their own map and disagreed (Mixed was blue in the table, grey on the chip,
+ * and amber on the phone card, which also painted Needs info blue because it read 3 as "mixed").
+ * Needs info is warning: like Pending, it waits on someone — here, the employee. Every consumer renders
+ * the LABEL beside the colour: colour alone is not a status. (Replaced a hex palette that had no users left
+ * and could not follow dark mode.)
+ */
+export const STATUS_TONE: Record<StatusNum, 'warning' | 'success' | 'danger' | 'info'> = {
+    [STATUS.PENDING]: 'warning',
+    [STATUS.NEEDS_INFO]: 'warning',
+    [STATUS.APPROVED]: 'success',
+    [STATUS.REJECTED]: 'danger',
+    [STATUS.MIXED]: 'info',
+};
+
 export const STATUS_LABEL: Record<StatusNum, string> = {
     [STATUS.PENDING]: 'Pending',
     [STATUS.APPROVED]: 'Approved',
     [STATUS.REJECTED]: 'Rejected',
-    [STATUS.NEEDS_INFO]: 'Needs info',
-    [STATUS.MIXED]: 'Mixed',
+    [STATUS.NEEDS_INFO]: 'Needs Info',
+    // A batch whose lines were decided differently — the badge, export, card and filter all say this.
+    [STATUS.MIXED]: 'Partly Approved',
 };
 
 /**
- * Status colours, from the salary module's chip palette. Every consumer must render the LABEL
- * alongside the colour — colour alone is not a status, and the module previously encoded
- * "over limit" as a red tint with no text at all.
+ * Payment state in words — the table badge, the phone card, the chart and exports read THIS (Title Case).
+ * The table said "Pending" and "Partially Paid" while the card said "Awaiting payment" and "Part paid" for the
+ * same two states.
  */
-export const STATUS_TONE: Record<StatusNum, { color: string; bg: string }> = {
-    [STATUS.PENDING]: { color: '#d97706', bg: '#fff7e8' },
-    [STATUS.APPROVED]: { color: '#15803d', bg: '#ecfdf3' },
-    [STATUS.REJECTED]: { color: '#dc2626', bg: '#fef2f2' },
-    // Amber like pending, because that is what it is — waiting, not refused.
-    [STATUS.NEEDS_INFO]: { color: '#b45309', bg: '#fffbeb' },
-    [STATUS.MIXED]: { color: '#475569', bg: '#f1f5f9' },
-};
-
-export const PAYMENT_TONE: Record<string, { color: string; bg: string }> = {
-    PAID: { color: '#15803d', bg: '#ecfdf3' },
-    PARTIAL: { color: '#d97706', bg: '#fff7e8' },
-    UNPAID: { color: '#dc2626', bg: '#fef2f2' },
-};
+export const PAYMENT_LABEL = {
+    PAID: 'Paid',
+    PARTIAL: 'Partially Paid',
+    UNPAID: 'Awaiting Payment',
+} as const;
 
 // ── Names and lookups ─────────────────────────────────────────────────────────
 
@@ -146,12 +172,17 @@ export const fullName = (user?: { firstName?: string | null; lastName?: string |
  * printed "N/A" for every row that had a perfectly good project on it.
  */
 export const projectTitle = (row: {
-    lead?: { title?: string | null } | null;
+    lead?: { title?: string | null; originalProjectPrefix?: string | null } | null;
     project?: { title?: string | null } | null;
     projectId?: string | null;
     leadId?: string | null;
 }, resolve?: (id: string) => string | undefined): string => {
-    const direct = row.lead?.title || row.project?.title;
+    // The same label the reimbursement form's project picker shows: "WT/PROJECT/26-27/742 - 5th Floor …".
+    // The server attaches `lead` to drafts and submitted claims alike, so a row names its own project.
+    const lead = row.lead?.title
+        ? (row.lead.originalProjectPrefix ? `${row.lead.originalProjectPrefix} - ${row.lead.title}` : row.lead.title)
+        : null;
+    const direct = lead || row.project?.title;
     if (direct) return direct;
     const id = row.leadId || row.projectId;
     return (id && resolve?.(id)) || NO_VALUE;

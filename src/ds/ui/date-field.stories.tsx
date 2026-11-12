@@ -4,8 +4,8 @@ import { expect, fn, mocked, userEvent, waitFor, within } from 'storybook/test'
 import { DateField, TimeField } from './date-field'
 
 /**
- * Segmented date entry on React Aria. Segment order and separators follow the locale (en-IN:
- * dd/mm/yyyy); each segment takes typing and arrow keys. Values are `CalendarDate`.
+ * Segmented date entry on React Aria. Segments read the company standard YYYY.MM.DD
+ * (src/utils/dateFormats.ts) whatever the kit locale; each segment takes typing and arrow keys. Values are `CalendarDate`.
  */
 const meta = {
   title: 'Components/DateField',
@@ -22,22 +22,23 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * en-IN is day-first; typing fills the segments in that order and reports a `CalendarDate`.
- * onChange fires per keystroke once every segment has a value, so the year arrives as 2, 20, 202
- * and then 2026: act on blur or submit, not on every change.
+ * Year-month-day with dots (the company standard); typing fills the segments in that order and reports a `CalendarDate`.
+ * onChange fires per keystroke once every segment has a value. Year-first entry fills the year before the
+ * day, so those emits already carry 2026 (the day arrives as 2, then 28); a field edited in place can still
+ * pass through 0002-…: act on blur or submit, not on every change.
  */
-export const DayFirst: Story = {
+export const CompanyFormat: Story = {
   play: async ({ args, canvas }) => {
-    const group = canvas.getByRole('group', { name: 'Date of joining' })
-    await expect(group).toHaveTextContent('dd/mm/yyyy')
+    const group = canvas.getByRole('group', { name: 'Date of Joining' })
+    await expect(group).toHaveTextContent('yyyy.mm.dd')
     await userEvent.click(canvas.getAllByRole('spinbutton')[0])
-    await userEvent.keyboard('28102026')
-    await expect(group).toHaveTextContent('28/10/2026')
+    await userEvent.keyboard('20261028')
+    await expect(group).toHaveTextContent('2026.10.28')
     await waitFor(() => expect(args.onChange).toHaveBeenCalled())
     const value = mocked(args.onChange!).mock.lastCall?.[0] as DateValue
     await expect(value.toString()).toBe('2026-10-28')
     const years = mocked(args.onChange!).mock.calls.map(([v]) => (v as DateValue).year)
-    await expect(years).toEqual([2, 20, 202, 2026])
+    await expect(years).toEqual([2026, 2026])
   },
 }
 
@@ -48,16 +49,16 @@ export const Invalid: Story = {
     defaultValue: parseDate('2026-03-15'),
     minValue: parseDate('2026-04-01'),
     validationBehavior: 'aria',
-    errorMessage: 'Pick a date on or after 01/04/2026.',
+    errorMessage: 'Pick a date on or after 2026.04.01.',
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('alert')).toHaveTextContent('Pick a date on or after 01/04/2026.')
-    await expect(canvas.getByText('Pick a date on or after 01/04/2026.')).toBeVisible()
+    await expect(canvas.getByRole('alert')).toHaveTextContent('Pick a date on or after 2026.04.01.')
+    await expect(canvas.getByText('Pick a date on or after 2026.04.01.')).toBeVisible()
     for (const segment of canvas.getAllByRole('spinbutton')) {
       await expect(segment).toHaveAttribute('aria-invalid', 'true')
     }
     await expect(canvas.getAllByRole('spinbutton')[0]).toHaveAccessibleDescription(
-      /Within the current financial year\. Pick a date on or after 01\/04\/2026\./,
+      /Within the current financial year\. Pick a date on or after 2026\.04\.01\./,
     )
   },
 }
@@ -71,8 +72,8 @@ export const TimeHourCycle: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    const twelve = canvas.getByRole('group', { name: 'Shift starts (12-hour)' })
-    const twentyFour = canvas.getByRole('group', { name: 'Shift starts (24-hour)' })
+    const twelve = canvas.getByRole('group', { name: 'Shift Starts (12-hour)' })
+    const twentyFour = canvas.getByRole('group', { name: 'Shift Starts (24-hour)' })
     // React Aria wraps the time in bidi isolates, hence \W around the digits.
     await expect(twelve).toHaveTextContent(/^\W*2:30\W*pm$/i)
     await expect(twentyFour).toHaveTextContent(/^\W*14:30\W*$/)

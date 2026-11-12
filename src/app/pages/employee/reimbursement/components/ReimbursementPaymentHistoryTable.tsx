@@ -1,22 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { IReimbursementPayment } from '@models/employee';
-import { fetchReimbursementPayments, fetchReimbursementBatchById, fetchApprovalInstanceByRequest } from '@services/employee';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { fetchReimbursementPayments, fetchApprovalInstanceByRequest } from '@services/employee';
 import { BatchDetailModal } from '../shared/ReimbursementBatchShared';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
-import { fmtDate, fmtAmount, formatMoney } from '../utils/reimbursementFormat';
+import { fmtAmount } from '../utils/reimbursementFormat';
 import PaymentDetailPanel from './PaymentDetailPanel';
-import { clickableRowProps, CLICKABLE_ROW_SX } from '../utils/rowInteraction';
 import LoadErrorState from './LoadErrorState';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
-import { useMediaQuery, useTheme } from '@mui/material';
+import { SensitiveValue } from '@/ds/patterns/sensitive';
 import { currencyPrefix } from '@utils/currency';
+import { cn } from '@/ds/lib/utils';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 
@@ -33,15 +34,6 @@ interface ReimbursementPaymentHistoryTableProps {
     periodDate: dayjs.Dayjs;
 }
 
-// Rows and footers render the SAME column, so they must agree to the paisa. `formatMoney`
-// used maximumFractionDigits: 0 while the row formatter used 2 — a footer literally did not
-// equal the sum of the rows above it.
-
-
-
-
-
-
 interface BatchRow {
     id: string;
     batchId: string;
@@ -56,6 +48,9 @@ interface BatchRow {
     payments: (IReimbursementPayment & Record<string, any>)[];
 }
 
+/** One figure, one format: rows, footers, cards and the export all print money through this. */
+const money = (n: number) => `${currencyPrefix()}${fmtAmount(n)}`;
+
 const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTableProps> = ({
     employeeId,
     employeeCode,
@@ -64,9 +59,6 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     period,
     periodDate,
 }) => {
-    const { cls: sensitiveCls } = useSensitiveData();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     // The page owns the period. This table carried its own tabs + navigator, which is how the
     // screen ended up showing records for one month next to payments for another.
     const filter = period;
@@ -97,6 +89,8 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     const loadPayments = useCallback(async () => {
         if (!employeeId) return;
         setLoading(true);
+        // A retry that succeeds must clear the failure — it used to stay on the error screen for good.
+        setHistoryError(false);
         try {
             const { startDate, endDate } = await getDateRange();
             const data = await fetchReimbursementPayments(employeeId, startDate, endDate);
@@ -105,28 +99,26 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
             );
             setPayments(sorted);
 
-            // Resolve submissionId for each unique batchId
             const uniqueBatchIds = Array.from(
-                new Set(
-                    sorted
-                        .map((p: any) => p.batch?.id || p.batchId)
-                        .filter(Boolean),
-                ),
+                new Set(sorted.map((p: any) => p.batch?.id || p.batchId).filter(Boolean)),
             ) as string[];
 
-            // Halved: this used to issue TWO requests per batch. The submission id was one of
-            // them, and the payment row has carried `batch.submissionId` since Phase 2 added the
-            // include — so that fetch was asking the server for a field already in hand. Only the
-            // approval instance still needs a round trip.
+            // This used to cost TWO requests per batch (submission id + approval instance); both now arrive with
+            // the payment rows.
             const submissionIdByBatch = new Map<string, string>();
+            // The server now sends each batch's live approval instance with the payment (one query for the whole
+            // list). `undefined` means an older server that does not — only those batches are looked up.
+            const approvalByBatch = new Map<string, string | null | undefined>();
             for (const p of sorted as any[]) {
                 const id = p.batch?.id || p.batchId;
                 if (id && p.batch?.submissionId) submissionIdByBatch.set(id, p.batch.submissionId);
+                if (id && p.batch && 'approvalInstanceId' in p.batch) approvalByBatch.set(id, p.batch.approvalInstanceId);
             }
 
             const entries = await Promise.all(
                 uniqueBatchIds.map(async (id) => {
                     const submissionId = submissionIdByBatch.get(id) || id;
+                    if (approvalByBatch.has(id)) return { id, submissionId, approvalInstanceId: approvalByBatch.get(id) ?? null };
                     try {
                         const instanceRes = await fetchApprovalInstanceByRequest('ReimbursementBatch', id);
                         const instance = instanceRes?.data || instanceRes;
@@ -210,205 +202,124 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
         return Array.from(map.values());
     }, [payments, employeeCode, employeeName, batchSubmissionMap, batchApprovalMap]);
 
-    const grandTotalPaid = useMemo(
-        () => batchRows.reduce((s, r) => s + r.totalAmountPaid, 0),
+    // One pass for the three footers. Rows and footers print through the same `money`, so a footer
+    // equals the sum of the rows above it to the paisa (they once used different decimal places).
+    const totals = useMemo(
+        () => batchRows.reduce(
+            (t, r) => ({
+                requested: t.requested + r.totalRequestAmount,
+                paid: t.paid + r.totalAmountPaid,
+                remaining: t.remaining + r.totalRemainingAmount,
+            }),
+            { requested: 0, paid: 0, remaining: 0 },
+        ),
         [batchRows],
     );
 
-    const grandTotalRequestAmount = useMemo(
-        () => batchRows.reduce((s, r) => s + r.totalRequestAmount, 0),
-        [batchRows],
-    );
+    const openBatch = useCallback((r: BatchRow) => {
+        setSelectedApprovalInstanceId(r.approvalInstanceId ?? null);
+        setSelectedBatchId(r.batchId);
+    }, []);
 
-    const grandTotalRemainingAmount = useMemo(
-        () => batchRows.reduce((s, r) => s + r.totalRemainingAmount, 0),
-        [batchRows],
-    );
-
-    const columns = useMemo(
-        () => [
+    const columns = useMemo<ColumnDef<BatchRow, any>[]>(() => {
+        const amountCell = (n: number, className?: string) => (
+            <SensitiveValue className={cn('tabular', className)}>{money(n)}</SensitiveValue>
+        );
+        return [
             {
                 accessorKey: 'submissionId',
-                header: 'Batch ID',
-                size: 200,
-                Cell: ({ renderedCellValue }: any) => (
-                    <span
-                        style={{
-                            display: 'inline-block',
-                            background: '#fef2f2',
-                            color: '#1E3A8A',
-                            fontWeight: 700,
-                            fontSize: 11,
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            fontFamily: 'monospace',
-                            letterSpacing: '0.03em',
-                        }}
-                    >
-                        {renderedCellValue}
-                    </span>
-                ),
-                Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
+                meta: { label: 'Batch ID' },
+                header: ({ column }) => <SortableHeader column={column} title="Batch ID" />,
+                cell: ({ row }) => <Badge variant="brand" className="font-mono tracking-wide">{row.original.submissionId}</Badge>,
+                footer: () => <span className="uppercase">Total</span>,
             },
             {
                 accessorKey: 'totalRequests',
-                header: 'Total Requests',
-                size: 140,
-                Cell: ({ row, renderedCellValue }: any) => (
-                    <Button variant="link" type="submit"
-                        style={{ textDecoration: 'none', color: '#1E3A8A' }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedApprovalInstanceId(row.original.approvalInstanceId ?? null);
-                            setSelectedBatchId(row.original.batchId);
-                        }}
+                meta: { label: 'Total requests' },
+                header: ({ column }) => <SortableHeader column={column} title="Total Requests" />,
+                // Kept as its own control (the row opens the batch too) so the count reads as a link to the lines.
+                cell: ({ row }) => (
+                    <Button
+                        variant="link"
+                        className="tabular h-auto p-0"
+                        aria-label={`Open the ${row.original.totalRequests} requests in ${row.original.submissionId}`}
+                        onClick={() => openBatch(row.original)}
                     >
-                        {renderedCellValue}
+                        {row.original.totalRequests}
                     </Button>
                 ),
             },
             {
                 accessorKey: 'totalRequestAmount',
-                header: 'Total Request Amount',
-                size: 200,
-                Cell: ({ renderedCellValue }: any) => (
-                    <span className={`fw-bold fs-7 ${sensitiveCls}`} style={{ color: '#475569' }}>
-                        {currencyPrefix()}{fmtAmount(Number(renderedCellValue))}
-                    </span>
-                ),
-                Footer: () => (
-                    <span className={sensitiveCls} style={{ color: '#475569', fontWeight: 700, fontSize: '1rem' }}>
-                        {formatMoney(grandTotalRequestAmount)}
-                    </span>
-                ),
+                meta: { label: 'Total request amount', exportValue: (r) => fmtAmount(r.totalRequestAmount) },
+                header: ({ column }) => <SortableHeader column={column} title="Total Request Amount" />,
+                cell: ({ row }) => amountCell(row.original.totalRequestAmount, 'text-muted-foreground'),
+                footer: () => amountCell(totals.requested),
             },
             {
                 accessorKey: 'totalAmountPaid',
-                header: 'Total Paid Amount',
-                size: 185,
-                Cell: ({ renderedCellValue }: any) => (
-                    <span className={`fw-bolder fs-6 ${sensitiveCls}`} style={{ color: '#16a34a' }}>
-                        {currencyPrefix()}{fmtAmount(Number(renderedCellValue))}
-                    </span>
-                ),
-                Footer: () => (
-                    <span className={sensitiveCls} style={{ color: '#16a34a', fontWeight: 700, fontSize: '1rem' }}>
-                        {formatMoney(grandTotalPaid)}
-                    </span>
-                ),
+                meta: { label: 'Total paid amount', exportValue: (r) => fmtAmount(r.totalAmountPaid) },
+                header: ({ column }) => <SortableHeader column={column} title="Total Paid Amount" />,
+                cell: ({ row }) => amountCell(row.original.totalAmountPaid, 'font-semibold text-success-foreground'),
+                footer: () => amountCell(totals.paid, 'text-success-foreground'),
             },
             {
                 accessorKey: 'totalRemainingAmount',
-                header: 'Total Remaining Amount',
-                size: 220,
-                Cell: ({ renderedCellValue }: any) => (
-                    <span
-                        className={`fw-bolder fs-6 ${sensitiveCls}`}
-                        style={{
-                            color: Number(renderedCellValue) > 0 ? '#1E3A8A' : '#16a34a',
-                        }}
-                    >
-                        {currencyPrefix()}{fmtAmount(Number(renderedCellValue))}
-                    </span>
+                meta: { label: 'Total remaining amount', exportValue: (r) => fmtAmount(r.totalRemainingAmount) },
+                header: ({ column }) => <SortableHeader column={column} title="Total Remaining Amount" />,
+                // Settled reads as success; anything still owed stays the plain foreground figure.
+                cell: ({ row }) => amountCell(
+                    row.original.totalRemainingAmount,
+                    row.original.totalRemainingAmount > 0 ? 'font-semibold text-foreground' : 'text-success-foreground',
                 ),
-                Footer: () => (
-                    <span className={sensitiveCls} style={{ color: '#1E3A8A', fontWeight: 700, fontSize: '1rem' }}>
-                        {formatMoney(grandTotalRemainingAmount)}
-                    </span>
-                ),
+                footer: () => amountCell(totals.remaining),
             },
-        ],
-        [grandTotalPaid, grandTotalRequestAmount, grandTotalRemainingAmount, sensitiveCls],
-    );
+        ];
+    }, [totals, openBatch]);
 
     return (
         <>
-        <div className="mt-4 mt-lg-8">
-            <div className="mb-4 mb-lg-6 px-3 px-lg-0">
-                <h2 className="mb-1 fs-4 fs-lg-3">Reimbursement Payment History</h2>
-                <div className="text-muted fs-8 fs-lg-7">
+        <div className="mt-4 lg:mt-8">
+            <div className="mb-4 px-3 lg:mb-6 lg:px-0">
+                <h2 className="m-0 mb-1 text-base font-bold text-foreground lg:text-lg">Reimbursement Payment History</h2>
+                <p className="m-0 text-xs text-muted-foreground">
                     What you were <strong>paid</strong> in {periodLabel} — by payment date. A batch
                     appears here once it has a payment recorded in this window.
-                </div>
+                </p>
             </div>
-            <div
-                className={isMobile ? "" : "card shadow-sm"}
-                style={isMobile ? { backgroundColor: 'transparent', boxShadow: 'none', border: 'none' } : undefined}
-            >
-                <div className={isMobile ? "p-0" : "card-body p-6"}>
-                    {loading ? (
-                        <div className="d-flex justify-content-center align-items-center py-12">
-                            <div className="spinner-border text-primary" role="status" />
-                        </div>
-                    ) : historyError ? (
-                        <LoadErrorState what="your payment history" onRetry={loadPayments} />
-                    ) : (
-                        <MaterialTable
-                            data={batchRows}
-                            columns={columns}
-                            tableName="ReimbursementPaymentHistory"
-                            showColumnFooter={true}
-                            enableStatusColorCoding={false}
-                            isLoading={loading}
-                            renderMobileCard={({ row }: any) => (
-                              <div data-wt-control="row"
-                                onClick={() => {
-                                  setSelectedApprovalInstanceId(row.original.approvalInstanceId ?? null);
-                                  setSelectedBatchId(row.original.batchId);
-                                }}
-                                style={{
-                                  padding: '12px', background: '#fff', border: '1px solid #e2e8f0',
-                                  borderRadius: '8px', marginBottom: '8px', cursor: 'pointer'
-                                }}
-                              >
-                                <div style={{ fontWeight: 700, color: '#1E3A8A', fontSize: '0.9rem', marginBottom: '8px' }}>
-                                  {row.original.submissionId}
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.8rem' }}>
-                                  <div>
-                                    <span style={{ color: '#64748b' }}>Requests</span>
-                                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{row.original.totalRequests}</div>
-                                  </div>
-                                  <div>
-                                    <span style={{ color: '#64748b' }}>Amount Paid</span>
-                                    <div className={`fw-bold ${sensitiveCls}`} style={{ color: '#16a34a' }}>{currencyPrefix()}{fmtAmount(row.original.totalAmountPaid)}</div>
-                                  </div>
-                                  <div>
-                                    <span style={{ color: '#64748b' }}>Request Amount</span>
-                                    <div className={`fw-bold ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(row.original.totalRequestAmount)}</div>
-                                  </div>
-                                  <div>
-                                    <span style={{ color: '#64748b' }}>Remaining</span>
-                                    <div className={`fw-bold ${sensitiveCls}`} style={{ color: row.original.totalRemainingAmount > 0 ? '#1E3A8A' : '#16a34a' }}>
-                                      {currencyPrefix()}{fmtAmount(row.original.totalRemainingAmount)}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                            muiTableProps={{
-                                muiTableBodyRowProps: ({ row }: any) => ({
-                                    ...clickableRowProps(() => {
-                                        setSelectedApprovalInstanceId(row.original.approvalInstanceId ?? null);
-                                        setSelectedBatchId(row.original.batchId);
-                                    }, `Open payment details for ${row.original.submissionId ?? 'this batch'}`),
-                                    sx: { ...CLICKABLE_ROW_SX, '&:hover td': { backgroundColor: '#F8FAFC' } },
-                                }),
-                            }}
-                            renderDetailPanel={({ row }: any) => (
-                              // Same panel the admin Payment tab renders. This markup
-                              // existed twice and the copies had already drifted.
-                              <PaymentDetailPanel
-                                payments={(row.original.payments || []).map((p: any) => ({
-                                  ...p,
-                                  paymentMadeBy: p._paymentMadeBy,
-                                }))}
-                              />
-                            )}
+            {historyError && !loading ? (
+                <LoadErrorState what="your payment history" onRetry={loadPayments} />
+            ) : (
+                <DataTable<BatchRow>
+                    caption={`Reimbursement payment history, ${periodLabel}`}
+                    columns={columns}
+                    data={batchRows}
+                    getRowId={(r) => r.id}
+                    loading={loading}
+                    searchPlaceholder="Search payments"
+                    stateKey="reimbursement.payment-history"
+                    selectable
+                    selectionActions={(_rows, _clear, ctx) => <DataTableExport columns={columns} ctx={ctx} filename="Payment history" />}
+                    toolbar={(ctx) => <DataTableExport columns={columns} ctx={ctx} filename="Payment history" />}
+                    onRowClick={openBatch}
+                    rowLabel={(r) => `Open payment details for ${r.submissionId}`}
+                    // Same panel the admin Payment tab renders. This markup existed twice and the
+                    // copies had already drifted.
+                    renderDetail={(r) => (
+                        <PaymentDetailPanel
+                            payments={(r.payments || []).map((p: any) => ({ ...p, paymentMadeBy: p._paymentMadeBy }))}
                         />
                     )}
-                </div>
-            </div>
+                    renderCard={(r) => <PaymentHistoryCard row={r} onOpen={() => openBatch(r)} />}
+                    empty={
+                        <EmptyState
+                            size="sm"
+                            title={`No payments in ${periodLabel}`}
+                            description="A batch shows here once a payment against it is recorded in this period."
+                        />
+                    }
+                />
+            )}
         </div>
 
         <BatchDetailModal
@@ -423,5 +334,45 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
         </>
     );
 };
+
+/** One paid batch, as it reads on a phone: what was paid leads, then what is still owed. */
+function PaymentHistoryCard({ row, onOpen }: { row: BatchRow; onOpen: () => void }) {
+    const settled = row.totalRemainingAmount <= 0;
+    return (
+        <button
+            type="button"
+            data-wt-control="row"
+            onClick={onOpen}
+            // A blurred amount must not be read aloud, so the spoken name carries only the batch.
+            aria-label={`Open payment details for ${row.submissionId}`}
+            className="w-full rounded-2xl border bg-card px-4 py-3.5 text-left shadow-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+            <span className="flex items-start justify-between gap-3">
+                <span>
+                    <SensitiveValue className="block tabular text-xl leading-tight font-extrabold text-success-foreground">
+                        {money(row.totalAmountPaid)}
+                    </SensitiveValue>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                        paid · {row.totalRequests} request{row.totalRequests === 1 ? '' : 's'}
+                    </span>
+                </span>
+                <Badge variant="brand" className="font-mono tracking-wide">{row.submissionId}</Badge>
+            </span>
+            <span className="my-3 block h-px bg-border" aria-hidden />
+            <span className="grid grid-cols-2 gap-2 text-xs">
+                <span>
+                    <span className="block text-muted-foreground">Requested</span>
+                    <SensitiveValue className="block tabular font-semibold text-foreground">{money(row.totalRequestAmount)}</SensitiveValue>
+                </span>
+                <span>
+                    <span className="block text-muted-foreground">Remaining</span>
+                    <SensitiveValue className={cn('block tabular font-semibold', settled ? 'text-success-foreground' : 'text-foreground')}>
+                        {money(row.totalRemainingAmount)}
+                    </SensitiveValue>
+                </span>
+            </span>
+        </button>
+    );
+}
 
 export default ReimbursementPaymentHistoryTable;

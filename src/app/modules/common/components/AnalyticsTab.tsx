@@ -131,26 +131,6 @@ function AnalyticsTab<T>({
               ]}
               onChange={(val) => setMetric(val as ChartMetric)}
               ariaLabel="measure selection"
-              sx={{
-                height: 32,
-                // Theme tokens, not fixed greys: the sunken track and the raised selected
-                // tab have to invert together in dark mode, or the pill goes white-on-dark.
-                bgcolor: "action.hover",
-                border: "none",
-                p: "3px",
-                borderRadius: "10px",
-                "& .MuiToggleButtonGroup-grouped": {
-                  px: 2.2,
-                  borderRadius: "8px !important",
-                },
-                "& .Mui-selected": {
-                  bgcolor: (t: Theme) =>
-                    `${t.palette.background.paper} !important`,
-                  color: "#1E3A8A !important",
-                  boxShadow: "0 1px 3px rgba(15,23,42,0.10)",
-                  "&::after": { display: "none" },
-                },
-              }}
             />
           </Box>
         )}

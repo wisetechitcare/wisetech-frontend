@@ -1,5 +1,4 @@
 import { safeJsonParse } from '@utils/safeJson';
-import { timeToMinutes } from "@pages/employee/attendance/personal/views/information/Rules";
 import { store } from "@redux/store";
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { fetchConfiguration } from "@services/company";

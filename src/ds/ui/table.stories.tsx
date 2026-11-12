@@ -49,6 +49,6 @@ export const Employees: Story = {
   ),
   play: async ({ canvas }) => {
     await expect(canvas.getAllByRole('row')).toHaveLength(ROWS.length + 1)
-    await expect(canvas.getByRole('columnheader', { name: 'Leave left' })).toBeInTheDocument()
+    await expect(canvas.getByRole('columnheader', { name: 'Leave Left' })).toBeInTheDocument()
   },
 }

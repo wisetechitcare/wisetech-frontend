@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { RootState } from '@redux/store';
+import { cn } from '@/ds/lib/utils';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { PersonCell } from '@/ds/patterns/person';
+import { SectionHeader } from '@/ds/patterns/section-header';
 import {
   fetchMonthlyReimbursementsOfAllEmp,
   fetchYearlyReimbursementsOfAllEmp,
@@ -10,32 +13,25 @@ import {
 } from '@utils/statistics';
 import { fetchAllEmployees } from '@services/employee';
 import { IReimbursementsFetch } from '@models/employee';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
-import ExportButton from '@app/modules/common/components/ExportButton';
-import SalaryPeriodToolbar from '@pages/employee/salary/components/SalaryPeriodToolbar';
-import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
-import { useRootOrgNames } from '@hooks/useRootOrgNames';
+import PeriodTabs from '@app/modules/common/components/PeriodTabs';
+import { PeriodNavigator } from '@/ds/patterns/period-navigator';
+import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { useOrgFilters, OrgFilterSheetButton } from '@app/modules/common/components/ui/OrgFilterToolbar';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
-import { Box } from '@mui/material';
 import ReimbursementSummaryCard from './ReimbursementSummaryCard';
 import { summariseReimbursements } from '../../utils/reimbursementSummary';
-import { clickableRowProps, CLICKABLE_ROW_SX } from '../../utils/rowInteraction';
-import LoadErrorState from '../../components/LoadErrorState';
+import { formatMoney, NO_VALUE } from '../../utils/reimbursementFormat';
 import LineItemExportButton from '../../components/LineItemExportButton';
 import ReimbursementCharts from '../../components/ReimbursementCharts';
 import ByProject from './ByProject';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
-import { useStoredState } from '@app/hooks/useStoredState';
-import { Button } from '@/ds/ui/button';
+import { Users } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type PeriodAlignment = 'monthly' | 'yearly' | 'allTime';
-type StatusFilter = 'Active' | 'Deactive' | 'All';
 
 interface EmployeeDetail {
   subOrganization: string;
@@ -68,24 +64,39 @@ interface EmployeeSummary {
   rejectedCount: number;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Cells ─────────────────────────────────────────────────────────────────────
 
-const fmtMoney = (n: number) =>
-  `${currencyPrefix()}${Math.round(n).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+/** 'N/A' is the aggregator's "unknown"; the kit shows a missing value as an em dash. */
+const text = (v: string) => (v && v !== 'N/A' ? v : NO_VALUE);
 
-// Distinct, sorted values of one summary field ('N/A' and blanks dropped) — same rule the
-// payroll toolbar uses, so both pages offer the same options for the same population.
-const distinctValues = (rows: EmployeeSummary[], field: keyof EmployeeSummary, exclude?: Set<string>) => {
-  const names = new Set<string>();
-  rows.forEach(r => {
-    const name = r[field] as string;
-    if (name && name !== 'N/A' && !exclude?.has(name)) names.add(name);
-  });
-  return Array.from(names).sort((a, b) => a.localeCompare(b));
-};
+/**
+ * A money cell in its status colour (the charts' colours), right-aligned and tabular. `dashZero`: the
+ * columns that used to print "-" for nothing (approved, paid, remaining, rejected) still do.
+ */
+const money = (value: number, tone?: string, dashZero = false) => (
+  <span className={cn('tabular block text-right', value ? cn('font-semibold', tone) : 'text-muted-foreground')}>
+    {dashZero && !value ? NO_VALUE : formatMoney(value)}
+  </span>
+);
+const count = (value: number, tone?: string, dashZero = false) => (
+  <span className={cn('tabular block text-right', value ? cn('font-semibold', tone) : 'text-muted-foreground')}>
+    {dashZero && !value ? NO_VALUE : value}
+  </span>
+);
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+/**
+ * Reimbursement Details — the admin's view of the whole company for a period: the six totals, the
+ * charts, one row per employee, and the project rollup underneath. All four read ONE period-scoped
+ * fetch.
+ *
+ * On the design system, the way the Payment tab is: the period controls in one header row (PeriodTabs
+ * + PeriodNavigator), StatCard totals, and the kit DataTable — search, sort, column filters, show /
+ * hide / pin / reorder columns, footer totals, export — with the shared org filter (sub-org → branch
+ * → team, cascaded, plus employee status) in the table's filter slot. Clicking a row opens that
+ * employee on Search Employee.
+ */
 function AllEmployee() {
   const navigate = useNavigate();
   const [alignment, setAlignment] = useState<PeriodAlignment>('monthly');
@@ -96,16 +107,6 @@ function AllEmployee() {
   const [reimbursements, setReimbursements] = useState<IReimbursementsFetch[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [employeeDetailMap, setEmployeeDetailMap] = useState<Map<string, EmployeeDetail>>(new Map());
-  // Defaults to All, not Active. Headline totals used to silently omit anyone who had left, so
-  // a period total did not match the money actually spent in that period — and nothing on screen
-  // said a population was missing. The heading names the scope either way.
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
-  const [subOrgFilter, setSubOrgFilter] = useState('All');
-  const [branchFilter, setBranchFilter] = useState('All');
-  const [teamFilter, setTeamFilter] = useState('All');
-
-  const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
-  const rootOrgNames = useRootOrgNames();
 
   // ── Fiscal year ───────────────────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ function AllEmployee() {
 
   const fetchReimbursements = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(false);
     try {
       let data: IReimbursementsFetch[];
       if (alignment === 'monthly') {
@@ -227,40 +229,20 @@ function AllEmployee() {
     return Array.from(map.values());
   }, [reimbursements, employeeDetailMap]);
 
-  // ── Filter options ────────────────────────────────────────────────────────
+  // ── Filters: the shared org filter (status + sub-org → branch → team, cascaded) ─────────────
+  // Defaults to All, not Active. Headline totals used to silently omit anyone who had left, so a
+  // period total did not match the money actually spent in that period. The heading names the scope.
+  // (These four filters were built but never rendered here; they now live in the table's filter slot.)
+  const orgFilters = useOrgFilters(employeeSummaries, { defaultStatus: 'All' });
 
-  // The top-level org is excluded — only actual sub-orgs belong in that dropdown.
-  const subOrgOptions = useMemo(
-    () => distinctValues(employeeSummaries, 'subOrganization', rootOrgNames),
-    [employeeSummaries, rootOrgNames],
+  const tableData = useMemo(
+    () => employeeSummaries
+      .filter(orgFilters.matches)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+    [employeeSummaries, orgFilters.matches],
   );
-  const branchOptions = useMemo(() => distinctValues(employeeSummaries, 'branch'), [employeeSummaries]);
-  const teamOptions = useMemo(() => distinctValues(employeeSummaries, 'team'), [employeeSummaries]);
 
-  // ── Apply filters ─────────────────────────────────────────────────────────
-
-  const filteredSummaries = useMemo(() => {
-    return employeeSummaries.filter(emp => {
-      const statusMatch =
-        statusFilter === 'Active' ? emp.isActive :
-        statusFilter === 'Deactive' ? !emp.isActive :
-        true;
-      const subOrgMatch = subOrgFilter === 'All' || emp.subOrganization === subOrgFilter;
-      const branchMatch = branchFilter === 'All' || emp.branch === branchFilter;
-      const teamMatch = teamFilter === 'All' || emp.team === teamFilter;
-      return statusMatch && subOrgMatch && branchMatch && teamMatch;
-    });
-  }, [employeeSummaries, statusFilter, subOrgFilter, branchFilter, teamFilter]);
-
-  // ── Table data ────────────────────────────────────────────────────────────
-
-  const tableData = useMemo(() => {
-    return filteredSummaries.slice().sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-    );
-  }, [filteredSummaries]);
-
-  // ── Column totals (footer row) ────────────────────────────────────────────
+  // ── Column totals (footer row, KPI cards) ─────────────────────────────────
 
   const columnTotals = useMemo(() => {
     return tableData.reduce(
@@ -286,13 +268,13 @@ function AllEmployee() {
     );
   }, [tableData]);
 
-  // ── Period label for navigation ───────────────────────────────────────────
+  // ── Period labels ─────────────────────────────────────────────────────────
 
   const periodLabel = useMemo(() => {
     if (alignment === 'monthly') return month.format('MMM YYYY');
-    if (alignment === 'yearly') return formatFiscalYearLabel(fiscalYear);
+    if (alignment === 'yearly') return formatFiscalYearLabel(fiscalYear) || year.format('YYYY');
     return undefined;
-  }, [alignment, month, fiscalYear]);
+  }, [alignment, month, year, fiscalYear]);
 
   const tableTitle = useMemo(() => {
     if (alignment === 'monthly') return `Monthly Reimbursements — ${month.format('MMMM YYYY')}`;
@@ -300,18 +282,11 @@ function AllEmployee() {
     return 'All Time Reimbursements';
   }, [alignment, month, fiscalYear]);
 
-  const tableHeading = useMemo(() => {
-    const period = alignment === 'monthly' ? 'Monthly'
-      : alignment === 'yearly' ? 'Yearly' : 'All Time';
-    // The status filter defaults to 'Active', so these totals silently omit anyone who has left
-    // — and someone reading a headline number had no way to know a population was missing from
-    // it. Whether ex-employees belong in the total is a policy question; making the filter
-    // visible in the heading is not, so the number always says who it counted.
-    const scope = statusFilter === 'Active' ? ' (current employees)'
-      : statusFilter === 'Deactive' ? ' (past employees)'
-      : ' (all employees)';
-    return `${period} Reimbursements${scope}`;
-  }, [alignment, statusFilter]);
+  // Whether ex-employees belong in a total is a policy question; making the filter visible in the
+  // heading is not, so the number always says who it counted.
+  const scope = orgFilters.status === 'Active' ? 'Current Employees'
+    : orgFilters.status === 'Deactive' ? 'Past Employees'
+    : 'All Employees';
 
   const exportFilename = useMemo(() => {
     if (alignment === 'monthly') return `reimbursements-${month.format('MMM-YYYY').toLowerCase()}`;
@@ -319,141 +294,143 @@ function AllEmployee() {
     return 'reimbursements-all-time';
   }, [alignment, month, year]);
 
-  // ── Filter toolbar ────────────────────────────────────────────────────────
+  // ── Columns ───────────────────────────────────────────────────────────────
 
-  // 'All' is the default now, so it is not an active filter.
-  const hasActiveFilters = statusFilter !== 'All' || subOrgFilter !== 'All'
-    || branchFilter !== 'All' || teamFilter !== 'All';
+  const columns = useMemo<ColumnDef<EmployeeSummary, any>[]>(() => [
+    {
+      accessorKey: 'name',
+      meta: { label: 'Name' },
+      header: ({ column }) => <SortableHeader column={column} title="Employee" />,
+      cell: ({ row }) => (
+        <PersonCell showAvatar={false} name={row.original.name} inactive={!row.original.isActive} />
+      ),
+      footer: () => <span className="heading-case">Total</span>,
+    },
+    // The ID is under the name on screen; a spreadsheet still wants it as its own column.
+    { accessorKey: 'employeeCode', meta: { label: 'ID', exportOnly: true }, header: 'ID' },
+    { accessorKey: 'subOrganization', meta: { label: 'Sub Organization' }, header: ({ column }) => <SortableHeader column={column} title="Sub Organization" />, cell: ({ getValue }) => text(getValue()) },
+    { accessorKey: 'department', meta: { label: 'Department' }, header: ({ column }) => <SortableHeader column={column} title="Department" />, cell: ({ getValue }) => text(getValue()) },
+    { accessorKey: 'branch', meta: { label: 'Branch' }, header: ({ column }) => <SortableHeader column={column} title="Branch" />, cell: ({ getValue }) => text(getValue()) },
+    { accessorKey: 'team', meta: { label: 'Team' }, header: ({ column }) => <SortableHeader column={column} title="Team" />, cell: ({ getValue }) => text(getValue()) },
+    {
+      accessorKey: 'totalRequestAmount',
+      meta: { label: 'Requested', exportType: 'currency', exportTotal: true },
+      header: ({ column }) => <SortableHeader column={column} title="Requested" />,
+      cell: ({ row }) => money(row.original.totalRequestAmount, 'text-foreground'),
+      footer: () => money(columnTotals.totalRequestAmount, 'text-foreground'),
+    },
+    {
+      accessorKey: 'totalApprovedAmount',
+      meta: { label: 'Approved', exportType: 'currency', exportTotal: true },
+      header: ({ column }) => <SortableHeader column={column} title="Approved" />,
+      cell: ({ row }) => money(row.original.totalApprovedAmount, 'text-success-foreground', true),
+      footer: () => money(columnTotals.totalApprovedAmount, 'text-success-foreground'),
+    },
+    {
+      accessorKey: 'totalPendingAmount',
+      meta: { label: 'Pending Approval', exportType: 'currency', exportTotal: true },
+      header: ({ column }) => <SortableHeader column={column} title="Pending" />,
+      cell: ({ row }) => money(row.original.totalPendingAmount, 'text-warning-foreground'),
+      footer: () => money(columnTotals.totalPendingAmount, 'text-warning-foreground'),
+    },
+    {
+      accessorKey: 'totalPaidAmount',
+      meta: { label: 'Paid', exportType: 'currency', exportTotal: true },
+      header: ({ column }) => <SortableHeader column={column} title="Paid" />,
+      cell: ({ row }) => money(row.original.totalPaidAmount, 'text-info-foreground', true),
+      footer: () => money(columnTotals.totalPaidAmount, 'text-info-foreground'),
+    },
+    {
+      accessorKey: 'totalRemainingAmount',
+      meta: { label: 'Remaining', exportType: 'currency', exportTotal: true },
+      header: ({ column }) => <SortableHeader column={column} title="Remaining" />,
+      cell: ({ row }) => money(row.original.totalRemainingAmount, 'text-tone-purple-foreground', true),
+      footer: () => money(columnTotals.totalRemainingAmount, 'text-tone-purple-foreground'),
+    },
+    {
+      accessorKey: 'totalRejectedAmount',
+      meta: { label: 'Rejected', exportType: 'currency', exportTotal: true },
+      header: ({ column }) => <SortableHeader column={column} title="Rejected" />,
+      cell: ({ row }) => money(row.original.totalRejectedAmount, 'text-destructive-foreground', true),
+      footer: () => money(columnTotals.totalRejectedAmount, 'text-destructive-foreground'),
+    },
+    {
+      accessorKey: 'totalRequests',
+      meta: { label: 'Requests', exportType: 'number', exportTotal: true },
+      header: ({ column }) => <SortableHeader column={column} title="Requests" />,
+      cell: ({ row }) => count(row.original.totalRequests, 'text-foreground'),
+      footer: () => count(columnTotals.totalRequests, 'text-foreground'),
+    },
+    {
+      accessorKey: 'approvedCount',
+      meta: { label: 'Approved Requests', exportType: 'number', exportTotal: true },
+      header: ({ column }) => <SortableHeader column={column} title="Approved Requests" />,
+      cell: ({ row }) => count(row.original.approvedCount, 'text-success-foreground', true),
+      footer: () => count(columnTotals.approvedCount, 'text-success-foreground'),
+    },
+    {
+      accessorKey: 'pendingCount',
+      meta: { label: 'Pending Requests', exportType: 'number', exportTotal: true },
+      header: ({ column }) => <SortableHeader column={column} title="Pending Requests" />,
+      cell: ({ row }) => count(row.original.pendingCount, 'text-warning-foreground'),
+      footer: () => count(columnTotals.pendingCount, 'text-warning-foreground'),
+    },
+    {
+      accessorKey: 'rejectedCount',
+      meta: { label: 'Rejected Requests', exportType: 'number', exportTotal: true },
+      header: ({ column }) => <SortableHeader column={column} title="Rejected Requests" />,
+      cell: ({ row }) => count(row.original.rejectedCount, 'text-destructive-foreground', true),
+      footer: () => count(columnTotals.rejectedCount, 'text-destructive-foreground'),
+    },
+  ], [columnTotals]);
 
-  const FilterToolbar = () => (
-    <Box sx={{ display: 'flex', gap: '12px', rowGap: '16px', alignItems: 'center', px: 1, flexWrap: 'wrap' }}>
-      <Box sx={{ width: '1px', height: '26px', backgroundColor: '#e5e7eb', mx: 0.5, display: { xs: 'none', md: 'block' } }} />
-
-      <ToolbarFilterSelect
-        label="Employee Status"
-        icon="bi-person-circle"
-        value={statusFilter}
-        onChange={(v) => setStatusFilter(v as StatusFilter)}
-        minWidth={150}
-        theme={statusFilter === 'Active'
-          ? { icon: '#10b981', border: '#a7f3d0', bg: '#ecfdf5', text: '#065f46', ring: 'rgba(16, 185, 129, 0.12)' }
-          : statusFilter === 'Deactive'
-            ? { icon: '#ef4444', border: '#fecaca', bg: '#fef2f2', text: '#991b1b', ring: 'rgba(239, 68, 68, 0.12)' }
-            : undefined}
-        options={[
-          { value: 'Active', label: 'Active' },
-          { value: 'Deactive', label: 'Inactive' },
-          { value: 'All', label: 'All' },
-        ]}
-      />
-
-      <ToolbarFilterSelect
-        label="Sub Organization"
-        icon="bi-building"
-        value={subOrgFilter}
-        onChange={setSubOrgFilter}
-        minWidth={220}
-        theme={subOrgFilter !== 'All'
-          ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' }
-          : undefined}
-        options={[
-          { value: 'All', label: 'All Sub Organizations' },
-          ...subOrgOptions.map(name => ({ value: name, label: name })),
-        ]}
-      />
-
-      {branchOptions.length > 0 && (
-        <ToolbarFilterSelect
-          label="Branch"
-          icon="bi-geo-alt"
-          value={branchFilter}
-          onChange={setBranchFilter}
-          minWidth={190}
-          theme={branchFilter !== 'All'
-            ? { icon: '#0891b2', border: '#a5f3fc', bg: '#ecfeff', text: '#155e75', ring: 'rgba(8, 145, 178, 0.12)' }
-            : undefined}
-          options={[
-            { value: 'All', label: 'All Branches' },
-            ...branchOptions.map(name => ({ value: name, label: name })),
-          ]}
-        />
-      )}
-
-      {teamOptions.length > 0 && (
-        <ToolbarFilterSelect
-          label="Team"
-          icon="bi-people"
-          value={teamFilter}
-          onChange={setTeamFilter}
-          minWidth={180}
-          theme={teamFilter !== 'All'
-            ? { icon: '#d97706', border: '#fde68a', bg: '#fffbeb', text: '#92400e', ring: 'rgba(217, 119, 6, 0.12)' }
-            : undefined}
-          options={[
-            { value: 'All', label: 'All Teams' },
-            ...teamOptions.map(name => ({ value: name, label: name })),
-          ]}
-        />
-      )}
-
-      {hasActiveFilters && (
-        <Button variant="ghost" size="sm" type="submit"
-          // Back to the page defaults, which are all 'All' here — resetting status to 'Active'
-          // would have left the table narrower than a freshly opened page.
-          onClick={() => { setStatusFilter('All'); setSubOrgFilter('All'); setBranchFilter('All'); setTeamFilter('All'); }}
-          title="Reset filters to defaults"
-        >
-          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
-          Reset
-        </Button>
-      )}
-    </Box>
-  );
-
-  // ── Export columns ────────────────────────────────────────────────────────
-
-  const exportColumns = useMemo(() => [
-    { key: 'employeeCode',         header: 'ID',                      type: 'text'     as const },
-    { key: 'name',                 header: 'Name',                    type: 'text'     as const },
-    { key: 'subOrganization',      header: 'Sub Organization',        type: 'text'     as const },
-    { key: 'department',           header: 'Department',              type: 'text'     as const },
-    { key: 'branch',               header: 'Branch',                  type: 'text'     as const },
-    { key: 'team',                 header: 'Team',                    type: 'text'     as const },
-    { key: 'totalRequestAmount',   header: 'Total Request Amount',    type: 'currency' as const, showTotal: true },
-    { key: 'totalApprovedAmount',  header: 'Total Approved Amount',   type: 'currency' as const, showTotal: true },
-    { key: 'totalPendingAmount',   header: 'Total Pending Amount',    type: 'currency' as const, showTotal: true },
-    { key: 'totalRejectedAmount',   header: 'Total Rejected Amount',   type: 'currency' as const, showTotal: true },
-    { key: 'totalPaidAmount',       header: 'Total Amount Paid',       type: 'currency' as const, showTotal: true },
-    { key: 'totalRemainingAmount',  header: 'Total Amount Remaining',  type: 'currency' as const, showTotal: true },
-    { key: 'totalRequests',         header: 'Total Requests',          type: 'number'   as const, showTotal: true },
-    { key: 'approvedCount',        header: 'Requests Approved',       type: 'number'   as const, showTotal: true },
-    { key: 'pendingCount',         header: 'Requests Pending',        type: 'number'   as const, showTotal: true },
-    { key: 'rejectedCount',        header: 'Requests Rejected',       type: 'number'   as const, showTotal: true },
-  ], []);
+  const openEmployee = (r: EmployeeSummary) =>
+    navigate('/finance/reimbursements', { state: { goToSearchEmployee: true, employeeId: r.employeeId } });
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <>
-      <h3 className="fw-bold fs-1 mb-5 font-barlow">Reimbursement Details</h3>
+    <div className="space-y-4">
+      {/* ONE header row (the Payment tab's): what this is on the left, the period that governs the
+          totals, charts and both tables on the right. */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-border pb-3">
+        <SectionHeader title="Reimbursement Details" description={`${scope} · ${periodLabel ?? 'All Time'}`} />
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <PeriodTabs
+            value={alignment}
+            options={[
+              { label: 'Monthly', value: 'monthly' },
+              { label: 'Yearly', value: 'yearly' },
+              { label: 'All Time', value: 'allTime' },
+            ]}
+            onChange={(v) => setAlignment(v as PeriodAlignment)}
+            ariaLabel="Reimbursement period"
+          />
+          {alignment === 'monthly' && (
+            <PeriodNavigator
+              label={month.format('MMM YYYY')}
+              onPrevious={handlePrevMonth}
+              onNext={handleNextMonth}
+              unit="month"
+              pickGranularity="month"
+              pickValue={month.startOf('month').format('YYYY-MM-DD')}
+              onPick={(v) => setMonth(dayjs(v).startOf('month'))}
+            />
+          )}
+          {alignment === 'yearly' && (
+            <PeriodNavigator
+              label={periodLabel ?? year.format('YYYY')}
+              onPrevious={handlePrevYear}
+              onNext={handleNextYear}
+              unit="year"
+              pickGranularity="year"
+              pickValue={year.startOf('year').format('YYYY-MM-DD')}
+              onPick={(v) => setYear(dayjs(v).startOf('year'))}
+            />
+          )}
+        </div>
+      </div>
 
-      {/* Period toolbar */}
-      <SalaryPeriodToolbar
-        alignment={alignment}
-        options={[
-          { label: 'Monthly', value: 'monthly' },
-          { label: 'Yearly', value: 'yearly' },
-          { label: 'All Time', value: 'allTime' },
-        ]}
-        onAlignmentChange={(v) => setAlignment(v as PeriodAlignment)}
-        periodLabel={periodLabel}
-        onPrevious={alignment === 'monthly' ? handlePrevMonth : alignment === 'yearly' ? handlePrevYear : undefined}
-        onNext={alignment === 'monthly' ? handleNextMonth : alignment === 'yearly' ? handleNextYear : undefined}
-        disablePrevious={isLoading}
-        disableNext={isLoading}
-      />
-
-      {/* Summary cards */}
       <ReimbursementSummaryCard
         totalRequestAmount={columnTotals.totalRequestAmount}
         totalApprovedAmount={columnTotals.totalApprovedAmount}
@@ -464,14 +441,13 @@ function AllEmployee() {
         isLoading={isLoading}
       />
 
-      {/* Employee-wise reimbursement table */}
       {/*
         * The SAME chart components the employee page uses, over the whole company's rows.
         * Built once and shared, per the plan — a second implementation is how the admin total
         * and the employee total start disagreeing.
         *
-        * No month click-through here: the admin toolbar already owns the period, and a chart
-        * that silently moves a filter the toolbar is still displaying is worse than a static one.
+        * No month click-through here: the header already owns the period, and a chart
+        * that silently moves a filter the header is still displaying is worse than a static one.
         */}
       <ReimbursementCharts
         rows={reimbursements}
@@ -480,185 +456,76 @@ function AllEmployee() {
         loading={isLoading}
       />
 
-      <div className="mt-5">
-        <h1>{tableTitle}</h1>
-        {loadError && !isLoading ? (
-          <LoadErrorState what="employee reimbursements" onRetry={fetchReimbursements} />
-        ) : (
-        <MaterialTable
-          renderExportActions={() => (
-            // Two exports, because they answer different questions. The summary is one row per
-            // employee; the line-item export is one row per expense, which is what reconciling
-            // against a bank statement or answering an auditor actually needs — and until now
-            // the admin surface could only produce the aggregate.
-            <div className="d-flex align-items-center gap-2 flex-wrap">
-              {/* Two exports, two labels. They answer different questions — one row per
-                  employee vs one row per expense — and both saying "Export" made the choice a
-                  coin toss the reader only resolved after opening the file. */}
-              <ExportButton
+      <section className="space-y-3 pt-4">
+        <SectionHeader as="h3" title="By Employee" description={`${tableTitle} · ${scope}`} />
+        <DataTable
+          caption="Reimbursements by employee"
+          columns={columns}
+          data={tableData}
+          getRowId={(r) => r.employeeId}
+          loading={isLoading}
+          error={loadError ? "Couldn't load employee reimbursements." : undefined}
+          onRetry={fetchReimbursements}
+          searchPlaceholder="Search employees"
+          stateKey="reimbursement.details.employees"
+          filters={<OrgFilterSheetButton filters={orgFilters} />}
+          onRowClick={openEmployee}
+          // Phones: one card per employee — who, then the four amounts that matter — instead of a
+          // sixteen-column table scrolled sideways.
+          // The card carries `data-wt-control="row"`: it is row activation, not an action button —
+          // the whole card is the tap target for this employee, exactly as SubmissionMobileCard and
+          // company-profile's SectionList do it. Staying a native <button> keeps the focus ring,
+          // tab stop and Enter/Space for free.
+          renderCard={(r) => (
+            <button
+              type="button"
+              data-wt-control="row"
+              onClick={() => openEmployee(r)}
+              aria-label={`Open reimbursements for ${r.name || 'this employee'}`}
+              className="w-full rounded-2xl border border-border bg-card px-4 py-3.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <PersonCell showAvatar={false} name={r.name} subtitle={text(r.department)} inactive={!r.isActive} />
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                {[
+                  { label: 'Requested', value: r.totalRequestAmount, tone: 'text-foreground' },
+                  { label: 'Approved', value: r.totalApprovedAmount, tone: 'text-success-foreground' },
+                  { label: 'Paid', value: r.totalPaidAmount, tone: 'text-info-foreground' },
+                  { label: 'Remaining', value: r.totalRemainingAmount, tone: 'text-tone-purple-foreground' },
+                ].map((f) => (
+                  <div key={f.label} className="flex justify-between gap-2">
+                    <dt className="text-muted-foreground">{f.label}</dt>
+                    <dd className={cn('tabular m-0 font-semibold', f.tone)}>{formatMoney(f.value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </button>
+          )}
+          rowLabel={(r) => `Open reimbursements for ${r.name || 'this employee'}`}
+          empty={
+            <EmptyState
+              size="sm"
+              icon={<Users aria-hidden />}
+              title={orgFilters.activeCount > 0 ? 'No Employees Match These Filters' : `No Reimbursements in ${periodLabel ?? 'Any Period'}`}
+              description={orgFilters.activeCount > 0 ? 'Clear the filters to see everyone.' : 'Employees appear here once they claim an expense in this period.'}
+            />
+          }
+          toolbar={(ctx) => (
+            // Two exports, because they answer different questions: one row per employee, or one row
+            // per expense — what reconciling against a bank statement or answering an auditor needs.
+            <>
+              <DataTableExport
                 label="Employees"
-                data={tableData}
-                columns={exportColumns}
+                columns={columns}
+                ctx={ctx}
                 filename={exportFilename}
                 title={tableTitle}
                 subtitle="Employee-wise reimbursement summary by request status"
-                sheetName="Reimbursements"
-                showTotals
-                totalLabel="TOTAL"
-                disabled={tableData.length === 0}
               />
-              <LineItemExportButton
-                rows={reimbursements}
-                periodLabel={periodLabel ?? 'all time'}
-                disabled={isLoading}
-              />
-            </div>
+              <LineItemExportButton rows={reimbursements} periodLabel={periodLabel ?? 'all time'} disabled={isLoading} />
+            </>
           )}
-          columns={[
-            {
-              accessorKey: 'name',
-              header: 'Name',
-              Cell: ({ renderedCellValue, row }: any) => (
-                <span style={{ color: row.original.employeeId ? '#0369a1' : 'inherit', fontWeight: row.original.employeeId ? 500 : 400 }}>
-                  {renderedCellValue || 'N/A'}
-                </span>
-              ),
-            },
-            {
-              accessorKey: 'subOrganization',
-              header: 'Sub Organization',
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-            },
-            {
-              accessorKey: 'department',
-              header: 'Department',
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-            },
-            {
-              accessorKey: 'branch',
-              header: 'Branch',
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-            },
-            {
-              accessorKey: 'team',
-              header: 'Team',
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || 'N/A',
-            },
-            {
-              accessorKey: 'totalRequestAmount',
-              header: 'Total Requested Amount',
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Number(renderedCellValue);
-                return val > 0 ? fmtMoney(val) : `${currencyPrefix()}0`;
-              },
-              Footer: () => fmtMoney(columnTotals.totalRequestAmount),
-            },
-            {
-              accessorKey: 'totalApprovedAmount',
-              header: 'Total Approved Amount',
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Number(renderedCellValue);
-                if (!val) return '-';
-                return <span style={{ color: '#16a34a', fontWeight: 600 }}>{fmtMoney(val)}</span>;
-              },
-              Footer: () => <span style={{ color: '#16a34a' }}>{fmtMoney(columnTotals.totalApprovedAmount)}</span>,
-            },
-            {
-              accessorKey: 'totalPendingAmount',
-              header: 'Total Pending Amount',
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Number(renderedCellValue);
-                return <span style={{ color: '#0891b2', fontWeight: 600 }}>{fmtMoney(val)}</span>;
-              },
-              Footer: () => <span style={{ color: '#0891b2' }}>{fmtMoney(columnTotals.totalPendingAmount)}</span>,
-            },
-            {
-              accessorKey: 'totalPaidAmount',
-              header: 'Total Paid Amount',
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Number(renderedCellValue);
-                if (!val) return '-';
-                return <span style={{ color: '#7c3aed', fontWeight: 600 }}>{fmtMoney(val)}</span>;
-              },
-              Footer: () => <span style={{ color: '#7c3aed' }}>{fmtMoney(columnTotals.totalPaidAmount)}</span>,
-            },
-            {
-              accessorKey: 'totalRemainingAmount',
-              header: 'Total Remaining Amount',
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Number(renderedCellValue);
-                if (!val) return '-';
-                return <span style={{ color: '#ea580c', fontWeight: 600 }}>{fmtMoney(val)}</span>;
-              },
-              Footer: () => <span style={{ color: '#ea580c' }}>{fmtMoney(columnTotals.totalRemainingAmount)}</span>,
-            },
-            {
-              accessorKey: 'totalRejectedAmount',
-              header: 'Total Rejected Amount',
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Number(renderedCellValue);
-                if (!val) return '-';
-                return <span style={{ color: '#dc2626', fontWeight: 600 }}>{fmtMoney(val)}</span>;
-              },
-              Footer: () => <span style={{ color: '#dc2626' }}>{fmtMoney(columnTotals.totalRejectedAmount)}</span>,
-            },
-            {
-              accessorKey: 'totalRequests',
-              header: 'Total Requests',
-              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? 0,
-              Footer: () => columnTotals.totalRequests,
-            },
-            {
-              accessorKey: 'approvedCount',
-              header: 'Total Approved Requests',
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Number(renderedCellValue);
-                if (!val) return '-';
-                return <span style={{ color: '#16a34a', fontWeight: 600 }}>{val}</span>;
-              },
-              Footer: () => <span style={{ color: '#16a34a' }}>{columnTotals.approvedCount}</span>,
-            },
-            {
-              accessorKey: 'pendingCount',
-              header: 'Total Pending Requests',
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Number(renderedCellValue);
-                return <span style={{ color: '#0891b2', fontWeight: 600 }}>{val}</span>;
-              },
-              Footer: () => <span style={{ color: '#0891b2' }}>{columnTotals.pendingCount}</span>,
-            },
-            {
-              accessorKey: 'rejectedCount',
-              header: 'Total Rejected Requests',
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Number(renderedCellValue);
-                if (!val) return '-';
-                return <span style={{ color: '#dc2626', fontWeight: 600 }}>{val}</span>;
-              },
-              Footer: () => <span style={{ color: '#dc2626' }}>{columnTotals.rejectedCount}</span>,
-            },
-          ]}
-          data={tableData}
-          tableName="EmployeeReimbursementsData"
-          employeeId={employeeIdCurrent}
-          enableColumnSpecificSearch={true}
-          showColumnFooter={true}
-          muiTableProps={{
-            muiTableBodyRowProps: ({ row }: any) => {
-              const empId = row.original.employeeId;
-              if (!empId) return { sx: { cursor: 'default' } };
-              return {
-                ...clickableRowProps(
-                  () => navigate('/finance/reimbursements', { state: { goToSearchEmployee: true, employeeId: empId } }),
-                  `Open reimbursements for ${row.original.name ?? 'this employee'}`,
-                ),
-                sx: CLICKABLE_ROW_SX,
-              };
-            },
-          }}
         />
-        )}
-      </div>
+      </section>
 
       {/*
         * Project rollup of the SAME rows, under the employee table. It was its own tab, which meant
@@ -669,10 +536,10 @@ function AllEmployee() {
         <ByProject
           rows={reimbursements}
           loading={isLoading}
-          periodLabel={periodLabel ?? 'all time'}
+          periodLabel={periodLabel ?? 'All Time'}
         />
       )}
-    </>
+    </div>
   );
 }
 

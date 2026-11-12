@@ -1,5 +1,6 @@
 import type React from 'react';
-import { iconFor } from './iconRegistry';
+import { iconFor } from '@/ds/lib/icons/registry';
+import { iconPixelSize } from '@/ds/lib/icons/size';
 
 /**
  * Everything an `<i>` could carry is still accepted and forwarded — `title`, `aria-hidden`,
@@ -11,12 +12,12 @@ export interface AppIconProps extends Omit<React.HTMLAttributes<HTMLElement>, 'c
     /**
      * Any name the app already uses — a keenicon name (`setting-2`), a Bootstrap name
      * (`bi-gear`), or a FontAwesome name (`fa-gear`). All three resolve through
-     * `iconRegistry`, so a call site migrates by changing its element, never its string.
+     * `src/ds/lib/icons/registry.ts`, so a call site migrates by changing its element, never its string.
      */
     name: string;
     /**
      * Metronic sizing class (`fs-1`…`fs-10`). Kept as the sizing API because ~570 call
-     * sites already pass it; `SIZE_PX` below turns it into the pixel size Lucide wants.
+     * sites already pass it; `iconPixelSize` (`@/ds/lib/icons/size`) turns it into the pixel size Lucide wants.
      */
     className?: string;
     /** Painted through `currentColor`, so an icon with no explicit colour follows the theme. */
@@ -29,47 +30,6 @@ export interface AppIconProps extends Omit<React.HTMLAttributes<HTMLElement>, 'c
      * `fs-*` className or `fallbackSize` instead.
      */
     style?: React.CSSProperties;
-}
-
-/**
- * `fs-*` class to pixel size. THIS IS THE CALIBRATION KNOB for every icon in the app.
- *
- * The numeric steps are Metronic's own `$font-sizes` scale rounded to whole pixels, so an
- * icon that replaced a 16.25px `<i>` renders at 16px. Treat that as a starting point, not a
- * final answer: an icon font and an SVG do not put the same ink inside the same box.
- * Keenicons very nearly fill their em box, while a Lucide glyph is drawn inside a 24-unit
- * viewBox with about two units of margin on each side, so it reads roughly 15% smaller at an
- * identical number. If icons look light against their labels, scale `SIZE_SCALE` — one edit
- * moves every icon in the app, which is the entire point of routing them through one table.
- */
-const SIZE_PX: Record<string, number> = {
-    'fs-1': 23, 'fs-2': 20, 'fs-3': 18, 'fs-4': 16, 'fs-5': 15,
-    'fs-6': 14, 'fs-7': 12, 'fs-8': 11, 'fs-9': 10, 'fs-10': 7,
-};
-
-/**
- * Metronic's large scale (`fs-2x`, `fs-2qx`, `fs-2hx`, `fs-2tx`, `fs-3x`, `fs-5x`…) is a
- * formula rather than a table — 13px x (N + {0, .25, .5, .75}) — so it is computed instead
- * of transcribed. Getting this wrong is not subtle: before it existed, every `fs-2hx` hero
- * icon silently fell back to 16px, which is a quarter of its intended size.
- */
-const LARGE = /^fs-(\d+)(q|h|t)?x$/;
-const LARGE_STEP: Record<string, number> = { q: 0.25, h: 0.5, t: 0.75 };
-
-/**
- * Compensates for the viewBox margin described above, so a Lucide glyph lands at about the
- * ink size of the keenicon it replaced. Nudge this one number if the whole app reads small.
- */
-const SIZE_SCALE = 1.15;
-
-/** Pixel size for a className, honouring whichever `fs-*` token it contains. */
-function sizeFor(className: string): number | null {
-    for (const token of className.split(/\s+/)) {
-        if (SIZE_PX[token]) return Math.round(SIZE_PX[token] * SIZE_SCALE);
-        const large = LARGE.exec(token);
-        if (large) return Math.round(13 * (Number(large[1]) + (LARGE_STEP[large[2]] ?? 0)));
-    }
-    return null;
 }
 
 /**
@@ -98,12 +58,12 @@ export function AppIcon({ name, className = 'fs-4', color, fallbackSize, style, 
 
     if (!Glyph) {
         if (import.meta.env.DEV) {
-            console.warn(`[AppIcon] no icon registered for "${name}" — add it to iconRegistry.ts`);
+            console.warn(`[AppIcon] no icon registered for "${name}" — add it to src/ds/lib/icons/registry.ts`);
         }
         return null;
     }
 
-    const size = fallbackSize ?? sizeFor(className ?? '') ?? sizeFor('fs-4')!;
+    const size = fallbackSize ?? iconPixelSize(className);
 
     return (
         <span

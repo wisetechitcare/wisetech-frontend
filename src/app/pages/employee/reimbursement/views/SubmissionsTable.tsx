@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import ReactDOM from 'react-dom';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
-import { MRT_ColumnDef } from 'material-react-table';
 
-import { KTIcon } from '@metronic/helpers';
 import { IReimbursementsUpdate } from '@models/employee';
 import ReimbursementEditModal from '../components/ReimbursementEditModal';
 import QueryConversationDialog from '../components/QueryConversation';
@@ -27,26 +23,29 @@ import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import StatusFilterChips, { countByStatus } from '../components/StatusFilterChips';
 import RecordsEmptyState, { findExpensesElsewhere } from '../components/RecordsEmptyState';
 import LoadErrorState from '../components/LoadErrorState';
-import { clickableRowProps, CLICKABLE_ROW_SX } from '../utils/rowInteraction';
 import { ReimbursementBatchDetail, ReimbursementLine } from '../utils/reimbursementTypes';
-import { buildReimbursementLineColumns, withPreviewHandler } from '../components/reimbursementLineColumns';
+import { buildReimbursementLineColumns } from '../components/reimbursementLineColumns';
 import { fmtDate, fmtAmount, resolveStatusNum } from '../utils/reimbursementFormat';
-import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
-import { resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
+import { SensitiveValue, useSensitive } from '@/ds/patterns/sensitive';
+import { PAYMENT_LABEL, resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, STATUS_TONE, StatusNum } from '../utils/reimbursementFormat';
 import SubmissionMobileCard from '../components/SubmissionMobileCard';
-import { SkeletonTable } from '@app/modules/common/components/Skeleton';
-import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
-import { Tooltip } from '@mui/material';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { LEGACY_UIKIT as T, tonePair } from '@app/theme/tokens';
 import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 import { useStoredState } from '@app/hooks/useStoredState';
 import { Button } from '@/ds/ui/button';
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import { ConfirmDialog } from '@/ds/patterns/confirm-dialog';
+import { Eye, FileDown, MessageSquareText, Pencil, ReceiptText, Trash2 } from 'lucide-react';
+import { Badge } from '@/ds/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { usePermittedRows } from '@app/modules/common/components/table/usePermittedRows';
+import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
 
 // Sentinel batch id for reimbursements that have no batch (batch_id = NULL).
 // These are legacy/imported records that were never submitted through the
@@ -64,6 +63,23 @@ const UNGROUPED_BATCH_ID = '__ungrouped__';
 // `STATUS.MIXED` (9) is the module's own display-only sentinel for exactly this, deliberately
 // far out of range. One sentinel, defined once.
 const MIXED_STATUS = STATUS.MIXED;
+
+/** The batch's approval outcome in words — the table badge, the export and the tooltip agree. */
+const approvalLabel = (s: number): string => STATUS_LABEL[s as StatusNum] ?? STATUS_LABEL[STATUS.PENDING];
+
+/** One expense line's status in words (a line is never "mixed"). */
+const lineStatusLabel = (n: number): string =>
+  n === MIXED_STATUS ? STATUS_LABEL[STATUS.PENDING] : STATUS_LABEL[n as StatusNum] ?? STATUS_LABEL[STATUS.PENDING];
+
+const paymentLabel = (ps?: string | null): string | null =>
+  !ps ? null : ps === 'PAID' ? PAYMENT_LABEL.PAID : ps === 'PARTIAL' ? PAYMENT_LABEL.PARTIAL : PAYMENT_LABEL.UNPAID;
+
+/** "Jun 2026", or "Jun 2026 - Aug 2026" when a batch's expenses span months. */
+const expensePeriod = (r: any): string => {
+  if (!r?._expenseFrom) return '';
+  const a = dayjs(r._expenseFrom), b = dayjs(r._expenseTo ?? r._expenseFrom);
+  return a.isSame(b, 'month') ? a.format('MMM YYYY') : `${a.format('MMM YYYY')} - ${b.format('MMM YYYY')}`;
+};
 
 
 
@@ -117,7 +133,8 @@ function SubmissionDetailModal({
 
   const isPartiallyApproved = approvalCurrentLevel > 1;
 
-  const reimbursements: ReimbursementLine[] = batch?.reimbursements ?? [];
+  // Memoised: a bare `?? []` is a new array every render, which re-ran every memo below on each one.
+  const reimbursements = useMemo<ReimbursementLine[]>(() => batch?.reimbursements ?? [], [batch]);
 
   // When filterStatus is 1 (approved) or 2 (rejected), show only matching requests so
   // the popup reflects exactly which group was clicked in the submissions table.
@@ -207,241 +224,147 @@ function SubmissionDetailModal({
     if (documentUrl) setPreviewUrl(documentUrl);
   }, []);
 
-  const detailColumns = useMemo<MRT_ColumnDef<any>[]>(
+  const sensitive = useSensitive();
+
+  const detailColumns = useMemo<ColumnDef<any, any>[]>(
     () => [
-      // Same ten columns the approver's batch modal renders — one definition, two callers.
       ...buildReimbursementLineColumns(
         { resolveClientType, resolveClientCompany, resolveProject },
-        detailTotal,
+        { total: detailTotal, onPreview: handleViewDocument },
       ),
       {
-        accessorKey: 'status',
+        id: 'status',
+        accessorFn: (r: any) => lineStatusLabel(resolveStatusNum(r.status)),
+        meta: { label: 'Status' },
         header: 'Status',
-        enableColumnActions: false,
-        Cell: ({ row }: any) => {
-          const statusNum = resolveStatusNum(row.original.status);
-          if (statusNum === 1) return <ToneChip dense tone="success" label="Approved" />;
-          if (statusNum === 2) return <ToneChip dense tone="danger" label="Rejected" />;
-          // A questioned line read as "Pending", so the one row the employee had to act on
-          // looked exactly like the rows they had to wait on.
-          if (statusNum === STATUS.NEEDS_INFO) {
-            return <ToneChip dense tone="warning" label="Needs info" />;
-          }
-          return <ToneChip dense tone="warning" label="Pending" />;
+        cell: ({ row }) => {
+          // A questioned line said "Pending", so the one row the employee had to act on looked exactly like the
+          // rows they had to wait on.
+          const n = resolveStatusNum(row.original.status) as StatusNum;
+          return <Badge variant={STATUS_TONE[n] ?? 'warning'} dot>{lineStatusLabel(n)}</Badge>;
         },
       },
-      // Shown for a QUESTION as well as a rejection. Both write the same column on the line, but
-      // this keyed on status 2 and then re-checked it inside the cell, so an approver's question
-      // was stored, notified — and rendered nowhere the employee could read it.
+      // Shown for a QUESTION as well as a rejection: both write the same column on the line, and keying on
+      // rejection alone stored and notified an approver's question but rendered it nowhere the employee could read.
       ...(displayedReimbursements.some((r) => {
         const n = resolveStatusNum(r.status);
-        return n === 2 || n === STATUS.NEEDS_INFO;
+        return n === STATUS.REJECTED || n === STATUS.NEEDS_INFO;
       })
-        ? [
-            {
-              accessorKey: 'rejectionReason',
-              header: "Approver's note",
-              size: 240,
-              enableColumnActions: false,
-              Cell: ({ row }: any) => {
-                const statusNum = resolveStatusNum(row.original.status);
-                const reason = row.original.rejectionReason || row.original.rejectReason;
-                if (!reason || (statusNum !== 2 && statusNum !== STATUS.NEEDS_INFO)) {
-                  return <span className="text-muted">—</span>;
-                }
-                const asking = statusNum === STATUS.NEEDS_INFO;
-                const queries = row.original.queries;
-                const hasAwaitingQuery = Array.isArray(queries) && queries.length > 0
-                  ? queries.some((q: any) => q.status !== 'RESOLVED' && q.awaitingRole === 'EMPLOYEE')
-                  : true;
-
-                return (
-                  <div style={{ maxWidth: 240, lineHeight: 1.35 }} className="py-0.5">
-                    <div style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'baseline', rowGap: '4px' }}>
-                      <ToneChip
-                        dense
-                        tone={asking ? (hasAwaitingQuery ? 'warning' : 'neutral') : 'danger'}
-                        label={asking ? (hasAwaitingQuery ? 'Question' : 'Responded') : 'Rejected'}
-                        sx={{ alignSelf: 'center', mr: 0.75 }}
-                      />
-                      <span className="text-gray-800 fs-7 fw-normal" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                        {reason}
-                      </span>
-                    </div>
-                    {asking && (
-                      <div className="mt-1">
-                        {hasAwaitingQuery ? (
-                          <Button variant="ghost" size="icon-sm" aria-label="Open conversation"
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setConversationFor({ id: row.original.id, label: row.original.description || 'Expense' });
-                            }}
-                          >
-                            <span style={{ color: T.color.warning, display: 'inline-flex' }}>
-                              <KTIcon iconName="message-text-2" className="fs-8" />
-                            </span>
-                            Respond
-                          </Button>
-                        ) : (
-                          <Button variant="ghost" size="icon-sm" aria-label="Open conversation"
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setConversationFor({ id: row.original.id, label: row.original.description || 'Expense' });
-                            }}
-                          >
-                            <span style={{ color: T.color.neutral, display: 'inline-flex' }}>
-                              <KTIcon iconName="eye" className="fs-8" />
-                            </span>
-                            View Conversation
-                          </Button>
-                        )}
-                      </div>
-                    )}
+        ? [{
+            id: 'note',
+            accessorFn: (r: any) => r.rejectionReason || r.rejectReason || '',
+            meta: { label: "Approver's note" },
+            header: "Approver's Note",
+            cell: ({ row }: any) => {
+              const n = resolveStatusNum(row.original.status);
+              const reason = row.original.rejectionReason || row.original.rejectReason;
+              if (!reason || (n !== STATUS.REJECTED && n !== STATUS.NEEDS_INFO)) {
+                return <span className="text-muted-foreground">—</span>;
+              }
+              const asking = n === STATUS.NEEDS_INFO;
+              const queries = row.original.queries;
+              const awaiting = Array.isArray(queries) && queries.length > 0
+                ? queries.some((q: any) => q.status !== 'RESOLVED' && q.awaitingRole === 'EMPLOYEE')
+                : true;
+              const open = () => setConversationFor({ id: row.original.id, label: row.original.description || 'Expense' });
+              return (
+                <div className="max-w-64 space-y-1 py-0.5 leading-snug whitespace-normal">
+                  <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+                    <Badge variant={asking ? (awaiting ? 'warning' : 'neutral') : 'danger'} className="self-center">
+                      {asking ? (awaiting ? 'Question' : 'Responded') : 'Rejected'}
+                    </Badge>
+                    <span className="text-sm break-words text-foreground">{reason}</span>
                   </div>
-                );
-              },
+                  {asking && (
+                    <Button variant="ghost" size="sm" className="-ml-2 h-7" onClick={open}>
+                      {awaiting
+                        ? <><MessageSquareText data-icon="inline-start" aria-hidden className="text-warning-foreground" /> Respond</>
+                        : <><Eye data-icon="inline-start" aria-hidden /> View conversation</>}
+                    </Button>
+                  )}
+                </div>
+              );
             },
-          ]
+          } as ColumnDef<any, any>]
         : []),
-      ...(filterStatus === 1
-        ? [
-            {
-              accessorKey: 'paymentStatus',
-              header: 'Payment Status',
-              enableColumnActions: false,
-              Cell: ({ row }: any) => {
-                const statusNum = resolveStatusNum(row.original.status);
-                if (statusNum === 2) return <span className="text-muted">N/A</span>;
-                if (statusNum !== 1) return <span className="text-muted">N/A</span>;
-                const ps = row.original.paymentStatus;
-                if (ps === 'PAID') return <ToneChip dense tone="success" label="Paid" />;
-                if (ps === 'PARTIAL') return <ToneChip dense tone="cyan" label="Partially Paid" />;
-                return <ToneChip dense tone="warning" label="Pending" />;
-              },
+      ...(filterStatus === STATUS.APPROVED
+        ? [{
+            id: 'paymentStatus',
+            accessorFn: (r: any) => (resolveStatusNum(r.status) === STATUS.APPROVED ? paymentLabel(r.paymentStatus) ?? 'Pending' : 'N/A'),
+            meta: { label: 'Payment status' },
+            header: 'Payment Status',
+            cell: ({ row }: any) => {
+              if (resolveStatusNum(row.original.status) !== STATUS.APPROVED) return <span className="text-muted-foreground">N/A</span>;
+              const ps = row.original.paymentStatus;
+              return <Badge variant={ps === 'PAID' ? 'success' : ps === 'PARTIAL' ? 'info' : 'warning'} dot>{paymentLabel(ps) ?? 'Pending'}</Badge>;
             },
-          ]
+          } as ColumnDef<any, any>]
         : []),
       ...(showEditDeleteOption
-        ? [
-            {
-              id: 'actions',
-              header: 'Action',
-              enableSorting: false,
-              enableColumnActions: false,
-              Cell: ({ row }: any) => {
-                const r = row.original;
-                const statusNum = resolveStatusNum(r.status);
-                const isPending = statusNum === 0;
-                // A questioned line is EDITABLE — that is how the employee answers, and the
-                // server allows it (a rejected one it refuses). This treated anything that was
-                // not status 0 as decided, so the one row the approver was waiting on said
-                // "already been processed and cannot be modified".
-                const needsAnswer = statusNum === STATUS.NEEDS_INFO;
-                const canAmend = isPending || needsAnswer;
-                const isDeleting = deletingId === r.id;
-
-                if (!canAmend) {
-                  return (
-                    <Tooltip
-                      title="This reimbursement has already been processed and cannot be modified."
-                      arrow
-                      placement="top"
-                    >
-                      <span
-                        style={{
-                          color: '#94a3b8',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          cursor: 'default',
-                          userSelect: 'none',
-                        }}
-                      >
-                        No Action Available
-                      </span>
-                    </Tooltip>
-                  );
-                }
-
-                const resEdit =
-                  canAmend &&
-                  hasPermission(
-                    resourceNameMapWithCamelCase.reimbursement,
-                    permissionConstToUseWithHasPermission.editOwn,
-                    r,
-                  );
-                // Delete stays on untouched lines only. Answering a question is an amendment;
-                // deleting the line the approver asked about just leaves them with no answer.
-                const resDelete =
-                  isPending &&
-                  hasPermission(
-                    resourceNameMapWithCamelCase.reimbursement,
-                    permissionConstToUseWithHasPermission.deleteOwn,
-                    r,
-                  );
-
+        ? [{
+            id: 'actions',
+            enableSorting: false,
+            enableHiding: false,
+            meta: { pin: 'end' },
+            header: 'Actions',
+            cell: ({ row }: any) => {
+              const r = row.original;
+              const n = resolveStatusNum(r.status);
+              const isPending = n === STATUS.PENDING;
+              // A questioned line is EDITABLE — that is how the employee answers, and the server allows it
+              // (a rejected one it refuses).
+              const needsAnswer = n === STATUS.NEEDS_INFO;
+              const canAmend = isPending || needsAnswer;
+              if (!canAmend) {
                 return (
-                  <div className="flex items-center justify-center space-x-4">
-                    {resEdit && (
-                      <Button variant="ghost" size="icon-sm" type="submit"
-                        className="w-[20px]"
-                        aria-label={needsAnswer ? 'Answer the approver' : 'Edit'}
-                        title={needsAnswer
-                          ? "Answer your approver's question — saving sends it back for approval"
-                          : 'Edit'}
-                        onClick={() => {
-                          const cleaned = Object.fromEntries(
-                            Object.entries(r).filter(([, v]) => v != null),
-                          ) as IReimbursementsUpdate;
-                          if (isPartiallyApproved) {
-                            setPendingEditRow(cleaned);
-                            setShowPartialApprovalWarning(true);
-                          } else {
-                            setEditRow(cleaned);
-                          }
-                        }}
-                      >
-                        <KTIcon iconName="pencil" className="inline fs-4 text-red-500" />
-                      </Button>
-                    )}
-                    {resDelete && (
-                      <Button variant="ghost" size="icon-sm" type="submit"
-                        className="w-4"
-                        aria-label="Delete" title="Delete"
-                        disabled={isDeleting}
-                        onClick={() => handleDelete(r.id)}
-                      >
-                        {isDeleting ? (
-                          <span className="spinner-border spinner-border-sm text-danger" />
-                        ) : (
-                          <i className="bi bi-trash3 fs-4 text-danger" />
-                        )}
-                      </Button>
-                    )}
-                    {!resEdit && !resDelete && (
-                      <span className="text-muted fs-7">N/A</span>
-                    )}
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger render={<span tabIndex={0} className="text-xs text-muted-foreground outline-none focus-visible:underline" />}>
+                      No action available
+                    </TooltipTrigger>
+                    <TooltipContent>This expense has already been processed and cannot be modified.</TooltipContent>
+                  </Tooltip>
                 );
-              },
+              }
+              const canEdit = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOwn, r);
+              // Delete stays on untouched lines only: deleting the line an approver asked about leaves them no answer.
+              const canDelete = isPending && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, r);
+              if (!canEdit && !canDelete) return <span className="text-muted-foreground">N/A</span>;
+              return (
+                // The kit's tinted icon actions (Button story "Tinted"), 8px apart like the drafts inbox.
+                <div className="flex items-center gap-2">
+                  {canEdit && (
+                    <Button
+                      variant="tinted"
+                      size="icon-sm"
+                      aria-label={needsAnswer ? 'Answer the approver' : 'Edit'}
+                      title={needsAnswer ? "Answer your approver's question — saving sends it back for approval" : 'Edit'}
+                      onClick={() => {
+                        const cleaned = Object.fromEntries(Object.entries(r).filter(([, v]) => v != null)) as IReimbursementsUpdate;
+                        if (isPartiallyApproved) {
+                          setPendingEditRow(cleaned);
+                          setShowPartialApprovalWarning(true);
+                        } else {
+                          setEditRow(cleaned);
+                        }
+                      }}
+                    >
+                      <Pencil aria-hidden />
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button variant="tinted" size="icon-sm" className="[--tint:var(--cta-danger)]" aria-label="Delete" title="Delete" loading={deletingId === r.id} onClick={() => handleDelete(r.id)}>
+                      <Trash2 aria-hidden />
+                    </Button>
+                  )}
+                </div>
+              );
             },
-          ]
+          } as ColumnDef<any, any>]
         : []),
     ],
-    [
-      resolveClientType,
-      resolveClientCompany,
-      resolveProject,
-      showEditDeleteOption,
-      handleViewDocument,
-      deletingId,
-      setEditRow,
-      detailTotal,
-      isPartiallyApproved,
-      filterStatus,
-      displayedReimbursements,
-    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleDelete only reads loadBatch/onRefresh (stable)
+    [resolveClientType, resolveClientCompany, resolveProject, showEditDeleteOption, handleViewDocument, deletingId,
+      detailTotal, isPartiallyApproved, filterStatus, displayedReimbursements],
   );
 
   const handleDownloadBill = async () => {
@@ -465,152 +388,65 @@ function SubmissionDetailModal({
     }
   };
 
+  const summary = batch ? [
+    `${displayedReimbursements.length} request${displayedReimbursements.length !== 1 ? 's' : ''}`,
+    sensitive.visible ? `${currencyPrefix()}${fmtAmount(detailTotal)} total` : null,
+    `Submitted ${fmtDate(batch.submittedAt)}`,
+    batch.approvedAt ? `Decided ${fmtDate(batch.approvedAt)}` : null,
+    hiddenLineCount > 0 ? `${hiddenLineCount} more expense${hiddenLineCount !== 1 ? 's' : ''} in this batch from other months` : null,
+  ].filter(Boolean).join(' · ') : undefined;
+
   return (
     <>
-      {/*
-        * `max-width: 90vw; width: 95vw` is not responsive — it is 95% of whatever the screen is.
-        * On a 360px phone that is a 342px-wide dialog holding a multi-column table, with the
-        * 5% margin the only thing between the content and the edge. `min()` gives a phone the
-        * full width it needs and a desktop a dialog that stops growing.
-        */}
-      <style>{`
-        .submission-detail-modal { max-width: min(100%, 1140px) !important; margin: 0.5rem auto; }
-        @media (min-width: 576px) { .submission-detail-modal { margin: 1.75rem auto; } }
-      `}</style>
-      <Modal
-        show={!!batchId}
-        onHide={onClose}
-        centered
+      <FormDialog
+        open={!!batchId}
+        onOpenChange={(next) => { if (!next) onClose(); }}
+        title={`Submission Details${batch?.submissionId ? ` — ${batch.submissionId}` : ''}`}
+        description={summary}
+        icon={<ReceiptText />}
         size="xl"
-        dialogClassName="submission-detail-modal"
-        enforceFocus={false}
       >
-        <Modal.Header closeButton>
-          <div className="d-flex align-items-center gap-3 flex-grow-1 pe-2">
-            <div>
-              <Modal.Title className="fs-4 fw-bold">
-                Submission Details — {batch?.submissionId || ''}
-              </Modal.Title>
-              {batch && (
-                <div className="text-muted fs-7 mt-1">
-                  {displayedReimbursements.length} request{displayedReimbursements.length !== 1 ? 's' : ''}&nbsp;·&nbsp;
-                  {currencyPrefix()}{fmtAmount(detailTotal)} total&nbsp;·&nbsp;Submitted{' '}
-                  {fmtDate(batch.submittedAt)}
-                  {batch.approvedAt && (
-                    <>&nbsp;·&nbsp;Decided {fmtDate(batch.approvedAt)}</>
-                  )}
-                  {hiddenLineCount > 0 && (
-                    <>
-                      &nbsp;·&nbsp;
-                      <span className="text-primary">
-                        {hiddenLineCount} more expense{hiddenLineCount !== 1 ? 's' : ''} in this batch from other months
-                      </span>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-            {batch && displayedReimbursements.length > 0 && (
-              <Button variant="ghost" type="submit"
-                className="ms-auto"
-                style={{
-                  height: '35px',
-                  background: '#1E3A8A',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  cursor: downloadingBill ? 'not-allowed' : 'pointer',
-                  pointerEvents: 'auto',
-                }}
-                onClick={handleDownloadBill}
-                disabled={downloadingBill || loading}
-                title="Download batch slip (all reimbursements)"
-              >
-                {downloadingBill ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm" />
-                    <span>Generating...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                    <span>Download Slip</span>
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        </Modal.Header>
-
-        <Modal.Body style={{ padding: '24px', maxHeight: '82vh', overflowY: 'auto' }}>
-          {approvalInstanceId && (
-            <div style={{ background: '#f8f9fa', borderRadius: 8, padding: '14px 16px', marginBottom: 20 }}>
-              <div className="fs-8 fw-bold text-muted text-uppercase mb-2" style={{ letterSpacing: '0.5px' }}>Approval Progress</div>
-              <ApprovalStatusTracker
-                instanceId={approvalInstanceId}
-                compact
-                overrideStatus={filterStatus === 2 ? 'rejected' : filterStatus === 1 ? 'approved' : undefined}
-              />
-            </div>
-          )}
-          {loading ? (
-            <div className="d-flex justify-content-center py-10">
-              <span className="spinner-border text-primary" />
-            </div>
-          ) : (
-            <MaterialTable
-              columns={detailColumns}
-              data={withPreviewHandler(displayedReimbursements, handleViewDocument)}
-              tableName="SubmissionDetailReimbursements"
-              hideFilters={false}
-              hideExportCenter={false}
-              showColumnFooter={true}
-              muiTableProps={{
-                sx: {
-                  '& .MuiTableBody-root .MuiTableCell-root': {
-                    borderBottom: 'none',
-                    paddingY: '5px',
-                  },
-                },
-                muiTableBodyRowProps: ({ row }: any) => {
-                  if (row.original?.isExceedingLimit) {
-                    return {
-                      sx: {
-                        backgroundColor: 'rgba(239,68,68,0.08)',
-                        '& td:first-of-type': { borderLeft: '4px solid #ef4444 !important' },
-                        transition: 'background-color 0.12s ease',
-                        '&:hover td': { backgroundColor: 'rgba(239,68,68,0.14) !important' },
-                      },
-                    };
-                  }
-                  const statusNum = resolveStatusNum(row.original?.status);
-                  const colorMap: Record<number, { bg: string; border: string; hover: string }> = {
-                    1: { bg: 'rgba(16,185,129,0.04)', border: '#10b981', hover: 'rgba(16,185,129,0.08)' },
-                    2: { bg: 'rgba(239,68,68,0.04)', border: '#ef4444', hover: 'rgba(239,68,68,0.08)' },
-                    0: { bg: 'rgba(245,158,11,0.04)', border: '#f59e0b', hover: 'rgba(245,158,11,0.08)' },
-                  };
-                  const c = colorMap[statusNum] ?? null;
-                  return {
-                    sx: {
-                      backgroundColor: c ? c.bg : undefined,
-                      '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
-                      transition: 'background-color 0.12s ease',
-                      '&:hover td': {
-                        backgroundColor: c ? `${c.hover} !important` : '#F8FAFC',
-                      },
-                    },
-                  };
-                },
-              }}
+        {approvalInstanceId && (
+          <section aria-label="Approval progress" className="mb-5 rounded-2xl bg-muted/50 p-4">
+            <h3 className="heading-case m-0 mb-3 text-xs font-bold text-muted-foreground">Approval Progress</h3>
+            <ApprovalStatusTracker
+              instanceId={approvalInstanceId}
+              compact
+              overrideStatus={filterStatus === STATUS.REJECTED ? 'rejected' : filterStatus === STATUS.APPROVED ? 'approved' : undefined}
             />
+          </section>
+        )}
+        <DataTable<any>
+          caption={`Expenses in submission ${batch?.submissionId ?? ''}`.trim()}
+          columns={detailColumns}
+          data={displayedReimbursements}
+          getRowId={(r) => String(r.id)}
+          loading={loading}
+          searchPlaceholder="Search expenses"
+          stateKey="reimbursement.batch-lines"
+          selectable
+          selectionActions={(_rows, _clear, ctx) => <DataTableExport columns={detailColumns} ctx={ctx} filename={`Submission ${batch?.submissionId ?? ''}`.trim()} />}
+          initialSorting={[{ id: 'expenseDate', desc: false }]}
+          // Over its cap → danger (the OverLimitChip names it); otherwise the shared status tone. Needs info
+          // carries no tint, as before: its badge already says who must act.
+          rowTone={(r) => {
+            if (r.isExceedingLimit) return 'danger';
+            const n = resolveStatusNum(r.status) as StatusNum;
+            return n === STATUS.NEEDS_INFO ? undefined : STATUS_TONE[n];
+          }}
+          toolbar={(ctx) => (
+            <>
+              {batch?.id && displayedReimbursements.length > 0 && (
+                <Button variant="outline" loading={downloadingBill} disabled={loading} onClick={handleDownloadBill} title="Download the batch slip (all its reimbursements)">
+                  {!downloadingBill && <FileDown data-icon="inline-start" aria-hidden />}
+                  {downloadingBill ? 'Generating…' : 'Download Slip'}
+                </Button>
+              )}
+              <DataTableExport columns={detailColumns} ctx={ctx} filename={`Submission ${batch?.submissionId ?? ''}`.trim()} />
+            </>
           )}
-        </Modal.Body>
-      </Modal>
+        />
+      </FormDialog>
 
       {previewUrl && (
         <DocumentPreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
@@ -635,41 +471,25 @@ function SubmissionDetailModal({
         }}
       />
 
-      {/* Partial-approval reset warning */}
-      <Modal show={showPartialApprovalWarning} onHide={() => setShowPartialApprovalWarning(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title style={{ fontSize: 16, fontWeight: 700 }}>Editing Will Reset Approval</Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ padding: '20px 24px' }}>
-          <p className="mb-0" style={{ fontSize: 14 }}>
-            This batch has already been approved by one or more levels. Saving changes will
-            <strong> reset the entire approval process</strong> and resubmit from Level 1
-            so all approvers can review the updated details.
-          </p>
-          <p className="text-muted mt-2 mb-0" style={{ fontSize: 13 }}>
-            Are you sure you want to continue?
-          </p>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline" size="sm" type="submit"
-            onClick={() => {
-              setShowPartialApprovalWarning(false);
-              setPendingEditRow(null);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button size="sm" type="submit"
-            onClick={() => {
-              setEditRow(pendingEditRow);
-              setPendingEditRow(null);
-              setShowPartialApprovalWarning(false);
-            }}
-          >
-            Yes, Edit and Reset Approval
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {/* Editing a batch an approver already passed resets the whole chain — say so before it happens. */}
+      <ConfirmDialog
+        open={showPartialApprovalWarning}
+        onOpenChange={(next) => {
+          if (!next) {
+            setShowPartialApprovalWarning(false);
+            setPendingEditRow(null);
+          }
+        }}
+        variant="warning"
+        title="Editing will reset approval"
+        description="This batch has already been approved at one or more levels. Saving changes resets the whole approval and resubmits it from Level 1, so every approver reviews the new details."
+        confirmLabel="Edit and reset approval"
+        onConfirm={() => {
+          setEditRow(pendingEditRow);
+          setPendingEditRow(null);
+          setShowPartialApprovalWarning(false);
+        }}
+      />
     </>
   );
 }
@@ -740,9 +560,6 @@ function SubmissionsTable({
   hideIfEmpty = false,
 }: SubmissionsTableProps) {
   const [rows, setRows] = useState<any[]>([]);
-  // Follows the page's eye toggle. Empty string when no provider is present, so a table used
-  // outside a page that offers the toggle renders exactly as it always has.
-  const { cls: sensitiveCls } = useSensitiveData();
   // null = All. Defaults to All deliberately: a screen that silently narrows to approved is
   // the bug this replaces.
   const [statusFilter, setStatusFilter] = useStoredState<StatusNum | null>('filters:SubmissionsTable:statusFilter', null);
@@ -1033,128 +850,105 @@ function SubmissionsTable({
     [rows],
   );
 
-  const columns = useMemo<MRT_ColumnDef<any>[]>(
+  const columns = useMemo<ColumnDef<any, any>[]>(
     () => [
       {
         accessorKey: '_submissionId',
-        header: 'Batch ID',
-        size: 190,
-        Cell: ({ row }: any) => (
+        meta: { label: 'Batch ID' },
+        header: ({ column }) => <SortableHeader column={column} title="Batch ID" />,
+        cell: ({ row }) => (
           row.original._ungrouped ? (
-            <span className="text-muted fs-8 fst-italic">Unbatched</span>
+            <span className="text-xs text-muted-foreground italic">Unbatched</span>
           ) : (
-            <span
-              style={{
-                display: 'inline-block', background: '#eef2ff', color: '#3730a3',
-                fontWeight: 700, fontSize: 11, padding: '3px 8px', borderRadius: 6,
-                fontFamily: 'monospace', letterSpacing: '0.03em',
-              }}
-            >
-              {row.original._submissionId}
-            </span>
+            <Badge variant="brand" className="font-mono tracking-wide">{row.original._submissionId}</Badge>
           )
         ),
-        Footer: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>TOTAL</span>,
+        footer: () => <span className="uppercase">Total</span>,
       },
       {
         accessorKey: '_submittedAt',
-        header: 'Submitted On',
-        size: 140,
-        Cell: ({ row }: any) => (
-          <span className="text-dark fs-7">{fmtDate(row.original._submittedAt)}</span>
-        ),
+        meta: { label: 'Submitted on', exportValue: (r: any) => fmtDate(r._submittedAt) },
+        header: ({ column }) => <SortableHeader column={column} title="Submitted On" />,
+        cell: ({ row }) => fmtDate(row.original._submittedAt),
       },
       {
         accessorKey: '_totalRequests',
-        header: 'Expenses',
-        size: 110,
-        Cell: ({ row }: any) => (
-          <span className="text-dark fs-7">{row.original._totalRequests}</span>
-        ),
+        meta: { label: 'Expenses' },
+        header: ({ column }) => <SortableHeader column={column} title="Expenses" />,
+        cell: ({ row }) => <span className="tabular">{row.original._totalRequests}</span>,
       },
       // Only in the submission view: the months this batch's expenses fall in. It is the
       // bridge between the two tables — this is why a batch submitted in August can show
       // up under June in the records table.
       ...(mode === 'submission' ? [{
         accessorKey: '_expenseFrom',
+        meta: { label: 'Expense period', exportValue: (r: any) => expensePeriod(r) },
         header: 'Expense Period',
-        size: 170,
-        Cell: ({ row }: any) => {
-          const from = row.original._expenseFrom;
-          const to = row.original._expenseTo;
-          if (!from) return <span className="text-muted fs-7">-</span>;
-          const a = dayjs(from), b = dayjs(to ?? from);
-          return (
-            <span className="text-dark fs-7">
-              {a.isSame(b, 'month') ? a.format('MMM YYYY') : a.format('MMM YYYY') + ' - ' + b.format('MMM YYYY')}
-            </span>
-          );
-        },
-      }] : []),
+        cell: ({ row }: any) => expensePeriod(row.original) || <span className="text-muted-foreground">—</span>,
+      } as ColumnDef<any, any>] : []),
       {
         accessorKey: '_totalAmount',
-        header: `Amount (${getCurrencySymbol()})`,
-        size: 145,
-        Cell: ({ row }: any) => (
-          <span className={`fs-7 ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(row.original._totalAmount)}</span>
+        meta: { label: `Amount (${getCurrencySymbol()})`, exportValue: (r: any) => fmtAmount(r._totalAmount) },
+        header: ({ column }) => <SortableHeader column={column} title={`Amount (${getCurrencySymbol()})`} />,
+        cell: ({ row }) => (
+          <SensitiveValue className="tabular">{currencyPrefix()}{fmtAmount(row.original._totalAmount)}</SensitiveValue>
         ),
-        Footer: () => <span className={`text-dark fw-bold fs-7 ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(rowsTotal)}</span>,
+        footer: () => <SensitiveValue className="tabular">{currencyPrefix()}{fmtAmount(rowsTotal)}</SensitiveValue>,
       },
       {
         accessorKey: '_status',
+        meta: { label: 'Approval status', exportValue: (r: any) => approvalLabel(r._status) },
         header: 'Approval Status',
-        size: 130,
-        Cell: ({ row }: any) => {
-          const s = row.original._status;
-          if (s === 1) return <ToneChip dense tone="success" label="Approved" />;
-          if (s === 2) return <ToneChip dense tone="danger" label="Rejected" />;
-          // Every line questioned: the batch is waiting on the EMPLOYEE, not the approver, and
-          // saying "Pending" here sent them looking for someone else to chase.
-          if (s === STATUS.NEEDS_INFO) {
-            return (
-              <Tooltip title="Your approver asked a question — open the batch to read it and answer by editing the expense">
-                <span><ToneChip dense tone="warning" label="Needs info" /></span>
-              </Tooltip>
-            );
-          }
-          if (s === MIXED_STATUS) {
-            return (
-              <Tooltip title="This batch has mixed outcomes — some expenses may still be pending, approved, rejected, or awaiting your reply. Open it to see which. Approved lines are already payable on the Payment desk.">
-                <span><ToneChip dense tone="cyan" label="Partly approved" /></span>
-              </Tooltip>
-            );
-          }
-          return <ToneChip dense tone="warning" label="Pending" />;
+        cell: ({ row }) => {
+          const s = row.original._status as number;
+          const badge = <Badge variant={STATUS_TONE[resolveStatus(s) as StatusNum] ?? 'warning'} dot>{approvalLabel(s)}</Badge>;
+          // Every line questioned: the batch waits on the EMPLOYEE, not the approver — saying only "Pending"
+          // sent them looking for someone else to chase. Mixed: some lines are already payable.
+          const hint = s === STATUS.NEEDS_INFO
+            ? 'Your approver asked a question — open the batch to read it and answer by editing the expense'
+            : s === MIXED_STATUS
+              ? 'This batch has mixed outcomes — some expenses may still be pending, approved, rejected, or awaiting your reply. Open it to see which. Approved lines are already payable on the Payment desk.'
+              : null;
+          if (!hint) return badge;
+          return (
+            <Tooltip>
+              <TooltipTrigger render={<span tabIndex={0} className="inline-flex rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50" />}>
+                {badge}
+              </TooltipTrigger>
+              <TooltipContent className="max-w-72">{hint}</TooltipContent>
+            </Tooltip>
+          );
         },
       },
       {
         accessorKey: '_approvedAt',
-        header: 'Approved On',
-        size: 140,
-        Cell: ({ row }: any) => {
-          if (row.original._status === 0) return <span className="text-muted fs-7">Awaiting</span>;
-          if (!row.original._approvedAt) return <span className="text-muted fs-7">—</span>;
-          return <span className="text-dark fs-7">{fmtDate(row.original._approvedAt)}</span>;
+        meta: { label: 'Approved on', exportValue: (r: any) => (r._status === 0 ? 'Awaiting' : r._approvedAt ? fmtDate(r._approvedAt) : '') },
+        header: ({ column }) => <SortableHeader column={column} title="Approved On" />,
+        cell: ({ row }) => {
+          if (row.original._status === 0) return <span className="text-muted-foreground">Awaiting</span>;
+          if (!row.original._approvedAt) return <span className="text-muted-foreground">—</span>;
+          return fmtDate(row.original._approvedAt);
         },
       },
       {
         accessorKey: '_paymentStatus',
+        meta: { label: 'Payment status', exportValue: (r: any) => paymentLabel(r._paymentStatus) ?? 'N/A' },
         header: 'Payment Status',
-        size: 145,
-        Cell: ({ row }: any) => {
+        cell: ({ row }) => {
           // Driven by whether anything in the row is approved, not by the row's own
           // status — a partly-approved batch still has approved lines to pay.
           const ps = row.original._paymentStatus;
-          if (!ps) return <span className="text-muted fs-7">N/A</span>;
-          if (ps === 'PAID') return <ToneChip dense tone="success" label="Paid" />;
-          if (ps === 'PARTIAL') return <ToneChip dense tone="cyan" label="Partially Paid" />;
-          return <ToneChip dense tone="warning" label="Pending" />;
+          if (!ps) return <span className="text-muted-foreground">N/A</span>;
+          return (
+            <Badge variant={ps === 'PAID' ? 'success' : ps === 'PARTIAL' ? 'info' : 'warning'} dot>
+              {paymentLabel(ps)}
+            </Badge>
+          );
         },
       },
     ],
-    // `sensitiveCls` is a dependency, not an incidental read: without it the columns memo keeps
-    // the class captured at first render and the eye toggle does nothing to the amount column.
-    [rowsTotal, mode, sensitiveCls],
+    // The eye is read by <SensitiveValue> at render time, so it is not a dependency of this memo.
+    [rowsTotal, mode],
   );
 
   // Status is a filter the user controls, defaulting to All. Six screens used to hard-code
@@ -1164,6 +958,12 @@ function SubmissionsTable({
     () => countByStatus(rows.map((r) => ({ status: r._status })), resolveStatus),
     [rows],
   );
+
+  const openBatch = useCallback((r: any) => {
+    setDetailBatchId(r._batchId);
+    setDetailFilterStatus(r._status ?? null);
+    setDetailLineIds(r._lineIds ?? null);
+  }, []);
 
   const visibleRows = useMemo(() => {
     let out = statusFilter === null ? rows : rows.filter((r) => resolveStatus(r._status) === statusFilter);
@@ -1180,6 +980,9 @@ function SubmissionsTable({
     [allTimeLines, period, date],
   );
 
+  // The ABAC row rule the live MaterialTable applied (table/usePermittedRows), kept on the kit table.
+  const permittedRows = usePermittedRows(visibleRows, { resource, viewOwn, viewOthers, checkOwnWithOthers });
+
   const periodLabel = period === 'monthly'
     ? date.format('MMMM YYYY')
     : period === 'yearly' ? `FY ${date.format('YYYY')}` : 'all time';
@@ -1193,12 +996,12 @@ function SubmissionsTable({
     <>
       {/* Heading and status rail share one line — the heading block used to sit in the page
           above with its own margins, leaving a band of empty space beside the chips. */}
-      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 gap-lg-3 mb-3 px-3 px-lg-0">
-        <div style={{ minWidth: 0 }}>
-          {title && <h2 className="mb-0 fs-5 fs-lg-4">{title}</h2>}
-          {subtitle && <div className="text-muted fs-9 fs-lg-8">{subtitle}</div>}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-3 lg:gap-3 lg:px-0">
+        <div className="min-w-0">
+          {title && <h2 className="m-0 text-base font-bold text-foreground lg:text-lg">{title}</h2>}
+          {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
         </div>
-        <div className="d-flex align-items-center flex-wrap gap-2 w-100 w-md-auto mw-100 justify-content-start justify-content-md-end">
+        <div className="flex w-full max-w-full flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end">
           {/* A filter set from a chart the reader may have scrolled past needs to say so here,
               where the narrowed rows are — and be undoable from the same place. */}
           {externalCategoryFilter && (
@@ -1215,11 +1018,9 @@ function SubmissionsTable({
         </div>
       </div>
 
-      {tableLoading ? (
-        <SkeletonTable rows={5} cols={6} />
-      ) : loadError ? (
+      {loadError && !tableLoading ? (
         <LoadErrorState what="your expenses" onRetry={() => setRefreshKey((k) => k + 1)} />
-      ) : visibleRows.length === 0 ? (
+      ) : !tableLoading && permittedRows.length === 0 ? (
         <RecordsEmptyState
           periodLabel={periodLabel}
           elsewhere={elsewhere}
@@ -1228,62 +1029,26 @@ function SubmissionsTable({
           onClearStatusFilter={() => setStatusFilter(null)}
         />
       ) : (
-        <MaterialTable
+        <DataTable<any>
+          caption={title || 'Submissions'}
           columns={columns}
-          data={visibleRows}
-          tableName="Submissions"
-          resource={resource}
-          viewOwn={viewOwn}
-          viewOthers={viewOthers}
-          checkOwnWithOthers={checkOwnWithOthers}
-          employeeId={employeeId}
-          showColumnFooter={true}
+          data={permittedRows}
+          getRowId={(r, i) => String(r._batchId ?? r._submissionId ?? i)}
+          loading={tableLoading}
+          searchPlaceholder="Search submissions"
+          stateKey="reimbursement.submissions"
+          selectable
+          selectionActions={(_rows, _clear, ctx) => <DataTableExport columns={columns} ctx={ctx} filename={title || 'Submissions'} />}
+          initialSorting={[{ id: '_submittedAt', desc: true }]}
+          onRowClick={openBatch}
+          rowLabel={(r) => `Open submission ${r._submissionId ?? ''}`.trim()}
+          // The same tone as the badge and the phone card (STATUS_TONE). Needs info carries no tint, as before:
+          // its badge already says who must act.
+          rowTone={(r) => (r._status === STATUS.NEEDS_INFO ? undefined : STATUS_TONE[resolveStatus(r._status) as StatusNum])}
           // Narrow screens get cards instead of an eight-column horizontal scroller. Same
           // click target as the wide table, so opening a submission works identically.
-          renderMobileCard={({ row }: any) => (
-            <SubmissionMobileCard
-              row={row.original}
-              onOpen={() => {
-                setDetailBatchId(row.original._batchId);
-                setDetailFilterStatus(row.original._status ?? null);
-                setDetailLineIds(row.original._lineIds ?? null);
-              }}
-            />
-          )}
-          muiTableProps={{
-            sx: {
-              '& .MuiTableBody-root .MuiTableCell-root': {
-                borderBottom: 'none',
-                paddingY: '5px',
-              },
-            },
-            muiTableBodyRowProps: ({ row }: any) => {
-              const s = row.original?._status ?? 0;
-              const colorMap: Record<number, { bg: string; border: string; hover: string }> = {
-                1: { bg: 'rgba(16,185,129,0.04)', border: '#10b981', hover: 'rgba(16,185,129,0.08)' },
-                2: { bg: 'rgba(239,68,68,0.04)', border: '#ef4444', hover: 'rgba(239,68,68,0.08)' },
-                0: { bg: 'rgba(245,158,11,0.04)', border: '#f59e0b', hover: 'rgba(245,158,11,0.08)' },
-                [MIXED_STATUS]: { bg: 'rgba(59,130,246,0.04)', border: '#3b82f6', hover: 'rgba(59,130,246,0.08)' },
-              };
-              const c = colorMap[s] ?? null;
-              return {
-                ...clickableRowProps(() => {
-                  setDetailBatchId(row.original._batchId);
-                  setDetailFilterStatus(row.original._status ?? null);
-                  setDetailLineIds(row.original._lineIds ?? null);
-                }, `Open submission ${row.original._submissionId ?? ''}`.trim()),
-                sx: {
-                  ...CLICKABLE_ROW_SX,
-                  backgroundColor: c ? c.bg : undefined,
-                  '& td:first-of-type': c ? { borderLeft: `4px solid ${c.border} !important` } : {},
-                  transition: 'background-color 0.12s ease',
-                  '&:hover td': {
-                    backgroundColor: c ? `${c.hover} !important` : '#F8FAFC',
-                  },
-                },
-              };
-            },
-          }}
+          renderCard={(r) => <SubmissionMobileCard row={r} onOpen={() => openBatch(r)} />}
+          toolbar={(ctx) => <DataTableExport columns={columns} ctx={ctx} filename={title || 'Submissions'} />}
         />
       )}
 

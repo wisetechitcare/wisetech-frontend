@@ -1,554 +1,155 @@
-import { Autocomplete, MenuItem, TextField } from "@mui/material";
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useLocation } from "react-router-dom";
 import { Employee, saveSelectedEmployee } from "@redux/slices/employee";
 import { RootState } from "@redux/store";
 import { fetchAllEmployees } from "@services/employee";
-import { useEffect, useRef, useState } from "react";
-import { Container, Row, Col, Form } from "react-bootstrap";
-import { useDispatch, useSelector } from "react-redux";
-import { useLocation } from "react-router-dom";
-import { maleIcons } from "@metronic/assets/sidepanelicons";
-import { useTeamFilter } from '@/contexts/TeamFilterContext';
+import { useTeamFilter } from "@/contexts/TeamFilterContext";
+import { cn } from "@/ds/lib/utils";
+import { Card } from "@/ds/ui/card";
+import { Field, FieldLabel } from "@/ds/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ds/ui/select";
+import { PersonPicker, type PersonOption } from "@/ds/patterns/person-picker";
 
-type EmployeeStatus = 'all' | 'active' | 'inactive';
+type EmployeeStatus = "all" | "active" | "inactive";
 
-const AllEmployeesSearchDropdown = () => {
-  const autoCompleteRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
-  const [scrollY, setScrollY] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<EmployeeStatus>('active');
+const STATUS_ITEMS: { value: EmployeeStatus; label: string; dot?: string }[] = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active", dot: "bg-success" },
+  { value: "inactive", label: "Inactive", dot: "bg-muted-foreground" },
+];
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (Math.abs(window.scrollY - scrollY) > 70) {
-        if (autoCompleteRef.current) {
-          const input = autoCompleteRef.current.querySelector("input");
-          if (input) {
-            (input as HTMLInputElement).blur(); 
-          }
-        }
-        setScrollY(window.scrollY);
-      }
-    };
+const fullName = (e: Employee) => `${e.users?.firstName ?? ""} ${e.users?.lastName ?? ""}`.trim();
 
-    window.addEventListener("scroll", handleScroll);
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, [scrollY]);
-  const dispatch = useDispatch();
-  const loggedInEmployee = useSelector(
-    (state: RootState) => state.employee.currentEmployee
+/** A status option: the label and, for Active / Inactive, the dot the old picker used. */
+function StatusLabel({ value }: { value: EmployeeStatus }) {
+  const item = STATUS_ITEMS.find((s) => s.value === value)!;
+  return (
+    <span className="flex items-center gap-2">
+      {item.dot && <span aria-hidden className={cn("size-2 shrink-0 rounded-full", item.dot)} />}
+      {item.label}
+    </span>
   );
+}
 
+/**
+ * "Whose records am I looking at?" — the bar at the top of every admin Search Employee screen
+ * (reimbursement, salary, loans, KPIs, increments, attendance). Picks an employee into
+ * `state.employee.selectedEmployee`, which those screens read.
+ *
+ * On the design system: an Employee Status Select beside the kit `PersonPicker` (type a name or an
+ * employee code; namesakes are told apart by code and role), both floating-label fields in one card.
+ * Was MUI Autocomplete + TextField inside react-bootstrap Rows, with a desktop and a mobile copy of
+ * the same markup; one responsive grid now.
+ *
+ * Behaviour is unchanged:
+ * - opens on Active, and the logged-in employee is selected until someone else is picked;
+ * - changing the status clears the pick (the person may not be in the new list);
+ * - clearing the search goes back to the logged-in employee;
+ * - the team filter (TeamFilterContext) narrows the list;
+ * - arriving with `location.state.employeeId` (a row clicked on Reimbursement Details / payroll)
+ *   selects that employee once the list has loaded.
+ */
+const AllEmployeesSearchDropdown = () => {
+  const location = useLocation();
+  const dispatch = useDispatch();
+  const loggedInEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
   const { filterIds } = useTeamFilter();
-  const [selectedDropdownEmployee, setSelectedDropdownEmployee] =
-    useState<Employee>(loggedInEmployee);
+
+  const [statusFilter, setStatusFilter] = useState<EmployeeStatus>("active");
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
-  const [sortedEmployees, setSortedEmployees] = useState<Employee[]>([]);
+  const [selectedId, setSelectedId] = useState<string>(loggedInEmployee?.id ?? "");
 
-  const handleSearch = (e: any, employee: Employee | null, reason: string) => {
-    if (employee) {
-      setSelectedDropdownEmployee(employee);
-      dispatch(saveSelectedEmployee(employee));
-    } else if (reason === "clear") {
-      setSelectedDropdownEmployee(loggedInEmployee);
-      dispatch(saveSelectedEmployee(loggedInEmployee));
-    }
+  const select = (employee: Employee | null | undefined) => {
+    setSelectedId(employee?.id ?? "");
+    if (employee) dispatch(saveSelectedEmployee(employee));
   };
 
-  const handleSelect = (e: any) => {
-    const selectedId = e.target.value;
-    const employee = allEmployees.find((emp) => emp.id === selectedId);
-    setSelectedDropdownEmployee(employee!);
-    dispatch(saveSelectedEmployee(employee));
-  };
-
-  // Fetch employees based on status filter
+  // Fetch employees for the status filter (the API filters; `all` sends no flag).
   useEffect(() => {
-    async function fetchData() {
-      let isActive: boolean | undefined;
-
-      if (statusFilter === 'active') {
-        isActive = true;
-      } else if (statusFilter === 'inactive') {
-        isActive = false;
-      } else {
-        isActive = undefined; // 'all' - fetch all employees
-      }
-
-      const { data } = await fetchAllEmployees(isActive);
-      const employees: Employee[] = data.employees;
-      setAllEmployees(filterIds ? employees.filter((e) => filterIds.includes(e.id)) : employees);
-
-      // Only set logged-in employee on initial load (when statusFilter is 'all')
-      // For other filters or filter changes, show placeholder
-      if (statusFilter === 'all' && selectedDropdownEmployee.id === "") {
-        setSelectedDropdownEmployee(loggedInEmployee);
-        dispatch(saveSelectedEmployee(loggedInEmployee));
-      }
-    }
-    fetchData();
+    let cancelled = false;
+    const isActive = statusFilter === "active" ? true : statusFilter === "inactive" ? false : undefined;
+    fetchAllEmployees(isActive)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const employees: Employee[] = data?.employees ?? [];
+        setAllEmployees(filterIds ? employees.filter((e) => filterIds.includes(e.id)) : employees);
+      })
+      .catch(() => { if (!cancelled) setAllEmployees([]); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch on status only, as before
   }, [statusFilter]);
 
-  // Sort employees by name (alphabetically) - no need to filter as API already returns filtered data
+  // The logged-in employee is the selection on first open.
   useEffect(() => {
-    if (allEmployees.length === 0) return;
+    if (loggedInEmployee?.id) dispatch(saveSelectedEmployee(loggedInEmployee));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
+  }, []);
 
-    const sorted = [...allEmployees].sort((a, b) =>
-      a.users.firstName.localeCompare(b.users.firstName)
-    );
-
-    setSortedEmployees(sorted);
-  }, [allEmployees]);
-
-  const handleStatusFilterChange = (e: any) => {
-    const newStatus = e.target.value as EmployeeStatus;
-    setStatusFilter(newStatus);
-
-    // Clear selection to show placeholder - user needs to manually select an employee
-    const emptyEmployee = {
-      id: "",
-      users: { firstName: "", lastName: "" },
-      isActive: false
-    } as Employee;
-    setSelectedDropdownEmployee(emptyEmployee);
-  };
-
-  // Dispatch logged-in employee to Redux on initial mount
+  // Arrived from a row elsewhere (Reimbursement Details, payroll): select that employee.
   useEffect(() => {
-    if (loggedInEmployee && loggedInEmployee.id) {
-      dispatch(saveSelectedEmployee(loggedInEmployee));
-    }
-  }, []); // Run only once on mount
-
-  // Auto-select employee when navigated from payroll table
-  useEffect(() => {
-    const targetId = (location.state as any)?.employeeId;
+    const targetId = (location.state as { employeeId?: string } | null)?.employeeId;
     if (!targetId || allEmployees.length === 0) return;
-    const match = allEmployees.find(e => e.id === targetId);
-    if (match) {
-      setSelectedDropdownEmployee(match);
-      dispatch(saveSelectedEmployee(match));
-    }
+    const match = allEmployees.find((e) => e.id === targetId);
+    if (match) select(match);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- select is stable in effect
   }, [allEmployees, location.state]);
 
+  // Sorted by first name, as before; the option shows the code and role so namesakes can be told apart.
+  const people = useMemo<PersonOption[]>(
+    () => [...allEmployees]
+      .sort((a, b) => (a.users?.firstName ?? "").localeCompare(b.users?.firstName ?? ""))
+      .map((e) => ({
+        id: e.id,
+        name: fullName(e),
+        code: e.employeeCode ?? undefined,
+        subtitle: [e.designations?.role, e.isActive === false ? "Inactive" : null].filter(Boolean).join(" · ") || undefined,
+        avatarUrl: e.avatar ?? undefined,
+      })),
+    [allEmployees],
+  );
+
   return (
-    <>
-      <Container
-        fluid
-        className="p-4"
-        style={{ 
-          backgroundColor: "#ffffff", 
-          borderRadius: "12px",
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.04)",
-          border: "1px solid #f1f5f9"
-        }}
-      >
-        {/* Desktop Layout */}
-        <Row className="align-items-center d-none d-md-flex g-3">
-          <Col md={6} className="d-flex flex-column">
-            <Form.Label style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }} className="mb-2">Filter</Form.Label>
-            <TextField
-              select
-              value={statusFilter}
-              onChange={handleStatusFilterChange}
-              variant="outlined"
-              size="small"
-              fullWidth
-              InputProps={{
-                style: {
-                  borderRadius: "8px",
-                  height: "45px",
-                  backgroundColor: "white",
-                },
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  "& fieldset": {
-                    borderColor: "#1E3A8A",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "#1E3A8A",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "#1E3A8A",
-                  },
-                },
-              }}
-              SelectProps={{
-                renderValue: (selected) => {
-                  if (selected === 'all') {
-                    return <span>All</span>;
-                  }
-                  return (
-                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                      <span style={{ flex: 1 }}>
-                        {selected === 'active' ? 'Active' : 'Inactive'}
-                      </span>
-                      <span
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          backgroundColor: selected === 'active' ? "#3ECD45" : "#8A8A8A",
-                          marginLeft: 8,
-                        }}
-                      />
-                    </div>
-                  );
-                }
-              }}
-            >
-              <MenuItem value="all">
-                <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                  <span>All</span>
-                </div>
-              </MenuItem>
-              <MenuItem value="active">
-                <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                  <span style={{ flex: 1 }}>Active</span>
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      backgroundColor: "#3ECD45",
-                      marginLeft: 8,
-                    }}
-                  />
-                </div>
-              </MenuItem>
-              <MenuItem value="inactive">
-                <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                  <span style={{ flex: 1 }}>Inactive</span>
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      backgroundColor: "#8A8A8A",
-                      marginLeft: 8,
-                    }}
-                  />
-                </div>
-              </MenuItem>
-            </TextField>
-          </Col>
-          <Col md={6} className="d-flex flex-column" ref={autoCompleteRef}>
-            <Form.Label style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }} className="mb-2">
-              Search by Name or ID
-            </Form.Label>
-            <Autocomplete
-              disablePortal
-              options={sortedEmployees}
-              getOptionLabel={(option) =>
-                option.users.firstName +
-                " " +
-                option.users.lastName +
-                " - " +
-                option.employeeCode
-              }
-              onChange={handleSearch}
-              style={{ width: "100%" }}
-              renderOption={(props, option) => (
-                <li
-                  {...props}
-                  key={option.id}
-                  style={{ display: "flex", alignItems: "center" }}
-                >
-                  <img
-                    src={
-                      option.avatar ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                        option.users.firstName + " " + option.users.lastName
-                      )}`
-                    }
-                    alt={option.users.firstName + " avatar"}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                      marginRight: 8,
-                    }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        "https://ui-avatars.com/api/?name=" +
-                        encodeURIComponent(
-                          option.users.firstName + " " + option.users.lastName
-                        );
-                    }}
-                  />
-                  <span style={{
-                    color: option.isActive ? "inherit" : "#999",
-                    flex: 1
-                  }}>
-                    {option.users.firstName +
-                      " " +
-                      option.users.lastName +
-                      " - " +
-                      option.employeeCode}
-                  </span>
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      backgroundColor: option.isActive ? "#3ECD45" : "#8A8A8A",
-                      marginLeft: 8,
-                    }}
-                  />
-                </li>
-              )}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  placeholder="Search Employee Name or ID"
-                  variant="outlined"
-                  fullWidth
-                  InputProps={{
-                    ...params.InputProps,
-                    style: {
-                      borderRadius: "8px",
-                      padding: "2px 2px",
-                      height: "45px",
-                      backgroundColor: "white",
-                    },
-                  }}
-                  inputProps={{
-                    ...params.inputProps,
-                    style: { textAlign: "left" },
-                  }}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      transition: "all 0.2s ease-in-out",
-                      "& fieldset": {
-                        borderColor: "#e2e8f0",
-                        borderWidth: "1.5px",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "#cbd5e1",
-                      },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "#1E3A8A",
-                        borderWidth: "1.5px",
-                        boxShadow: "0 0 0 4px rgba(30, 58, 138, 0.1)"
-                      },
-                    },
-                  }}
-                />
-              )}
-            />
-          </Col>
-        </Row>
-
-        {/* Mobile Layout */}
-        <Row className="d-md-none">
-          <Col xs={12} className="mb-3">
-            <Form.Label style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }} className="mb-2 d-block">Filter</Form.Label>
-            <TextField
-              select
-              value={statusFilter}
-              onChange={handleStatusFilterChange}
-              variant="outlined"
-              fullWidth
-              InputProps={{
-                style: {
-                  borderRadius: "8px",
-                  padding: "2px 2px",
-                  height: "45px",
-                  backgroundColor: "white",
-                },
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  transition: "all 0.2s ease-in-out",
-                  "& fieldset": {
-                    borderColor: "#e2e8f0",
-                    borderWidth: "1.5px",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "#cbd5e1",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "#1E3A8A",
-                    borderWidth: "1.5px",
-                    boxShadow: "0 0 0 4px rgba(30, 58, 138, 0.1)"
-                  },
-                },
-              }}
-              SelectProps={{
-                renderValue: (selected) => {
-                  if (selected === 'all') {
-                    return <span>All</span>;
-                  }
-                  return (
-                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                      <span style={{ flex: 1 }}>
-                        {selected === 'active' ? 'Active' : 'Inactive'}
-                      </span>
-                      <span
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          backgroundColor: selected === 'active' ? "#3ECD45" : "#8A8A8A",
-                          marginLeft: 8,
-                        }}
-                      />
-                    </div>
-                  );
-                }
-              }}
-            >
-              <MenuItem value="all">
-                <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                  <span>All</span>
-                </div>
-              </MenuItem>
-              <MenuItem value="active">
-                <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                  <span style={{ flex: 1 }}>Active</span>
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      backgroundColor: "#3ECD45",
-                      marginLeft: 8,
-                    }}
-                  />
-                </div>
-              </MenuItem>
-              <MenuItem value="inactive">
-                <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                  <span style={{ flex: 1 }}>Inactive</span>
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      backgroundColor: "#8A8A8A",
-                      marginLeft: 8,
-                    }}
-                  />
-                </div>
-              </MenuItem>
-            </TextField>
-          </Col>
-
-
-
-          <Col xs={12}>
-            <Form.Label style={{ fontSize: "0.85rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }} className="mb-2 d-block">
-              Search by Name or ID
-            </Form.Label>
-            <Autocomplete
-              disablePortal
-              options={sortedEmployees}
-              getOptionLabel={(option) =>
-                option.users.firstName +
-                " " +
-                option.users.lastName +
-                " - " +
-                option.employeeCode
-              }
-              onChange={handleSearch}
-              style={{ width: "100%" }}
-              renderOption={(props, option) => (
-                <li
-                  {...props}
-                  key={option.id}
-                  style={{ display: "flex", alignItems: "center" }}
-                >
-                  <img
-                    src={
-                      option.avatar ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                        option.users.firstName + " " + option.users.lastName
-                      )}`
-                    }
-                    alt={option.users.firstName + " avatar"}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                      marginRight: 8,
-                    }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        "https://ui-avatars.com/api/?name=" +
-                        encodeURIComponent(
-                          option.users.firstName + " " + option.users.lastName
-                        );
-                    }}
-                  />
-                  <span style={{
-                    color: option.isActive ? "inherit" : "#999",
-                    flex: 1
-                  }}>
-                    {option.users.firstName +
-                      " " +
-                      option.users.lastName +
-                      " - " +
-                      option.employeeCode}
-                  </span>
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      backgroundColor: option.isActive ? "#3ECD45" : "#8A8A8A",
-                      marginLeft: 8,
-                    }}
-                  />
-                </li>
-              )}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  placeholder="Search Employee Name or ID"
-                  variant="outlined"
-                  fullWidth
-                  InputProps={{
-                    ...params.InputProps,
-                    style: {
-                      borderRadius: "8px",
-                      padding: "2px 2px",
-                      height: "45px",
-                      backgroundColor: "white",
-                    },
-                  }}
-                  inputProps={{
-                    ...params.inputProps,
-                    style: { textAlign: "left" },
-                  }}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      transition: "all 0.2s ease-in-out",
-                      "& fieldset": {
-                        borderColor: "#e2e8f0",
-                        borderWidth: "1.5px",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "#cbd5e1",
-                      },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "#1E3A8A",
-                        borderWidth: "1.5px",
-                        boxShadow: "0 0 0 4px rgba(30, 58, 138, 0.1)"
-                      },
-                    },
-                  }}
-                />
-              )}
-            />
-          </Col>
-        </Row>
-      </Container>
-    </>
+    <Card variant="panel" className="p-4">
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+        <Field>
+          <FieldLabel htmlFor="employee-search-status">Employee Status</FieldLabel>
+          <Select
+            items={STATUS_ITEMS.map(({ value, label }) => ({ value, label }))}
+            value={statusFilter}
+            onValueChange={(v) => {
+              setStatusFilter(v as EmployeeStatus);
+              // The person may not be in the new list; show the placeholder until someone is picked.
+              setSelectedId("");
+            }}
+          >
+            <SelectTrigger id="employee-search-status" className="w-full">
+              <SelectValue>{(v: EmployeeStatus) => <StatusLabel value={v} />}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_ITEMS.map((s) => (
+                <SelectItem key={s.value} value={s.value}><StatusLabel value={s.value} /></SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="employee-search-person">Search by Name or ID</FieldLabel>
+          <PersonPicker
+            id="employee-search-person"
+            people={people}
+            value={selectedId ? [selectedId] : []}
+            placeholder="Type a name or employee ID"
+            onChange={(ids) => {
+              if (ids[0]) select(allEmployees.find((e) => e.id === ids[0]));
+              // Cleared: back to the logged-in employee, as before.
+              else select(loggedInEmployee);
+            }}
+          />
+        </Field>
+      </div>
+    </Card>
   );
 };
 
-export default AllEmployeesSearchDropdown; 
+export default AllEmployeesSearchDropdown;

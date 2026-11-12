@@ -34,7 +34,7 @@ export interface EmployeeListFilters {
 /** 'All' is the absence of a filter, not a value to send. */
 const isSet = (v: string | undefined): v is string => !!v && v !== 'All';
 
-const idForName = (options: FacetOption[], name: string): string | undefined =>
+export const idForName = (options: FacetOption[], name: string): string | undefined =>
     options.find((o) => o.name === name)?.id;
 
 export const buildEmployeeListParams = (f: EmployeeListFilters): EmployeeListParams => {

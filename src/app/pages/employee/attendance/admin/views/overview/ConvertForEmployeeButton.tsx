@@ -5,7 +5,6 @@ import { fetchUnsettledLeavers, fetchEmployeeLeaveBalance } from '@services/empl
 import { EmployeeSelectionDialog } from '@app/modules/common/components/EmployeeSelectionDialog';
 import { WtButton, Spinner } from '@app/modules/common/components/ui/tw';
 import { KTIcon } from '@metronic/helpers';
-import { getAvatar } from '@utils/avatar';
 import { activeEmployeeIdSet } from '@utils/activeEmployee';
 import { errorConfirmation } from '@utils/modal';
 import { canSection } from '@utils/can';
@@ -67,7 +66,7 @@ export default function ConvertForEmployeeButton() {
                 id: e.id,
                 name: e.users ? `${e.users.firstName ?? ''} ${e.users.lastName ?? ''}`.trim() : 'Unknown',
                 designation: e.designations?.role || e.designation || '',
-                avatar: getAvatar(e.avatar ?? e.users?.avatar ?? null, e.gender ?? null),
+                avatar: e.avatar || e.users?.avatar || '',
             }));
     }, [allEmployees]);
 

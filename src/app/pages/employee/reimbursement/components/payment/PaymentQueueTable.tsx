@@ -1,12 +1,19 @@
 import { useMemo } from 'react';
-import { Box, Checkbox, Typography } from '@mui/material';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
-import ExportButton from '@app/modules/common/components/ExportButton';
-import { WtButton } from '@app/modules/common/components/ui/buttons';
-import { StatusBadge } from '@app/modules/common/components/ui/patterns';
-import { fmtDate, formatMoney, PAYMENT_TONE } from '../../utils/reimbursementFormat';
-import { PaymentBatchRow, PAYMENT_STATE_LABEL, COMPACT_BUTTON_SX } from './paymentData';
+import { SearchX } from 'lucide-react';
+import { cn } from '@/ds/lib/utils';
+import { toneStyle } from '@/ds/lib/tone';
+import { Badge } from '@/ds/ui/badge';
+import { Button } from '@/ds/ui/button';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/ds/ui/table';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { DescriptionList } from '@/ds/patterns/description-list';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { PersonCell } from '@/ds/patterns/person';
+import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { fmtDate, formatMoney, PAYMENT_LABEL, resolveStatusNum, STATUS_LABEL } from '../../utils/reimbursementFormat';
+import { PaymentBatchRow, PAYMENT_STATE_LABEL, type PaymentState } from './paymentData';
 import PaymentEmptyState from './PaymentEmptyState';
+import PaymentStateBadge, { PAYMENT_STATE_TONE } from './PaymentStateBadge';
 
 /**
  * The work queue: approved batches with money still owed on them.
@@ -15,38 +22,34 @@ import PaymentEmptyState from './PaymentEmptyState';
  * "Total request amount / total paid / total remaining" used to be three near-identical money
  * columns with no indication of which one to act on; here Remaining is the emphatic one, because
  * it is the number being paid.
+ *
+ * On the kit DataTable: selection is the table's own (only batches with money owed can be ticked), and the
+ * "payment run" is its selection bar — the count, the total being paid, and Process Payment.
  */
-
-const trioFor = (color: string) => ({ c: color, bg: color + '1A', bd: color + '44' });
-
-const money = (v: number) => (
-    <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{formatMoney(v)}</Box>
-);
 
 export interface PaymentQueueTableProps {
     rows: PaymentBatchRow[];
     loading: boolean;
     canPay: boolean;
-    selectedIds: string[];
-    onToggleSelect: (id: string) => void;
-    onToggleSelectAll: () => void;
+    /** Pay these batches as one run. `clear` empties the selection — call it once the run is recorded. */
+    onProcessRun: (rows: PaymentBatchRow[], clear: () => void) => void;
     onPay: (row: PaymentBatchRow) => void;
     onView: (row: PaymentBatchRow) => void;
     periodLabel: string;
     /** Set when a status/search filter is narrowing the view — changes what "empty" means. */
     filtered: boolean;
     onClearFilters: () => void;
-    /** The org filter row, rendered inside the table's own toolbar beside the search box. */
+    /** The org filter row, rendered in the table's toolbar beside the search box. */
     renderFilters?: () => React.ReactNode;
 }
+
+const money = (v: number, className?: string) => <span className={cn('tabular', className)}>{formatMoney(v)}</span>;
 
 export default function PaymentQueueTable({
     rows,
     loading,
     canPay,
-    selectedIds,
-    onToggleSelect,
-    onToggleSelectAll,
+    onProcessRun,
     onPay,
     onView,
     periodLabel,
@@ -54,212 +57,105 @@ export default function PaymentQueueTable({
     onClearFilters,
     renderFilters,
 }: PaymentQueueTableProps) {
-    const selectable = useMemo(() => rows.filter((r) => r.remainingAmount > 0), [rows]);
-    const allSelected = selectable.length > 0 && selectable.every((r) => selectedIds.includes(r.id));
-    const someSelected = selectedIds.length > 0 && !allSelected;
+    const totals = useMemo(() => rows.reduce(
+        (t, r) => ({
+            approved: t.approved + r.approvedAmount,
+            paid: t.paid + r.paidAmount,
+            remaining: t.remaining + r.remainingAmount,
+            requests: t.requests + r.totalRequests,
+        }),
+        { approved: 0, paid: 0, remaining: 0, requests: 0 },
+    ), [rows]);
 
-    const data = useMemo(
-        () => rows.map((r) => ({
-            id: r.id,
-            submissionId: r.submissionId,
-            employeeName: r.employeeName,
-            employeeCode: r.employeeCode,
-            totalRequests: r.totalRequests,
-            approvedAmount: r.approvedAmount,
-            paidAmount: r.paidAmount,
-            remainingAmount: r.remainingAmount,
-            state: r.state,
-            lastActivityAt: r.lastActivityAt,
-            _row: r,
-        })),
-        [rows],
-    );
-
-    const totals = useMemo(() => ({
-        approved: rows.reduce((s, r) => s + r.approvedAmount, 0),
-        paid: rows.reduce((s, r) => s + r.paidAmount, 0),
-        remaining: rows.reduce((s, r) => s + r.remainingAmount, 0),
-        requests: rows.reduce((s, r) => s + r.totalRequests, 0),
-    }), [rows]);
-
-    const columns = useMemo(() => [
-        ...(canPay ? [{
-            id: 'select',
-            header: '',
-            size: 44,
-            enableSorting: false,
-            enableColumnFilter: false,
-            enableColumnActions: false,
-            Header: () => (
-                <Checkbox
-                    size="small"
-                    checked={allSelected}
-                    indeterminate={someSelected}
-                    onChange={onToggleSelectAll}
-                    inputProps={{ 'aria-label': 'Select every payable batch' }}
-                />
-            ),
-            Cell: ({ row }: any) => {
-                const r: PaymentBatchRow = row.original._row;
-                // A settled batch has nothing left to pay, so it cannot join a payment run.
-                if (r.remainingAmount <= 0) return null;
-                return (
-                    <Checkbox
-                        size="small"
-                        checked={selectedIds.includes(r.id)}
-                        onChange={() => onToggleSelect(r.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        inputProps={{ 'aria-label': `Select ${r.submissionId}` }}
-                    />
-                );
-            },
-        }] : []),
+    const columns = useMemo<ColumnDef<PaymentBatchRow, any>[]>(() => [
         {
             accessorKey: 'submissionId',
-            header: 'Batch ID',
-            size: 165,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{
-                    fontFamily: 'monospace', fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
-                    px: 1, py: '3px', borderRadius: '6px',
-                    bgcolor: 'action.hover', color: 'text.primary',
-                }}>
-                    {renderedCellValue}
-                </Box>
-            ),
-            Footer: () => <span style={{ fontWeight: 800 }}>TOTAL</span>,
+            meta: { label: 'Batch ID' },
+            header: ({ column }) => <SortableHeader column={column} title="Batch ID" />,
+            cell: ({ row }) => <Badge variant="brand" className="font-mono tracking-wide">{row.original.submissionId}</Badge>,
+            footer: () => <span className="uppercase">Total</span>,
         },
         {
             accessorKey: 'employeeName',
-            header: 'Employee',
-            size: 190,
-            Cell: ({ row }: any) => (
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography noWrap sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>
-                        {row.original.employeeName}
-                    </Typography>
-                    <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>
-                        {row.original.employeeCode}
-                    </Typography>
-                </Box>
+            meta: { label: 'Employee' },
+            header: ({ column }) => <SortableHeader column={column} title="Employee" />,
+            cell: ({ row }) => (
+                <PersonCell showAvatar={false} name={row.original.employeeName} inactive={!row.original.isActive} />
             ),
+        },
+        {
+            // Names only on screen (the user's call); a spreadsheet still wants the ID as its own column.
+            accessorKey: 'employeeCode',
+            meta: { label: 'Employee ID', exportOnly: true },
+            header: 'Employee ID',
+            enableHiding: false,
         },
         {
             accessorKey: 'totalRequests',
-            header: 'Requests',
-            size: 100,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                    {renderedCellValue}
-                </Box>
-            ),
-            Footer: () => <span style={{ fontWeight: 800 }}>{totals.requests}</span>,
+            meta: { label: 'Requests', exportType: 'number', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Requests" />,
+            cell: ({ row }) => <span className="tabular">{row.original.totalRequests}</span>,
+            footer: () => <span className="tabular">{totals.requests}</span>,
         },
         {
             accessorKey: 'approvedAmount',
-            header: 'Approved',
-            size: 130,
-            Cell: ({ renderedCellValue }: any) => money(Number(renderedCellValue)),
-            Footer: () => <span style={{ fontWeight: 800 }}>{formatMoney(totals.approved)}</span>,
+            meta: { label: 'Approved', exportType: 'currency', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Approved" />,
+            cell: ({ row }) => money(row.original.approvedAmount),
+            footer: () => money(totals.approved),
         },
         {
             accessorKey: 'paidAmount',
-            header: 'Already paid',
-            size: 130,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: '#16a34a' }}>
-                    {formatMoney(Number(renderedCellValue))}
-                </Box>
-            ),
-            Footer: () => <span style={{ fontWeight: 800, color: '#16a34a' }}>{formatMoney(totals.paid)}</span>,
+            meta: { label: 'Already Paid', exportType: 'currency', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Already Paid" />,
+            cell: ({ row }) => money(row.original.paidAmount, 'text-success-foreground'),
+            footer: () => money(totals.paid, 'text-success-foreground'),
         },
         {
             accessorKey: 'remainingAmount',
-            header: 'Remaining',
-            size: 135,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{
-                    fontVariantNumeric: 'tabular-nums', fontWeight: 800,
-                    color: Number(renderedCellValue) > 0 ? '#1E3A8A' : '#16a34a',
-                }}>
-                    {formatMoney(Number(renderedCellValue))}
-                </Box>
+            meta: { label: 'Remaining', exportType: 'currency', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Remaining" />,
+            // The number being paid leads; settled reads as success.
+            cell: ({ row }) => money(
+                row.original.remainingAmount,
+                row.original.remainingAmount > 0 ? 'font-bold text-foreground' : 'text-success-foreground',
             ),
-            Footer: () => <span style={{ fontWeight: 800, color: '#1E3A8A' }}>{formatMoney(totals.remaining)}</span>,
+            footer: () => money(totals.remaining, 'font-bold'),
         },
         {
             accessorKey: 'state',
-            header: 'Payment status',
-            size: 140,
+            meta: { label: 'Payment Status', exportValue: (r: PaymentBatchRow) => PAYMENT_STATE_LABEL[r.state] },
+            header: 'Payment Status',
             enableSorting: false,
-            Cell: ({ row }: any) => {
-                const state = row.original.state as PaymentBatchRow['state'];
-                return (
-                    <StatusBadge
-                        trio={trioFor(PAYMENT_TONE[state]?.color ?? '#475569')}
-                        label={PAYMENT_STATE_LABEL[state]}
-                    />
-                );
-            },
+            cell: ({ row }) => <PaymentStateBadge state={row.original.state} />,
         },
         {
             accessorKey: 'lastActivityAt',
-            header: 'Last updated',
-            size: 120,
-            Cell: ({ renderedCellValue }: any) => (
-                <Box component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>
-                    {fmtDate(renderedCellValue)}
-                </Box>
-            ),
+            meta: { label: 'Last Updated', exportValue: (r: PaymentBatchRow) => fmtDate(r.lastActivityAt) },
+            header: ({ column }) => <SortableHeader column={column} title="Last Updated" />,
+            cell: ({ row }) => <span className="text-muted-foreground">{fmtDate(row.original.lastActivityAt)}</span>,
         },
         {
-            id: 'action',
-            header: 'Action',
-            size: 110,
+            id: 'actions',
             enableSorting: false,
-            enableColumnFilter: false,
-            enableColumnActions: false,
-            Cell: ({ row }: any) => {
-                const r: PaymentBatchRow = row.original._row;
+            enableHiding: false,
+            meta: { pin: 'end' },
+            header: 'Actions',
+            cell: ({ row }) => {
+                const r = row.original;
                 const payable = canPay && r.remainingAmount > 0;
-                return (
-                    <Box onClick={(e) => e.stopPropagation()}>
-                        <WtButton
-                            size="small"
-                            ghost={!payable}
-                            sx={COMPACT_BUTTON_SX}
-                            onClick={() => (payable ? onPay(r) : onView(r))}
-                        >
-                            {payable ? 'Pay' : 'View'}
-                        </WtButton>
-                    </Box>
-                );
+                // One clear next step per row: Pay when money is owed and you may pay, otherwise View.
+                return payable
+                    ? <Button size="sm" onClick={() => onPay(r)}>Pay</Button>
+                    : <Button size="sm" variant="outline" onClick={() => onView(r)}>View</Button>;
             },
         },
-    ], [canPay, allSelected, someSelected, selectedIds, onToggleSelect, onToggleSelectAll, onPay, onView, totals]);
+    ], [canPay, onPay, onView, totals]);
 
-    const exportColumns = useMemo(() => [
-        { key: 'submissionId', header: 'Batch ID', type: 'text' as const },
-        { key: 'employeeCode', header: 'Employee ID', type: 'text' as const },
-        { key: 'employeeName', header: 'Employee', type: 'text' as const },
-        { key: 'totalRequests', header: 'Requests', type: 'number' as const, showTotal: true },
-        { key: 'approvedAmount', header: 'Approved', type: 'currency' as const, showTotal: true },
-        { key: 'paidAmount', header: 'Already Paid', type: 'currency' as const, showTotal: true },
-        { key: 'remainingAmount', header: 'Remaining', type: 'currency' as const, showTotal: true },
-        { key: 'state', header: 'Payment Status', type: 'text' as const },
-    ], []);
-
-    if (!loading && rows.length === 0) {
-        return filtered ? (
-            <PaymentEmptyState
-                icon="magnifier"
-                tone="#2563eb"
-                title="No payments found"
-                body="Nothing matches the current status filter or search in this period."
-                actionLabel="Clear filters"
-                onAction={onClearFilters}
-            />
-        ) : (
+    // Nothing owed at all → the page's own empty state. A FILTER that matches nothing stays inside the table
+    // (below), so the filters that caused it remain on screen to change — replacing the whole table hid them.
+    if (!loading && rows.length === 0 && !filtered) {
+        return (
             <PaymentEmptyState
                 title="You're all caught up"
                 body={`No reimbursements are awaiting payment in ${periodLabel}.`}
@@ -267,51 +163,50 @@ export default function PaymentQueueTable({
         );
     }
 
+    const exportName = `Payment Queue — ${periodLabel}`;
+
     return (
-        <MaterialTable
-            data={data}
+        <DataTable<PaymentBatchRow>
+            caption={`Payment queue, ${periodLabel}`}
             columns={columns}
-            tableName="ReimbursementPaymentQueue"
-            isLoading={loading}
-            showColumnFooter
-            enableStatusColorCoding={false}
-            searchPlaceholder="Search employee, employee ID or batch ID…"
-            defaultSorting={[{ id: 'remainingAmount', desc: true }]}
-            renderTopToolbarRightActions={renderFilters}
-            renderExportActions={() => (
-                <ExportButton
-                    data={data}
-                    columns={exportColumns}
-                    filename={`payment-queue-${periodLabel.toLowerCase().replace(/\s+/g, '-')}`}
-                    title={`Payment Queue — ${periodLabel}`}
-                    subtitle="Approved reimbursement batches awaiting payment"
-                    sheetName="Payment Queue"
-                    showTotals
-                    totalLabel="TOTAL"
-                    disabled={data.length === 0}
-                />
-            )}
-            renderDetailPanel={({ row }: any) => {
-                const r: PaymentBatchRow = row.original._row;
-                return <QueueRowDetail row={r} />;
-            }}
-            renderMobileCard={({ row }: any) => {
-                const r: PaymentBatchRow = row.original._row ?? row.original;
+            data={rows}
+            getRowId={(r) => r.id}
+            loading={loading}
+            searchPlaceholder="Search employee or batch"
+            stateKey="reimbursement.payment-queue"
+            initialSorting={[{ id: 'remainingAmount', desc: true }]}
+            selectable={canPay}
+            // A settled batch has nothing left to pay, so it cannot join a payment run.
+            canSelectRow={(r) => r.remainingAmount > 0}
+            selectionActions={(selected, clear, ctx) => {
+                const run = selected.map((s) => s.original);
+                const total = run.reduce((sum, r) => sum + r.remainingAmount, 0);
                 return (
-                    <PaymentMobileCard
-                        row={r}
-                        canPay={canPay}
-                        onPay={onPay}
-                        onView={onView}
-                    />
+                    <>
+                        <span className="tabular self-center text-sm font-semibold">{formatMoney(total)} to pay</span>
+                        <Button size="sm" onClick={() => onProcessRun(run, clear)}>Process Payment</Button>
+                        <DataTableExport columns={columns} ctx={ctx} filename={exportName} subtitle="Approved reimbursement batches awaiting payment" size="small" />
+                    </>
                 );
             }}
-            muiTableProps={{
-                muiTableBodyRowProps: ({ row }: any) => ({
-                    onClick: () => onView(row.original._row),
-                    sx: { cursor: 'pointer' },
-                }),
-            }}
+            filters={renderFilters?.()}
+            toolbar={(ctx) => (
+                <DataTableExport columns={columns} ctx={ctx} filename={exportName} subtitle="Approved reimbursement batches awaiting payment" />
+            )}
+            onRowClick={onView}
+            rowLabel={(r) => `Open ${r.submissionId}, ${r.employeeName}`}
+            renderDetail={(r) => <QueueRowDetail row={r} />}
+            renderCard={(r) => <PaymentMobileCard row={r} canPay={canPay} onPay={onPay} onView={onView} />}
+            empty={
+                <EmptyState
+                    variant="no-match"
+                    size="sm"
+                    icon={<SearchX aria-hidden />}
+                    title="No payments match these filters"
+                    description="Nothing in this period matches the status or organization filters."
+                    action={<Button size="sm" variant="outline" onClick={onClearFilters}>Clear Filters</Button>}
+                />
+            }
         />
     );
 }
@@ -319,92 +214,59 @@ export default function PaymentQueueTable({
 /**
  * The expanded row: the payment arithmetic, then the expenses behind it.
  *
- * Deliberately not a copy of the parent row — repeating the same seven columns one indent deeper
- * is what the old expandable panels did, and it told the reader nothing they had not just read.
+ * Deliberately not a copy of the parent row — repeating the same columns one indent deeper is what the old
+ * expandable panels did, and it told the reader nothing they had not just read.
  */
 function QueueRowDetail({ row }: { row: PaymentBatchRow }) {
-    const cells: { label: string; value: string; tone?: string }[] = [
-        { label: 'Approved amount', value: formatMoney(row.approvedAmount) },
-        { label: 'Previously paid', value: formatMoney(row.paidAmount), tone: '#16a34a' },
-        { label: 'Remaining', value: formatMoney(row.remainingAmount), tone: row.remainingAmount > 0 ? '#1E3A8A' : '#16a34a' },
-        { label: 'Requests', value: String(row.totalRequests) },
-        { label: 'Payment status', value: PAYMENT_STATE_LABEL[row.state] },
-    ];
-
     return (
-        <Box sx={{ px: 3, py: 2, bgcolor: 'action.hover', borderTop: '1px solid', borderColor: 'divider' }}>
-            <Box sx={{
-                display: 'grid', gap: 1.5, mb: 2,
-                gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', md: 'repeat(5, minmax(0,1fr))' },
-            }}>
-                {cells.map((c) => (
-                    <Box key={c.label} sx={{ minWidth: 0 }}>
-                        <Typography sx={{
-                            fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em',
-                            textTransform: 'uppercase', color: 'text.secondary',
-                        }}>
-                            {c.label}
-                        </Typography>
-                        <Typography noWrap sx={{
-                            fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-                            color: c.tone ?? 'text.primary',
-                        }}>
-                            {c.value}
-                        </Typography>
-                    </Box>
-                ))}
-            </Box>
-
-            <Box sx={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-                <Box component="table" sx={{ width: '100%', minWidth: 620, borderCollapse: 'collapse' }}>
-                    <Box component="thead" sx={{ bgcolor: 'action.hover' }}>
-                        <Box component="tr">
-                            {['Expense date', 'Category', 'Project', 'Approval', 'Payment', 'Amount'].map((h) => (
-                                <Box component="th" key={h} sx={{
-                                    px: 2, py: 1, textAlign: h === 'Amount' ? 'right' : 'left',
-                                    fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em',
-                                    textTransform: 'uppercase', color: 'text.secondary',
-                                    borderBottom: '1px solid', borderColor: 'divider', whiteSpace: 'nowrap',
-                                }}>
-                                    {h}
-                                </Box>
-                            ))}
-                        </Box>
-                    </Box>
-                    <Box component="tbody">
-                        {row.lines.map((line) => (
-                            <Box component="tr" key={line.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-                                <Box component="td" sx={{ px: 2, py: 1, fontSize: 12.5 }}>{fmtDate(line.expenseDate)}</Box>
-                                <Box component="td" sx={{ px: 2, py: 1, fontSize: 12.5 }}>{line.category}</Box>
-                                <Box component="td" sx={{ px: 2, py: 1, fontSize: 12.5, color: 'text.secondary' }}>{line.project}</Box>
-                                <Box component="td" sx={{ px: 2, py: 1, fontSize: 12 }}>
-                                    {line.status === 1 ? 'Approved' : line.status === 2 ? 'Rejected' : 'Pending'}
-                                </Box>
-                                <Box component="td" sx={{ px: 2, py: 1, fontSize: 12, color: 'text.secondary' }}>
-                                    {line.paymentStatus === 'PAID' ? 'Paid'
-                                        : line.paymentStatus === 'PARTIAL' ? 'Partially paid'
-                                        : 'Unpaid'}
-                                </Box>
-                                <Box component="td" sx={{
-                                    px: 2, py: 1, textAlign: 'right', fontSize: 13, fontWeight: 700,
-                                    fontVariantNumeric: 'tabular-nums',
-                                }}>
-                                    {formatMoney(line.amount)}
-                                </Box>
-                            </Box>
-                        ))}
-                    </Box>
-                </Box>
-            </Box>
-        </Box>
+        <div className="space-y-4 px-2 py-3 sm:px-4">
+            <DescriptionList
+                rows={[
+                    { label: 'Approved Amount', value: formatMoney(row.approvedAmount) },
+                    { label: 'Previously Paid', value: <span className="text-success-foreground">{formatMoney(row.paidAmount)}</span> },
+                    { label: 'Remaining', value: formatMoney(row.remainingAmount), strong: true },
+                    { label: 'Requests', value: row.totalRequests },
+                    { label: 'Payment Status', value: PAYMENT_STATE_LABEL[row.state] },
+                ]}
+            />
+            <Table>
+                <TableCaption className="sr-only">Expenses in {row.submissionId}</TableCaption>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Expense Date</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Approval</TableHead>
+                        <TableHead>Payment</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {row.lines.map((line) => (
+                        <TableRow key={line.id}>
+                            <TableCell>{fmtDate(line.expenseDate)}</TableCell>
+                            <TableCell>{line.category}</TableCell>
+                            <TableCell className="text-muted-foreground">{line.project}</TableCell>
+                            <TableCell>{STATUS_LABEL[resolveStatusNum(line.status)]}</TableCell>
+                            <TableCell className="text-muted-foreground">
+                                {line.paymentStatus === 'PAID' ? PAYMENT_LABEL.PAID
+                                    : line.paymentStatus === 'PARTIAL' ? PAYMENT_LABEL.PARTIAL
+                                        : PAYMENT_LABEL.UNPAID}
+                            </TableCell>
+                            <TableCell className="tabular text-right font-semibold">{formatMoney(line.amount)}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
     );
 }
 
 /**
  * One batch on a phone.
  *
- * Ten columns on a 360px screen is a horizontal scroller in which the reader sees the batch id
- * and half an employee name — and the only thing they came to find out is how much is left.
+ * Ten columns on a 360px screen is a horizontal scroller in which the reader sees the batch id and half an
+ * employee name — and the only thing they came to find out is how much is left. Same tone as the badge.
  */
 export function PaymentMobileCard({
     row,
@@ -417,46 +279,34 @@ export function PaymentMobileCard({
     onPay: (row: PaymentBatchRow) => void;
     onView: (row: PaymentBatchRow) => void;
 }) {
-    const color = PAYMENT_TONE[row.state]?.color ?? '#475569';
     const payable = canPay && row.remainingAmount > 0;
-
+    const tone = PAYMENT_STATE_TONE[row.state as PaymentState] ?? 'neutral';
     return (
-        <Box sx={{
-            p: 1.75, borderRadius: '12px', border: '1px solid', borderColor: 'divider',
-            borderLeft: `3px solid ${color}`, bgcolor: 'background.paper',
-        }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mb: 1.25 }}>
-                <Box sx={{ minWidth: 0 }}>
-                    <Typography noWrap sx={{ fontSize: 14, fontWeight: 800 }}>{row.employeeName}</Typography>
-                    <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>
-                        {row.employeeCode} · {row.submissionId}
-                    </Typography>
-                </Box>
-                <StatusBadge trio={trioFor(color)} label={PAYMENT_STATE_LABEL[row.state]} />
-            </Box>
-
-            {[
-                { label: 'Approved', value: formatMoney(row.approvedAmount) },
-                { label: 'Paid', value: formatMoney(row.paidAmount) },
-                { label: 'Remaining', value: formatMoney(row.remainingAmount), strong: true },
-            ].map((f) => (
-                <Box key={f.label} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.25 }}>
-                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{f.label}</Typography>
-                    <Typography sx={{
-                        fontSize: f.strong ? 14 : 12.5,
-                        fontWeight: f.strong ? 800 : 600,
-                        fontVariantNumeric: 'tabular-nums',
-                        color: f.strong ? '#1E3A8A' : 'text.primary',
-                    }}>
-                        {f.value}
-                    </Typography>
-                </Box>
-            ))}
-
-            <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
-                <WtButton ghost size="small" sx={COMPACT_BUTTON_SX} onClick={() => onView(row)}>View details</WtButton>
-                {payable && <WtButton size="small" sx={COMPACT_BUTTON_SX} onClick={() => onPay(row)}>Pay</WtButton>}
-            </Box>
-        </Box>
+        <div
+            style={toneStyle(tone)}
+            // OKLab, not OKLCH: a hue mixed into a neutral surface in OKLCH drifts toward pink (the card's hue is 0).
+            className="rounded-2xl border bg-[color-mix(in_oklab,var(--tone)_6%,var(--card))] px-4 py-3.5 shadow-[inset_3px_0_0_var(--tone)]"
+        >
+            <div className="mb-2.5 flex items-start justify-between gap-2">
+                <PersonCell showAvatar={false} name={row.employeeName} code={row.submissionId} inactive={!row.isActive} />
+                <PaymentStateBadge state={row.state} />
+            </div>
+            <dl className="grid gap-1 text-sm">
+                {[
+                    { label: 'Approved', value: row.approvedAmount },
+                    { label: 'Paid', value: row.paidAmount },
+                    { label: 'Remaining', value: row.remainingAmount, strong: true },
+                ].map((f) => (
+                    <div key={f.label} className="flex justify-between gap-2">
+                        <dt className="text-muted-foreground">{f.label}</dt>
+                        <dd className={cn('tabular m-0', f.strong ? 'font-bold text-foreground' : 'font-semibold')}>{formatMoney(f.value)}</dd>
+                    </div>
+                ))}
+            </dl>
+            <div className="mt-3 flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => onView(row)}>View Details</Button>
+                {payable && <Button size="sm" onClick={() => onPay(row)}>Pay</Button>}
+            </div>
+        </div>
     );
 }

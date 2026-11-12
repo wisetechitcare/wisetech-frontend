@@ -2,10 +2,11 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import {
-    Alert, Autocomplete, Avatar, Box, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
+    Alert, Autocomplete, Box, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
 } from '@mui/material';
 import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { RootState } from '@redux/store';
 import { createMeetings, updateMeeting, fetchAllEmployees, getMyMeetingReminders, setMyMeetingReminders, getMeetingsByProject } from '@services/employee';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
@@ -161,9 +162,6 @@ const timePart = (iso: string) => (iso ? dayjs(iso).format('HH:mm') : '');
 /** …and back. Either half missing leaves the value untouched rather than inventing one. */
 const combineDateTime = (date: string, time: string) =>
     (date && time ? dayjs(`${date}T${time}`).toISOString() : '');
-
-const initialsOf = (name: string) =>
-    name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
 
 export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBodyProps>(
     ({ editing, defaultProjectId, lockProject = false, leadName, defaultExternalParticipant, selectedDateTimeInfo, onSaved, onScheduleChange }, ref) => {
@@ -965,9 +963,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const notifySelection = notifyIds ?? notifyOptions.map((o) => o.value);
 
         const chipAvatar = (o: Option) => (
-            <Avatar src={o.avatar || undefined} sx={{ width: 24, height: 24, fontSize: 10, fontWeight: 700 }}>
-                {initialsOf(o.label)}
-            </Avatar>
+            <SmartAvatar name={o.label} src={o.avatar} seed={o.value} size="xs" decorative />
         );
 
         const peoplePicker = (
@@ -993,16 +989,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 ))}
                 renderOption={(props, o) => (
                     <Box component="li" {...props} key={o.value} sx={{ gap: 1 }}>
-                        <Avatar
-                            src={o.avatar || undefined}
-                            sx={{
-                                width: 24, height: 24, fontSize: 10, fontWeight: 700,
-                                bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.3 : 0.16),
-                                color: 'primary.main',
-                            }}
-                        >
-                            {initialsOf(o.label)}
-                        </Avatar>
+                        <SmartAvatar name={o.label} src={o.avatar} seed={o.value} size="xs" decorative />
                         <Typography variant="body2" noWrap>{o.label}</Typography>
                     </Box>
                 )}

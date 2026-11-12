@@ -2,12 +2,11 @@ import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { KTIcon } from "@metronic/helpers";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import PendingReimbursementsPage, { PendingReimbursementsPageHandle } from "./PendingReimbursementsPage";
 import ReimbursementWorkspace, { kpiProps } from "./views/ReimbursementWorkspace";
-import { WtButton } from "@app/modules/common/components/ui";
-import { lightToolbarButton } from "./utils/toolbarButton";
+import { Button } from "@/ds/ui/button";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 
@@ -49,16 +48,13 @@ function Reimbursement() {
         ) ? (
           // The PRIMARY action of this screen. `tone="accent"` is the kit's bright blue CTA,
           // so the emphasis comes from the design system rather than a hardcoded hex.
-          <WtButton variant="text"
-            onClick={() => pendingPageRef.current?.openAddModal()}
-            startIcon={<KTIcon iconName='plus' className='fs-3' />}
-            sx={lightToolbarButton('accent')}
-          >
+          <Button size="sm" onClick={() => pendingPageRef.current?.openAddModal()}>
+            <Plus data-icon="inline-start" aria-hidden />
             Add Reimbursement Request
-          </WtButton>
+          </Button>
         ) : null
       }
-      renderHeader={({ summary, loading, periodBar, currentPeriod }) => (
+      renderHeader={({ summary, loading, periodBar, currentPeriod, goToMonth }) => (
         <PendingReimbursementsPage
           ref={pendingPageRef}
           onDraftsChange={setPendingDraftsCount}
@@ -66,6 +62,7 @@ function Reimbursement() {
           overviewLoading={loading}
           periodSlot={periodBar}
           currentPeriod={currentPeriod}
+          onGoToMonth={goToMonth}
         />
       )}
     />

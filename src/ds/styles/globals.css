@@ -18,8 +18,14 @@
 @import "@fontsource-variable/inter";
 @import "./tokens.css";
 @import "./typeset.css";
+@import "./components.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* Base UI marks orientation as data-orientation="horizontal|vertical"; the shadcn components (tabs, toggle group,
+   separator, slider, button group, scroll area) style `data-horizontal:` / `data-vertical:`. Without these two
+   variants those rules matched nothing — e.g. a connected toggle group had square ends. */
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
 
 /* shadcn/typeset (./typeset.css, https://ui.shadcn.com/docs/typeset): styles rendered markdown inside a
    `typeset` container and nothing outside it. Kept verbatim so it can be re-downloaded over; local
@@ -39,6 +45,9 @@
   --typeset-leading: 1.75;
   --typeset-flow: 1.25em;
 }
+
+/* Kit component rules (floating labels, option states, dropdown arrows, bold titles) live in
+   ./components.css, which the live app imports too. */
 
 @layer base {
   * {

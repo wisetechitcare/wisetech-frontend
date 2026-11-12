@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { cn } from '@/ds/lib/utils';
+import { Badge } from '@/ds/ui/badge';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/ds/ui/table';
+import { SensitiveValue } from '@/ds/patterns/sensitive';
 import { fmtDate, formatMoney } from '../utils/reimbursementFormat';
 
 /**
@@ -13,6 +16,9 @@ import { fmtDate, formatMoney } from '../utils/reimbursementFormat';
  *
  * One component, both callers. The field names differ slightly between the two data shapes, so
  * the caller maps into `PaymentDetailRow` rather than this file learning about both.
+ *
+ * A plain kit Table, not a DataTable: a batch carries a handful of payments, so search, paging
+ * and column controls would be chrome around three lines. Payments read in date order.
  */
 
 export interface PaymentDetailRow {
@@ -27,9 +33,11 @@ export interface PaymentDetailRow {
     remarks?: string | null;
 }
 
+const byDate = (a: { paymentDate: string }, b: { paymentDate: string }) =>
+    new Date(a.paymentDate || 0).getTime() - new Date(b.paymentDate || 0).getTime();
+
 export default function PaymentDetailPanel({ payments }: { payments: PaymentDetailRow[] }) {
-    // Flattened to real values (raw date, numeric amount) so sorting and per-column
-    // search work on the values; the cells render exactly what they rendered before.
+
     const rows = useMemo(
         () => (payments || []).map((p, i) => ({
             id: p.id ?? String(i),
@@ -38,84 +46,56 @@ export default function PaymentDetailPanel({ payments }: { payments: PaymentDeta
             paymentMethod: p.paymentMethod ? String(p.paymentMethod).replace(/_/g, ' ') : '',
             transactionId: p.transactionId || '',
             amountPaid: Number(p.amountPaid || 0),
-        })),
+        })).sort(byDate),
         [payments],
     );
 
-    const columns = useMemo(() => [
-        {
-            accessorKey: 'paymentDate',
-            header: 'Payment Date',
-            Cell: ({ cell }: any) => (
-                <span style={{ fontSize: 13, color: '#424242' }}>{fmtDate(cell.getValue())}</span>
-            ),
-        },
-        {
-            accessorKey: 'paymentMadeBy',
-            header: 'Payment Made By',
-            Cell: ({ cell }: any) => (
-                <span style={{ fontSize: 13, fontWeight: 500, color: '#424242' }}>{cell.getValue()}</span>
-            ),
-        },
-        {
-            accessorKey: 'paymentMethod',
-            header: 'Method',
-            Cell: ({ cell }: any) => (
-                <span style={{
-                    display: 'inline-block', padding: '3px 10px', borderRadius: 4,
-                    fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
-                    backgroundColor: '#e3f2fd', color: '#1565c0', textTransform: 'uppercase',
-                }}>
-                    {/* A missing method used to render as "Cash" in one of the two
-                        copies, which invents a fact about how money moved. */}
-                    {cell.getValue() || '—'}
-                </span>
-            ),
-        },
-        {
-            // Reference earns a column now that it is captured and required for
-            // bank transfers — a payout you cannot reconcile is not much of a record.
-            accessorKey: 'transactionId',
-            header: 'Reference',
-            Cell: ({ cell }: any) => (
-                <span style={{ fontSize: 12, color: cell.getValue() ? '#424242' : '#9e9e9e' }}>
-                    {cell.getValue() || '—'}
-                </span>
-            ),
-        },
-        {
-            accessorKey: 'amountPaid',
-            header: 'Amount',
-            Cell: ({ cell }: any) => (
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#2e7d32' }}>
-                    {formatMoney(cell.getValue())}
-                </span>
-            ),
-        },
-    ], []);
-
-    if (!payments || payments.length === 0) {
+    if (rows.length === 0) {
         return (
-            <div style={{
-                padding: '20px 24px', backgroundColor: '#fafafa',
-                borderTop: '1px solid #e0e0e0', color: '#9e9e9e',
-                fontSize: 13, fontStyle: 'italic',
-            }}>
+            <p className="px-4 py-5 text-sm text-muted-foreground italic">
                 No payment records found for this period.
-            </div>
+            </p>
         );
     }
 
     return (
-        <div style={{ padding: '16px 24px', backgroundColor: '#fafafa', borderTop: '1px solid #e0e0e0' }}>
-            <MaterialTable
-                tableName="ReimbursementPaymentDetail"
-                data={rows}
-                columns={columns}
-                hidePagination
-                hideExportCenter
-                enableColumnActions={false}
-            />
+        <div className="px-2 py-3 sm:px-4">
+            <Table>
+                <TableCaption className="sr-only">Payments against this batch</TableCaption>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Payment Date</TableHead>
+                        <TableHead>Payment Made By</TableHead>
+                        <TableHead>Method</TableHead>
+                        {/* Reference earns a column now that it is captured and required for bank
+                            transfers — a payout you cannot reconcile is not much of a record. */}
+                        <TableHead>Reference</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {rows.map((r) => (
+                        <TableRow key={r.id}>
+                            <TableCell>{fmtDate(r.paymentDate)}</TableCell>
+                            <TableCell className="font-medium">{r.paymentMadeBy}</TableCell>
+                            <TableCell>
+                                {/* A missing method used to render as "Cash" in one of the two
+                                    copies, which invents a fact about how money moved. */}
+                                {r.paymentMethod
+                                    ? <Badge variant="info" className="uppercase tracking-wide">{r.paymentMethod}</Badge>
+                                    : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className={cn(!r.transactionId && 'text-muted-foreground')}>
+                                {r.transactionId || '—'}
+                            </TableCell>
+                            <TableCell className="tabular text-right font-semibold text-success-foreground">
+                                {/* "Hide amounts" applies here too: this panel used to print every payment in clear under a row whose totals were blurred. */}
+                                <SensitiveValue>{formatMoney(r.amountPaid)}</SensitiveValue>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
         </div>
     );
 }

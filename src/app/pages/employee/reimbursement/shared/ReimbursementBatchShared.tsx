@@ -1,10 +1,19 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
-import { Box, CircularProgress, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { CircleQuestionMark, CircleX, Download, ReceiptText } from 'lucide-react';
+import { cn } from '@/ds/lib/utils';
+import { toneStyle, type Tone } from '@/ds/lib/tone';
+import { Badge } from '@/ds/ui/badge';
+import { Button } from '@/ds/ui/button';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ds/ui/field';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select';
+import { Spinner } from '@/ds/ui/spinner';
+import { Textarea } from '@/ds/ui/textarea';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { FormDialog } from '@/ds/patterns/form-dialog';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { KTIcon } from '@metronic/helpers';
 import {
   fetchReimbursementBatchById,
   processBatchRequestAction,
@@ -14,8 +23,6 @@ import {
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { usePermission } from '@hooks/usePermission';
 import { fetchQueryTopics, resolveQuery, OTHER_TOPIC, type QueryTopic } from '@services/reimbursementQueries';
-import { GlassDialog, GlassHeader, WtButton, tonePair, ToneChip } from '@app/modules/common/components/ui';
-import type { SemanticTone } from '@app/theme/tokens';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
 import QueryConversationDialog from '../components/QueryConversation';
 import VersionHistoryDialog from '../components/VersionHistoryDialog';
@@ -33,16 +40,16 @@ import {
 // Re-exported, not re-implemented. Other modules (DomainApprovalQueue) import fmtAmount from
 // this file, so the export surface stays while the behaviour comes from the one shared copy.
 // `export ... from` alone re-exports without binding locally, and this file uses both.
-import { fmtDate, fmtAmount, resolveStatusNum, STATUS, downloadBlob } from '../utils/reimbursementFormat';
+import { fmtDate, fmtAmount, formatMoney, resolveStatusNum, STATUS, STATUS_LABEL, downloadBlob } from '../utils/reimbursementFormat';
 export { fmtDate, fmtAmount };
 
 export function statusBadge(status: number) {
-  if (status === 1) return <ToneChip dense tone='success' label='Approved' />;
-  if (status === 2) return <ToneChip dense tone='danger' label='Rejected' />;
+  if (status === 1) return <Badge variant="success" dot>Approved</Badge>;
+  if (status === 2) return <Badge variant="danger" dot>Rejected</Badge>;
   // NEEDS_INFO rendered as "Pending" here, so a line the approver had asked a question about
   // looked identical to one nobody had touched — and the employee had no reason to open it.
-  if (status === STATUS.NEEDS_INFO) return <ToneChip dense tone='warning' label='Needs info' />;
-  return <ToneChip dense tone='warning' label='Pending' />;
+  if (status === STATUS.NEEDS_INFO) return <Badge variant="warning" dot>{STATUS_LABEL[STATUS.NEEDS_INFO]}</Badge>;
+  return <Badge variant="warning" dot>Pending</Badge>;
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -87,24 +94,21 @@ const REASON_COPY = {
     label: 'Reason for Rejection',
     placeholder: 'Describe why this request is being rejected…',
     hint: 'The employee sees this.',
-    confirm: 'Confirm rejection',
+    confirm: 'Confirm Rejection',
   },
   'request-info': {
-    title: 'Ask a question',
-    label: 'What do you need to know?',
+    title: 'Ask a Question',
+    label: 'What Do You Need to Know?',
     placeholder: 'e.g. Which client visit was this taxi for? Please attach the receipt.',
     hint: 'This opens a conversation with the employee. The expense stays where it is — it is not rejected, and approval does not restart.',
-    confirm: 'Send question',
+    confirm: 'Send Question',
   },
 };
 
 /**
- * Rejection reason / question composer.
- *
- * A react-bootstrap `<Modal>` until now, which opened BEHIND the batch dialog: Bootstrap stacks
- * modals at z-index 1055 and MUI at 1300, so a dialog raised from inside the batch view rendered
- * underneath the thing that raised it. Moved onto `GlassDialog`, where nested dialogs stack in
- * mount order — and off the Bootstrap primitives the UI standard bans anyway.
+ * Rejection reason / question composer — the kit FormDialog (small): a topic, the text, and one
+ * Send / Confirm button (red for a rejection). Enter in the form submits it; the dialog stacks
+ * above the batch dialog that raised it.
  */
 export function RejectReasonModal({
   show, onClose, onConfirm, submitting, title, variant = 'reject', scope = 'REQUEST',
@@ -125,6 +129,8 @@ export function RejectReasonModal({
   // it is what gets sent as the text when the box is left empty.
   const needsText = category === OTHER_TOPIC;
   const text = trimmed || category;
+  const topicItems = [...topics.map((t) => ({ value: t.label, label: t.label })), { value: OTHER_TOPIC, label: OTHER_TOPIC }];
+  const formId = 'reimbursement-reason-form';
 
   useEffect(() => {
     if (!show) { setReason(''); setCategory(OTHER_TOPIC); return; }
@@ -135,56 +141,58 @@ export function RejectReasonModal({
   }, [show, scope]);
 
   return (
-    <GlassDialog
+    <FormDialog
       open={show}
-      onClose={onClose}
-      maxWidth="xs"
-      fullWidth
-      header={
-        <GlassHeader
-          title={title ?? copy.title}
-          icon={<KTIcon iconName={variant === 'reject' ? 'cross-circle' : 'question'} className="fs-1" />}
-          onClose={onClose}
-        />
-      }
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      size="sm"
+      title={title ?? copy.title}
+      icon={variant === 'reject' ? <CircleX /> : <CircleQuestionMark />}
+      tone={variant === 'reject' ? 'danger' : 'brand'}
+      formId={formId}
+      submitLabel={copy.confirm}
+      submitVariant={variant === 'reject' ? 'destructive' : 'default'}
+      submitting={submitting}
+      submitDisabled={needsText && !trimmed}
     >
-      <Box sx={{ p: { xs: 1.75, sm: 2.25 }, display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
-        <TextField
-          select fullWidth size="small" label="What is this about?"
-          value={category} onChange={(e) => setCategory(e.target.value)}
-          disabled={submitting}
-        >
-          {topics.map((t) => (
-            <MenuItem key={t.id} value={t.label}>{t.label}</MenuItem>
-          ))}
-          <MenuItem value={OTHER_TOPIC}>{OTHER_TOPIC}</MenuItem>
-        </TextField>
-
-        <TextField
-          multiline minRows={3} fullWidth size="small" autoFocus
-          label={needsText ? copy.label : `${copy.label} (optional)`}
-          placeholder={copy.placeholder}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          disabled={submitting}
-          helperText={needsText ? copy.hint : `Optional — “${category}” is what the employee sees. ${copy.hint}`}
-        />
-
-        <Stack direction="row" gap={1} justifyContent="flex-end">
-          <WtButton ghost onClick={onClose} disabled={submitting}>Cancel</WtButton>
-          <WtButton
-            tone={variant === 'reject' ? 'danger' : 'accent'}
-            disabled={submitting || (needsText && !trimmed)}
-            // Empty box + a real topic → the topic IS the text. Every caller downstream (batch
-            // reject, reject-all, the approvals queue) still receives non-empty prose, so none of
-            // them needed a second code path for "optional".
-            onClick={() => onConfirm(text, isQuestion ? category : undefined)}
-          >
-            {submitting ? 'Sending…' : copy.confirm}
-          </WtButton>
-        </Stack>
-      </Box>
-    </GlassDialog>
+      <form
+        id={formId}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (submitting || (needsText && !trimmed)) return;
+          // Empty box + a real topic → the topic IS the text. Every caller downstream (batch
+          // reject, reject-all, the approvals queue) still receives non-empty prose, so none of
+          // them needed a second code path for "optional".
+          onConfirm(text, isQuestion ? category : undefined);
+        }}
+      >
+        <FieldGroup className="gap-6 pt-2">
+          <Field>
+            <FieldLabel htmlFor="reason-topic">What Is This About?</FieldLabel>
+            <Select items={topicItems} value={category} onValueChange={(v) => setCategory(String(v))} disabled={submitting}>
+              <SelectTrigger id="reason-topic" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {topicItems.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="reason-text">{needsText ? copy.label : `${copy.label} (Optional)`}</FieldLabel>
+            <Textarea
+              id="reason-text"
+              autoFocus
+              rows={4}
+              placeholder={copy.placeholder}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={submitting}
+            />
+            <FieldDescription>{needsText ? copy.hint : `Optional — “${category}” is what the employee sees. ${copy.hint}`}</FieldDescription>
+          </Field>
+        </FieldGroup>
+      </form>
+    </FormDialog>
   );
 }
 
@@ -197,7 +205,7 @@ interface WaitOwner {
   who: string;
   /** Where in the chain that person sits, when the reader needs it to place them. */
   detail: string | null;
-  tone: SemanticTone;
+  tone: Tone;
   count: number;
   amount: number;
 }
@@ -228,103 +236,53 @@ function StatusSummaryBar({ summary, waits, actionableCount, actionableAmount }:
   // actually looking for.
   const awaitingLevel = Math.max(0, summary.pending - summary.inProgress);
   const awaitingAmount = Math.max(0, summary.pendingAmount - summary.inProgressAmount);
-  const counts: Array<{ label: string; tone: SemanticTone }> = [
-    ...(summary.queried > 0 ? [{ label: `${summary.queried} query · ${fmtAmount(summary.queriedAmount)}`, tone: 'cyan' as SemanticTone }] : []),
-    ...(awaitingLevel > 0 ? [{ label: `${awaitingLevel} pending · ${fmtAmount(awaitingAmount)}`, tone: 'warning' as SemanticTone }] : []),
-    ...(summary.inProgress > 0 ? [{ label: `${summary.inProgress} with next approver · ${fmtAmount(summary.inProgressAmount)}`, tone: 'neutral' as SemanticTone }] : []),
-    ...(summary.approved > 0 ? [{ label: `${summary.approved} approved · ${fmtAmount(summary.approvedAmount)}`, tone: 'success' as SemanticTone }] : []),
-    ...(summary.rejected > 0 ? [{ label: `${summary.rejected} rejected · ${fmtAmount(summary.rejectedAmount)}`, tone: 'danger' as SemanticTone }] : []),
+  const counts: Array<{ label: string; tone: Tone }> = [
+    ...(summary.queried > 0 ? [{ label: `${summary.queried} query · ${formatMoney(summary.queriedAmount)}`, tone: 'cyan' as Tone }] : []),
+    ...(awaitingLevel > 0 ? [{ label: `${awaitingLevel} pending · ${formatMoney(awaitingAmount)}`, tone: 'warning' as Tone }] : []),
+    ...(summary.inProgress > 0 ? [{ label: `${summary.inProgress} with next approver · ${formatMoney(summary.inProgressAmount)}`, tone: 'neutral' as Tone }] : []),
+    ...(summary.approved > 0 ? [{ label: `${summary.approved} approved · ${formatMoney(summary.approvedAmount)}`, tone: 'success' as Tone }] : []),
+    ...(summary.rejected > 0 ? [{ label: `${summary.rejected} rejected · ${formatMoney(summary.rejectedAmount)}`, tone: 'danger' as Tone }] : []),
   ];
 
   return (
-    <Box sx={{
-      borderRadius: '10px',
-      p: 1.5,
-      bgcolor: 'action.hover',
-      border: `1px solid`,
-      borderColor: 'divider',
-    }}>
-      <Stack gap={1} sx={{ minWidth: 0 }}>
-        {/* First row: count breakdown. `pending` counts every undecided line, so a batch whose
-            lines had cleared level 1 still read "5 pending" over five rows saying "L2 now" — the
-            part already past a level is split out as its own count instead. */}
-        <Stack direction="row" alignItems="center" gap={1.5} flexWrap="wrap" sx={{ fontSize: 13, fontWeight: 600 }}>
-          {counts.map((c, i) => (
-            <Fragment key={c.label}>
-              {/* '1px', not 1 — MUI sx reads a number ≤ 1 as a fraction, so `width: 1` was a
-                  full-width bar that pushed every count onto a line of its own. */}
-              {i > 0 && <Box sx={{ width: '1px', flex: 'none', height: 16, bgcolor: 'divider' }} />}
-              <Stack direction="row" alignItems="center" gap={0.5} sx={{ minWidth: 'fit-content' }}>
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: tonePair(c.tone).fg }} />
-                <span>{c.label}</span>
-              </Stack>
-            </Fragment>
-          ))}
-        </Stack>
+    <section aria-label="Batch status" className="flex min-w-0 flex-col gap-2 rounded-2xl border border-border bg-muted/50 p-3.5">
+      {/* First row: count breakdown. `pending` counts every undecided line, so a batch whose
+          lines had cleared level 1 still read "5 pending" over five rows saying "L2 now" — the
+          part already past a level is split out as its own count instead. */}
+      <ul className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0 text-sm font-semibold">
+        {counts.map((c, i) => (
+          <li key={c.label} style={toneStyle(c.tone)} className={cn('tabular flex items-center gap-1.5', i > 0 && 'border-l border-border pl-3')}>
+            <span aria-hidden className="size-2 shrink-0 rounded-full bg-(--tone)" />
+            {c.label}
+          </li>
+        ))}
+      </ul>
 
-        {/* Second row: one line per outstanding wait, then what is yours to decide. Each row reads
-            left to right as the sentence it is — what is waited for, how much of it, who owes it. */}
-        {(waits.length > 0 || actionableCount > 0) && (
-          <Stack direction="row" alignItems="flex-start" gap={1.5} flexWrap="wrap" sx={{ fontSize: 13 }}>
-            {waits.length > 0 && (
-              <Stack gap={0.75} sx={{ minWidth: 0 }}>
-                {waits.map((w) => (
-                  <Stack key={`${w.reason}·${w.who}·${w.detail ?? ''}`} direction="row" alignItems="center" gap={1} sx={{ minWidth: 0 }}>
-                    <Box sx={{
-                      px: 0.75,
-                      borderRadius: '5px',
-                      flex: 'none',
-                      fontSize: 10,
-                      fontWeight: 800,
-                      lineHeight: 1.7,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      bgcolor: tonePair(w.tone).soft,
-                      color: tonePair(w.tone).fg,
-                    }}>
-                      {w.reason}
-                    </Box>
-                    <Typography sx={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flex: 'none' }}>
-                      {w.count} · {fmtAmount(w.amount)}
-                    </Typography>
-                    <Box sx={{ color: 'text.disabled', flex: 'none', fontSize: 12 }}>→</Box>
-                    <Typography sx={{
-                      fontSize: 12, fontWeight: 700, minWidth: 0,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {w.who}
-                    </Typography>
-                    {w.detail && (
-                      <Typography sx={{ fontSize: 11.5, color: 'text.secondary', flex: 'none' }}>
-                        {w.detail}
-                      </Typography>
-                    )}
-                  </Stack>
-                ))}
-              </Stack>
-            )}
-
-            {actionableCount > 0 && (
-              <>
-                <Box sx={{ flex: 1 }} />
-                <Box sx={{
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: '6px',
-                  bgcolor: tonePair('warning').soft,
-                  color: tonePair('warning').fg,
-                  fontWeight: 700,
-                  fontSize: 12,
-                  whiteSpace: 'nowrap',
-                }}>
-                  {actionableCount} awaiting your decision · {fmtAmount(actionableAmount)}
-                </Box>
-              </>
-            )}
-          </Stack>
-        )}
-      </Stack>
-    </Box>
+      {/* Second row: one line per outstanding wait, then what is yours to decide. Each row reads
+          left to right as the sentence it is — what is waited for, how much of it, who owes it. */}
+      {(waits.length > 0 || actionableCount > 0) && (
+        <div className="flex min-w-0 flex-wrap items-start gap-3 text-xs">
+          {waits.length > 0 && (
+            <ul className="m-0 flex min-w-0 list-none flex-col gap-1.5 p-0">
+              {waits.map((w) => (
+                <li key={`${w.reason}·${w.who}·${w.detail ?? ''}`} className="flex min-w-0 items-center gap-2">
+                  <Badge variant={w.tone} className="uppercase tracking-wide">{w.reason}</Badge>
+                  <span className="tabular shrink-0 font-semibold">{w.count} · {formatMoney(w.amount)}</span>
+                  <span aria-hidden className="shrink-0 text-muted-foreground">→</span>
+                  <span className="min-w-0 truncate font-semibold">{w.who}</span>
+                  {w.detail && <span className="shrink-0 text-muted-foreground">{w.detail}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {actionableCount > 0 && (
+            <Badge variant="warning" className="tabular ml-auto h-6 px-2.5 text-xs font-semibold">
+              {actionableCount} awaiting your decision · {formatMoney(actionableAmount)}
+            </Badge>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -694,131 +652,121 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
     }
   };
 
+  const actionableTotal = visibleRequests
+    .filter((r) => actionableIds.has(r.id))
+    .reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
+
   return (
     <>
-      <GlassDialog
+      {/* The kit FormDialog, read-only (xl): icon + title header, a scrolling body, and a footer that
+          carries the batch's actions — Download Slip on the left; Reject All / Approve All / Close
+          on the right — so they stay in reach however long the list of requests is. */}
+      <FormDialog
         open={!!batchId}
-        onClose={onClose}
-        maxWidth="lg"
-        fullWidth
-        header={
-          <GlassHeader
-            title={`Submission ${batch?.submissionId || ''}`}
-            subtitle={batch ? `${batch.employeeName || ''} · submitted ${fmtDate(batch.submittedAt)}` : ''}
-            icon={<KTIcon iconName="basket" className="fs-1" />}
-            onClose={onClose}
-          />
-        }
-      >
-        <Box sx={{ p: { xs: 1.5, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, maxHeight: '80vh', overflowY: 'auto' }}>
-          {loading ? (
-            <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={28} /></Stack>
-          ) : !batch ? (
-            <Typography sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>
-              This submission could not be loaded.
-            </Typography>
-          ) : (
-            <>
-              {shownSummary && (
-                <BatchSummaryStrip
-                  summary={shownSummary}
-                  processingStatus={batch.processingStatus ?? 'PENDING'}
-                />
-              )}
-
-              {shownSummary && levels.length > 0 && (
-                <StatusSummaryBar
-                  summary={shownSummary}
-                  waits={waits}
-                  actionableCount={actionableIds.size}
-                  actionableAmount={visibleRequests
-                    .filter((r) => actionableIds.has(r.id))
-                    .reduce((sum, r) => sum + Number(r.amount ?? 0), 0)}
-                />
-              )}
-
-
-              {/* Batch-scope questions, shown apart from the requests because they are about the
-                  submission as a whole and — deliberately — block none of them. */}
-              {batchQueries.length > 0 && (
-                <Box sx={{ borderRadius: '10px', p: 1.5, bgcolor: tonePair('cyan').soft, minWidth: 0 }}>
-                  <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Batch queries
-                  </Typography>
-                  {batchQueries.map((q) => (
-                    <Stack key={q.id} direction="row" alignItems="baseline" gap={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
-                      <Typography sx={{ fontSize: 12.5, lineHeight: 1.45, flex: 1, minWidth: 0 }}>
-                        {q.lastMessage} <b>({q.status.toLowerCase()})</b>
-                      </Typography>
-                      <Typography
-                        component="button"
-                        onClick={() => setConversation({ batchId: batchId!, queryId: q.id, label: `Submission ${batch.submissionId}` })}
-                        sx={{
-                          fontSize: 11.5, fontWeight: 700, color: 'primary.main',
-                          background: 'none', border: 'none', p: 0, cursor: 'pointer', flexShrink: 0,
-                        }}
-                      >
-                        Open conversation ({q.messageCount})
-                      </Typography>
-                    </Stack>
-                  ))}
-                </Box>
-              )}
-
+        onOpenChange={(open) => { if (!open) onClose(); }}
+        size="xl"
+        title={`Submission ${batch?.submissionId || ''}`.trim()}
+        description={batch ? `${batch.employeeName || ''} · Submitted ${fmtDate(batch.submittedAt)}` : undefined}
+        icon={<ReceiptText />}
+        footer={(close) => (
+          <div className="flex w-full flex-wrap items-center gap-2">
+            {hasApproved && (
+              <Button variant="outline" loading={downloadingBill} onClick={handleDownloadBill}>
+                <Download data-icon="inline-start" aria-hidden /> Download Slip
+              </Button>
+            )}
+            <div className="ml-auto flex flex-wrap items-center gap-2">
               {actionableIds.size > 0 && canApprove && (
-                <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
-                  <WtButton size="small" disabled={bulkProcessing} onClick={() => handleBulkAction('approve')}>
-                    Approve all ({actionableIds.size})
-                  </WtButton>
-                  <WtButton size="small" ghost disabled={bulkProcessing}
-                    onClick={() => setRejectTarget({ id: 'batch', type: 'batch-reject-all', action: 'reject' })}>
-                    Reject all
-                  </WtButton>
-                </Stack>
+                <>
+                  <Button
+                    variant="outline"
+                    disabled={bulkProcessing}
+                    onClick={() => setRejectTarget({ id: 'batch', type: 'batch-reject-all', action: 'reject' })}
+                  >
+                    Reject All
+                  </Button>
+                  <Button variant="success" loading={bulkProcessing} onClick={() => handleBulkAction('approve')}>
+                    Approve All ({actionableIds.size})
+                  </Button>
+                </>
               )}
+              <Button variant="outline" onClick={close}>Close</Button>
+            </div>
+          </div>
+        )}
+      >
+        {loading ? (
+          <div className="flex justify-center py-16"><Spinner className="size-7" /></div>
+        ) : !batch ? (
+          <EmptyState variant="error" size="sm" title="This Submission Could Not Be Loaded" description="Close and open it again, or refresh the page." />
+        ) : (
+          <div className="flex min-w-0 flex-col gap-4">
+            {shownSummary && (
+              <BatchSummaryStrip summary={shownSummary} processingStatus={batch.processingStatus ?? 'PENDING'} />
+            )}
 
-              {hasApproved && (
-                <Box>
-                  <WtButton size="small" inverted disabled={downloadingBill} onClick={handleDownloadBill}>
-                    {downloadingBill ? 'Generating…' : 'Download slip'}
-                  </WtButton>
-                </Box>
-              )}
+            {shownSummary && levels.length > 0 && (
+              <StatusSummaryBar
+                summary={shownSummary}
+                waits={waits}
+                actionableCount={actionableIds.size}
+                actionableAmount={actionableTotal}
+              />
+            )}
 
-              <Stack gap={1.25}>
-                {visibleRequests.map((request) => (
-                  <RequestWorkflowRow
-                    key={request.id}
-                    request={request}
-                    canDecide={canApprove && actionableIds.has(request.id)}
-                    busy={processingId === request.id}
-                    onApprove={() => handleIndividualAction(request.id, 'approve')}
-                    onReject={() => setRejectTarget({ id: request.id, type: 'individual', action: 'reject' })}
-                    onQuery={() => setRejectTarget({ id: request.id, type: 'individual', action: 'request-info' })}
-                    onOpenConversation={(queryId) => setConversation({
-                      reimbursementId: request.id,
-                      queryId,
-                      label: request.description || 'Expense',
-                    })}
-                    onOpenVersionHistory={() => setVersionsFor({
-                      id: request.id,
-                      label: request.description || 'Expense',
-                    })}
-                    onViewDocument={handleViewDocument}
-                    viewerRole={viewerRole}
-                    onResolveQuery={viewerRole === 'APPROVER' ? handleResolveQuery : undefined}
-                  />
+            {/* Batch-scope questions, shown apart from the requests because they are about the
+                submission as a whole and — deliberately — block none of them. */}
+            {batchQueries.length > 0 && (
+              <section aria-label="Batch queries" style={toneStyle('cyan')} className="min-w-0 space-y-2 rounded-2xl bg-[color-mix(in_oklab,var(--tone)_10%,transparent)] p-3.5">
+                <h4 className="heading-case m-0 text-xs font-bold text-(--tone-ink)">Batch Queries</h4>
+                {batchQueries.map((q) => (
+                  <div key={q.id} className="flex flex-wrap items-center gap-2">
+                    <p className="m-0 min-w-0 flex-1 text-sm">
+                      {q.lastMessage} <b>({q.status.toLowerCase()})</b>
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConversation({ batchId: batchId!, queryId: q.id, label: `Submission ${batch.submissionId}` })}
+                    >
+                      Open Conversation ({q.messageCount})
+                    </Button>
+                  </div>
                 ))}
-                {visibleRequests.length === 0 && (
-                  <Typography sx={{ py: 4, textAlign: 'center', color: 'text.secondary', fontSize: 13 }}>
-                    No requests to show.
-                  </Typography>
-                )}
-              </Stack>
-            </>
-          )}
-        </Box>
-      </GlassDialog>
+              </section>
+            )}
+
+            <div className="flex flex-col gap-3">
+              {visibleRequests.map((request) => (
+                <RequestWorkflowRow
+                  key={request.id}
+                  request={request}
+                  canDecide={canApprove && actionableIds.has(request.id)}
+                  busy={processingId === request.id}
+                  onApprove={() => handleIndividualAction(request.id, 'approve')}
+                  onReject={() => setRejectTarget({ id: request.id, type: 'individual', action: 'reject' })}
+                  onQuery={() => setRejectTarget({ id: request.id, type: 'individual', action: 'request-info' })}
+                  onOpenConversation={(queryId) => setConversation({
+                    reimbursementId: request.id,
+                    queryId,
+                    label: request.description || 'Expense',
+                  })}
+                  onOpenVersionHistory={() => setVersionsFor({
+                    id: request.id,
+                    label: request.description || 'Expense',
+                  })}
+                  onViewDocument={handleViewDocument}
+                  viewerRole={viewerRole}
+                  onResolveQuery={viewerRole === 'APPROVER' ? handleResolveQuery : undefined}
+                />
+              ))}
+              {visibleRequests.length === 0 && (
+                <EmptyState size="sm" title="No Requests to Show" />
+              )}
+            </div>
+          </div>
+        )}
+      </FormDialog>
 
       <RejectReasonModal
         show={!!rejectTarget}
@@ -826,7 +774,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
         onConfirm={handleRejectConfirm}
         submitting={rejectSubmitting}
         variant={rejectTarget?.action === 'request-info' ? 'request-info' : 'reject'}
-        title={rejectTarget?.type === 'batch-reject-all' ? 'Reject the requests awaiting you' : undefined}
+        title={rejectTarget?.type === 'batch-reject-all' ? 'Reject the Requests Awaiting You' : undefined}
       />
 
       {conversation && (

@@ -1,7 +1,8 @@
 ﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
-import { Avatar, Box, Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import { RootState } from "@redux/store";
 import { fetchConfiguration } from "@services/company";
 import { formatMoneyString } from "@utils/statistics";
@@ -210,12 +211,13 @@ const MyEmployeesTimeSheetPorject = ({
         size: 200,
         Cell: ({ row }: any) => (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-            <Avatar
-              src={row.original?.employeeAvatar || undefined}
-              sx={{ width: 26, height: 26, fontSize: 11, fontWeight: 700 }}
-            >
-              {String(row.original?.employeeName || "?").charAt(0)}
-            </Avatar>
+            <SmartAvatar
+              name={row.original?.employeeName}
+              src={row.original?.employeeAvatar}
+              seed={row.original?.employeeId}
+              size={26}
+              decorative
+            />
             <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
               {row.original?.employeeName || "—"}
             </Typography>

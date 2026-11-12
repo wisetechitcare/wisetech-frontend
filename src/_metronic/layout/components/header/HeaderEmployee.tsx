@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react'
+import {useEffect} from 'react'
 import {useDispatch, useSelector} from 'react-redux'
 
 import {useAuth} from '@app/modules/auth'
@@ -7,10 +7,9 @@ import {fetchCurrentEmployeeByUserId} from '@services/employee'
 import {saveCurrentEmployee} from '@redux/slices/employee'
 import {saveCurrentUser} from '@redux/slices/auth'
 import {saveCurrentBranchInfo, saveCurrentCompanyInfo} from '@redux/slices/company'
-import {getAvatar} from '@utils/avatar'
 import {fetchCurrentUser} from '@services/users'
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
-import {KTIcon} from '../../../helpers'
+import {SmartAvatar} from '@/ds/ui/smart-avatar'
 
 export const HeaderEmployee = () => {
   const {currentUser} = useAuth()
@@ -18,13 +17,12 @@ export const HeaderEmployee = () => {
   const parsedLs = ls ? JSON.parse(ls) : null
   const dispatch = useDispatch()
   const currEmployee = useSelector((state: RootState) => state.employee.currentEmployee)
-  const [avatarUrl, setAvatarUrl] = useState("")
   useEffect(() => {
     async function fetchCurrEmployee() {
       const { data: currEmpRes } = await fetchCurrentEmployeeByUserId(parsedLs.id)
       const { employee } = currEmpRes;
-      let avatar = getAvatar(employee.avatar, employee.gender)
-      dispatch(saveCurrentEmployee({ ...employee, avatar }))
+      // The REAL photo or nothing — never a placeholder: every avatar reading this falls back to initials itself.
+      dispatch(saveCurrentEmployee({ ...employee, avatar: employee.avatar || "" }))
     }
 
     async function fetchCurrUser() {
@@ -49,29 +47,17 @@ export const HeaderEmployee = () => {
     }
   }, [])
 
-  useEffect(() => {
-    if (!currEmployee.id) {
-      return;
-    }
-    const url = getAvatar(currEmployee?.avatar || "", currEmployee.gender)
-    
-    setAvatarUrl(url)
-  }, [currEmployee])
-
   return (
     <>
       {/*begin::User*/}
       <div className='aside-user d-flex align-items-sm-center justify-content-center py-lg-5 py-0'>
         {/*begin::Symbol*/}
-        <div className='symbol symbol-30px symbol-circle'>
-          {avatarUrl ? (
-            <img src={`${avatarUrl}`} alt='Avatar' style={{ objectFit: "cover" }} />
-          ) : (
-            <span className='symbol-label bg-light-primary'>
-              <KTIcon iconName='profile-circle' className='fs-2 text-primary' />
-            </span>
-          )}
-        </div>
+        <SmartAvatar
+          name={`${currEmployee.users?.firstName ?? ''} ${currEmployee.users?.lastName ?? ''}`}
+          seed={currEmployee.id}
+          src={currEmployee.avatar}
+          size={30}
+        />
         <div>
           <span className='fw-bold ${fontSize} text-dark px-3 d-none d-lg-block'>
             {currEmployee.users?.firstName} {currEmployee.users?.lastName}

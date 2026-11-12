@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Stack, Typography, CircularProgress, alpha } from '@mui/material';
 import { fetchEmployeesByBranch } from '@services/employee';
-import { getAvatar } from '@utils/avatar';
 import { GlassDialog, GlassHeader, ToneChip, WtEmptyState } from '@app/modules/common/components/ui';
-import SmartAvatar from '@app/modules/common/components/SmartAvatar';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { IconBranch, IconChevron } from '@app/modules/common/components/icons/OrgIcons';
 
 /**
@@ -82,7 +81,6 @@ export default function BranchEmployeesModal({ show, branchId, branchName, onClo
           <Stack spacing={1}>
             {employees.map(emp => {
               const name = `${emp.users?.firstName ?? ''} ${emp.users?.lastName ?? ''}`.trim() || 'Unnamed';
-              const avatarUrl = getAvatar(emp.avatar || '', emp.gender);
               return (
                 <Stack
                   key={emp.id}
@@ -106,7 +104,7 @@ export default function BranchEmployeesModal({ show, branchId, branchName, onClo
                     '&:focus-visible': { outline: 2, outlineColor: 'primary.main', outlineOffset: 2 },
                   }}
                 >
-                  <SmartAvatar imageUrl={avatarUrl} name={name} id={emp.id} size={38} />
+                  <SmartAvatar src={emp.avatar} name={name} seed={emp.id} size={38} decorative />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
                       <Typography noWrap sx={{ fontWeight: 700, fontSize: 14, color: 'text.primary' }}>{name}</Typography>

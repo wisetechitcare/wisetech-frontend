@@ -1,7 +1,6 @@
 import { KTIcon } from '@metronic/helpers';
 import { createRole, fetchRoles, updateRoleById, deleteRoleById, addEmployeeToRole, removeEmployeeFromRole } from '@services/roles';
 import { fetchAllEmployees } from '@services/employee';
-import { getAvatar } from '@utils/avatar';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useEffect, useState } from 'react'
 import { Box, Stack, Typography } from '@mui/material';
@@ -11,6 +10,7 @@ import {
 import { EmployeeSelectionDialog, type EmployeeOption } from '@app/modules/common/components/EmployeeSelectionDialog';
 import RoleAccessEditor from './RoleAccessEditor';
 import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 // The server's explanation for a refused change (last Super Admin, role still in use, …).
 const serverMessage = (error: any, fallback: string) => error?.response?.data?.detail || fallback;
@@ -64,7 +64,7 @@ function RoleMembers({ setRefetch, roleDetails }: { setRefetch: (show: boolean) 
       id: e.id,
       name: personName(e),
       designation: e?.designations?.role ?? undefined,
-      avatar: e?.avatar || getAvatar(e?.avatar, e?.gender),
+      avatar: e?.avatar || '',
     }));
 
   const togglePicked = (id: string) => setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -137,12 +137,7 @@ function RoleMembers({ setRefetch, roleDetails }: { setRefetch: (show: boolean) 
               spacing={1.25}
               sx={{ px: 1.25, py: 0.75, borderRadius: 2, '&:hover': { bgcolor: 'action.hover' } }}
             >
-              <Box
-                component="img"
-                src={employee?.avatar || getAvatar(employee?.avatar, employee?.gender)}
-                alt=""
-                sx={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-              />
+              <SmartAvatar src={employee?.avatar} name={personName(employee)} seed={employee?.id} size={34} decorative />
               <Typography sx={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'text.primary' }} noWrap>
                 {personName(employee)}
               </Typography>

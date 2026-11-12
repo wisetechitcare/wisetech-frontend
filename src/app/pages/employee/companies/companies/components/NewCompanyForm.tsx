@@ -35,7 +35,6 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { getRatingByCompanyId } from "@services/projects";
 import SubCompanyForm from "./SubCompanryForm";
 import { fetchAllEmployeesSelectedData } from "@services/employee";
-import { getAvatar } from "@utils/avatar";
 import MultiSelectWithInlineCreate, { Option } from "@app/modules/common/components/MultiSelectWithInlineCreate";
 import { transformToOptions, createNewCompanyService, createNewCompanyType, createNewServiceUnderType } from "@app/modules/common/components/InlineCreateHelpers";
 import { fetchSubCompanies } from "@services/company";
@@ -304,7 +303,7 @@ const NewCompanyForm: React.FC<Props> = ({
         .map((e: any) => ({
           label: `${e.users?.firstName} ${e.users?.lastName}`,
           value: e.id,
-          avatar: getAvatar(e.avatar || "", e.gender ?? 0),
+          avatar: e.avatar || e.users?.avatar || "",
         })),
     [allEmployees],
   );
@@ -1212,7 +1211,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                                       {
                                                         label: `${saved.users?.firstName} ${saved.users?.lastName}`,
                                                         value: saved.id,
-                                                        avatar: getAvatar(saved.avatar || "", saved.gender ?? 0),
+                                                        avatar: saved.avatar || saved.users?.avatar || "",
                                                       },
                                                       ...employeeOptions,
                                                     ];

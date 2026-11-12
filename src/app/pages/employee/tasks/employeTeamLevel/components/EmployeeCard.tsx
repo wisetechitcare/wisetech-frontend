@@ -1,6 +1,6 @@
 import React from 'react';
 import { EmployeeCardProps } from '../types';
-import LazyImage from './LazyImage';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { canDelete } from '@utils/can';
 
 const EmployeeCard: React.FC<EmployeeCardProps> = React.memo(({ employee, onEdit, onDelete }) => {
@@ -20,19 +20,8 @@ const EmployeeCard: React.FC<EmployeeCardProps> = React.memo(({ employee, onEdit
         >
             
             
-            <LazyImage
-                src={employee.avatar}
-                alt={`${employee.name} avatar`}
-                style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    borderRadius: '12px',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0
-                }}
-            />
+            {/* The card's inner width is exactly 216px, so the tile is a 216px square: photo, else initials. */}
+            <SmartAvatar name={employee.name} seed={employee.id} src={employee.avatar} size={216} shape="rounded" decorative />
         </div>
         <div className="d-flex justify-content-between align-items-end">
             <div className="flex-grow-1">
