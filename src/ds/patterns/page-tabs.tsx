@@ -152,9 +152,16 @@ export function PageTabs({
     el.scrollBy({ left: direction * Math.max(el.clientWidth * 0.8, 120), behavior: reduced ? "auto" : "smooth" })
   }
   // The selected tab must be on screen, whatever moved the selection (URL, click, keyboard).
+  // Scrolls the STRIP only, never via scrollIntoView: that also scrolls every ancestor, which can
+  // cancel the in-flight smooth scroll-to-top from `scrollOnChange` (Chrome) and move the page.
   React.useEffect(() => {
-    const el = listRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
-    if (el && typeof el.scrollIntoView === "function") el.scrollIntoView({ inline: "nearest", block: "nearest" })
+    const strip = listRef.current
+    const tab = strip?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+    if (!strip || !tab) return
+    const s = strip.getBoundingClientRect()
+    const t = tab.getBoundingClientRect()
+    const delta = t.left < s.left ? t.left - s.left : t.right > s.right ? t.right - s.right : 0
+    if (delta !== 0) strip.scrollLeft += delta
   }, [selected])
   const namesKey = shown.map((item) => titleCase(item.shortLabel ?? item.label)).join("|")
   const rowNeeded = React.useMemo(() => measureRowNeeded(namesKey.split("|")), [namesKey])
