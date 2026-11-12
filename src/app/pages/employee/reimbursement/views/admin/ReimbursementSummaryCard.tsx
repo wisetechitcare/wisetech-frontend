@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { CircleCheck, CircleX, Clock, HandCoins, Hourglass, Wallet } from 'lucide-react';
 import { StatCard } from '@/ds/patterns/stat-card';
 import { Skeleton } from '@/ds/ui/skeleton';
-import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { SensitiveValue } from '@/ds/patterns/sensitive';
 import { formatMoney } from '../../utils/reimbursementFormat';
 
 interface ReimbursementSummaryCardProps {
@@ -37,8 +37,6 @@ export default function ReimbursementSummaryCard({
   totalRemainingAmount = 0,
   isLoading = false,
 }: ReimbursementSummaryCardProps) {
-  const sensitive = useSensitiveData();
-
   if (isLoading) {
     return (
       <div className={KPI_GRID} aria-busy="true">
@@ -49,7 +47,7 @@ export default function ReimbursementSummaryCard({
 
   // The headline in the card's own tone; hidden, it blurs to a coloured smudge that still says which card is which.
   const headline = (n: number): ReactNode => (
-    <span className={`${sensitive.cls} text-[1.6rem] font-extrabold tracking-tight text-(--tone-ink)`}>{formatMoney(n)}</span>
+    <SensitiveValue className="text-[1.6rem] font-extrabold tracking-tight text-(--tone-ink)">{formatMoney(n)}</SensitiveValue>
   );
 
   return (

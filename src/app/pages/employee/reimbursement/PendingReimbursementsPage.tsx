@@ -21,7 +21,7 @@ import { showDialog } from '@app/modules/common/components/ui/dialogStore';
 import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
 import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
-import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { SensitiveValue, useSensitive } from '@/ds/patterns/sensitive';
 import { TOOLBAR_ROW } from './utils/toolbarButton';
 import DocumentPreviewModal from './components/DocumentPreviewModal';
 import OverLimitChip from './components/OverLimitChip';
@@ -143,7 +143,7 @@ export function EmployeeDetailsSection({
 }: EmployeeDetailsSectionProps) {
   const currentEmployee = useSelector((state: RootState) => state.employee.currentEmployee);
   const employee = employeeProp !== undefined ? employeeProp : currentEmployee;
-  const sensitive = useSensitiveData();
+  const sensitive = useSensitive();
 
   // Four stage cards: Drafts → Pending approval → Approved → Paid out.
   // Submitted rollup is labeled on the pending-approval card when it adds context.
@@ -213,7 +213,6 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
   // Per-request cap for the live limit warning under the Amount field.
   const perRequestLimit = useSelector((state: RootState) => (state.employee.currentEmployee as any)?.reimbursementLimitPerRequest);
   const userId = useSelector((state: RootState) => state.auth.currentUser.id);
-  const sensitive = useSensitiveData();
 
   const [drafts, setDrafts] = useState<ReimbursementDraft[]>([]);
   // A failed fetch used to render as "no drafts", which is indistinguishable from success.
@@ -502,11 +501,11 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       cell: ({ row }) => (
         // Colour alone is not a status — the chip carries the word too.
         <span className="inline-flex items-center gap-2">
-          <span className={`tabular font-semibold text-foreground ${sensitive.cls}`}>{fmtAmount(row.original.amount)}</span>
+          <SensitiveValue className="tabular font-semibold text-foreground">{fmtAmount(row.original.amount)}</SensitiveValue>
           {row.original.isExceedingLimit && <OverLimitChip />}
         </span>
       ),
-      footer: () => <span className={`tabular ${sensitive.cls}`}>{fmtAmount(totalAmount)}</span>,
+      footer: () => <SensitiveValue className="tabular">{fmtAmount(totalAmount)}</SensitiveValue>,
     },
     {
       id: 'route',
@@ -562,7 +561,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       ),
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handleEdit/handleDelete are stable in effect (state setters + loadDrafts)
-  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount, sensitive.cls]);
+  ], [resolveClientType, resolveClientCompany, resolveProject, totalAmount]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -695,7 +694,7 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-muted-foreground uppercase">Amount</div>
-                  <div className={`tabular font-bold text-foreground ${sensitive.cls}`}>{currencyPrefix()}{fmtAmount(r.amount)}</div>
+                  <div className="tabular font-bold text-foreground"><SensitiveValue>{currencyPrefix()}{fmtAmount(r.amount)}</SensitiveValue></div>
                 </div>
               </div>
               <div className="font-semibold text-foreground">{r.reimbursementType?.type || '—'}</div>

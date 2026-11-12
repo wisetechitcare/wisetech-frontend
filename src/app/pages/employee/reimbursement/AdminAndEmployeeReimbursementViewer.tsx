@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useTabRoute } from "@app/hooks/useTabRoute";
 import { PageLink, PageTitle } from "@metronic/layout/core";
-import MaterialHeaderTab, {
-  TabItem,
-} from "@app/modules/common/components/MaterialHeaderTab";
+import { useSelector } from "react-redux";
+import { PageTabs, type PageTabItem } from "@/ds/patterns/page-tabs";
+import type { IconSource } from "@/ds/ui/dynamic-icon";
+import { tabSlug } from "@utils/sectionTabs";
+import type { RootState } from "@redux/store";
 import Reimbursement from "./Reimbursement";
 import AllEmployee from "./views/admin/AllEmployee";
 import SearchEmployee from "./views/admin/SearchEmployee";
@@ -13,12 +15,12 @@ import { useDispatch } from "react-redux";
 import ReimbursementConfiguration from "./views/admin/ReimbursementConfiguration";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
-import { canSection } from "@utils/can";
+import { canSection, isTabTurnedOff } from "@utils/can";
 import { fetchReimbursementPaymentQueueCount } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
-import SensitiveDataProvider, { SensitiveDataHeaderToggle } from "@app/modules/common/components/SensitiveData";
+import { SensitiveProvider, SensitiveToggle } from "@/ds/patterns/sensitive";
 import { ReceiptText, Clipboard, Search, CreditCard, Settings } from 'lucide-react';
 
 /**
@@ -28,6 +30,8 @@ import { ReceiptText, Clipboard, Search, CreditCard, Settings } from 'lucide-rea
  * way to read it back.
  */
 const EYE_TABS = ["My Reimbursements", "Search Employee"];
+
+const ACCESS_SECTION = "finance.reimbursements";
 
 
 function AdminAndEmployeeReimbursementViewer() {
@@ -45,7 +49,7 @@ function AdminAndEmployeeReimbursementViewer() {
     }
   }, [location.state]);
 
-  // Badge counts. MaterialHeaderTab has supported `badge` all along and no reimbursement tab
+  // Badge counts. PageTabs supports `badge`; the legacy tab bar did too, and no reimbursement tab
   // passed one, so the number of payouts waiting on you was invisible until you opened the tab.
   const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
 
@@ -63,7 +67,17 @@ function AdminAndEmployeeReimbursementViewer() {
   useEffect(() => { loadBadgeCounts(); }, [loadBadgeCounts]);
   useEventBus(EVENT_KEYS.reimbursementChanged, () => { loadBadgeCounts(); });
 
-  const tabItems: TabItem[] = [
+  // Tabs turned off for this person (Access > Advanced), and Configure without Write on the section.
+  // Subscribed so a live access change re-renders the bar.
+  useSelector((s: RootState) => (s as any).authz?.deniedTabs);
+  useSelector((s: RootState) => (s as any).authz?.access);
+  const tabHidden = (title: string) => {
+    const slug = tabSlug(title);
+    return isTabTurnedOff(ACCESS_SECTION, slug) || (slug === "configure" && !canSection(ACCESS_SECTION, "write"));
+  };
+
+  type Tab = { title: string; component: React.ReactNode; icon: IconSource; badge?: number };
+  const tabItems: Tab[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Reimbursements",
       component: <Reimbursement />,
@@ -122,6 +136,16 @@ function AdminAndEmployeeReimbursementViewer() {
     },
   ];
 
+  const pageTabs: PageTabItem[] = tabItems.map((t) => ({
+    value: t.title,
+    label: t.title,
+    icon: t.icon,
+    badge: t.badge,
+    content: t.component,
+    hidden: tabHidden(t.title),
+  }));
+  const hasEye = EYE_TABS.includes(tabItems[activeTab]?.title ?? "");
+
   return (
     <>
       <PageTitle breadcrumbs={ReimbursementWizardBreadcrumb}>
@@ -131,17 +155,19 @@ function AdminAndEmployeeReimbursementViewer() {
       {/* Above the tabs, so the eye in the sticky bar governs every figure below it. The
           workspace has a provider of its own; a nested one defers to this, so there is one
           switch and it keeps its state while you move between the two tabs that offer it. */}
-      <SensitiveDataProvider disabled={!EYE_TABS.includes(tabItems[activeTab]?.title ?? "")}>
-        <MaterialHeaderTab
-          tabItems={tabItems}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          accessSection="finance.reimbursements"
-          headerAction={
-            EYE_TABS.includes(tabItems[activeTab]?.title ?? "") ? <SensitiveDataHeaderToggle /> : undefined
-          }
+      <SensitiveProvider disabled={!hasEye}>
+        <PageTabs
+          // The masthead is fixed from 992px up and 74px tall; below that it scrolls away.
+          className="min-[992px]:[--page-tabs-offset:74px]"
+          items={pageTabs}
+          value={tabItems[activeTab]?.title}
+          onValueChange={(title) => {
+            const idx = tabItems.findIndex((t) => t.title === title);
+            if (idx >= 0) setActiveTab(idx);
+          }}
+          headerAction={hasEye ? <SensitiveToggle variant="onPrimary" /> : undefined}
         />
-      </SensitiveDataProvider>
+      </SensitiveProvider>
     </>
   );
 }

@@ -26,7 +26,7 @@ import LoadErrorState from '../components/LoadErrorState';
 import { ReimbursementBatchDetail, ReimbursementLine } from '../utils/reimbursementTypes';
 import { buildReimbursementLineColumns } from '../components/reimbursementLineColumns';
 import { fmtDate, fmtAmount, resolveStatusNum } from '../utils/reimbursementFormat';
-import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { SensitiveValue, useSensitive } from '@/ds/patterns/sensitive';
 import { PAYMENT_LABEL, resolveStatusNum as resolveStatus, STATUS, STATUS_LABEL, STATUS_TONE, StatusNum } from '../utils/reimbursementFormat';
 import SubmissionMobileCard from '../components/SubmissionMobileCard';
 import { Dayjs } from 'dayjs';
@@ -224,13 +224,13 @@ function SubmissionDetailModal({
     if (documentUrl) setPreviewUrl(documentUrl);
   }, []);
 
-  const sensitive = useSensitiveData();
+  const sensitive = useSensitive();
 
   const detailColumns = useMemo<ColumnDef<any, any>[]>(
     () => [
       ...buildReimbursementLineColumns(
         { resolveClientType, resolveClientCompany, resolveProject },
-        { total: detailTotal, onPreview: handleViewDocument, sensitiveCls: sensitive.cls },
+        { total: detailTotal, onPreview: handleViewDocument },
       ),
       {
         id: 'status',
@@ -364,7 +364,7 @@ function SubmissionDetailModal({
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handleDelete only reads loadBatch/onRefresh (stable)
     [resolveClientType, resolveClientCompany, resolveProject, showEditDeleteOption, handleViewDocument, deletingId,
-      detailTotal, isPartiallyApproved, filterStatus, displayedReimbursements, sensitive.cls],
+      detailTotal, isPartiallyApproved, filterStatus, displayedReimbursements],
   );
 
   const handleDownloadBill = async () => {
@@ -560,9 +560,6 @@ function SubmissionsTable({
   hideIfEmpty = false,
 }: SubmissionsTableProps) {
   const [rows, setRows] = useState<any[]>([]);
-  // Follows the page's eye toggle. Empty string when no provider is present, so a table used
-  // outside a page that offers the toggle renders exactly as it always has.
-  const { cls: sensitiveCls } = useSensitiveData();
   // null = All. Defaults to All deliberately: a screen that silently narrows to approved is
   // the bug this replaces.
   const [statusFilter, setStatusFilter] = useStoredState<StatusNum | null>('filters:SubmissionsTable:statusFilter', null);
@@ -894,9 +891,9 @@ function SubmissionsTable({
         meta: { label: `Amount (${getCurrencySymbol()})`, exportValue: (r: any) => fmtAmount(r._totalAmount) },
         header: ({ column }) => <SortableHeader column={column} title={`Amount (${getCurrencySymbol()})`} />,
         cell: ({ row }) => (
-          <span className={`tabular ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(row.original._totalAmount)}</span>
+          <SensitiveValue className="tabular">{currencyPrefix()}{fmtAmount(row.original._totalAmount)}</SensitiveValue>
         ),
-        footer: () => <span className={`tabular ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(rowsTotal)}</span>,
+        footer: () => <SensitiveValue className="tabular">{currencyPrefix()}{fmtAmount(rowsTotal)}</SensitiveValue>,
       },
       {
         accessorKey: '_status',
@@ -950,9 +947,8 @@ function SubmissionsTable({
         },
       },
     ],
-    // `sensitiveCls` is a dependency, not an incidental read: without it the columns memo keeps
-    // the class captured at first render and the eye toggle does nothing to the amount column.
-    [rowsTotal, mode, sensitiveCls],
+    // The eye is read by <SensitiveValue> at render time, so it is not a dependency of this memo.
+    [rowsTotal, mode],
   );
 
   // Status is a filter the user controls, defaulting to All. Six screens used to hard-code

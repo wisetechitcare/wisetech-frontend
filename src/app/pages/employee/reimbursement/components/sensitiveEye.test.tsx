@@ -2,7 +2,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { SensitiveProvider, SensitiveToggle } from "@/ds/patterns/sensitive";
-import { TooltipProvider } from "@/ds/ui/tooltip";
 import { DataTable } from "@/ds/patterns/data-table";
 import SubmissionMobileCard from "./SubmissionMobileCard";
 import { buildReimbursementLineColumns } from "./reimbursementLineColumns";
@@ -31,7 +30,7 @@ function Screen() {
     { total: 1234.5 },
   );
   return (
-    <TooltipProvider>
+    <>
       <SensitiveProvider>
         <SensitiveToggle variant="onPrimary" />
         <div data-testid="table">
@@ -39,7 +38,7 @@ function Screen() {
         </div>
         <div data-testid="card"><SubmissionMobileCard row={submission} /></div>
       </SensitiveProvider>
-    </TooltipProvider>
+    </>
   );
 }
 

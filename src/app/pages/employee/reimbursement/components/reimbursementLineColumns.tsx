@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
 import OverLimitChip from './OverLimitChip';
 import { fmtAmount, NO_VALUE, projectTitle } from '../utils/reimbursementFormat';
 import { currencyPrefix } from '@utils/currency';
+import { SensitiveValue } from '@/ds/patterns/sensitive';
 
 /**
  * The expense-line columns of a batch (date … receipt), for the design system's DataTable.
@@ -29,15 +30,13 @@ export interface LineColumnOptions {
     total?: number;
     /** Opens a receipt. Without it the receipt column shows whether one is attached, no button. */
     onPreview?: (url: string) => void;
-    /** "Hide amounts" class (useSensitiveData().cls) for the amount cells. */
-    sensitiveCls?: string;
 }
 
 const text = (v: unknown) => (v == null || v === '' ? NO_VALUE : String(v));
 
 export const buildReimbursementLineColumns = (
     { resolveClientType, resolveClientCompany, resolveProject }: LineColumnResolvers,
-    { total, onPreview, sensitiveCls = '' }: LineColumnOptions = {},
+    { total, onPreview }: LineColumnOptions = {},
 ): ColumnDef<any, any>[] => [
     {
         accessorKey: 'expenseDate',
@@ -92,11 +91,11 @@ export const buildReimbursementLineColumns = (
         cell: ({ row }) => (
             // Colour alone is not a status — the chip carries the word too.
             <span className="inline-flex items-center gap-2">
-                <span className={`tabular font-semibold text-foreground ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(row.original.amount)}</span>
+                <SensitiveValue className="tabular font-semibold text-foreground">{currencyPrefix()}{fmtAmount(row.original.amount)}</SensitiveValue>
                 {row.original.isExceedingLimit && <OverLimitChip />}
             </span>
         ),
-        footer: () => (total === undefined ? null : <span className={`tabular ${sensitiveCls}`}>{currencyPrefix()}{fmtAmount(total)}</span>),
+        footer: () => (total === undefined ? null : <SensitiveValue className="tabular">{currencyPrefix()}{fmtAmount(total)}</SensitiveValue>),
     },
     {
         accessorKey: 'fromLocation',

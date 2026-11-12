@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { cn } from '@/ds/lib/utils';
 import { toneStyle } from '@/ds/lib/tone';
 import { Badge } from '@/ds/ui/badge';
-import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { SensitiveValue, useSensitive } from '@/ds/patterns/sensitive';
 import { formatMoney, PAYMENT_LABEL, STATUS, STATUS_LABEL, STATUS_TONE, type StatusNum } from '../utils/reimbursementFormat';
 
 /**
@@ -43,7 +43,7 @@ function SubmissionMobileCard({ row, onOpen }: SubmissionMobileCardProps) {
 
     // "Hide amounts" applies on the phone too — the card used to print the figure in clear while the wide
     // table beside it blurred the same number.
-    const sensitive = useSensitiveData();
+    const sensitive = useSensitive();
     const open = () => onOpen?.(row?.id ?? row?._id);
 
     return (
@@ -68,7 +68,7 @@ function SubmissionMobileCard({ row, onOpen }: SubmissionMobileCardProps) {
             {/* The amount leads. It is the number the page exists to report. */}
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <div className={cn('tabular text-xl leading-tight font-extrabold text-foreground', sensitive.cls)}>{formatMoney(row?._totalAmount)}</div>
+                    <div className="tabular text-xl leading-tight font-extrabold text-foreground"><SensitiveValue>{formatMoney(row?._totalAmount)}</SensitiveValue></div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
                         {expenses} expense{expenses === 1 ? '' : 's'}
                     </div>

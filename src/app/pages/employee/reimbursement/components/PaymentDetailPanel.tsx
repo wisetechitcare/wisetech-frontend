@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { cn } from '@/ds/lib/utils';
 import { Badge } from '@/ds/ui/badge';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/ds/ui/table';
-import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { SensitiveValue } from '@/ds/patterns/sensitive';
 import { fmtDate, formatMoney } from '../utils/reimbursementFormat';
 
 /**
@@ -37,9 +37,6 @@ const byDate = (a: { paymentDate: string }, b: { paymentDate: string }) =>
     new Date(a.paymentDate || 0).getTime() - new Date(b.paymentDate || 0).getTime();
 
 export default function PaymentDetailPanel({ payments }: { payments: PaymentDetailRow[] }) {
-    // "Hide amounts" applies here too — this panel used to print every payment in clear under a
-    // row whose totals were blurred.
-    const { cls: sensitiveCls } = useSensitiveData();
 
     const rows = useMemo(
         () => (payments || []).map((p, i) => ({
@@ -91,8 +88,9 @@ export default function PaymentDetailPanel({ payments }: { payments: PaymentDeta
                             <TableCell className={cn(!r.transactionId && 'text-muted-foreground')}>
                                 {r.transactionId || '—'}
                             </TableCell>
-                            <TableCell className={cn('tabular text-right font-semibold text-success-foreground', sensitiveCls)}>
-                                {formatMoney(r.amountPaid)}
+                            <TableCell className="tabular text-right font-semibold text-success-foreground">
+                                {/* "Hide amounts" applies here too: this panel used to print every payment in clear under a row whose totals were blurred. */}
+                                <SensitiveValue>{formatMoney(r.amountPaid)}</SensitiveValue>
                             </TableCell>
                         </TableRow>
                     ))}

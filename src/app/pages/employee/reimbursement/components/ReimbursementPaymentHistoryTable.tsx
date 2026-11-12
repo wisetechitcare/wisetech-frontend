@@ -10,7 +10,7 @@ import LoadErrorState from './LoadErrorState';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { SensitiveValue } from '@/ds/patterns/sensitive';
 import { currencyPrefix } from '@utils/currency';
 import { cn } from '@/ds/lib/utils';
 import { Badge } from '@/ds/ui/badge';
@@ -59,7 +59,6 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
     period,
     periodDate,
 }) => {
-    const { cls: sensitiveCls } = useSensitiveData();
     // The page owns the period. This table carried its own tabs + navigator, which is how the
     // screen ended up showing records for one month next to payments for another.
     const filter = period;
@@ -224,7 +223,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
 
     const columns = useMemo<ColumnDef<BatchRow, any>[]>(() => {
         const amountCell = (n: number, className?: string) => (
-            <span className={cn('tabular', className, sensitiveCls)}>{money(n)}</span>
+            <SensitiveValue className={cn('tabular', className)}>{money(n)}</SensitiveValue>
         );
         return [
             {
@@ -276,7 +275,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                 footer: () => amountCell(totals.remaining),
             },
         ];
-    }, [totals, sensitiveCls, openBatch]);
+    }, [totals, openBatch]);
 
     return (
         <>
@@ -311,7 +310,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
                             payments={(r.payments || []).map((p: any) => ({ ...p, paymentMadeBy: p._paymentMadeBy }))}
                         />
                     )}
-                    renderCard={(r) => <PaymentHistoryCard row={r} onOpen={() => openBatch(r)} sensitiveCls={sensitiveCls} />}
+                    renderCard={(r) => <PaymentHistoryCard row={r} onOpen={() => openBatch(r)} />}
                     empty={
                         <EmptyState
                             size="sm"
@@ -337,7 +336,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
 };
 
 /** One paid batch, as it reads on a phone: what was paid leads, then what is still owed. */
-function PaymentHistoryCard({ row, onOpen, sensitiveCls }: { row: BatchRow; onOpen: () => void; sensitiveCls: string }) {
+function PaymentHistoryCard({ row, onOpen }: { row: BatchRow; onOpen: () => void }) {
     const settled = row.totalRemainingAmount <= 0;
     return (
         <button
@@ -350,9 +349,9 @@ function PaymentHistoryCard({ row, onOpen, sensitiveCls }: { row: BatchRow; onOp
         >
             <span className="flex items-start justify-between gap-3">
                 <span>
-                    <span className={cn('block tabular text-xl leading-tight font-extrabold text-success-foreground', sensitiveCls)}>
+                    <SensitiveValue className="block tabular text-xl leading-tight font-extrabold text-success-foreground">
                         {money(row.totalAmountPaid)}
-                    </span>
+                    </SensitiveValue>
                     <span className="mt-0.5 block text-xs text-muted-foreground">
                         paid · {row.totalRequests} request{row.totalRequests === 1 ? '' : 's'}
                     </span>
@@ -363,13 +362,13 @@ function PaymentHistoryCard({ row, onOpen, sensitiveCls }: { row: BatchRow; onOp
             <span className="grid grid-cols-2 gap-2 text-xs">
                 <span>
                     <span className="block text-muted-foreground">Requested</span>
-                    <span className={cn('block tabular font-semibold text-foreground', sensitiveCls)}>{money(row.totalRequestAmount)}</span>
+                    <SensitiveValue className="block tabular font-semibold text-foreground">{money(row.totalRequestAmount)}</SensitiveValue>
                 </span>
                 <span>
                     <span className="block text-muted-foreground">Remaining</span>
-                    <span className={cn('block tabular font-semibold', settled ? 'text-success-foreground' : 'text-foreground', sensitiveCls)}>
+                    <SensitiveValue className={cn('block tabular font-semibold', settled ? 'text-success-foreground' : 'text-foreground')}>
                         {money(row.totalRemainingAmount)}
-                    </span>
+                    </SensitiveValue>
                 </span>
             </span>
         </button>

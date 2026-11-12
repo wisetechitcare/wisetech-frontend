@@ -6,7 +6,7 @@ import {
     PeriodGrain, TrendPoint, StatusSlice,
 } from '../utils/reimbursementChartData';
 import { formatMoney } from '../utils/reimbursementFormat';
-import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { SensitiveValue } from '@/ds/patterns/sensitive';
 import { currencyPrefix } from '@utils/currency';
 import { Button } from '@/ds/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/ds/ui/card';
@@ -71,8 +71,7 @@ const money = (v: number) => (v >= 1000 ? `${currencyPrefix()}${Math.round(v / 1
  * never the bar or the label: a hidden chart still shows the shape of the month.
  */
 function Money({ value, className }: { value: number; className?: string }) {
-    const { cls } = useSensitiveData();
-    return <span className={cn(cls, 'tabular font-bold text-foreground', className)}>{formatMoney(value)}</span>;
+    return <SensitiveValue className={cn('tabular font-bold text-foreground', className)}>{formatMoney(value)}</SensitiveValue>;
 }
 
 /** A body that keeps its height when empty, so switching period never makes the row jump. */
@@ -202,7 +201,6 @@ export default function ReimbursementCharts({
 }: ReimbursementChartsProps) {
     const [activeSlice, setActiveSlice] = useState<number | undefined>(undefined);
     const [showAllCategories, setShowAllCategories] = useState(false);
-    const { cls } = useSensitiveData();
 
     const trend = useMemo(() => buildTrend(rows, grain, anchor, fyStart), [rows, grain, anchor, fyStart]);
     const slices = useMemo(() => buildStatusSlices(rows), [rows]);
@@ -252,7 +250,7 @@ export default function ReimbursementCharts({
                 <span className="text-[12.5px] font-semibold">
                     {insight.parts.map((p, i) => (typeof p === 'string'
                         ? <Fragment key={i}>{p}</Fragment>
-                        : <span key={i} className={cls}>{formatMoney(p.money)}</span>))}
+                        : <SensitiveValue key={i}>{formatMoney(p.money)}</SensitiveValue>))}
                 </span>
             </div>
 

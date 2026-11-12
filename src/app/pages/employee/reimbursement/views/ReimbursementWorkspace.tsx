@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
 import { useDispatch } from 'react-redux';
-import { useMediaQuery } from '@mui/material';
+import { useIsMobile } from '@/ds/hooks/use-mobile';
 import { FileDown, Loader2 } from 'lucide-react';
 import {
   fetchEmpAlltimeReimbursements,
@@ -25,7 +25,7 @@ import ReimbursementCharts from '../components/ReimbursementCharts';
 import NeedsYourAttention from '../components/NeedsYourAttention';
 import ReimbursementPaymentHistoryTable from '../components/ReimbursementPaymentHistoryTable';
 import SubmissionsTable from './SubmissionsTable';
-import SensitiveDataProvider from '@app/modules/common/components/SensitiveData';
+import { SensitiveProvider } from '@/ds/patterns/sensitive';
 import { StatusNum } from '../utils/reimbursementFormat';
 import { ReimbursementSummary, summariseReimbursements } from '../utils/reimbursementSummary';
 
@@ -91,7 +91,8 @@ export default function ReimbursementWorkspace({
   checkOwnWithOthers = false,
 }: ReimbursementWorkspaceProps) {
   const dispatch = useDispatch();
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  // <768px; the legacy query was <=768px, so exactly 768px wide is now desktop.
+  const isMobile = useIsMobile();
 
   // One period for the whole screen. The mode survives a refresh; the anchor resets to today.
   const [alignment, setAlignment] = usePersistedState<PeriodAlignment>(
@@ -236,7 +237,7 @@ export default function ReimbursementWorkspace({
   return (
     // One provider for the whole screen: the eye in the header governs every figure below it,
     // including the ones five components deep in a table cell.
-    <SensitiveDataProvider>
+    <SensitiveProvider>
       {renderHeader({
         summary,
         loading,
@@ -312,6 +313,6 @@ export default function ReimbursementWorkspace({
           />
         </>
       )}
-    </SensitiveDataProvider>
+    </SensitiveProvider>
   );
 }
