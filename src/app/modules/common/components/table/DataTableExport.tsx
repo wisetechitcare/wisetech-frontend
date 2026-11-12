@@ -25,6 +25,7 @@ export function DataTableExport<T extends RowData>({
   disabled,
   size,
   label,
+  sheetName,
 }: {
   columns: ColumnDef<T, any>[];
   ctx: DataTableToolbarContext<T>;
@@ -37,6 +38,8 @@ export function DataTableExport<T extends RowData>({
   size?: 'small' | 'medium';
   /** The button's text when a toolbar offers two exports ("Employees" / "Expenses"); default "Export". */
   label?: string;
+  /** The workbook sheet's name; defaults to the file name. */
+  sheetName?: string;
 }) {
   const visible = new Set(ctx.visibleColumnIds);
   const exportColumns: ExportColumn<T>[] = columns.flatMap((col) => {
@@ -75,7 +78,7 @@ export function DataTableExport<T extends RowData>({
       title={title ?? filename}
       subtitle={subtitle}
       scope={scope}
-      sheetName={safe.slice(0, 31)}
+      sheetName={(sheetName ?? safe).slice(0, 31)}
       showTotals={showTotals}
       totalLabel="TOTAL"
       disabled={disabled || rows.length === 0}
