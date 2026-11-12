@@ -77,9 +77,10 @@ function DialogContent({
           <DialogPrimitive.Close
             data-slot="dialog-close"
             render={
+              // The Button story's "Tinted" Close: the neutral tint, same family as the other row/card actions.
               <Button
-                variant="ghost"
-                className="absolute top-4 right-4"
+                variant="tinted"
+                className="absolute top-4 right-4 [--tint:var(--muted-foreground)]"
                 size="icon-sm"
               />
             }
