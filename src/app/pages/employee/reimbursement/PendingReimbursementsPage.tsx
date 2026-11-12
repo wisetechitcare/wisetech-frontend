@@ -550,14 +550,14 @@ const PendingReimbursementsPage = forwardRef<PendingReimbursementsPageHandle, Pe
       meta: { pin: 'end' },
       header: 'Actions',
       cell: ({ row }) => (
-        // Both one click, side by side; 8px apart (not 4) so a slip on Edit cannot land on Delete — which is red
-        // and still asks to confirm.
+        // The kit's tinted icon actions (Button story "Tinted"): both one click, side by side, 8px apart so a slip on
+        // Edit cannot land on Delete — which carries the danger tint and still asks to confirm.
         <div className="flex items-center gap-2">
-          <KitButton variant="ghost" size="icon-sm" onClick={() => handleEdit(row.original)} aria-label="Edit this expense" title="Edit">
+          <KitButton variant="tinted" size="icon-sm" onClick={() => handleEdit(row.original)} aria-label="Edit this expense" title="Edit">
             <Pencil aria-hidden />
           </KitButton>
-          <KitButton variant="ghost" size="icon-sm" onClick={() => handleDelete(row.original.id)} aria-label="Delete this expense" title="Delete">
-            <Trash2 aria-hidden className="text-destructive" />
+          <KitButton variant="tinted" size="icon-sm" className="[--tint:var(--cta-danger)]" onClick={() => handleDelete(row.original.id)} aria-label="Delete this expense" title="Delete">
+            <Trash2 aria-hidden />
           </KitButton>
         </div>
       ),

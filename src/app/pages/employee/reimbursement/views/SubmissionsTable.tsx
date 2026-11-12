@@ -330,10 +330,11 @@ function SubmissionDetailModal({
               const canDelete = isPending && hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, r);
               if (!canEdit && !canDelete) return <span className="text-muted-foreground">N/A</span>;
               return (
-                <div className="flex items-center gap-1">
+                // The kit's tinted icon actions (Button story "Tinted"), 8px apart like the drafts inbox.
+                <div className="flex items-center gap-2">
                   {canEdit && (
                     <Button
-                      variant="ghost"
+                      variant="tinted"
                       size="icon-sm"
                       aria-label={needsAnswer ? 'Answer the approver' : 'Edit'}
                       title={needsAnswer ? "Answer your approver's question — saving sends it back for approval" : 'Edit'}
@@ -351,8 +352,8 @@ function SubmissionDetailModal({
                     </Button>
                   )}
                   {canDelete && (
-                    <Button variant="ghost" size="icon-sm" aria-label="Delete" title="Delete" loading={deletingId === r.id} onClick={() => handleDelete(r.id)}>
-                      <Trash2 aria-hidden className="text-destructive" />
+                    <Button variant="tinted" size="icon-sm" className="[--tint:var(--cta-danger)]" aria-label="Delete" title="Delete" loading={deletingId === r.id} onClick={() => handleDelete(r.id)}>
+                      <Trash2 aria-hidden />
                     </Button>
                   )}
                 </div>

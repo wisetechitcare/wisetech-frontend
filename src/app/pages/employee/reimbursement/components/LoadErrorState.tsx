@@ -27,8 +27,9 @@ export default function LoadErrorState({ what, onRetry }: LoadErrorStateProps) {
             title={`Could not load ${what}`}
             description="This is a loading problem, not missing data — nothing has been deleted."
             action={onRetry ? (
-                <Button variant="outline" onClick={onRetry}>
-                    <RotateCw data-icon="inline-start" aria-hidden /> Try Again
+                // The EmptyState "LoadFailed" story's recipe.
+                <Button size="sm" variant="outline" onClick={onRetry}>
+                    <RotateCw aria-hidden /> Retry
                 </Button>
             ) : undefined}
         />
