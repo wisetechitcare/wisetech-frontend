@@ -188,7 +188,7 @@ export function PageTabs({
         <div
           ref={listRef}
           onScroll={measureEdges}
-          className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden py-1 scrollbar-none"
         >
           <TabsList
             aria-label="Sections"

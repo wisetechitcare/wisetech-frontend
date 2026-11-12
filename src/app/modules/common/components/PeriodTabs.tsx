@@ -37,7 +37,7 @@ const PeriodTabs = ({ value, options, onChange, ariaLabel = 'Period selection', 
     >
         <TabsList
             aria-label={ariaLabel}
-            className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="max-w-full justify-start overflow-x-auto scrollbar-none"
         >
             {options.map((option) => (
                 <TabsTrigger key={option.value} value={option.value} className="flex-none px-3">
