@@ -6,9 +6,9 @@ import { PageTabs, type PageTabItem } from './page-tabs'
 import { SensitiveProvider, SensitiveToggle, SensitiveValue } from './sensitive'
 
 const items: PageTabItem[] = [
-  { value: 'mine', label: 'My Reimbursements', icon: ReceiptText, content: <p className="text-sm">Your claims this month.</p> },
-  { value: 'details', label: 'Reimbursement Details', icon: Clipboard, content: <p className="text-sm">Every employee, by period.</p> },
-  { value: 'search', label: 'Search Employee', icon: Search, content: <p className="text-sm">Find the claims of one person.</p> },
+  { value: 'mine', label: 'My Reimbursements', shortLabel: 'Mine', icon: ReceiptText, content: <p className="text-sm">Your claims this month.</p> },
+  { value: 'details', label: 'Reimbursement Details', shortLabel: 'Details', icon: Clipboard, content: <p className="text-sm">Every employee, by period.</p> },
+  { value: 'search', label: 'Search Employee', shortLabel: 'Search', icon: Search, content: <p className="text-sm">Find the claims of one person.</p> },
   { value: 'payment', label: 'Payment', icon: CreditCard, badge: 4, content: <p className="text-sm">Payouts waiting on you.</p> },
   { value: 'configure', label: 'Configure', icon: Settings, content: <p className="text-sm">Categories and limits.</p> },
 ]
@@ -96,4 +96,34 @@ export const StickyUnderHeader: Story = {
       <div className="h-[900px] px-5 py-4 text-sm text-muted-foreground">Scroll: the bar stays pinned.</div>
     </div>
   ),
+}
+
+/** Phone, one tab: it names itself (row mode) rather than showing a lone unexplained glyph. */
+export const PhoneOneTab: Story = {
+  args: { items: items.slice(0, 1) },
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('tab', { name: /My Reimbursements/ })).toBeVisible()
+    await expect(document.querySelector('[data-slot="page-tabs-bar"]')).toHaveAttribute('data-phone-mode', 'row')
+  },
+}
+
+/** Phone, five tabs and the eye: too tight for names in a row, so icon over a short name (nav). */
+export const PhoneFiveTabs: Story = {
+  render: (args) => (
+    <SensitiveProvider>
+      <PageTabs {...args} headerAction={<SensitiveToggle variant="onPrimary" />} />
+    </SensitiveProvider>
+  ),
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('Mine')).toBeVisible()
+    await expect(canvas.getByRole('button', { name: 'Show amounts' })).toBeVisible()
+  },
+}
+
+/** Phone, seven tabs: icons only, the selected tab marked by its fill (bare). */
+export const PhoneManyTabs: Story = {
+  args: { items: [...items, { value: 'x', label: 'Reports', icon: Clipboard }, { value: 'y', label: 'Audit', icon: Search }] },
+  globals: { viewport: { value: 'mobile1' } },
 }

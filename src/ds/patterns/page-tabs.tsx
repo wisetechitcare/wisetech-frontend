@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ds/ui/tabs"
 export type PageTabItem = {
   value: string
   label: string
+  /** Shorter name for the phone bar's icon-over-name mode. Omitted: the full label. */
+  shortLabel?: string
   /** A Lucide component, or a stored icon name. */
   icon?: IconSource | null
   /** A count pill beside the label (hidden at 0). */
@@ -18,18 +20,56 @@ export type PageTabItem = {
 }
 
 /**
+ * How much the phone bar can say, from its measured width, in four steps (same order and thresholds as the
+ * live `MaterialHeaderTab`):
+ *   row   - every tab fits as icon + name on one line
+ *   nav   - room for every tab at NAV_CELL: icon over a short name
+ *   icons - icon squares, and the SELECTED tab also shows its name
+ *   bare  - icons only, the selected tab marked by its fill
+ * Width 0 (not measured yet) assumes `nav`, never `row`: `row` would claim everything fits on first paint
+ * and shove the header action off the edge.
+ */
+export type PhoneTabMode = "row" | "nav" | "icons" | "bare"
+
+export const PHONE_TAB_METRICS = { iconCell: 36, gap: 4, nameRoom: 92, navCell: 64, rowChrome: 46 } as const
+
+export function pickPhoneTabMode(available: number, count: number, rowNeeded: number): PhoneTabMode {
+  const { iconCell, gap, nameRoom, navCell } = PHONE_TAB_METRICS
+  const gaps = Math.max(0, count - 1) * gap
+  if (available === 0) return "nav"
+  if (available >= rowNeeded + gaps) return "row"
+  if (available >= count * navCell + gaps) return "nav"
+  if (available >= count * iconCell + gaps + nameRoom) return "icons"
+  return "bare"
+}
+
+/** Width of every name at the phone row's bold 12.5px, plus each tab's padding, icon and gap. */
+function measureRowNeeded(names: string[]): number {
+  let ctx: CanvasRenderingContext2D | null = null
+  try {
+    ctx = typeof document !== "undefined" ? document.createElement("canvas").getContext("2d") : null
+  } catch {
+    ctx = null // jsdom: no canvas
+  }
+  if (!ctx) return Infinity
+  ctx.font = "700 12.5px Inter, sans-serif"
+  return names.reduce((sum, name) => sum + Math.ceil(ctx.measureText(name).width) + PHONE_TAB_METRICS.rowChrome, 0)
+}
+
+/**
  * A module's top-level tab bar: a primary-coloured strip that sticks under the app header, icon + label
  * tabs, and a `headerAction` slot on the right (where the `SensitiveToggle variant="onPrimary"` eye sits).
  * Replaces the live `MaterialHeaderTab`. Composes `ui/tabs`.
  *
- * On a phone the labels drop and every tab is an icon square (the name stays for screen readers and as the
- * tab's `title`); the selected tab is marked by its fill. The strip scrolls sideways if tabs still do not
- * fit, while `headerAction` stays pinned.
+ * Phone: the bar says as much as fits, measured from its real width (see `pickPhoneTabMode`). The strip
+ * scrolls sideways if tabs still do not fit, while `headerAction` stays pinned.
  *
  * Sticky offset: the bar sticks at `var(--page-tabs-offset, 0px)`. A host whose app header is fixed sets
  * that variable on the bar via `className` (e.g. `min-[992px]:[--page-tabs-offset:74px]`).
  *
- * Controlled with `value` + `onValueChange`, or uncontrolled (opens on the first visible tab).
+ * Controlled with `value` + `onValueChange`, or uncontrolled (opens on the first visible tab). A `value`
+ * pointing at a `hidden` tab falls back to the first visible one and reports it through `onValueChange`.
+ * Changing tab scrolls the page to the top (`scrollOnChange`), instantly under reduced motion.
  */
 export function PageTabs({
   items,
@@ -37,44 +77,79 @@ export function PageTabs({
   onValueChange,
   headerAction,
   className,
+  scrollOnChange = true,
 }: {
   items: PageTabItem[]
   value?: string
-  onValueChange?: (value: string, event: Event) => void
+  onValueChange?: (value: string, event?: Event) => void
   /** Pinned to the right of the bar, vertically centred. */
   headerAction?: React.ReactNode
   /** Classes for the sticky bar (sticky offset variable, extra spacing). */
   className?: string
+  /** Scroll the page to the top when the tab changes. */
+  scrollOnChange?: boolean
 }) {
   const shown = items.filter((item) => !item.hidden)
-  const selected = value ?? shown[0]?.value
+  const [internal, setInternal] = React.useState(shown[0]?.value)
+  const requested = value !== undefined ? value : internal
+  const selected = shown.some((item) => item.value === requested) ? requested : shown[0]?.value
+
+  // Standing on a tab that just got hidden: report the move to the first one still open.
+  React.useEffect(() => {
+    if (value !== undefined && selected !== undefined && selected !== value) onValueChange?.(selected)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, selected])
+
+  const change = (next: string, event?: Event) => {
+    if (value === undefined) setInternal(next)
+    if (scrollOnChange && typeof window !== "undefined" && typeof window.scrollTo === "function") {
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" })
+    }
+    onValueChange?.(next, event)
+  }
+
+  const listRef = React.useRef<HTMLDivElement | null>(null)
+  const [width, setWidth] = React.useState(0)
+  React.useLayoutEffect(() => {
+    const el = listRef.current
+    if (!el) return
+    setWidth(el.getBoundingClientRect().width)
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  const namesKey = shown.map((item) => titleCase(item.shortLabel ?? item.label)).join("|")
+  const rowNeeded = React.useMemo(() => measureRowNeeded(namesKey.split("|")), [namesKey])
+  const mode = pickPhoneTabMode(width, shown.length, rowNeeded)
 
   return (
     <Tabs
       value={selected}
-      onValueChange={(next, details) => onValueChange?.(next as string, (details as { event: Event }).event)}
+      onValueChange={(next, details) => change(next as string, (details as { event?: Event } | undefined)?.event)}
       className="gap-0"
     >
       <div
         data-slot="page-tabs-bar"
+        data-phone-mode={mode}
         className={cn(
           // z-[99]: above page content, below the app chrome (header, drawers, dropdowns).
-          "sticky top-(--page-tabs-offset,0px) z-[99] flex min-h-[52px] w-full min-w-0 items-center bg-primary text-primary-foreground",
+          "sticky top-(--page-tabs-offset,0px) z-[99] flex min-h-[52px] w-full min-w-0 items-center bg-primary text-primary-foreground max-sm:gap-1.5 max-sm:px-1.5",
           className,
         )}
       >
-        <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={listRef} className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <TabsList
             aria-label="Sections"
-            className="h-auto w-max justify-start gap-1 rounded-none bg-transparent px-3 py-[9px] max-sm:px-1.5 max-sm:py-[8px]"
+            className="h-auto w-max justify-start gap-1 rounded-none bg-transparent px-3 py-[9px] max-sm:w-full max-sm:min-w-max max-sm:justify-between max-sm:px-0 max-sm:py-[8px]"
           >
             {shown.map((item) => (
-              <PageTab key={item.value} item={item} />
+              <PageTab key={item.value} item={item} selected={item.value === selected} mode={mode} />
             ))}
           </TabsList>
         </div>
         {headerAction && (
-          <div className="flex shrink-0 items-center gap-2 pr-3 pl-2.5 max-sm:ml-0.5 max-sm:self-stretch max-sm:border-l max-sm:border-primary-foreground/20 max-sm:pr-1.5 sm:pr-6">
+          <div className="flex shrink-0 items-center gap-2 pr-3 pl-2.5 max-sm:ml-0.5 max-sm:self-stretch max-sm:border-l max-sm:border-primary-foreground/20 max-sm:pr-1 max-sm:pl-2 sm:pr-6">
             {headerAction}
           </div>
         )}
@@ -90,9 +165,13 @@ export function PageTabs({
   )
 }
 
-function PageTab({ item }: { item: PageTabItem }) {
+function PageTab({ item, selected, mode }: { item: PageTabItem; selected: boolean; mode: PhoneTabMode }) {
   const label = titleCase(item.label)
+  const shortLabel = titleCase(item.shortLabel ?? item.label)
   const count = typeof item.badge === "number" && item.badge > 0 ? (item.badge > 99 ? "99+" : String(item.badge)) : null
+  const nav = mode === "nav"
+  // Does the phone bar show the full name beside the icon? row: always; icons: the selected tab only.
+  const named = mode === "row" || (mode === "icons" && selected)
   return (
     <TabsTrigger
       value={item.value}
@@ -104,12 +183,22 @@ function PageTab({ item }: { item: PageTabItem }) {
         "data-active:bg-primary-foreground/16 data-active:font-bold data-active:text-primary-foreground data-active:shadow-none data-active:hover:bg-primary-foreground/20",
         "dark:text-primary-foreground/90 dark:hover:text-primary-foreground dark:data-active:bg-primary-foreground/16 dark:data-active:text-primary-foreground",
         "focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-primary-foreground/70",
-        // Phone: a 36px icon square; the label is kept for assistive tech.
-        "max-sm:relative max-sm:size-[36px] max-sm:rounded-[10px] max-sm:px-0 max-sm:data-active:bg-primary-foreground/18",
+        // Phone: 36px cells; the mode decides what they say.
+        "max-sm:relative max-sm:h-[36px] max-sm:min-h-[36px] max-sm:rounded-[10px] max-sm:px-0 max-sm:data-active:bg-primary-foreground/18",
+        mode === "row" && "max-sm:min-w-0 max-sm:flex-[1_1_auto] max-sm:gap-1.5 max-sm:px-2.5 max-sm:text-[12.5px]",
+        nav && "max-sm:h-auto max-sm:min-w-0 max-sm:flex-[1_1_0] max-sm:flex-col max-sm:gap-[3px] max-sm:px-1 max-sm:py-1.5",
+        mode === "icons" && (selected ? "max-sm:min-w-0 max-sm:flex-[0_1_auto] max-sm:px-3" : "max-sm:w-[36px]"),
+        mode === "bare" && "max-sm:w-[36px]",
       )}
     >
       {item.icon && <IconSlot icon={item.icon} className="size-[19px] max-sm:size-[21px]" />}
-      <span className="max-sm:sr-only">{label}</span>
+      {/* Full name: desktop always; phone only where the mode names it. Never removed (screen readers). */}
+      <span className={cn(!named && "max-sm:sr-only", named && "max-sm:min-w-0 max-sm:truncate")}>{label}</span>
+      {nav && (
+        <span aria-hidden className="line-clamp-2 max-w-full text-center text-[10.5px] leading-[1.15] font-semibold group-data-active/page-tab:font-bold sm:hidden">
+          {shortLabel}
+        </span>
+      )}
       {count && (
         <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary-foreground/25 px-1 text-[11px] leading-none font-bold text-primary-foreground group-data-active/page-tab:bg-primary-foreground group-data-active/page-tab:text-primary max-sm:absolute max-sm:-top-0.5 max-sm:-right-0.5 max-sm:h-4 max-sm:min-w-4 max-sm:bg-primary-foreground max-sm:text-[10px] max-sm:text-primary">
           {count}
