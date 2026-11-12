@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { Calendar, Loader2 } from 'lucide-react'
+import { Calendar, Check, Loader2 } from 'lucide-react'
 import { expect } from 'storybook/test'
 
 /** Every Lucide icon gets one default rule (`svg.lucide` in `src/ds/styles/components.css`): stroke 1.75, middle-aligned, never shrinks. Utilities still win. */
@@ -31,6 +31,20 @@ export const UtilityWins: Story = {
     const style = getComputedStyle(await canvas.findByTestId('i'))
     await expect(style.width).toBe('20px')
     await expect(style.strokeWidth).toBe('2px')
+  },
+}
+
+/** An explicit `strokeWidth` prop must beat the global default, which only fills in Lucide's untouched `stroke-width="2"`. */
+export const ExplicitStrokeWins: Story = {
+  render: () => (
+    <>
+      <Check data-testid="default" />
+      <Check data-testid="explicit" strokeWidth={3} />
+    </>
+  ),
+  play: async ({ canvas }) => {
+    await expect(getComputedStyle(await canvas.findByTestId('default')).strokeWidth).toBe('1.75px')
+    await expect(getComputedStyle(await canvas.findByTestId('explicit')).strokeWidth).toBe('3px')
   },
 }
 

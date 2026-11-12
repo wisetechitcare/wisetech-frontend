@@ -188,12 +188,16 @@
  * Every lucide-react <svg> gets the same stroke weight, baseline alignment and no-shrink behaviour, so call
  * sites only choose a size and a colour. Colour needs no rule: lucide strokes with currentColor.
  * In @layer base on purpose: every Tailwind utility (size-*, stroke-*, align-*, shrink) is in a later layer and
- * wins. aria-hidden is not set here — lucide-react already adds it when no accessible name is passed. */
+ * wins. aria-hidden is not set here — lucide-react already adds it when no accessible name is passed.
+ * The stroke weight is scoped to stroke-width="2", Lucide's untouched default attribute: a stylesheet beats the
+ * SVG presentation attribute, so an unscoped rule would silently flatten an explicit strokeWidth={3}. */
 @layer base {
   svg.lucide {
-    stroke-width: 1.75;
     display: inline-block;
     vertical-align: middle;
     flex-shrink: 0;
+  }
+  svg.lucide[stroke-width="2"] {
+    stroke-width: 1.75;
   }
 }
