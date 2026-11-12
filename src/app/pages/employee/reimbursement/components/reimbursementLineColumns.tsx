@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import { FileText, FileX } from 'lucide-react';
 import { SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
 import { Button } from '@/ds/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
 import OverLimitChip from './OverLimitChip';
 import { fmtAmount, NO_VALUE, projectTitle } from '../utils/reimbursementFormat';
 import { currencyPrefix } from '@utils/currency';
@@ -122,17 +123,20 @@ export const buildReimbursementLineColumns = (
         header: 'Receipt',
         cell: ({ row }) => {
             const url = row.original.document as string | null;
+            const label = url ? (onPreview ? 'Preview Receipt' : 'Receipt Attached') : 'No Receipt Attached';
+            // The kit tooltip on both states. "No receipt" is a focusable icon, not a disabled button: a
+            // disabled button never shows a tooltip, so the reason it can't be opened was hidden.
             return (
-                <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={!url || !onPreview}
-                    aria-label={url ? 'Preview receipt' : 'No receipt attached'}
-                    title={url ? 'Preview receipt' : 'No receipt attached'}
-                    onClick={() => { if (url) onPreview?.(url); }}
-                >
-                    {url ? <FileText aria-hidden className="text-primary" /> : <FileX aria-hidden className="text-muted-foreground" />}
-                </Button>
+                <Tooltip>
+                    <TooltipTrigger
+                        render={url && onPreview
+                            ? <Button variant="tinted" size="icon-sm" aria-label={label} onClick={() => onPreview(url)} />
+                            : <span role="img" tabIndex={0} aria-label={label} className="inline-grid size-8 place-items-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50" />}
+                    >
+                        {url ? <FileText aria-hidden className={onPreview ? undefined : 'size-4 text-primary'} /> : <FileX aria-hidden className="size-4 text-muted-foreground" />}
+                    </TooltipTrigger>
+                    <TooltipContent>{label}</TooltipContent>
+                </Tooltip>
             );
         },
     },

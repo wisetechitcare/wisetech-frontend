@@ -103,7 +103,7 @@ const AllEmployeesSearchDropdown = () => {
         id: e.id,
         name: fullName(e),
         code: e.employeeCode ?? undefined,
-        subtitle: [e.designations?.name, e.isActive === false ? "Inactive" : null].filter(Boolean).join(" · ") || undefined,
+        subtitle: [e.designations?.role, e.isActive === false ? "Inactive" : null].filter(Boolean).join(" · ") || undefined,
         avatarUrl: e.avatar ?? undefined,
       })),
     [allEmployees],

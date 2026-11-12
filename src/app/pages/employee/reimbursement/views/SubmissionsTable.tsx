@@ -401,14 +401,14 @@ function SubmissionDetailModal({
       <FormDialog
         open={!!batchId}
         onOpenChange={(next) => { if (!next) onClose(); }}
-        title={`Submission details${batch?.submissionId ? ` — ${batch.submissionId}` : ''}`}
+        title={`Submission Details${batch?.submissionId ? ` — ${batch.submissionId}` : ''}`}
         description={summary}
         icon={<ReceiptText />}
         size="xl"
       >
         {approvalInstanceId && (
           <section aria-label="Approval progress" className="mb-5 rounded-2xl bg-muted/50 p-4">
-            <h3 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Approval Progress</h3>
+            <h3 className="heading-case m-0 mb-3 text-xs font-bold text-muted-foreground">Approval Progress</h3>
             <ApprovalStatusTracker
               instanceId={approvalInstanceId}
               compact
@@ -439,7 +439,7 @@ function SubmissionDetailModal({
               {batch?.id && displayedReimbursements.length > 0 && (
                 <Button variant="outline" loading={downloadingBill} disabled={loading} onClick={handleDownloadBill} title="Download the batch slip (all its reimbursements)">
                   {!downloadingBill && <FileDown data-icon="inline-start" aria-hidden />}
-                  {downloadingBill ? 'Generating…' : 'Download slip'}
+                  {downloadingBill ? 'Generating…' : 'Download Slip'}
                 </Button>
               )}
               <DataTableExport columns={detailColumns} ctx={ctx} filename={`Submission ${batch?.submissionId ?? ''}`.trim()} />
