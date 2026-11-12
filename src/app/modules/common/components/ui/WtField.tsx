@@ -3,6 +3,7 @@ import { Autocomplete, Avatar, Box, Chip, MenuItem, TextField, Typography, alpha
 import type { SxProps, Theme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { AppIcon } from './AppIcon';
+import { IconSlot, type IconSource } from '@/ds/ui/dynamic-icon';
 import { menuOptionSx } from './patterns';
 import {
     DEFAULT_ADD_OPTION_LABEL,
@@ -141,8 +142,8 @@ export interface WtFieldProps {
     fitContent?: boolean;
     minWidth?: number;
 
-    /** Leading glyph. A `bi-` prefix renders a Bootstrap icon; anything else a KTIcon. */
-    icon?: string;
+    /** Leading glyph: a Lucide component, or a stored name (`bi-*` / keenicon / `fa-*`). */
+    icon?: IconSource;
     /**
      * Short leading TEXT inside the frame — the unit the value is in: `₹`, `AED`, `kg`.
      *
@@ -222,10 +223,13 @@ export interface WtFieldProps {
     children?: React.ReactNode;
 }
 
-const FieldIcon = ({ name, color }: { name: string; color: string }) =>
-    name.startsWith('bi-')
-        ? <AppIcon name={name} className="fs-6" style={{ color, lineHeight: 1 }} />
-        : <KTIcon iconName={name} className="fs-6" />;
+const FieldIcon = ({ name, color }: { name: IconSource; color: string }) =>
+    typeof name !== 'string'
+        // fs-6 is 16px in the icon scale; the colour comes from the adornment box (currentColor).
+        ? <IconSlot icon={name} className="size-[16px]" />
+        : name.startsWith('bi-')
+            ? <AppIcon name={name} className="fs-6" style={{ color, lineHeight: 1 }} />
+            : <KTIcon iconName={name} className="fs-6" />;
 
 /**
  * Everything the theme is allowed to touch: the outline, the radius, the focus ring.
