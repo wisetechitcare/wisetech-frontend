@@ -12,12 +12,15 @@ import {
 // TanStack Table v9: the features, row models and column types live in one place (shadcn's data-table guide).
 import { dataTableFeatures, type Column, type ColumnDef, type Header, type Row } from "./data-table-features"
 import { useLocale } from "react-aria-components"
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Columns3, GripVertical, Rows3, Search } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Columns3, GripVertical, ListFilter, Maximize2, Minimize2, RotateCcw, Rows3, Search } from "lucide-react"
 // The app's one drag engine (also the Task board and the live table's column drag) — never a second one.
 import { mergeVisibleOrder, SortableProvider, type SortableProps } from "@/ds/lib/sortable"
 import { cn } from "@/ds/lib/utils"
 import { toneStyle, type Tone } from "@/ds/lib/tone"
 import { Button } from "@/ds/ui/button"
+import { ButtonGroup } from "@/ds/ui/button-group"
+import { Input } from "@/ds/ui/input"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip"
 import { Card } from "@/ds/ui/card"
 import { Checkbox } from "@/ds/ui/checkbox"
 import {
@@ -66,6 +69,55 @@ export function SortableHeader<T extends RowData>({ column, title }: { column: C
       {title}
       <Icon aria-hidden className={cn(!dir && "text-muted-foreground/60")} />
     </Button>
+  )
+}
+
+/** A column's human name: `meta.label`, else its id. */
+const columnLabel = (c: { id: string; columnDef: { meta?: unknown } }) =>
+  typeof c.columnDef.meta === "object" && c.columnDef.meta && "label" in c.columnDef.meta
+    ? String((c.columnDef.meta as { label: string }).label)
+    : c.id
+
+/**
+ * Column filters match the text a person SEES (`meta.exportValue`, e.g. a formatted date or a status label), not
+ * the raw value — typing "Nov" finds November rows, not ISO strings. Case-insensitive "contains".
+ */
+function displayTextFilter<T extends RowData>(meta: unknown) {
+  const exportValue = (meta as { exportValue?: (row: T) => unknown } | undefined)?.exportValue
+  return ((row: Row<T>, columnId: string, value: unknown) => {
+    const needle = String(value ?? "").trim().toLowerCase()
+    if (!needle) return true
+    const shown = exportValue ? exportValue(row.original) : row.getValue(columnId)
+    return String(shown ?? "").toLowerCase().includes(needle)
+  }) as unknown as NonNullable<ColumnDef<T>["filterFn"]>
+}
+
+/** One tool in the table's tool group (Tooltip + ButtonGroup story recipes): tinted while ON. */
+function ToolButton({ label, active, pressed, onClick, children }: {
+  label: string
+  active?: boolean
+  /** For on/off tools: exposes aria-pressed. */
+  pressed?: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant={active ? "tinted" : "outline"}
+            size="icon"
+            aria-label={label}
+            aria-pressed={pressed}
+            onClick={onClick}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -381,6 +433,8 @@ export function DataTable<T extends RowData>({
   }))
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [density, setDensity] = React.useState<"comfortable" | "compact">(saved.density ?? "comfortable")
+  const [showFilters, setShowFilters] = React.useState(false)
+  const [fullscreen, setFullscreen] = React.useState(false)
   const headRefs = React.useRef(new Map<string, HTMLTableCellElement>())
   /** Each column's natural width, as first measured — what "reset" returns to. */
   const naturalWidths = React.useRef(new Map<string, number>())
@@ -397,7 +451,7 @@ export function DataTable<T extends RowData>({
       ...(rowReorder ? [dragColumn<T>(reorderLive)] : []),
       ...(selectable ? [selectColumn<T>()] : []),
       ...(renderDetail ? [expandColumn<T>()] : []),
-      ...columns,
+      ...columns.map((c) => (c.filterFn ? c : { ...c, filterFn: displayTextFilter<T>(c.meta) })),
     ],
     [rowReorder, selectable, renderDetail, columns],
   )
@@ -431,6 +485,41 @@ export function DataTable<T extends RowData>({
 
   const rows = table.getRowModel().rows
   const selected = table.getSelectedRowModel().rows
+  const activeColumnFilters = (table.state.columnFilters ?? []).length
+  // Column filters filter what the table holds; on a server-paged table that is one page — misleading, so off.
+  const canFilterColumns = !server
+
+  /** Back to the table as designed: widths, hidden columns, density, sorting, column filters; forgets the saved layout. */
+  const resetLayout = () => {
+    naturalWidths.current.clear()
+    table.setColumnSizing({})
+    setColumnVisibility(
+      Object.fromEntries(
+        columns
+          .filter((c) => (c.meta as { exportOnly?: boolean } | undefined)?.exportOnly)
+          .map((c) => [c.id ?? String((c as { accessorKey?: unknown }).accessorKey), false]),
+      ),
+    )
+    setDensity("comfortable")
+    setSorting(initialSorting ?? [])
+    table.resetColumnFilters()
+    if (stateKey) {
+      try { window.localStorage.removeItem(`wt-table:${stateKey}`) } catch { /* storage unavailable */ }
+    }
+  }
+
+  // Full screen: Esc leaves it, and the page behind does not scroll while it is open.
+  React.useEffect(() => {
+    if (!fullscreen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false) }
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    window.addEventListener("keydown", onKey)
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previous
+    }
+  }, [fullscreen])
   const total = server ? rowCount! : table.getFilteredRowModel().rows.length
   const from = total === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1
   const to = Math.min(total, (pagination.pageIndex + 1) * pagination.pageSize)
@@ -644,11 +733,7 @@ export function DataTable<T extends RowData>({
                         <ResizeHandle
                           header={h}
                           naturalWidth={naturalWidths.current.get(h.column.id)}
-                          label={
-                            typeof h.column.columnDef.meta === "object" && h.column.columnDef.meta && "label" in h.column.columnDef.meta
-                              ? String((h.column.columnDef.meta as { label: string }).label)
-                              : h.column.id
-                          }
+                          label={columnLabel(h.column)}
                         />
                       )}
                     </TableHead>
@@ -656,6 +741,27 @@ export function DataTable<T extends RowData>({
                 })}
               </TableRow>
             ))}
+            {showFilters && canFilterColumns && (
+              <TableRow className="hover:bg-transparent">
+                {/* Cells, not headers: they hold inputs (an empty <th> is an a11y error for columns with no filter). */}
+                {table.getVisibleLeafColumns().map((c) => (
+                  <TableCell key={c.id} className={cn("px-3 py-1.5", narrowCol(c.id), pinEnd(c))}>
+                    {c.getCanFilter() ? (
+                      <Input
+                        value={String(c.getFilterValue() ?? "")}
+                        onChange={(e) => {
+                          c.setFilterValue(e.target.value || undefined)
+                          table.setPageIndex(0)
+                        }}
+                        aria-label={`Filter ${columnLabel(c)}`}
+                        placeholder="Filter"
+                        className="h-8 min-w-20 text-xs font-normal normal-case"
+                      />
+                    ) : null}
+                  </TableCell>
+                ))}
+              </TableRow>
+            )}
           </TableHeader>
           <TableBody {...(sp?.listProps(ROWS_CONTAINER, !canDrag) ?? {})}>{body ?? rowsBody?.(sp)}</TableBody>
           {hasFooter && rows.length > 0 && !loading && !error && (
@@ -678,7 +784,15 @@ export function DataTable<T extends RowData>({
   )
 
   return (
-    <div data-slot="data-table" className="@container/data-table space-y-3">
+    <div
+      data-slot="data-table"
+      data-fullscreen={fullscreen ? "" : undefined}
+      className={cn(
+        "@container/data-table space-y-3",
+        // Above the page, below popovers (kit layer tokens), so menus and selects still open over it.
+        fullscreen && "fixed inset-0 z-(--z-modal) overflow-auto bg-background p-4 sm:p-6",
+      )}
+    >
       <div className="flex flex-wrap items-center gap-2">
         {selected.length > 0 && selectionActions ? (
           <div
@@ -726,38 +840,62 @@ export function DataTable<T extends RowData>({
                     visibleColumnIds: table.getVisibleLeafColumns().map((c) => c.id),
                   })
                 : toolbar}
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label={density === "compact" ? "Comfortable rows" : "Compact rows"}
-                aria-pressed={density === "compact"}
-                onClick={() => setDensity((d) => (d === "compact" ? "comfortable" : "compact"))}
-              >
-                <Rows3 aria-hidden />
-              </Button>
-              {hideable.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger render={<Button variant="outline" />}>
-                    <Columns3 data-icon="inline-start" aria-hidden /> Columns
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuGroup>
-                      <DropdownMenuLabel>Show columns</DropdownMenuLabel>
-                      {hideable.map((c) => (
-                        <DropdownMenuCheckboxItem
-                          key={c.id}
-                          checked={c.getIsVisible()}
-                          onCheckedChange={(on) => c.toggleVisibility(!!on)}
-                        >
-                          {typeof c.columnDef.meta === "object" && c.columnDef.meta && "label" in c.columnDef.meta
-                            ? String((c.columnDef.meta as { label: string }).label)
-                            : c.id}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+              {/* The table's tools, one joined group (ButtonGroup story): what the old table's icon strip had —
+                  column filters, density, columns, reset layout, full screen. A tool is tinted only while ON. */}
+              <ButtonGroup aria-label="Table tools">
+                {canFilterColumns && (
+                  <ToolButton
+                    label={showFilters ? "Hide column filters" : "Show column filters"}
+                    active={showFilters || activeColumnFilters > 0}
+                    pressed={showFilters}
+                    onClick={() => setShowFilters((v) => !v)}
+                  >
+                    <ListFilter aria-hidden />
+                  </ToolButton>
+                )}
+                <ToolButton
+                  label={density === "compact" ? "Comfortable rows" : "Compact rows"}
+                  active={density === "compact"}
+                  pressed={density === "compact"}
+                  onClick={() => setDensity((d) => (d === "compact" ? "comfortable" : "compact"))}
+                >
+                  <Rows3 aria-hidden />
+                </ToolButton>
+                {hideable.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={<Button variant="outline" size="icon" aria-label="Show or hide columns" title="Show or hide columns" />}
+                    >
+                      <Columns3 aria-hidden />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+                        {hideable.map((c) => (
+                          <DropdownMenuCheckboxItem
+                            key={c.id}
+                            checked={c.getIsVisible()}
+                            onCheckedChange={(on) => c.toggleVisibility(!!on)}
+                          >
+                            {columnLabel(c)}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <ToolButton label="Reset layout" onClick={resetLayout}>
+                  <RotateCcw aria-hidden />
+                </ToolButton>
+                <ToolButton
+                  label={fullscreen ? "Exit full screen" : "Full screen"}
+                  active={fullscreen}
+                  pressed={fullscreen}
+                  onClick={() => setFullscreen((v) => !v)}
+                >
+                  {fullscreen ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
+                </ToolButton>
+              </ButtonGroup>
             </div>
           </>
         )}

@@ -119,7 +119,8 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const bodyRows = (table: HTMLElement) => within(table).getAllByRole('row').slice(1)
+// The BODY's rows — the header can hold two rows (column filters), so "all rows but the first" is wrong.
+const bodyRows = (table: HTMLElement) => within(table.querySelector('tbody')!).getAllByRole('row')
 
 /** Sorting: the header button toggles, and the column header reports `aria-sort`. */
 export const Sort: Story = {
@@ -172,7 +173,7 @@ export const BulkSelection: Story = {
 /** Columns menu hides and shows columns; Employee and actions can't be hidden. */
 export const HideColumns: Story = {
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Columns' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Show or hide columns' }))
     await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Branch' }))
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(canvas.queryByRole('columnheader', { name: 'Branch' })).not.toBeInTheDocument())
@@ -533,5 +534,32 @@ export const SomeRowsSelectable: Story = {
     const notSelectable = rows.find((r) => !within(r).queryByText('Active'))!
     // Base UI's checkbox is role="checkbox" with aria-disabled (the native input is hidden) — as the Checkbox story.
     await expect(within(notSelectable).getByRole('checkbox')).toHaveAttribute('aria-disabled', 'true')
+  },
+}
+
+/**
+ * The table's tools (one joined group, tinted while ON): column filters — each matches the text the column SHOWS —
+ * density, columns, reset layout, and full screen (Esc leaves it).
+ */
+export const TableTools: Story = {
+  play: async ({ canvas, canvasElement }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    await expect(canvas.getByRole('group', { name: 'Table tools' })).toBeInTheDocument()
+
+    // Column filters: a row of inputs under the headers; typing narrows the rows.
+    await userEvent.click(canvas.getByRole('button', { name: 'Show column filters' }))
+    await userEvent.type(canvas.getByRole('textbox', { name: 'Filter Department' }), 'Finance')
+    await waitFor(() => expect(bodyRows(table).every((r) => within(r).queryByText('Finance'))).toBe(true))
+
+    // Reset layout clears the filter (and widths, density, sorting).
+    await userEvent.click(canvas.getByRole('button', { name: 'Reset layout' }))
+    await waitFor(() => expect(canvas.getByText('1–10 of 34')).toBeInTheDocument())
+
+    // Full screen covers the viewport; Esc leaves it.
+    await userEvent.click(canvas.getByRole('button', { name: 'Full screen' }))
+    const root = canvasElement.querySelector('[data-slot="data-table"]') as HTMLElement
+    await expect(getComputedStyle(root).position).toBe('fixed')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(getComputedStyle(root).position).not.toBe('fixed'))
   },
 }
