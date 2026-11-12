@@ -4,7 +4,7 @@
  * They warn; ANY file NOT listed here fails hard. New code cannot regress, and this list can
  * only shrink. Burn it down by migrating the file to src/ds.
  *
- * Burn-down: 871 files at baseline. Delete a path once the file is migrated.
+ * Burn-down: 849 files at baseline. Delete a path once the file is migrated.
  */
 module.exports = [
   "src/app/components/ApprovalSettings.tsx",
@@ -43,7 +43,6 @@ module.exports = [
   "src/app/modules/auth/components/ResetPassword.tsx",
   "src/app/modules/common/components/AddonLeavesAllowanceCard.tsx",
   "src/app/modules/common/components/AddonLeavesAllowanceForm.tsx",
-  "src/app/modules/common/components/AllEmployeesSearchDropdown.tsx",
   "src/app/modules/common/components/AnalyticsTab.tsx",
   "src/app/modules/common/components/AssignToProjectsDialog.tsx",
   "src/app/modules/common/components/AttendanceCheckCell.tsx",
@@ -116,7 +115,6 @@ module.exports = [
   "src/app/modules/common/components/ui/EntityCard.tsx",
   "src/app/modules/common/components/ui/EntityIdentityHeader.tsx",
   "src/app/modules/common/components/ui/EntityPageHeader.tsx",
-  "src/app/modules/common/components/ui/FilterSheet.tsx",
   "src/app/modules/common/components/ui/FiscalYearRangeField.tsx",
   "src/app/modules/common/components/ui/FloatingLabel.tsx",
   "src/app/modules/common/components/ui/FormSection.tsx",
@@ -213,7 +211,6 @@ module.exports = [
   "src/app/pages/admin/settings/SettingsNowTile.tsx",
   "src/app/pages/admin/settings/TenantModulesPanel.tsx",
   "src/app/pages/approvals/ApprovalAuditPanel.tsx",
-  "src/app/pages/approvals/ApprovalStatusTracker.tsx",
   "src/app/pages/billing/billing-requests/BillingRequestDetailPage.tsx",
   "src/app/pages/billing/billing-requests/BillingRequestFormPage.tsx",
   "src/app/pages/billing/billing-requests/BillingRequestsPage.tsx",
@@ -698,25 +695,6 @@ module.exports = [
   "src/app/pages/employee/recruitment/candidateColumns.tsx",
   "src/app/pages/employee/recruitment/postingColumns.tsx",
   "src/app/pages/employee/recruitment/requisitionColumns.tsx",
-  "src/app/pages/employee/reimbursement/components/DocumentPreviewModal.tsx",
-  "src/app/pages/employee/reimbursement/components/EditBanner.tsx",
-  "src/app/pages/employee/reimbursement/components/NeedsYourAttention.tsx",
-  "src/app/pages/employee/reimbursement/components/OverLimitChip.tsx",
-  "src/app/pages/employee/reimbursement/components/QueryConversation.tsx",
-  "src/app/pages/employee/reimbursement/components/RecordsEmptyState.tsx",
-  "src/app/pages/employee/reimbursement/components/ReimbursementPeriodBar.tsx",
-  "src/app/pages/employee/reimbursement/components/ResubmitConfirmDialog.tsx",
-  "src/app/pages/employee/reimbursement/components/VersionHistoryDialog.tsx",
-  "src/app/pages/employee/reimbursement/components/payment/PaymentHistoryTable.tsx",
-  "src/app/pages/employee/reimbursement/components/payment/RecordPaymentModal.tsx",
-  "src/app/pages/employee/reimbursement/views/ReimbursementWorkspace.tsx",
-  "src/app/pages/employee/reimbursement/views/admin/AllEmployee.tsx",
-  "src/app/pages/employee/reimbursement/views/admin/ByProject.tsx",
-  "src/app/pages/employee/reimbursement/views/admin/IconPickerModal.tsx",
-  "src/app/pages/employee/reimbursement/views/admin/QueryTopics.tsx",
-  "src/app/pages/employee/reimbursement/views/admin/ReimbursementEmployeeLimit.tsx",
-  "src/app/pages/employee/reimbursement/views/admin/ReimbursementSummaryCard.tsx",
-  "src/app/pages/employee/reimbursement/views/admin/Settings.tsx",
   "src/app/pages/employee/salary/admin/MonthlySalary.tsx",
   "src/app/pages/employee/salary/admin/SalarySummaryCard.tsx",
   "src/app/pages/employee/salary/admin/SalaryTableFilters.tsx",
