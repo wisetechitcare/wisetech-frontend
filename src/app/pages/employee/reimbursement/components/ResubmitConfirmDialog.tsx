@@ -1,8 +1,8 @@
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
 import { GlassDialog, GlassHeader, WtButton, tonePair } from '@app/modules/common/components/ui';
 import type { ResubmissionPreview } from '@services/reimbursementVersions';
 import { ChangeSummaryTable } from './VersionHistoryDialog';
+import { RefreshCw, CircleCheck, Info } from 'lucide-react';
 
 /**
  * The confirmation the spec requires before an edit to a submitted claim is committed.
@@ -42,7 +42,7 @@ export default function ResubmitConfirmDialog({
                 <GlassHeader
                     title={willRestart ? 'Resubmit for approval' : 'Save changes'}
                     subtitle={willRestart ? 'Review what is changing before this goes back for approval' : undefined}
-                    icon={<KTIcon iconName="arrows-circle" className="fs-1" />}
+                    icon={<RefreshCw className="size-[26px]" />}
                     onClose={onCancel}
                 />
             }
@@ -56,7 +56,7 @@ export default function ResubmitConfirmDialog({
                     <Stack gap={1}>
                         <Stack direction="row" gap={1} alignItems="flex-start"
                             sx={{ p: 1.25, borderRadius: '8px', bgcolor: tonePair('success').soft }}>
-                            <KTIcon iconName="check-circle" className="fs-5" />
+                            <CircleCheck className="size-[17px]" />
                             <Typography sx={{ fontSize: 13, lineHeight: 1.5 }}>
                                 Nothing about the claim has changed, so approval will continue exactly where it is.
                                 Nothing restarts.
@@ -77,7 +77,7 @@ export default function ResubmitConfirmDialog({
 
                         <Stack direction="row" gap={1} alignItems="flex-start"
                             sx={{ p: 1.25, borderRadius: '8px', bgcolor: tonePair('warning').soft }}>
-                            <KTIcon iconName="information" className="fs-5" />
+                            <Info className="size-[17px]" />
                             <Box sx={{ minWidth: 0 }}>
                                 <Typography sx={{ fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
                                     Because reimbursement details were changed, approval will restart from Level 1.

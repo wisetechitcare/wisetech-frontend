@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { KTIcon } from '@metronic/helpers';
 import { WtButton, WtIconButton } from '@app/modules/common/components/ui/buttons';
+import { FileText, LogOut, X } from 'lucide-react';
 
 /**
  * Receipt preview. The one copy.
@@ -66,7 +66,7 @@ export default function DocumentPreviewModal({ url, onClose, title, inPageOnly =
             >
                 <div className="d-flex align-items-center justify-content-between px-4 py-3 border-bottom bg-light flex-shrink-0">
                     <div className="d-flex align-items-center gap-2 text-gray-700 fw-semibold fs-7 text-truncate">
-                        <KTIcon iconName="document" className="fs-4 text-primary" />
+                        <FileText className="text-primary size-[18px]" />
                         <span className="text-truncate">{filename}</span>
                     </div>
                     <div className="d-flex align-items-center gap-2 flex-shrink-0">
@@ -77,7 +77,7 @@ export default function DocumentPreviewModal({ url, onClose, title, inPageOnly =
                                 // window.open rather than `component="a"`: WtButton is typed as a
                                 // button, and an anchor's props do not fit through it.
                                 onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
-                                startIcon={<KTIcon iconName="exit-right-corner" className="fs-5" />}
+                                startIcon={<LogOut className="size-[17px]" />}
                             >
                                 Open in tab
                             </WtButton>
@@ -89,7 +89,7 @@ export default function DocumentPreviewModal({ url, onClose, title, inPageOnly =
                             // UNDER this overlay (99999), leaving a clipped "Esc)" showing past the dialog edge.
                             aria-label="Close preview (Esc)"
                         >
-                            <KTIcon iconName="cross" className="fs-2" />
+                            <X className="size-[23px]" />
                         </WtIconButton>
                     </div>
                 </div>

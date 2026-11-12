@@ -1,10 +1,10 @@
 import { Box, Chip, Stack, Tooltip, Typography, useTheme } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
 import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { fmtDate, fmtAmount, STATUS, type StatusNum } from '../utils/reimbursementFormat';
 import { canResolveQuery } from '@services/reimbursementQueries';
 import { currencyPrefix } from '@utils/currency';
+import { MapPin, Briefcase, MessageSquareText, Info } from 'lucide-react';
 
 /**
  * The batch, described as a workflow rather than as a table of rows.
@@ -251,7 +251,7 @@ export function RequestWorkflowRow({
                     </Typography>
                     {(request.fromLocation || request.toLocation) && (
                         <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <KTIcon iconName="geolocation" className="fs-7 text-muted" />
+                            <MapPin className="text-muted size-[14px]" />
                             <span>
                                 <b>Route:</b> {request.fromLocation || '—'} → {request.toLocation || '—'}
                             </span>
@@ -259,7 +259,7 @@ export function RequestWorkflowRow({
                     )}
                     {(request.clientCompany?.companyName || request.lead?.title) && (
                         <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.25, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <KTIcon iconName="briefcase" className="fs-7 text-muted" />
+                            <Briefcase className="text-muted size-[14px]" />
                             <span>
                                 {request.clientCompany?.companyName && (
                                     <><b>Client:</b> {request.clientCompany.companyName}</>
@@ -320,7 +320,7 @@ export function RequestWorkflowRow({
                     }}>
                         <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
                             <Box component="span" sx={{ color: pair.fg, display: 'inline-flex' }}>
-                                <KTIcon iconName="message-text-2" className="fs-6" />
+                                <MessageSquareText className="size-[16px]" />
                             </Box>
                             <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: pair.fg }}>
                                 {liveQuery.scope === 'BATCH' ? 'Batch query' : 'Query'}
@@ -389,7 +389,7 @@ export function RequestWorkflowRow({
             {resubmitted && (request.approval?.currentLevel ?? 1) === 1 && request.status !== STATUS.APPROVED && (
                 <Stack direction="row" gap={0.75} alignItems="flex-start"
                     sx={{ p: 1, borderRadius: '8px', bgcolor: tonePair('indigo').soft, minWidth: 0 }}>
-                    <KTIcon iconName="information" className="fs-6" />
+                    <Info className="size-[16px]" />
                     <Typography sx={{ fontSize: 12, lineHeight: 1.45, minWidth: 0 }}>
                         Approval restarted from Level 1 because reimbursement details were modified.
                         {onOpenVersionHistory && (

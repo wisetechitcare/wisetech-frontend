@@ -1,7 +1,8 @@
 import { Box, Stack, Typography, useTheme } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
 import { ToneChip, tonePair } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
+import type { IconComponent } from '@/ds/ui/dynamic-icon';
+import { CircleX, CircleQuestionMark, Pencil } from 'lucide-react';
 
 /**
  * Contextual banner displayed at the top of an edit form.
@@ -22,26 +23,26 @@ export interface EditBannerProps {
 const CONTEXT_CONFIG: Record<
   EditContext,
   {
-    icon: string;
+    icon: IconComponent;
     title: string;
     tone: SemanticTone;
     label: string;
   }
 > = {
   rejection: {
-    icon: 'cross-circle',
+    icon: CircleX,
     title: 'Editing After Rejection',
     tone: 'danger',
     label: 'Rejected',
   },
   query: {
-    icon: 'question',
+    icon: CircleQuestionMark,
     title: 'Updating Based on Query',
     tone: 'warning',
     label: 'Query',
   },
   edit: {
-    icon: 'pencil',
+    icon: Pencil,
     title: 'Editing Reimbursement',
     tone: 'brand',
     label: 'Edit',
@@ -72,7 +73,7 @@ export default function EditBanner({
         {/* Header */}
         <Stack direction="row" alignItems="center" gap={0.75}>
           <Box sx={{ color: pair.fg }}>
-            <KTIcon iconName={config.icon} className="fs-4" />
+            <config.icon className="size-[18px]" />
           </Box>
           <Typography sx={{ fontSize: 13, fontWeight: 800, color: 'text.primary' }}>
             {config.title}

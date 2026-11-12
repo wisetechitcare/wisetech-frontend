@@ -41,7 +41,6 @@ import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } f
 import { useReimbursementLookups } from '@hooks/useReimbursementLookups';
 import { IReimbursementsCreate } from '@models/employee';
 import { useEventBus } from '@hooks/useEventBus';
-import { AppIcon } from '@app/modules/common/components/ui';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { makeReimbursementInitialState } from './utils/reimbursementSchema';
 import { currencyPrefix } from '@utils/currency';

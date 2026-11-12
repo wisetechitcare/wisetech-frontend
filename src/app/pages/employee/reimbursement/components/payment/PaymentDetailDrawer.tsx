@@ -1,6 +1,5 @@
 import { Box, Divider, Drawer, Typography } from '@mui/material';
-import { Close } from '@mui/icons-material';
-import { KTIcon } from '@metronic/helpers';
+import { X } from 'lucide-react';
 import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 import { Button } from '@/ds/ui/button';
 import { fmtDate, formatMoney, STATUS_LABEL, StatusNum } from '../../utils/reimbursementFormat';
@@ -93,7 +92,7 @@ export default function PaymentDetailDrawer({
                             aria-label="Close payment details"
                             sx={{ ml: 'auto' }}
                         >
-                            <Close fontSize="small" />
+                            <X className="size-[16px]" />
                         </WtIconButton>
                     </Box>
 

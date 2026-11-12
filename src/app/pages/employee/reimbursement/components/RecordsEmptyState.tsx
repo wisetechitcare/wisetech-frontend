@@ -1,7 +1,7 @@
 import { Box, ButtonBase } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 import dayjs, { Dayjs } from 'dayjs';
+import { FileText } from 'lucide-react';
 
 /**
  * The empty state for the records table.
@@ -75,7 +75,7 @@ export default function RecordsEmptyState({
                     border: '1px solid', borderColor: 'divider',
                 }}
             >
-                <KTIcon iconName="document" className="fs-6" />
+                <FileText className="size-[16px]" />
             </Box>
 
             <Box sx={{ minWidth: 0, flex: '1 1 auto', fontSize: '0.82rem', lineHeight: 1.5 }}>

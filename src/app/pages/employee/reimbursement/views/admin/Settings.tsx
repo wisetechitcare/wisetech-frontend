@@ -1,6 +1,5 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import TextInput from "@app/modules/common/inputs/TextInput";
-import { KTIcon } from "@metronic/helpers";
 import { C, BTN, RADIUS, FONT, SP, ConfigSectionCard } from "@app/modules/configuration";
 import {
   IReimbursementTypeCreate,
@@ -24,9 +23,10 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import * as Yup from "yup";
 import IconPickerModal, { SelectedIcon } from "./IconPickerModal";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { Button } from '@/ds/ui/button';
+import { DynamicIcon } from '@/ds/ui/dynamic-icon';
+import { Pencil, Trash2, Mail, LayoutGrid, ArrowRight, Flag, Plus } from "lucide-react";
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -81,7 +81,7 @@ function IconAvatar({ value, size = 34 }: { value?: string; size?: number }) {
         }}
       >
         <span style={{ color: C.primary, display: "flex" }}>
-          <KTIcon iconName={iconName} className="fs-4" />
+          <DynamicIcon name={iconName} className="size-[18px]" />
         </span>
       </div>
     );
@@ -209,13 +209,13 @@ const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit
           <Button variant="ghost" size="icon-xs" type="submit" aria-label="Edit"
             onClick={onEdit}
           >
-            <AppIcon name="bi-pencil" className="fs-8" />
+            <Pencil className="size-[13px]" />
           </Button>
           {onDelete && (
           <Button variant="tinted" size="icon-xs" type="submit" aria-label="Delete" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
             onClick={onDelete}
           >
-            <AppIcon name="bi-trash" className="fs-8" />
+            <Trash2 className="size-[13px]" />
           </Button>
           )}
         </div>
@@ -232,7 +232,7 @@ const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const EmptyState: React.FC = () => (
   <div style={{ textAlign: "center", padding: "28px 16px", color: C.textMuted, fontFamily: FONT.body, fontSize: "13px" }}>
-    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: "block", marginBottom: "8px", opacity: 0.4 }} />
+    <Mail className="size-[29px]" style={{ display: "block", marginBottom: "8px", opacity: 0.4 }} />
     No reimbursement categories configured yet
   </div>
 );
@@ -377,9 +377,9 @@ function Settings() {
       <ConfigSectionCard
         title="Reimbursement Categories"
         description="Define the expense categories employees can submit reimbursement requests for."
-        icon="bi-tag"
+        icon={Flag}
         iconColor="primary"
-        primaryAction={canWrite ? { label: "Add New Category", icon: "bi-plus-lg", onClick: handleNew, variant: "primary" } : undefined}
+        primaryAction={canWrite ? { label: "Add New Category", icon: Plus, onClick: handleNew, variant: "primary" } : undefined}
       >
         {reimbursementTypeData.length === 0 ? (
           <EmptyState />
@@ -518,13 +518,13 @@ function Settings() {
                         }
                       >
                         <span style={{ color: C.primary, display: "flex" }}>
-                          <KTIcon iconName="category" className="fs-4" />
+                          <LayoutGrid className="size-[18px]" />
                         </span>
                         {formikProps.values.icon
                           ? "Change Icon"
                           : "Pick an Icon…"}
                         <span style={{ color: C.textMuted, display: "flex", marginLeft: "auto" }}>
-                          <KTIcon iconName="arrow-right" className="fs-5" />
+                          <ArrowRight className="size-[17px]" />
                         </span>
                       </button>
 

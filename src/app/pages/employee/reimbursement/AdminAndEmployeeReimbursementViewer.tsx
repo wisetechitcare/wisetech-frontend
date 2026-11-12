@@ -19,6 +19,7 @@ import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import SensitiveDataProvider, { SensitiveDataHeaderToggle } from "@app/modules/common/components/SensitiveData";
+import { ReceiptText, Clipboard, Search, CreditCard, Settings } from 'lucide-react';
 
 /**
  * Tabs whose figures are wired for the eye — both render ReimbursementWorkspace, which
@@ -66,20 +67,20 @@ function AdminAndEmployeeReimbursementViewer() {
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{
       title: "My Reimbursements",
       component: <Reimbursement />,
-      icon: 'bi-receipt',
+      icon: ReceiptText,
     }]:[]),
     // Charts, then the employee table, then the per-project rollup — all three read one
     // period-scoped fetch. "By Project" used to be a separate tab over the same data.
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Reimbursement Details",
       component: <AllEmployee />,
-      // Not bi-receipt-cutoff — that maps to the same glyph as bi-receipt (My Reimbursements).
-      icon: 'bi-clipboard-data',
+      // Not ReceiptText — that is the glyph My Reimbursements already uses.
+      icon: Clipboard,
     }]:[]),
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOthers) ? [{
       title: "Search Employee",
       component: <SearchEmployee />,
-      icon: 'bi-search',
+      icon: Search,
     }]:[]),
     // Payment and Configure are WRITE surfaces — recording payouts, and rewriting expense
     // categories and per-employee spending limits. All five tabs used to gate on `readOthers`
@@ -88,13 +89,13 @@ function AdminAndEmployeeReimbursementViewer() {
     ...(canSection('finance.reimbursements', 'write') ? [{
       title: "Payment",
       component: <PaymentTab />,
-      icon: 'bi-credit-card',
+      icon: CreditCard,
       badge: pendingPaymentCount,
     }]:[]),
     ...(canSection('finance.reimbursements', 'write') ? [{
       title: "Configure",
       component: <ReimbursementConfiguration />,
-      icon: 'bi-gear',
+      icon: Settings,
     }]:[]),
   ];
 

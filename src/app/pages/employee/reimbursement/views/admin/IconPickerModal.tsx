@@ -1,8 +1,9 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useRef, useCallback, useEffect } from "react";
 
-import { KTIcon } from "@metronic/helpers";
 import { Button } from '@/ds/ui/button';
+import { DynamicIcon, type IconComponent } from "@/ds/ui/dynamic-icon";
+import { Search, X, LayoutGrid, Check, ListFilter, Info } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -183,12 +184,12 @@ function SystemIconItem({
     >
       {/*
        * ✅ FIX (Image 2 & 3):
-       * KTIcon does NOT accept a `style` prop — its Props type only allows
-       * className, iconType, iconName. Wrapping it in a <span> handles all
-       * positioning / sizing without touching KTIcon's props at all.
+       * The icon takes no style prop, so this span carries the
+       * flex alignment and font-size. Stored names resolve through
+       * DynamicIcon, which draws nothing for a name the registry lacks.
        */}
       <span style={{ display: "flex", alignItems: "center", fontSize: "24px", lineHeight: 1 }}>
-        <KTIcon iconName={icon.name} className="fs-2x text-gray-700" />
+        <DynamicIcon name={icon.name} className="text-gray-700 size-[26px]" />
       </span>
       <span style={{ fontSize: "10px", color: "#5E6278", textAlign: "center", lineHeight: 1.2 }}>
         {icon.label}
@@ -254,9 +255,9 @@ function RemoteIconItem({
 }
 
 // ─── SearchInput ──────────────────────────────────────────────────────────────
-// Extracted component so KTIcon never receives a `style` prop.
+// Extracted component so the icon never receives a `style` prop.
 // The magnifier icon sits inside a <span> that is absolutely positioned —
-// KTIcon itself gets only className (which is valid) and nothing else.
+// the icon itself gets only className (which is valid) and nothing else.
 
 function SearchInput({
   value,
@@ -273,7 +274,7 @@ function SearchInput({
 }) {
   return (
     <div style={{ position: "relative", marginBottom: "16px" }}>
-      {/* ✅ FIX: <span> positioned absolutely — KTIcon has NO style prop */}
+      {/* ✅ FIX: <span> positioned absolutely — the icon has NO style prop */}
       <span
         style={{
           position: "absolute",
@@ -285,7 +286,7 @@ function SearchInput({
           alignItems: "center",
         }}
       >
-        <KTIcon iconName="magnifier" className="fs-5 text-muted" />
+        <Search className="text-muted size-[17px]" />
       </span>
 
       <input
@@ -311,7 +312,7 @@ function SearchInput({
           type="button"
           onClick={onClear}
         >
-          <KTIcon iconName="cross" className="fs-6" />
+          <X className="size-[16px]" />
         </Button>
       )}
     </div>
@@ -321,18 +322,18 @@ function SearchInput({
 // ─── EmptyState / LoadingState ────────────────────────────────────────────────
 
 function EmptyState({
-  icon,
+  icon: Icon,
   title,
   subtitle,
 }: {
-  icon: string;
+  icon: IconComponent;
   title: string;
   subtitle?: string;
 }) {
   return (
     <div style={{ textAlign: "center", padding: "40px 0", color: "#A1A5B7" }}>
       <span style={{ display: "block", marginBottom: 12 }}>
-        <KTIcon iconName={icon} className="fs-2x text-muted" />
+        <Icon className="text-muted size-[26px]" />
       </span>
       <div style={{ fontSize: "13px", marginBottom: subtitle ? 4 : 0 }}>{title}</div>
       {subtitle && <div style={{ fontSize: "11px" }}>{subtitle}</div>}
@@ -353,9 +354,9 @@ function LoadingState({ label }: { label: string }) {
 
 type TabKey = "system" | "iconify";
 
-const TABS: { key: TabKey; label: string; ktIcon: string }[] = [
-  { key: "system",   label: "System Icons", ktIcon: "category"  },
-  { key: "iconify",  label: "Iconify",      ktIcon: "magnifier" },
+const TABS: { key: TabKey; label: string; icon: IconComponent }[] = [
+  { key: "system",   label: "System Icons", icon: LayoutGrid },
+  { key: "iconify",  label: "Iconify",      icon: Search },
 ];
 
 const IconPickerModal: React.FC<IconPickerModalProps> = ({
@@ -448,7 +449,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
           }}
         >
           <span style={{ display: "flex", alignItems: "center" }}>
-            <KTIcon iconName="category" className="fs-3 text-primary" />
+            <LayoutGrid className="text-primary size-[21px]" />
           </span>
           Choose Icon
         </Modal.Title>
@@ -476,7 +477,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
               }}
             >
               {selectedIcon.source === "system" ? (
-                <KTIcon iconName={selectedIcon.name!} className="fs-2 text-primary" />
+                <DynamicIcon name={selectedIcon.name!} className="text-primary size-[23px]" />
               ) : (
                 <img
                   src={selectedIcon.url}
@@ -502,7 +503,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
               type="button"
               onClick={() => setSelectedIcon(null)}
             >
-              <KTIcon iconName="cross" className="fs-5" />
+              <X className="size-[17px]" />
             </Button>
           </div>
         )}
@@ -531,12 +532,9 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
                 transition: "all 0.15s",
               }}
             >
-              {/* ✅ FIX: span wrapper — KTIcon never gets style prop */}
+              {/* span wrapper keeps the flex alignment around the icon */}
               <span style={{ display: "flex", alignItems: "center" }}>
-                <KTIcon
-                  iconName={tab.ktIcon}
-                  className={`fs-5 ${activeTab === tab.key ? "text-primary" : "text-muted"}`}
-                />
+                <tab.icon className={`size-[17px] ${activeTab === tab.key ? "text-primary" : "text-muted"}`} />
               </span>
               {tab.label}
             </button>
@@ -556,7 +554,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
             {filteredSystem ? (
               filteredSystem.length === 0 ? (
                 <EmptyState
-                  icon="search-list"
+                  icon={ListFilter}
                   title={`No system icons matched "${sysQuery}"`}
                 />
               ) : (
@@ -649,14 +647,14 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
 
             {!iconifyQuery && (
               <EmptyState
-                icon="magnifier"
+                icon={Search}
                 title="Search from thousands of icons"
                 subtitle="Try: travel, food, hotel, medical, laptop…"
               />
             )}
             {iconifyLoading && <LoadingState label="Searching icons…" />}
             {iconifyError && !iconifyLoading && (
-              <EmptyState icon="information" title={iconifyError} />
+              <EmptyState icon={Info} title={iconifyError} />
             )}
             {!iconifyLoading && iconifyResults.length > 0 && (
               <div
@@ -723,7 +721,7 @@ const IconPickerModal: React.FC<IconPickerModalProps> = ({
           style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
         >
           <span style={{ display: "flex", alignItems: "center" }}>
-            <KTIcon iconName="check" className="fs-5" />
+            <Check className="size-[17px]" />
           </span>
           Select This Icon
         </Button>

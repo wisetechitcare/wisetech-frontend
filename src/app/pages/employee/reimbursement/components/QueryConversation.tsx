@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Box, Chip, CircularProgress, Divider, Stack, TextField, Typography, useTheme,
 } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { uploadUserAsset } from '@services/uploader';
@@ -18,6 +17,7 @@ import {
     type QueryThread, type QueryRole, type QueryStatus,
 } from '@services/reimbursementQueries';
 import DocumentPreviewModal from './DocumentPreviewModal';
+import { Paperclip, MessageSquareText } from 'lucide-react';
 
 /**
  * The conversation.
@@ -96,7 +96,7 @@ function MessageBubble({
                                     size="small"
                                     clickable
                                     onClick={() => onPreview(url)}
-                                    icon={<KTIcon iconName="paper-clip" className="fs-7" />}
+                                    icon={<Paperclip className="size-[14px]" />}
                                     label={`Attachment ${i + 1}`}
                                     sx={{ height: 24, fontSize: 11 }}
                                 />
@@ -441,7 +441,7 @@ export default function QueryConversationDialog({
                 <GlassHeader
                     title="Conversation"
                     subtitle={requestLabel ?? undefined}
-                    icon={<KTIcon iconName="message-text-2" className="fs-1" />}
+                    icon={<MessageSquareText className="size-[26px]" />}
                     onClose={onClose}
                 />
             }

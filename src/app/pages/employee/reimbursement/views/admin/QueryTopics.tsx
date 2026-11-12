@@ -16,6 +16,7 @@ import {
   type TopicScope,
 } from '@services/reimbursementQueries';
 import { WtIconButton } from '@app/modules/common/components/ui/buttons';
+import { Pencil, Trash2, CircleQuestionMark } from "lucide-react";
 
 /**
  * The "What is this about?" master.
@@ -97,7 +98,7 @@ function QueryTopics() {
     <ConfigSectionCard
       title="Question Topics"
       description='The "What is this about?" list an approver picks from when asking an employee a question.'
-      icon="bi-question-circle"
+      icon={CircleQuestionMark}
       iconColor="primary"
     >
       {canWrite && (
@@ -161,11 +162,11 @@ function QueryTopics() {
             {canWrite && (
               <>
                 <WtIconButton size="small" onClick={() => handleEdit(topic)} aria-label={`Edit ${topic.label}`}>
-                  <i className="bi bi-pencil" style={{ fontSize: 12 }} />
+                  <Pencil className="size-[14px]" />
                 </WtIconButton>
                 {canDelete('finance.reimbursements') && (
                 <WtIconButton color="var(--cta-danger)" size="small" onClick={() => handleDelete(topic)} aria-label={`Delete ${topic.label}`}>
-                  <i className="bi bi-trash" style={{ fontSize: 12 }} />
+                  <Trash2 className="size-[14px]" />
                 </WtIconButton>
                 )}
               </>

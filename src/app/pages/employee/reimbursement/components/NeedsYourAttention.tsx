@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Stack, Typography, useTheme } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { fetchInboxTasks, type InboxTask } from '@services/inbox';
@@ -14,6 +13,7 @@ import ReimbursementEditModal from './ReimbursementEditModal';
 import { fetchReimbursementById } from '@services/reimbursementVersions';
 import type { IReimbursementsUpdate } from '@models/employee';
 import type { EditContext } from './EditBanner';
+import { Info } from 'lucide-react';
 
 /**
  * "What do I need to do about my expenses?" — answered on the employee's own screen.
@@ -120,7 +120,7 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
                 bgcolor: tonePair('warning').soft,
             }}>
                 <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 1 }}>
-                    <KTIcon iconName="information" className="fs-3" />
+                    <Info className="size-[21px]" />
                     <Typography sx={{ fontSize: 13.5, fontWeight: 800 }}>
                         Needs your attention
                     </Typography>

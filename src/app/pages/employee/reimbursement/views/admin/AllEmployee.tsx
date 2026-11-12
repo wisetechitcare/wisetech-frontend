@@ -27,10 +27,10 @@ import ReimbursementCharts from '../../components/ReimbursementCharts';
 import ByProject from './ByProject';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { useStoredState } from '@app/hooks/useStoredState';
 import { Button } from '@/ds/ui/button';
+import { RefreshCw, CircleUser, Landmark, MapPin, Users } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -331,7 +331,7 @@ function AllEmployee() {
 
       <ToolbarFilterSelect
         label="Employee Status"
-        icon="bi-person-circle"
+        icon={CircleUser}
         value={statusFilter}
         onChange={(v) => setStatusFilter(v as StatusFilter)}
         minWidth={150}
@@ -349,7 +349,7 @@ function AllEmployee() {
 
       <ToolbarFilterSelect
         label="Sub Organization"
-        icon="bi-building"
+        icon={Landmark}
         value={subOrgFilter}
         onChange={setSubOrgFilter}
         minWidth={220}
@@ -365,7 +365,7 @@ function AllEmployee() {
       {branchOptions.length > 0 && (
         <ToolbarFilterSelect
           label="Branch"
-          icon="bi-geo-alt"
+          icon={MapPin}
           value={branchFilter}
           onChange={setBranchFilter}
           minWidth={190}
@@ -382,7 +382,7 @@ function AllEmployee() {
       {teamOptions.length > 0 && (
         <ToolbarFilterSelect
           label="Team"
-          icon="bi-people"
+          icon={Users}
           value={teamFilter}
           onChange={setTeamFilter}
           minWidth={180}
@@ -403,7 +403,7 @@ function AllEmployee() {
           onClick={() => { setStatusFilter('All'); setSubOrgFilter('All'); setBranchFilter('All'); setTeamFilter('All'); }}
           title="Reset filters to defaults"
         >
-          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
+          <RefreshCw className="size-[14px]" />
           Reset
         </Button>
       )}

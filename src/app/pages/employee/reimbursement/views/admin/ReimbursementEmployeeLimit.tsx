@@ -11,19 +11,20 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { Button } from '@/ds/ui/button';
+import type { IconComponent } from "@/ds/ui/dynamic-icon";
+import { Check, X, Pencil, ShieldCheck } from "lucide-react";
 
 // ─── Small icon-only action button, matches the hover-tint pattern used by ──
 // the other configuration pages' chip edit/delete controls.
 const RowIconBtn: React.FC<{
-  icon: string;
+  icon: IconComponent;
   title: string;
   tone: "primary" | "success" | "danger";
   onClick: () => void;
   disabled?: boolean;
-}> = ({ icon, title, tone, onClick, disabled }) => {
+}> = ({ icon: Icon, title, tone, onClick, disabled }) => {
   const [hov, setHov] = useState(false);
   const TONE = {
     primary: { bg: "#eff6ff", color: "#4f82c4" },
@@ -40,7 +41,7 @@ const RowIconBtn: React.FC<{
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
     >
-      <AppIcon name={icon} className="fs-6" />
+      <Icon className="size-[16px]" />
     </Button>
   );
 };
@@ -263,7 +264,7 @@ function ReimbursementEmployeeLimit() {
                   />
                 ) : (
                   <RowIconBtn
-                    icon="bi-check-lg"
+                    icon={Check}
                     title="Save"
                     tone="success"
                     onClick={() => handleSave(rowData)}
@@ -271,7 +272,7 @@ function ReimbursementEmployeeLimit() {
                   />
                 )}
                 <RowIconBtn
-                  icon="bi-x-lg"
+                  icon={X}
                   title="Cancel"
                   tone="danger"
                   onClick={handleCancel}
@@ -283,7 +284,7 @@ function ReimbursementEmployeeLimit() {
 
           return (
             <RowIconBtn
-              icon="bi-pencil"
+              icon={Pencil}
               title="Edit"
               tone="primary"
               onClick={() => handleEdit(rowData)}
@@ -307,7 +308,7 @@ function ReimbursementEmployeeLimit() {
       <ConfigSectionCard
         title="Employee Limits"
         description="Set custom per-request reimbursement limits for individual employees."
-        icon="bi-shield-check"
+        icon={ShieldCheck}
         iconColor="blue"
       >
         <MaterialTable

@@ -4,7 +4,6 @@ import type { RootState } from '@redux/store';
 import { Box, CircularProgress, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { KTIcon } from '@metronic/helpers';
 import {
   fetchReimbursementBatchById,
   processBatchRequestAction,
@@ -34,6 +33,7 @@ import {
 // this file, so the export surface stays while the behaviour comes from the one shared copy.
 // `export ... from` alone re-exports without binding locally, and this file uses both.
 import { fmtDate, fmtAmount, resolveStatusNum, STATUS, STATUS_LABEL, downloadBlob } from '../utils/reimbursementFormat';
+import { CircleX, CircleQuestionMark, ShoppingBasket } from 'lucide-react';
 export { fmtDate, fmtAmount };
 
 export function statusBadge(status: number) {
@@ -143,7 +143,7 @@ export function RejectReasonModal({
       header={
         <GlassHeader
           title={title ?? copy.title}
-          icon={<KTIcon iconName={variant === 'reject' ? 'cross-circle' : 'question'} className="fs-1" />}
+          icon={(variant === 'reject' ? <CircleX className="size-[26px]" /> : <CircleQuestionMark className="size-[26px]" />)}
           onClose={onClose}
         />
       }
@@ -705,7 +705,7 @@ export function BatchDetailModal({ batchId, onClose, onBatchActionDone, approval
           <GlassHeader
             title={`Submission ${batch?.submissionId || ''}`}
             subtitle={batch ? `${batch.employeeName || ''} · submitted ${fmtDate(batch.submittedAt)}` : ''}
-            icon={<KTIcon iconName="basket" className="fs-1" />}
+            icon={<ShoppingBasket className="size-[26px]" />}
             onClose={onClose}
           />
         }

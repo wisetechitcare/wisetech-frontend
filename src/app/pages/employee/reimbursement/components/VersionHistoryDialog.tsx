@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Box, Chip, CircularProgress, Divider, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography, useTheme } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
 import { GlassDialog, GlassHeader, ToneChip, tonePair } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { formatDateTime } from '@utils/dateFormats';
@@ -10,6 +9,7 @@ import {
 } from '@services/reimbursementVersions';
 import { queryCategoryLabel } from '@services/reimbursementQueries';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { Info, Clock } from 'lucide-react';
 
 /**
  * The audit story of one expense claim, version by version.
@@ -74,7 +74,7 @@ export function RestartNotice({ versionNumber, compact = false }: { versionNumbe
     return (
         <Stack direction="row" gap={1} alignItems="flex-start"
             sx={{ p: compact ? 1 : 1.25, borderRadius: '8px', bgcolor: tonePair('indigo').soft, minWidth: 0 }}>
-            <KTIcon iconName="information" className="fs-5" />
+            <Info className="size-[17px]" />
             <Typography sx={{ fontSize: 12.5, lineHeight: 1.5, color: 'text.primary' }}>
                 Approval restarted from Level 1 because reimbursement details were modified
                 {versionNumber ? ` (version ${versionNumber})` : ''}. Earlier approvals were given on the
@@ -231,7 +231,7 @@ export default function VersionHistoryDialog({ reimbursementId, requestLabel, on
                 <GlassHeader
                     title="Version history"
                     subtitle={requestLabel ?? undefined}
-                    icon={<KTIcon iconName="time" className="fs-1" />}
+                    icon={<Clock className="size-[26px]" />}
                     onClose={onClose}
                 />
             }

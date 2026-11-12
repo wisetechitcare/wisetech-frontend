@@ -4,11 +4,12 @@ import ReimbursementEmployeeLimit from './ReimbursementEmployeeLimit';
 import QueryTopics from './QueryTopics';
 import { ConfigPageLayout, C, KEYFRAMES } from '@app/modules/configuration';
 import type { ConfigTab } from '@app/modules/configuration';
+import { Flag, ShieldCheck, CircleQuestionMark } from 'lucide-react';
 
 const TABS: ConfigTab[] = [
-  { id: 'categories', label: 'Reimbursement Categories', icon: 'bi-tag'             },
-  { id: 'limits',     label: 'Employee Limits',          icon: 'bi-shield-check'    },
-  { id: 'topics',     label: 'Question Topics',          icon: 'bi-question-circle' },
+  { id: 'categories', label: 'Reimbursement Categories', icon: Flag },
+  { id: 'limits',     label: 'Employee Limits',          icon: ShieldCheck },
+  { id: 'topics',     label: 'Question Topics',          icon: CircleQuestionMark },
 ];
 
 const ReimbursementConfiguration: React.FC = () => {
