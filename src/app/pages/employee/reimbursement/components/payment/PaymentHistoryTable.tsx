@@ -108,17 +108,17 @@ export default function PaymentHistoryTable({
             cell: ({ row }) => <Badge variant="brand" className="font-mono tracking-wide">{row.original.submissionId}</Badge>,
         },
         {
-            accessorKey: 'employeeName',
-            meta: { label: 'Employee' },
-            header: ({ column }) => <SortableHeader column={column} title="Employee" />,
-            cell: ({ row }) => <PersonCell showAvatar={false} name={row.original.employeeName} />,
-        },
-        {
             // Names only on screen; a spreadsheet still wants the ID as its own column.
             accessorKey: 'employeeCode',
             meta: { label: 'Employee ID', exportOnly: true },
             header: 'Employee ID',
             enableHiding: false,
+        },
+        {
+            accessorKey: 'employeeName',
+            meta: { label: 'Employee' },
+            header: ({ column }) => <SortableHeader column={column} title="Employee" />,
+            cell: ({ row }) => <PersonCell showAvatar={false} name={row.original.employeeName} />,
         },
         {
             accessorKey: 'amountPaid',
@@ -200,6 +200,7 @@ export default function PaymentHistoryTable({
             loading={loading}
             searchPlaceholder="Search employee, employee ID, batch ID or reference…"
             stateKey="reimbursement.payment-history.admin"
+            initialPageSize={50}
             filters={renderFilters?.()}
             toolbar={(ctx) => (
                 <DataTableExport
@@ -207,6 +208,7 @@ export default function PaymentHistoryTable({
                     ctx={ctx}
                     filename={exportName}
                     title={exportTitle}
+                    sheetName="Payment History"
                     subtitle={exportSubtitle}
                     disabled={data.length === 0}
                 />
@@ -217,8 +219,8 @@ export default function PaymentHistoryTable({
                     variant="no-match"
                     size="sm"
                     icon={<SearchX aria-hidden />}
-                    title="No payments match your search"
-                    description="Nothing in this period matches."
+                    title="No payments match these filters"
+                    description="Nothing in this period matches the organization filters."
                 />
             }
         />

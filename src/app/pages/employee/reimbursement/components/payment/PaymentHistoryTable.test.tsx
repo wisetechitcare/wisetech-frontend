@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
+const exportProps = vi.hoisted(() => ({ last: null as any }));
+vi.mock("@app/modules/common/components/ExportButton", () => ({
+  default: (props: any) => { exportProps.last = props; return <button type="button" data-slot="button">Export</button>; },
+}));
+
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { SensitiveProvider, SensitiveToggle } from "@/ds/patterns/sensitive";
 import PaymentHistoryTable from "./PaymentHistoryTable";
 import type { PaymentBatchRow, PaymentRecord } from "./paymentData";
@@ -35,7 +40,7 @@ const pay = (over: Partial<PaymentRecord>): PaymentRecord => ({
 
 const payments = [
   pay({ id: "p1", paymentDate: "2026-11-05", amountPaid: 1000, employeeName: "Asha Rao", submissionId: "B-1" }),
-  pay({ id: "p2", paymentDate: "2026-11-02", amountPaid: 2500, employeeName: "Zed Khan", submissionId: "B-2", batchId: "b2", transactionId: "", status: "PARTIAL" }),
+  pay({ id: "p2", paymentDate: "2026-11-02", amountPaid: 2500, employeeName: "Zed Khan", employeeCode: "E002", submissionId: "B-2", batchId: "b2", transactionId: "", status: "PARTIAL" }),
 ];
 const batchById = new Map<string, PaymentBatchRow>([["b1", { id: "b1" } as PaymentBatchRow]]);
 
@@ -65,6 +70,24 @@ describe("PaymentHistoryTable (kit DataTable)", () => {
   it("offers an export", () => {
     setup();
     expect(screen.getByRole("button", { name: /export/i })).toBeTruthy();
+  });
+
+  it("exports in the old column order with the old sheet name", () => {
+    setup();
+    expect(exportProps.last.columns.map((c: any) => c.header)).toEqual([
+      "Payment Date", "Batch ID", "Employee ID", "Employee", "Amount Paid", "Method", "Reference", "Recorded By",
+    ]);
+    expect(exportProps.last.sheetName).toBe("Payment History");
+    expect(exportProps.last.filename).toBe("payment-history-nov-2026");
+    expect(exportProps.last.showTotals).toBe(true);
+  });
+
+  it("finds a payment by employee ID in search", async () => {
+    setup();
+    const box = screen.getByPlaceholderText(/search employee/i);
+    fireEvent.change(box, { target: { value: "E001" } });
+    await waitFor(() => expect(within(screen.getByRole("table")).queryByText("Zed Khan")).toBeNull());
+    expect(within(screen.getByRole("table")).getByText("Asha Rao")).toBeTruthy();
   });
 
   it("sorts a column from its header", () => {
