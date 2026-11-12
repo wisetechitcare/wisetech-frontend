@@ -178,3 +178,25 @@ Format: **what** — evidence (file / screen) — suggested fix.
   chain before writing (no more batch-with-no-approver), but each month's batch commits in its own transaction and
   `createApprovalInstanceForApprovers` opens its own, so a database failure between months leaves earlier months
   sent (2026-11-12). — Let the approval engine accept a Prisma transaction client, then wrap the whole send in one.
+
+## Icon migration (Lucide)
+
+- **Icon size normalisation, then a size lint** — converted icons keep the exact pixel size the old font class
+  produced (`fs-5` → `size-[17px]`), so the app now carries a long tail of odd sizes (13, 14, 16, 17, 18, 21, 23,
+  26, 29 px). — After Phase 2 converts every module, snap them onto a small scale (for example 12/14/16/20/24 px)
+  in one reviewed pass, then add the D10 lint so new code can only use the scale. Sizes must stay in px, because
+  the app's root font is 13px (`size-4` is 13px in the app and 16px in Storybook).
+- **24 reimbursement category icons render blank** — the icon picker offers 44 system names, but 24 have never
+  been in the icon registry: airplane, airplane-square, car, car-2, car-3, bus, coffee, wifi-home, home-1,
+  two-credit-cart, purchase, finance-calculator, laptop, devices, technology, electricity, shop, handcart,
+  delivery-geolocation, lots-shopping, pill, book-open, book-square, educare. A category saved with one of them shows
+  no icon in the picker, avatar or preview. This predates the migration (2026-11-12). — Map each name to a Lucide
+  glyph in `src/ds/lib/icons/registry.ts`, and add a test that every picker name resolves.
+- **5 Bootstrap names on configuration cards still use the Bootstrap font** — `ConfigSectionCard` keeps a
+  Bootstrap `<i>` fallback for `bi-123`, `bi-bullseye`, `bi-house-door`, `bi-table` and `bi-truck`, because the
+  registry has no mapping for them. — Map them (Phase 3), then delete the fallback branch.
+- **`ci-spin` is defined in one screen only** — the spinner class lives in an inline style block in
+  `entity/detail/sections/AuditSection.tsx`, so `ci-spin` on an icon anywhere else does nothing. — Use Lucide's
+  `animate-spin` (Tailwind) for icon spinners, and delete the local class once AuditSection is converted.
+- **`NeedsYourAttention` `STYLE[].icon` is dead data** — the reimbursement attention cards declare an icon per
+  style that nothing renders (found in the pilot). — Render it or delete the field.
