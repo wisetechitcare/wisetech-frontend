@@ -563,7 +563,9 @@ export function DataTable<T extends RowData>({
               <TableCell
                 key={cell.id}
                 style={fixedLayout ? { width: cell.column.getSize() } : undefined}
-                className={cn(cellPad, narrowCol(cell.column.id), pinEnd(cell.column), fixedLayout && "overflow-hidden text-ellipsis")}
+                // Once widths are fixed, text that no longer fits WRAPS — never "…". Widths are measured from the first
+                // rows shown, so later, longer data ("office → station") used to be cut off: hidden content.
+                className={cn(cellPad, narrowCol(cell.column.id), pinEnd(cell.column), fixedLayout && "whitespace-normal break-words")}
               >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
