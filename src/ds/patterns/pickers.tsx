@@ -44,7 +44,7 @@ const tileClass =
 
 export type ColorSwatch = { value: string; label: string; color: string }
 
-/** The kit palette: the seven category hues, named. Values are hue names; a custom colour is a hex. */
+/** The kit palette: every category hue in `HUE_TONES`, named. Values are hue names; a custom colour is a hex. */
 export const KIT_SWATCHES: ColorSwatch[] = HUE_TONES.map((h) => ({
   value: h,
   label: h[0].toUpperCase() + h.slice(1),
