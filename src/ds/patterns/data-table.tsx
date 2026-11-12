@@ -294,6 +294,7 @@ export function DataTable<T extends RowData>({
   stateKey,
   rowReorder,
   canSelectRow,
+  filters,
 }: {
   /** Names the table for assistive tech (rendered visually hidden). */
   caption: string
@@ -357,6 +358,11 @@ export function DataTable<T extends RowData>({
    * e.g. only batches with money still owed can join a payment run.
    */
   canSelectRow?: (row: T) => boolean
+  /**
+   * Quick filters (org, branch, status) placed right after the search box — they narrow the same rows, so they
+   * sit together; `toolbar` actions (export…) stay on the right.
+   */
+  filters?: React.ReactNode
 }) {
   // The kit's locale (KitProvider) — the same grouping as every other number in v2.
   const { locale } = useLocale()
@@ -695,20 +701,23 @@ export function DataTable<T extends RowData>({
           </div>
         ) : (
           <>
-            <InputGroup className="w-full sm:w-72">
-              <InputGroupAddon>
-                <Search aria-hidden />
-              </InputGroupAddon>
-              <InputGroupInput
-                aria-label={searchPlaceholder}
-                placeholder={searchPlaceholder}
-                value={globalFilter}
-                onChange={(e) => {
-                  setGlobalFilter(e.target.value)
-                  table.setPageIndex(0)
-                }}
-              />
-            </InputGroup>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <InputGroup className="w-full sm:w-72">
+                <InputGroupAddon>
+                  <Search aria-hidden />
+                </InputGroupAddon>
+                <InputGroupInput
+                  aria-label={searchPlaceholder}
+                  placeholder={searchPlaceholder}
+                  value={globalFilter}
+                  onChange={(e) => {
+                    setGlobalFilter(e.target.value)
+                    table.setPageIndex(0)
+                  }}
+                />
+              </InputGroup>
+              {filters}
+            </div>
             <div className="ml-auto flex items-center gap-2">
               {typeof toolbar === "function"
                 ? toolbar({

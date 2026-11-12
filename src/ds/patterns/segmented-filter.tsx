@@ -83,7 +83,8 @@ export function SegmentedFilter({
             value={o.value}
             title={o.detail ? `${o.count} ${noun} · ${o.detail}` : undefined}
             className={cn(
-              TONE[o.tone ?? "neutral"],
+              // Selected, the neutral total ("All") reads in the brand colour — grey said "nothing chosen".
+              TONE[selected && (o.tone ?? "neutral") === "neutral" ? "brand" : o.tone ?? "neutral"],
               // Segments of the rail, not toggles: square (the rail owns the rounding and clips), and exactly the
               // rail's height — the toggle defaults (36px, fully rounded) spilled out of a 32px rail as pills.
               "relative inline-flex h-auto min-w-0 shrink-0 items-center gap-1.5 self-stretch rounded-none border-l border-border px-3 text-xs leading-none whitespace-nowrap transition-colors first:border-l-0 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--seg) motion-reduce:transition-none",
@@ -91,7 +92,9 @@ export function SegmentedFilter({
               // OKLab — OKLCH has no hue for `transparent`, and the mix came out wrong (the tint never showed). 10% is the
               // tint the tokens are tuned for (tokens.css: "text on its own /10 tint" ≥ 4.5:1); 12–18% failed contrast.
               selected
-                ? "font-bold text-(--seg-ink) aria-pressed:bg-[color-mix(in_oklab,var(--seg)_10%,transparent)] aria-pressed:hover:bg-[color-mix(in_oklab,var(--seg)_14%,transparent)]"
+                // The rail's own pressed recipe — a tint and the tone's ink — overriding the Toggle's filled-brand
+                // pressed state (fill, white text, brand border), which belongs to stand-alone toggles.
+                ? "font-bold text-(--seg-ink) aria-pressed:border-border aria-pressed:text-(--seg-ink) aria-pressed:bg-[color-mix(in_oklab,var(--seg)_10%,transparent)] aria-pressed:hover:bg-[color-mix(in_oklab,var(--seg)_14%,transparent)] aria-pressed:hover:text-(--seg-ink)"
                 : "font-semibold text-muted-foreground hover:bg-muted",
             )}
           >

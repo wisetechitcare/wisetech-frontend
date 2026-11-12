@@ -14,6 +14,11 @@
 /* Drive `dark:` utilities off the app-wide `.dark` class that ColorModeProvider stamps on <html>
    (Tailwind v4 defaults `dark:` to prefers-color-scheme; we want it tied to the in-app toggle). */
 @custom-variant dark (&:where(.dark, .dark *));
+/* Base UI marks orientation as data-orientation="horizontal|vertical"; the shadcn components (tabs, toggle group,
+   separator, slider, button group, scroll area) style `data-horizontal:` / `data-vertical:`. Without these two
+   variants those rules matched nothing — e.g. a connected toggle group had square ends. */
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
 
 /* Bootstrap `.collapse` vs Tailwind `.collapse` — same class name, different meaning.
    Tailwind emits `.collapse { visibility: collapse }`; Bootstrap only styles the CLOSED
