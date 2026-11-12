@@ -67,7 +67,7 @@ changes, each marked in the file:
   `MotionConfig reducedMotion="user"` so they honour the OS reduce-motion setting.
 - **Toaster** — follows our light/dark engine instead of `next-themes`.
 - **cmdk** (behind Command) — patched for three screen-reader bugs; see `pnpm-workspace.yaml`.
-- **Calendar, DateField, TimeField, DatePicker, NumberField** — React Aria (locale-aware: day-first dates,
+- **Calendar, DateField, TimeField, DatePicker, NumberField** — React Aria (dates read the company YYYY.MM.DD whatever the locale,
   1,00,000 grouping). The Calendar is shadcn's own React Aria calendar, adapted by hand: the CLI would replace
   our Base UI Button and Select with React Aria ones. `KitProvider` (`src/ds/provider.tsx`) supplies the locale.
   They wear shadcn's own parts through React Aria's contexts (`src/ds/ui/aria-field.tsx`): FieldLabel,
