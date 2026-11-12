@@ -484,8 +484,11 @@ export function DataTable<T extends RowData>({
   // otherwise on a wide table the actions are the first thing to fall off screen.
   const pinEnd = (c: Column<T, unknown>) =>
     (c.columnDef.meta as { pin?: string } | undefined)?.pin === "end" &&
-    // Opaque (it covers scrolled cells) yet in its row's tint: the tint layered over the card colour.
-    "sticky right-0 z-[1] [background:linear-gradient(var(--row-bg,transparent),var(--row-bg,transparent)),var(--card)] shadow-[-10px_0_10px_-10px_rgb(0_0_0/0.18)]"
+    // Opaque (it covers scrolled cells) yet painted exactly like the rest of its row, over the card colour: at rest
+    // the row's tone (--row-bg); hovered / expanded / selected, the row's tint (--row-hover, published by TableRow)
+    // REPLACES the tone — just as the row's own hover background replaces it for every other cell. (Layering the
+    // two left the frozen cell a different shade from the rest of a hovered toned row.)
+    "sticky right-0 z-[1] transition-colors [background:linear-gradient(var(--row-hover,var(--row-bg,transparent)),var(--row-hover,var(--row-bg,transparent))),var(--card)] shadow-[-10px_0_10px_-10px_rgb(0_0_0/0.18)]"
 
   let body: React.ReactNode
   let rowsBody: ((sp?: SortableProps) => React.ReactNode) | null = null
