@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 // @ts-expect-error plain .mjs without types
 import { reachLegacyUi } from './legacy-ui-reach.mjs';
 
@@ -26,6 +27,12 @@ describe('MUI-free modules', () => {
 
   it('Reimbursement is locked MUI-free (the first module on the list)', () => {
     expect(MUI_FREE_ROOTS).toContain('src/app/pages/employee/reimbursement');
+  });
+
+  it('no MUI-free module appears in the legacy-ui baseline (the baseline only shrinks)', () => {
+    const baseline: string[] = createRequire(import.meta.url)(path.join(ROOT, '.eslint-legacy-ui-baseline.cjs'));
+    const inBaseline = baseline.filter((f) => MUI_FREE_ROOTS.some((dir) => f === dir || f.startsWith(dir + '/')));
+    expect(inBaseline).toEqual([]);
   });
 
   it('smoke: the analyser runs on the live kit and src/ds is MUI-free', () => {
