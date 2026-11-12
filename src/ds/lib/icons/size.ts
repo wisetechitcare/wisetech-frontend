@@ -42,6 +42,14 @@ function sizeFor(className: string): number | null {
     return null;
 }
 
+/**
+ * True when a className already sets a Tailwind size, whatever its variant or importance:
+ * `size-4`, `md:size-5`, `!size-4`, `hover:md:!size-6`. `text-size-4` and `w-4` are not sizes.
+ */
+export function hasSizeClass(className: string | undefined): boolean {
+    return !!className && className.split(/\s+/).some((token) => /^!?size-/.test(token.slice(token.lastIndexOf(':') + 1)));
+}
+
 /** Pixel size for an icon's className; no `fs-*` token falls back to the `fs-4` size (18). */
 export function iconPixelSize(className: string | undefined): number {
     return sizeFor(className ?? '') ?? DEFAULT_ICON_PX;

@@ -34,7 +34,7 @@ import { Node, Project, ScriptKind, SyntaxKind, ts } from 'ts-morph';
 import type { Expression, ImportDeclaration, JsxAttributeLike, JsxElement, JsxSelfClosingElement, SourceFile } from 'ts-morph';
 import * as brandIcons from '../../src/ds/lib/icons/brandIcons';
 import { iconFor } from '../../src/ds/lib/icons/registry';
-import { DEFAULT_ICON_PX, iconPixelSize, SIZE_SCALE } from '../../src/ds/lib/icons/size';
+import { DEFAULT_ICON_PX, hasSizeClass, iconPixelSize, SIZE_SCALE } from '../../src/ds/lib/icons/size';
 
 export interface ManualEntry { line: number; reason: string }
 export interface TransformResult { code: string; manual: ManualEntry[] }
@@ -340,7 +340,7 @@ function planComponent(el: JsxElement | JsxSelfClosingElement, attrsList: JsxAtt
 
     const base = classSeen && !(flavour === 'kt' && className === '') ? className! : 'fs-4';
     const tokens = base.split(/\s+/).filter(Boolean);
-    if (tokens.some((t) => t.startsWith('size-'))) return fail('className already has a size-* class');
+    if (hasSizeClass(base)) return fail('className already has a size-* class');
     const odd = tokens.find((t) => !isSizeToken(t) && !isIconUtility(t));
     if (odd) return fail(`class ${odd} behaves differently on svg than on AppIcon's span`);
     const px = fallback ?? iconPixelSize(base);

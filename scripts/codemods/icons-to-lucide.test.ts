@@ -321,6 +321,14 @@ describe('classes that do not mean the same on an svg', () => {
         });
     });
 
+    test.each(['md:size-5', '!size-4'])('%s counts as an existing size class: manual', (cls) => {
+        const src = `${APP}export const A = () => <AppIcon name="bi-pencil" className="fs-3 ${cls}" />
+`;
+        const out = run(src);
+        expect(out.code).toBe(src);
+        expect(out.manual[0].reason).toBe('className already has a size-* class');
+    });
+
     test('w-*/h-* would beat size-[N]: manual', () => {
         const src = `${APP}export const A = () => <AppIcon name="bi-pencil" className="fs-3 w-25px" />\n`;
         const out = run(src);

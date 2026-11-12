@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ICON_PX, iconPixelSize } from './size';
+import { DEFAULT_ICON_PX, hasSizeClass, iconPixelSize } from './size';
+
+describe('hasSizeClass', () => {
+    it.each([
+        ['size-4', true], ['text-danger size-[18px]', true], ['md:size-5', true], ['!size-4', true],
+        ['hover:md:!size-6', true], ['w-4', false], ['text-size-4', false], ['', false], [undefined, false],
+    ])('%s -> %s', (cls, expected) => {
+        expect(hasSizeClass(cls)).toBe(expected);
+    });
+});
 
 describe('iconPixelSize', () => {
     it.each([

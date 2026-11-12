@@ -2,7 +2,7 @@ import type * as React from 'react'
 import type { LucideProps } from 'lucide-react'
 import { cn } from 'cn'
 import { iconFor } from '@/ds/lib/icons/registry'
-import { DEFAULT_ICON_PX } from '@/ds/lib/icons/size'
+import { DEFAULT_ICON_PX, hasSizeClass } from '@/ds/lib/icons/size'
 
 /** Any component that draws an icon: a Lucide icon, a brand mark, or a custom SVG component. */
 export type IconComponent = React.ComponentType<{
@@ -28,9 +28,6 @@ const DEFAULT_SIZE_CLASS = 'size-[18px]'
 if (import.meta.env.DEV && DEFAULT_SIZE_CLASS !== `size-[${DEFAULT_ICON_PX}px]`) {
   console.warn('[DynamicIcon] DEFAULT_SIZE_CLASS is out of step with DEFAULT_ICON_PX')
 }
-
-const hasSizeClass = (className: string | undefined) =>
-  !!className && className.split(/\s+/).some((token) => token.startsWith('size-'))
 
 export function DynamicIcon({ name, className, ...rest }: { name: string } & LucideProps) {
   const Glyph = iconFor(name)

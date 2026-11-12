@@ -23,6 +23,13 @@ describe('DynamicIcon', () => {
     expect(cls).not.toContain('size-[18px]')
   })
 
+  it.each(['md:size-5', '!size-4'])('treats %s as a size class and adds no default', (className) => {
+    const { container } = render(<DynamicIcon name="bi-trash" className={className} />)
+    const cls = container.querySelector('svg.lucide')?.getAttribute('class') ?? ''
+    expect(cls).toContain(className)
+    expect(cls).not.toContain('size-[18px]')
+  })
+
   it('renders nothing and warns once for an unknown name', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { container } = render(<DynamicIcon name="no-such-icon" />)
