@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import { parseDate, type CalendarDate } from '@internationalized/date';
 import { Info, Wallet } from 'lucide-react';
 import { Alert, AlertDescription } from '@/ds/ui/alert';
+import { Button } from '@/ds/ui/button';
 import { DatePicker } from '@/ds/ui/date-picker';
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/ds/ui/field';
 import { Input } from '@/ds/ui/input';
@@ -43,7 +44,6 @@ const PAYMENT_METHODS = [
     { value: 'UPI', label: 'UPI' },
 ];
 
-const FORM_ID = 'record-payment-form';
 const WIRE_DATE = 'YYYY-MM-DD';
 
 export interface PaymentSubmission {
@@ -100,6 +100,8 @@ export default function RecordPaymentModal({
     const [amountInput, setAmountInput] = useState('');
     const [amountError, setAmountError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    // The range error waits for the field to be left: React Aria reports 0002-… while a year is typed.
+    const [dateTouched, setDateTouched] = useState(false);
 
     // Reopening for a different batch must not inherit the previous one's amount or reference.
     useEffect(() => {
@@ -110,6 +112,7 @@ export default function RecordPaymentModal({
         setRemarks('');
         setAmountInput(single ? String(single.remainingAmount.toFixed(2)) : '');
         setAmountError('');
+        setDateTouched(false);
     }, [open, single]);
 
     const amount = single ? Number(amountInput) : remainingTotal;
@@ -137,6 +140,7 @@ export default function RecordPaymentModal({
     const blocked = submitting || !!validate() || referenceMissing || !!dateError || batches.length === 0;
 
     const handleConfirm = async () => {
+        setDateTouched(true);
         const err = validate();
         if (err) { setAmountError(err); return; }
         setSubmitting(true);
@@ -164,23 +168,21 @@ export default function RecordPaymentModal({
                 ? `${batches.length} batches, settled in full`
                 : 'Review the amount before it is recorded'}
             icon={<Wallet />}
-            formId={FORM_ID}
+            // No <form>: Enter in a field must not record a payment (the old modal had none either).
+            footer={(requestClose) => (
+                <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <Button variant="outline" onClick={requestClose} disabled={submitting}>Cancel</Button>
+                    <Button onClick={handleConfirm} loading={submitting} disabled={blocked}>
+                        {submitting ? 'Recording…'
+                            : isRun ? `Pay ${batches.length} batches · ${formatMoney(remainingTotal)}`
+                            : isPartial ? `Record part payment · ${formatMoney(amount || 0)}`
+                            : `Confirm payment · ${formatMoney(amount || 0)}`}
+                    </Button>
+                </div>
+            )}
             submitting={submitting}
-            submitDisabled={blocked}
-            submitLabel={submitting ? 'Recording…'
-                : isRun ? `Pay ${batches.length} batches · ${formatMoney(remainingTotal)}`
-                : isPartial ? `Record part payment · ${formatMoney(amount || 0)}`
-                : `Confirm payment · ${formatMoney(amount || 0)}`}
         >
-            <form
-                id={FORM_ID}
-                noValidate
-                className="flex min-w-0 flex-col gap-5"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!blocked) void handleConfirm();
-                }}
-            >
+            <div className="flex min-w-0 flex-col gap-5">
                 {/* What is being paid */}
                 <div className="overflow-hidden rounded-[10px] border border-border">
                     {single ? (
@@ -222,7 +224,8 @@ export default function RecordPaymentModal({
                         onChange={(d) => setDate(d ? d.toString() : '')}
                         minValue={toCalendarDate(minDate)}
                         maxValue={toCalendarDate(maxDate)}
-                        isInvalid={!!dateError}
+                        onBlur={() => setDateTouched(true)}
+                        isInvalid={dateTouched && !!dateError}
                         errorMessage={dateError}
                         validationBehavior="aria"
                     />
@@ -316,7 +319,7 @@ export default function RecordPaymentModal({
                         </AlertDescription>
                     </Alert>
                 )}
-            </form>
+            </div>
         </FormDialog>
     );
 }

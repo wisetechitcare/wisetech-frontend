@@ -12,6 +12,11 @@ import VersionHistoryDialog, { ChangeSummaryTable, RestartNotice } from "./Versi
 
 afterEach(cleanup);
 
+const bare = (root: ParentNode) =>
+  [...root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a")].filter(
+    (el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot=button]"),
+  );
+
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
   if (!window.matchMedia) {
@@ -67,6 +72,7 @@ describe("VersionHistoryDialog", () => {
     vi.mocked(fetchVersionHistory).mockResolvedValueOnce([]);
     const a = render(<VersionHistoryDialog reimbursementId="r1" onClose={() => {}} />);
     expect(await screen.findByText("No version history for this expense.")).toBeTruthy();
+    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
     a.unmount();
     vi.mocked(fetchVersionHistory).mockResolvedValueOnce([{ ...v1, isCurrent: true }] as never);
     render(<VersionHistoryDialog reimbursementId="r1" onClose={() => {}} />);
@@ -113,11 +119,6 @@ describe("ChangeSummaryTable / RestartNotice", () => {
 describe("Reboot shield", () => {
   // Bootstrap Reboot is unlayered and beats Tailwind utilities on bare h1-h6/p/label/ul/ol/li/button/a; src/main.css
   // reverts it only for elements carrying data-slot. jsdom has no cascade, so assert the attribute itself.
-  const bare = (root: ParentNode) =>
-    [...root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a")].filter(
-      (el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot=button]"),
-    );
-
   it("every raw heading, paragraph, list, link and button carries data-slot", async () => {
     vi.mocked(fetchVersionHistory).mockResolvedValue([v2, v1] as never);
     render(<VersionHistoryDialog reimbursementId="r1" requestLabel="x" onClose={() => {}} />);

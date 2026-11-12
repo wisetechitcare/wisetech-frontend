@@ -47,6 +47,11 @@ beforeAll(() => {
 });
 
 beforeEach(() => vi.clearAllMocks());
+
+const bare = (root: ParentNode) =>
+  [...root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a")].filter(
+    (el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot=button]"),
+  );
 afterEach(cleanup);
 
 const store = configureStore({ reducer: { auth: () => ({ user: { employeeId: "me" } }) } });
@@ -86,6 +91,7 @@ describe("QueryConversation", () => {
     vi.mocked(fetchParticipantRole).mockResolvedValue("EMPLOYEE");
     render(<Provider store={store}><QueryConversationDialog reimbursementId="r1" onClose={() => {}} /></Provider>);
     expect(await screen.findByText("No questions have been asked about this expense.")).toBeTruthy();
+    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
   });
 
   it("shows the header, the thread state, and the messages in order with mine marked", async () => {
@@ -99,6 +105,11 @@ describe("QueryConversation", () => {
     expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText("Approver")).toBeTruthy();
     expect(screen.getByText("Employee · you")).toBeTruthy();
+  });
+
+  it("puts the cursor in the composer when the dialog opens, as the old dialog did", async () => {
+    await setup("EMPLOYEE", thread());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByPlaceholderText("Answer your approver…")));
   });
 
   it("opens the preview of a message attachment", async () => {
@@ -185,14 +196,17 @@ describe("QueryConversation", () => {
     await setup("APPROVER", thread({ status: "OPEN" }));
     expect(screen.getByText(/Awaiting the employee's response/)).toBeTruthy();
     expect(screen.queryByRole("textbox")).toBeNull();
+    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
     cleanup();
     await setup("EMPLOYEE", thread({ status: "ANSWERED" }));
     expect(screen.getByText("Awaiting your approver's response.")).toBeTruthy();
     expect(screen.queryByRole("textbox")).toBeNull();
+    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
     cleanup();
     await setup("EMPLOYEE", thread({ status: "RESOLVED" }));
     expect(screen.getByText(/This query is resolved/)).toBeTruthy();
     expect(screen.queryByRole("textbox")).toBeNull();
+    expect(bare(document.body).map((e) => e.outerHTML)).toEqual([]);
   });
 
   it("makes the approver type a question before reopening a resolved thread", async () => {
@@ -234,11 +248,6 @@ describe("QueryConversation", () => {
 });
 
 describe("Reboot shield", () => {
-  const bare = (root: ParentNode) =>
-    [...root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a")].filter(
-      (el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot=button]"),
-    );
-
   it("every raw heading, paragraph, list, link and button carries data-slot", async () => {
     await setup("EMPLOYEE", thread());
     const input = document.querySelector("input[type=file]") as HTMLInputElement;

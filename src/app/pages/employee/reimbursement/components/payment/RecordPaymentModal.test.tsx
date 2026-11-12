@@ -171,7 +171,6 @@ describe("RecordPaymentModal: validation", () => {
     await userEvent.clear(amountBox());
     await userEvent.type(amountBox(), "750.01");
     expect(isDisabled(submitButton())).toBe(true);
-    fireEvent.submit(document.getElementById("record-payment-form")!);
     expect(onConfirm).not.toHaveBeenCalled();
     await userEvent.clear(amountBox());
     await userEvent.type(amountBox(), "750");
@@ -201,7 +200,46 @@ describe("RecordPaymentModal: validation", () => {
     const yearSeg = segments.find((s) => /year/i.test(s.getAttribute("aria-label") ?? ""))!;
     fireEvent.keyDown(yearSeg, { key: "ArrowDown" });
     await waitFor(() => expect(isDisabled(submitButton())).toBe(true));
-    expect(screen.getByText(/Pick a date from/)).toBeTruthy();
+  });
+});
+
+describe("RecordPaymentModal: Enter and the date picker", () => {
+  it("Enter in the amount, reference or remarks field never records a payment", async () => {
+    const { onConfirm } = mount([row()]);
+    await userEvent.type(amountBox(), "{Enter}");
+    await userEvent.type(screen.getByLabelText(/^reference$/i), "abc{Enter}");
+    await userEvent.type(screen.getByLabelText(/^remarks$/i), "x{Enter}");
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(document.querySelector("form")).toBeNull();
+  });
+
+  it("a date changed through the picker is what is submitted", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-13T09:00:00"));
+    try {
+      const { onConfirm } = mount([row()]);
+      const group = screen.getByRole("group", { name: /payment date/i });
+      expect(group.textContent!.replace(/[⁦-⁩]/g, "")).toContain("2026.11.13");
+      const day = within(group).getAllByRole("spinbutton").find((el) => /day/i.test(el.getAttribute("aria-label") ?? ""))!;
+      fireEvent.keyDown(day, { key: "ArrowDown" });
+      await waitFor(() => expect(group.textContent!.replace(/[⁦-⁩]/g, "")).toContain("2026.11.12"));
+      fireEvent.click(submitButton());
+      await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+      expect(onConfirm.mock.calls[0][0].paymentDate).toBe("2026-11-12");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the range error appears once the field is left, not while it is being edited", async () => {
+    mount([row()]);
+    const group = screen.getByRole("group", { name: /payment date/i });
+    const year = within(group).getAllByRole("spinbutton").find((el) => /year/i.test(el.getAttribute("aria-label") ?? ""))!;
+    fireEvent.keyDown(year, { key: "ArrowDown" });
+    await waitFor(() => expect(isDisabled(submitButton())).toBe(true));
+    expect(screen.queryByText(/Pick a date from/)).toBeNull();
+    await userEvent.click(screen.getByLabelText(/^remarks$/i));
+    expect(await screen.findByText(/Pick a date from/)).toBeTruthy();
   });
 });
 
