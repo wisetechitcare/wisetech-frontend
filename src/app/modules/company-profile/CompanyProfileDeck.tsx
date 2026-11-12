@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { toast } from "sonner"
-import { Building2, Download, Images, Presentation } from "lucide-react"
+import { Building2, Download, Images, PaintBucket, Presentation, RotateCcw } from "lucide-react"
 import { Badge } from "@/ds/ui/badge"
 import { Button } from "@/ds/ui/button"
 import { DeckStage } from "./DeckStage"
@@ -8,6 +8,7 @@ import { ItemPicker, type PickItem } from "./ItemPicker"
 import { ProfileSlide } from "./ProfileSlide"
 import { ProjectPicker } from "./ProjectPicker"
 import { SectionList } from "./SectionList"
+import { SlideBackground } from "./SlideBackground"
 import { MAX_PER_SLIDE, MAX_SLIDES, autoPick, facetValues, places, plural, projectsOf, type CompaniesSection, type PickSection, type ProfileData, type Section } from "./profile"
 import { projectSection, sectionMeta, sectionSlides, takenElsewhere, type EditableSection } from "./profileBuilder"
 import { useProfileBuilder } from "./useProfileBuilder"
@@ -77,6 +78,20 @@ export function CompanyProfileDeck({
         <Badge variant={full ? "warning" : "neutral"} data-testid="slide-budget">
           {b.slides.length} of {MAX_SLIDES} slides selected
         </Badge>
+        <Button variant="outline" disabled={!b.changed} onClick={() => window.confirm("Reset the presentation? Sections, order, picked items and background go back to the original deck.") && b.reset()}>
+          <RotateCcw data-icon="inline-start" />
+          Reset
+        </Button>
+        <SlideBackground
+          value={b.bg}
+          onChange={b.setBg}
+          trigger={
+            <Button variant="outline">
+              <PaintBucket data-icon="inline-start" />
+              Background
+            </Button>
+          }
+        />
         <Button variant="outline" onClick={() => toast("Prototype: the real export prints these slides to a 16:9 PDF on the server (Puppeteer).")}>
           <Download data-icon="inline-start" />
           Export PDF
@@ -115,7 +130,7 @@ export function CompanyProfileDeck({
         </aside>
 
         <main className="order-1 flex min-w-0 flex-col items-center gap-4 p-4 lg:order-2 md:p-6">
-          <DeckStage slides={b.slides} current={b.current} onGo={b.go} render={(spec) => <ProfileSlide spec={spec} data={data} />} stageRef={stage} />
+          <DeckStage slides={b.slides} current={b.current} onGo={b.go} render={(spec) => <ProfileSlide spec={spec} data={data} bg={b.bg} />} stageRef={stage} />
         </main>
       </div>
 

@@ -1,5 +1,5 @@
-import type { ReactNode } from "react"
-import { matches, places, projectsOf, type ProfileData } from "./profile"
+import type { CSSProperties, ReactNode } from "react"
+import { isDark, matches, places, projectsOf, type ProfileData } from "./profile"
 import { pick, type SlideSpec } from "./profileBuilder"
 import { AboutSlide, ClientsSlide, ContactSlide, CoverSlide, MapSlide, ProjectsSlide, RepeatSlide, ServicesSlide, SlideContext, VisionSlide } from "./slides"
 
@@ -47,13 +47,20 @@ function SlideBody({ spec, data, cover }: { spec: SlideSpec; data: ProfileData; 
   }
 }
 
+/** Ink the slides read from (`text-(--s-ink)` …): navy on light backgrounds, white on dark ones. Cards and photos keep their own. */
+const LIGHT_INK = "[--s-ink:#1b2a4e] [--s-body:#475569] [--s-muted:#64748b] [--s-line:#e2e8f0] [--s-brand:#2b5797]"
+const DARK_INK = "[--s-ink:#ffffff] [--s-body:rgb(255_255_255/0.82)] [--s-muted:rgb(255_255_255/0.62)] [--s-line:rgb(255_255_255/0.2)] [--s-brand:#ffffff]"
+
 /**
  * Draws one presentation slide; `cover` replaces the default cover (the CRM's carries the organisation logo).
+ * `bg` colours every slide but the cover, which is fixed artwork (its photo sits on white).
  * `data-artwork` makes Bootstrap's element rules (h3, p, ul) step aside in the app (see scripts/postcss-kit-exemption.ts).
  */
-export function ProfileSlide({ spec, data, cover }: { spec: SlideSpec; data: ProfileData; cover?: ReactNode }) {
+export function ProfileSlide({ spec, data, cover, bg = "#ffffff" }: { spec: SlideSpec; data: ProfileData; cover?: ReactNode; bg?: string }) {
+  const fill = spec.section.kind === "cover" ? "#ffffff" : bg
   return (
-    <div data-artwork="">
+    // A user-picked colour has no class; the custom property is the one inline style.
+    <div data-artwork="" className={isDark(fill) ? DARK_INK : LIGHT_INK} style={{ "--slide-bg": fill } as CSSProperties}>
       <SlideContext.Provider value={{ page: spec.page, total: spec.total, wordmark: data.org.wordmark }}>
         <SlideBody spec={spec} data={data} cover={cover} />
       </SlideContext.Provider>

@@ -8,9 +8,10 @@ import CompanyProfilePage from "./CompanyProfilePage"
 // CRM → Company Profile on sample data. The organisation's logo is the one thing read from the app, so it is
 // the one thing mocked here; toasts are captured to check the slide-limit message.
 const toast = vi.hoisted(() => vi.fn())
+const confirmDialog = vi.hoisted(() => vi.fn(async () => true))
 vi.mock("@redux/store", () => ({ store: { getState: () => ({ appSettings: {} }), dispatch: () => {}, subscribe: () => () => {} } }))
 vi.mock("@hooks/useRootOrgNames", () => ({ useHomeRootOrg: () => ({ id: "org-1", name: "WISETECH", logo: "https://cdn.example/org-logo.png" }) }))
-vi.mock("@app/modules/common/components/ui", async (real) => ({ ...(await real<object>()), toast }))
+vi.mock("@app/modules/common/components/ui", async (real) => ({ ...(await real<object>()), toast, confirmDialog }))
 
 afterEach(() => {
   cleanup()
@@ -57,6 +58,20 @@ describe("Company Profile page", () => {
     expect(within(stage()).getByTestId("slide-page").textContent).toBe("2 of 16")
     await user.click(screen.getByRole("button", { name: "Include Who we are", pressed: true }))
     expect(within(stage()).getByTestId("slide-page").textContent).toBe("2 of 15")
+  })
+
+  test("Reset (after confirming) brings back the original deck and white background", async () => {
+    const user = userEvent.setup()
+    render(<CompanyProfilePage />)
+    const resetBtn = screen.getByRole("button", { name: "Reset" })
+    expect(resetBtn.hasAttribute("disabled")).toBe(true)
+    await user.click(screen.getByRole("button", { name: "Include Who we are", pressed: true }))
+    expect(budget().textContent).toBe("15 of 20 slides selected")
+    await user.click(resetBtn)
+    expect(confirmDialog).toHaveBeenCalledOnce()
+    expect(filmstrip()).toEqual(DECK)
+    expect(resetBtn.hasAttribute("disabled")).toBe(true)
+    expect(localStorage.getItem("company-profile.slide-bg")).toBe("#ffffff")
   })
 
   test("About us shows the milestone timeline, not statistics", async () => {
@@ -119,7 +134,8 @@ describe("Company Profile page", () => {
     await user.click(screen.getByRole("button", { name: /save section/i }))
     expect(await screen.findByText("7 services · CRM")).toBeTruthy()
     const tiles = within(screen.getByRole("region", { name: /Services we offer/ })).getAllByRole("listitem")
-    expect(tiles.map((t) => t.textContent?.replace(/\d+ projects$/, ""))).toEqual([SERVICES[1], SERVICES[0], ...SERVICES.slice(2, 7)].map((s) => s.name))
+    // Each tile's first paragraph is the service name (number and icon are spans; pitch and count follow).
+    expect(tiles.map((t) => t.querySelector("p")?.textContent)).toEqual([SERVICES[1], SERVICES[0], ...SERVICES.slice(2, 7)].map((s) => s.name))
   })
 
   test("moves a project to another slide: it leaves its old slide, and the preview follows on save", async () => {

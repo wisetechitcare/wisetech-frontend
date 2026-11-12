@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { autoPick, facetValues, spread, formatArea, paginateGroups, places, plus, repeatPartners, type ProfileProject } from "./profile"
+import { autoPick, facetValues, spread, formatArea, isDark, paginateGroups, places, plus, repeatPartners, type ProfileProject } from "./profile"
 
 const p = (id: string, x: Partial<ProfileProject>): ProfileProject => ({
   id,
@@ -56,5 +56,12 @@ describe("company profile", () => {
     expect(shape(paginateGroups([g("A", 8), g("B", 3), g("C", 3), g("D", 2), g("E", 1)], 6, 7))).toEqual([[["A8"], ["B3", "C3"], ["D2", "E1"]]])
     // A group taller than the room left is split across pages.
     expect(shape(paginateGroups([g("A", 20)], 6, 3))).toEqual([[["A12"]], [["A8"]]])
+  })
+})
+
+describe("isDark", () => {
+  it("switches slide text to white on dark backgrounds only", () => {
+    expect(["#1b2a4e", "#000", "#3d0f14", "#c62828"].map(isDark)).toEqual([true, true, true, true])
+    expect(["#ffffff", "#fff", "#f1f5f9", "#faf6ee", "#e8f0fb"].map(isDark)).toEqual([false, false, false, false, false])
   })
 })

@@ -1,10 +1,11 @@
 import { useRef, useState } from "react"
-import { Download, Presentation } from "lucide-react"
+import { Download, PaintBucket, Presentation, RotateCcw } from "lucide-react"
 import { Box } from "@mui/material"
-import { ListHeader, ToneChip, WtButton, toast } from "@app/modules/common/components/ui"
+import { ListHeader, ToneChip, WtButton, confirmDialog, toast } from "@app/modules/common/components/ui"
 import { DeckStage } from "@app/modules/company-profile/DeckStage"
 import { ProfileSlide } from "@app/modules/company-profile/ProfileSlide"
 import { SectionList } from "@app/modules/company-profile/SectionList"
+import { SlideBackground } from "@app/modules/company-profile/SlideBackground"
 import { DEMO_DATA } from "@app/modules/company-profile/fixtures"
 import { MAX_SLIDES, plural, projectsOf, type ProfileData, type Section } from "@app/modules/company-profile/profile"
 import { categorySections, clientsSection, sectionMeta, sectionSlides, takenElsewhere, type EditableSection, type SlideSpec } from "@app/modules/company-profile/profileBuilder"
@@ -41,7 +42,10 @@ export default function CompanyProfilePage() {
   const [printWin, setPrintWin] = useState<Window | null>(null)
   const stage = useRef<HTMLElement>(null)
   const save = (s: Section) => b.save(s) && setEditing(null)
-  const render = (spec: SlideSpec) => <ProfileSlide spec={spec} data={data} cover={<CoverSlide data={data} logo={logo} />} />
+  const render = (spec: SlideSpec) => <ProfileSlide spec={spec} data={data} bg={b.bg} cover={<CoverSlide data={data} logo={logo} />} />
+  const reset = async () => {
+    if (await confirmDialog({ title: "Reset the presentation?", text: "Sections, order, picked items and background go back to the original deck.", confirmText: "Reset" })) b.reset()
+  }
   const present = () => stage.current?.requestFullscreen?.().then(() => stage.current?.focus())
   const exportPdf = () => {
     const win = window.open("", "_blank", "width=1280,height=800")
@@ -57,6 +61,10 @@ export default function CompanyProfilePage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <ToneChip tone={b.slides.length >= MAX_SLIDES ? "warning" : "neutral"} label={`${b.slides.length} of ${MAX_SLIDES} slides selected`} data-testid="slide-budget" />
+            <WtButton ghost startIcon={<RotateCcw />} disabled={!b.changed} onClick={reset}>
+              Reset
+            </WtButton>
+            <SlideBackground value={b.bg} onChange={b.setBg} trigger={<WtButton ghost startIcon={<PaintBucket />}>Background</WtButton>} />
             <WtButton ghost startIcon={<Download />} disabled={!b.slides.length || !!printWin} onClick={exportPdf}>
               Export PDF
             </WtButton>

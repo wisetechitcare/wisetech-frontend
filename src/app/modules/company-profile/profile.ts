@@ -248,8 +248,14 @@ export function formatArea(sqft: number) {
   return `${new Intl.NumberFormat("en-IN").format(sqft)} sq ft`
 }
 
+/** True when white text reads better than navy on this #rgb / #rrggbb background (perceived brightness, YIQ). */
+export const isDark = (hex: string) => {
+  const n = parseInt((hex.length === 4 ? hex.replace(/\w/g, "$&$&") : hex).slice(1), 16)
+  return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 150
+}
+
 /** "1 project", "7 projects". */
-export const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`
+export const plural =(n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`
 
 /** "650" → "650+", the way profile numbers are quoted: rounded down to a tidy figure. */
 export const plus = (n: number) => `${n >= 100 ? Math.floor(n / 50) * 50 : n >= 20 ? Math.floor(n / 5) * 5 : n}+`
