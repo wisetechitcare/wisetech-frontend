@@ -20,20 +20,13 @@
  * icon, phone country code) keeps the label floated so the two never overlap. `data-filled="true"` on the
  * field forces it for anything else.
  *
- * The floated label masks the border with the surface behind the field (no measured notch — the bug class the
- * live WtField was rebuilt to fight). Unlayered so it wins over the controls' utility colours.
+ * The floated label sits in a NOTCH cut into the border (see "The notch" below) — it has no background.
+ * Unlayered so it wins over the controls' utility colours.
  *
  * Tokens here are the RAW ones (--foreground, --card…), never Tailwind's --color-* aliases: a custom property
  * resolves its var() where it is DECLARED, and the aliases are declared on :root, so they freeze the root
  * theme. Raw tokens are redefined by every theme scope (.dark on <html>, or on a dark panel inside a light
- * page). For the same reason --field-surface has no :root default: the label falls back to --background
- * itself, resolved inside the field's own scope. */
-[data-slot="card"] {
-  --field-surface: var(--card);
-}
-:is([data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="sheet-content"], [data-slot="drawer-content"], [data-slot="popover-content"]) {
-  --field-surface: var(--popover);
-}
+ * page). */
 
 /* Lengths here are px, not rem: kit controls are px-sized in the live app (root font-size 13px), so a rem
    offset put the resting label 3.75px above the control's centre there while looking right in Storybook (16px). */
@@ -75,8 +68,12 @@
   inset-inline-start: 26px;
   max-width: calc(100% - 40px);
   font-weight: 500;
+}
+/* The floated label's resting colour, at ZERO extra specificity (:where): the floated-state selector is a long
+   :is() list, and as part of the rule above its colour outranked the focus (primary) and invalid (destructive)
+   rules below — no floated label ever turned blue on focus or red on error. */
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):where(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
   color: var(--foreground);
-  background: linear-gradient(to bottom, var(--field-surface, var(--background)) 55%, transparent 55%);
 }
 .field-floating:has(> [data-slot="textarea"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
   inset-inline-start: 18px; /* textarea corners are 12px */
@@ -99,6 +96,33 @@
   .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])) > [data-slot="field-label"] {
     transition: none;
   }
+}
+
+/* ── The notch: a real gap in the border where the floated label sits — NO label background ─────────────
+ * The label used to be painted with the surface colour to hide the border behind it, which showed as a patch
+ * wherever the surface was not exactly that colour (and in dark mode). Now the control itself is cut: a mask
+ * removes a band across its top edge, from the label's visual start for its visual width, tall enough to take
+ * the 1px border and the 3px focus / error ring with it. Everything else — fill, text, the rest of the ring —
+ * is untouched, and nothing is painted, so it is right on any surface in both themes.
+ *
+ * Width: `--label-w` is the label's layout width, published by FieldLabel (lib/floating-notch); × 0.85 is the
+ * floated label's own `scale`. Start: the floated `inset-inline-start` minus the label's 4px padding.
+ * `mask-clip: no-clip` + a mask 8px larger on every side keeps the ring (painted outside the border box). */
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"]) {
+  --notch-x: 22px; /* floated label at 26px, less its 4px padding */
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-origin: border-box;
+  mask-clip: no-clip;
+  mask-repeat: no-repeat;
+  mask-position: -8px -8px, var(--notch-x) -8px;
+  mask-size: calc(100% + 16px) calc(100% + 16px), calc(var(--label-w, 0px) * 0.85) 10px;
+  mask-composite: exclude;
+}
+.field-floating:has(> [data-slot="textarea"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="textarea"] {
+  --notch-x: 14px; /* floated label at 18px */
+}
+.field-floating:has(> [data-slot="combobox-chips"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="combobox-chips"] {
+  --notch-x: 34px; /* floated label at 38px */
 }
 
 /* ── Required fields carry a * — from the control's own state, never typed into a label ────────────────

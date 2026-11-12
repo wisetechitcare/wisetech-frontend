@@ -135,7 +135,8 @@ const labelTop = (el: HTMLElement) => parseFloat(getComputedStyle(el.closest('[d
 /**
  * Floating labels (decided 2026-11-03, app-wide): the label rests inside an empty control and floats onto its
  * border on focus or once there is a value — for every control type, from one rule (styles/globals.css).
- * A control with a leading icon keeps its label up. Inside a Card the label masks the border with the card.
+ * A control with a leading icon keeps its label up. The floated label sits in a NOTCH cut into the border — it has
+ * no background, so it is right on any surface in both themes (lib/floating-notch + styles/components.css).
  */
 export const FloatingLabels: Story = {
   decorators: [(Story) => <div className="w-[min(48rem,calc(100vw-2rem))]"><Story /></div>],
@@ -211,10 +212,16 @@ export const FloatingLabels: Story = {
     // Floated labels never cover a rounded corner — check a pill and a textarea.
     await userEvent.click(canvas.getByRole('textbox', { name: 'Remarks' }))
     await expect(await expectCornersVisible(canvasElement)).toBeGreaterThanOrEqual(4)
+    // The notch: a floated label paints nothing, and its field publishes the label width the border gap uses.
+    const codeField = canvas.getByLabelText('Employee Code').closest('[data-slot="field"]') as HTMLElement
+    const codeLabel = codeField.querySelector('[data-slot="field-label"]') as HTMLElement
+    await expect(getComputedStyle(codeLabel).backgroundImage).toBe('none')
+    await expect(getComputedStyle(codeLabel).backgroundColor).toBe('rgba(0, 0, 0, 0)')
+    await expect(parseFloat(codeField.style.getPropertyValue('--label-w'))).toBeGreaterThan(20)
   },
 }
 
-/** Dark theme: the floated label masks the border with the dark card surface; contrast is checked by axe. */
+/** Dark theme: the floated label sits in the border's notch with no background; contrast is checked by axe. */
 export const FloatingLabelsDark: Story = {
   ...FloatingLabels,
   globals: { mode: 'dark' },
