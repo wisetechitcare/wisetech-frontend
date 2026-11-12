@@ -104,9 +104,9 @@ export default function DocumentPreviewModal({ url, onClose, title, inPageOnly =
                                 className="min-h-0 w-full flex-1 rounded-lg border-0"
                             />
                             {!inPageOnly && (
-                                <p className="m-0 text-sm text-muted-foreground">
+                                <p data-slot="preview-fallback" className="m-0 text-sm text-muted-foreground">
                                     If the document does not display,{' '}
-                                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary">
+                                    <a data-slot="preview-fallback-link" href={url} target="_blank" rel="noopener noreferrer" className="text-primary">
                                         open it in a new tab
                                     </a>.
                                 </p>

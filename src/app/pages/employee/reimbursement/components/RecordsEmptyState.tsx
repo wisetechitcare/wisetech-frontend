@@ -84,6 +84,7 @@ export default function RecordsEmptyState({
                                             breaks the baseline flow this deliberately matches. */}
                                         <button
                                             type="button"
+                                            data-slot="empty-period-link"
                                             data-wt-control="link"
                                             onClick={() => onGoToPeriod?.(p.date)}
                                             className="cursor-pointer rounded-sm border-0 bg-transparent p-0 align-baseline font-[inherit] font-bold text-primary underline underline-offset-2 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"

@@ -78,8 +78,8 @@ export default function EditBanner({
         <span className={config.ink}>
           <config.icon className="size-[18px]" />
         </span>
-        <h4 className="m-0 text-[13px] font-extrabold text-foreground">{config.title}</h4>
-        <Badge variant={config.badge} className="ml-auto">{config.label}</Badge>
+        <h4 data-slot="banner-title" className="m-0 text-[13px] font-extrabold text-foreground">{config.title}</h4>
+        <Badge variant={config.badge} className="ml-auto border-current/40 bg-card">{config.label}</Badge>
       </div>
 
       {/* Reason/Query text */}
@@ -87,24 +87,24 @@ export default function EditBanner({
         <div className={cn('min-w-0 rounded-lg border bg-card p-2', config.inner)}>
           {rejectionReason && (
             <div className="flex flex-col gap-1">
-              <p className={cn('m-0', eyebrow)}>Rejection Reason</p>
-              <p className="m-0 break-words text-[12.5px] leading-[1.4] text-foreground">"{rejectionReason}"</p>
+              <p data-slot="banner-eyebrow" className={cn('m-0', eyebrow)}>Rejection Reason</p>
+              <p data-slot="banner-text" className="m-0 break-words text-[12.5px] leading-[1.4] text-foreground">"{rejectionReason}"</p>
             </div>
           )}
           {queryText && (
             <div className="flex flex-col gap-1">
-              <p className={cn('m-0', eyebrow)}>
+              <p data-slot="banner-eyebrow" className={cn('m-0', eyebrow)}>
                 Approver Query
                 {level && ` (Level ${level})`}
               </p>
-              <p className="m-0 break-words text-[12.5px] leading-[1.4] text-foreground">"{queryText}"</p>
+              <p data-slot="banner-text" className="m-0 break-words text-[12.5px] leading-[1.4] text-foreground">"{queryText}"</p>
             </div>
           )}
         </div>
       )}
 
       {/* Helper text */}
-      <p className="m-0 text-[11px] italic text-muted-foreground">
+      <p data-slot="banner-hint" className="m-0 text-[11px] italic text-muted-foreground">
         {context === 'rejection' &&
           'Make the necessary corrections and resubmit for approval.'}
         {context === 'query' &&

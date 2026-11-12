@@ -115,8 +115,8 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
             <div className="mb-3 min-w-0 rounded-xl border border-warning/20 bg-warning-soft p-2.5">
                 <div className="mb-2 flex items-center gap-2">
                     <Info className="size-[21px]" />
-                    <h4 className="m-0 text-[13.5px] font-extrabold">Needs your attention</h4>
-                    <Badge variant="warning">{open.length}</Badge>
+                    <h4 data-slot="attention-title" className="m-0 text-[13.5px] font-extrabold text-foreground">Needs your attention</h4>
+                    <Badge variant="warning-solid">{open.length}</Badge>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -141,7 +141,7 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
                                         </span>
                                     </div>
                                     {task.message && (
-                                        <p className="m-0 mt-1 break-words text-[12.5px] leading-[1.45] text-foreground">
+                                        <p data-slot="attention-message" className="m-0 mt-1 break-words text-[12.5px] leading-[1.45] text-foreground">
                                             {task.message}
                                         </p>
                                     )}
@@ -167,7 +167,7 @@ export default function NeedsYourAttention({ employeeId, isSelf }: NeedsYourAtte
                     })}
                 </div>
 
-                <p className="m-0 mt-2 text-[11.5px] text-muted-foreground">
+                <p data-slot="attention-hint" className="m-0 mt-2 text-[11.5px] text-muted-foreground">
                     Answering a question keeps your approvals. Changing the expense restarts approval from level 1.
                 </p>
             </div>
