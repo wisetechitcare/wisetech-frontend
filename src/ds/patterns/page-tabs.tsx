@@ -58,6 +58,12 @@ function measureRowNeeded(names: string[]): number {
   return names.reduce((sum, name) => sum + Math.ceil(ctx.measureText(name).width) + PHONE_TAB_METRICS.rowChrome, 0)
 }
 
+/** Overflow state of the tab strip, from its scroll metrics. 1px of slack absorbs sub-pixel rounding. */
+export function scrollEdges(scrollLeft: number, scrollWidth: number, clientWidth: number) {
+  const overflow = scrollWidth - clientWidth > 1
+  return { overflow, atStart: scrollLeft <= 1, atEnd: scrollLeft + clientWidth >= scrollWidth - 1 }
+}
+
 /**
  * A module's top-level tab bar: a primary-coloured strip that sticks under the app header, icon + label
  * tabs, and a `headerAction` slot on the right (where the `SensitiveToggle variant="onPrimary"` eye sits).
@@ -73,12 +79,6 @@ function measureRowNeeded(names: string[]): number {
  * pointing at a `hidden` tab falls back to the first visible one and reports it through `onValueChange`.
  * Changing tab scrolls the page to the top (`scrollOnChange`), instantly under reduced motion.
  */
-/** Overflow state of the tab strip, from its scroll metrics. 1px of slack absorbs sub-pixel rounding. */
-export function scrollEdges(scrollLeft: number, scrollWidth: number, clientWidth: number) {
-  const overflow = scrollWidth - clientWidth > 1
-  return { overflow, atStart: scrollLeft <= 1, atEnd: scrollLeft + clientWidth >= scrollWidth - 1 }
-}
-
 export function PageTabs({
   items,
   value,
