@@ -14,7 +14,9 @@ const ROOT = path.resolve(__dirname, '..');
  * import at runtime, may reach @mui/material|system|lab|x-*, @emotion/*, react-bootstrap or
  * material-react-table. Add a module here the moment its migration lands; the list only grows.
  */
-const MUI_FREE_ROOTS: string[] = [];
+const MUI_FREE_ROOTS: string[] = [
+  'src/app/pages/employee/reimbursement',
+];
 
 describe('MUI-free modules', () => {
   it.each(MUI_FREE_ROOTS)('%s reaches no legacy UI', (dir) => {
@@ -22,8 +24,8 @@ describe('MUI-free modules', () => {
     expect(hits).toEqual([]);
   });
 
-  it('declares no roots yet (Reimbursement is added when it is migrated)', () => {
-    expect(MUI_FREE_ROOTS).toEqual([]);
+  it('Reimbursement is locked MUI-free (the first module on the list)', () => {
+    expect(MUI_FREE_ROOTS).toContain('src/app/pages/employee/reimbursement');
   });
 
   it('smoke: the analyser runs on the live kit and src/ds is MUI-free', () => {
