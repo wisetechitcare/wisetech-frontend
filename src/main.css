@@ -48,6 +48,26 @@
   all: revert-layer;
 }
 
+/* Kit LISTS too (pagination, breadcrumbs, menus, legends): Reboot gives every ul / ol a 2rem left padding and a
+   bottom margin, which pushed a table's page numbers far from their arrows. Reverting falls back to Tailwind's
+   preflight (zero margin and padding, no bullets), then the kit's own utilities. */
+:is(ul, ol, li, dl, dt, dd)[data-slot] {
+  all: revert-layer;
+}
+
+/* The floating "scroll to top" button (Metronic .scrolltop: 36px, 40px above the viewport bottom; 30 / 30 on
+   phones) sits over the bottom-right of the page. The page reserves that band below its content, so the last row
+   — a table's pagination — can always scroll clear of it instead of hiding under it. The container carries
+   Bootstrap's `p-0` (padding: 0 !important), so only this one side needs !important (id + !important > class). */
+#kt_content_container {
+  padding-bottom: 88px !important;
+}
+@media (max-width: 991.98px) {
+  #kt_content_container {
+    padding-bottom: 72px !important;
+  }
+}
+
 /* The page canvas in dark mode. Metronic's `.content` is `$content-background: #F6F9FC` with no dark override,
    so in dark mode every page kept a LIGHT canvas, and anything drawn straight on it — section headings,
    search boxes, toolbar buttons, pagers, all in light-on-dark tokens — went light-on-light and vanished.

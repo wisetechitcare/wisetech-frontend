@@ -12,7 +12,7 @@ import {
 // TanStack Table v9: the features, row models and column types live in one place (shadcn's data-table guide).
 import { dataTableFeatures, type Column, type ColumnDef, type Header, type Row } from "./data-table-features"
 import { useLocale } from "react-aria-components"
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Columns3, GripVertical, ListFilter, Maximize2, Minimize2, RotateCcw, Rows3, Search } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Eye, GripVertical, ListFilter, Maximize2, Minimize2, RotateCcw, Rows3, Search } from "lucide-react"
 // The app's one drag engine (also the Task board and the live table's column drag) — never a second one.
 import { mergeVisibleOrder, SortableProvider, type SortableProps } from "@/ds/lib/sortable"
 import { cn } from "@/ds/lib/utils"
@@ -862,12 +862,17 @@ export function DataTable<T extends RowData>({
                   <Rows3 aria-hidden />
                 </ToolButton>
                 {hideable.length > 0 && (
+                  // A tooltip like every other tool: the Tooltip and Menu triggers compose onto one Button
+                  // (Base UI `render`), so hover/focus shows the label and a click opens the menu.
                   <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={<Button variant="outline" size="icon" aria-label="Show or hide columns" title="Show or hide columns" />}
-                    >
-                      <Columns3 aria-hidden />
-                    </DropdownMenuTrigger>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={<DropdownMenuTrigger render={<Button variant="outline" size="icon" aria-label="Show or hide columns" />} />}
+                      >
+                        <Eye aria-hidden />
+                      </TooltipTrigger>
+                      <TooltipContent>Show or hide columns</TooltipContent>
+                    </Tooltip>
                     <DropdownMenuContent align="end" className="w-52">
                       <DropdownMenuGroup>
                         <DropdownMenuLabel>Show columns</DropdownMenuLabel>

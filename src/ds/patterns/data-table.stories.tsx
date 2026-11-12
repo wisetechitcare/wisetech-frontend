@@ -545,6 +545,10 @@ export const TableTools: Story = {
   play: async ({ canvas, canvasElement }) => {
     const table = canvas.getByRole('table', { name: 'Employees' })
     await expect(canvas.getByRole('group', { name: 'Table tools' })).toBeInTheDocument()
+    // Every tool explains itself on hover — the columns menu too.
+    await userEvent.hover(canvas.getByRole('button', { name: 'Show or hide columns' }))
+    await expect(await screen.findByText('Show or hide columns', { selector: '[data-slot="tooltip-content"], [data-slot="tooltip-content"] *' })).toBeInTheDocument()
+    await userEvent.unhover(canvas.getByRole('button', { name: 'Show or hide columns' }))
 
     // Column filters: a row of inputs under the headers; typing narrows the rows.
     await userEvent.click(canvas.getByRole('button', { name: 'Show column filters' }))
