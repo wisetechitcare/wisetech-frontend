@@ -477,7 +477,7 @@ function AllEmployee() {
           // company-profile's SectionList do it. Staying a native <button> keeps the focus ring,
           // tab stop and Enter/Space for free.
           renderCard={(r) => (
-            <button
+            <button data-slot="employee-card"
               type="button"
               data-wt-control="row"
               onClick={() => openEmployee(r)}

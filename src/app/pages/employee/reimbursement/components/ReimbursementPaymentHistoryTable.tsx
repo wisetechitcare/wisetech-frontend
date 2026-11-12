@@ -339,7 +339,7 @@ const ReimbursementPaymentHistoryTable: React.FC<ReimbursementPaymentHistoryTabl
 function PaymentHistoryCard({ row, onOpen }: { row: BatchRow; onOpen: () => void }) {
     const settled = row.totalRemainingAmount <= 0;
     return (
-        <button
+        <button data-slot="payment-history-row"
             type="button"
             data-wt-control="row"
             onClick={onOpen}
