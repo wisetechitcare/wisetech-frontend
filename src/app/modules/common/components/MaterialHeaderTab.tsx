@@ -1,4 +1,4 @@
-import { Box, SvgIconProps, Tab, Tabs, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Tab, Tabs, useMediaQuery, useTheme } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { T } from './ui/tokens';
@@ -12,7 +12,7 @@ import { tabSlug } from '@utils/sectionTabs';
 export type TabItem = {
     title: string;
     /** A Lucide component, or a stored name (`bi-*`) / image URL. */
-    icon?: IconSource | React.ElementType<SvgIconProps> | null;
+    icon?: IconSource | null;
     component: any;
     /** Optional count shown as a pill next to the tab title (hidden when 0). */
     badge?: number;
@@ -218,7 +218,7 @@ const switcherIcon = (item: TabItem) => {
             : <img src={item.icon} alt="" width={20} height={20} />;
     }
     // fs-3 = 21px, the size the string branch draws at.
-    return <IconSlot icon={item.icon as IconSource} className="size-[21px]" />;
+    return <IconSlot icon={item.icon} className="size-[21px]" />;
 };
 
 const countBadge = (count: number | undefined) =>
@@ -352,7 +352,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                                 ? <span className="mht-icon"><AppIcon name={tabItem.icon} className="fs-2" /></span>
                                 : <img src={tabItem.icon} alt={tabItem.title} width={24} height={24} className="mr-px" />)
                             // Same `.mht-icon` hook and 23px (fs-2) as the string branch above.
-                            : <span className="mht-icon"><IconSlot icon={tabItem.icon as IconSource} className="size-[23px]" /></span>);
+                            : <span className="mht-icon"><IconSlot icon={tabItem.icon} className="size-[23px]" /></span>);
 
                     const hasBadge = typeof tabItem.badge === 'number' && tabItem.badge > 0;
                     const isSelected = value === index;

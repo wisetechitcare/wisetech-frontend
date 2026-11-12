@@ -32,4 +32,29 @@ describe('MaterialHeaderTab icon', () => {
     expect(svg.getAttribute('class')).toContain('lucide')
     expect(svg.getAttribute('stroke-width')).toBe('1.75')
   })
+
+  it('phone switcher: component icon is 21px (fs-3) and, like the string branch, takes its colour from the parent button (no own colour)', () => {
+    const original = window.matchMedia
+    const hadRO = 'ResizeObserver' in globalThis
+    if (!hadRO) (globalThis as any).ResizeObserver = class { observe() {} unobserve() {} disconnect() {} }
+    window.matchMedia = ((q: string) => ({
+      matches: true, media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {},
+      addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    })) as typeof window.matchMedia
+    try {
+      const fromComponent = draw(Tag).querySelector('button svg.lucide-tag')!
+      expect(fromComponent.getAttribute('class')).toContain('size-[21px]')
+      const fromString = draw('bi-tag').querySelector('button svg')!
+      expect(fromString.getAttribute('width')).toBe('21')
+      for (const svg of [fromComponent, fromString]) {
+        expect((svg as SVGElement).style.color).toBe('')
+        expect(svg.closest('.mht-icon')).toBeNull()
+        expect(svg.closest('button')).not.toBeNull()
+      }
+    } finally {
+      window.matchMedia = original
+      if (!hadRO) delete (globalThis as any).ResizeObserver
+    }
+  })
 })
