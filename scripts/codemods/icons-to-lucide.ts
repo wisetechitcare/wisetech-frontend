@@ -111,21 +111,27 @@ const sizedClassName = (tokens: string[], px: number) => [...tokens.filter((t) =
 
 /**
  * Classes that mean the same thing on the bare svg as they did on the old element (AppIcon's
- * inline-flex span, or the raw `<i>`): spacing, colour, opacity, vertical alignment, Metronic's
- * rotate-N (a transform around the centre of a box the same size as the glyph), the spinner, and
- * hiding. Everything else is refused, because display/box/position utilities do NOT carry over:
+ * inline-flex span, or the raw `<i>`): margins (incl. responsive), colour, opacity, vertical
+ * alignment, Metronic's rotate-N (a transform around the centre of a box the same size as the
+ * glyph), the spinner, hiding, cursor, pointer-events and no-shrink. Everything else is refused,
+ * because display/box/position utilities do NOT carry over. PADDING is the subtle one: on the
+ * span it grew the box around the glyph; on an svg with `size-[N]` and border-box sizing it
+ * shrinks the drawn glyph. Likewise
  * Bootstrap's `d-block` (!important) turned the span into a block whose inline svg still centred
  * under a `text-center` parent, while on the svg itself it sits flush left; `w-*`/`h-*` (!important)
  * would beat `size-[N]`. An unknown token is treated the same way — review beats a guess.
  */
 const ICON_UTILITY = [
-    /^-?[mp][setbxy]?-(n?\d+|auto)$/,
+    /^-?m[setbxy]?-((sm|md|lg|xl|xxl)-)?(n?\d+|auto)$/,
     /^text-(primary|secondary|success|danger|warning|info|light|dark|muted|white|black|body|gray-\d+|(hover|active)-[a-z]+(-\d+)?)$/,
     /^opacity-\d+$/,
     /^align-(baseline|top|middle|bottom|text-top|text-bottom)$/,
     /^rotate-(90|180|270)$/,
     /^ci-spin$/,
     /^d-((sm|md|lg|xl|xxl)-)?none$/,
+    /^cursor-[a-z-]+$/,
+    /^(flex-)?shrink-0$/,
+    /^pe-none$/,
 ];
 const isIconUtility = (t: string) => ICON_UTILITY.some((re) => re.test(t));
 const RAW_MARKERS = new Set(['bi', 'fa', 'fas', 'far', 'fab', 'fa-solid', 'fa-regular', 'fa-brands']);
@@ -726,6 +732,19 @@ function collect(path: string, out: string[]) {
     }
 }
 
+/** Read, transform, write ONE file. Nothing it does — I/O included — can abort the whole run. */
+export function processFile(file: string, dry: boolean): { changed: boolean; manual: ManualEntry[] } {
+    try {
+        const code = readFileSync(file, 'utf8');
+        const result = transformFileSafely(code, file);
+        const changed = result.code !== code;
+        if (changed && !dry) writeFileSync(file, result.code, 'utf8');
+        return { changed, manual: result.manual };
+    } catch (err) {
+        return { changed: false, manual: [{ line: 1, reason: `codemod error ${err instanceof Error ? err.message : String(err)}` }] };
+    }
+}
+
 function main(argv: string[]) {
     const dry = argv.includes('--dry-run');
     const targets = argv.filter((a) => !a.startsWith('--'));
@@ -738,12 +757,8 @@ function main(argv: string[]) {
     let changed = 0;
     const review: string[] = [];
     for (const file of files) {
-        const code = readFileSync(file, 'utf8');
-        const result = transformFileSafely(code, file);
-        if (result.code !== code) {
-            changed++;
-            if (!dry) writeFileSync(file, result.code, 'utf8');
-        }
+        const result = processFile(file, dry);
+        if (result.changed) changed++;
         for (const m of result.manual) review.push(`${file}:${m.line}  ${m.reason}`);
     }
     console.log(`${dry ? '[dry run] would change' : 'changed'} ${changed} of ${files.length} files`);

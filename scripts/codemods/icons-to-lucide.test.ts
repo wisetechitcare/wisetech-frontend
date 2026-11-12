@@ -9,7 +9,7 @@ import { describe, expect, test } from 'vitest';
 import * as lucide from 'lucide-react';
 import { iconFor } from '../../src/ds/lib/icons/registry';
 import { iconPixelSize, SIZE_SCALE } from '../../src/ds/lib/icons/size';
-import { transformFileSafely, transformSource } from './icons-to-lucide';
+import { processFile, transformFileSafely, transformSource } from './icons-to-lucide';
 
 /** Canonical lucide export name of whatever the registry resolves `name` to. */
 function glyph(name: string): string {
@@ -328,6 +328,30 @@ describe('classes that do not mean the same on an svg', () => {
         expect(out.manual[0].reason).toMatch(/class w-25px behaves differently/);
     });
 
+    test('padding shrinks the glyph on a border-box svg (it grew the span): manual', () => {
+        const src = `${APP}export const A = () => <AppIcon name="bi-trash" className="fs-4 p-2" />\n`;
+        const out = run(src);
+        expect(out.code).toBe(src);
+        expect(out.manual).toEqual([{ line: 2, reason: "class p-2 behaves differently on svg than on AppIcon's span" }]);
+        for (const t of ['px-1', 'py-2', 'ps-3', 'pe-1', 'pt-0', 'pb-2']) {
+            expect(run(`${APP}export const A = () => <AppIcon name="bi-trash" className="${t}" />\n`).manual).toHaveLength(1);
+        }
+    });
+
+    test('raw <i> refuses padding too', () => {
+        const src = `export const A = () => <i className="bi bi-pencil fs-3 px-1" />\n`;
+        const out = run(src);
+        expect(out.code).toBe(src);
+        expect(out.manual[0].reason).toMatch(/unrecognised class "px-1"/);
+    });
+
+    test('cursor, no-shrink, pointer-events and responsive margins are allowed', () => {
+        const cls = 'cursor-pointer shrink-0 flex-shrink-0 pe-none ms-md-2 mt-lg-n1 mx-xl-auto';
+        const out = run(`${APP}export const A = () => <AppIcon name="bi-trash" className="fs-5 ${cls}" />\n`);
+        expect(out.manual).toEqual([]);
+        expect(out.code).toContain(`<${glyph('bi-trash')} className="${cls} ${px('fs-5')}" />`);
+    });
+
     test('an allowed mix converts', () => {
         const out = run(`${KT}export const A = () => <KTIcon iconName="calendar" className="fs-3 me-2 mb-n1 text-primary opacity-75 align-top rotate-90 ci-spin d-md-none" />\n`);
         expect(out.manual).toEqual([]);
@@ -357,6 +381,13 @@ describe('robustness', () => {
             expect(out.manual).toHaveLength(1);
             expect(out.manual[0].reason).toMatch(/^syntax error, file skipped/);
         }
+    });
+
+    test('an I/O error on one file is a manual entry, not a crash', () => {
+        const out = processFile('Z:/definitely/missing/Nope.tsx', true);
+        expect(out.changed).toBe(false);
+        expect(out.manual).toHaveLength(1);
+        expect(out.manual[0].reason).toMatch(/^codemod error /);
     });
 
     test('bi-trash is Trash2 (pinned literally, not only via the canonical lookup)', () => {
