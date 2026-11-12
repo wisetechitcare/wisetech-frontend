@@ -47,3 +47,41 @@ describe('useOrgFilters', () => {
         expect(renders).toBeLessThan(5);
     });
 });
+
+import { cascadeOrgOptions, reconcileOrgSelection } from './OrgFilterToolbar';
+
+const ORG_ROWS = [
+    { id: '1', subOrganization: 'ASSOCIATES', branch: 'ASS Vashi', team: 'Design' },
+    { id: '2', subOrganization: 'ASSOCIATES', branch: 'ASS Jogeshwari', team: 'Site' },
+    { id: '3', subOrganization: 'MEP', branch: 'MEP Vashi', team: 'Design' },
+    { id: '4', subOrganization: 'MEP', branch: 'MEP Jogeshwari', team: 'Accounts' },
+];
+
+describe('the org cascade (sub-org → branch → team)', () => {
+    test('a sub-org offers only its own branches; a branch only its own teams', () => {
+        expect(cascadeOrgOptions(ORG_ROWS, { subOrg: 'ASSOCIATES', branch: 'All' }).branchOptions)
+            .toEqual(['ASS Jogeshwari', 'ASS Vashi']);
+        expect(cascadeOrgOptions(ORG_ROWS, { subOrg: 'MEP', branch: 'MEP Jogeshwari' }).teamOptions).toEqual(['Accounts']);
+        expect(cascadeOrgOptions(ORG_ROWS, { subOrg: 'All', branch: 'All' }).branchOptions).toHaveLength(4);
+    });
+
+    test('changing the sub-org clears a branch and team it does not contain', () => {
+        expect(reconcileOrgSelection(ORG_ROWS, { subOrg: 'ASSOCIATES', branch: 'MEP Vashi', team: 'Design' }))
+            .toEqual({ subOrg: 'ASSOCIATES', branch: 'All', team: 'Design' });
+        expect(reconcileOrgSelection(ORG_ROWS, { subOrg: 'MEP', branch: 'MEP Jogeshwari', team: 'Design' }))
+            .toEqual({ subOrg: 'MEP', branch: 'MEP Jogeshwari', team: 'All' });
+    });
+
+    test('a valid selection is left exactly as it is', () => {
+        const sel = { subOrg: 'MEP', branch: 'MEP Vashi', team: 'Design' };
+        expect(reconcileOrgSelection(ORG_ROWS, sel)).toEqual(sel);
+    });
+
+    test('the hook clears a stranded branch when its sub-org changes', () => {
+        const { result } = renderHook(() => useOrgFilters(ORG_ROWS));
+        act(() => result.current.setBranch('MEP Vashi'));
+        act(() => result.current.setSubOrg('ASSOCIATES'));
+        expect(result.current.branch).toBe('All');
+        expect(result.current.branchOptions).toEqual(['ASS Jogeshwari', 'ASS Vashi']);
+    });
+});

@@ -108,9 +108,8 @@ export function PaymentStatusRail({
             aria-label="Filter the payment queue by status"
             options={options}
             value={value ?? 'all'}
-            showShare
             // It sits in the table's filter row beside 40px controls (search, Filters): one height.
-            className="h-10"
+            size="lg"
             onValueChange={(v) => onChange(v === 'all' || v === value ? null : (v as PaymentState))}
         />
     );

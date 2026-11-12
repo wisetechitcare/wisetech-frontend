@@ -62,6 +62,10 @@ export interface OrgFilterState<T extends OrgFilterableRow = OrgFilterableRow> {
     reset: () => void;
     /** Predicate for the four filters — feed it to `rows.filter(...)`. */
     matches: (row: T) => boolean;
+    /** Branch / team options for ANY selection (e.g. a sheet's unapplied draft) — the cascade rule. */
+    optionsFor: (sel: OrgSelection) => { branchOptions: string[]; teamOptions: string[] };
+    /** The same selection with any branch / team its sub-organisation / branch does not contain cleared. */
+    reconcile: <S extends OrgSelection>(sel: S) => S;
 }
 
 const distinct = <T extends OrgFilterableRow>(
@@ -79,6 +83,33 @@ const distinct = <T extends OrgFilterableRow>(
     return Array.from(names).sort((a, b) => a.localeCompare(b));
 };
 
+/** The org part of a filter selection ('All' = no filter). */
+export interface OrgSelection {
+    subOrg: string;
+    branch: string;
+    team?: string;
+}
+
+/**
+ * THE cascade: a branch is offered only if it has rows in the chosen sub-organisation, a team only if it has rows
+ * in the chosen branch. Offering every branch under any sub-org let a filter pair ASSOCIATES with an MEP branch —
+ * a combination that can only ever show nothing. Pure; options are still the distinct values of the rows in view.
+ */
+export function cascadeOrgOptions<T extends OrgFilterableRow>(rows: T[], sel: OrgSelection) {
+    const inOrg = sel.subOrg === 'All' ? rows : rows.filter((r) => r.subOrganization === sel.subOrg);
+    const inBranch = sel.branch === 'All' ? inOrg : inOrg.filter((r) => r.branch === sel.branch);
+    return { branchOptions: distinct(inOrg, 'branch'), teamOptions: distinct(inBranch, 'team') };
+}
+
+/** Clears a branch / team that the (new) parent does not contain — so a parent change never strands a child. */
+export function reconcileOrgSelection<T extends OrgFilterableRow, S extends OrgSelection>(rows: T[], sel: S): S {
+    const { branchOptions } = cascadeOrgOptions(rows, sel);
+    const branch = sel.branch === 'All' || branchOptions.includes(sel.branch) ? sel.branch : 'All';
+    const { teamOptions } = cascadeOrgOptions(rows, { subOrg: sel.subOrg, branch });
+    const team = sel.team === undefined || sel.team === 'All' || teamOptions.includes(sel.team) ? sel.team : 'All';
+    return { ...sel, branch, team };
+}
+
 export function useOrgFilters<T extends OrgFilterableRow>(
     rows: T[],
     options?: { defaultStatus?: EmployeeStatusFilter },
@@ -91,8 +122,20 @@ export function useOrgFilters<T extends OrgFilterableRow>(
     const rootOrgNames = useRootOrgNames();
 
     const subOrgOptions = useMemo(() => distinct(rows, 'subOrganization', rootOrgNames), [rows, rootOrgNames]);
-    const branchOptions = useMemo(() => distinct(rows, 'branch'), [rows]);
-    const teamOptions = useMemo(() => distinct(rows, 'team'), [rows]);
+    // Cascaded: branches of the chosen sub-org, teams of the chosen branch.
+    const { branchOptions, teamOptions } = useMemo(() => cascadeOrgOptions(rows, { subOrg, branch }), [rows, subOrg, branch]);
+    const optionsFor = useCallback((sel: OrgSelection) => cascadeOrgOptions(rows, sel), [rows]);
+    const reconcile = useCallback(<S extends OrgSelection>(sel: S) => reconcileOrgSelection(rows, sel), [rows]);
+
+    // Choosing a parent clears a child it does not contain (and only then).
+    const chooseSubOrg = useCallback((next: string) => {
+        const fixed = reconcileOrgSelection(rows, { subOrg: next, branch, team });
+        setSubOrg(next); setBranch(fixed.branch); setTeam(fixed.team ?? 'All');
+    }, [rows, branch, team]);
+    const chooseBranch = useCallback((next: string) => {
+        const fixed = reconcileOrgSelection(rows, { subOrg, branch: next, team });
+        setBranch(next); setTeam(fixed.team ?? 'All');
+    }, [rows, subOrg, team]);
     const statusCounts = useMemo(() => {
         let active = 0;
         let inactive = 0;
@@ -126,8 +169,8 @@ export function useOrgFilters<T extends OrgFilterableRow>(
     // turned that into an endless render loop (React #185 on desktop).
     return useMemo(() => ({
         status, setStatus,
-        subOrg, setSubOrg,
-        branch, setBranch,
+        subOrg, setSubOrg: chooseSubOrg,
+        branch, setBranch: chooseBranch,
         team, setTeam,
         subOrgOptions, branchOptions, teamOptions,
         statusCounts,
@@ -135,7 +178,9 @@ export function useOrgFilters<T extends OrgFilterableRow>(
         activeCount,
         reset,
         matches,
-    }), [status, subOrg, branch, team, subOrgOptions, branchOptions, teamOptions, statusCounts, defaultStatus, activeCount, reset, matches]);
+        optionsFor,
+        reconcile,
+    }), [status, subOrg, branch, team, chooseSubOrg, chooseBranch, subOrgOptions, branchOptions, teamOptions, statusCounts, defaultStatus, activeCount, reset, matches, optionsFor, reconcile]);
 }
 
 /** One org dropdown, as the Filter Toolbar story builds them: the value names the filter ("All Branches"). */
@@ -233,7 +278,16 @@ export function OrgFilterSheetButton({ filters }: { filters: OrgFilterState<any>
                     filters.setTeam(next.team);
                 }}
             >
-                {(draft, set) => (
+                {(draft, set) => {
+                    // Options follow the DRAFT (what is picked in the sheet, before Apply) — the same cascade rule.
+                    const opts = filters.optionsFor(draft);
+                    const pick = (patch: Partial<OrgDraft>) => {
+                        const next = filters.reconcile({ ...draft, ...patch });
+                        (Object.keys(next) as (keyof OrgDraft)[]).forEach((k) => {
+                            if (next[k] !== draft[k]) set(k, next[k] as never);
+                        });
+                    };
+                    return (
                     // Four filters of one kind, one look (Law of Similarity): floating-label Selects, evenly spaced.
                     <FieldGroup className="gap-6 pt-2">
                         <Field>
@@ -258,23 +312,24 @@ export function OrgFilterSheetButton({ filters }: { filters: OrgFilterState<any>
                         {filters.subOrgOptions.length > 0 && (
                             <Field>
                                 <FieldLabel htmlFor="org-filter-suborg">Sub Organization</FieldLabel>
-                                <OrgSelect id="org-filter-suborg" label="Sub Organization" value={draft.subOrg} onChange={(v) => set('subOrg', v)} allLabel="All Sub Organizations" options={filters.subOrgOptions} className="w-full" />
+                                <OrgSelect id="org-filter-suborg" label="Sub Organization" value={draft.subOrg} onChange={(v) => pick({ subOrg: v })} allLabel="All Sub Organizations" options={filters.subOrgOptions} className="w-full" />
                             </Field>
                         )}
-                        {filters.branchOptions.length > 0 && (
+                        {opts.branchOptions.length > 0 && (
                             <Field>
                                 <FieldLabel htmlFor="org-filter-branch">Branch</FieldLabel>
-                                <OrgSelect id="org-filter-branch" label="Branch" value={draft.branch} onChange={(v) => set('branch', v)} allLabel="All Branches" options={filters.branchOptions} className="w-full" />
+                                <OrgSelect id="org-filter-branch" label="Branch" value={draft.branch} onChange={(v) => pick({ branch: v })} allLabel="All Branches" options={opts.branchOptions} className="w-full" />
                             </Field>
                         )}
-                        {filters.teamOptions.length > 0 && (
+                        {opts.teamOptions.length > 0 && (
                             <Field>
                                 <FieldLabel htmlFor="org-filter-team">Team</FieldLabel>
-                                <OrgSelect id="org-filter-team" label="Team" value={draft.team} onChange={(v) => set('team', v)} allLabel="All Teams" options={filters.teamOptions} className="w-full" />
+                                <OrgSelect id="org-filter-team" label="Team" value={draft.team} onChange={(v) => set('team', v)} allLabel="All Teams" options={opts.teamOptions} className="w-full" />
                             </Field>
                         )}
                     </FieldGroup>
-                )}
+                    );
+                }}
             </FilterSheet>
         </>
     );

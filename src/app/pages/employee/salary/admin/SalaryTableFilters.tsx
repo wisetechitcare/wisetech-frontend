@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Box } from '@mui/material';
 import { Button } from '@/ds/ui/button';
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
+import { cascadeOrgOptions, reconcileOrgSelection } from '@app/modules/common/components/ui/OrgFilterToolbar';
 
 // Shared toolbar filters (Sub Organization / Employee Status / Pay Type) used by
 // the Monthly, Yearly and All Time salary tables so they stay identical.
@@ -70,8 +71,21 @@ export const useSalaryFilters = (employeesData: any): SalaryFilters => {
     () => distinctValues(summaries, 'subOrganization', rootOrgNames),
     [employeesData, rootOrgNames],
   );
-  const branchOptions = useMemo(() => distinctValues(summaries, 'branch'), [employeesData]);
-  const teamOptions = useMemo(() => distinctValues(summaries, 'team'), [employeesData]);
+  // The shared org cascade (OrgFilterToolbar): branches of the chosen sub-org, teams of the chosen branch.
+  const { branchOptions, teamOptions } = useMemo(
+    () => cascadeOrgOptions(summaries, { subOrg: subOrgFilter, branch: branchFilter }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- summaries is derived from employeesData
+    [employeesData, subOrgFilter, branchFilter],
+  );
+  // Choosing a parent clears a child it does not contain.
+  const chooseSubOrg = (next: string) => {
+    const fixed = reconcileOrgSelection(summaries, { subOrg: next, branch: branchFilter, team: teamFilter });
+    setSubOrgFilter(next); setBranchFilter(fixed.branch); setTeamFilter(fixed.team ?? 'All');
+  };
+  const chooseBranch = (next: string) => {
+    const fixed = reconcileOrgSelection(summaries, { subOrg: subOrgFilter, branch: next, team: teamFilter });
+    setBranchFilter(next); setTeamFilter(fixed.team ?? 'All');
+  };
 
   const filteredEmployeeSummaries = useMemo(() => {
     if (!employeesData?.message?.employeeSummaries) return [];
@@ -97,9 +111,9 @@ export const useSalaryFilters = (employeesData: any): SalaryFilters => {
 
   return {
     statusFilter, setStatusFilter,
-    subOrgFilter, setSubOrgFilter,
+    subOrgFilter, setSubOrgFilter: chooseSubOrg,
     payTypeFilter, setPayTypeFilter,
-    branchFilter, setBranchFilter,
+    branchFilter, setBranchFilter: chooseBranch,
     teamFilter, setTeamFilter,
     subOrgOptions, branchOptions, teamOptions, filteredEmployeeSummaries,
   };

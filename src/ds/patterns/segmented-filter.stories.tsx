@@ -5,8 +5,8 @@ import { animationsSettled } from '@/ds/lib/motion'
 import { SegmentedFilter, type SegmentOption } from './segmented-filter'
 
 /**
- * A filter as one connected rail of counted segments. The dot says which state, weight and tint say
- * which is selected, and with `showShare` the rule under each segment fills to its share of the whole.
+ * A status filter with counts — the kit's counted ToggleGroup (the Filter Toolbar recipe): connected outline
+ * segments, the selected one in the brand fill, a dot for each state's colour. Shares read in the tooltip.
  */
 const meta = {
   title: 'Patterns/Segmented Filter',
@@ -34,8 +34,8 @@ export const Basic: Story = {
   },
 }
 
-/** `showShare`: every segment's rule fills to its share, so the period's shape reads at a glance. */
-export const WithShare: Story = {
+/** `size="lg"` (40px) in a filter row beside a search field and Selects; shares and amounts in the tooltip. */
+export const InFilterRow: Story = {
   args: {
     options: [
       { value: 'all', label: 'All', count: 14, tone: 'neutral', share: 1, detail: '₹23,905.50' },
@@ -44,7 +44,7 @@ export const WithShare: Story = {
       { value: 'PAID', label: 'Paid', count: 1, tone: 'success', share: 1 / 14, detail: '₹1,000.00' },
     ],
     value: 'all',
-    showShare: true,
+    size: 'lg',
     'aria-label': 'Filter the payment queue by status',
   },
 }

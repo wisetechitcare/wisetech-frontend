@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { cascadeOrgOptions, reconcileOrgSelection } from '@app/modules/common/components/ui/OrgFilterToolbar';
 import dayjs, { Dayjs } from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -234,8 +235,19 @@ function AllEmployee() {
     () => distinctValues(employeeSummaries, 'subOrganization', rootOrgNames),
     [employeeSummaries, rootOrgNames],
   );
-  const branchOptions = useMemo(() => distinctValues(employeeSummaries, 'branch'), [employeeSummaries]);
-  const teamOptions = useMemo(() => distinctValues(employeeSummaries, 'team'), [employeeSummaries]);
+  // The shared org cascade (OrgFilterToolbar): branches of the chosen sub-org, teams of the chosen branch.
+  const { branchOptions, teamOptions } = useMemo(
+    () => cascadeOrgOptions(employeeSummaries, { subOrg: subOrgFilter, branch: branchFilter }),
+    [employeeSummaries, subOrgFilter, branchFilter],
+  );
+  const chooseSubOrg = (next: string) => {
+    const fixed = reconcileOrgSelection(employeeSummaries, { subOrg: next, branch: branchFilter, team: teamFilter });
+    setSubOrgFilter(next); setBranchFilter(fixed.branch); setTeamFilter(fixed.team ?? 'All');
+  };
+  const chooseBranch = (next: string) => {
+    const fixed = reconcileOrgSelection(employeeSummaries, { subOrg: subOrgFilter, branch: next, team: teamFilter });
+    setBranchFilter(next); setTeamFilter(fixed.team ?? 'All');
+  };
 
   // ── Apply filters ─────────────────────────────────────────────────────────
 
@@ -351,7 +363,7 @@ function AllEmployee() {
         label="Sub Organization"
         icon={Landmark}
         value={subOrgFilter}
-        onChange={setSubOrgFilter}
+        onChange={chooseSubOrg}
         minWidth={220}
         theme={subOrgFilter !== 'All'
           ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' }
@@ -367,7 +379,7 @@ function AllEmployee() {
           label="Branch"
           icon={MapPin}
           value={branchFilter}
-          onChange={setBranchFilter}
+          onChange={chooseBranch}
           minWidth={190}
           theme={branchFilter !== 'All'
             ? { icon: '#0891b2', border: '#a5f3fc', bg: '#ecfeff', text: '#155e75', ring: 'rgba(8, 145, 178, 0.12)' }
