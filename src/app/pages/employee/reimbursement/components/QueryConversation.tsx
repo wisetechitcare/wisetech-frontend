@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-    Box, Chip, CircularProgress, Divider, Stack, TextField, Typography, useTheme,
-} from '@mui/material';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { uploadUserAsset } from '@services/uploader';
 import { errorConfirmation } from '@utils/modal';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { GlassDialog, GlassHeader, WtButton, ToneChip, tonePair } from '@app/modules/common/components/ui';
-import type { SemanticTone } from '@app/theme/tokens';
+import { Badge } from '@/ds/ui/badge';
+import { Button } from '@/ds/ui/button';
+import { Separator } from '@/ds/ui/separator';
+import { Spinner } from '@/ds/ui/spinner';
+import { Textarea } from '@/ds/ui/textarea';
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import { cn } from '@/ds/lib/utils';
 import { formatDateTime } from '@utils/dateFormats';
 import {
     fetchRequestQueries, fetchBatchQueries, fetchParticipantRole, fetchBatchParticipantRole,
@@ -17,7 +19,7 @@ import {
     type QueryThread, type QueryRole, type QueryStatus,
 } from '@services/reimbursementQueries';
 import DocumentPreviewModal from './DocumentPreviewModal';
-import { Paperclip, MessageSquareText } from 'lucide-react';
+import { Paperclip, MessageSquareText, X } from 'lucide-react';
 
 /**
  * The conversation.
@@ -32,7 +34,7 @@ import { Paperclip, MessageSquareText } from 'lucide-react';
  * offered, and the server refuses it anyway if it is.
  */
 
-const STATUS_TONE: Record<QueryStatus, { tone: SemanticTone; label: string }> = {
+const STATUS_TONE: Record<QueryStatus, { tone: 'warning' | 'cyan' | 'success'; label: string }> = {
     OPEN: { tone: 'warning', label: 'Awaiting employee' },
     ANSWERED: { tone: 'cyan', label: 'Awaiting approver' },
     RESOLVED: { tone: 'success', label: 'Resolved' },
@@ -48,64 +50,50 @@ function MessageBubble({
     isMine: boolean;
     onPreview: (url: string) => void;
 }) {
-    const theme = useTheme();
     const approver = message.authorRole === 'APPROVER';
-    const pair = tonePair(approver ? 'brand' : 'success');
     const attachments = Array.isArray(message.attachments) ? message.attachments : [];
 
     return (
-        <Stack
-            direction="row"
-            justifyContent={isMine ? 'flex-end' : 'flex-start'}
-            sx={{ minWidth: 0 }}
-        >
-            <Box sx={{ maxWidth: { xs: '92%', sm: '78%' }, minWidth: 0 }}>
-                <Stack
-                    direction="row" gap={0.75} alignItems="baseline"
-                    justifyContent={isMine ? 'flex-end' : 'flex-start'}
-                    sx={{ mb: 0.4, flexWrap: 'wrap' }}
-                >
-                    <Typography sx={{
-                        fontSize: 10.5, fontWeight: 800, letterSpacing: '0.05em',
-                        textTransform: 'uppercase', color: pair.fg,
-                    }}>
+        <div className={cn('flex min-w-0', isMine ? 'justify-end' : 'justify-start')}>
+            <div className="min-w-0 max-w-[92%] sm:max-w-[78%]">
+                <div className={cn('mb-1 flex flex-wrap items-baseline gap-1.5', isMine ? 'justify-end' : 'justify-start')}>
+                    <span className={cn(
+                        'text-[10.5px] font-extrabold uppercase tracking-[0.05em]',
+                        approver ? 'text-accent-foreground' : 'text-success-foreground',
+                    )}>
                         {approver ? 'Approver' : 'Employee'}{isMine ? ' · you' : ''}
-                    </Typography>
-                    <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>
+                    </span>
+                    <span className="text-[10.5px] text-muted-foreground/70">
                         {formatDateTime(message.createdAt)}
-                    </Typography>
-                </Stack>
-                <Box sx={{
-                    p: 1.25, borderRadius: '12px', minWidth: 0,
-                    borderTopLeftRadius: isMine ? 12 : 3,
-                    borderTopRightRadius: isMine ? 3 : 12,
-                    bgcolor: isMine ? pair.soft : theme.palette.action.hover,
-                    border: `1px solid ${theme.palette.divider}`,
-                }}>
-                    <Typography sx={{
-                        fontSize: 13, lineHeight: 1.55, color: 'text.primary', whiteSpace: 'pre-wrap',
-                        overflowWrap: 'anywhere',
-                    }}>
+                    </span>
+                </div>
+                <div className={cn(
+                    'min-w-0 rounded-xl border border-border p-2.5',
+                    isMine ? 'rounded-tr-[3px]' : 'rounded-tl-[3px]',
+                    isMine ? (approver ? 'bg-accent' : 'bg-success-soft') : 'bg-muted/50',
+                )}>
+                    <p data-slot="query-message-body"
+                        className="m-0 whitespace-pre-wrap text-[13px] leading-[1.55] text-foreground [overflow-wrap:anywhere]">
                         {message.body}
-                    </Typography>
+                    </p>
                     {attachments.length > 0 && (
-                        <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ mt: 0.75 }}>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
                             {attachments.map((url, i) => (
-                                <Chip
+                                <Button
                                     key={url}
-                                    size="small"
-                                    clickable
+                                    variant="outline"
+                                    size="xs"
                                     onClick={() => onPreview(url)}
-                                    icon={<Paperclip className="size-[14px]" />}
-                                    label={`Attachment ${i + 1}`}
-                                    sx={{ height: 24, fontSize: 11 }}
-                                />
+                                >
+                                    <Paperclip aria-hidden />
+                                    {`Attachment ${i + 1}`}
+                                </Button>
                             ))}
-                        </Stack>
+                        </div>
                     )}
-                </Box>
-            </Box>
-        </Stack>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -120,7 +108,6 @@ function Thread({
     onChanged: () => void;
     onEditRequest?: () => void;
 }) {
-    const theme = useTheme();
     const [draft, setDraft] = useState('');
     const [attachments, setAttachments] = useState<string[]>([]);
     const [uploading, setUploading] = useState(false);
@@ -202,27 +189,23 @@ function Thread({
     };
 
     return (
-        <Box sx={{
-            borderRadius: '12px', border: `1px solid ${theme.palette.divider}`,
-            overflow: 'hidden', minWidth: 0,
-        }}>
-            <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap"
-                sx={{ p: 1.25, bgcolor: 'action.hover' }}>
-                <ToneChip tone={status.tone} label={status.label} size="small" />
-                <Typography sx={{ fontSize: 12.5, fontWeight: 700 }}>
+        <div className="min-w-0 overflow-hidden rounded-xl border border-border">
+            <div className="flex flex-wrap items-center gap-2 bg-muted/50 p-2.5">
+                <Badge variant={status.tone}>{status.label}</Badge>
+                <span className="text-[12.5px] font-bold">
                     {queryCategoryLabel(thread.category)}
-                </Typography>
+                </span>
                 {thread.level != null && (
-                    <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>· raised at level {thread.level}</Typography>
+                    <span className="text-[11.5px] text-muted-foreground">· raised at level {thread.level}</span>
                 )}
-                {thread.scope === 'BATCH' && <ToneChip tone="indigo" label="Batch query" size="small" />}
-                <Box sx={{ flex: 1 }} />
-                <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>
+                {thread.scope === 'BATCH' && <Badge variant="indigo">Batch query</Badge>}
+                <span className="flex-1" />
+                <span className="text-[11px] text-muted-foreground/70">
                     {thread.messages.length} message{thread.messages.length === 1 ? '' : 's'}
-                </Typography>
-            </Stack>
+                </span>
+            </div>
 
-            <Stack gap={1.5} sx={{ p: 1.5, maxHeight: 340, overflowY: 'auto', minWidth: 0 }}>
+            <div className="flex max-h-[340px] min-w-0 flex-col gap-3 overflow-y-auto p-3">
                 {thread.messages.map((m) => (
                     <MessageBubble
                         key={m.id}
@@ -232,38 +215,36 @@ function Thread({
                     />
                 ))}
                 <div ref={endRef} />
-            </Stack>
+            </div>
 
-            <Divider />
+            <Separator />
 
             {/* The composer, offered only to whoever the thread is waiting on. A resolved thread
                 keeps its history readable but takes no new messages — reopening is an explicit
                 act, and only an approver's to make. Waiting is a read-only state on both sides:
                 the asker gets no Send and no Resolve until the answer arrives. */}
-            <Box sx={{ p: 1.5, minWidth: 0 }}>
+            <div className="min-w-0 p-3">
                 {resolved && !isApprover ? (
-                    <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
+                    <p data-slot="query-state-note" className="m-0 text-[12.5px] text-muted-foreground">
                         This query is resolved. Ask your approver to reopen it if something is still outstanding.
-                    </Typography>
+                    </p>
                 ) : !isApprover && thread.status === 'ANSWERED' ? (
-                    <Typography sx={{ fontSize: 12.5, color: 'text.secondary', py: 1 }}>
+                    <p data-slot="query-state-note" className="m-0 py-2 text-[12.5px] text-muted-foreground">
                         Awaiting your approver's response.
-                    </Typography>
+                    </p>
                 ) : isApprover && awaitingEmployee ? (
-                    <Typography sx={{ fontSize: 12.5, color: 'text.secondary', py: 1 }}>
+                    <p data-slot="query-state-note" className="m-0 py-2 text-[12.5px] text-muted-foreground">
                         Awaiting the employee's response. You can reply or resolve this once they answer.
-                    </Typography>
+                    </p>
                 ) : (
-                    <Stack gap={1}>
-                        <TextField
+                    <div className="flex flex-col gap-2">
+                        <Textarea
                             autoFocus
-                            multiline
-                            minRows={2}
-                            size="small"
-                            fullWidth
+                            rows={2}
                             value={draft}
                             onChange={(e) => setDraft(e.target.value)}
                             disabled={sending}
+                            aria-label={resolved ? 'New question' : 'Message'}
                             placeholder={
                                 resolved ? 'Type the new question to reopen this thread…'
                                     : isApprover ? 'Reply, or ask for something more…'
@@ -272,15 +253,25 @@ function Thread({
                         />
 
                         {attachments.length > 0 && (
-                            <Stack direction="row" gap={0.5} flexWrap="wrap">
+                            <div className="flex flex-wrap gap-1">
                                 {attachments.map((url, i) => (
-                                    <Chip key={url} size="small" label={`Attachment ${i + 1}`}
-                                        onDelete={() => setAttachments((a) => a.filter((x) => x !== url))} />
+                                    <Badge key={url} variant="neutral" className="h-6 gap-1 pr-1">
+                                        {`Attachment ${i + 1}`}
+                                        <button
+                                            type="button"
+                                            data-slot="attachment-remove"
+                                            aria-label={`Remove attachment ${i + 1}`}
+                                            className="inline-grid size-4 place-items-center rounded-full border-0 bg-transparent p-0 text-current hover:bg-foreground/10"
+                                            onClick={() => setAttachments((a) => a.filter((x) => x !== url))}
+                                        >
+                                            <X className="size-3" aria-hidden />
+                                        </button>
+                                    </Badge>
                                 ))}
-                            </Stack>
+                            </div>
                         )}
 
-                        <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                             {/* Attachments are evidence, and evidence is the employee's to supply.
                                 An approver asks the question; they have nothing to file against it. */}
                             {!resolved && !isApprover && (
@@ -292,51 +283,51 @@ function Thread({
                                         hidden
                                         onChange={(e) => handleAttach(e.target.files)}
                                     />
-                                    <WtButton size="small" ghost disabled={uploading || sending}
+                                    <Button size="sm" variant="outline" disabled={uploading || sending}
                                         onClick={() => fileRef.current?.click()}>
                                         {uploading ? 'Uploading…' : 'Attach'}
-                                    </WtButton>
+                                    </Button>
                                 </>
                             )}
 
                             {/* The employee's other route: change the expense itself. Spelled out,
                                 because it is the one action that restarts approval. */}
                             {!isApprover && !resolved && onEditRequest && (
-                                <WtButton size="small" ghost disabled={sending} onClick={onEditRequest}>
+                                <Button size="sm" variant="outline" disabled={sending} onClick={onEditRequest}>
                                     Edit the expense instead
-                                </WtButton>
+                                </Button>
                             )}
 
-                            <Box sx={{ flex: 1 }} />
+                            <span className="flex-1" />
 
                             {resolved ? (
-                                <WtButton size="small" disabled={sending} onClick={reopen}>Reopen with this question</WtButton>
+                                <Button size="sm" disabled={sending} onClick={reopen}>Reopen with this question</Button>
                             ) : (
                                 <>
                                     {isApprover && (
-                                        <WtButton size="small" inverted disabled={sending} onClick={close}>
+                                        <Button size="sm" variant="inverted" disabled={sending} onClick={close}>
                                             Resolve
-                                        </WtButton>
+                                        </Button>
                                     )}
-                                    <WtButton size="small" disabled={sending || !draft.trim()} onClick={send}>
+                                    <Button size="sm" disabled={sending || !draft.trim()} onClick={send}>
                                         {sending ? 'Sending…' : 'Send'}
-                                    </WtButton>
+                                    </Button>
                                 </>
                             )}
-                        </Stack>
+                        </div>
 
                         {!isApprover && !resolved && (
-                            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                            <p data-slot="query-composer-hint" className="m-0 text-[11px] text-muted-foreground">
                                 Replying does not restart approval — it goes back to the approver who asked.
                                 Changing the expense does restart it, from level 1.
-                            </Typography>
+                            </p>
                         )}
-                    </Stack>
+                    </div>
                 )}
-            </Box>
+            </div>
 
             {previewUrl && <DocumentPreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />}
-        </Box>
+        </div>
     );
 }
 
@@ -432,27 +423,20 @@ export default function QueryConversationDialog({
     }, [threads, focusQueryId]);
 
     return (
-        <GlassDialog
+        <FormDialog
             open={!!(reimbursementId || batchId)}
-            onClose={onClose}
-            maxWidth="sm"
-            fullWidth
-            header={
-                <GlassHeader
-                    title="Conversation"
-                    subtitle={requestLabel ?? undefined}
-                    icon={<MessageSquareText className="size-[26px]" />}
-                    onClose={onClose}
-                />
-            }
+            onOpenChange={(next) => { if (!next) onClose(); }}
+            title="Conversation"
+            description={requestLabel ?? undefined}
+            icon={<MessageSquareText />}
         >
-            <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
+            <div className="flex min-w-0 flex-col gap-3">
                 {loading ? (
-                    <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={26} /></Stack>
+                    <div className="flex justify-center py-12"><Spinner className="size-[26px] text-primary" /></div>
                 ) : ordered.length === 0 ? (
-                    <Typography sx={{ py: 5, textAlign: 'center', color: 'text.secondary', fontSize: 13 }}>
+                    <p data-slot="query-empty" className="m-0 py-10 text-center text-[13px] text-muted-foreground">
                         No questions have been asked{batchId ? ' about this submission' : ' about this expense'}.
-                    </Typography>
+                    </p>
                 ) : (
                     ordered.map((thread) => (
                         <Thread
@@ -465,7 +449,7 @@ export default function QueryConversationDialog({
                         />
                     ))
                 )}
-            </Box>
-        </GlassDialog>
+            </div>
+        </FormDialog>
     );
 }
