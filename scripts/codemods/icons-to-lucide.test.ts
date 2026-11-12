@@ -8,8 +8,8 @@
 import { describe, expect, test } from 'vitest';
 import * as lucide from 'lucide-react';
 import { iconFor } from '../../src/ds/lib/icons/registry';
-import { iconPixelSize } from '../../src/ds/lib/icons/size';
-import { transformSource } from './icons-to-lucide';
+import { iconPixelSize, SIZE_SCALE } from '../../src/ds/lib/icons/size';
+import { transformFileSafely, transformSource } from './icons-to-lucide';
 
 /** Canonical lucide export name of whatever the registry resolves `name` to. */
 function glyph(name: string): string {
@@ -241,14 +241,18 @@ describe('8. unknown literal name', () => {
 });
 
 describe('9. raw <i> Bootstrap icons', () => {
-    test('fontSize px becomes the size; the emptied style goes', () => {
+    test('fontSize px becomes the size through the SAME calibration as fs-*; the emptied style goes', () => {
+        // A 12px font glyph -> round(12 x SIZE_SCALE): Lucide's viewBox margin needs the same
+        // compensation whether the old size came from a class or from inline style.
+        const sized = `size-[${Math.round(12 * SIZE_SCALE)}px]`;
+        expect(sized).toBe('size-[14px]');
         const out = run(`export const A = () => <i className="bi bi-pencil" style={{ fontSize: 12 }} />\n`);
-        expect(out.code).toBe(`import { ${glyph('bi-pencil')} } from 'lucide-react'\nexport const A = () => <${glyph('bi-pencil')} className="size-[12px]" />\n`);
+        expect(out.code).toBe(`import { ${glyph('bi-pencil')} } from 'lucide-react'\nexport const A = () => <${glyph('bi-pencil')} className="${sized}" />\n`);
     });
 
     test("'Npx' strings count; other style keys and utility classes stay", () => {
         const out = run(`export const A = () => <i className="bi bi-pencil me-2 text-muted" style={{ fontSize: '14px', marginTop: 1 }}></i>\n`);
-        expect(out.code).toContain(`<${glyph('bi-pencil')} className="me-2 text-muted size-[14px]" style={{ marginTop: 1 }} />`);
+        expect(out.code).toContain(`<${glyph('bi-pencil')} className="me-2 text-muted size-[${Math.round(14 * SIZE_SCALE)}px]" style={{ marginTop: 1 }} />`);
     });
 
     test('an fs-* class sizes it through iconPixelSize', () => {
@@ -298,6 +302,85 @@ describe('brand marks', () => {
         expect(out.code).toBe(
             `import { WhatsAppIcon } from '@/ds/lib/icons/brandIcons'\nexport const A = () => <WhatsAppIcon className="${px('fs-3')}" />\n`,
         );
+    });
+});
+
+describe('classes that do not mean the same on an svg', () => {
+    // Real call sites: PublicHolidayListTwo.tsx:940 and EmployeeAccessTab.tsx:311. `d-block` made
+    // AppIcon's SPAN a block whose inline svg still centred under text-center; on the svg itself
+    // the icon would sit flush left.
+    const realSites = [
+        `${KT}export const A = () => <div className="text-center"><KTIcon iconName="calendar-slash" className="fs-2x mb-3 text-gray-400 d-block" /></div>\n`,
+        `${KT}export const A = () => <div className="text-center"><KTIcon iconName="calendar" className="fs-3x text-primary mb-3 d-block" /></div>\n`,
+    ];
+    realSites.forEach((src, i) => {
+        test(`d-block real site ${i + 1}: untouched + manual`, () => {
+            const out = run(src);
+            expect(out.code).toBe(src);
+            expect(out.manual).toEqual([{ line: 2, reason: "class d-block behaves differently on svg than on AppIcon's span" }]);
+        });
+    });
+
+    test('w-*/h-* would beat size-[N]: manual', () => {
+        const src = `${APP}export const A = () => <AppIcon name="bi-pencil" className="fs-3 w-25px" />\n`;
+        const out = run(src);
+        expect(out.code).toBe(src);
+        expect(out.manual[0].reason).toMatch(/class w-25px behaves differently/);
+    });
+
+    test('an allowed mix converts', () => {
+        const out = run(`${KT}export const A = () => <KTIcon iconName="calendar" className="fs-3 me-2 mb-n1 text-primary opacity-75 align-top rotate-90 ci-spin d-md-none" />\n`);
+        expect(out.manual).toEqual([]);
+        expect(out.code).toContain(`<${glyph('calendar')} className="me-2 mb-n1 text-primary opacity-75 align-top rotate-90 ci-spin d-md-none ${px('fs-3')}" />`);
+    });
+});
+
+describe('color prop and style.color together', () => {
+    test('the prop wins (AppIcon applied it after style) and replaces the key in place; no duplicate key', () => {
+        const out = run(`${APP}export const A = () => <AppIcon name="bi-pencil" style={{ color: 'red', marginTop: 2 }} color="#999" />\n`);
+        expect(out.code).toContain(`style={{ color: '#999', marginTop: 2 }}`);
+        expect(out.code.match(/color:/g)).toHaveLength(1);
+    });
+
+    test('quoted key form too', () => {
+        const out = run(`${APP}export const A = () => <AppIcon name="bi-pencil" style={{ 'color': x }} color={y} />\n`);
+        expect(out.code).toContain(`style={{ color: y }}`);
+    });
+});
+
+describe('robustness', () => {
+    test('a file with a syntax error is returned unchanged with a manual entry', () => {
+        const src = `${KT}export const A = () => <div><KTIcon iconName="calendar" /></div\nconst B = (\n`;
+        for (const fn of [transformSource, transformFileSafely]) {
+            const out = fn(src, 'Broken.tsx');
+            expect(out.code).toBe(src);
+            expect(out.manual).toHaveLength(1);
+            expect(out.manual[0].reason).toMatch(/^syntax error, file skipped/);
+        }
+    });
+
+    test('bi-trash is Trash2 (pinned literally, not only via the canonical lookup)', () => {
+        const out = run(`${APP}export const A = () => <AppIcon name="bi-trash" />\n`);
+        expect(out.code).toBe(`import { Trash2 } from 'lucide-react'\nexport const A = () => <Trash2 className="size-[18px]" />\n`);
+    });
+
+    test('CRLF files stay CRLF byte for byte', () => {
+        const src = [
+            `import { KTIcon, toAbsoluteUrl } from '@metronic/helpers';`,
+            `import React from 'react';`,
+            `export const A = () => (`,
+            `  <div>`,
+            `    <KTIcon iconName="calendar" className="fs-5" />`,
+            `  </div>`,
+            `);`,
+            ``,
+        ].join('\r\n');
+        const out = run(src).code;
+        expect(out).not.toBe(src);
+        expect(out).toContain(`import { ${glyph('calendar')} } from 'lucide-react';`);
+        expect(out.split('\r\n')).toHaveLength(src.split('\r\n').length + 1);
+        expect(/(^|[^\r])\n/.test(out)).toBe(false);
+        expect(/\r(?!\n)/.test(out)).toBe(false);
     });
 });
 

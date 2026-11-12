@@ -30,11 +30,11 @@ import { pathToFileURL } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as lucide from 'lucide-react';
-import { Node, Project, ScriptKind, SyntaxKind } from 'ts-morph';
+import { Node, Project, ScriptKind, SyntaxKind, ts } from 'ts-morph';
 import type { Expression, ImportDeclaration, JsxAttributeLike, JsxElement, JsxSelfClosingElement, SourceFile } from 'ts-morph';
 import * as brandIcons from '../../src/ds/lib/icons/brandIcons';
 import { iconFor } from '../../src/ds/lib/icons/registry';
-import { DEFAULT_ICON_PX, iconPixelSize } from '../../src/ds/lib/icons/size';
+import { DEFAULT_ICON_PX, iconPixelSize, SIZE_SCALE } from '../../src/ds/lib/icons/size';
 
 export interface ManualEntry { line: number; reason: string }
 export interface TransformResult { code: string; manual: ManualEntry[] }
@@ -109,12 +109,25 @@ const isSizeToken = (t: string) =>
 
 const sizedClassName = (tokens: string[], px: number) => [...tokens.filter((t) => !isSizeToken(t)), `size-[${px}px]`].join(' ');
 
-/** Classes a raw `<i>` may carry besides its icon class: spacing, colour, the app's spinner. */
-const RAW_UTILITY = [
+/**
+ * Classes that mean the same thing on the bare svg as they did on the old element (AppIcon's
+ * inline-flex span, or the raw `<i>`): spacing, colour, opacity, vertical alignment, Metronic's
+ * rotate-N (a transform around the centre of a box the same size as the glyph), the spinner, and
+ * hiding. Everything else is refused, because display/box/position utilities do NOT carry over:
+ * Bootstrap's `d-block` (!important) turned the span into a block whose inline svg still centred
+ * under a `text-center` parent, while on the svg itself it sits flush left; `w-*`/`h-*` (!important)
+ * would beat `size-[N]`. An unknown token is treated the same way — review beats a guess.
+ */
+const ICON_UTILITY = [
     /^-?[mp][setbxy]?-(n?\d+|auto)$/,
     /^text-(primary|secondary|success|danger|warning|info|light|dark|muted|white|black|body|gray-\d+|(hover|active)-[a-z]+(-\d+)?)$/,
+    /^opacity-\d+$/,
+    /^align-(baseline|top|middle|bottom|text-top|text-bottom)$/,
+    /^rotate-(90|180|270)$/,
     /^ci-spin$/,
+    /^d-((sm|md|lg|xl|xxl)-)?none$/,
 ];
+const isIconUtility = (t: string) => ICON_UTILITY.some((re) => re.test(t));
 const RAW_MARKERS = new Set(['bi', 'fa', 'fas', 'far', 'fab', 'fa-solid', 'fa-regular', 'fa-brands']);
 const LEGACY_ICON_TOKEN = /^(bi|fa[srb]?|la[srb]?|ki)(-|$)/;
 
@@ -322,6 +335,8 @@ function planComponent(el: JsxElement | JsxSelfClosingElement, attrsList: JsxAtt
     const base = classSeen && !(flavour === 'kt' && className === '') ? className! : 'fs-4';
     const tokens = base.split(/\s+/).filter(Boolean);
     if (tokens.some((t) => t.startsWith('size-'))) return fail('className already has a size-* class');
+    const odd = tokens.find((t) => !isSizeToken(t) && !isIconUtility(t));
+    if (odd) return fail(`class ${odd} behaves differently on svg than on AppIcon's span`);
     const px = fallback ?? iconPixelSize(base);
 
     if (styleExpr) {
@@ -332,15 +347,21 @@ function planComponent(el: JsxElement | JsxSelfClosingElement, attrsList: JsxAtt
         if (!Node.isObjectLiteralExpression(styleExpr)) return fail('non-literal style on AppIcon');
         const props: string[] = [];
         let dropped = false;
+        let colorPlaced = false;
         for (const p of styleExpr.getProperties()) {
             if (!Node.isPropertyAssignment(p) && !Node.isShorthandPropertyAssignment(p)) return fail('style spread on AppIcon');
             const key = p.getNameNode();
             if (Node.isComputedPropertyName(key)) return fail('computed style key on AppIcon');
             const keyText = Node.isStringLiteral(key) ? key.getLiteralValue() : key.getText();
             if (APPICON_OWNED_STYLE.has(keyText)) dropped = true;
-            else props.push(p.getText());
+            else if (keyText === 'color' && colorText !== undefined) {
+                // AppIcon applied the color PROP after style, so the prop wins. Replace in place —
+                // appending a second `color` key is TS1117 (duplicate key in an object literal).
+                if (!colorPlaced) props.push(`color: ${colorText}`);
+                colorPlaced = true;
+            } else props.push(p.getText());
         }
-        if (colorText !== undefined) props.push(`color: ${colorText}`);
+        if (colorText !== undefined && !colorPlaced) props.push(`color: ${colorText}`);
         if (dropped || colorText !== undefined) out[styleIndex] = styleObject(props);
     } else if (colorText !== undefined) {
         out[colorIndex] = styleObject([`color: ${colorText}`]);
@@ -374,7 +395,7 @@ function planRawI(el: JsxElement | JsxSelfClosingElement, attrsList: JsxAttribut
 
     const names: string[] = [];
     for (const t of tokens) {
-        if (RAW_MARKERS.has(t) || isSizeToken(t) || RAW_UTILITY.some((re) => re.test(t))) continue;
+        if (RAW_MARKERS.has(t) || isSizeToken(t) || isIconUtility(t)) continue;
         if (/^(bi|fa)-/.test(t)) names.push(t);
         else return fail(`raw <i> with unrecognised class "${t}"`);
     }
@@ -424,7 +445,7 @@ function planRawI(el: JsxElement | JsxSelfClosingElement, attrsList: JsxAttribut
     const kept = tokens.filter((t) => !RAW_MARKERS.has(t) && !names.includes(t));
     return {
         ok: true,
-        planned: { attrs: out, className: sizedClassName(kept, fontPx ?? iconPixelSize(literal)), plan: { kind: 'leaf', glyph } },
+        planned: { attrs: out, className: sizedClassName(kept, fontPx !== undefined ? Math.round(fontPx * SIZE_SCALE) : iconPixelSize(literal)), plan: { kind: 'leaf', glyph } },
     };
 }
 
@@ -513,10 +534,42 @@ function parse(project: Project, code: string, filePath: string): SourceFile {
     return project.createSourceFile(`/codemod-${fileSeq++}${ext || '.tsx'}`, code, { overwrite: true, scriptKind: kind });
 }
 
+/**
+ * A file the parser had to recover from is never rewritten: its AST is the parser's guess, and
+ * splicing text at guessed positions can turn one error into several. `transpileModule` reports
+ * syntactic diagnostics only (no type checking), so this stays cheap enough to run per file.
+ */
+function firstSyntaxError(code: string, filePath: string): ManualEntry | null {
+    const ext = extname(filePath).toLowerCase() || '.tsx';
+    const { diagnostics = [] } = ts.transpileModule(code, {
+        fileName: `file${ext}`,
+        reportDiagnostics: true,
+        compilerOptions: { jsx: ts.JsxEmit.ReactJSX, allowJs: true },
+    });
+    const d = diagnostics.find((x) => x.category === ts.DiagnosticCategory.Error && x.file);
+    if (!d) return null;
+    const line = d.file!.getLineAndCharacterOfPosition(d.start ?? 0).line + 1;
+    return { line, reason: `syntax error, file skipped: ${ts.flattenDiagnosticMessageText(d.messageText, ' ')}` };
+}
+
+/**
+ * The CLI's per-file call: one file that throws (a construct the codemod never met) must not
+ * abort a 366-file run halfway with some files written and others not. It is reported and skipped.
+ */
+export function transformFileSafely(code: string, filePath: string): TransformResult {
+    try {
+        return transformSource(code, filePath);
+    } catch (err) {
+        return { code, manual: [{ line: 1, reason: `codemod error ${err instanceof Error ? err.message : String(err)}` }] };
+    }
+}
+
 // ─── Entry point ──────────────────────────────────────────────────────────────────────────────────
 
 export function transformSource(code: string, filePath: string): TransformResult {
     const project = new Project({ useInMemoryFileSystem: true, compilerOptions: { jsx: 4 /* ReactJSX */, allowJs: true } });
+    const syntaxError = firstSyntaxError(code, filePath);
+    if (syntaxError) return { code, manual: [syntaxError] };
     const sf = parse(project, code, filePath);
     const manual: ManualEntry[] = [];
     const lineOf = (pos: number) => sf.getLineAndColumnAtPos(pos).line;
@@ -686,7 +739,7 @@ function main(argv: string[]) {
     const review: string[] = [];
     for (const file of files) {
         const code = readFileSync(file, 'utf8');
-        const result = transformSource(code, file);
+        const result = transformFileSafely(code, file);
         if (result.code !== code) {
             changed++;
             if (!dry) writeFileSync(file, result.code, 'utf8');

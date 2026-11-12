@@ -27,7 +27,7 @@ const LARGE_STEP: Record<string, number> = { q: 0.25, h: 0.5, t: 0.75 };
  * Compensates for the viewBox margin described above, so a Lucide glyph lands at about the
  * ink size of the keenicon it replaced. Nudge this one number if the whole app reads small.
  */
-const SIZE_SCALE = 1.15;
+export const SIZE_SCALE = 1.15;
 
 /** Pixel size when a className carries no `fs-*` token: what `fs-4` resolves to. */
 export const DEFAULT_ICON_PX = Math.round(SIZE_PX['fs-4'] * SIZE_SCALE);
