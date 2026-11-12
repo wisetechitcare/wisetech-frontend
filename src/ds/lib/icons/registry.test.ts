@@ -1,9 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { iconFor, registeredNames } from './iconRegistry';
+import { iconFor, registeredNames } from './registry';
 
-const SRC = join(__dirname, '..', '..', '..', '..', '..');
+const SRC = join(__dirname, '..', '..', '..');
 // The v2 kit imports Lucide components directly and never resolves a registry name; its
 // cva maps (`icon: 'size-9'`) look like icon options to the scan below.
 const V2_KIT = join(SRC, 'ds');
@@ -48,7 +48,7 @@ function iconNamesIn(source: string): string[] {
     return names;
 }
 
-describe('iconRegistry', () => {
+describe('icon registry', () => {
     it('resolves every icon name written at a call site', () => {
         const missing = new Map<string, string>();
         for (const file of tsxFiles(SRC)) {
