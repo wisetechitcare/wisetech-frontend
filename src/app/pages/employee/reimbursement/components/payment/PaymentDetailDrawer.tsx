@@ -52,7 +52,7 @@ export default function PaymentDetailDrawer({
 
     return (
         <Sheet open={!!row} onOpenChange={(open) => { if (!open) onClose(); }}>
-            <SheetContent side="right" className="sm:max-w-md">
+            <SheetContent side="right" size="lg">
                 {row && (
                     <>
                         <SheetHeader className="border-b border-border">
@@ -77,14 +77,14 @@ export default function PaymentDetailDrawer({
                                 />
                             </div>
 
+                            {/* Two columns (the DescriptionList default): four short facts in two rows, not four. */}
                             <DescriptionList
-                                columns={1}
                                 rows={[
                                     { label: 'Requests', value: `${row.totalRequests} approved` },
                                     { label: 'Submitted', value: fmtDate(row.submittedAt) },
                                     { label: 'Approved On', value: fmtDate(row.approvedAt) },
                                     ...(row.periodStart
-                                        ? [{ label: 'Expense Period', value: `${fmtDate(row.periodStart)} – ${fmtDate(row.periodEnd)}` }]
+                                        ? [{ label: 'Expense Period', value: `${fmtDate(row.periodStart)} – ${fmtDate(row.periodEnd)}`, wide: true }]
                                         : []),
                                 ]}
                             />
@@ -150,11 +150,13 @@ export default function PaymentDetailDrawer({
                         </div>
 
                         {/* Actions — only what this state and this user actually allow */}
-                        <SheetFooter className="flex-row flex-wrap border-t border-border">
+                        {/* One row, equal halves (the FilterSheet footer recipe); `mt-0` — the drawer is content-tall,
+                            so the footer follows the body instead of being pushed to a viewport-tall bottom. */}
+                        <SheetFooter className="mt-0 flex-row flex-wrap border-t border-border">
                             {canPay && payable && (
-                                <Button onClick={() => onPay(row)}>Record Payment</Button>
+                                <Button className="flex-1" onClick={() => onPay(row)}>Record Payment</Button>
                             )}
-                            <Button variant="outline" onClick={() => onOpenBatch(row)}>View Reimbursement</Button>
+                            <Button variant="outline" className="flex-1" onClick={() => onOpenBatch(row)}>View Reimbursement</Button>
                         </SheetFooter>
                     </>
                 )}

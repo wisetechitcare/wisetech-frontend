@@ -98,7 +98,7 @@ export function PersonHeader({
             {badges}
           </div>
           {meta.length > 0 && (
-            <p className="flex flex-wrap gap-x-2 text-sm text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
               {meta.map((m, i) => (
                 <React.Fragment key={i}>
                   {i > 0 && <span aria-hidden>·</span>}
@@ -108,7 +108,7 @@ export function PersonHeader({
             </p>
           )}
           {links && links.length > 0 && (
-            <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               {links.map((l) => (
                 <a key={l.href} href={l.href} className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline [&>svg]:size-3.5">
                   {l.icon}
@@ -119,7 +119,7 @@ export function PersonHeader({
           )}
         </div>
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </header>
   )
 }

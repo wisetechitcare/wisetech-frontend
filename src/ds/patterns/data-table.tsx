@@ -804,7 +804,7 @@ export function DataTable<T extends RowData>({
             <span className="text-sm font-medium" aria-live="polite">
               {selected.length} selected
             </span>
-            <div className="flex flex-wrap gap-2">{selectionActions(selected, () => table.resetRowSelection(), {
+            <div className="flex flex-wrap items-center gap-2">{selectionActions(selected, () => table.resetRowSelection(), {
                 rows: table.getFilteredRowModel().rows.map((r) => r.original),
                 selected: selected.map((r) => r.original),
                 visibleColumnIds: visibleIds,

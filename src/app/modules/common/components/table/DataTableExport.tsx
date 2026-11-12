@@ -23,6 +23,7 @@ export function DataTableExport<T extends RowData>({
   title,
   subtitle,
   disabled,
+  size,
 }: {
   columns: ColumnDef<T, any>[];
   ctx: DataTableToolbarContext<T>;
@@ -31,6 +32,8 @@ export function DataTableExport<T extends RowData>({
   /** A line under the title in the file, e.g. what the rows are. */
   subtitle?: string;
   disabled?: boolean;
+  /** `small` in the compact selection bar, beside its other small actions; default (40px) in the toolbar. */
+  size?: 'small' | 'medium';
 }) {
   const visible = new Set(ctx.visibleColumnIds);
   const exportColumns: ExportColumn<T>[] = columns.flatMap((col) => {
@@ -73,6 +76,7 @@ export function DataTableExport<T extends RowData>({
       showTotals={showTotals}
       totalLabel="TOTAL"
       disabled={disabled || rows.length === 0}
+      size={size}
     />
   );
 }

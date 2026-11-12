@@ -70,7 +70,7 @@ function Row({
         {item.caption && <p className="truncate text-xs text-muted-foreground">{item.caption}</p>}
       </div>
       {!item.locked && (
-        <div className="flex shrink-0 gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-focus-within/row:opacity-100 sm:group-hover/row:opacity-100">
+        <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-focus-within/row:opacity-100 sm:group-hover/row:opacity-100">
           {onEdit && (
             <Button variant="ghost" size="icon-sm" aria-label={`Rename ${item.name}`} onClick={() => onEdit(item)}>
               <Pencil aria-hidden />

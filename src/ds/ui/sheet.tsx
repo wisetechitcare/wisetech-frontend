@@ -42,10 +42,24 @@ function SheetContent({
   className,
   children,
   side = "right",
+  fit = "content",
+  size = "default",
   showCloseButton = true,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left";
+  /**
+   * Side panels only. `content` (default): the drawer is as tall as what it holds and grows with it, up to the
+   * viewport (8px off each edge) — then its body scrolls. A two-field form no longer floats in a screen-tall slab.
+   * `full`: always viewport-tall — navigation (the mobile sidebar) and anything whose height must not jump.
+   */
+  fit?: "content" | "full";
+  /**
+   * Side panels only — the width from `sm` up (phones: 75% of the screen). In PIXELS, not rem: the live app's
+   * root font is 13px (Metronic), so `max-w-sm` (24rem) shrank to 312px there and wrapped every footer.
+   * `default` 384px — filters, short forms. `lg` 480px — a record's details (figures, two-column facts).
+   */
+  size?: "default" | "lg";
   showCloseButton?: boolean;
 }) {
   // Crisp at rest: see useSettledWhenOpen (src/ds/lib/motion.ts).
@@ -57,6 +71,8 @@ function SheetContent({
         ref={settledRef}
         data-slot="sheet-content"
         data-side={side}
+        data-fit={fit}
+        data-size={size}
         className={cn(
           // The shadcn Drawer look (ui.shadcn.com/docs/components/base/drawer, the kit's drawer.tsx): a panel floating
           // 8px off the viewport edges (`--drawer-inset`), rounded-4xl all round, bordered — not a square slab glued to
@@ -64,8 +80,14 @@ function SheetContent({
           "fixed z-(--z-modal) flex flex-col overflow-hidden rounded-4xl border border-border bg-popover bg-clip-padding text-sm text-popover-foreground shadow-2xl",
           "data-[side=bottom]:inset-x-2 data-[side=bottom]:bottom-2 data-[side=bottom]:h-auto data-[side=bottom]:max-h-[calc(100dvh-6rem)]",
           "data-[side=top]:inset-x-2 data-[side=top]:top-2 data-[side=top]:h-auto data-[side=top]:max-h-[calc(100dvh-6rem)]",
-          "data-[side=left]:inset-y-2 data-[side=left]:left-2 data-[side=left]:w-[calc(75%-1rem)] data-[side=left]:sm:max-w-sm",
-          "data-[side=right]:inset-y-2 data-[side=right]:right-2 data-[side=right]:w-[calc(75%-1rem)] data-[side=right]:sm:max-w-sm",
+          "data-[side=left]:left-2 data-[side=right]:right-2",
+          "data-[side=left]:w-[calc(75%-16px)] data-[side=right]:w-[calc(75%-16px)]",
+          "data-[size=default]:data-[side=left]:sm:max-w-[384px] data-[size=default]:data-[side=right]:sm:max-w-[384px]",
+          "data-[size=lg]:data-[side=left]:sm:max-w-[480px] data-[size=lg]:data-[side=right]:sm:max-w-[480px]",
+          // Height (side panels): grow with the content, capped at the viewport; or always full.
+          "data-[fit=content]:data-[side=left]:top-2 data-[fit=content]:data-[side=left]:max-h-[calc(100dvh-1rem)]",
+          "data-[fit=content]:data-[side=right]:top-2 data-[fit=content]:data-[side=right]:max-h-[calc(100dvh-1rem)]",
+          "data-[fit=full]:data-[side=left]:inset-y-2 data-[fit=full]:data-[side=right]:inset-y-2",
           className,
         )}
         {...props}
@@ -106,7 +128,8 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-footer"
-      className={cn("mt-auto flex flex-col gap-2 p-6", className)}
+      // A footer laid out as a row (`flex-row`) centres its items on one line, like every other kit action row.
+      className={cn("mt-auto flex flex-col gap-2 p-6 [&.flex-row]:items-center", className)}
       {...props}
     />
   );

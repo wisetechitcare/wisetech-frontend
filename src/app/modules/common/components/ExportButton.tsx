@@ -431,7 +431,7 @@ function ExportButton<T = any>({
     showTotals = false,
     totalLabel = 'TOTAL',
     disabled = false,
-    size: _size = 'small',
+    size = 'medium',
     label = 'Export',
     scope,
     iconOnly = false,
@@ -482,7 +482,8 @@ function ExportButton<T = any>({
                 disabled={disabled || busy}
                 render={iconOnly
                     ? <Button variant="tinted" size="icon" loading={busy} aria-label={label} title={label} />
-                    : <Button variant="outline" loading={busy} />}
+                    // `small` (32px) inside compact bars — a table's selection bar; `medium` (40px) in toolbars.
+                    : <Button variant="outline" size={size === 'small' ? 'sm' : 'default'} loading={busy} />}
             >
                 {iconOnly ? (
                     <Download aria-hidden />

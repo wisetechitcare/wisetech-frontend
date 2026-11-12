@@ -185,7 +185,7 @@ export default function PaymentQueueTable({
                     <>
                         <span className="tabular self-center text-sm font-semibold">{formatMoney(total)} to pay</span>
                         <Button size="sm" onClick={() => onProcessRun(run, clear)}>Process Payment</Button>
-                        <DataTableExport columns={columns} ctx={ctx} filename={exportName} subtitle="Approved reimbursement batches awaiting payment" />
+                        <DataTableExport columns={columns} ctx={ctx} filename={exportName} subtitle="Approved reimbursement batches awaiting payment" size="small" />
                     </>
                 );
             }}

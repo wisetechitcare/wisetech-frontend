@@ -140,7 +140,7 @@ export function ImageField({
           <p id={hintId} className="text-sm text-muted-foreground">
             {hint ?? `Drop a file here or browse. ${accept.map(extOf).join(", ")} up to ${maxSizeMB} MB.`}
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" disabled={disabled || busy} onClick={() => inputRef.current?.click()}>
               {value ? "Replace" : "Browse"}
             </Button>
