@@ -64,7 +64,8 @@ export default function ReimbursementKpiRow({
     return (
         <div className={KPI_GRID}>
             <StatCard
-                label="Unsubmitted drafts"
+                // "Unsubmitted drafts" was cut to "UNSUBMITTED DRAF…" four cards across; the hint says "N to submit".
+                label="Drafts"
                 value={headline(kpis.inboxAmount)}
                 hint={kpis.inboxCount === 0 ? 'Nothing to submit' : `${kpis.inboxCount} to submit`}
                 tone="info"

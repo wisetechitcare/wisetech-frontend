@@ -277,56 +277,62 @@ export const STALE_AFTER_DAYS = 14;
  * Ordered by what the reader can act on: stuck approvals (chase someone), unpaid money (chase
  * finance), rejections (refile), then the good news.
  */
-export const buildInsight = (rows: any[]): { icon: string; text: string; tone: 'warn' | 'info' | 'good' } => {
+/** A sentence piece: plain words, or an amount (rendered — and hidden under "Hide amounts" — on its own). */
+export type InsightPart = string | { money: number };
+
+export interface Insight {
+    icon: string;
+    tone: 'warn' | 'info' | 'good';
+    /** The whole sentence as plain text. */
+    text: string;
+    /**
+     * The same sentence in pieces, so the screen blurs ONLY the amounts when amounts are hidden. Blurring the whole
+     * sentence hid the message itself — "1 request was rejected" read as a smudge.
+     */
+    parts: InsightPart[];
+}
+
+const sentence = (icon: string, tone: Insight['tone'], ...parts: InsightPart[]): Insight => ({
+    icon,
+    tone,
+    parts,
+    text: parts.map((p) => (typeof p === 'string' ? p : formatMoney(p.money))).join(''),
+});
+
+export const buildInsight = (rows: any[]): Insight => {
     const s = summariseReimbursements(rows);
 
     if (s.totalRequests === 0) {
-        return { icon: '📄', text: 'No expenses filed for this period yet.', tone: 'info' };
+        return sentence('📄', 'info', 'No expenses filed for this period yet.');
     }
 
     const stale = rows.filter((r) => (daysWaiting(r) ?? 0) >= STALE_AFTER_DAYS);
     if (stale.length > 0) {
         const amount = stale.reduce((sum, r) => sum + num(r?.amount), 0);
         const oldest = Math.max(...stale.map((r) => daysWaiting(r) ?? 0));
-        return {
-            icon: '⏳',
-            tone: 'warn',
-            text: `${stale.length} request${stale.length === 1 ? '' : 's'} worth ${formatMoney(amount)} ` +
-                `${stale.length === 1 ? 'has' : 'have'} been awaiting approval for more than ` +
-                `${STALE_AFTER_DAYS} days — the oldest for ${oldest}.`,
-        };
+        return sentence('⏳', 'warn',
+            `${stale.length} request${stale.length === 1 ? '' : 's'} worth `, { money: amount },
+            ` ${stale.length === 1 ? 'has' : 'have'} been awaiting approval for more than ` +
+            `${STALE_AFTER_DAYS} days — the oldest for ${oldest}.`);
     }
 
     if (s.remainingAmount > 0) {
-        return {
-            icon: '💸',
-            tone: 'info',
-            text: `${formatMoney(s.remainingAmount)} has been approved and is awaiting payment.`,
-        };
+        return sentence('💸', 'info', { money: s.remainingAmount }, ' has been approved and is awaiting payment.');
     }
 
     if (s.pendingCount > 0) {
-        return {
-            icon: '🕒',
-            tone: 'info',
-            text: `${s.pendingCount} request${s.pendingCount === 1 ? '' : 's'} worth ` +
-                `${formatMoney(s.pendingAmount)} ${s.pendingCount === 1 ? 'is' : 'are'} still with your approver.`,
-        };
+        return sentence('🕒', 'info',
+            `${s.pendingCount} request${s.pendingCount === 1 ? '' : 's'} worth `, { money: s.pendingAmount },
+            ` ${s.pendingCount === 1 ? 'is' : 'are'} still with your approver.`);
     }
 
     if (s.rejectedCount > 0) {
-        return {
-            icon: '⚠',
-            tone: 'warn',
-            text: `${s.rejectedCount} request${s.rejectedCount === 1 ? '' : 's'} worth ` +
-                `${formatMoney(s.rejectedAmount)} ${s.rejectedCount === 1 ? 'was' : 'were'} rejected this period.`,
-        };
+        return sentence('⚠', 'warn',
+            `${s.rejectedCount} request${s.rejectedCount === 1 ? '' : 's'} worth `, { money: s.rejectedAmount },
+            ` ${s.rejectedCount === 1 ? 'was' : 'were'} rejected this period.`);
     }
 
-    return {
-        icon: '✅',
-        tone: 'good',
-        text: `All ${s.totalRequests} expense${s.totalRequests === 1 ? '' : 's'} for this period ` +
-            `(${formatMoney(s.totalAmount)}) have been approved and paid.`,
-    };
+    return sentence('✅', 'good',
+        `All ${s.totalRequests} expense${s.totalRequests === 1 ? '' : 's'} for this period (`, { money: s.totalAmount },
+        ') have been approved and paid.');
 };

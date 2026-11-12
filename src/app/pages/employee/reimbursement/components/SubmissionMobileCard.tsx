@@ -33,8 +33,11 @@ function SubmissionMobileCard({ row, onOpen }: SubmissionMobileCardProps) {
     const status = Number(row?._status ?? 0) as StatusNum;
     // The same tone as the wide table's row and badge (STATUS_TONE), so the two views agree at a glance.
     const tone = STATUS_TONE[status] ?? STATUS_TONE[STATUS.PENDING];
-    const paymentStatus = String(row?._paymentStatus ?? 'UNPAID').toUpperCase();
-    const payment = PAYMENT[paymentStatus] ?? PAYMENT.UNPAID;
+    // No payment status means nothing in the batch is payable yet (pending) or ever (rejected) — the wide table says
+    // "N/A". Defaulting it to UNPAID printed "Awaiting payment" on a REJECTED batch.
+    const payment = row?._paymentStatus
+        ? PAYMENT[String(row._paymentStatus).toUpperCase()] ?? PAYMENT.UNPAID
+        : null;
     const submittedAt = row?._submittedAt ? dayjs(row._submittedAt) : null;
     const expenses = Number(row?._totalRequests ?? 0);
 
@@ -80,7 +83,7 @@ function SubmissionMobileCard({ row, onOpen }: SubmissionMobileCardProps) {
                     {submittedAt?.isValid() ? `Sent ${submittedAt.format('D MMM YYYY')}` : 'Not sent yet'}
                 </span>
                 {/* Approved and paid are different questions — never one badge. */}
-                <span className={cn('font-bold', payment.className)}>{payment.label}</span>
+                {payment && <span className={cn('font-bold', payment.className)}>{payment.label}</span>}
             </div>
 
             {row?._submissionId && (

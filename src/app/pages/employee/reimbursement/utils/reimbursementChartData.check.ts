@@ -132,6 +132,8 @@ const staleInsight = buildInsight(stale);
 assert(staleInsight.icon === '⏳', 'a stuck approval leads the insight — it is the only actionable thing');
 assert(staleInsight.text.includes('21,500'), 'the insight names the number, not an adjective');
 assert(staleInsight.tone === 'warn', 'a stuck approval is a warning tone');
+assert(staleInsight.parts.some((p) => typeof p !== 'string' && p.money === 21500), 'the amount is its own part, so only it is hidden');
+assert(staleInsight.parts.every((p) => typeof p !== 'string' || !p.includes('21,500')), 'no amount hides inside a words part');
 
 const allDone = [{ id: 'p', expenseDate: d('01'), amount: 700, status: 1, paymentStatus: 'PAID' }];
 assert(buildInsight(allDone).icon === '✅', 'with nothing outstanding the insight says the good news rather than nothing');

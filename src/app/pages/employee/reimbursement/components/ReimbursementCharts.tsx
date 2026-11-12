@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, Sector } from 'recharts';
 import { Dayjs } from 'dayjs';
 import {
@@ -133,7 +133,8 @@ function CycleStrip({ approval, payment, total }: { approval: number | null; pay
                     <div className="truncate text-[10px] text-muted-foreground">{c.label}</div>
                     <div className={cn('tabular text-[13px]', c.strong ? 'font-extrabold text-foreground' : 'font-bold text-foreground/80')}>
                         {c.value}
-                        <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">days</span>
+                        {/* A real space, not a margin: screen readers and copy-paste read "4.0 days", not "4.0days". */}
+                        {c.value !== '—' && <> <span className="text-[10px] font-medium text-muted-foreground">days</span></>}
                     </div>
                 </div>
             ))}
@@ -247,7 +248,12 @@ export default function ReimbursementCharts({
                 news reads as "not loaded yet" the rest of the time. */}
             <div className={cn('mt-2 flex items-center gap-2.5 rounded-xl border px-3.5 py-2', INSIGHT_TONE[insight.tone])}>
                 <span aria-hidden className="text-sm leading-none">{insight.icon}</span>
-                <span className={cn(cls, 'text-[12.5px] font-semibold')}>{insight.text}</span>
+                {/* Only the amounts blur under "Hide amounts" — the message itself must stay readable. */}
+                <span className="text-[12.5px] font-semibold">
+                    {insight.parts.map((p, i) => (typeof p === 'string'
+                        ? <Fragment key={i}>{p}</Fragment>
+                        : <span key={i} className={cls}>{formatMoney(p.money)}</span>))}
+                </span>
             </div>
 
             <div className={cn(GRID, 'items-stretch')}>
@@ -399,7 +405,7 @@ export default function ReimbursementCharts({
                                                 <span className="min-w-0 flex-1 truncate font-semibold text-foreground">{c.name}</span>
                                                 <span className="tabular text-[10.5px] text-muted-foreground/70">{c.count}×</span>
                                                 <Money value={c.value} className="min-w-[76px] text-right text-[11.5px]" />
-                                                <span className="tabular w-8 text-right text-[10.5px] text-muted-foreground">{c.pct.toFixed(0)}%</span>
+                                                <span className="tabular w-8 text-right text-[10.5px] text-muted-foreground">{c.pct > 0 && c.pct < 1 ? '<1' : c.pct.toFixed(0)}%</span>
                                             </div>
                                             <div className="mt-1.5 h-[5px] overflow-hidden rounded-[3px] bg-muted">
                                                 <div className="h-full rounded-[3px] bg-[oklch(0.55_0.22_293)]" style={{ width: `${Math.max(2, c.pct)}%` }} />

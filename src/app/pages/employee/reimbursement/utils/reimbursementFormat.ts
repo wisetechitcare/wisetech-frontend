@@ -13,7 +13,13 @@
 
 import dayjs from 'dayjs';
 import { formatCurrencyDecimal, getCurrencyLocale } from '@utils/currency';
-import { MUMBAI_TZ } from '@utils/date';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+import { IST_TZ } from '@constants/timezone';
+
+// Pure module: the plugins are extended here rather than relying on `@utils/date` (which imports the store).
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 /**
  * The business month of an expense date, `YYYY-MM` — read in IST, exactly as the server groups drafts into batches
@@ -22,7 +28,7 @@ import { MUMBAI_TZ } from '@utils/date';
  * inbox and "Send <month>" could disagree with the server.
  */
 export const expenseMonthKey = (value: string | Date | null | undefined): string =>
-    value ? dayjs(value).tz(MUMBAI_TZ).format('YYYY-MM') : '';
+    value ? dayjs(value).tz(IST_TZ).format('YYYY-MM') : '';
 
 /** "November 2026" for a `YYYY-MM` key. */
 export const monthKeyLabel = (key: string): string => dayjs(`${key}-01`).format('MMMM YYYY');
