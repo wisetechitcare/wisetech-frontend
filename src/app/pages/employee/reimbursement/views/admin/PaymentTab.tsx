@@ -9,7 +9,7 @@ import { toast, alertDialog } from '@app/modules/common/components/ui/feedback';
 import { escapeHtml } from '@app/modules/common/components/ui/safeHtml';
 import { Button } from '@/ds/ui/button';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
-import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
+import { PeriodNavigator } from '@/ds/patterns/period-navigator';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { fetchReimbursementBatches, createReimbursementPayment, fetchAllEmployees, fetchReimbursementOrgPayments } from '@services/employee';
@@ -348,9 +348,10 @@ function PaymentTab() {
                             label={filter === 'monthly' ? periodDate.format('MMM YYYY') : (fiscalLabel || periodDate.format('YYYY'))}
                             onPrevious={() => navigate(-1)}
                             onNext={() => navigate(1)}
+                            unit={filter === 'yearly' ? 'year' : 'month'}
                             pickGranularity={filter === 'yearly' ? 'year' : 'month'}
                             pickValue={periodDate.startOf(filter === 'yearly' ? 'year' : 'month').format('YYYY-MM-DD')}
-                            onPickDate={(v) => setPeriodDate(dayjs(v).startOf(filter === 'yearly' ? 'year' : 'month'))}
+                            onPick={(v) => setPeriodDate(dayjs(v).startOf(filter === 'yearly' ? 'year' : 'month'))}
                         />
                     )}
                     {/* Which date the period reads — a different KIND of choice from the period, so a labelled
