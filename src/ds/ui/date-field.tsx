@@ -35,6 +35,8 @@ export function DisplayDateLocale({ children }: { children: React.ReactNode }) {
 
 // Segments are the pill's text control: data-slot="input-group-control" turns on InputGroup's focus
 // ring (they are contenteditable, so a click counts as focus-visible) and their aria-invalid its error ring.
+const DATE_LITERAL = /^\s*[-/.]\s*$/
+
 function DateInput({
   className,
   literal,
@@ -51,7 +53,10 @@ function DateInput({
       {(segment) => (
         <DateSegment
           data-slot="input-group-control"
-          segment={literal && segment.type === "literal" ? { ...segment, text: literal } : segment}
+          // Only the DATE separators ("-" in en-CA, "/" elsewhere) become the company ".". A time
+          // separator (":") or a date-time joiner (", ") stays, so a minute-granularity field reads
+          // "2026.11.13, 14:30" rather than "2026.11.13.14.30".
+          segment={literal && segment.type === "literal" && DATE_LITERAL.test(segment.text) ? { ...segment, text: literal } : segment}
           className="rounded-md px-0.5 tabular-nums outline-none data-disabled:opacity-50 data-focused:bg-primary data-focused:text-primary-foreground data-placeholder:not-data-focused:text-muted-foreground data-[type=literal]:px-0 data-[type=literal]:whitespace-pre"
         />
       )}
