@@ -26,7 +26,7 @@ export function PaymentKpiCards({ kpis, loading }: { kpis: PaymentKpis; loading?
     return (
         <div className={KPI_GRID}>
             <StatCard
-                label="Pending payment"
+                label="Pending Payment"
                 value={formatMoney(kpis.pendingAmount)}
                 hint={kpis.pendingBatches > 0
                     ? `${kpis.pendingBatches} batch${kpis.pendingBatches === 1 ? '' : 'es'}`
@@ -35,21 +35,22 @@ export function PaymentKpiCards({ kpis, loading }: { kpis: PaymentKpis; loading?
                 icon={<Wallet aria-hidden />}
             />
             <StatCard
-                label="Total paid"
+                label="Total Paid"
                 value={formatMoney(kpis.paidAmount)}
                 hint={`${kpis.settledPct}% settled`}
                 tone="success"
                 icon={<CircleCheck aria-hidden />}
             />
             <StatCard
-                label="Pending requests"
+                // Not "Pending requests" beside "Pending Payment" — two "pending"s counting different things.
+                label="Requests Awaiting Payment"
                 value={kpis.pendingRequests}
-                hint="awaiting payment"
+                hint="approved, not yet paid"
                 tone="info"
                 icon={<FileText aria-hidden />}
             />
             <StatCard
-                label="Employees awaiting"
+                label="Employees Awaiting"
                 value={kpis.employeesAwaiting}
                 hint={kpis.employeesAwaiting === 0 ? 'none' : 'to be paid'}
                 tone="brand"
@@ -108,6 +109,8 @@ export function PaymentStatusRail({
             options={options}
             value={value ?? 'all'}
             showShare
+            // It sits in the table's filter row beside 40px controls (search, Filters): one height.
+            className="h-10"
             onValueChange={(v) => onChange(v === 'all' || v === value ? null : (v as PaymentState))}
         />
     );

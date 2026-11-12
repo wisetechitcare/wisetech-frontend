@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
+import { FilterSheet, FilterSheetButton } from '@/ds/patterns/filter-sheet';
 import { FilterToolbar } from '@/ds/patterns/filter-toolbar';
+import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/ds/ui/toggle-group';
 import { useRootOrgNames } from '@hooks/useRootOrgNames';
@@ -53,6 +55,8 @@ export interface OrgFilterState<T extends OrgFilterableRow = OrgFilterableRow> {
     teamOptions: string[];
     /** Rows per employee status, for the status toggle's counts. */
     statusCounts: Record<EmployeeStatusFilter, number>;
+    /** The status the page opens on (what Reset returns to). */
+    defaultStatus: EmployeeStatusFilter;
     /** How many non-default filters are on. */
     activeCount: number;
     reset: () => void;
@@ -127,14 +131,16 @@ export function useOrgFilters<T extends OrgFilterableRow>(
         team, setTeam,
         subOrgOptions, branchOptions, teamOptions,
         statusCounts,
+        defaultStatus,
         activeCount,
         reset,
         matches,
-    }), [status, subOrg, branch, team, subOrgOptions, branchOptions, teamOptions, statusCounts, activeCount, reset, matches]);
+    }), [status, subOrg, branch, team, subOrgOptions, branchOptions, teamOptions, statusCounts, defaultStatus, activeCount, reset, matches]);
 }
 
 /** One org dropdown, as the Filter Toolbar story builds them: the value names the filter ("All Branches"). */
-function OrgSelect({ label, value, onChange, allLabel, options, className }: {
+function OrgSelect({ id, label, value, onChange, allLabel, options, className }: {
+    id?: string;
     label: string;
     value: string;
     onChange: (v: string) => void;
@@ -145,7 +151,7 @@ function OrgSelect({ label, value, onChange, allLabel, options, className }: {
     const items = [{ value: 'All', label: allLabel }, ...options.map((n) => ({ value: n, label: n }))];
     return (
         <Select items={items} value={value} onValueChange={(v) => onChange(String(v))}>
-            <SelectTrigger aria-label={label} className={className}>
+            <SelectTrigger id={id} aria-label={id ? undefined : label} className={className}>
                 <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -196,6 +202,81 @@ export function OrgFilterToolbar({ filters }: { filters: OrgFilterState<any> }) 
                 <OrgSelect label="Team" value={team} onChange={setTeam} allLabel="All Teams" options={teamOptions} className="w-40" />
             )}
         </FilterToolbar>
+    );
+}
+
+type OrgDraft = { status: EmployeeStatusFilter; subOrg: string; branch: string; team: string };
+
+/**
+ * The same org filters behind a "Filters (n)" button, in the kit Filter Sheet (Storybook "Patterns/Filter Sheet"):
+ * edit a draft, Apply commits, Reset clears. For list pages whose toolbar has no room for four extra controls —
+ * the Filter Toolbar recipe says rarely used filters belong in a sheet, so the row stays one line.
+ */
+export function OrgFilterSheetButton({ filters }: { filters: OrgFilterState<any> }) {
+    const [open, setOpen] = useState(false);
+    const value: OrgDraft = { status: filters.status, subOrg: filters.subOrg, branch: filters.branch, team: filters.team };
+    const empty: OrgDraft = { status: filters.defaultStatus, subOrg: 'All', branch: 'All', team: 'All' };
+    return (
+        <>
+            <FilterSheetButton count={filters.activeCount} onClick={() => setOpen(true)} />
+            <FilterSheet
+                open={open}
+                onOpenChange={setOpen}
+                value={value}
+                empty={empty}
+                title="Filter by Organization"
+                description="Changes apply when you press Apply."
+                onApply={(next) => {
+                    filters.setStatus(next.status);
+                    filters.setSubOrg(next.subOrg);
+                    filters.setBranch(next.branch);
+                    filters.setTeam(next.team);
+                }}
+            >
+                {(draft, set) => (
+                    // Four filters of one kind, one look (Law of Similarity): floating-label Selects, evenly spaced.
+                    <FieldGroup className="gap-6 pt-2">
+                        <Field>
+                            <FieldLabel htmlFor="org-filter-status">Employee Status</FieldLabel>
+                            <Select
+                                items={STATUS_OPTIONS.map((o) => ({ value: o.value, label: `${o.label} (${filters.statusCounts[o.value]})` }))}
+                                value={draft.status}
+                                onValueChange={(v) => set('status', v as EmployeeStatusFilter)}
+                            >
+                                <SelectTrigger id="org-filter-status" className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {STATUS_OPTIONS.map((o) => (
+                                        <SelectItem key={o.value} value={o.value}>
+                                            {o.label} <span className="tabular text-muted-foreground">({filters.statusCounts[o.value]})</span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </Field>
+                        {filters.subOrgOptions.length > 0 && (
+                            <Field>
+                                <FieldLabel htmlFor="org-filter-suborg">Sub Organization</FieldLabel>
+                                <OrgSelect id="org-filter-suborg" label="Sub Organization" value={draft.subOrg} onChange={(v) => set('subOrg', v)} allLabel="All Sub Organizations" options={filters.subOrgOptions} className="w-full" />
+                            </Field>
+                        )}
+                        {filters.branchOptions.length > 0 && (
+                            <Field>
+                                <FieldLabel htmlFor="org-filter-branch">Branch</FieldLabel>
+                                <OrgSelect id="org-filter-branch" label="Branch" value={draft.branch} onChange={(v) => set('branch', v)} allLabel="All Branches" options={filters.branchOptions} className="w-full" />
+                            </Field>
+                        )}
+                        {filters.teamOptions.length > 0 && (
+                            <Field>
+                                <FieldLabel htmlFor="org-filter-team">Team</FieldLabel>
+                                <OrgSelect id="org-filter-team" label="Team" value={draft.team} onChange={(v) => set('team', v)} allLabel="All Teams" options={filters.teamOptions} className="w-full" />
+                            </Field>
+                        )}
+                    </FieldGroup>
+                )}
+            </FilterSheet>
+        </>
     );
 }
 

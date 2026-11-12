@@ -7,6 +7,7 @@ import { Button } from '@/ds/ui/button';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/ds/ui/table';
 import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
 import { DescriptionList } from '@/ds/patterns/description-list';
+import { EmptyState } from '@/ds/patterns/empty-state';
 import { PersonCell } from '@/ds/patterns/person';
 import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
 import { fmtDate, formatMoney, PAYMENT_LABEL, resolveStatusNum, STATUS_LABEL } from '../../utils/reimbursementFormat';
@@ -151,16 +152,10 @@ export default function PaymentQueueTable({
         },
     ], [canPay, onPay, onView, totals]);
 
-    if (!loading && rows.length === 0) {
-        return filtered ? (
-            <PaymentEmptyState
-                icon={<SearchX aria-hidden />}
-                title="No payments found"
-                body="Nothing matches the current status filter or search in this period."
-                actionLabel="Clear filters"
-                onAction={onClearFilters}
-            />
-        ) : (
+    // Nothing owed at all → the page's own empty state. A FILTER that matches nothing stays inside the table
+    // (below), so the filters that caused it remain on screen to change — replacing the whole table hid them.
+    if (!loading && rows.length === 0 && !filtered) {
+        return (
             <PaymentEmptyState
                 title="You're all caught up"
                 body={`No reimbursements are awaiting payment in ${periodLabel}.`}
@@ -202,6 +197,16 @@ export default function PaymentQueueTable({
             rowLabel={(r) => `Open ${r.submissionId}, ${r.employeeName}`}
             renderDetail={(r) => <QueueRowDetail row={r} />}
             renderCard={(r) => <PaymentMobileCard row={r} canPay={canPay} onPay={onPay} onView={onView} />}
+            empty={
+                <EmptyState
+                    variant="no-match"
+                    size="sm"
+                    icon={<SearchX aria-hidden />}
+                    title="No payments match these filters"
+                    description="Nothing in this period matches the status or organization filters."
+                    action={<Button size="sm" variant="outline" onClick={onClearFilters}>Clear Filters</Button>}
+                />
+            }
         />
     );
 }
