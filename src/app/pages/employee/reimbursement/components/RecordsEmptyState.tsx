@@ -77,8 +77,14 @@ export default function RecordsEmptyState({
                                 {elsewhere.map((p, i) => (
                                     <span key={p.date.toISOString()}>
                                         {i > 0 && (i === elsewhere.length - 1 ? ' and ' : ', ')}
+                                        {/* An inline textual link inside the sentence, not an action
+                                            button — the two real actions below are the kit Button.
+                                            The kit's `link` variant cannot serve here: it still carries
+                                            the base button's inline-flex box and size height, which
+                                            breaks the baseline flow this deliberately matches. */}
                                         <button
                                             type="button"
+                                            data-wt-control="link"
                                             onClick={() => onGoToPeriod?.(p.date)}
                                             className="cursor-pointer rounded-sm border-0 bg-transparent p-0 align-baseline font-[inherit] font-bold text-primary underline underline-offset-2 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                         >

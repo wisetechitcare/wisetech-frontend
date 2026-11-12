@@ -470,9 +470,14 @@ function AllEmployee() {
           onRowClick={openEmployee}
           // Phones: one card per employee — who, then the four amounts that matter — instead of a
           // sixteen-column table scrolled sideways.
+          // The card carries `data-wt-control="row"`: it is row activation, not an action button —
+          // the whole card is the tap target for this employee, exactly as SubmissionMobileCard and
+          // company-profile's SectionList do it. Staying a native <button> keeps the focus ring,
+          // tab stop and Enter/Space for free.
           renderCard={(r) => (
             <button
               type="button"
+              data-wt-control="row"
               onClick={() => openEmployee(r)}
               aria-label={`Open reimbursements for ${r.name || 'this employee'}`}
               className="w-full rounded-2xl border border-border bg-card px-4 py-3.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
