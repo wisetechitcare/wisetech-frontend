@@ -151,12 +151,6 @@ export const PAYMENT_LABEL = {
     UNPAID: 'Awaiting Payment',
 } as const;
 
-export const PAYMENT_TONE: Record<string, { color: string; bg: string }> = {
-    PAID: { color: '#15803d', bg: '#ecfdf3' },
-    PARTIAL: { color: '#d97706', bg: '#fff7e8' },
-    UNPAID: { color: '#dc2626', bg: '#fef2f2' },
-};
-
 // ── Names and lookups ─────────────────────────────────────────────────────────
 
 /**

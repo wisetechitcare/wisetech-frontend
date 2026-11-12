@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Tabs, TabsList, TabsTrigger } from '@/ds/ui/tabs';
 import dayjs, { Dayjs } from 'dayjs';
@@ -77,7 +77,8 @@ function PaymentTab() {
     const [tab, setTab] = useState<'queue' | 'history'>('queue');
     const [stateFilter, setStateFilter] = useStoredState<PaymentState | null>('filters:PaymentTab:stateFilter', null);
     const [orgById, setOrgById] = useState<Map<string, EmployeeOrgDetail>>(new Map());
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    // The payment run is the queue table's own selection; this clears it once the run is recorded.
+    const clearRunRef = useRef<(() => void) | null>(null);
     const [drawerRow, setDrawerRow] = useState<PaymentBatchRow | null>(null);
     const [payTarget, setPayTarget] = useState<PaymentBatchRow[]>([]);
     const [batchModalId, setBatchModalId] = useState<string | null>(null);
@@ -203,35 +204,15 @@ function PaymentTab() {
 
     const historyPayments = scopedPayments;
 
-    // Selection can outlive the rows it referred to — a period change, a filter, or a payment
-    // that settled the batch. Anything no longer payable in view drops out of the run.
-    const selectableIds = useMemo(
-        () => queueRows.filter((r) => r.remainingAmount > 0).map((r) => r.id),
-        [queueRows],
-    );
-    // Returns the SAME array when nothing dropped out: a fresh array is a state change, and this
-    // effect re-running on it is how the page once looped until React gave up (#185).
-    useEffect(() => {
-        setSelectedIds((ids) => {
-            const kept = ids.filter((id) => selectableIds.includes(id));
-            return kept.length === ids.length ? ids : kept;
-        });
-    }, [selectableIds]);
 
-    const toggleSelect = useCallback((id: string) => {
-        setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
-    }, []);
-    const toggleSelectAll = useCallback(() => {
-        setSelectedIds((ids) => (ids.length === selectableIds.length ? [] : selectableIds));
-    }, [selectableIds]);
     const payOne = useCallback((row: PaymentBatchRow) => setPayTarget([row]), []);
+    // A run from the table's selection bar; its `clear` is kept to empty the selection once the run is recorded.
+    const processRun = useCallback((rows: PaymentBatchRow[], clear: () => void) => {
+        clearRunRef.current = clear;
+        setPayTarget(rows);
+    }, []);
     const renderOrgFilters = useCallback(() => <OrgFilterToolbar filters={filters} />, [filters]);
 
-    const selectedRows = useMemo(
-        () => selectedIds.map((id) => batchById.get(id)).filter(Boolean) as PaymentBatchRow[],
-        [selectedIds, batchById],
-    );
-    const selectedTotal = selectedRows.reduce((s, r) => s + r.remainingAmount, 0);
 
     const periodLabel = filter === 'monthly'
         ? periodDate.format('MMMM YYYY')
@@ -289,7 +270,8 @@ function PaymentTab() {
         }
 
         setPayTarget([]);
-        setSelectedIds([]);
+        clearRunRef.current?.();
+        clearRunRef.current = null;
         setRefreshKey((k) => k + 1);
 
         if (succeeded > 0 && !failures.length) {
@@ -397,36 +379,11 @@ function PaymentTab() {
 
             {tab === 'queue' ? (
                 <>
-                    {/* The run bar appears only when a run is actually selected — a permanently
-                        disabled "Process payment" button teaches people to ignore it. */}
-                    {canPay && selectedRows.length > 0 && (
-                        <Box sx={{
-                            display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap',
-                            px: 1.75, py: 0.75, mb: 1.25, borderRadius: '8px',
-                            border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover',
-                        }}>
-                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, flex: '1 1 auto' }}>
-                                {selectedRows.length} batch{selectedRows.length === 1 ? '' : 'es'} selected ·{' '}
-                                <Box component="span" sx={{ color: '#1E3A8A', fontVariantNumeric: 'tabular-nums' }}>
-                                    {formatMoney(selectedTotal)}
-                                </Box>
-                            </Typography>
-                            <Button variant="outline" size="sm" onClick={() => setSelectedIds([])}>
-                                Clear
-                            </Button>
-                            <Button size="sm" onClick={() => setPayTarget(selectedRows)}>
-                                Process payment
-                            </Button>
-                        </Box>
-                    )}
-
                     <PaymentQueueTable
                         rows={queueRows}
                         loading={loading}
                         canPay={canPay}
-                        selectedIds={selectedIds}
-                        onToggleSelect={toggleSelect}
-                        onToggleSelectAll={toggleSelectAll}
+                        onProcessRun={processRun}
                         onPay={payOne}
                         onView={setDrawerRow}
                         periodLabel={periodLabel}

@@ -25,8 +25,8 @@ export type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
  * It is a label for an existing state, not a new one; nothing is stored under this name.
  */
 export const PAYMENT_STATE_LABEL: Record<PaymentState, string> = {
-    UNPAID: 'Ready to pay',
-    PARTIAL: 'Partially paid',
+    UNPAID: 'Ready to Pay',
+    PARTIAL: 'Partially Paid',
     PAID: 'Paid',
 };
 
