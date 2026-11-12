@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { keeniconFor } from './biToKeenicon';
 import { iconFor, registeredNames } from './registry';
 
 const SRC = join(__dirname, '..', '..', '..');
@@ -75,6 +76,12 @@ describe('icon registry', () => {
         // A stored name is data. "constructor" must not resolve to Object itself.
         for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
             expect(iconFor(name), name).toBeNull();
+        }
+    });
+
+    it("keeniconFor ignores inherited Object.prototype keys", () => {
+        for (const name of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+            expect(keeniconFor(name), name).toBeNull();
         }
     });
 });

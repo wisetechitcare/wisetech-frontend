@@ -306,4 +306,4 @@ export const BI_TO_KEENICON: Record<string, string> = {
 
 /** Keenicon name for a Bootstrap Icon name, or null when unmapped (caller falls back to ). */
 export const keeniconFor = (biName?: string): string | null =>
-    (biName && BI_TO_KEENICON[biName]) || null;
+    (biName && own(BI_TO_KEENICON, biName)) || null;
