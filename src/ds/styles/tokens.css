@@ -73,6 +73,9 @@
   --tone-purple: oklch(0.6 0.16 295);
   --tone-purple-soft: oklch(0.96 0.032 295);
   --tone-purple-foreground: oklch(0.43 0.12 295);
+  --tone-indigo: oklch(0.6 0.16 275);
+  --tone-indigo-soft: oklch(0.96 0.03 275);
+  --tone-indigo-foreground: oklch(0.43 0.12 275);
   --tone-cyan: oklch(0.6 0.12 205);
   --tone-cyan-soft: oklch(0.96 0.024 205);
   --tone-cyan-foreground: oklch(0.43 0.09 205);
@@ -193,6 +196,9 @@
   --tone-purple: oklch(0.72 0.149 295);
   --tone-purple-soft: oklch(0.31 0.064 295 / 55%);
   --tone-purple-foreground: oklch(0.84 0.104 295);
+  --tone-indigo: oklch(0.72 0.149 275);
+  --tone-indigo-soft: oklch(0.31 0.062 275 / 55%);
+  --tone-indigo-foreground: oklch(0.84 0.104 275);
   --tone-cyan: oklch(0.72 0.112 205);
   --tone-cyan-soft: oklch(0.31 0.048 205 / 55%);
   --tone-cyan-foreground: oklch(0.84 0.078 205);
@@ -323,6 +329,9 @@
   --color-tone-purple: var(--tone-purple);
   --color-tone-purple-soft: var(--tone-purple-soft);
   --color-tone-purple-foreground: var(--tone-purple-foreground);
+  --color-tone-indigo: var(--tone-indigo);
+  --color-tone-indigo-soft: var(--tone-indigo-soft);
+  --color-tone-indigo-foreground: var(--tone-indigo-foreground);
   --color-tone-cyan: var(--tone-cyan);
   --color-tone-cyan-soft: var(--tone-cyan-soft);
   --color-tone-cyan-foreground: var(--tone-cyan-foreground);

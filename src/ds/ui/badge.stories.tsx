@@ -11,7 +11,7 @@ const meta = {
   argTypes: {
     variant: {
       control: 'select',
-      options: ['default', 'secondary', 'outline', 'ghost', 'destructive', 'link', 'success', 'warning', 'danger', 'info', 'brand', 'neutral', 'blue', 'green', 'amber', 'rose', 'purple', 'cyan', 'slate', 'custom'],
+      options: ['default', 'secondary', 'outline', 'ghost', 'destructive', 'link', 'success', 'warning', 'danger', 'info', 'brand', 'neutral', 'blue', 'green', 'amber', 'rose', 'purple', 'indigo', 'cyan', 'slate', 'custom'],
     },
     dot: { control: 'boolean' },
   },
@@ -62,6 +62,7 @@ export const CategoryHues: Story = {
       <Badge variant="amber">Comp-off</Badge>
       <Badge variant="cyan">Work from home</Badge>
       <Badge variant="purple">Recruitment</Badge>
+      <Badge variant="indigo">Batch query</Badge>
       <Badge variant="green">Engineering</Badge>
       <Badge variant="slate">Unpaid leave</Badge>
     </div>
