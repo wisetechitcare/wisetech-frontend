@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import dayjs from "dayjs";
 
 vi.mock("@utils/file", () => ({
@@ -8,13 +9,14 @@ vi.mock("@utils/file", () => ({
 }));
 vi.mock("@services/inbox", () => ({ fetchInboxTasks: vi.fn() }));
 vi.mock("@hooks/useEventBus", () => ({ useEventBus: () => {} }));
-vi.mock("./QueryConversation", () => ({ default: () => <div>conversation-dialog</div> }));
+vi.mock("./QueryConversation", () => ({ default: ({ onEditRequest }: { onEditRequest?: () => void }) => <div>conversation-dialog<button onClick={onEditRequest}>edit-request</button></div> }));
 vi.mock("./VersionHistoryDialog", () => ({ default: ({ requestLabel }: { requestLabel: string }) => <div>versions-{requestLabel}</div> }));
 vi.mock("./ReimbursementEditModal", () => ({ default: () => null }));
 vi.mock("../shared/ReimbursementBatchShared", () => ({ BatchDetailModal: ({ batchId }: { batchId: string }) => <div>batch-{batchId}</div> }));
 vi.mock("@services/reimbursementVersions", () => ({ fetchReimbursementById: vi.fn() }));
 
 import { fetchInboxTasks } from "@services/inbox";
+import { fetchReimbursementById } from "@services/reimbursementVersions";
 import ReimbursementPeriodBar from "./ReimbursementPeriodBar";
 import NeedsYourAttention from "./NeedsYourAttention";
 import EditBanner from "./EditBanner";
@@ -67,6 +69,17 @@ describe("ReimbursementPeriodBar", () => {
     expect(onChange).toHaveBeenCalledWith("monthly", date);
   });
 
+  it("picks a month in the popover and emits the start of that month", async () => {
+    const onChange = vi.fn();
+    render(<ReimbursementPeriodBar alignment="monthly" date={date} onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: /Nov 2026, choose a month/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /March/ }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const [alignment, picked] = onChange.mock.calls[0];
+    expect(alignment).toBe("monthly");
+    expect(picked.format("YYYY-MM-DD")).toBe("2026-03-01");
+  });
+
   it("makes the label a jump picker", () => {
     render(<ReimbursementPeriodBar alignment="monthly" date={date} onChange={() => {}} />);
     expect(screen.getByRole("button", { name: /Nov 2026, choose a month/ })).toBeTruthy();
@@ -108,6 +121,15 @@ describe("NeedsYourAttention", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Respond" }));
     expect(screen.getByText("conversation-dialog")).toBeTruthy();
+  });
+
+  it("disables Respond while the reimbursement it opens is loading", async () => {
+    vi.mocked(fetchInboxTasks).mockResolvedValue([task({})] as never);
+    vi.mocked(fetchReimbursementById).mockReturnValue(new Promise(() => {}) as never);
+    render(<NeedsYourAttention employeeId="e1" isSelf />);
+    fireEvent.click(await screen.findByRole("button", { name: "Respond" }));
+    fireEvent.click(screen.getByRole("button", { name: "edit-request" }));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Respond" }) as HTMLButtonElement).disabled).toBe(true));
   });
 
   it("opens the batch for a task that has no query payload", async () => {
@@ -185,5 +207,32 @@ describe("DocumentPreviewModal", () => {
     expect(document.body.style.overflow).toBe("");
     render(<DocumentPreviewModal url="https://x.test/doc.pdf" onClose={() => {}} inPageOnly />);
     expect(screen.queryByRole("button", { name: /Open In Tab/i })).toBeNull();
+  });
+});
+
+describe("Reboot shield", () => {
+  // Bootstrap Reboot is unlayered and beats Tailwind utilities on bare h4/p; src/main.css reverts it only for
+  // elements carrying data-slot. jsdom has no cascade, so assert the attribute itself.
+  const bare = (root: ParentNode) =>
+    [...root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,label,ul,ol,li,button,a")].filter(
+      (el) => !el.hasAttribute("data-slot") && !el.closest("[data-slot=button]"),
+    );
+
+  it("every raw heading, paragraph, link and button carries data-slot", async () => {
+    vi.mocked(fetchInboxTasks).mockResolvedValue([
+      { id: "t1", type: "QUERY_RECEIVED", entityType: "Reimbursement", status: "OPEN", title: "Q", message: "m", createdAt: "2026-11-10T10:00:00Z", batchId: null, payload: { queryId: "q", reimbursementId: "r" } },
+    ] as never);
+    const a = render(<NeedsYourAttention employeeId="e1" isSelf />);
+    await screen.findByText("Needs your attention");
+    expect(bare(a.container).map((e) => e.outerHTML)).toEqual([]);
+    a.unmount();
+    const b = render(<EditBanner context="query" queryText="x" level={1} />);
+    expect(bare(b.container)).toEqual([]);
+    b.unmount();
+    const c = render(<RecordsEmptyState periodLabel="p" elsewhere={[{ date: dayjs("2026-06-01"), count: 1 }]} />);
+    expect(bare(c.container)).toEqual([]);
+    c.unmount();
+    render(<DocumentPreviewModal url="https://x.test/d.docx" onClose={() => {}} />);
+    expect(bare(document.body)).toEqual([]);
   });
 });
