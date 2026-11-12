@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Box } from '@mui/material';
-import { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
+import { FilterToolbar } from '@/ds/patterns/filter-toolbar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/ds/ui/toggle-group';
 import { useRootOrgNames } from '@hooks/useRootOrgNames';
 
 /**
@@ -22,6 +23,10 @@ import { useRootOrgNames } from '@hooks/useRootOrgNames';
  *
  * Rows only need the fields they actually have: a screen with no team data simply gets no Team
  * dropdown. Pass `defaultStatus: 'Active'` where the page should open on current employees.
+ *
+ * The view is the design system's Filter Toolbar recipe (Storybook "Patterns/Filter Toolbar", which names itself
+ * this component's replacement): kit Selects, the status as a counted ToggleGroup — every option visible, no
+ * cycling to find one — and the toolbar's own "Clear Filters (n)".
  */
 
 export type EmployeeStatusFilter = 'Active' | 'Deactive' | 'All';
@@ -46,6 +51,8 @@ export interface OrgFilterState<T extends OrgFilterableRow = OrgFilterableRow> {
     subOrgOptions: string[];
     branchOptions: string[];
     teamOptions: string[];
+    /** Rows per employee status, for the status toggle's counts. */
+    statusCounts: Record<EmployeeStatusFilter, number>;
     /** How many non-default filters are on. */
     activeCount: number;
     reset: () => void;
@@ -82,6 +89,15 @@ export function useOrgFilters<T extends OrgFilterableRow>(
     const subOrgOptions = useMemo(() => distinct(rows, 'subOrganization', rootOrgNames), [rows, rootOrgNames]);
     const branchOptions = useMemo(() => distinct(rows, 'branch'), [rows]);
     const teamOptions = useMemo(() => distinct(rows, 'team'), [rows]);
+    const statusCounts = useMemo(() => {
+        let active = 0;
+        let inactive = 0;
+        for (const row of rows) {
+            if (row.isActive === true) active += 1;
+            else if (row.isActive === false) inactive += 1;
+        }
+        return { Active: active, Deactive: inactive, All: rows.length };
+    }, [rows]);
 
     const activeCount =
         (status !== defaultStatus ? 1 : 0) + (subOrg !== 'All' ? 1 : 0) +
@@ -110,102 +126,76 @@ export function useOrgFilters<T extends OrgFilterableRow>(
         branch, setBranch,
         team, setTeam,
         subOrgOptions, branchOptions, teamOptions,
+        statusCounts,
         activeCount,
         reset,
         matches,
-    }), [status, subOrg, branch, team, subOrgOptions, branchOptions, teamOptions, activeCount, reset, matches]);
+    }), [status, subOrg, branch, team, subOrgOptions, branchOptions, teamOptions, statusCounts, activeCount, reset, matches]);
 }
+
+/** One org dropdown, as the Filter Toolbar story builds them: the value names the filter ("All Branches"). */
+function OrgSelect({ label, value, onChange, allLabel, options, className }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    allLabel: string;
+    options: string[];
+    className?: string;
+}) {
+    const items = [{ value: 'All', label: allLabel }, ...options.map((n) => ({ value: n, label: n }))];
+    return (
+        <Select items={items} value={value} onValueChange={(v) => onChange(String(v))}>
+            <SelectTrigger aria-label={label} className={className}>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+                {items.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
+const STATUS_OPTIONS: { value: EmployeeStatusFilter; label: string }[] = [
+    { value: 'Active', label: 'Active' },
+    { value: 'Deactive', label: 'Inactive' },
+    { value: 'All', label: 'All' },
+];
 
 export function OrgFilterToolbar({ filters }: { filters: OrgFilterState<any> }) {
     const {
         status, setStatus, subOrg, setSubOrg, branch, setBranch, team, setTeam,
-        subOrgOptions, branchOptions, teamOptions, activeCount, reset,
+        subOrgOptions, branchOptions, teamOptions, statusCounts, activeCount, reset,
     } = filters;
 
     return (
-        <Box sx={{ display: 'flex', gap: 1.5, rowGap: 2, alignItems: 'center', px: 1, flexWrap: 'wrap' }}>
-            <Box sx={{ width: '1px', height: 26, bgcolor: 'divider', mx: 0.5, display: { xs: 'none', md: 'block' } }} />
-
-            <ToolbarFilterSelect
-                label="Employee Status"
-                icon="bi-person-circle"
-                value={status}
-                onChange={(v) => setStatus(v as EmployeeStatusFilter)}
-                minWidth={150}
-                theme={status === 'Active' ? FILTER_TONES.green
-                    : status === 'Deactive' ? FILTER_TONES.red
-                    : undefined}
-                options={[
-                    { value: 'Active', label: 'Active' },
-                    { value: 'Deactive', label: 'Inactive' },
-                    { value: 'All', label: 'All' },
-                ]}
-            />
+        <FilterToolbar activeCount={activeCount} onClear={reset}>
+            <ToggleGroup
+                aria-label="Employee Status"
+                variant="outline"
+                size="sm"
+                spacing={0}
+                value={[status]}
+                onValueChange={(v: string[]) => v[0] && setStatus(v[0] as EmployeeStatusFilter)}
+            >
+                {STATUS_OPTIONS.map((o) => (
+                    <ToggleGroupItem key={o.value} value={o.value}>
+                        {o.label} <span className="tabular text-muted-foreground">{statusCounts[o.value]}</span>
+                    </ToggleGroupItem>
+                ))}
+            </ToggleGroup>
 
             {subOrgOptions.length > 0 && (
-                <ToolbarFilterSelect
-                    label="Sub Organization"
-                    icon="bi-building"
-                    value={subOrg}
-                    onChange={setSubOrg}
-                    minWidth={200}
-                    theme={subOrg !== 'All' ? FILTER_TONES.blue : undefined}
-                    options={[
-                        { value: 'All', label: 'All Sub Organizations' },
-                        ...subOrgOptions.map((n) => ({ value: n, label: n })),
-                    ]}
-                />
+                <OrgSelect label="Sub Organization" value={subOrg} onChange={setSubOrg} allLabel="All Sub Organizations" options={subOrgOptions} className="w-52" />
             )}
-
             {branchOptions.length > 0 && (
-                <ToolbarFilterSelect
-                    label="Branch"
-                    icon="bi-geo-alt"
-                    value={branch}
-                    onChange={setBranch}
-                    minWidth={175}
-                    theme={branch !== 'All' ? FILTER_TONES.cyan : undefined}
-                    options={[
-                        { value: 'All', label: 'All Branches' },
-                        ...branchOptions.map((n) => ({ value: n, label: n })),
-                    ]}
-                />
+                <OrgSelect label="Branch" value={branch} onChange={setBranch} allLabel="All Branches" options={branchOptions} className="w-44" />
             )}
-
             {teamOptions.length > 0 && (
-                <ToolbarFilterSelect
-                    label="Team"
-                    icon="bi-people"
-                    value={team}
-                    onChange={setTeam}
-                    minWidth={165}
-                    theme={team !== 'All' ? FILTER_TONES.amber : undefined}
-                    options={[
-                        { value: 'All', label: 'All Teams' },
-                        ...teamOptions.map((n) => ({ value: n, label: n })),
-                    ]}
-                />
+                <OrgSelect label="Team" value={team} onChange={setTeam} allLabel="All Teams" options={teamOptions} className="w-40" />
             )}
-
-            {activeCount > 0 && (
-                <Box
-                    component="button"
-                    type="button"
-                    onClick={reset}
-                    title="Reset filters to defaults"
-                    sx={{
-                        height: 38, px: 1.5, display: 'inline-flex', alignItems: 'center', gap: 0.75,
-                        border: '1px dashed #fca5a5', borderRadius: '10px',
-                        bgcolor: 'background.paper', color: '#dc2626',
-                        fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                        '&:hover': { bgcolor: 'rgba(220, 38, 38, 0.06)' },
-                    }}
-                >
-                    <i className="bi bi-arrow-counterclockwise" style={{ fontSize: 13 }} />
-                    Reset
-                </Box>
-            )}
-        </Box>
+        </FilterToolbar>
     );
 }
 
