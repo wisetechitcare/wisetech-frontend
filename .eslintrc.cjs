@@ -31,6 +31,8 @@ module.exports = {
     'react-hooks/rules-of-hooks': 'error',
     /* Legacy icon systems (KTIcon, AppIcon, bi-/fa-/la-/ki- classes, MUI icons). Own rule + own baseline. */
     'wisetech/no-legacy-icons': 'error',
+    /* MUI / emotion / react-bootstrap / material-react-table imports and Bootstrap-only classes. Own rule + own baseline. */
+    'wisetech/no-legacy-ui': 'error',
     'no-unsafe-optional-chaining': 'error',
     '@typescript-eslint/no-non-null-asserted-optional-chain': 'error',
     'no-debugger': 'error',
@@ -439,6 +441,14 @@ module.exports = {
         '**/*.stories.tsx',
       ],
       rules: { 'wisetech/no-legacy-icons': 'off' },
+    },
+    {
+      /* LEGACY-UI RATCHET (see .eslint-legacy-ui-baseline.cjs; own list, regenerate with `pnpm run lint:legacy-ui:baseline`).
+       * Existing MUI / react-bootstrap / Bootstrap-class files warn; every other file errors. The list can only
+       * shrink and NO directory gets a permanent exemption: the legacy kit warns through the baseline like the rest.
+       * Placed after the UI ratchet and the icon overrides: the last matching override wins. */
+      files: require('./.eslint-legacy-ui-baseline.cjs'),
+      rules: { 'wisetech/no-legacy-ui': 'warn' },
     },
   ],
 }

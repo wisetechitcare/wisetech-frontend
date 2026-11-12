@@ -37,7 +37,8 @@
     "visual:baseline": "playwright test --project=light --project=dark --update-snapshots",
     "visual:check": "playwright test --project=light --project=dark",
     "visual:report": "playwright show-report e2e/.visual/report",
-    "lint:icons:baseline": "node scripts/gen-icon-baseline.cjs"
+    "lint:icons:baseline": "node scripts/gen-icon-baseline.cjs",
+    "lint:legacy-ui:baseline": "node scripts/gen-rule-baseline.cjs wisetech/no-legacy-ui .eslint-legacy-ui-baseline.cjs legacy-ui --script=lint:legacy-ui:baseline --what=\"used MUI, emotion, react-bootstrap, material-react-table or a Bootstrap-only class\" --note=\"Burn it down by migrating the file to src/ds.\" --fixed=\"the file is migrated\""
   },
   "dependencies": {
     "@animate-ui/react": "2.4.1",
