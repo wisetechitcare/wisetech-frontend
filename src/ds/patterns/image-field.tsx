@@ -144,13 +144,15 @@ export function ImageField({
             <Button size="sm" variant="outline" disabled={disabled || busy} onClick={() => inputRef.current?.click()}>
               {value ? "Replace" : "Browse"}
             </Button>
+            {/* Actions on the attached file: the Button story's "Tinted" recipe (row and card actions) — View in
+                the default tint, Remove in the danger tint. Browse / Replace stays the outline secondary. */}
             {value && onView && (
-              <Button size="sm" variant="ghost" disabled={busy} onClick={onView}>
+              <Button size="sm" variant="tinted" disabled={busy} onClick={onView}>
                 <Eye data-icon="inline-start" aria-hidden /> View
               </Button>
             )}
             {value && (
-              <Button size="sm" variant="ghost" disabled={disabled || busy} onClick={() => onChange(null)}>
+              <Button size="sm" variant="tinted" className="[--tint:var(--cta-danger)]" disabled={disabled || busy} onClick={() => onChange(null)}>
                 <Trash2 data-icon="inline-start" aria-hidden /> Remove
               </Button>
             )}
