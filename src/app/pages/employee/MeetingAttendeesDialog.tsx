@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Avatar, Box, CircularProgress, Dialog, DialogContent, Stack, Tooltip, Typography, alpha, useTheme,
+    Box, CircularProgress, Dialog, DialogContent, Stack, Tooltip, Typography, alpha, useTheme,
 } from '@mui/material';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { KTIcon } from '@metronic/helpers';
 import { PlainDialogHeader, WtButton, confirmDialog } from '@app/modules/common/components/ui';
 import { getMeetingAttendance, setMeetingAttendance } from '@services/employee';
@@ -27,17 +28,6 @@ export interface MeetingAttendeesDialogProps {
     employeeId: string;
     meeting: { id: string; title: string } | null;
 }
-
-/**
- * Initials, for the people with no photo. Two letters, never one.
- */
-export const initialsOf = (name?: string | null) =>
-    (name || '?')
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase())
-        .join('') || '?';
 
 /**
  * The three states an attendee's avatar can be in, and the ring that says which.
@@ -154,16 +144,15 @@ const MeetingAttendeesDialog: React.FC<MeetingAttendeesDialogProps> = ({
                     opacity: muted ? 0.62 : 1,
                 }}
             >
-                <Avatar
-                    src={a.avatar || undefined}
+                <Box
                     sx={{
-                        width: 34, height: 34, fontSize: 12, fontWeight: 700, flexShrink: 0,
+                        display: 'inline-flex', borderRadius: '50%', flexShrink: 0,
                         ...(muted ? {} : { boxShadow: `0 0 0 2px ${ring.color}` }),
                         filter: muted ? 'grayscale(1)' : undefined,
                     }}
                 >
-                    {initialsOf(a.name)}
-                </Avatar>
+                    <SmartAvatar name={a.name} src={a.avatar} seed={a.employeeId} size={34} decorative />
+                </Box>
 
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>

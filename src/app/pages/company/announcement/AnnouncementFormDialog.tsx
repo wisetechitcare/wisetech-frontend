@@ -13,7 +13,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Autocomplete, Avatar, Box, Chip, CircularProgress, Grid, Stack, TextField, Typography,
+    Autocomplete, Box, Chip, CircularProgress, Grid, Stack, TextField, Typography,
 } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { useSelector } from 'react-redux';
@@ -23,6 +23,7 @@ import { ShareWith } from '@constants/statistics';
 import { IAnnouncement } from '@models/company';
 import { createAnnouncement, updateAnnouncementById } from '@services/company';
 import { fetchAllUsers } from '@services/users';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { apiErrorMessage } from '@utils/apiError';
 import { uploadUserAsset } from '@services/uploader';
 import {
@@ -320,7 +321,7 @@ export const AnnouncementFormDialog = ({
                                         key={option.id}
                                         size="small"
                                         label={userName(option)}
-                                        avatar={<Avatar src={option.avatar ?? undefined}>{userName(option)[0]}</Avatar>}
+                                        avatar={<SmartAvatar src={option.avatar} name={userName(option)} seed={option.id} size={18} decorative />}
                                     />
                                 ))
                             }

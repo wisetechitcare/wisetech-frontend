@@ -1,12 +1,11 @@
 import { Attendance, IPayment } from '@models/employee';
 import { RootState } from '@redux/store';
 import { fetchAllPayments } from '@services/employee';
-import { getAvatar } from '@utils/avatar';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { formatCurrencyDecimal, formatCurrencyRounded } from '@utils/currency';
 import { getEmployeeStatus } from '@utils/employeeStatus';
 import dayjs from 'dayjs';
 import {
-    Avatar,
     Box,
     Chip,
     Paper,
@@ -159,7 +158,9 @@ const EmployeeMetricCard = ({ label, value, icon, tone, isSensitive, showSensiti
 
 // Updated EmployeeProfileCard matching your new mockup
 interface EmployeeProfileCardProps {
-    avatar: string;
+    avatar?: string | null;
+    /** Employee id: the stable colour seed for the initials tile. */
+    seed?: string;
     name: string;
     employeeCode?: string;
     /** Derived from the join/exit/rejoin timeline, not the raw is_active column. */
@@ -214,6 +215,7 @@ const ProfileMetaChip = ({
 
 const EmployeeProfileCard = ({
     avatar,
+    seed,
     name,
     employeeCode,
     hasExited,
@@ -237,26 +239,16 @@ const EmployeeProfileCard = ({
         }}
     >
         <Stack direction="row" spacing={{ xs: 1.25, md: 2 }} sx={{ mb: { xs: 0, sm: 1 } }}>
-            <Avatar
+            {/* 84px on phones, 74px from md up, as before. */}
+            <SmartAvatar
                 src={avatar}
-                alt={name}
-                sx={{
-                    // Phones: the photo spans the full height of the details beside it, so there is
-                    // no empty band under a short square. `cover` crops rather than stretching.
-                    width: { xs: 84, md: 74 },
-                    height: { xs: 'auto', md: 74 },
-                    minHeight: { xs: 84, md: 74 },
-                    alignSelf: { xs: 'stretch', md: 'flex-start' },
-                    borderRadius: '16px',
-                    boxShadow: '0 6px 12px rgba(15, 23, 42, 0.08)',
-                    backgroundColor: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    flex: '0 0 auto',
-                    '& .MuiAvatar-img': {
-                        objectFit: { xs: 'cover', md: 'fill' },
-                        objectPosition: 'top center',
-                    }
-                }}
+                name={name}
+                seed={seed}
+                size={74}
+                shape="rounded"
+                preview
+                decorative
+                className="max-md:size-[84px]"
             />
 
             <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -383,7 +375,6 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
     const toggleChange = useSelector((state: RootState) => state.attendanceStats.toggleChange);
     const employee = useSelector((state: RootState) => fromAdmin ? state.employee?.selectedEmployee : state.employee.currentEmployee);
 
-    const avatar = getAvatar(employee?.avatar || '', employee?.gender);
     let monthlySalary: number | undefined;
     let hourlySalary: number | undefined;
 
@@ -625,7 +616,8 @@ const EmployeeDetailsCard = ({ fromAdmin = false, stats, showSensitiveData, onTo
                         }}
                     >
                         <EmployeeProfileCard
-                            avatar={avatar}
+                            avatar={employee?.avatar}
+                            seed={employee?.id}
                             name={employeeName}
                             employeeCode={employee?.employeeCode}
                             hasExited={hasExited}

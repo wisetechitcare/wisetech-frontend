@@ -47,7 +47,8 @@ comment, or a green typecheck is not proof; check the thing itself.
 ## Design system v2 + Storybook MCP (branch `v2`)
 
 The target design system is **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`): the WiseTech kit as owned code on
-**Radix + Tailwind v4**, tokens as CSS variables in `src/ds/styles/globals.css`, components in `src/ds/ui`,
+**Base UI + Tailwind v4** (shadcn style `base-maia`; React Aria for date, time and number fields; Animate UI
+for primitive motion — never Radix), tokens as CSS variables in `src/ds/styles/globals.css`, components in `src/ds/ui`,
 patterns in `src/ds/patterns`. Storybook (`pnpm storybook`, port 6006) is the catalogue; its MCP server is
 registered for agents as **`wisetech-storybook`** (`http://localhost:6006/mcp`, needs Storybook running).
 
@@ -73,6 +74,12 @@ The bar for every component: **reusable, responsive, accessible, theme-aware (li
 - Severity is split across two rules on purpose: the ratchet downgrades `no-restricted-syntax` for baselined files, so the raw-`Switch` ban lives in `no-restricted-imports` where the ratchet can't reach it.
 
 Current burn-down: **0 errors, ~1375 warnings.** The warnings are the migration backlog, not noise.
+
+#### Legacy-UI guard (`wisetech/no-legacy-ui`)
+A second, separate ratchet bans the old UI stack in new code. It reports (1) runtime imports of `@mui/material|system|lab|x-*`, `@emotion/*`, `react-bootstrap` and `material-react-table` (`import type` / `{ type X }` are fine; `@mui/icons-material` stays with `no-legacy-icons`), and (2) Bootstrap/Metronic-only classes in any `className` string, including inside `cn()` / ternaries / template literals (`d-flex`, `fw-bold`, `col-lg-6`, `btn-primary`, `text-muted` ...). Each message names the Tailwind / `src/ds` replacement. The token list lives in `eslint-rules/bootstrapClasses.cjs` and only holds names Tailwind does NOT define.
+- Files that already offend are listed in `.eslint-legacy-ui-baseline.cjs` and **warn**; every other file **errors**. No directory has a permanent exemption.
+- **The list only shrinks.** After migrating a file, regenerate with `pnpm run lint:legacy-ui:baseline` (a full-`src` lint, takes minutes). Never add a path by hand.
+- `scripts/mui-free-modules.test.ts` (`MUI_FREE_ROOTS`) fails if a migrated module transitively reaches MUI again; `node scripts/legacy-ui-reach.mjs <dir>` prints the chain.
 
 ### The shared kit is the first stop
 

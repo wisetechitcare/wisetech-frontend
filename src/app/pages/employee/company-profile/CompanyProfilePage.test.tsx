@@ -161,6 +161,16 @@ describe("Company Profile page", () => {
     expect(tile.disabled).toBe(true)
   })
 
+  /**
+   * 90s, against the suite's 35s default. Measured, not guessed: this test runs in 3.3s alone and
+   * exhausts 35s under full-suite load — a >10x contention factor, because it drives ~18 full
+   * re-renders of the whole deck page in jsdom (the next heaviest test in this file is 1.1s, which
+   * survives the same contention with room to spare, so it is the only one that needs this).
+   *
+   * Given to this ONE test rather than raised in vitest.config.ts, which has already been raised
+   * twice for CPU contention: a global ceiling means every genuinely hung test anywhere in the
+   * suite takes that much longer to report.
+   */
   test("never shows more than 20 slides: the picker stops at the limit, and showing a 21st is refused", async () => {
     const user = userEvent.setup()
     render(<CompanyProfilePage />)
@@ -192,7 +202,7 @@ describe("Company Profile page", () => {
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Slide limit reached" }))
     expect(budget().textContent).toBe("20 of 20 slides selected")
     expect(screen.getByRole("button", { name: "Include Services we offer", pressed: false })).toBeTruthy()
-  })
+  }, 90_000)
 
   test("makes no network request: the deck runs on sample data", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch")

@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Tab, Tabs, Typography } from '@mui/material';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Tabs, TabsList, TabsTrigger } from '@/ds/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select';
 import dayjs, { Dayjs } from 'dayjs';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { canSection } from '@utils/can';
 import { toast, alertDialog } from '@app/modules/common/components/ui/feedback';
 import { escapeHtml } from '@app/modules/common/components/ui/safeHtml';
-import { WtButton } from '@app/modules/common/components/ui/buttons';
+import { Button } from '@/ds/ui/button';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
-import PeriodNavigator from '@app/modules/common/components/PeriodNavigator';
+import { PeriodNavigator } from '@/ds/patterns/period-navigator';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
 import { fetchReimbursementBatches, createReimbursementPayment, fetchAllEmployees, fetchReimbursementOrgPayments } from '@services/employee';
@@ -17,9 +18,9 @@ import LoadErrorState from '../../components/LoadErrorState';
 import { formatMoney } from '../../utils/reimbursementFormat';
 import {
     buildPaymentRows, filterQueueByPeriod, paymentKpis, stateBreakdown, mapOrgPayments,
-    PaymentBatchRow, PaymentState, PeriodFilter, QueueDateBasis, COMPACT_BUTTON_SX, EmployeeOrgDetail,
+    PaymentBatchRow, PaymentState, PeriodFilter, QueueDateBasis, EmployeeOrgDetail,
 } from '../../components/payment/paymentData';
-import { useOrgFilters, OrgFilterToolbar } from '@app/modules/common/components/ui/OrgFilterToolbar';
+import { useOrgFilters, OrgFilterSheetButton } from '@app/modules/common/components/ui/OrgFilterToolbar';
 import { PaymentKpiCards, PaymentStatusRail } from '../../components/payment/PaymentSummary';
 import PaymentQueueTable from '../../components/payment/PaymentQueueTable';
 import PaymentHistoryTable from '../../components/payment/PaymentHistoryTable';
@@ -47,6 +48,11 @@ import { useStoredState } from '@app/hooks/useStoredState';
  * the history tab needs no per-employee fan-out and cannot disagree with the queue about what
  * has been paid.
  */
+
+const DATE_BASIS_OPTIONS: { value: QueueDateBasis; label: string }[] = [
+    { value: 'expense', label: 'Expense Month' },
+    { value: 'submission', label: 'Submitted On' },
+];
 
 function PaymentTab() {
     // ── Permission ────────────────────────────────────────────────────────────
@@ -76,7 +82,8 @@ function PaymentTab() {
     const [tab, setTab] = useState<'queue' | 'history'>('queue');
     const [stateFilter, setStateFilter] = useStoredState<PaymentState | null>('filters:PaymentTab:stateFilter', null);
     const [orgById, setOrgById] = useState<Map<string, EmployeeOrgDetail>>(new Map());
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    // The payment run is the queue table's own selection; this clears it once the run is recorded.
+    const clearRunRef = useRef<(() => void) | null>(null);
     const [drawerRow, setDrawerRow] = useState<PaymentBatchRow | null>(null);
     const [payTarget, setPayTarget] = useState<PaymentBatchRow[]>([]);
     const [batchModalId, setBatchModalId] = useState<string | null>(null);
@@ -202,21 +209,24 @@ function PaymentTab() {
 
     const historyPayments = scopedPayments;
 
-    // Selection can outlive the rows it referred to — a period change, a filter, or a payment
-    // that settled the batch. Anything no longer payable in view drops out of the run.
-    const selectableIds = useMemo(
-        () => queueRows.filter((r) => r.remainingAmount > 0).map((r) => r.id),
-        [queueRows],
-    );
-    useEffect(() => {
-        setSelectedIds((ids) => ids.filter((id) => selectableIds.includes(id)));
-    }, [selectableIds]);
 
-    const selectedRows = useMemo(
-        () => selectedIds.map((id) => batchById.get(id)).filter(Boolean) as PaymentBatchRow[],
-        [selectedIds, batchById],
-    );
-    const selectedTotal = selectedRows.reduce((s, r) => s + r.remainingAmount, 0);
+    const payOne = useCallback((row: PaymentBatchRow) => setPayTarget([row]), []);
+    // A run from the table's selection bar; its `clear` is kept to empty the selection once the run is recorded.
+    const processRun = useCallback((rows: PaymentBatchRow[], clear: () => void) => {
+        clearRunRef.current = clear;
+        setPayTarget(rows);
+    }, []);
+    // Beside the table's search (Law of Proximity): the status rail filters the queue's rows, and the
+    // rarely-changed org filters sit behind "Filters (n)" (Filter Toolbar recipe) so the row stays one line.
+    const renderTableFilters = useCallback(() => (
+        <>
+            {tab === 'queue' && (
+                <PaymentStatusRail breakdown={breakdown} value={stateFilter} onChange={setStateFilter} />
+            )}
+            <OrgFilterSheetButton filters={filters} />
+        </>
+    ), [tab, breakdown, stateFilter, setStateFilter, filters]);
+
 
     const periodLabel = filter === 'monthly'
         ? periodDate.format('MMMM YYYY')
@@ -274,7 +284,8 @@ function PaymentTab() {
         }
 
         setPayTarget([]);
-        setSelectedIds([]);
+        clearRunRef.current?.();
+        clearRunRef.current = null;
         setRefreshKey((k) => k + 1);
 
         if (succeeded > 0 && !failures.length) {
@@ -307,58 +318,21 @@ function PaymentTab() {
     }
 
     return (
-        <Box>
+        <div>
             {/*
-              * One toolbar at the top, not stacked bands. The Queue/History tabs, the status rail
-              * and the period all narrow what is below — the period governs the KPIs, the rail and
-              * both tabs — so they share one line above everything they affect. The period used to
-              * sit on a row of its own with the KPIs between it and the rest of the controls.
+              * ONE header row: what you are looking at (Queue / History) on the left, the period that governs
+              * the KPIs and the list on the right. Filters that narrow the LIST sit with the list (the table's
+              * filter row), not up here.
               */}
-            <Box sx={{
-                display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
-                mb: 2.5, pb: 1,
-                borderBottom: '1px solid', borderColor: 'divider',
-            }}>
-                <Tabs
-                    value={tab}
-                    onChange={(_, v) => setTab(v)}
-                    sx={{
-                        minHeight: 34,
-                        '& .MuiTabs-indicator': { height: 2 },
-                        '& .MuiTab-root': { minHeight: 34, py: 0, px: 1.5, textTransform: 'none', fontSize: 13, fontWeight: 700 },
-                    }}
-                >
-                    <Tab value="queue" label={`Queue (${queueRows.length})`} />
-                    <Tab value="history" label={`History (${historyPayments.length})`} />
+            <div className="mb-4 flex flex-wrap items-center gap-3 border-b border-border pb-3">
+                <Tabs value={tab} onValueChange={(v) => setTab(v as 'queue' | 'history')}>
+                    <TabsList aria-label="Payment view">
+                        <TabsTrigger value="queue">Queue ({queueRows.length})</TabsTrigger>
+                        <TabsTrigger value="history">History ({historyPayments.length})</TabsTrigger>
+                    </TabsList>
                 </Tabs>
 
-                {/* The status rail filters the LIST, so it sits with the tabs on the left, behind a
-                    divider. Beside the period tabs the two segmented controls read as one. */}
-                {tab === 'queue' && (
-                    <>
-                        <Box sx={{ width: '1px', height: 24, bgcolor: 'divider', mx: 0.5 }} />
-                        <PaymentStatusRail
-                            breakdown={breakdown}
-                            value={stateFilter}
-                            onChange={setStateFilter}
-                        />
-                    </>
-                )}
-
-                {/* The period governs the whole page (KPIs + list), so it stands apart on the right. */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', ml: 'auto' }}>
-                    {/* History is always by payment date, so the basis only means something on the queue. */}
-                    {tab === 'queue' && filter !== 'allTime' && (
-                        <PeriodTabs
-                            value={dateBasis}
-                            options={[
-                                { label: 'Expense month', value: 'expense' },
-                                { label: 'Submitted on', value: 'submission' },
-                            ]}
-                            onChange={(v) => setDateBasis(v as QueueDateBasis)}
-                            ariaLabel="date the queue is grouped by"
-                        />
-                    )}
+                <div className="ml-auto flex flex-wrap items-center gap-2">
                     <PeriodTabs
                         value={filter}
                         options={[
@@ -367,65 +341,58 @@ function PaymentTab() {
                             { label: 'All Time', value: 'allTime' },
                         ]}
                         onChange={(v) => handlePeriodChange(v as PeriodFilter)}
-                        ariaLabel="payment period"
+                        ariaLabel="Payment period"
                     />
                     {filter !== 'allTime' && (
                         <PeriodNavigator
                             label={filter === 'monthly' ? periodDate.format('MMM YYYY') : (fiscalLabel || periodDate.format('YYYY'))}
                             onPrevious={() => navigate(-1)}
                             onNext={() => navigate(1)}
+                            unit={filter === 'yearly' ? 'year' : 'month'}
                             pickGranularity={filter === 'yearly' ? 'year' : 'month'}
                             pickValue={periodDate.startOf(filter === 'yearly' ? 'year' : 'month').format('YYYY-MM-DD')}
-                            onPickDate={(v) => setPeriodDate(dayjs(v).startOf(filter === 'yearly' ? 'year' : 'month'))}
+                            onPick={(v) => setPeriodDate(dayjs(v).startOf(filter === 'yearly' ? 'year' : 'month'))}
                         />
                     )}
-                </Box>
-            </Box>
+                    {/* Which date the period reads — a different KIND of choice from the period, so a labelled
+                        Select, not a second identical tab bar. History is always by payment date. */}
+                    {tab === 'queue' && filter !== 'allTime' && (
+                        <Select
+                            items={DATE_BASIS_OPTIONS}
+                            value={dateBasis}
+                            onValueChange={(v) => setDateBasis(v as QueueDateBasis)}
+                        >
+                            <SelectTrigger aria-label="Date the queue is grouped by" className="w-52">
+                                <span className="text-muted-foreground">Date:</span>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {DATE_BASIS_OPTIONS.map((o) => (
+                                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </div>
+            </div>
 
-            <Box sx={{ mb: 2 }}>
+            <div className="mb-4">
                 <PaymentKpiCards kpis={kpis} loading={loading} />
-            </Box>
+            </div>
 
             {tab === 'queue' ? (
                 <>
-                    {/* The run bar appears only when a run is actually selected — a permanently
-                        disabled "Process payment" button teaches people to ignore it. */}
-                    {canPay && selectedRows.length > 0 && (
-                        <Box sx={{
-                            display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap',
-                            px: 1.75, py: 0.75, mb: 1.25, borderRadius: '8px',
-                            border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover',
-                        }}>
-                            <Typography sx={{ fontSize: 12.5, fontWeight: 700, flex: '1 1 auto' }}>
-                                {selectedRows.length} batch{selectedRows.length === 1 ? '' : 'es'} selected ·{' '}
-                                <Box component="span" sx={{ color: '#1E3A8A', fontVariantNumeric: 'tabular-nums' }}>
-                                    {formatMoney(selectedTotal)}
-                                </Box>
-                            </Typography>
-                            <WtButton ghost size="small" sx={COMPACT_BUTTON_SX} onClick={() => setSelectedIds([])}>
-                                Clear
-                            </WtButton>
-                            <WtButton size="small" sx={COMPACT_BUTTON_SX} onClick={() => setPayTarget(selectedRows)}>
-                                Process payment
-                            </WtButton>
-                        </Box>
-                    )}
-
                     <PaymentQueueTable
                         rows={queueRows}
                         loading={loading}
                         canPay={canPay}
-                        selectedIds={selectedIds}
-                        onToggleSelect={(id) =>
-                            setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))}
-                        onToggleSelectAll={() =>
-                            setSelectedIds((ids) => (ids.length === selectableIds.length ? [] : selectableIds))}
-                        onPay={(row) => setPayTarget([row])}
+                        onProcessRun={processRun}
+                        onPay={payOne}
                         onView={setDrawerRow}
                         periodLabel={periodLabel}
                         filtered={activeFilterCount > 0}
                         onClearFilters={clearFilters}
-                        renderFilters={() => <OrgFilterToolbar filters={filters} />}
+                        renderFilters={renderTableFilters}
                     />
                 </>
             ) : (
@@ -437,7 +404,7 @@ function PaymentTab() {
                     filtered={filters.activeCount > 0}
                     onClearFilters={clearFilters}
                     onView={setDrawerRow}
-                    renderFilters={() => <OrgFilterToolbar filters={filters} />}
+                    renderFilters={renderTableFilters}
                 />
             )}
 
@@ -463,7 +430,7 @@ function PaymentTab() {
                 approvalInstanceId={batchModalInstanceId}
                 filterStatus={null}
             />
-        </Box>
+        </div>
     );
 }
 

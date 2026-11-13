@@ -4,7 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || "";
 const base = (companyId: string) => `${API_BASE_URL}/api/lead-project-companies/client-companies/${companyId}/catalogues`;
 
 /** Keep in sync with CATALOGUE_MAX_MB in the backend's utils/catalogueValidation.ts. */
-export const CATALOGUE_MAX_MB = 25;
+export const CATALOGUE_MAX_MB = 100;
 
 /** What the picker accepts: PDFs, plus JPG/PNG/WebP images. The server re-checks every file from its bytes. */
 export const CATALOGUE_ACCEPT = {

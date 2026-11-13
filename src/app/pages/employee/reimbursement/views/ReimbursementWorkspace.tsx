@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
 import { useDispatch } from 'react-redux';
-import { useMediaQuery } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
+import { useIsMobile } from '@/ds/hooks/use-mobile';
+import { FileDown, Loader2 } from 'lucide-react';
 import {
   fetchEmpAlltimeReimbursements,
   fetchEmpMonthlyReimbursements,
@@ -19,13 +19,13 @@ import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { usePersistedState } from '@app/modules/common/hooks/usePersistedState';
 import ReimbursementPeriodBar, { PeriodAlignment } from '../components/ReimbursementPeriodBar';
-import { TOOLBAR_ROW, lightToolbarButton } from '../utils/toolbarButton';
-import { WtButton } from '@app/modules/common/components/ui';
+import { TOOLBAR_ROW } from '../utils/toolbarButton';
+import { Button } from '@/ds/ui/button';
 import ReimbursementCharts from '../components/ReimbursementCharts';
 import NeedsYourAttention from '../components/NeedsYourAttention';
 import ReimbursementPaymentHistoryTable from '../components/ReimbursementPaymentHistoryTable';
 import SubmissionsTable from './SubmissionsTable';
-import SensitiveDataProvider from '@app/modules/common/components/SensitiveData';
+import { SensitiveProvider } from '@/ds/patterns/sensitive';
 import { StatusNum } from '../utils/reimbursementFormat';
 import { ReimbursementSummary, summariseReimbursements } from '../utils/reimbursementSummary';
 
@@ -59,6 +59,8 @@ export interface ReimbursementWorkspaceProps {
     periodBar: React.ReactNode;
     // Phase 1: Current month/year for constraining batch forms
     currentPeriod?: any; // Dayjs object, only set when viewing monthly
+    /** Switch the page to a month — so a note about another month's drafts can take you there. */
+    goToMonth: (month: Dayjs) => void;
   }) => React.ReactNode;
   /** Extra buttons for the period bar, beside "Download Reimbursement Slip". */
   extraActions?: React.ReactNode;
@@ -69,8 +71,9 @@ export interface ReimbursementWorkspaceProps {
 }
 
 /**
- * The reimbursement screen: one period, KPI totals, charts, and the three tables that read the
- * same window on three different date axes (expense, submission, payment).
+ * The reimbursement screen: one period, KPI totals, charts, and three tables. The period is the EXPENSE month for
+ * drafts, KPIs, charts and submission batches (a batch holds one expense month); Payment History alone reads the
+ * PAYMENT date — the record of money received.
  *
  * Both the employee's own screen and the admin's Search Employee tab render this. They used to
  * be two copies that had already drifted — only one had charts and submission batches, and their
@@ -88,7 +91,8 @@ export default function ReimbursementWorkspace({
   checkOwnWithOthers = false,
 }: ReimbursementWorkspaceProps) {
   const dispatch = useDispatch();
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  // The exact legacy query; correct on first paint, so the charts never flash on a phone.
+  const isMobile = useIsMobile('(max-width: 768px)');
 
   // One period for the whole screen. The mode survives a refresh; the anchor resets to today.
   const [alignment, setAlignment] = usePersistedState<PeriodAlignment>(
@@ -218,19 +222,12 @@ export default function ReimbursementWorkspace({
               rows is empty for the same reason. handleDownloadBill keeps its own guard —
               this removes the dead end, it does not replace the check. */}
           {rows.length > 0 && (
-            <WtButton variant="text"
-              onClick={handleDownloadBill}
-              disabled={downloadingBill}
-              title="Download Reimbursement Slip"
-              startIcon={
-                downloadingBill
-                  ? <span className="spinner-border spinner-border-sm" style={{ width: '1rem', height: '1rem', borderWidth: '0.15em' }} />
-                  : <KTIcon iconName="file-down" className="fs-3" />
-              }
-              sx={lightToolbarButton('danger', downloadingBill)}
-            >
+            <Button size="sm" variant="outline" onClick={handleDownloadBill} disabled={downloadingBill}>
+              {downloadingBill
+                ? <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden />
+                : <FileDown data-icon="inline-start" aria-hidden />}
               {downloadingBill ? 'Generating...' : 'Download Reimbursement Slip'}
-            </WtButton>
+            </Button>
           )}
         </div>
       }
@@ -240,13 +237,14 @@ export default function ReimbursementWorkspace({
   return (
     // One provider for the whole screen: the eye in the header governs every figure below it,
     // including the ones five components deep in a table cell.
-    <SensitiveDataProvider>
+    <SensitiveProvider>
       {renderHeader({
         summary,
         loading,
         periodBar,
         // Phase 1: Pass current month for batch period awareness in forms
         currentPeriod: alignment === 'monthly' ? periodDate : undefined,
+        goToMonth: (month) => handlePeriodChange('monthly', month.startOf('month')),
       })}
 
       {employeeId && (
@@ -285,12 +283,13 @@ export default function ReimbursementWorkspace({
             />
           )}
 
-          {/* Three tables, three date axes — expense, submission, payment. The subtitles say
-              which, which is what stops "why is my June expense under July?". Both take the
-              chart filters, so a donut slice or a category narrows what you scroll to. */}
+          {/* Batches are filtered by their EXPENSE month (SubmissionsTable: "filter by expense period"), like the
+              drafts and KPIs above; Payment History reads the payment date. The subtitles say which — the old one
+              here claimed "by submission date", which was never what the table did. Both take the chart filters,
+              so a donut slice or a category narrows what you scroll to. */}
           <SubmissionsTable
             title="Submission Batches"
-            subtitle={<>What was <strong>submitted</strong> in {periodLabel} — by submission date, whole batch.</>}
+            subtitle={<>Batches for expenses in <strong>{periodLabel}</strong> — by expense month, whole batch.</>}
             mode="submission"
             period={alignment}
             date={periodDate}
@@ -314,6 +313,6 @@ export default function ReimbursementWorkspace({
           />
         </>
       )}
-    </SensitiveDataProvider>
+    </SensitiveProvider>
   );
 }

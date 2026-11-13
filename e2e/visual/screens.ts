@@ -9,7 +9,14 @@ export type ScreenState = {
   prepare?: (page: Page) => Promise<void>
 }
 
-export type Screen = { id: string; name: string; path: string; states: ScreenState[] }
+export type Screen = {
+  id: string
+  name: string
+  path: string
+  states: ScreenState[]
+  /** Capture the whole scrolling page, not just the viewport — for screens whose content runs below the fold. */
+  fullPage?: boolean
+}
 
 const loaded: ScreenState = { id: "loaded", name: "loaded" }
 
@@ -17,6 +24,11 @@ const loaded: ScreenState = { id: "loaded", name: "loaded" }
 const openDialog = (button: RegExp) => async (page: Page) => {
   await page.getByRole("button", { name: button }).first().click()
   await page.getByRole("dialog").last().waitFor({ state: "visible" })
+}
+
+/** Selects a tab or segmented-control option by its label. Read-only: it only changes what is shown. */
+const clickTab = (label: RegExp) => async (page: Page) => {
+  await page.getByRole("tab", { name: label }).or(page.getByRole("button", { name: label })).first().click()
 }
 
 /**
@@ -67,4 +79,43 @@ export const SCREENS: Screen[] = [
     states: [loaded, { id: "new", name: "new branch", prepare: openDialog(/new branch/i) }],
   },
   { id: "appearance", name: "Settings / Appearance", path: "/admin/app-settings?area=appearance", states: [loaded] },
+  { id: "meetings", name: "Meetings overview", path: "/employees/meetings", states: [loaded] },
+  // A project is a record in YOUR database, so its id comes from the environment, never this file.
+  ...(process.env.VISUAL_PROJECT_ID
+    ? [{
+        id: "project-gallery",
+        name: "Project gallery",
+        path: `/project/${process.env.VISUAL_PROJECT_ID}?tab=gallery`,
+        states: [loaded],
+      }]
+    : []),
+  {
+    id: "reimb-mine",
+    name: "Reimbursement / My Reimbursements",
+    path: "/finance/reimbursements/my-reimbursements",
+    fullPage: true,
+    states: [loaded, { id: "all-time", name: "all time", prepare: clickTab(/^all time$/i) }],
+  },
+  {
+    // Same workspace as My Reimbursements, for the employee picked above it (you, until changed).
+    id: "reimb-search",
+    name: "Reimbursement / Search Employee",
+    path: "/finance/reimbursements/search-employee",
+    fullPage: true,
+    states: [loaded, { id: "all-time", name: "all time", prepare: clickTab(/^all time$/i) }],
+  },
+  {
+    id: "reimb-payment",
+    name: "Reimbursement / Payment",
+    path: "/finance/reimbursements/payment",
+    states: [
+      loaded,
+      // The month the page opens on is often empty; All Time is what puts rows in the table.
+      { id: "all-time", name: "queue, all time", prepare: clickTab(/^all time$/i) },
+      { id: "history", name: "history, all time", prepare: async (page) => {
+        await clickTab(/^all time$/i)(page)
+        await clickTab(/^history/i)(page)
+      } },
+    ],
+  },
 ]

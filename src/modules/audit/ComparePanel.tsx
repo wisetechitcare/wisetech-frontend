@@ -3,14 +3,18 @@ import { C, FONT, RADIUS } from '@/app/modules/configuration/ConfigDesignSystem'
 import { AuditEntityType } from './audit.service';
 import { DiffViewer, DiffMode } from './DiffViewer';
 import { useAuditDiff, useAuditTimeline } from './hooks';
-import { actorKind, displayActor, humanizeSummary, initials } from './tokens';
+import { actorKind, displayActor, humanizeSummary } from './tokens';
 import { fromNow } from './time';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 export interface RevisionMeta {
   rev: number;
   actorName: string;
+  /** The actor's photo URL and employee id (the initials colour seed). */
+  actorAvatar?: string | null;
+  actorId?: string | null;
   isSystem: boolean;
   changedAt?: string | null;
   summary?: string;
@@ -38,8 +42,9 @@ const ORIGINAL: RevisionMeta = {
 };
 
 /* ─── Avatar ──────────────────────────────────────────────────────────────── */
+// A person gets the one SmartAvatar; the system actor keeps its gear tile (it is not a person).
 const Avatar: React.FC<{ meta: RevisionMeta; size?: number }> = ({ meta, size = 30 }) => (
-  <div
+  !meta.isSystem ? <SmartAvatar name={meta.actorName} src={meta.actorAvatar} seed={meta.actorId} size={size} decorative /> : <div
     style={{
       width: size,
       height: size,
@@ -57,11 +62,7 @@ const Avatar: React.FC<{ meta: RevisionMeta; size?: number }> = ({ meta, size = 
     }}
     aria-hidden
   >
-    {meta.isSystem ? (
-      <AppIcon name="bi-gear-fill" style={{ fontSize: size * 0.42 }} />
-    ) : (
-      initials(meta.actorName.split(' ')[0], meta.actorName.split(' ')[1])
-    )}
+    <AppIcon name="bi-gear-fill" style={{ fontSize: size * 0.42 }} />
   </div>
 );
 
@@ -228,6 +229,8 @@ export const ComparePanel: React.FC<Props> = ({ type, id, from, to, onApply, onR
       m.set(cs.revisionNumber, {
         rev: cs.revisionNumber,
         actorName: displayActor(cs.changedByFirstName, cs.changedByLastName),
+        actorAvatar: cs.changedByAvatar ?? null,
+        actorId: cs.changedByEmployeeId,
         isSystem:
           actorKind({
             first: cs.changedByFirstName,

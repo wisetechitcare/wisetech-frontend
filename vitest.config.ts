@@ -36,6 +36,13 @@ export default mergeConfig(viteConfig, defineConfig({
          * stopgap — a genuinely hung test still fails, it just takes 35s to say so.
          */
         testTimeout: 35_000,
+        /**
+         * The OTHER clock. `testTimeout` above bounds the whole test; Testing Library's
+         * `asyncUtilTimeout` bounds each `findBy*` / `waitFor` and defaults to 1000ms, which is
+         * below the ~2.5s first render measured above — that mismatch, not cross-file pollution,
+         * is what made this suite fail on a different file each run. See src/test-setup.ts.
+         */
+        setupFiles: ['src/test-setup.ts'],
         exclude: [...defaultExclude, '**/dist/**', '**/.task-tests/**',
         // Playwright's visual suite (pnpm visual:*), not vitest.
         'e2e/**',

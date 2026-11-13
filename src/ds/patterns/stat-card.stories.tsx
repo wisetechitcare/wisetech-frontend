@@ -45,6 +45,36 @@ export const WithSparkline: Story = {
   },
 }
 
+/** Default (compact): a plain hint sits directly under the value, with no separate footer row. */
+export const CompactHint: Story = {
+  args: { label: 'Pending payment', value: '₹23,905.50', hint: '14 batches', tone: 'warning' },
+  play: async ({ canvasElement, canvas }) => {
+    await expect(canvas.getByText('14 batches')).toBeInTheDocument()
+    await expect(canvasElement.querySelector('[data-slot="card-footer"]')).toBeNull()
+  },
+}
+
+/** `size="comfortable"`: the roomy tile for a hero number — 3xl value, hint on its own footer row. */
+export const Comfortable: Story = {
+  args: { size: 'comfortable', label: 'Pending payment', value: '₹23,905.50', hint: '14 batches', tone: 'warning' },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelector('[data-slot="card-footer"]')).not.toBeNull()
+  },
+}
+
+/** Four compact cards two-up, as on a phone. */
+export const CompactPhoneRow: Story = {
+  decorators: [(Story) => <div className="w-[358px]"><Story /></div>],
+  render: () => (
+    <div className="grid grid-cols-2 gap-3">
+      <StatCard label="Pending payment" value="₹23,905.50" hint="14 batches" tone="warning" icon={<Briefcase aria-hidden />} />
+      <StatCard label="Total paid" value="₹87,131.00" hint="0% settled" tone="success" icon={<CalendarCheck aria-hidden />} />
+      <StatCard label="Pending requests" value="124" hint="awaiting payment" tone="info" icon={<FolderKanban aria-hidden />} />
+      <StatCard label="Employees awaiting" value="8" hint="to be paid" tone="brand" icon={<Users aria-hidden />} />
+    </div>
+  ),
+}
+
 /** A dashboard KPI row: one tone per card, trend colour stays semantic. */
 export const KpiRow: Story = {
   decorators: [(Story) => <div className="w-[min(1400px,calc(100vw-2rem))]"><Story /></div>],
@@ -57,7 +87,23 @@ export const KpiRow: Story = {
     </div>
   ),
   play: async ({ canvas }) => {
-    await expect(canvas.getByText('Open leads')).toBeInTheDocument()
+    await expect(canvas.getByText('Open Leads')).toBeInTheDocument()
     await expect(canvas.getByText('21.77%')).toBeInTheDocument()
+  },
+}
+
+/** Compact tiles (`size="sm"`) for dense rows — the live kit's StatTile. Category hues tell the figures apart. */
+export const CompactTiles: Story = {
+  decorators: [(Story) => <div className="w-[min(1100px,calc(100vw-2rem))]"><Story /></div>],
+  render: () => (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <StatCard size="sm" label="Present" value="212" tone="green" icon={<Users aria-hidden />} />
+      <StatCard size="sm" label="On leave" value="13" tone="blue" icon={<CalendarCheck aria-hidden />} />
+      <StatCard size="sm" label="Open roles" value="9" tone="purple" icon={<Briefcase aria-hidden />} />
+      <StatCard size="sm" label="Overdue approvals" value="5" tone="danger" icon={<FolderKanban aria-hidden />} trend={{ direction: 'up', value: '2', good: false }} />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('Overdue Approvals')).toBeInTheDocument()
   },
 }

@@ -27,6 +27,7 @@ import { CircularProgress } from '@mui/material';
 import { formatTime } from '@utils/dateFormats';
 import { currencyPrefix } from '@utils/currency';
 import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 // A single leave segment within a multi-segment (sandwich) group request — one LeaveTracker row.
 type LeaveSegment = {
@@ -86,6 +87,8 @@ type ApprovalStep = {
       // own branch/DOJ.
       branchId?: string;
       dateOfJoining?: string | Date | null;
+      /** Profile photo. Not in APPROVAL_EMPLOYEE_SELECT yet, so the avatar shows initials until it is. */
+      avatar?: string | null;
       users: { firstName: string; lastName: string };
     };
   };
@@ -575,14 +578,11 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       header: 'Requested By',
       size: 200,
       Cell: ({ row }) => {
-        const { firstName, lastName } = row.original.instance.employee.users;
+        const { employee } = row.original.instance;
+        const { firstName, lastName } = employee.users;
         return (
           <div className='d-flex align-items-center gap-3'>
-            <div className='symbol symbol-35px'>
-              <span className='symbol-label bg-light-primary text-primary fw-bold fs-6'>
-                {firstName[0]}{lastName[0]}
-              </span>
-            </div>
+            <SmartAvatar src={employee.avatar} name={`${firstName} ${lastName}`} seed={employee.id} size={35} decorative />
             <span className='text-dark fw-semibold fs-6'>{firstName} {lastName}</span>
           </div>
         );

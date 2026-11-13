@@ -10,6 +10,8 @@ Each screen also gets a report-only axe audit.
 ## Use
 
 1. Start the backend and the frontend (`pnpm dev`, port 5173; another URL: set `VISUAL_BASE_URL`).
+   Screens that need a record of yours read its id from the environment and are skipped without it:
+   `VISUAL_PROJECT_ID` (a project with gallery media) for **Project gallery**.
 2. `pnpm visual:login` — sign in once in the window that opens. Repeat when the session expires.
 3. On the code **before** your change: `pnpm visual:baseline`
 4. Make the change, then `pnpm visual:check` — any pixel difference fails.

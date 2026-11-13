@@ -133,3 +133,28 @@ export const initials = (name: string) =>
     .map((p) => p[0])
     .slice(0, 2)
     .join("");
+
+/** Apply Leave demo data: balances in "paid first" order, the leave calendar's days off, the approver. */
+export const LEAVE_BALANCES = [
+  { id: "casual", label: "Casual Leave", balance: 2, tone: "blue" },
+  { id: "annual", label: "Annual Leave", balance: 1, tone: "green" },
+  { id: "sick", label: "Sick Leave", balance: 0, tone: "purple" },
+  { id: "floater", label: "Floater Leave", balance: 0, tone: "cyan" },
+] as const;
+
+export const LEAVE_HOLIDAYS = new Map([
+  ["2026-11-09", "Holiday"],
+  ["2026-11-10", "Holiday"],
+  ["2026-11-11", "Holiday"],
+  ["2026-12-25", "Christmas"],
+]);
+
+export const LEAVE_TEAM_OFF = new Map([
+  ["2026-11-12", "Team Off · Diya Nair"],
+  ["2026-11-27", "Team Off · Rohan Mehta"],
+]);
+
+export const LEAVE_APPROVER = { name: "Neha Iyer", role: "Reporting Manager" };
+
+/** Gross salary ÷ working days — what one unpaid day costs (demo figure). */
+export const LEAVE_DAILY_RATE = 2450;

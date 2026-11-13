@@ -1192,6 +1192,8 @@ export interface ApprovalChainLevel {
     isActive: boolean;
     approverName?: string;
     approverRole?: string;
+    /** The approver's own photo URL (null = none; SmartAvatar shows initials). */
+    approverAvatar?: string | null;
 }
 
 /**
@@ -1790,8 +1792,34 @@ export const deletePendingReimbursementDraft = async (id: string) => {
     return data;
 };
 
-export const submitReimbursementBatch = async (employeeId: string) => {
-    const { data } = await axios.post(`${API_BASE_URL}/${EMPLOYEE.SUBMIT_REIMBURSEMENT_BATCH}`, { employeeId });
+/**
+ * Deletes several drafts in ONE request (the inbox's "Delete selected") — one auth check per owner and one
+ * delete on the server, instead of N round trips. Resolves to how many were deleted and how many were gone.
+ */
+export const deletePendingReimbursementDrafts = async (ids: string[]) => {
+    const { data } = await axios.post(`${API_BASE_URL}/${EMPLOYEE.DELETE_PENDING_DRAFTS}`, { ids });
+    return data as { data?: { deleted: number; notFound: number; ids: string[] } };
+};
+
+export interface SubmittedReimbursementBatch {
+    batchId: string;
+    submissionId: string;
+    approvalInstanceId: string;
+    totalRequests: number;
+    totalAmount: string;
+    /** Expense month the batch holds, `YYYY-MM`. */
+    month: string;
+}
+
+/**
+ * Send drafts for approval — one batch per expense month. `month` (`YYYY-MM`) sends only that month's drafts;
+ * omitted, every draft. `data.batches` lists each batch created (older servers return only the first, top-level).
+ */
+export const submitReimbursementBatch = async (
+    employeeId: string,
+    month?: string,
+): Promise<{ data?: { batches?: SubmittedReimbursementBatch[]; batchId?: string; submissionId?: string; approvalInstanceId?: string } }> => {
+    const { data } = await axios.post(`${API_BASE_URL}/${EMPLOYEE.SUBMIT_REIMBURSEMENT_BATCH}`, { employeeId, ...(month ? { month } : {}) });
     return data;
 };
 

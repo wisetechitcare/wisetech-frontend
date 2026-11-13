@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority"
+import { titleCaseChildren } from "@/ds/lib/text"
 import { cn } from "cn"
 
 function Empty({ className, ...props }: React.ComponentProps<"div">) {
@@ -54,7 +55,7 @@ function EmptyMedia({
   )
 }
 
-function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
+function EmptyTitle({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="empty-title"
@@ -63,6 +64,7 @@ function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
         className
       )}
       {...props}
+      children={titleCaseChildren(children)}
     />
   )
 }

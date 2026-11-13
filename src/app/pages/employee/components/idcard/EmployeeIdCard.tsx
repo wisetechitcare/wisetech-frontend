@@ -2,6 +2,7 @@ import { forwardRef, useId, useMemo } from "react";
 import type { EmployeeIdCardPayload } from "@services/employee";
 import { formatDate } from "@utils/dateFormats";
 import { formatBloodGroup, formatPhoneWithCode } from "@utils/employeeFormat";
+import { avatarInitials } from "@/ds/ui/smart-avatar";
 
 /**
  * The printed employee identity card, drawn as a single SVG at CR80 proportions
@@ -154,13 +155,6 @@ const fitLogoRect = (
   const width = intrinsicWidth * scale;
   const height = intrinsicHeight * scale;
   return { x: LOGO.x, y: LOGO.y + (LOGO.h - height) / 2, width, height };
-};
-
-const initialsOf = (name: string): string => {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return "?";
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
 };
 
 /* ── Icons ────────────────────────────────────────────────────────────────────
@@ -357,7 +351,7 @@ const EmployeeIdCard = forwardRef<SVGSVGElement, EmployeeIdCardProps>(function E
               fill="#FFFFFF"
               opacity="0.92"
             >
-              {initialsOf(employee.fullName)}
+              {avatarInitials(employee.fullName)}
             </text>
           </>
         )}

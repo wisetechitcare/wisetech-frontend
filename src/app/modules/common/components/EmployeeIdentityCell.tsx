@@ -1,11 +1,10 @@
 import React from "react";
-import { Avatar, Box, Tooltip, Typography } from "@mui/material";
+import { Box, Tooltip, Typography } from "@mui/material";
+import { SmartAvatar, avatarInitials } from "@/ds/ui/smart-avatar";
 
 /**
- * Premium, reusable employee identity cell — an initials (or photo) avatar with
- * the employee's name and a subtle code chip. Deterministic avatar tint per
- * employee (stable across renders) gives the roster a scannable, professional
- * feel without a hardcoded color per row.
+ * Premium, reusable employee identity cell — the kit SmartAvatar (photo, else
+ * initials on a stable gradient) with the employee's name and a subtle code chip.
  *
  * Drop-in for any table/list that shows an employee: attendance, leave, salary,
  * approvals. Presentational only — no data fetching.
@@ -37,33 +36,8 @@ export interface EmployeeIdentityCellProps {
   fluid?: boolean;
 }
 
-// Brand-adjacent, accessible tint palette (soft bg + readable fg). Chosen to sit
-// calmly next to the app's #1E3A8A brand rather than compete with status colors.
-const AVATAR_TINTS: Array<{ bg: string; fg: string }> = [
-  { bg: "#E9EEF8", fg: "#1E3A8A" }, // brand blue
-  { bg: "#EBF4EF", fg: "#2F7D5F" }, // green
-  { bg: "#EDEEF6", fg: "#46499B" }, // indigo
-  { bg: "#E9F2F4", fg: "#2C7385" }, // cyan
-  { bg: "#FAF1E3", fg: "#A66A2A" }, // amber
-  { bg: "#F6ECF4", fg: "#8A3D77" }, // plum
-  { bg: "#EEF1F4", fg: "#5A6573" }, // neutral
-];
-
-/** Stable index from a string so the same employee always gets the same tint. */
-function tintFor(seed: string): { bg: string; fg: string } {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
-  return AVATAR_TINTS[Math.abs(hash) % AVATAR_TINTS.length];
-}
-
-/** "Aabid Patel" -> "AP". Exported so card/tile layouts render the same fallback
- *  avatar as the table cell instead of re-deriving it. */
-export function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+/** "Aabid Patel" -> "AP". The kit's one initials rule, re-exported for existing importers. */
+export const initialsOf = avatarInitials;
 
 const EmployeeIdentityCell: React.FC<EmployeeIdentityCellProps> = ({
   name,
@@ -75,7 +49,6 @@ const EmployeeIdentityCell: React.FC<EmployeeIdentityCellProps> = ({
   status = null,
 }) => {
   const safeName = (name || "").trim() || "Unknown";
-  const tint = tintFor(code || safeName);
   const size = dense ? 30 : 36;
   // Fixed caps stop a table cell stretching; in a card the container already
   // bounds the width, so capping there truncates names that would have fit.
@@ -115,46 +88,15 @@ const EmployeeIdentityCell: React.FC<EmployeeIdentityCellProps> = ({
         ...(fluid && { width: "100%" }),
       }}
     >
-      <Box sx={{ position: "relative", flexShrink: 0, display: "inline-flex" }}>
-        <Avatar
-          src={avatarUrl || undefined}
-          alt={safeName}
-          sx={{
-            width: size,
-            height: size,
-            flexShrink: 0,
-            bgcolor: tint.bg,
-            color: tint.fg,
-            fontSize: dense ? "0.72rem" : "0.8rem",
-            fontWeight: 700,
-            letterSpacing: "0.02em",
-            border: "1px solid rgba(16,24,40,0.06)",
-          }}
-        >
-          {initialsOf(safeName)}
-        </Avatar>
-        {status && (
-          <Box
-            component="span"
-            role="img"
-            aria-label={status === "active" ? "Active" : "Inactive"}
-            title={status === "active" ? "Active" : "Inactive"}
-            sx={{
-              position: "absolute",
-              right: -1,
-              bottom: -1,
-              width: dense ? 8 : 10,
-              height: dense ? 8 : 10,
-              borderRadius: "50%",
-              // Border is the paper colour so the dot reads as cut out of the
-              // avatar in BOTH themes — a hardcoded #fff ring goes wrong in dark.
-              border: 2,
-              borderColor: "background.paper",
-              bgcolor: status === "active" ? "success.main" : "text.disabled",
-            }}
-          />
-        )}
-      </Box>
+      {/* The name is written beside it, so the avatar is decorative unless it carries a status to announce. */}
+      <SmartAvatar
+        name={safeName}
+        seed={code || safeName}
+        src={avatarUrl}
+        size={size}
+        status={status}
+        decorative={!status}
+      />
 
       <Box sx={{ minWidth: 0, lineHeight: 1.3, ...(fluid && { flex: 1 }) }}>
         {/* Name row — the code rides alongside it when a subtitle owns line 2,

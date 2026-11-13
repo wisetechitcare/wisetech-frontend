@@ -256,3 +256,17 @@ export const to24 = (h12: string, meridiem: string): string => {
 
 /** The dayjs tokens for the current user's format. */
 export const getTimeTokens = () => TIME_TOKENS[getTimeFormat()];
+
+/**
+ * Minutes since midnight for a 12-hour clock string such as `"01:15 PM"`.
+ *
+ * Distinct from `timeToMinutes` in `@utils/date`, which parses 24-hour `HH:mm`.
+ * The two are intentionally NOT merged: this one needs the AM/PM suffix.
+ */
+export const timeToMinutes12h = (timeStr: string): number => {
+  const [time, period] = timeStr.split(' ');
+  let [hours, minutes] = time.split(':').map(Number);
+  if (period === 'PM' && hours !== 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+};

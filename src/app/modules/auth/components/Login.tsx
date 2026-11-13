@@ -22,7 +22,6 @@ import { fetchCompanyLogo } from "@services/company";
 import { saveCurrentEmployee } from "@redux/slices/employee";
 import { redirect, saveCurrentUser, saveToken } from "@redux/slices/auth";
 import { RootState } from "@redux/store";
-import { getAvatar } from "@utils/avatar";
 import { setAuth } from "../core/AuthHelpers";
 import { toAbsoluteUrl, KTIcon } from "@metronic/helpers";
 import { makeTokens } from "@app/theme/tokens";
@@ -93,8 +92,8 @@ function LoginForm() {
             currUserRes.user.id
           );
           const { employee } = currEmpRes;
-          const avatar = getAvatar(employee.avatar, employee.gender);
-          dispatch(saveCurrentEmployee({ ...employee, avatar }));
+          // The real photo only; no photo renders initials (SmartAvatar), never a gender cartoon.
+          dispatch(saveCurrentEmployee({ ...employee, avatar: employee.avatar || "" }));
         }
         dispatch(redirect(true));
         localStorage.setItem("redirectToDashboard", "true");

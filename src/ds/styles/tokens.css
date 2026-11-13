@@ -54,6 +54,35 @@
   --info-soft: oklch(0.965 0.025 235);
   --info-foreground: oklch(0.43 0.1 240);
 
+  /* ── Category hues ───────────────────────────────────────────────────
+   * Identity colour for things that differ but are not good or bad: leave types, departments,
+   * modules, icon tiles. Same triple as the status set (solid / soft fill / readable text). Never
+   * use a hue to mean a status; never use a status to mean a category. */
+  --tone-blue: oklch(0.6 0.15 255);
+  --tone-blue-soft: oklch(0.96 0.03 255);
+  --tone-blue-foreground: oklch(0.43 0.112 255);
+  --tone-green: oklch(0.6 0.14 150);
+  --tone-green-soft: oklch(0.96 0.028 150);
+  --tone-green-foreground: oklch(0.43 0.105 150);
+  --tone-amber: oklch(0.6 0.15 70);
+  --tone-amber-soft: oklch(0.96 0.03 70);
+  --tone-amber-foreground: oklch(0.43 0.112 70);
+  --tone-rose: oklch(0.6 0.17 15);
+  --tone-rose-soft: oklch(0.96 0.034 15);
+  --tone-rose-foreground: oklch(0.43 0.128 15);
+  --tone-purple: oklch(0.6 0.16 295);
+  --tone-purple-soft: oklch(0.96 0.032 295);
+  --tone-purple-foreground: oklch(0.43 0.12 295);
+  --tone-indigo: oklch(0.6 0.16 275);
+  --tone-indigo-soft: oklch(0.96 0.03 275);
+  --tone-indigo-foreground: oklch(0.43 0.12 275);
+  --tone-cyan: oklch(0.6 0.12 205);
+  --tone-cyan-soft: oklch(0.96 0.024 205);
+  --tone-cyan-foreground: oklch(0.43 0.09 205);
+  --tone-slate: oklch(0.6 0.03 255);
+  --tone-slate-soft: oklch(0.96 0.006 255);
+  --tone-slate-foreground: oklch(0.43 0.022 255);
+
   /* ── Lines & focus ──────────────────────────────────────────────────── */
   --border: oklch(0.915 0.008 250);
   --input: oklch(0.885 0.01 250);
@@ -79,12 +108,47 @@
   /* ── Shape ──────────────────────────────────────────────────────────── */
   --radius: 0.625rem;
 
+  /* ── Motion: duration by the SIZE of what moves ──────────────────────── */
+  /* Small controls (toggle, chip, checkbox, hover) / panels and cards (popover, drawer, dialog, a row
+     expanding) / full-screen changes. An exit uses about 3/4 of its entrance: leaving should never make
+     you wait. Use as duration-(--duration-panel); pair with the ease-* below. */
+  --duration-control: 160ms;
+  --duration-panel: 300ms;
+  --duration-screen: 450ms;
+
+  /* ── Layers: the only two z-indexes a kit overlay uses ──────────────── */
+  /* modal: dialogs, sheets, drawers, alert dialogs and their backdrops. 1300 = MUI's modal layer, so a
+     kit dialog and a legacy one stack by opening order (a later portal wins) during the migration.
+     popover: anything that opens FROM a control — lists, menus, popovers, tooltips, hover cards — so a
+     dropdown inside a dialog always opens above it. Use as z-(--z-modal) / z-(--z-popover). */
+  --z-modal: 1300;
+  --z-popover: 1400;
+  /* alert: the imperative dialog service (showDialog / successConfirmation…) — callable from inside ANY
+     open modal, legacy 1500-level ones included, so it must sit above every one of them. */
+  --z-alert: 2000;
+  /* top: a menu that may open from inside the legacy chart drill-down dialog (DRILLDOWN_Z_INDEX 2100) or an
+     alert — above everything. Opt in per menu (DropdownMenuContent layer="top"); default menus stay at popover. */
+  --z-top: 2200;
+
   /* ── Glass chrome (used only when [data-surface="glass"]) ───────────── */
   --chrome: color-mix(in oklch, var(--card) 100%, transparent);
   --chrome-blur: 0px;
 }
 
 .dark {
+  /* Aliases re-declared with the SAME expressions as :root. A custom property resolves its var() where it
+     is declared, so a :root-only alias freezes the light theme for any .dark scope below <html> (a dark
+     panel in a light page, each story on a Storybook docs page): cards kept dark ink on a dark surface.
+     On <html> itself this is a no-op. Any new alias of another token belongs in both blocks. */
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+  --chart-1: var(--brand);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --chrome: color-mix(in oklch, var(--card) 100%, transparent);
+
   /* The brand itself stays the tenant's colour on buttons; text, links and rings that sit ON dark
      surfaces use a light shade derived from it. Surfaces are a deep brand-tinted navy, never black. */
   --primary: oklch(from var(--brand) 0.72 c h);
@@ -99,7 +163,9 @@
 
   --secondary: oklch(0.29 0.04 255);
   --secondary-foreground: oklch(0.92 0.006 250);
-  --accent: color-mix(in oklch, var(--primary) 16%, var(--card));
+  /* OKLab, not OKLCH: OKLCH mixing interpolates hue, so a tenant brand far from the navy surface (green, red)
+     would bend toward blue. OKLab blends the colour itself. */
+  --accent: color-mix(in oklab, var(--primary) 16%, var(--card));
   --accent-foreground: oklch(0.93 0.02 250);
 
   --success: oklch(0.7 0.15 155);
@@ -115,13 +181,38 @@
   --info-soft: oklch(0.31 0.06 240 / 55%);
   --info-foreground: oklch(0.83 0.09 235);
 
+  --tone-blue: oklch(0.72 0.14 255);
+  --tone-blue-soft: oklch(0.31 0.06 255 / 55%);
+  --tone-blue-foreground: oklch(0.84 0.098 255);
+  --tone-green: oklch(0.72 0.13 150);
+  --tone-green-soft: oklch(0.31 0.056 150 / 55%);
+  --tone-green-foreground: oklch(0.84 0.091 150);
+  --tone-amber: oklch(0.72 0.14 70);
+  --tone-amber-soft: oklch(0.31 0.06 70 / 55%);
+  --tone-amber-foreground: oklch(0.84 0.098 70);
+  --tone-rose: oklch(0.72 0.158 15);
+  --tone-rose-soft: oklch(0.31 0.068 15 / 55%);
+  --tone-rose-foreground: oklch(0.84 0.111 15);
+  --tone-purple: oklch(0.72 0.149 295);
+  --tone-purple-soft: oklch(0.31 0.064 295 / 55%);
+  --tone-purple-foreground: oklch(0.84 0.104 295);
+  --tone-indigo: oklch(0.72 0.149 275);
+  --tone-indigo-soft: oklch(0.31 0.062 275 / 55%);
+  --tone-indigo-foreground: oklch(0.84 0.104 275);
+  --tone-cyan: oklch(0.72 0.112 205);
+  --tone-cyan-soft: oklch(0.31 0.048 205 / 55%);
+  --tone-cyan-foreground: oklch(0.84 0.078 205);
+  --tone-slate: oklch(0.72 0.028 255);
+  --tone-slate-soft: oklch(0.31 0.012 255 / 55%);
+  --tone-slate-foreground: oklch(0.84 0.019 255);
+
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 13%);
   --ring: color-mix(in oklch, var(--primary) 75%, black);
 
   --sidebar: oklch(0.205 0.045 255);
   --sidebar-foreground: oklch(0.86 0.01 250);
-  --sidebar-accent: color-mix(in oklch, var(--primary) 14%, var(--sidebar));
+  --sidebar-accent: color-mix(in oklab, var(--primary) 14%, var(--sidebar));
   --sidebar-accent-foreground: oklch(0.96 0.01 250);
 
 }
@@ -147,6 +238,16 @@
 
   /* Button physics from the live app's WtButton (Meridian recipe): quick, slightly springy. */
   --ease-spring: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* Motion: the curve is picked by DIRECTION (the classic easing set, cubic strength).
+     enter: arriving or answering a tap — fast start, soft landing (easeOutCubic).
+     exit:  leaving — gentle start, gone quickly (easeInCubic); pair with a shorter duration.
+     move:  travelling between two on-screen places — a highlight sliding, a panel resizing (easeInOutCubic).
+     Indeterminate loops with no start or end (progress bars) stay ease-linear; the Spinner's chase is the
+     one deliberate exception (below). Tailwind's own ease-in/out/in-out are left untouched. */
+  --ease-enter: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-exit: cubic-bezier(0.32, 0, 0.67, 0);
+  --ease-move: cubic-bezier(0.65, 0, 0.35, 1);
 
   /* Border beam (src/ds/effects/border-beam.tsx): timing comes from the component's --beam-* vars. */
   --animate-border-beam: border-beam var(--beam-duration) linear var(--beam-delay) infinite var(--beam-direction);
@@ -213,6 +314,30 @@
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --color-info-foreground: var(--info-foreground);
+  --color-tone-blue: var(--tone-blue);
+  --color-tone-blue-soft: var(--tone-blue-soft);
+  --color-tone-blue-foreground: var(--tone-blue-foreground);
+  --color-tone-green: var(--tone-green);
+  --color-tone-green-soft: var(--tone-green-soft);
+  --color-tone-green-foreground: var(--tone-green-foreground);
+  --color-tone-amber: var(--tone-amber);
+  --color-tone-amber-soft: var(--tone-amber-soft);
+  --color-tone-amber-foreground: var(--tone-amber-foreground);
+  --color-tone-rose: var(--tone-rose);
+  --color-tone-rose-soft: var(--tone-rose-soft);
+  --color-tone-rose-foreground: var(--tone-rose-foreground);
+  --color-tone-purple: var(--tone-purple);
+  --color-tone-purple-soft: var(--tone-purple-soft);
+  --color-tone-purple-foreground: var(--tone-purple-foreground);
+  --color-tone-indigo: var(--tone-indigo);
+  --color-tone-indigo-soft: var(--tone-indigo-soft);
+  --color-tone-indigo-foreground: var(--tone-indigo-foreground);
+  --color-tone-cyan: var(--tone-cyan);
+  --color-tone-cyan-soft: var(--tone-cyan-soft);
+  --color-tone-cyan-foreground: var(--tone-cyan-foreground);
+  --color-tone-slate: var(--tone-slate);
+  --color-tone-slate-soft: var(--tone-slate-soft);
+  --color-tone-slate-foreground: var(--tone-slate-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -272,8 +397,29 @@
 }
 
 /* Numbers in tables, money and dates line up. */
+/* WiseTech house style: a STRUCTURAL heading (a title naming a region of the screen — dialog, page, section,
+   settings card, column header, stat caption, eyebrow) is uppercase. CSS over a title-cased string, so the
+   accessible name stays real words. Buttons, input labels, content titles (a person, a record) and sentences
+   are never uppercased. The v2 twin of the live kit's HEADING_CASE_SX — one constant, reversible here. */
+@utility heading-case {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 @utility tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* A horizontally scrolling strip with NO visible scrollbar (tab bars, segmented filters).
+   `!important` on purpose: the app's unlayered `* { scrollbar-width: thin }` (src/main.css) outranks every
+   layered utility, so a plain `[scrollbar-width:none]` computed to "thin" in the app (not in Storybook, which
+   never loads main.css). The thin bar then ate the strip's height and added a vertical scroll that clipped
+   the Payment tab's count badge. Important layered declarations beat unlayered normal ones. */
+@utility scrollbar-none {
+  scrollbar-width: none !important;
+  &::-webkit-scrollbar {
+    display: none !important;
+  }
 }
 
 /* Checkbox bounce (see --animate-checkbox-*). Top-level, not in @theme, so they are always emitted. */
@@ -295,4 +441,54 @@
   0% { transform: scale(0.5); filter: blur(2px); opacity: 0; }
   60% { transform: scale(1.08); filter: blur(0); opacity: 1; }
   100% { transform: scale(1); }
+}
+
+/* ── Spinner (src/ds/ui/spinner.tsx): the kit's one loader ──────────────────────────────────────────────
+   Six dots run one lap each, easing in and out over the top; each starts a moment after the one ahead, so
+   they bunch where the lap is slow and string out where it is fast. Geometry is in % of the box, so the
+   size-* class on the spinner sizes everything; the colour is currentColor, so it follows the text (and any
+   theme scope) — white inside a filled button, brand where it is given text-primary. Reduced motion: a still
+   fan of dots, still readable as "busy". Top level (not @theme) so it always ships with this file. */
+[data-slot="spinner"] > span {
+  position: absolute;
+  inset: 0;
+  animation: spinner-lap 1.6s cubic-bezier(0.62, 0.04, 0.38, 0.96) infinite;
+}
+[data-slot="spinner"] > span::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 6%;
+  width: var(--dot);
+  height: var(--dot);
+  margin-left: calc(var(--dot) / -2);
+  border-radius: 50%;
+  background: currentColor;
+  opacity: var(--dot-o);
+}
+[data-slot="spinner"] > span:nth-child(1) { --dot: 18%; --dot-o: 1; }
+[data-slot="spinner"] > span:nth-child(2) { --dot: 17%; --dot-o: 0.87; animation-delay: 0.075s; }
+[data-slot="spinner"] > span:nth-child(3) { --dot: 16%; --dot-o: 0.74; animation-delay: 0.15s; }
+[data-slot="spinner"] > span:nth-child(4) { --dot: 15%; --dot-o: 0.61; animation-delay: 0.225s; }
+[data-slot="spinner"] > span:nth-child(5) { --dot: 14%; --dot-o: 0.48; animation-delay: 0.3s; }
+[data-slot="spinner"] > span:nth-child(6) { --dot: 13%; --dot-o: 0.35; animation-delay: 0.375s; }
+@keyframes spinner-lap {
+  to { transform: rotate(1turn); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="spinner"] > span { animation: none; }
+  [data-slot="spinner"] > span:nth-child(2) { transform: rotate(-20deg); }
+  [data-slot="spinner"] > span:nth-child(3) { transform: rotate(-40deg); }
+  [data-slot="spinner"] > span:nth-child(4) { transform: rotate(-60deg); }
+  [data-slot="spinner"] > span:nth-child(5) { transform: rotate(-80deg); }
+  [data-slot="spinner"] > span:nth-child(6) { transform: rotate(-100deg); }
+}
+
+/* ── Settled surfaces render crisp (here, not globals.css: the app loads only this file) ────────────────────────────────────────────────────────────────────────
+ * An animated surface's resting transform/filter (identity, but 3D + filter) keeps it on a GPU layer drawn as
+ * a texture, so its text looks soft. Once the entrance is over (useSettledWhenOpen in src/ds/lib/motion.ts)
+ * both go, beating Motion's inline style; the flag is removed before the exit animation starts. */
+[data-settled] {
+  transform: none !important;
+  filter: none !important;
 }

@@ -23,8 +23,27 @@ const badgeVariants = cva(
         warning: "bg-warning-soft text-warning-foreground",
         danger: "bg-destructive-soft text-destructive-foreground",
         info: "bg-info-soft text-info-foreground",
+        // Solid counterparts for counts and "needs action" chips that sit ON a same-tone soft panel: the
+        // -foreground token as the fill (dark in light mode, light in dark mode), the page background as ink.
+        "success-solid": "bg-success-foreground text-background",
+        "warning-solid": "bg-warning-foreground text-background",
+        "danger-solid": "bg-destructive-foreground text-background",
+        "info-solid": "bg-info-foreground text-background",
         brand: "bg-accent text-accent-foreground",
         neutral: "bg-muted text-muted-foreground",
+        // WiseTech category hues — identity (leave type, department), never a status.
+        blue: "bg-tone-blue-soft text-tone-blue-foreground",
+        green: "bg-tone-green-soft text-tone-green-foreground",
+        amber: "bg-tone-amber-soft text-tone-amber-foreground",
+        rose: "bg-tone-rose-soft text-tone-rose-foreground",
+        purple: "bg-tone-purple-soft text-tone-purple-foreground",
+        indigo: "bg-tone-indigo-soft text-tone-indigo-foreground",
+        cyan: "bg-tone-cyan-soft text-tone-cyan-foreground",
+        slate: "bg-tone-slate-soft text-tone-slate-foreground",
+        // An admin-configured colour (e.g. a leave type's): pass it as style={{ "--tone": hex }}.
+        // Text is mixed toward the foreground so any hue stays readable in both themes.
+        custom:
+          "bg-[color-mix(in_oklch,var(--tone)_16%,transparent)] text-[color-mix(in_oklch,var(--tone)_55%,var(--foreground))]",
       },
       dot: {
         true: "before:size-1.5 before:rounded-full before:bg-current before:content-['']",

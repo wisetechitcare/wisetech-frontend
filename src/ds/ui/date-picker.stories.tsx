@@ -30,7 +30,7 @@ export const PickDay: Story = {
     const dialog = await screen.findByRole('dialog')
     await userEvent.click(within(dialog).getByRole('button', { name: /28 October 2026/ }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await expect(canvas.getByRole('group', { name: 'Effective from' })).toHaveTextContent('28/10/2026')
+    await expect(canvas.getByRole('group', { name: 'Effective From' })).toHaveTextContent('2026.10.28')
     const value = mocked(args.onChange!).mock.lastCall?.[0] as DateValue
     await expect(value.toString()).toBe('2026-10-28')
   },
@@ -42,7 +42,7 @@ export const PickDay: Story = {
  */
 export const ClickToType: Story = {
   play: async ({ canvas }) => {
-    const group = canvas.getByRole('group', { name: 'Effective from' })
+    const group = canvas.getByRole('group', { name: 'Effective From' })
     const segments = within(group).getAllByRole('spinbutton')
     const last = segments[segments.length - 1].getBoundingClientRect()
     const button = within(group).getByRole('button', { name: /calendar/i }).getBoundingClientRect()
@@ -101,6 +101,6 @@ export const Range: Story = {
     const range = mocked(args.onChange!).mock.lastCall?.[0] as unknown as RangeValue<DateValue>
     await expect(range.start.toString()).toBe('2026-10-28')
     await expect(range.end.toString()).toBe('2026-10-31')
-    await expect(canvas.getByRole('group', { name: 'Leave dates' })).toHaveTextContent('28/10/2026–31/10/2026')
+    await expect(canvas.getByRole('group', { name: 'Leave Dates' })).toHaveTextContent('2026.10.28–2026.10.31')
   },
 }

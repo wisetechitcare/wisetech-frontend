@@ -19,7 +19,7 @@
     "lib": "@/ds/lib",
     "hooks": "@/ds/hooks"
   },
-  "menuColor": "inverted-translucent",
+  "menuColor": "default-translucent",
   "menuAccent": "subtle",
   "registries": {
     "@react-bits": "https://reactbits.dev/r/{name}.json",

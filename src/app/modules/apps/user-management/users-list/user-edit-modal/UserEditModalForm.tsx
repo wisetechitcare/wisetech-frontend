@@ -10,6 +10,7 @@ import {createUser, updateUser} from '../core/_requests'
 import {useQueryResponse} from '../core/QueryResponseProvider'
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 type Props = {
   isUserLoading: boolean
@@ -48,8 +49,7 @@ const UserEditModalForm: FC<Props> = ({user, isUserLoading}) => {
     setItemIdForUpdate(undefined)
   }
 
-  const blankImg = toAbsoluteUrl('media/svg/avatars/blank.svg')
-  const userAvatarImg = toAbsoluteUrl(`media/${userForEdit.avatar}`)
+  const userAvatarImg = userForEdit.avatar ? toAbsoluteUrl(`media/${userForEdit.avatar}`) : null
 
   const formik = useFormik({
     initialValues: userForEdit,
@@ -92,16 +92,9 @@ const UserEditModalForm: FC<Props> = ({user, isUserLoading}) => {
             {/* end::Label */}
 
             {/* begin::Image input */}
-            <div
-              className='image-input image-input-outline'
-              data-kt-image-input='true'
-              style={{backgroundImage: `url('${blankImg}')`}}
-            >
+            <div className='inline-flex'>
               {/* begin::Preview existing avatar */}
-              <div
-                className='image-input-wrapper w-125px h-125px'
-                style={{backgroundImage: `url('${userAvatarImg}')`}}
-              ></div>
+              <SmartAvatar name={formik.values.name} src={userAvatarImg} seed={userForEdit.id} size={125} />
               {/* end::Preview existing avatar */}
 
               {/* begin::Label */}

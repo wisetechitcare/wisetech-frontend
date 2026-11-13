@@ -1,5 +1,9 @@
 import dayjs from 'dayjs';
-import { formatMoney, STATUS_LABEL, StatusNum } from '../utils/reimbursementFormat';
+import { cn } from '@/ds/lib/utils';
+import { toneStyle } from '@/ds/lib/tone';
+import { Badge } from '@/ds/ui/badge';
+import { SensitiveValue, useSensitive } from '@/ds/patterns/sensitive';
+import { formatMoney, PAYMENT_LABEL, STATUS, STATUS_LABEL, STATUS_TONE, type StatusNum } from '../utils/reimbursementFormat';
 
 /**
  * One submission, as it reads on a phone.
@@ -14,18 +18,10 @@ import { formatMoney, STATUS_LABEL, StatusNum } from '../utils/reimbursementForm
  * module has spent several phases undoing.
  */
 
-/** Mirrors the row colour-coding of the wide table, so the two views agree at a glance. */
-const TONE: Record<number, { bg: string; border: string; fg: string }> = {
-    0: { bg: 'rgba(245,158,11,0.06)', border: '#f59e0b', fg: '#b45309' },   // pending
-    1: { bg: 'rgba(16,185,129,0.06)', border: '#10b981', fg: '#047857' },   // approved
-    2: { bg: 'rgba(239,68,68,0.06)', border: '#ef4444', fg: '#b91c1c' },    // rejected
-    3: { bg: 'rgba(59,130,246,0.06)', border: '#3b82f6', fg: '#1d4ed8' },   // mixed
-};
-
-const PAYMENT_TONE: Record<string, string> = {
-    PAID: '#047857',
-    PARTIAL: '#b45309',
-    UNPAID: '#64748b',
+const PAYMENT: Record<string, { label: string; className: string }> = {
+    PAID: { label: PAYMENT_LABEL.PAID, className: 'text-success-foreground' },
+    PARTIAL: { label: PAYMENT_LABEL.PARTIAL, className: 'text-warning-foreground' },
+    UNPAID: { label: PAYMENT_LABEL.UNPAID, className: 'text-muted-foreground' },
 };
 
 export interface SubmissionMobileCardProps {
@@ -34,12 +30,20 @@ export interface SubmissionMobileCardProps {
 }
 
 function SubmissionMobileCard({ row, onOpen }: SubmissionMobileCardProps) {
-    const status = Number(row?._status ?? 0);
-    const tone = TONE[status] ?? TONE[0];
-    const paymentStatus = String(row?._paymentStatus ?? 'UNPAID').toUpperCase();
+    const status = Number(row?._status ?? 0) as StatusNum;
+    // The same tone as the wide table's row and badge (STATUS_TONE), so the two views agree at a glance.
+    const tone = STATUS_TONE[status] ?? STATUS_TONE[STATUS.PENDING];
+    // No payment status means nothing in the batch is payable yet (pending) or ever (rejected) — the wide table says
+    // "N/A". Defaulting it to UNPAID printed "Awaiting payment" on a REJECTED batch.
+    const payment = row?._paymentStatus
+        ? PAYMENT[String(row._paymentStatus).toUpperCase()] ?? PAYMENT.UNPAID
+        : null;
     const submittedAt = row?._submittedAt ? dayjs(row._submittedAt) : null;
     const expenses = Number(row?._totalRequests ?? 0);
 
+    // "Hide amounts" applies on the phone too — the card used to print the figure in clear while the wide
+    // table beside it blurred the same number.
+    const sensitive = useSensitive();
     const open = () => onOpen?.(row?.id ?? row?._id);
 
     return (
@@ -51,53 +55,39 @@ function SubmissionMobileCard({ row, onOpen }: SubmissionMobileCardProps) {
                 // Enter and Space, because a div with role="button" gets neither for free.
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
             } : undefined}
-            aria-label={onOpen ? `Submission ${row?._submissionId ?? ''}, ${formatMoney(row?._totalAmount)}, ${STATUS_LABEL[status as StatusNum] ?? ''}` : undefined}
-            style={{
-                background: tone.bg,
-                borderLeft: `3px solid ${tone.border}`,
-                border: '1px solid rgba(15,23,42,0.08)',
-                borderRadius: 12,
-                padding: '14px 16px',
-                cursor: onOpen ? 'pointer' : undefined,
-            }}
+            // The amount is left out of the spoken name while amounts are hidden — a blurred figure must not be read aloud.
+            aria-label={onOpen ? [`Submission ${row?._submissionId ?? ''}`, sensitive.visible ? formatMoney(row?._totalAmount) : null, STATUS_LABEL[status]].filter(Boolean).join(', ') : undefined}
+            style={toneStyle(tone)}
+            className={cn(
+                // OKLab, not OKLCH: mixing a hue into a neutral surface in OKLCH interpolates HUE (the card's is 0), so
+                // green at 6% came out pink. OKLab has no hue axis, so a tint stays the tone's colour.
+                'rounded-2xl border bg-[color-mix(in_oklab,var(--tone)_6%,var(--card))] px-4 py-3.5 shadow-[inset_3px_0_0_var(--tone)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                onOpen && 'cursor-pointer',
+            )}
         >
             {/* The amount leads. It is the number the page exists to report. */}
-            <div className='d-flex align-items-start justify-content-between gap-3'>
+            <div className="flex items-start justify-between gap-3">
                 <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
-                        {formatMoney(row?._totalAmount)}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                    <div className="tabular text-xl leading-tight font-extrabold text-foreground"><SensitiveValue>{formatMoney(row?._totalAmount)}</SensitiveValue></div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
                         {expenses} expense{expenses === 1 ? '' : 's'}
                     </div>
                 </div>
-                <span style={{
-                    fontSize: 11, fontWeight: 700, color: tone.fg,
-                    background: '#fff', border: `1px solid ${tone.border}`,
-                    borderRadius: 999, padding: '3px 10px', whiteSpace: 'nowrap',
-                }}>
-                    {STATUS_LABEL[status as StatusNum] ?? 'Pending'}
-                </span>
+                <Badge variant={tone}>{STATUS_LABEL[status] ?? 'Pending'}</Badge>
             </div>
 
-            <div style={{ height: 1, background: 'rgba(15,23,42,0.07)', margin: '12px 0' }} />
+            <div className="my-3 h-px bg-border" />
 
-            <div className='d-flex align-items-center justify-content-between gap-2' style={{ fontSize: 12 }}>
-                <span style={{ color: '#64748b' }}>
+            <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-muted-foreground">
                     {submittedAt?.isValid() ? `Sent ${submittedAt.format('D MMM YYYY')}` : 'Not sent yet'}
                 </span>
                 {/* Approved and paid are different questions — never one badge. */}
-                <span style={{ color: PAYMENT_TONE[paymentStatus] ?? '#64748b', fontWeight: 700 }}>
-                    {paymentStatus === 'PAID' ? 'Paid'
-                        : paymentStatus === 'PARTIAL' ? 'Part paid'
-                        : 'Awaiting payment'}
-                </span>
+                {payment && <span className={cn('font-bold', payment.className)}>{payment.label}</span>}
             </div>
 
             {row?._submissionId && (
-                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8, fontFamily: "'Fira Code', monospace" }}>
-                    {row._submissionId}
-                </div>
+                <div className="mt-2 font-mono text-[11px] text-muted-foreground">{row._submissionId}</div>
             )}
         </div>
     );

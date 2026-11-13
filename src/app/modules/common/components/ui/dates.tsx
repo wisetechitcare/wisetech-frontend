@@ -124,6 +124,13 @@ const textFieldSlot = (p: WtDateFieldBaseProps, boundaryPopper: BoundaryPopper) 
     placeholder: p.placeholder,
     onBlur: p.onBlur,
     sx: controlHeightSxFor(p.size === 'md' ? 'md' : 'sm'),
+    // The field's OWN label has to be its accessible name. MUI X puts an `aria-label` on the input
+    // ("Choose date, selected date is Jan 1, 2026" — its `openDatePickerDialogue` text), and an
+    // aria-label beats the <label for> association, so the name a screen reader announced said
+    // nothing about WHICH date this is. A form with a start and an end month read as two identical
+    // fields. The value is announced from the input itself, so naming it after the label loses
+    // nothing and restores the only part that was missing.
+    ...(p.label ? { inputProps: { 'aria-label': p.label } } : {}),
   },
   // A visible Clear action — the native input had one and losing it is a regression.
   actionBar: { actions: ['clear', 'today', 'accept'] as ('clear' | 'today' | 'accept')[] },

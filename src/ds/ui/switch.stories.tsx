@@ -22,7 +22,7 @@ type Story = StoryObj<typeof meta>
 /** Toggling flips `aria-checked` and reports the new value. */
 export const Toggle: Story = {
   play: async ({ args, canvas }) => {
-    const sw = canvas.getByRole('switch', { name: 'Notify reporting manager' })
+    const sw = canvas.getByRole('switch', { name: 'Notify Reporting Manager' })
     await userEvent.click(sw)
     await expect(sw).toBeChecked()
     await expect(args.onCheckedChange).toHaveBeenCalledWith(true, expect.anything())

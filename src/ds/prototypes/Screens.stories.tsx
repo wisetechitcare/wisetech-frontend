@@ -20,7 +20,7 @@ type Story = StoryObj<typeof meta>
 export const Dashboard: Story = {
   args: { initialScreen: 'dashboard' },
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole('heading', { level: 1, name: /Good morning/ })).toBeInTheDocument()
+    await expect(canvas.getByRole('heading', { level: 1, name: /Good Morning/ })).toBeInTheDocument()
   },
 }
 
@@ -29,7 +29,7 @@ export const Employees: Story = {
   args: { initialScreen: 'employees' },
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Select Aarav Sharma' }))
-    await expect(canvas.getByText('1 selected')).toBeInTheDocument()
+    await expect(canvas.getByText('1 Selected')).toBeInTheDocument()
     await userEvent.type(canvas.getByPlaceholderText('Search name, role or ID'), 'Diya')
     await expect(canvas.getByText('Diya Nair')).toBeInTheDocument()
     await expect(canvas.queryByText('Rohan Mehta')).not.toBeInTheDocument()

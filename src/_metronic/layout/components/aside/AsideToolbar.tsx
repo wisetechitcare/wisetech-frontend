@@ -6,7 +6,7 @@ import {fetchCurrentEmployeeByUserId} from '@services/employee'
 import {saveCurrentEmployee} from '@redux/slices/employee'
 import {saveCurrentUser} from '@redux/slices/auth'
 import {saveCurrentBranchInfo, saveCurrentCompanyInfo} from '@redux/slices/company'
-import {getAvatar} from '@utils/avatar'
+import {SmartAvatar} from '@/ds/ui/smart-avatar'
 import {fetchCurrentUser} from '@services/users'
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
 import { fetchAppSettings } from '@redux/slices/appSettings'
@@ -23,8 +23,8 @@ const AsideToolbar = () => {
     async function fetchCurrEmployee() {
       const { data: currEmpRes } = await fetchCurrentEmployeeByUserId(parsedLs.id)
       const { employee } = currEmpRes;
-      let avatar = getAvatar(employee.avatar, employee.gender)
-      dispatch(saveCurrentEmployee({ ...employee, avatar }))
+      // The REAL photo or nothing — never a placeholder: every avatar reading this falls back to initials itself.
+      dispatch(saveCurrentEmployee({ ...employee, avatar: employee.avatar || "" }))
     }
 
     async function fetchCurrUser() {
@@ -55,9 +55,14 @@ const AsideToolbar = () => {
       {/*begin::User*/}
       <div className='aside-user d-flex align-items-sm-center justify-content-center py-5'>
         {/*begin::Symbol*/}
-        <div className='symbol symbol-50px'>
-          <img src={currEmployee.avatar || ''} alt='Avatar' style={{ objectFit: "cover" }} />
-        </div>
+        <SmartAvatar
+          name={`${currEmployee?.users?.firstName ?? ''} ${currEmployee?.users?.lastName ?? ''}`}
+          seed={currEmployee?.id}
+          src={currEmployee?.avatar}
+          size={50}
+          shape='rounded'
+          decorative
+        />
         {/*end::Symbol*/}
 
         {/*begin::Wrapper*/}
