@@ -34,6 +34,9 @@ const Headline = ({ className = '', ...args }: React.ComponentProps<typeof Typew
   </h1>
 )
 
+// The docs page shows the demos (Default, Dark, Mobile). Every other story is an automated check and is
+// kept off it with `!autodocs`: the docs page renders all its stories in ONE window, so the Reduced Motion
+// story's matchMedia patch would freeze every headline on the page (no typing, no caret).
 const meta = {
   title: 'Effects/Typewriter',
   component: Typewriter,
@@ -59,6 +62,7 @@ export const Default: Story = {
 
 /** (Test speed) Rotates through every line and lands on the brand line. */
 export const RunsToLanding: Story = {
+  tags: ['!autodocs'], // a test, not a demo
   args: FAST,
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(landed(canvasElement)).toBe(true), { timeout: 8000 })
@@ -69,6 +73,7 @@ export const RunsToLanding: Story = {
 
 /** (Test speed) Type → hold → backspace → next: every line typed in full, then deleted to nothing. */
 export const Rotates: Story = {
+  tags: ['!autodocs'], // a test, not a demo
   args: { ...FAST, hold: 120 },
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(shown(canvasElement)).toBe(FIRST), { timeout: 3000 })
@@ -79,6 +84,7 @@ export const Rotates: Story = {
 
 /** (Test speed) The box is the largest line's from the first frame — rotating never moves the page. */
 export const NoReflow: Story = {
+  tags: ['!autodocs'], // a test, not a demo
   args: FAST,
   play: async ({ canvasElement }) => {
     const box = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter"]')!
@@ -95,6 +101,7 @@ export const NoReflow: Story = {
 
 /** `settled` (a sign-in field took focus): the brand line at once, nothing typing. */
 export const Settled: Story = {
+  tags: ['!autodocs'], // a test, not a demo
   args: { settled: true },
   play: async ({ canvasElement }) => {
     await expect(shown(canvasElement)).toBe(LANDING)
@@ -104,6 +111,7 @@ export const Settled: Story = {
 
 /** Key words wear their module's hue; the landing line is tri-colour; the rest is the heading's own ink. */
 export const Tones: Story = {
+  tags: ['!autodocs'], // a test, not a demo
   args: { settled: true },
   play: async ({ canvasElement }) => {
     const text = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"]')!
@@ -128,6 +136,7 @@ export const Tones: Story = {
 
 /** (Test speed) The caret holds still while keys are pressed and blinks only when idle. */
 export const CaretBlinksOnlyWhenIdle: Story = {
+  tags: ['!autodocs'], // a test, not a demo
   args: { ...FAST, speed: 60, hold: 600 },
   play: async ({ canvasElement }) => {
     const caret = () => canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"] [data-slot="typewriter-caret"]')!
@@ -164,6 +173,7 @@ function contrast(fg: string, bg: string) {
 
 /** Every hue the headline uses reads as large text (≥ 3:1) on the page, in light AND dark. */
 export const ToneContrast: Story = {
+  tags: ['!autodocs'], // a test, not a demo
   render: () => (
     <div className="grid gap-4">
       <div data-theme-probe="light" className="bg-background p-4" />
@@ -183,6 +193,7 @@ export const ToneContrast: Story = {
 
 /** The original caret, exactly: size in em, its four-stop gradient, glow, and the hard 1s on/off blink when idle. */
 export const OriginalCaret: Story = {
+  tags: ['!autodocs'], // a test, not a demo
   args: { settled: true },
   play: async ({ canvasElement }) => {
     const caret = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"] [data-slot="typewriter-caret"]')!
@@ -233,6 +244,7 @@ function reduceMotion() {
 
 /** Reduced motion: the brand line, still, in its colours — no rotation, no caret. */
 export const ReducedMotion: Story = {
+  tags: ['!autodocs'], // a test, not a demo — and it must not share the docs page's window
   beforeEach: () => reduceMotion(),
   play: async ({ canvasElement }) => {
     await expect(shown(canvasElement)).toBe(LANDING)
