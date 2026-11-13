@@ -4,9 +4,6 @@ import clsx from 'clsx'
 import {Link} from 'react-router-dom'
 import {useFormik} from 'formik'
 import {forgotPassword} from '@services/auth'
-import { useDispatch } from 'react-redux'
-import { redirect, saveToken } from '@redux/slices/auth'
-import { setAuth } from '../core/AuthHelpers'
 import {toAbsoluteUrl} from '@metronic/helpers/AssetHelpers'
 import { fetchCompanyLogo } from '@services/company'
 import { Button } from '@/ds/ui/button'
@@ -27,7 +24,10 @@ export function ForgotPasswordForm() {
   const [loading, setLoading] = useState(false)
   const [hasErrors, setHasErrors] = useState<boolean | undefined>(undefined)
   const [submitClick,setSubmitClick] = useState(false)
-  const dispatch = useDispatch()
+  // The server answers the same way whether or not the address is an account, and never with
+  // a session: the emailed link is the only way forward. (It used to return a token for any
+  // address, which this page then signed in with — anyone could become anyone.)
+  const [notice, setNotice] = useState('')
   const formik = useFormik({
     initialValues,
     validationSchema: forgotPasswordSchema,
@@ -37,11 +37,8 @@ export function ForgotPasswordForm() {
       setSubmitClick(true)
       setTimeout(() => {
         forgotPassword(values.email)
-          .then(({data}) => {
-            dispatch(saveToken(data.token))
-            dispatch(redirect(false))
-            setAuth(data)
-            localStorage.setItem("redirectToDashboard", "false")
+          .then((response) => {
+            setNotice(response?.message ?? '')
             setHasErrors(false)
             setLoading(false)
             // setSubmitClick(true)
@@ -80,7 +77,9 @@ export function ForgotPasswordForm() {
 
       {hasErrors === false && (
         <div className='mb-10 bg-light-info p-8 rounded'>
-          <div className='text-info'>Reset password link forwarded to respective email. Please check your email.</div>
+          <div className='text-info' role='status'>
+            {notice || 'If an account exists for that email, a password reset link has been sent to it.'}
+          </div>
         </div>
       )}
       {/* end::Title */}
