@@ -133,6 +133,12 @@
   /* ── Glass chrome (used only when [data-surface="glass"]) ───────────── */
   --chrome: color-mix(in oklch, var(--card) 100%, transparent);
   --chrome-blur: 0px;
+
+  /* ── Typewriter caret (src/ds/effects/typewriter.tsx) ──────────────────
+     The sign-in headline's caret, kept exactly from the original Login: a blue → purple → pink →
+     amber gradient with a soft purple glow. A brand moment, not a status — the same in light and dark. */
+  --typewriter-caret: linear-gradient(180deg, #4285f4 0%, #9b72cb 42%, #d96570 72%, #f9ab55 100%);
+  --typewriter-caret-glow: 0 0 8px rgb(155 114 203 / 0.55);
 }
 
 .dark {
@@ -257,6 +263,14 @@
   }
   @keyframes border-beam-orbit {
     to { transform: rotate(1turn); }
+  }
+
+  /* Typewriter caret (src/ds/effects/typewriter.tsx): the original Login blink — a hard on/off, 1s.
+     Here, not tw-animate-css's caret-blink: the app loads only this file. */
+  --animate-typewriter-caret: typewriter-caret 1s step-end infinite;
+  @keyframes typewriter-caret {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
   }
 
   /* StatCard (src/ds/patterns/stat-card.tsx). Defined here, not via tw-animate-css, because the app

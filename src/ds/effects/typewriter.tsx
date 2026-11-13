@@ -7,10 +7,14 @@ import { useReducedMotion } from "@/ds/lib/motion"
  * brand panel. Never in tables, forms, wizards or approvals, where text must be readable the instant
  * it renders.
  *
- * - Assistive tech reads the full sentence once; the typing letters are hidden from it (the React
- *   Bits TextType it replaces exposed every half-typed frame).
- * - Under reduced motion the sentence renders whole, with no caret.
- * - The full sentence reserves its own space (an invisible copy underneath), so typing never
+ * The original Login typewriter, exactly: 55ms per character after a 300ms delay, typed once; the
+ * gradient caret (0.09em × 0.92em, 0.06em radius, sat 0.1em low, 0.25rem from the text, purple glow)
+ * blinking hard on/off every second, and still blinking once the sentence is done. Colours and blink
+ * live in tokens.css (--typewriter-caret*, animate-typewriter-caret). Enhanced over the React Bits
+ * TextType it replaces:
+ * - assistive tech reads the full sentence once (TextType exposed every half-typed frame);
+ * - under reduced motion the sentence renders whole, with no caret;
+ * - the finished sentence reserves its own space (an invisible copy underneath), so typing never
  *   reflows the layout around it.
  */
 function Typewriter({
@@ -47,21 +51,28 @@ function Typewriter({
   const done = count >= text.length
 
   return (
-    <span data-slot="typewriter" className={cn("relative inline-block", className)} {...props}>
+    <span data-slot="typewriter" className={cn("relative inline-block whitespace-pre-wrap", className)} {...props}>
       <span className="sr-only">{text}</span>
-      {/* Reserves the finished sentence's box, so the line never grows while typing. */}
-      <span aria-hidden="true" className="invisible">{text}</span>
-      <span aria-hidden="true" className="absolute inset-0">
+      {/* Reserves the finished sentence's box (caret included), so the line never grows while typing. */}
+      <span aria-hidden="true" className="invisible">
+        {text}
+        {!reduced && <Caret />}
+      </span>
+      <span aria-hidden="true" className="absolute inset-0" data-done={done || undefined}>
         {text.slice(0, count)}
-        {!reduced && (
-          <span
-            data-slot="typewriter-caret"
-            data-done={done || undefined}
-            className="ml-0.5 inline-block h-[0.9em] w-[0.08em] translate-y-[0.1em] rounded-full bg-primary animate-caret-blink"
-          />
-        )}
+        {!reduced && <Caret />}
       </span>
     </span>
+  )
+}
+
+/** The original Login caret, to the hundredth of an em. */
+function Caret() {
+  return (
+    <span
+      data-slot="typewriter-caret"
+      className="ml-1 inline-block h-[0.92em] w-[0.09em] rounded-[0.06em] align-[-0.1em] [background:var(--typewriter-caret)] shadow-(--typewriter-caret-glow) animate-typewriter-caret"
+    />
   )
 }
 
