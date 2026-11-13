@@ -445,7 +445,7 @@ function UploadPanel({
         </p>
       }
       placeholderIcon={<FileText className="size-8" aria-hidden />}
-      // One at a time: the server parses every PDF, and a burst of 25 MB bodies is no kinder to nginx.
+      // One at a time: the server parses every PDF, and a burst of 100 MB bodies is no kinder to nginx.
       oneAtATime
       upload={async (file, onProgress) => {
         if (!(await isCatalogueFile(file))) throw new Error("This file isn't a valid PDF, JPG, PNG or WebP.");
