@@ -79,6 +79,9 @@ export const Circle: Story = {
 
 /** Under reduced motion the beam is not drawn; the card is unchanged. */
 export const ReducedMotion: Story = {
+  // Off the docs page: it renders every story in ONE window, and this story's matchMedia patch would
+  // reach every story there (each beam would stop running). Still in the sidebar and in test runs.
+  tags: ['!autodocs'],
   beforeEach: reduceMotion,
   play: async ({ canvas, canvasElement }) => {
     await expect(canvas.getByRole('heading', { name: '3 people near their leave cap' })).toBeInTheDocument()

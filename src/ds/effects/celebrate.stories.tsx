@@ -72,6 +72,9 @@ export const ConcurrentFirstCalls: Story = {
 
 /** Under reduced motion a click draws nothing and adds no canvas. */
 export const ReducedMotion: Story = {
+  // Off the docs page: it renders every story in ONE window, and this story's matchMedia patch would
+  // reach every story there (each celebration would be skipped). Still in the sidebar and in test runs.
+  tags: ['!autodocs'],
   beforeEach: reduceMotion,
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: 'Celebrate' }))
