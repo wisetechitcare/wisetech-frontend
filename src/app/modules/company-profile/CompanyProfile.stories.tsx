@@ -41,7 +41,7 @@ export const AboutUs: Story = {
   play: async ({ canvas }) => {
     const stage = within(canvas.getByRole('region', { name: /About us/ }))
     await expect(stage.getByText('Our journey')).toBeInTheDocument()
-    await expect(stage.getByText('Company established')).toBeInTheDocument()
+    await expect(stage.getByText('Company Founded')).toBeInTheDocument()
     await expect(stage.getByTestId('slide-page')).toHaveTextContent(`2 of ${N}`)
   },
 }

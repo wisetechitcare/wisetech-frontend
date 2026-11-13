@@ -302,7 +302,16 @@ function MilestoneTimeline({
   );
 }
 
-export function AboutSlide({ data }: { data: ProfileData }) {
+export type JourneyDesign = typeof MilestoneTimeline;
+
+/** `Journey` swaps the Our journey design (Storybook trials in OurJourney.stories.tsx; the default is the live one). */
+export function AboutSlide({
+  data,
+  Journey = MilestoneTimeline,
+}: {
+  data: ProfileData;
+  Journey?: JourneyDesign;
+}) {
   const { org } = data;
   return (
     <Frame>
@@ -314,26 +323,29 @@ export function AboutSlide({ data }: { data: ProfileData }) {
           </p>
         ))}
       </div>
-      <MilestoneTimeline milestones={org.milestones} />
+      <Journey milestones={org.milestones} />
     </Frame>
   );
 }
 
-/** The two panel looks shared by Who we are and Services: light grey, and navy lifted by a lighter-navy glow. */
+/** The two panel looks shared by Who we are and Services: each capped by an accent bar (navy on white, red on deep navy) with a tinted icon tile. */
 const PANEL = {
   light: {
-    card: "bg-slate-50 text-slate-600 ring-slate-200",
-    mark: "text-[#1b2a4e]/[0.07]",
-    tile: "bg-[#1b2a4e]",
+    card: "bg-[#1b2a4e]/[0.15] text-slate-600 shadow-md ring-slate-200 before:absolute before:inset-x-0 before:top-0 before:h-[0.45cqw] before:bg-[#1b2a4e]",
+    mark: "text-[#1b2a4e]/[0.15]",
+    // Same gradient as the app's primary Button (ds/ui/button.tsx): follows the tenant's brand colour.
+    tile: "bg-linear-135/srgb from-(--brand-bright) to-(--brand) shadow-md shadow-(--brand)/30",
     title: "text-[#1b2a4e]",
     count: "text-[#c62828]",
   },
   dark: {
-    card: "bg-linear-to-br from-[#34508a] via-[#24365f] to-[#1b2a4e] text-white/85 shadow-lg ring-white/15",
-    mark: "text-white/30",
-    tile: "bg-black text-[#1b2a4e]",
+    card: "bg-linear-to-b from-[#3d5a94] to-[#2a4072] text-slate-100 shadow-xl ring-white/10 before:absolute before:inset-x-0 before:top-0 before:h-[0.45cqw] before:bg-[#c62828]",
+    mark: "text-white/40",
+    // Crimson, tying the tile to the red accent bar and underline on the same card.
+    tile: "bg-linear-135/srgb from-[#e53935] to-[#9f1d1d] shadow-lg shadow-black/30 ring-1 ring-white/15",
     title: "text-white",
-    count: "text-red-600",
+    count: "text-sky-300",
+    // count: "text-red-600",
   },
 };
 

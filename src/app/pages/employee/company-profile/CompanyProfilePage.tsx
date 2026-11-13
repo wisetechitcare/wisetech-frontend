@@ -6,32 +6,35 @@ import { DeckStage } from "@app/modules/company-profile/DeckStage"
 import { ProfileSlide } from "@app/modules/company-profile/ProfileSlide"
 import { SectionList } from "@app/modules/company-profile/SectionList"
 import { SlideBackground } from "@app/modules/company-profile/SlideBackground"
-import { DEMO_DATA } from "@app/modules/company-profile/fixtures"
-import { MAX_SLIDES, plural, projectsOf, type ProfileData, type Section } from "@app/modules/company-profile/profile"
-import { categorySections, clientsSection, sectionMeta, sectionSlides, takenElsewhere, type EditableSection, type SlideSpec } from "@app/modules/company-profile/profileBuilder"
+import { DEMO_DATA, DEMO_SECTIONS } from "@app/modules/company-profile/fixtures"
+import { MAX_SLIDES, places, plural, projectsOf, type PickSection, type ProfileData, type Section } from "@app/modules/company-profile/profile"
+import { sectionMeta, sectionSlides, takenElsewhere, type EditableSection, type SlideSpec } from "@app/modules/company-profile/profileBuilder"
 import { useProfileBuilder } from "@app/modules/company-profile/useProfileBuilder"
 import { useHomeRootOrg } from "@hooks/useRootOrgNames"
 import { CoverSlide } from "./CoverSlide"
 import { DeckPrint } from "./DeckPrint"
-import { ListPicker } from "./ListPicker"
+import { ListPicker, type ListItem } from "./ListPicker"
 import { ProjectsPicker } from "./ProjectsPicker"
 
 
-/** The starting deck: the copy slides, Services, a section per project category and the client logo wall. */
-const initialSections = (data: ProfileData): Section[] => [
-  { id: "cover", kind: "cover", title: "Cover", enabled: true },
-  { id: "about", kind: "about", title: "About us", enabled: true },
-  { id: "vision", kind: "vision", title: "Who we are", enabled: true },
-  { id: "services", kind: "services", title: "Services we offer", enabled: true, ids: data.services.slice(0, 8).map((s) => s.id) },
-  ...categorySections(data.projects),
-  clientsSection(data),
-]
+/** Picker heading and rows for a list section: services, companies (logo wall or repeat chart) or map pins. */
+function itemsFor(s: PickSection, data: ProfileData): { heading: string; items: ListItem[] } {
+  if (s.kind === "services") return { heading: "Choose services", items: data.services.map((x) => ({ id: x.id, label: x.name, sub: `${x.projects} projects` })) }
+  if (s.kind === "companies")
+    return { heading: "Choose companies", items: data.companies.map((c) => ({ id: c.id, label: c.name, sub: plural(projectsOf(data.projects, c.name), "project"), image: c.logo })) }
+  return {
+    heading: s.region === "india" ? "Choose cities to pin on the India map" : "Choose countries to pin on the world map",
+    items: places(data.projects, s.region).map((p) => ({ id: p.id, label: p.name, sub: plural(p.count, "project") })),
+  }
+}
 
-const SECTIONS = initialSections(DEMO_DATA)
+// ponytail: the Storybook deck as-is while the page runs on sample data; build sections from live data when the API lands.
+const SECTIONS = DEMO_SECTIONS
 const notify = (text: string) => void toast({ icon: "warning", title: "Slide limit reached", text })
 
 /**
- * CRM → Company Profile: Cover, About us, Who we are, Services, every project category and Our Clients.
+ * CRM → Company Profile: Cover, About us, Who we are, Services, every project category, Our Clients, Repeat
+ * clients, the India and world maps and Contact. At most MAX_SLIDES are shown; the rest stay listed, hidden.
  * Sample data for now (no API yet); only the cover's logo comes from the app, the organisation's own.
  */
 export default function CompanyProfilePage() {
@@ -89,28 +92,16 @@ export default function CompanyProfilePage() {
             onToggleSlide={b.toggleSlide}
             onReorderSlides={b.reorderSlides}
           />
+          {b.slides.length >= MAX_SLIDES && (
+            <p className="mt-3 text-sm text-muted-foreground" data-testid="slide-limit-note">
+              The presentation is at {MAX_SLIDES} slides. Hide a slide to show another.
+            </p>
+          )}
         </aside>
         <DeckStage slides={b.slides} current={b.current} onGo={b.go} render={render} stageRef={stage} />
       </div>
 
-      {editing?.kind === "services" && (
-        <ListPicker
-          heading="Choose services"
-          section={editing}
-          items={data.services.map((x) => ({ id: x.id, label: x.name, sub: `${x.projects} projects` }))}
-          onSave={save}
-          onClose={() => setEditing(null)}
-        />
-      )}
-      {editing?.kind === "companies" && (
-        <ListPicker
-          heading="Choose companies"
-          section={editing}
-          items={data.companies.map((c) => ({ id: c.id, label: c.name, sub: plural(projectsOf(data.projects, c.name), "project"), image: c.logo }))}
-          onSave={save}
-          onClose={() => setEditing(null)}
-        />
-      )}
+      {editing && editing.kind !== "projects" && <ListPicker {...itemsFor(editing, data)} section={editing} onSave={save} onClose={() => setEditing(null)} />}
       {editing?.kind === "projects" && (
         <ProjectsPicker
           section={editing}
