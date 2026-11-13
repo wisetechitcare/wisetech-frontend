@@ -136,15 +136,10 @@
 
   /* ── Typewriter caret (src/ds/effects/typewriter.tsx) ──────────────────
      The sign-in headline's caret, kept exactly from the original Login: a blue → purple → pink →
-     amber gradient with a soft purple glow. A brand moment, not a status — the same in light and dark. */
+     amber gradient with a soft purple glow. A brand moment, not a status — the same in light and dark.
+     (The headline's words use the module hues, --tone-<hue>.) */
   --typewriter-caret: linear-gradient(180deg, #4285f4 0%, #9b72cb 42%, #d96570 72%, #f9ab55 100%);
   --typewriter-caret-glow: 0 0 8px rgb(155 114 203 / 0.55);
-  /* The headline's ink, all from the tenant's --brand: a smooth gradient from the brand to a lighter,
-     violet-leaning brand (large-text contrast ≥ 3:1 at both ends — Effects/Typewriter measures it),
-     with a soft halo. */
-  --typewriter-ink-from: var(--brand);
-  --typewriter-ink-to: oklch(from var(--brand) calc(l + 0.18) calc(c * 1.1) calc(h + 28));
-  --typewriter-ink-glow: color-mix(in oklch, var(--brand) 28%, transparent);
 }
 
 .dark {
@@ -227,10 +222,6 @@
   --sidebar-accent: color-mix(in oklab, var(--primary) 14%, var(--sidebar));
   --sidebar-accent-foreground: oklch(0.96 0.01 250);
 
-  /* Typewriter headline ink on dark: the same brand, lifted to read on a dark surface. */
-  --typewriter-ink-from: oklch(from var(--brand) 0.8 c h);
-  --typewriter-ink-to: oklch(from var(--brand) 0.88 calc(c * 0.9) calc(h + 28));
-  --typewriter-ink-glow: color-mix(in oklch, oklch(from var(--brand) 0.72 c h) 45%, transparent);
 }
 
 /* Glass chrome: frosted header/sidebar/overlays. The work canvas (cards, forms, tables) stays opaque. */

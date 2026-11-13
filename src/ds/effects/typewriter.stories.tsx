@@ -1,26 +1,31 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, waitFor } from 'storybook/test'
 import { animationsSettled } from '@/ds/lib/motion'
-import { Typewriter } from './typewriter'
+import { Typewriter, type TypewriterLine } from './typewriter'
 
 /**
  * For moments only: the sign-in headline. It rotates through what the platform does — one line per
- * product family — typing, holding and backspacing each, then lands on the brand line and rests. One
- * motion idea (typing) on one surface (brand ink). Never in tables, forms, wizards or approval flows.
- * Assistive tech reads only the landing line.
+ * product family, its key word in its department's hue — typing, holding and backspacing each like a
+ * person, then lands on the brand line in three colours and rests. One motion idea: typing. Never in tables, forms,
+ * wizards or approval flows. Assistive tech reads only the landing line.
  */
-const PHRASES = [
-  'Effortless HR, End to End', //       HRMS — people, attendance, leave
-  'Payroll, Right Every Time', //       Payroll — salary, loans, reimbursements
-  'Every Lead, Closer to a Deal', //    CRM — leads, companies, contacts
-  'From Project to Paid Invoice', //    Projects, tasks, timesheets, billing
-  'Hire Great People, Faster', //       Recruitment
-  'Performance You Can Measure', //     KPIs
-  'Fast, Efficient & Productive', //    the brand line — where it lands
-] as const
-const LANDING = PHRASES[PHRASES.length - 1]
+// One line per product family, its key word in its launcher department's hue (accessSidebarLayout:
+// KPIs and hiring sit under HR). Ordered so neighbouring lines never share a colour.
+const LINES: readonly TypewriterLine[] = [
+  ['Effortless ', { text: 'HR', tone: 'blue' }, ', End to End'], //                                  HR Department
+  ['Every ', { text: 'Lead', tone: 'green' }, ', Closer to a ', { text: 'Deal', tone: 'green' }], //  CRM
+  [{ text: 'Hire', tone: 'blue' }, ' Great People, Faster'], //                                      HR — recruitment
+  ['From ', { text: 'Project', tone: 'purple' }, ' to Paid ', { text: 'Invoice', tone: 'purple' }], // Project Department
+  [{ text: 'Performance', tone: 'blue' }, ' You Can Measure'], //                                     HR — KPIs
+  [{ text: 'Payroll', tone: 'rose' }, ', Right Every Time'], //                                       Finance/Account
+  // Lands in three: the launcher's first three departments — HR, CRM, Projects.
+  [{ text: 'Fast', tone: 'blue' }, ', ', { text: 'Efficient', tone: 'green' }, ' & ', { text: 'Productive', tone: 'purple' }],
+]
+const LANDING = 'Fast, Efficient & Productive'
+const FIRST = 'Effortless HR, End to End'
+const SECOND = 'Every Lead, Closer to a Deal'
 
-// Stories run fast; the component's defaults are the original timing (55 / 30 / 2000 / 300ms).
+// Test speed, for the stories that assert a whole run. Everything else shows the real pace.
 const FAST = { speed: 4, deleteSpeed: 2, hold: 40, delay: 20 }
 
 const Headline = ({ className = '', ...args }: React.ComponentProps<typeof Typewriter>) => (
@@ -32,7 +37,9 @@ const Headline = ({ className = '', ...args }: React.ComponentProps<typeof Typew
 const meta = {
   title: 'Effects/Typewriter',
   component: Typewriter,
-  args: { text: PHRASES, ...FAST },
+  // Real timing in Storybook (the component's defaults: the original 55ms / 2s hold / 30ms delete /
+  // 300ms delay). Only stories that assert a whole run opt into FAST.
+  args: { lines: LINES },
   render: (args) => <Headline {...args} />,
 } satisfies Meta<typeof Typewriter>
 
@@ -42,33 +49,37 @@ type Story = StoryObj<typeof meta>
 const shown = (root: HTMLElement) => root.querySelector('[data-slot="typewriter-text"]')!.textContent
 const landed = (root: HTMLElement) => root.querySelector('[data-slot="typewriter-text"][data-landed]') !== null
 
-/** Rotates through every line and lands on the brand line; the heading's name is the brand line from the first frame. */
+/** The real thing, at the real pace (the original 55ms per letter, 2s hold, 30ms backspace). */
 export const Default: Story = {
-  args: {
-    speed: 3,
-    deleteSpeed: 1
-  },
-
-  play: async ({ canvas, canvasElement }) => {
+  play: async ({ canvas }) => {
+    // The heading's accessible name is the brand line from the first frame, whatever is on screen.
     await expect(canvas.getByRole('heading', { name: LANDING })).toBeInTheDocument()
+  },
+}
+
+/** (Test speed) Rotates through every line and lands on the brand line. */
+export const RunsToLanding: Story = {
+  args: FAST,
+  play: async ({ canvasElement }) => {
     await waitFor(() => expect(landed(canvasElement)).toBe(true), { timeout: 8000 })
     await expect(shown(canvasElement)).toBe(LANDING)
     await animationsSettled()
-  }
-}
-
-/** Type → hold → backspace → next: every phrase is typed in full, then deleted to nothing. */
-export const Rotates: Story = {
-  args: { ...FAST, hold: 120 },
-  play: async ({ canvasElement }) => {
-    await waitFor(() => expect(shown(canvasElement)).toBe(PHRASES[0]), { timeout: 3000 })
-    await waitFor(() => expect(shown(canvasElement)).toBe(''), { timeout: 3000 })
-    await waitFor(() => expect(shown(canvasElement)).toBe(PHRASES[1]), { timeout: 3000 })
   },
 }
 
-/** The box is the largest phrase's from the first frame — rotating never moves the page. */
+/** (Test speed) Type → hold → backspace → next: every line typed in full, then deleted to nothing. */
+export const Rotates: Story = {
+  args: { ...FAST, hold: 120 },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(shown(canvasElement)).toBe(FIRST), { timeout: 3000 })
+    await waitFor(() => expect(shown(canvasElement)).toBe(''), { timeout: 3000 })
+    await waitFor(() => expect(shown(canvasElement)).toBe(SECOND), { timeout: 3000 })
+  },
+}
+
+/** (Test speed) The box is the largest line's from the first frame — rotating never moves the page. */
 export const NoReflow: Story = {
+  args: FAST,
   play: async ({ canvasElement }) => {
     const box = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter"]')!
     const before = box.getBoundingClientRect()
@@ -91,15 +102,43 @@ export const Settled: Story = {
   },
 }
 
-/** The brand ink: one smooth gradient clipped to the letters, with a soft halo — the only effect on the text. */
-export const BrandInk: Story = {
-  args: { text: LANDING, settled: true },
+/** Key words wear their module's hue; the landing line is tri-colour; the rest is the heading's own ink. */
+export const Tones: Story = {
+  args: { settled: true },
   play: async ({ canvasElement }) => {
-    const css = getComputedStyle(canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"]')!)
-    await expect(css.backgroundImage).toContain('linear-gradient')
-    await expect(css.backgroundClip).toBe('text')
-    await expect(css.color).toBe('rgba(0, 0, 0, 0)')
-    await expect(css.filter).toContain('drop-shadow')
+    const text = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"]')!
+    const word = (hue: string) => text.querySelector<HTMLElement>(`[data-tone="${hue}"]`)!
+    const probe = (v: string) => {
+      const el = document.createElement('span')
+      el.style.color = `var(${v})`
+      text.appendChild(el)
+      const c = getComputedStyle(el).color
+      el.remove()
+      return c
+    }
+    await expect(word('blue').textContent).toBe('Fast')
+    await expect(word('green').textContent).toBe('Efficient')
+    await expect(word('purple').textContent).toBe('Productive')
+    for (const hue of ['blue', 'green', 'purple']) await expect(getComputedStyle(word(hue)).color).toBe(probe(`--tone-${hue}`))
+    // Three different colours, and the connecting "," / "&" stay in the heading's ink.
+    await expect(new Set(['blue', 'green', 'purple'].map((h) => getComputedStyle(word(h)).color)).size).toBe(3)
+    await expect(getComputedStyle(text).color).toBe(getComputedStyle(text.closest('h1')!).color)
+  },
+}
+
+/** (Test speed) The caret holds still while keys are pressed and blinks only when idle. */
+export const CaretBlinksOnlyWhenIdle: Story = {
+  args: { ...FAST, speed: 60, hold: 600 },
+  play: async ({ canvasElement }) => {
+    const caret = () => canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"] [data-slot="typewriter-caret"]')!
+    // Mid-line: typing, so steady.
+    await waitFor(() => expect(shown(canvasElement)!.length).toBeGreaterThan(4), { timeout: 3000 })
+    await expect(caret()).not.toHaveAttribute('data-blinking')
+    await expect(getComputedStyle(caret()).animationName).toBe('none')
+    // Line finished and held: idle, so blinking.
+    await waitFor(() => expect(shown(canvasElement)).toBe(FIRST), { timeout: 5000 })
+    await waitFor(() => expect(caret()).toHaveAttribute('data-blinking'), { timeout: 500 })
+    await expect(getComputedStyle(caret()).animationName).toBe('typewriter-caret')
   },
 }
 
@@ -123,8 +162,8 @@ function contrast(fg: string, bg: string) {
   return (a + 0.05) / (b + 0.05)
 }
 
-/** Both ends of the brand ink read as large text (≥ 3:1) on the page, in light AND dark. */
-export const InkContrast: Story = {
+/** Every hue the headline uses reads as large text (≥ 3:1) on the page, in light AND dark. */
+export const ToneContrast: Story = {
   render: () => (
     <div className="grid gap-4">
       <div data-theme-probe="light" className="bg-background p-4" />
@@ -134,18 +173,17 @@ export const InkContrast: Story = {
   play: async ({ canvasElement }) => {
     for (const probe of canvasElement.querySelectorAll<HTMLElement>('[data-theme-probe]')) {
       const css = getComputedStyle(probe)
-      const bg = css.backgroundColor
-      for (const stop of ['--typewriter-ink-from', '--typewriter-ink-to']) {
-        const ratio = contrast(css.getPropertyValue(stop).trim(), bg)
-        await expect(ratio, `${probe.dataset.themeProbe} ${stop} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3)
+      for (const hue of ['blue', 'green', 'purple', 'rose']) {
+        const ratio = contrast(css.getPropertyValue(`--tone-${hue}`).trim(), css.backgroundColor)
+        await expect(ratio, `${probe.dataset.themeProbe} ${hue} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3)
       }
     }
   },
 }
 
-/** The original caret, exactly: size in em, gradient, glow, and the hard 1s on/off blink. */
+/** The original caret, exactly: size in em, its four-stop gradient, glow, and the hard 1s on/off blink when idle. */
 export const OriginalCaret: Story = {
-  args: { text: LANDING, settled: true },
+  args: { settled: true },
   play: async ({ canvasElement }) => {
     const caret = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"] [data-slot="typewriter-caret"]')!
     const css = getComputedStyle(caret)
@@ -154,8 +192,10 @@ export const OriginalCaret: Story = {
     await expect(width / em).toBeCloseTo(0.09, 2)
     await expect(height / em).toBeCloseTo(0.92, 2)
     await expect(parseFloat(css.marginLeft)).toBe(4) // 0.25rem
-    await expect(css.backgroundImage).toContain('linear-gradient')
-    await expect(css.backgroundImage).toContain('rgb(66, 133, 244)') // #4285f4 at the top
+    await expect(css.backgroundImage).toContain('rgb(66, 133, 244)') //  #4285f4
+    await expect(css.backgroundImage).toContain('rgb(155, 114, 203)') // #9b72cb
+    await expect(css.backgroundImage).toContain('rgb(217, 101, 112)') // #d96570
+    await expect(css.backgroundImage).toContain('rgb(249, 171, 85)') //  #f9ab55
     await expect(css.boxShadow).toContain('rgba(155, 114, 203, 0.55)')
     await expect(css.animationName).toBe('typewriter-caret')
     await expect(css.animationDuration).toBe('1s')
@@ -165,9 +205,8 @@ export const OriginalCaret: Story = {
   },
 }
 
-/** Dark: the same brand, lifted to read on a dark surface. */
+/** Dark: the module hues on a dark surface, at the real pace. */
 export const Dark: Story = {
-  args: { settled: true },
   render: (args) => (
     <div className="dark rounded-xl bg-background p-8">
       <Headline {...args} />
@@ -175,15 +214,11 @@ export const Dark: Story = {
   ),
 }
 
-/** Phones: the original mobile size, centred, 250ms delay. */
+/** Phones: the original mobile size, centred, 250ms delay — at the real pace. */
 export const Mobile: Story = {
-  args: { ...FAST, delay: 250 },
+  args: { delay: 250 },
   globals: { viewport: { value: 'mobile1' } },
   render: (args) => <Headline {...args} className="text-center text-[clamp(22px,7vw,30px)]" />,
-  play: async ({ canvasElement }) => {
-    await waitFor(() => expect(landed(canvasElement)).toBe(true), { timeout: 8000 })
-    await animationsSettled()
-  },
 }
 
 /** Makes `(prefers-reduced-motion: reduce)` match for one story; returns the restore. */
@@ -196,11 +231,12 @@ function reduceMotion() {
   return () => { window.matchMedia = real }
 }
 
-/** Reduced motion: the brand line, still, in brand ink — no rotation, no caret. */
+/** Reduced motion: the brand line, still, in its colours — no rotation, no caret. */
 export const ReducedMotion: Story = {
   beforeEach: () => reduceMotion(),
   play: async ({ canvasElement }) => {
     await expect(shown(canvasElement)).toBe(LANDING)
     await expect(canvasElement.querySelector('[data-slot="typewriter-caret"]')).toBeNull()
+    await expect(canvasElement.querySelectorAll('[data-slot="typewriter-text"] [data-tone]')).toHaveLength(3)
   },
 }
