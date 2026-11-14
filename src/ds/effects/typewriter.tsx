@@ -122,21 +122,35 @@ function Typewriter({
   }, [still, index, count, deleting, lines, last, landing, speed, deleteSpeed, hold, delay])
 
   const landed = index === last && count === landing.text.length && !deleting
+  const rootRef = React.useRef<HTMLSpanElement>(null)
+  const textRef = React.useRef<HTMLSpanElement>(null)
+  const reveal = useReveal(rootRef, textRef, lines[index].text, count)
 
   return (
-    <span data-slot="typewriter" className={cn("inline-grid whitespace-pre-wrap", className)} {...props}>
+    <span ref={rootRef} data-slot="typewriter" className={cn("relative inline-grid whitespace-pre-wrap", className)} {...props}>
       <span className="sr-only">{landing.text}</span>
       {/* Every line, invisible, in one cell: the box is the largest line's from the start. */}
       {lines.map((line, i) => (
         <span key={i} aria-hidden="true" className="invisible col-start-1 row-start-1">
-          <Runs line={line} count={line.text.length} />
-          {!reduced && <Caret blinking={false} />}
+          <Runs line={line} />
         </span>
       ))}
-      <span aria-hidden="true" data-slot="typewriter-text" data-landed={landed || undefined} className="col-start-1 row-start-1">
-        <Runs line={lines[index]} count={count} />
-        {!reduced && <Caret blinking={!pressing} />}
+      {/* The WHOLE current line, laid out exactly like its copy (same structure, so the same kerning and the same
+          line breaks), revealed up to the typed character by a clip. Splitting the text at the caret instead loses
+          the kerning pair it cuts — up to ~2px — so the line, and centred text with it, would twitch per key. */}
+      <span
+        ref={textRef}
+        aria-hidden="true"
+        data-slot="typewriter-text"
+        data-typed={count}
+        data-landed={landed || undefined}
+        className="relative col-start-1 row-start-1"
+        style={{ clipPath: reveal.clip }}
+      >
+        <Runs line={lines[index]} />
       </span>
+      {/* Positioned from the root, so it stays on the text however a parent aligns the line (e.g. self-end). */}
+      {!reduced && reveal.caret && <Caret blinking={!pressing} left={reveal.caret.left} top={reveal.caret.top} />}
     </span>
   )
 }
@@ -171,8 +185,9 @@ function flatten(line: TypewriterLine): Flat {
   return { text, tones }
 }
 
-/** The first `count` characters, as runs of one hue each: key words in colour, the rest plain. */
-function Runs({ line, count }: { line: Flat; count: number }) {
+/** The line as runs of one hue each: key words in colour, the rest plain. */
+function Runs({ line }: { line: Flat }) {
+  const count = line.text.length
   const out: React.ReactNode[] = []
   let start = 0
   for (let i = 1; i <= count; i++) {
@@ -186,16 +201,116 @@ function Runs({ line, count }: { line: Flat; count: number }) {
   return <>{out}</>
 }
 
-/** The original Login caret, to the hundredth of an em. Blinks only when idle; holds still while typing. */
-function Caret({ blinking }: { blinking: boolean }) {
+/**
+ * Where the typed characters are, measured from the browser's own text layout: the clip that reveals them
+ * (one rectangle per line fragment, so multi-line phrases reveal line by line) and the caret's position. Runs
+ * before paint and again whenever the text box resizes (wrapping changes).
+ */
+function useReveal(
+  rootRef: React.RefObject<HTMLSpanElement | null>,
+  ref: React.RefObject<HTMLSpanElement | null>,
+  text: string,
+  count: number,
+) {
+  const [reveal, setReveal] = React.useState<{ clip: string; caret: { left: number; top: number } | null }>({
+    clip: "inset(0 100% 0 0)",
+    caret: null,
+  })
+  const [layoutTick, setLayoutTick] = React.useState(0)
+  /** Baseline offset from a line fragment's top, measured once per layout (font metrics, not assumed). */
+  const baselineRef = React.useRef<{ tick: number; text: string; offset: number } | null>(null)
+
+  React.useEffect(() => {
+    const el = ref.current
+    const root = rootRef.current
+    if (!el || !root || typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver(() => setLayoutTick((t) => t + 1))
+    observer.observe(el)
+    observer.observe(root)
+    return () => observer.disconnect()
+  }, [rootRef, ref])
+
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    const root = rootRef.current
+    if (!el || !root) return
+    const box = el.getBoundingClientRect()
+    const rootBox = root.getBoundingClientRect()
+    const em = parseFloat(getComputedStyle(el).fontSize) || 16
+    const rects = count > 0 ? charRects(el, 0, count) : []
+    if (!baselineRef.current || baselineRef.current.tick !== layoutTick || baselineRef.current.text !== text) {
+      // A zero-size inline-block sits ON the baseline; insert one for a moment (before paint), read it, remove it.
+      const probe = document.createElement("span")
+      probe.style.cssText = "display:inline-block;width:0;height:0"
+      el.insertBefore(probe, el.firstChild)
+      const first = charRects(el, 0, 1)[0]
+      const offset = first ? probe.getBoundingClientRect().top - first.top : em
+      probe.remove()
+      baselineRef.current = { tick: layoutTick, text, offset }
+    }
+    const baseline = baselineRef.current.offset
+    // A typed character's ink may run past its advance (a bold "f", "y"); reveal that only where nothing
+    // follows on the line, so the next — untyped — letter never shows a sliver.
+    const tail = count >= text.length || text[count] === " " ? 0.15 * em : 0
+    const path = rects
+      .map((r, i) => {
+        const x = r.left - box.left
+        const y = r.top - box.top
+        const w = r.width + (i === rects.length - 1 ? tail : 0)
+        return `M${x} ${y}H${x + w}V${y + r.height}H${x}Z`
+      })
+      .join("")
+    // Before the first key the caret waits where the first letter will appear.
+    const at = rects.length ? rects[rects.length - 1] : charRects(el, 0, Math.min(1, text.length))[0]
+    const caret = at
+      ? {
+          left: (rects.length ? at.right : at.left) - rootBox.left + 0.25 * 16,
+          // The bar (0.92em) ends 0.1em below the baseline.
+          top: at.top - rootBox.top + baseline + 0.1 * em - 0.92 * em,
+        }
+      : null
+    setReveal({ clip: path ? `path("${path}")` : "inset(0 100% 0 0)", caret })
+  }, [rootRef, ref, text, count, layoutTick])
+
+  return reveal
+}
+
+/** The client rects of characters [start, end) of the element's text, one per line fragment. */
+function charRects(root: HTMLElement, start: number, end: number): DOMRect[] {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const range = document.createRange()
+  let offset = 0
+  let started = false
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const len = node.textContent?.length ?? 0
+    if (!started && start < offset + len) {
+      range.setStart(node, start - offset)
+      started = true
+    }
+    if (started && end <= offset + len) {
+      range.setEnd(node, end - offset)
+      return [...range.getClientRects()].filter((r) => r.width > 0 || r.height > 0)
+    }
+    offset += len
+  }
+  return []
+}
+
+/**
+ * The original Login caret, to the hundredth of an em: 0.25rem after the last typed letter, 0.09em × 0.92em,
+ * sat 0.1em below the baseline. It is painted over the text, never part of it — a caret inside the line splits
+ * the text (and its kerning) and gives the browser a place to break a word. Blinks only when idle.
+ */
+function Caret({ blinking, left, top }: { blinking: boolean; left: number; top: number }) {
   return (
     <span
       data-slot="typewriter-caret"
       data-blinking={blinking || undefined}
       className={cn(
-        "ml-1 inline-block h-[0.92em] w-[0.09em] rounded-[0.06em] align-[-0.1em] [background:var(--typewriter-caret)] shadow-(--typewriter-caret-glow)",
+        "pointer-events-none absolute h-[0.92em] w-[0.09em] rounded-[0.06em] [background:var(--typewriter-caret)] shadow-(--typewriter-caret-glow)",
         blinking && "animate-typewriter-caret",
       )}
+      style={{ left, top }}
     />
   )
 }

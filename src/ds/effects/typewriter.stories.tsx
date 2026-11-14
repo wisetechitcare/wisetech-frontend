@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, waitFor } from 'storybook/test'
 import { animationsSettled } from '@/ds/lib/motion'
-import { Typewriter, type TypewriterLine } from './typewriter'
+import { Typewriter } from './typewriter'
+import { LANDING_LINE, PRODUCT_LINES } from './typewriter.fixtures'
 
 /**
  * For moments only: the sign-in headline. It rotates through what the platform does — one line per
@@ -9,19 +10,8 @@ import { Typewriter, type TypewriterLine } from './typewriter'
  * person, then lands on the brand line in three colours and rests. One motion idea: typing. Never in tables, forms,
  * wizards or approval flows. Assistive tech reads only the landing line.
  */
-// One line per product family, its key word in its launcher department's hue (accessSidebarLayout:
-// KPIs and hiring sit under HR). Ordered so neighbouring lines never share a colour.
-const LINES: readonly TypewriterLine[] = [
-  ['Effortless ', { text: 'HR', tone: 'blue' }, ', End to End'], //                                  HR Department
-  ['Every ', { text: 'Lead', tone: 'green' }, ', Closer to a ', { text: 'Deal', tone: 'green' }], //  CRM
-  [{ text: 'Hire', tone: 'blue' }, ' Great People, Faster'], //                                      HR — recruitment
-  ['From ', { text: 'Project', tone: 'purple' }, ' to Paid ', { text: 'Invoice', tone: 'purple' }], // Project Department
-  [{ text: 'Performance', tone: 'blue' }, ' You Can Measure'], //                                     HR — KPIs
-  [{ text: 'Payroll', tone: 'rose' }, ', Right Every Time'], //                                       Finance/Account
-  // Lands in three: the launcher's first three departments — HR, CRM, Projects.
-  [{ text: 'Fast', tone: 'blue' }, ', ', { text: 'Efficient', tone: 'green' }, ' & ', { text: 'Productive', tone: 'purple' }],
-]
-const LANDING = 'Fast, Efficient & Productive'
+const LINES = PRODUCT_LINES
+const LANDING = LANDING_LINE
 const FIRST = 'Effortless HR, End to End'
 const SECOND = 'Every Lead, Closer to a Deal'
 
@@ -49,7 +39,11 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const shown = (root: HTMLElement) => root.querySelector('[data-slot="typewriter-text"]')!.textContent
+/** What has been typed: the line holds its whole text (revealed by a clip), up to `data-typed` characters. */
+const shown = (root: HTMLElement) => {
+  const el = root.querySelector<HTMLElement>('[data-slot="typewriter-text"]')!
+  return (el.textContent ?? '').slice(0, Number(el.dataset.typed))
+}
 const landed = (root: HTMLElement) => root.querySelector('[data-slot="typewriter-text"][data-landed]') !== null
 
 /** The real thing, at the real pace (the original 55ms per letter, 2s hold, 30ms backspace). */
@@ -139,7 +133,7 @@ export const CaretBlinksOnlyWhenIdle: Story = {
   tags: ['!autodocs'], // a test, not a demo
   args: { ...FAST, speed: 60, hold: 600 },
   play: async ({ canvasElement }) => {
-    const caret = () => canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"] [data-slot="typewriter-caret"]')!
+    const caret = () => canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-caret"]')!
     // Mid-line: typing, so steady.
     await waitFor(() => expect(shown(canvasElement)!.length).toBeGreaterThan(4), { timeout: 3000 })
     await expect(caret()).not.toHaveAttribute('data-blinking')
@@ -196,13 +190,29 @@ export const OriginalCaret: Story = {
   tags: ['!autodocs'], // a test, not a demo
   args: { settled: true },
   play: async ({ canvasElement }) => {
-    const caret = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"] [data-slot="typewriter-caret"]')!
+    const text = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"]')!
+    const caret = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-caret"]')!
     const css = getComputedStyle(caret)
-    const em = parseFloat(getComputedStyle(caret.parentElement!).fontSize)
-    const { width, height } = caret.getBoundingClientRect()
-    await expect(width / em).toBeCloseTo(0.09, 2)
-    await expect(height / em).toBeCloseTo(0.92, 2)
-    await expect(parseFloat(css.marginLeft)).toBe(4) // 0.25rem
+    const em = parseFloat(getComputedStyle(text).fontSize)
+    const bar = caret.getBoundingClientRect()
+    await expect(bar.width / em).toBeCloseTo(0.09, 2)
+    await expect(bar.height / em).toBeCloseTo(0.92, 2)
+    // 0.25rem after the last letter.
+    const range = document.createRange()
+    range.selectNodeContents(text)
+    const rects = [...range.getClientRects()]
+    await expect(bar.left - rects[rects.length - 1].right).toBeCloseTo(4, 0)
+    // Sat 0.1em below the baseline, exactly as the original: a zero-size inline-block sits ON the baseline.
+    const probe = document.createElement('span')
+    probe.style.cssText = 'display:inline-block;width:0;height:0'
+    text.appendChild(probe)
+    const baseline = probe.getBoundingClientRect().top
+    probe.remove()
+    await expect((bar.bottom - baseline) / em).toBeCloseTo(0.1, 1)
+    // Painted over the text, never part of it: the typing line is exactly its invisible copy's width.
+    const copies = canvasElement.querySelectorAll<HTMLElement>('[data-slot="typewriter"] > .invisible')
+    const copy = copies[copies.length - 1] // the landing line's copy
+    await expect(text.getBoundingClientRect().width).toBe(copy.getBoundingClientRect().width)
     await expect(css.backgroundImage).toContain('rgb(66, 133, 244)') //  #4285f4
     await expect(css.backgroundImage).toContain('rgb(155, 114, 203)') // #9b72cb
     await expect(css.backgroundImage).toContain('rgb(217, 101, 112)') // #d96570
@@ -213,6 +223,32 @@ export const OriginalCaret: Story = {
     // step-end, which browsers serialise as its equivalent steps(1).
     await expect(['step-end', 'steps(1)', 'steps(1, end)']).toContain(css.animationTimingFunction)
     await expect(css.animationIterationCount).toBe('infinite')
+  },
+}
+
+/** (Test speed) Centred text types in place: the first letter never moves while the line fills in. */
+export const CentredTypesInPlace: Story = {
+  tags: ['!autodocs'], // a test, not a demo
+  args: { ...FAST, speed: 30, hold: 400 },
+  render: (args) => <Headline {...args} className="text-center" />,
+  play: async ({ canvasElement }) => {
+    const firstLetterX = () => {
+      const node = canvasElement.querySelector('[data-slot="typewriter-text"]')!.firstChild!
+      const target = node.nodeType === Node.TEXT_NODE ? node : node.firstChild!
+      const range = document.createRange()
+      range.setStart(target, 0)
+      range.setEnd(target, 1)
+      return range.getBoundingClientRect().left
+    }
+    await waitFor(() => expect(shown(canvasElement).length).toBeGreaterThan(0), { timeout: 3000 })
+    const xs: number[] = []
+    await waitFor(() => {
+      xs.push(firstLetterX())
+      expect(shown(canvasElement)).toBe(FIRST)
+    }, { timeout: 4000, interval: 10 })
+    // Without the held position it slides ~30px across the line. Split at the caret, the line loses one
+    // kerning pair — a fraction of a pixel, below what a screen can show; anything near a pixel is a regression.
+    await expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(1)
   },
 }
 
