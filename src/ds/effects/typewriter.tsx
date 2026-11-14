@@ -60,6 +60,7 @@ function Typewriter({
   hold = 2000,
   delay = 300,
   settled = false,
+  onLanded,
   className,
   ...props
 }: Omit<React.ComponentProps<"span">, "children"> & {
@@ -75,6 +76,8 @@ function Typewriter({
   delay?: number
   /** Jump to the landing line and stop. */
   settled?: boolean
+  /** Called once when the headline lands (or settles) — e.g. to settle an animated background with it. */
+  onLanded?: () => void
 }) {
   const lines = React.useMemo(() => input.map(flatten), [input])
   const last = lines.length - 1
@@ -127,6 +130,11 @@ function Typewriter({
   }, [still, index, count, deleting, lines, last, landing, speed, deleteSpeed, hold, delay])
 
   const landed = index === last && count === landing.text.length && !deleting
+  const onLandedRef = React.useRef(onLanded)
+  onLandedRef.current = onLanded
+  React.useEffect(() => {
+    if (landed || still) onLandedRef.current?.()
+  }, [landed, still])
   const rootRef = React.useRef<HTMLSpanElement>(null)
   const textRef = React.useRef<HTMLSpanElement>(null)
   const reveal = useReveal(rootRef, textRef, lines[index].text, count)
