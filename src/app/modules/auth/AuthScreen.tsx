@@ -5,8 +5,11 @@ import { useColorMode } from '@app/theme/ColorMode'
 import { fetchCompanyLogo } from '@services/company'
 import { DEFAULT_BRAND, SIGN_IN_HEADLINE, SIGN_IN_TAGLINE } from './signInCopy'
 
-/** The logo the sign-in pages showed before an organisation uploads its own (kept from the previous Login). */
-const DEFAULT_LOGO = 'https://wise-tech-asset-store.s3.ap-south-1.amazonaws.com/4100960a0f2c5e89381847e6637d3e67aa43d39330'
+/**
+ * The WiseTech wordmark, shown until the organisation's own logo arrives (and if the endpoint fails) — the same
+ * asset as the splash screen (index.html). The previous Login's default URL had gone 404, which left initials.
+ */
+const DEFAULT_LOGO = 'https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2'
 
 /** The organisation's name and logo for the sign-in pages (public endpoint); defaults until it answers or if it fails. */
 function useAuthBrand() {

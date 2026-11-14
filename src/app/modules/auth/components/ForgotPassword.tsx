@@ -1,16 +1,14 @@
-import {useEffect, useState} from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as Yup from 'yup'
-import clsx from 'clsx'
-import {Link} from 'react-router-dom'
-import {useFormik} from 'formik'
-import {forgotPassword} from '@services/auth'
-import {toAbsoluteUrl} from '@metronic/helpers/AssetHelpers'
-import { fetchCompanyLogo } from '@services/company'
-import { Button } from '@/ds/ui/button'
-
-const initialValues = {
-  email: '',
-}
+import { useFormik } from 'formik'
+import { Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+import { Alert, AlertDescription } from '@/ds/ui/alert'
+import { Button, buttonVariants } from '@/ds/ui/button'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field'
+import { Input } from '@/ds/ui/input'
+import { forgotPassword } from '@services/auth'
+import { AuthScreen } from '../AuthScreen'
 
 const forgotPasswordSchema = Yup.object().shape({
   email: Yup.string()
@@ -20,213 +18,101 @@ const forgotPasswordSchema = Yup.object().shape({
     .required('Email is required'),
 })
 
-export function ForgotPasswordForm() {
-  const [loading, setLoading] = useState(false)
-  const [hasErrors, setHasErrors] = useState<boolean | undefined>(undefined)
-  const [submitClick,setSubmitClick] = useState(false)
-  // The server answers the same way whether or not the address is an account, and never with
-  // a session: the emailed link is the only way forward. (It used to return a token for any
-  // address, which this page then signed in with — anyone could become anyone.)
-  const [notice, setNotice] = useState('')
-  const formik = useFormik({
-    initialValues,
-    validationSchema: forgotPasswordSchema,
-    onSubmit: (values, {setStatus, setSubmitting}) => {
-      setLoading(true)
-      setHasErrors(undefined)
-      setSubmitClick(true)
-      setTimeout(() => {
-        forgotPassword(values.email)
-          .then((response) => {
-            setNotice(response?.message ?? '')
-            setHasErrors(false)
-            setLoading(false)
-            // setSubmitClick(true)
-           
-          })
-          .catch(() => {
-            // setSubmitClick(false)
-            setHasErrors(true)
-            setLoading(false)
-            setSubmitting(false)
-            setStatus('The login detail is incorrect')
-          })
-      }, 1000)
+/** After a request, Send waits this long before another one (kept from the previous page). */
+const RESEND_COOLDOWN_MS = 10_000
 
-       setTimeout(()=>{
-              setSubmitClick(false)
-        },10000)
+const SENT_FALLBACK = 'If an account exists for that email, a password reset link has been sent to it.'
+const FAILED_FALLBACK = 'Sorry, looks like there are some errors detected, please try again.'
+
+/**
+ * Forgot Password, on the kit's Auth Layout (via AuthScreen), the same frame as Sign In.
+ *
+ * The server answers the same way whether or not the address is an account, and never with a session: the
+ * emailed link is the only way forward. (It used to return a token for any address, which this page then signed
+ * in with — anyone could become anyone.)
+ *
+ * Send is never disabled for an invalid form (submitting validates and focuses the field); it is disabled only
+ * while a request is in flight and for a short cooldown after one, so the link isn't requested twice by accident.
+ */
+export function ForgotPassword() {
+  const [result, setResult] = useState<{ kind: 'sent' | 'failed'; message: string } | null>(null)
+  const [coolingDown, setCoolingDown] = useState(false)
+  const emailRef = useRef<HTMLInputElement>(null)
+  const cooldown = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(cooldown.current), [])
+
+  const formik = useFormik({
+    initialValues: { email: '' },
+    validationSchema: forgotPasswordSchema,
+    onSubmit: async (values) => {
+      setResult(null)
+      setCoolingDown(true)
+      window.clearTimeout(cooldown.current)
+      cooldown.current = window.setTimeout(() => setCoolingDown(false), RESEND_COOLDOWN_MS)
+      try {
+        const response = await forgotPassword(values.email)
+        setResult({ kind: 'sent', message: response?.message || SENT_FALLBACK })
+      } catch (error: any) {
+        setResult({ kind: 'failed', message: error?.response?.data?.detail || FAILED_FALLBACK })
+      }
     },
   })
 
+  // After a submit that did not validate, focus the email field — once per attempt, when validation has finished.
+  const focusedAttempt = useRef(0)
+  useEffect(() => {
+    if (formik.submitCount === focusedAttempt.current || formik.isSubmitting || !formik.errors.email) return
+    focusedAttempt.current = formik.submitCount
+    emailRef.current?.focus()
+  }, [formik.submitCount, formik.isSubmitting, formik.errors.email])
+
+  const emailError = formik.touched.email ? formik.errors.email : undefined
+
   return (
-    <form
-      className='form w-100 fv-plugins-bootstrap5 fv-plugins-framework'
-      noValidate
-      id='kt_login_password_reset_form'
-      onSubmit={formik.handleSubmit}
-    >
-      {/* begin::Title */}
-      {hasErrors === true && (
-        <div className='mb-lg-15 alert alert-danger'>
-          <div className='alert-text font-weight-bold'>
-            Sorry, looks like there are some errors detected, please try again.
-          </div>
-        </div>
-      )}
-
-      {hasErrors === false && (
-        <div className='mb-10 bg-light-info p-8 rounded'>
-          <div className='text-info' role='status'>
-            {notice || 'If an account exists for that email, a password reset link has been sent to it.'}
-          </div>
-        </div>
-      )}
-      {/* end::Title */}
-
-      {/* begin::Form group */}
-      <div className='fv-row mb-8'>
-        <label className='form-label fw-bolder text-gray-900 fs-6'>Email</label>
-        <input
-          type='email'
-          placeholder=''
-          autoComplete='off'
-          {...formik.getFieldProps('email')}
-          className={clsx(
-            'form-control bg-transparent',
-            {'is-invalid': formik.touched.email && formik.errors.email},
-            {
-              'is-valid': formik.touched.email && !formik.errors.email,
-            }
-          )}
-        />
-        {formik.touched.email && formik.errors.email && (
-          <div className='fv-plugins-message-container'>
-            <div className='fv-help-block'>
-              <span role='alert'>{formik.errors.email}</span>
-            </div>
-          </div>
-        )}
-      </div>
-      {/* end::Form group */}
-
-      {/* begin::Form group */}
-      <div className='d-flex flex-wrap justify-content-center pb-lg-0'>
-        <Button
-          type='submit'
-          id='kt_password_reset_submit'
-          className='me-4'
-          disabled={loading || !formik.isValid || submitClick}
-          loading={loading}
-        >
-          {loading ? 'Please wait...' : 'Submit'}
-        </Button>
-        <Link to='/auth/login'>
-          <Button
-            type='button'
-            id='kt_login_password_reset_form_cancel_button'
-            variant='outline'
-            disabled={formik.isSubmitting || !formik.isValid}
-          >
-            Cancel
-          </Button>
-        </Link>{' '}
-      </div>
-      {/* end::Form group */}
-    </form>
-  )
-}
-
-export function ForgotPassword() {
-
-  const [logoSrc, setLogoSrc] = useState()
-    useEffect(() => {
-      async function getCompanyLogo() {
-        const { data: { logo: logoSrc } } = await fetchCompanyLogo();
-        setLogoSrc(logoSrc);
+    <AuthScreen
+      title="Forgot Password"
+      description="Enter your work email and we'll send you a link to reset your password."
+      footer={
+        <Link to="/auth/login" className={buttonVariants({ variant: 'link', className: 'mx-auto px-0' })}>
+          <ArrowLeft aria-hidden="true" />
+          Back to Sign In
+        </Link>
       }
-  
-      getCompanyLogo();
-    }, [])
+    >
+      <form className="grid gap-5" onSubmit={formik.handleSubmit} noValidate>
+        {result && (
+          <Alert variant={result.kind === 'sent' ? 'info' : 'danger'}>
+            <AlertDescription role={result.kind === 'sent' ? 'status' : 'alert'}>{result.message}</AlertDescription>
+          </Alert>
+        )}
 
+        <FieldGroup className="gap-5">
+          <Field data-invalid={emailError ? true : undefined}>
+            <FieldLabel htmlFor="forgot-email">Email</FieldLabel>
+            <Input
+              id="forgot-email"
+              ref={emailRef}
+              type="email"
+              inputMode="email"
+              autoComplete="username"
+              aria-invalid={emailError ? true : undefined}
+              aria-describedby={emailError ? 'forgot-email-error' : undefined}
+              {...formik.getFieldProps('email')}
+            />
+            {emailError && <FieldError id="forgot-email-error">{emailError}</FieldError>}
+          </Field>
+        </FieldGroup>
 
-  return (
-    <div className="d-flex flex-column flex-lg-row flex-column-fluid login__page">
-      <style>
-        {`
-          @media (min-width: 1024px) and (min-height: 504px) {
-            .w-l-300px {
-              width: 250px !important;
-            }
-            .login-scren h1{
-              font-size: 15px !important;
-            }
-            .login-scren h3{
-              font-size: 14px !important;
-            }
-            .screen-1024px{
-              width: 450px !important;
-            }
-            .log2-scren h1{
-              font-size: 20px !important;
-            }
-            .log-para{
-              font-size: 12px !important;
-            }
-            .mbb-5{
-              margin-bottom: 5px !important;
-            }
-            .log2-scren ..form-control{
-              padding: 7px 10px;
-              font-size: 12px !important;
-            }
-            .log2-scren label{
-              font-size: 13px !important;
-              }
-            }
-            @media (min-width: 1280px) and (min-height: 631px) {
-            .w-l-300px {
-              width: 380px !important;
-            }
-            .screen-1024px {
-              width: 560px !important;
-            }
-          }
-        `}
-      </style>
-    <div className="d-flex flex-column flex-lg-row flex-column-fluid login__page">
-      <div className="d-flex flex-lg-row-fluid">
-        <div className="d-flex flex-column flex-center pb-lg-10 p-5 w-100">
-          <img className="mx-auto w-200px" src={logoSrc}/>
-          {/* <img className="mx-auto" src="https://s3-alpha-sig.figma.com/img/0297/f193/b24c43c071d3513e8bd14747a84a90ed?Expires=1723420800&Key-Pair-Id=APKAQ4GOSFWCVNEHN3O4&Signature=etsmWMpOPinqqZnjiW49Uim8~GdThnHgTqa21sdwTqaxzRMkHrwR5YJXBTeHqZPjo46haAg6v2Ni1f1WfWbtZqUHD2DYs3GDlFGTp46ZGkNVttxj40~DcXVItHxd6cL43j-ZcPIjHhgxniQC5VBOg9maFzSwVDr9b9qTQEZv5KOeF5-~R9NjC9-aNN9lVZAMvLx0zJWG4Sc520DHlXxA5YFt64k9sDo7xRJ62IpYc69xrwndiI9200mrIxZ3luKC0szEbKTXibKXGPH1YHrxhnEOQMLYegJm4UGxfN8gHnFNEzAwHusvoGXBhDjpemBSxCtJEuLJ8CEIQsRTaC~d1Q__"/> */}
-            <img className="mx-auto w-150px w-lg-500px w-l-300px" src={toAbsoluteUrl("media/login/WTgif.gif")}/>
-            <h1 className="fs-1qx text-center mb-5 mt-20 text-uppercase login__subtitle">Fast, Efficient and Productive</h1>
-            <h3  className="text-gray-800 fw-semibolder fs-5 text-secondary text-center"> All-in-one Employee Management Solution for Startups</h3>
-        </div>
-      </div>
-      <div className="d-flex flex-column-fluid flex-lg-row-auto justify-content-center justify-content-lg-end p-12">
-        <div className="bg-body d-flex flex-column flex-center rounded-4 w-md-600px p-10">
-          <div className="d-flex flex-center flex-column align-items-stretch h-lg-100 w-md-400px">
-            <div className="d-flex flex-center flex-column flex-column-fluid">
-              <div className="text-center mb-11">
-                <h1 className="text-gray-900 fw-bolder">Forgot Password ?</h1>
-                <div className="text-gray-800 fw-semibold fs-6">
-                  Enter your email to reset your password.
-                </div>
-              </div>
-              <ForgotPasswordForm/>
-            </div>
-            <div className="d-flex justify-content-center">
-              <div className="d-flex text-primary fs-base gap-5 mt-6">
-                <a href="/" target="_blank">FAQs</a>
-                <a href="/" target="_blank">Plans</a>
-                <a href="/" target="_blank">Contact Us</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    </div>
+        <Button
+          type="submit"
+          glow
+          className="w-full"
+          loading={formik.isSubmitting}
+          disabled={formik.isSubmitting || coolingDown}
+        >
+          {formik.isSubmitting ? 'Sending…' : 'Send Reset Link'}
+        </Button>
+      </form>
+    </AuthScreen>
   )
 }
