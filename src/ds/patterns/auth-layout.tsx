@@ -7,29 +7,6 @@ import { LiquidSwirl } from "@/ds/effects/liquid-swirl"
 import { GradientText } from "@/ds/effects/gradient-text"
 import { titleCaseChildren } from "@/ds/lib/text"
 
-/** The organisation's logo, whole and at its own proportions; initials beside the name if there is none or it fails. */
-function BrandMark({ brandName, logoSrc, className }: { brandName: string; logoSrc?: string | null; className?: string }) {
-  const [failed, setFailed] = React.useState(false)
-  React.useEffect(() => setFailed(false), [logoSrc])
-  if (!logoSrc || failed) {
-    return (
-      <span data-slot="auth-brand-mark" className={cn("inline-flex items-center gap-3", className)}>
-        <SmartAvatar name={brandName} seed={brandName} shape="rounded" size="default" decorative />
-        <span className="font-heading text-lg font-semibold text-foreground">{brandName}</span>
-      </span>
-    )
-  }
-  return (
-    <img
-      data-slot="auth-brand-mark"
-      src={logoSrc}
-      alt={brandName}
-      onError={() => setFailed(true)}
-      className={cn("h-10 w-auto max-w-60 object-contain dark:rounded-lg dark:bg-foreground dark:px-3 dark:py-1.5", className)}
-    />
-  )
-}
-
 /**
  * The sign-in pages' frame (Sign In, Forgot / Reset Password, Account Inactive): a brand panel and the form
  * Card, side by side from `lg`, stacked above it on tablets and phones.
@@ -37,9 +14,8 @@ function BrandMark({ brandName, logoSrc, className }: { brandName: string; logoS
  * - **One continuous page**, as the original sign-in: no divider and no separate panel colour between the
  *   columns — the form Card (lifted) floats beside the brand content, over the Liquid Swirl background, which
  *   settles with the headline (or as soon as the form is focused) and is still under reduced motion.
- * - **The logo is the organisation's real logo**, whole, at its own proportions (a wordmark stays a wordmark), on
- *   a light plate in dark mode so any logo stays legible. Only if there is none, or it fails to load, does it
- *   fall back to Smart Avatar initials beside the name.
+ * - **The logo is the organisation's real logo** in the kit's company-logo tile (Smart Avatar's Logo recipe — a
+ *   rounded plate, the whole image inset, never cropped; the initials stay if it fails to load).
  * - **The logo stays outside the form card** at every size (user decision 2026-11-14, as the original sign-in):
  *   in the brand panel beside the form, or on phones at the top of the stacked brand row, centred above the
  *   headline. On phones the card's title and description are centred under it.
@@ -104,7 +80,7 @@ export function AuthLayout({
         aria-label={brandName}
         className="flex flex-col items-center gap-6 px-4 pt-10 pb-6 text-center sm:px-8 lg:items-start lg:justify-center lg:gap-10 lg:p-16 lg:text-left"
       >
-        <BrandMark brandName={brandName} logoSrc={logoSrc} className="h-11 lg:h-12" />
+        <SmartAvatar name={brandName} src={logoSrc} seed={brandName} shape="rounded" fit="contain" size="xl" />
         <div className="max-w-xl">
           {/* The typed text sits at the BOTTOM of the box reserved for the longest line, so a one-line phrase
               stays right above the tagline and the spare room falls into the gap above, by the logo. */}

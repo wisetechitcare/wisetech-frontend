@@ -104,14 +104,14 @@ export const SettlesOnFocus: Story = {
   },
 }
 
-/** A logo that fails to load falls back to the organisation's initials beside its name — never a broken image. */
+/** A logo that fails to load leaves the organisation's initials, never an empty or broken tile. */
 export const BrokenLogo: Story = {
   tags: ['!autodocs'], // a test, not a demo
   args: { logoSrc: 'https://invalid.example/missing-logo.png' },
   play: async ({ canvasElement }) => {
     const brand = canvasElement.querySelector('[data-slot="auth-brand"]')!
     await waitFor(() => expect(brand.querySelector('img[src*="missing-logo"]')).toBeNull(), { timeout: 3000 })
-    await expect(brand.querySelector('[data-slot="auth-brand-mark"]')).toHaveTextContent('WiseTech')
+    await expect(brand.querySelector('[data-slot="smart-avatar"]')).toHaveTextContent('WI')
   },
 }
 
@@ -121,8 +121,8 @@ export const LogoOutsideCardOnPhone: Story = {
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvasElement }) => {
     const cardEl = canvasElement.querySelector('[data-slot="card"]')!
-    await expect(cardEl.querySelector('[data-slot="auth-brand-mark"]')).toBeNull()
-    const mark = canvasElement.querySelector('[data-slot="auth-brand"] [data-slot="auth-brand-mark"]')!
+    await expect(cardEl.querySelector('[data-slot="smart-avatar"]')).toBeNull()
+    const mark = canvasElement.querySelector('[data-slot="auth-brand"] [data-slot="smart-avatar"]')!
     await waitFor(() => expect(box(mark).width).toBeGreaterThan(0))
     const card = box(cardEl)
     await expect(box(mark).bottom).toBeLessThanOrEqual(card.top)

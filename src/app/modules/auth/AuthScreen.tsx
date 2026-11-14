@@ -6,10 +6,10 @@ import { fetchCompanyLogo } from '@services/company'
 import { DEFAULT_BRAND, SIGN_IN_HEADLINE, SIGN_IN_TAGLINE } from './signInCopy'
 
 /**
- * The WiseTech wordmark, shown until the organisation's own logo arrives (and if the endpoint fails) — the same
- * asset as the splash screen (index.html). The previous Login's default URL had gone 404, which left initials.
+ * The WiseTech emblem (the PWA icon, served by this app), shown until the organisation's own logo arrives from the
+ * public endpoint — and if that fails. Local on purpose: both S3 defaults the old pages used have gone 404.
  */
-const DEFAULT_LOGO = 'https://wise-tech-asset-store-2.s3.ap-south-1.amazonaws.com/f261f9be593f79a57f10a99a0e68d23b985fc458b2'
+const DEFAULT_LOGO = `${import.meta.env.BASE_URL}icons/pwa-512.png`
 
 /** The organisation's name and logo for the sign-in pages (public endpoint); defaults until it answers or if it fails. */
 function useAuthBrand() {
