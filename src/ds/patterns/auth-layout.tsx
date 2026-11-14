@@ -9,6 +9,8 @@ import { titleCaseChildren } from "@/ds/lib/text"
  * The sign-in pages' frame (Sign In, Forgot / Reset Password, Account Inactive): a brand panel and the form
  * Card, side by side from `lg`, stacked above it on tablets and phones.
  *
+ * - **One continuous page**, as the original sign-in: no divider and no separate panel colour between the
+ *   columns — the form Card floats beside the brand content.
  * - **Brand panel:** the tenant's logo (Smart Avatar's Logo recipe — whole image, never cropped; the initials
  *   stay if the logo fails to load), the Typewriter headline and one supporting line.
  * - **The headline settles the moment anything in the form takes focus** — it jumps to its landing line and
@@ -54,7 +56,7 @@ export function AuthLayout({
       <section
         data-slot="auth-brand"
         aria-label={brandName}
-        className="flex flex-col items-center gap-6 px-4 pt-10 pb-6 text-center sm:px-8 lg:items-start lg:justify-center lg:gap-10 lg:border-r lg:border-border lg:bg-muted/40 lg:p-16 lg:text-left"
+        className="flex flex-col items-center gap-6 px-4 pt-10 pb-6 text-center sm:px-8 lg:items-start lg:justify-center lg:gap-10 lg:p-16 lg:text-left"
       >
         <SmartAvatar name={brandName} src={logoSrc} seed={brandName} shape="rounded" fit="contain" size="xl" />
         <div className="max-w-xl">
