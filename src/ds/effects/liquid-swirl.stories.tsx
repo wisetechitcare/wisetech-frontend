@@ -1,22 +1,23 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, waitFor } from 'storybook/test'
-import { LiquidChrome } from './liquid-chrome'
+import { LiquidSwirl } from './liquid-swirl'
 
 /**
- * For moments only: the sign-in background — milky liquid chrome in the brand tint (React Bits, raw WebGL2, no
- * dependency). Ease it to a stop with `settled`; under reduced motion it is a still frame. Behind content, put
- * a veil of the page colour over it (Auth Layout uses bg-background/85).
+ * For moments only: the sign-in background — slow marbled swirls of the brand colour on a sheen (raw WebGL2, no
+ * dependency). The pattern drifts gently toward the pointer while it moves. Ease it to a stop with `settled`; under
+ * reduced motion it is a still frame. Behind content, put a veil of the page colour over it (Auth Layout uses
+ * bg-background/90).
  */
 const meta = {
-  title: 'Effects/Liquid Chrome',
-  component: LiquidChrome,
+  title: 'Effects/Liquid Swirl',
+  component: LiquidSwirl,
   parameters: { layout: 'fullscreen' },
   render: (args) => (
     <div className="relative h-[480px] w-full">
-      <LiquidChrome {...args} />
+      <LiquidSwirl {...args} />
     </div>
   ),
-} satisfies Meta<typeof LiquidChrome>
+} satisfies Meta<typeof LiquidSwirl>
 
 export default meta
 type Story = StoryObj<typeof meta>
@@ -26,7 +27,7 @@ type Story = StoryObj<typeof meta>
  * context the effect created). Counting window.requestAnimationFrame would also count Storybook's own frames.
  */
 function countDraws(root: HTMLElement) {
-  const canvas = root.querySelector<HTMLCanvasElement>('[data-slot="liquid-chrome"] canvas')!
+  const canvas = root.querySelector<HTMLCanvasElement>('[data-slot="liquid-swirl"] canvas')!
   const gl = canvas.getContext('webgl2')!
   const real = gl.drawArrays.bind(gl)
   const counter = { n: 0, restore: () => { gl.drawArrays = real } }
@@ -37,15 +38,15 @@ function countDraws(root: HTMLElement) {
   return counter
 }
 
-/** Light, in the brand tint, moving. */
+/** Light, in the brand colour, moving. */
 export const Default: Story = {}
 
 /** Under the Auth Layout veil — how it reads behind the sign-in page. */
 export const UnderVeil: Story = {
   render: (args) => (
     <div className="relative h-[480px] w-full">
-      <LiquidChrome {...args} />
-      <div className="absolute inset-0 bg-background/85" />
+      <LiquidSwirl {...args} />
+      <div className="absolute inset-0 bg-background/90" />
     </div>
   ),
 }
@@ -54,7 +55,7 @@ export const UnderVeil: Story = {
 export const Dark: Story = {
   render: (args) => (
     <div className="dark relative h-[480px] w-full bg-background">
-      <LiquidChrome {...args} />
+      <LiquidSwirl {...args} />
     </div>
   ),
 }
@@ -63,7 +64,7 @@ export const Dark: Story = {
 export const Moves: Story = {
   tags: ['!autodocs'], // a test, not a demo — it instruments the canvas
   play: async ({ canvasElement }) => {
-    await expect(canvasElement.querySelector('[data-slot="liquid-chrome"] canvas')).not.toBeNull()
+    await expect(canvasElement.querySelector('[data-slot="liquid-swirl"] canvas')).not.toBeNull()
     const frames = countDraws(canvasElement)
     await new Promise((r) => setTimeout(r, 600))
     frames.restore()
@@ -76,8 +77,8 @@ export const Settles: Story = {
   tags: ['!autodocs'], // a test, not a demo — it instruments the canvas
   args: { settled: true },
   play: async ({ canvasElement }) => {
-    await expect(canvasElement.querySelector('[data-slot="liquid-chrome"]')).toHaveAttribute('data-settled')
-    // Ease-out (1.2s) plus the intro fade (~1.8s), then quiet.
+    await expect(canvasElement.querySelector('[data-slot="liquid-swirl"]')).toHaveAttribute('data-settled')
+    // Ease-out (1.2s) plus the intro fade (~1.8s) and the pointer drift settling, then quiet.
     await new Promise((r) => setTimeout(r, 2600))
     const frames = countDraws(canvasElement)
     await new Promise((r) => setTimeout(r, 700))
@@ -101,7 +102,7 @@ export const ReducedMotion: Story = {
   tags: ['!autodocs'], // a test, not a demo — and its matchMedia patch must not reach the docs page
   beforeEach: () => reduceMotion(),
   play: async ({ canvasElement }) => {
-    await waitFor(() => expect(canvasElement.querySelector('[data-slot="liquid-chrome"] canvas')).not.toBeNull())
+    await waitFor(() => expect(canvasElement.querySelector('[data-slot="liquid-swirl"] canvas')).not.toBeNull())
     await new Promise((r) => setTimeout(r, 400))
     const frames = countDraws(canvasElement)
     await new Promise((r) => setTimeout(r, 700))

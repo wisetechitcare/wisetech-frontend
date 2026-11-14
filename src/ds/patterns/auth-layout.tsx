@@ -3,19 +3,45 @@ import { cn } from "cn"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ds/ui/card"
 import { SmartAvatar } from "@/ds/ui/smart-avatar"
 import { Typewriter, type TypewriterLine } from "@/ds/effects/typewriter"
-import { LiquidChrome } from "@/ds/effects/liquid-chrome"
+import { LiquidSwirl } from "@/ds/effects/liquid-swirl"
 import { titleCaseChildren } from "@/ds/lib/text"
+
+/** The organisation's logo, whole and at its own proportions; initials beside the name if there is none or it fails. */
+function BrandMark({ brandName, logoSrc, className }: { brandName: string; logoSrc?: string | null; className?: string }) {
+  const [failed, setFailed] = React.useState(false)
+  React.useEffect(() => setFailed(false), [logoSrc])
+  if (!logoSrc || failed) {
+    return (
+      <span data-slot="auth-brand-mark" className={cn("inline-flex items-center gap-3", className)}>
+        <SmartAvatar name={brandName} seed={brandName} shape="rounded" size="default" decorative />
+        <span className="font-heading text-lg font-semibold text-foreground">{brandName}</span>
+      </span>
+    )
+  }
+  return (
+    <img
+      data-slot="auth-brand-mark"
+      src={logoSrc}
+      alt={brandName}
+      onError={() => setFailed(true)}
+      className={cn("h-10 w-auto max-w-60 object-contain dark:rounded-lg dark:bg-foreground dark:px-3 dark:py-1.5", className)}
+    />
+  )
+}
 
 /**
  * The sign-in pages' frame (Sign In, Forgot / Reset Password, Account Inactive): a brand panel and the form
  * Card, side by side from `lg`, stacked above it on tablets and phones.
  *
  * - **One continuous page**, as the original sign-in: no divider and no separate panel colour between the
- *   columns — the form Card (lifted) floats beside the brand content, over the Liquid Chrome background, which
+ *   columns — the form Card (lifted) floats beside the brand content, over the Liquid Swirl background, which
  *   settles with the headline (or as soon as the form is focused) and is still under reduced motion.
- * - **Phones:** the logo and the organisation's name head the form card; the stacked brand row keeps the headline.
- * - **Brand panel:** the tenant's logo (Smart Avatar's Logo recipe — whole image, never cropped; the initials
- *   stay if the logo fails to load), the Typewriter headline and one supporting line.
+ * - **The logo is the organisation's real logo**, whole, at its own proportions (a wordmark stays a wordmark), on
+ *   a light plate in dark mode so any logo stays legible. Only if there is none, or it fails to load, does it
+ *   fall back to Smart Avatar initials beside the name.
+ * - **Phones:** the logo heads the form card, centred with the title and description; the stacked brand row keeps
+ *   the headline.
+ * - **Brand panel:** the logo, the Typewriter headline and one supporting line.
  * - **The headline settles the moment anything in the form takes focus** — it jumps to its landing line and
  *   stops, so it never competes with typing a password (WCAG 2.2.2). Every auth screen gets this from here.
  *   Don't autofocus a field on load, or the headline settles before anyone sees it.
@@ -63,12 +89,12 @@ export function AuthLayout({
     // Stacked (below lg) the brand row is as tall as its content and the form takes the rest — otherwise the
     // min-height is split between the rows and a gap opens between the tagline and the form.
     <div data-slot="auth-layout" className={cn("relative isolate grid min-h-svh grid-rows-[auto_1fr] bg-background lg:grid-cols-2 lg:grid-rows-1", className)}>
-      {/* The background: Liquid Chrome (React Bits) in the brand tint under a soft veil of the page colour, as the
-          inspiration's milky silk. Moves while the headline types; settles when it lands or the form is focused;
+      {/* The background: Liquid Swirl — marbled brand swirls under a 90% veil of the page colour, as the reference
+          (uiable Housiq sign-in). Moves while the headline types; settles when it lands or the form is focused;
           still under reduced motion. Decorative — never focusable or clickable. */}
       <div data-slot="auth-background" aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        <LiquidChrome settled={settled || landed} />
-        <div className="absolute inset-0 bg-background/85" />
+        <LiquidSwirl settled={settled || landed} />
+        <div className="absolute inset-0 bg-background/90" />
       </div>
       <section
         data-slot="auth-brand"
@@ -76,7 +102,7 @@ export function AuthLayout({
         className="flex flex-col items-center gap-6 px-4 pt-10 pb-6 text-center sm:px-8 lg:items-start lg:justify-center lg:gap-10 lg:p-16 lg:text-left"
       >
         {/* On phones the logo moves into the form card (below), so it is shown once. */}
-        <SmartAvatar name={brandName} src={logoSrc} seed={brandName} shape="rounded" fit="contain" size="xl" className="max-lg:hidden" />
+        <BrandMark brandName={brandName} logoSrc={logoSrc} className="h-12 max-lg:hidden" />
         <div className="max-w-xl">
           {/* The typed text sits at the BOTTOM of the box reserved for the longest line, so a one-line phrase
               stays right above the tagline and the spare room falls into the gap above, by the logo. */}
@@ -99,11 +125,11 @@ export function AuthLayout({
             2026-11-14; a sign-in form is a place to type, not a tile to hover). Lifted (shadow-lg, the top of the
             Foundations elevation scale) so it floats clearly over the moving background. */}
         <Card variant="panel" className="w-full max-w-md shadow-lg">
-          <CardHeader>
-            {/* Phones: the organisation's logo and name head the form (the brand row above keeps the headline). */}
-            <div data-slot="auth-card-brand" className="mb-2 flex items-center gap-3 lg:hidden">
-              <SmartAvatar name={brandName} src={logoSrc} seed={brandName} shape="rounded" fit="contain" size="default" decorative />
-              <span className="font-semibold text-foreground">{brandName}</span>
+          {/* Phones: the organisation's logo heads the form, centred with the title (the brand row above keeps the
+              headline). */}
+          <CardHeader className="max-lg:justify-items-center max-lg:text-center">
+            <div data-slot="auth-card-brand" className="mb-3 flex justify-center lg:hidden">
+              <BrandMark brandName={brandName} logoSrc={logoSrc} />
             </div>
             <CardTitle>
               <h1 data-slot="auth-title" className="heading-case">{titleCaseChildren(title)}</h1>
