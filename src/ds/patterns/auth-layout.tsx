@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { SmartAvatar } from "@/ds/ui/smart-avatar"
 import { Typewriter, type TypewriterLine } from "@/ds/effects/typewriter"
 import { LiquidSwirl } from "@/ds/effects/liquid-swirl"
+import { GradientText } from "@/ds/effects/gradient-text"
 import { titleCaseChildren } from "@/ds/lib/text"
 
 /** The organisation's logo, whole and at its own proportions; initials beside the name if there is none or it fails. */
@@ -39,13 +40,15 @@ function BrandMark({ brandName, logoSrc, className }: { brandName: string; logoS
  * - **The logo is the organisation's real logo**, whole, at its own proportions (a wordmark stays a wordmark), on
  *   a light plate in dark mode so any logo stays legible. Only if there is none, or it fails to load, does it
  *   fall back to Smart Avatar initials beside the name.
- * - **Phones:** the logo heads the form card, centred with the title and description; the stacked brand row keeps
- *   the headline.
+ * - **The logo stays outside the form card** at every size (user decision 2026-11-14, as the original sign-in):
+ *   in the brand panel beside the form, or on phones at the top of the stacked brand row, centred above the
+ *   headline. On phones the card's title and description are centred under it.
  * - **Brand panel:** the logo, the Typewriter headline and one supporting line.
  * - **The headline settles the moment anything in the form takes focus** — it jumps to its landing line and
  *   stops, so it never competes with typing a password (WCAG 2.2.2). Every auth screen gets this from here.
  *   Don't autofocus a field on load, or the headline settles before anyone sees it.
- * - **One page heading:** the Card's `title` is the page's `h1` (a structural heading, UPPERCASE). The headline
+ * - **One page heading:** the Card's `title` is the page's `h1` (a structural heading, UPPERCASE) in Gradient Text —
+ *   the brand gradient in readable ink, two shimmer passes, then still (none under reduced motion). The headline
  *   is a brand moment, not a heading; assistive tech reads only its landing line.
  * - The form Card is a still `panel` (no glow, no hover motion), `max-w-md`.
  */
@@ -101,8 +104,7 @@ export function AuthLayout({
         aria-label={brandName}
         className="flex flex-col items-center gap-6 px-4 pt-10 pb-6 text-center sm:px-8 lg:items-start lg:justify-center lg:gap-10 lg:p-16 lg:text-left"
       >
-        {/* On phones the logo moves into the form card (below), so it is shown once. */}
-        <BrandMark brandName={brandName} logoSrc={logoSrc} className="h-12 max-lg:hidden" />
+        <BrandMark brandName={brandName} logoSrc={logoSrc} className="h-11 lg:h-12" />
         <div className="max-w-xl">
           {/* The typed text sits at the BOTTOM of the box reserved for the longest line, so a one-line phrase
               stays right above the tagline and the spare room falls into the gap above, by the logo. */}
@@ -125,14 +127,12 @@ export function AuthLayout({
             2026-11-14; a sign-in form is a place to type, not a tile to hover). Lifted (shadow-lg, the top of the
             Foundations elevation scale) so it floats clearly over the moving background. */}
         <Card variant="panel" className="w-full max-w-md shadow-lg">
-          {/* Phones: the organisation's logo heads the form, centred with the title (the brand row above keeps the
-              headline). */}
+          {/* Phones: the title and description centred, under the centred brand row. */}
           <CardHeader className="max-lg:justify-items-center max-lg:text-center">
-            <div data-slot="auth-card-brand" className="mb-3 flex justify-center lg:hidden">
-              <BrandMark brandName={brandName} logoSrc={logoSrc} />
-            </div>
             <CardTitle>
-              <h1 data-slot="auth-title" className="heading-case">{titleCaseChildren(title)}</h1>
+              <h1 data-slot="auth-title" className="heading-case">
+                <GradientText tone="brand" ink="text">{titleCaseChildren(title)}</GradientText>
+              </h1>
             </CardTitle>
             {description && <CardDescription>{description}</CardDescription>}
           </CardHeader>

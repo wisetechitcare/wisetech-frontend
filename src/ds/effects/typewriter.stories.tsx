@@ -142,7 +142,7 @@ export const Shimmer: Story = {
     const toned = () => canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"] [data-tone]')
     await waitFor(() => expect(toned()).not.toBeNull(), { timeout: 3000 })
     await expect(toned()).toHaveAttribute('data-shimmer', 'loop')
-    await expect(getComputedStyle(toned()!).animationName).toBe('typewriter-shimmer')
+    await expect(getComputedStyle(toned()!).animationName).toBe('text-shimmer')
     await waitFor(() => expect(landed(canvasElement)).toBe(true), { timeout: 8000 })
     await expect(toned()).toHaveAttribute('data-shimmer', 'twice')
     await expect(getComputedStyle(toned()!).animationIterationCount).toBe('2')

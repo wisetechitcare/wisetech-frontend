@@ -140,8 +140,8 @@
      (The headline's words use the module hues, --tone-<hue>.) */
   --typewriter-caret: linear-gradient(180deg, #4285f4 0%, #9b72cb 42%, #d96570 72%, #f9ab55 100%);
   --typewriter-caret-glow: 0 0 8px rgb(155 114 203 / 0.55);
-  /* The headline key words' shimmer: a soft light band swept across their gradient. */
-  --typewriter-shimmer-band: linear-gradient(110deg, transparent 40%, color-mix(in oklch, white 55%, transparent) 50%, transparent 60%);
+  /* Gradient Text's shimmer (src/ds/effects/gradient-text.tsx): a soft light band swept across the gradient. */
+  --text-shimmer-band: linear-gradient(110deg, transparent 40%, color-mix(in oklch, white 55%, transparent) 50%, transparent 60%);
 }
 
 .dark {
@@ -275,10 +275,10 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
   }
-  /* Typewriter key words: a soft light sweep across their gradient (the first background layer).
-     Infinite while typing; the component limits it to two passes once landed (motion stops < 5s). */
-  --animate-typewriter-shimmer: typewriter-shimmer 2.4s ease-in-out infinite;
-  @keyframes typewriter-shimmer {
+  /* Gradient Text (headline key words, sign-in headings): a soft light sweep across the gradient (the first
+     background layer). Infinite here; the component limits it to two passes (motion stops < 5s). */
+  --animate-text-shimmer: text-shimmer 2.4s ease-in-out infinite;
+  @keyframes text-shimmer {
     from { background-position: 150% 0, 0 0; }
     to { background-position: -50% 0, 0 0; }
   }

@@ -115,18 +115,32 @@ export const BrokenLogo: Story = {
   },
 }
 
-/** Phone: the logo heads the form card, centred with the title and description (as the reference). */
-export const CentredOnPhone: Story = {
+/** Phone: the logo stays outside the card — centred at the top of the brand row, above the headline. */
+export const LogoOutsideCardOnPhone: Story = {
   tags: ['!autodocs'], // a test, not a demo
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvasElement }) => {
-    const card = box(canvasElement.querySelector('[data-slot="card"]')!)
-    const mark = canvasElement.querySelector('[data-slot="auth-card-brand"] [data-slot="auth-brand-mark"]')!
+    const cardEl = canvasElement.querySelector('[data-slot="card"]')!
+    await expect(cardEl.querySelector('[data-slot="auth-brand-mark"]')).toBeNull()
+    const mark = canvasElement.querySelector('[data-slot="auth-brand"] [data-slot="auth-brand-mark"]')!
     await waitFor(() => expect(box(mark).width).toBeGreaterThan(0))
+    const card = box(cardEl)
+    await expect(box(mark).bottom).toBeLessThanOrEqual(card.top)
     const centre = (r: DOMRect) => r.left + r.width / 2
     await expect(Math.abs(centre(box(mark)) - centre(card))).toBeLessThan(2)
-    const title = canvasElement.querySelector('[data-slot="auth-title"]')!
-    await expect(Math.abs(centre(box(title)) - centre(card))).toBeLessThan(2)
+    await expect(Math.abs(centre(box(canvasElement.querySelector('[data-slot="auth-title"]')!)) - centre(card))).toBeLessThan(2)
+  },
+}
+
+/** The page heading is Gradient Text in readable ink: two shimmer passes, then still. */
+export const GradientHeading: Story = {
+  tags: ['!autodocs'], // a test, not a demo
+  play: async ({ canvasElement }) => {
+    const heading = canvasElement.querySelector<HTMLElement>('[data-slot="auth-title"] [data-slot="gradient-text"]')!
+    await expect(heading).toHaveAttribute('data-tone', 'brand')
+    await expect(heading).toHaveAttribute('data-shimmer', 'twice')
+    await expect(getComputedStyle(heading).animationIterationCount).toBe('2')
+    await expect(canvasElement.querySelector('h1')).toHaveTextContent('Sign In')
   },
 }
 

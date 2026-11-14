@@ -2,28 +2,13 @@ import * as React from "react"
 import { cn } from "cn"
 import { useReducedMotion } from "@/ds/lib/motion"
 import type { HueTone } from "@/ds/lib/tone"
+import { GradientText } from "@/ds/effects/gradient-text"
 
 /**
  * A line: plain text, or parts where key words wear a module hue (the launcher's department colours).
  *   ['Effortless ', { text: 'HR', tone: 'blue' }, ', End to End']
  */
 export type TypewriterLine = string | ReadonlyArray<string | { text: string; tone: HueTone }>
-
-/**
- * Each key word's gradient: its module hue flowing into a neighbouring kit hue (HR blue → indigo, CRM green →
- * cyan, Projects purple → rose, Finance rose → amber…). Kit tokens only, as static classes (Tailwind sees every
- * one) setting --hue-gradient; light and dark come with the tokens.
- */
-const HUE_GRADIENT: Record<HueTone, string> = {
-  blue: "[--hue-gradient:linear-gradient(90deg,var(--tone-blue),var(--tone-indigo))]",
-  green: "[--hue-gradient:linear-gradient(90deg,var(--tone-green),var(--tone-cyan))]",
-  amber: "[--hue-gradient:linear-gradient(90deg,var(--tone-amber),var(--tone-rose))]",
-  rose: "[--hue-gradient:linear-gradient(90deg,var(--tone-rose),var(--tone-amber))]",
-  purple: "[--hue-gradient:linear-gradient(90deg,var(--tone-purple),var(--tone-rose))]",
-  indigo: "[--hue-gradient:linear-gradient(90deg,var(--tone-indigo),var(--tone-purple))]",
-  cyan: "[--hue-gradient:linear-gradient(90deg,var(--tone-cyan),var(--tone-blue))]",
-  slate: "[--hue-gradient:linear-gradient(90deg,var(--tone-slate),var(--tone-blue))]",
-}
 
 /**
  * The sign-in headline: lines that type themselves out, hold, backspace and rotate to the next,
@@ -213,20 +198,9 @@ function Runs({ line, shimmer = "off" }: { line: Flat; shimmer?: "loop" | "twice
       const s = line.text.slice(start, i)
       out.push(
         tone ? (
-          <span
-            key={start}
-            data-tone={tone}
-            data-shimmer={shimmer === "off" ? undefined : shimmer}
-            className={cn(
-              HUE_GRADIENT[tone],
-              // The shimmer band (first layer, tokens.css) over the word's gradient, clipped to the letters.
-              "bg-clip-text text-transparent [background-image:var(--typewriter-shimmer-band),var(--hue-gradient)] [background-size:250%_100%,100%_100%] [background-position:150%_0,0_0] [background-repeat:no-repeat]",
-              shimmer !== "off" && "animate-typewriter-shimmer",
-              shimmer === "twice" && "[animation-iteration-count:2]",
-            )}
-          >
+          <GradientText key={start} tone={tone} shimmer={shimmer}>
             {s}
-          </span>
+          </GradientText>
         ) : (
           s
         ),
