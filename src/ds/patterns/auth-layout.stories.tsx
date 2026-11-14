@@ -151,6 +151,16 @@ export const GradientHeading: Story = {
   },
 }
 
+/** `titleTone` colours the page heading's gradient — Sign In is `green`, Forgot Password `rose` (the brand gradient by default). */
+export const TitleTone: Story = {
+  args: { titleTone: 'green' },
+  play: async ({ canvasElement }) => {
+    const heading = canvasElement.querySelector<HTMLElement>('[data-slot="auth-title"] [data-slot="gradient-text"]')!
+    await expect(heading).toHaveAttribute('data-tone', 'green')
+    await expect(canvasElement.querySelector('h1')).toHaveTextContent('Sign In')
+  },
+}
+
 /** Desktop: the logo pinned to the page's top-left corner, outside the card and clear of the headline; text centred. */
 export const LogoTopLeftOnDesktop: Story = {
   tags: ['!autodocs'], // a test, not a demo

@@ -71,6 +71,7 @@ export function ForgotPassword() {
   return (
     <AuthScreen
       title="Forgot Password"
+      titleTone="rose"
       description="Enter your work email and we'll send you a link to reset your password."
       footer={
         <Link to="/auth/login" className={buttonVariants({ variant: 'link', className: 'mx-auto px-0' })}>

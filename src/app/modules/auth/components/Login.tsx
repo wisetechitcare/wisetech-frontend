@@ -103,7 +103,7 @@ export default function Login() {
   const passwordError = formik.touched.password ? formik.errors.password : undefined
 
   return (
-    <AuthScreen title="Sign In" description="Welcome back. Use your work email.">
+    <AuthScreen title="Sign In" titleTone="green" description="Welcome back. Use your work email.">
       <form className="grid gap-5" onSubmit={formik.handleSubmit} noValidate>
         {sessionNotice && (
           <Alert variant="warning">

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { SmartAvatar } from "@/ds/ui/smart-avatar"
 import { Typewriter, type TypewriterLine } from "@/ds/effects/typewriter"
 import { LiquidSwirl } from "@/ds/effects/liquid-swirl"
-import { GradientText } from "@/ds/effects/gradient-text"
+import { GradientText, type GradientTone } from "@/ds/effects/gradient-text"
 import { titleCaseChildren } from "@/ds/lib/text"
 
 /**
@@ -36,7 +36,8 @@ import { titleCaseChildren } from "@/ds/lib/text"
  *   stops, so it never competes with typing a password (WCAG 2.2.2). Every auth screen gets this from here.
  *   Don't autofocus a field on load, or the headline settles before anyone sees it.
  * - **One page heading:** the Card's `title` is the page's `h1` (a structural heading, UPPERCASE) in Gradient Text —
- *   the brand gradient in readable ink, two shimmer passes, then still (none under reduced motion). The headline
+ *   readable ink, two shimmer passes, then still (none under reduced motion). `titleTone` picks its gradient
+ *   (default `brand`; user decision 2026-11-14: Sign In `green`, Forgot Password `rose` — hues, not status colours). The headline
  *   is a brand moment, not a heading; assistive tech reads only its landing line.
  * - **Sized for a page that is one form** (user decision 2026-11-14): a 440px card (480px from `xl`, 32px padding
  *   from `sm`; 520px from `2xl`), a 22px title, 16px description — pass `size="lg"` (44px) to its fields and buttons. Widths are px:
@@ -49,6 +50,7 @@ export function AuthLayout({
   headline,
   tagline,
   title,
+  titleTone = "brand",
   description,
   children,
   footer,
@@ -64,6 +66,8 @@ export function AuthLayout({
   tagline?: React.ReactNode
   /** The form's title — the page's `h1`. */
   title: React.ReactNode
+  /** The title's Gradient Text tone. */
+  titleTone?: GradientTone
   description?: React.ReactNode
   /** The form. */
   children: React.ReactNode
@@ -147,7 +151,7 @@ export function AuthLayout({
             <CardHeader className="justify-items-center gap-2 text-center">
               <CardTitle>
                 <h1 data-slot="auth-title" className="heading-case text-[22px] leading-tight">
-                  <GradientText tone="brand" ink="text">{titleCaseChildren(title)}</GradientText>
+                  <GradientText tone={titleTone} ink="text">{titleCaseChildren(title)}</GradientText>
                 </h1>
               </CardTitle>
               {description && <CardDescription className="text-[16px]">{description}</CardDescription>}

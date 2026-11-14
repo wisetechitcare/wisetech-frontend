@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AuthLayout } from '@/ds/patterns/auth-layout'
+import type { GradientTone } from '@/ds/effects/gradient-text'
 import { ThemeToggle } from '@/ds/patterns/theme-toggle'
 import { useColorMode } from '@app/theme/ColorMode'
 import { fetchCompanyLogo } from '@services/company'
@@ -33,11 +34,14 @@ function useAuthBrand() {
  */
 export function AuthScreen({
   title,
+  titleTone,
   description,
   children,
   footer,
 }: {
   title: ReactNode
+  /** The title's gradient (default: the brand gradient). */
+  titleTone?: GradientTone
   description?: ReactNode
   children: ReactNode
   footer?: ReactNode
@@ -51,6 +55,7 @@ export function AuthScreen({
       headline={SIGN_IN_HEADLINE}
       tagline={SIGN_IN_TAGLINE}
       title={title}
+      titleTone={titleTone}
       description={description}
       footer={footer}
       actions={<ThemeToggle mode={mode} onToggle={toggle} />}
