@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { SmartAvatar } from "@/ds/ui/smart-avatar"
 import { Typewriter, type TypewriterLine } from "@/ds/effects/typewriter"
 import { LiquidSwirl } from "@/ds/effects/liquid-swirl"
+import { AnimatedImage } from "@/ds/effects/animated-image"
+import { useMediaQuery } from "@/ds/lib/media-query"
 import type { HueTone } from "@/ds/lib/tone"
 import { titleCaseChildren } from "@/ds/lib/text"
 
@@ -29,6 +31,10 @@ import { titleCaseChildren } from "@/ds/lib/text"
  * - **Responsive 320px → ultrawide, portrait and landscape:** side by side from `lg` (the brand column a little
  *   wider from `xl`), stacked below it. Stacked on a short screen the form comes first: under 640px tall the
  *   tagline is dropped, under 480px (landscape phones) the headline too, and the logo shrinks to 48px.
+ * - **Illustration (optional, desktop only):** an Animated Image above the headline — a light still paints first,
+ *   the animation loads in the background (never on phones or tablets: the form comes first there), moves while
+ *   the headline types and rests on the still once it lands or the form is focused. Sized by the window's height
+ *   (45svh, ≤ 440px) so it never meets the logo; dropped under 600px tall. Still under reduced motion.
  * - **Brand panel:** the Typewriter headline and one supporting line. The headline is sized by its column (a
  *   container query), so its longest line stays on ONE line whenever the column can hold it at a readable size
  *   (≥ 22px; every phone from 360px); narrower than that it wraps, balanced.
@@ -56,6 +62,7 @@ export function AuthLayout({
   children,
   footer,
   actions,
+  illustration,
   className,
 }: {
   /** The organisation's name — the logo's accessible name, and its initials when there is no logo. */
@@ -76,6 +83,8 @@ export function AuthLayout({
   footer?: React.ReactNode
   /** Page actions in the top-right corner (e.g. the Theme Toggle). */
   actions?: React.ReactNode
+  /** Desktop-only illustration above the headline; it moves with the headline and settles with it. */
+  illustration?: Omit<React.ComponentProps<typeof AnimatedImage>, "playing" | "className">
   className?: string
 }) {
   /** A form field took focus: the headline jumps to its landing line and the background settles. */
@@ -83,6 +92,8 @@ export function AuthLayout({
   /** The headline has landed: the background eases to a stop with it (WCAG 2.2.2 — motion ends, ~5s). */
   const [landed, setLanded] = React.useState(false)
   const onLanded = React.useCallback(() => setLanded(true), [])
+  /** Side-by-side layout: only there is the illustration shown — and only there may its animation download. */
+  const desktop = useMediaQuery("(min-width: 1024px)")
 
   return (
     // Stacked (below lg) the brand row is as tall as its content and the form takes the rest — otherwise the
@@ -114,6 +125,15 @@ export function AuthLayout({
           >
             <BrandLogo name={brandName} src={logoSrc} />
           </div>
+          {illustration && (
+            <div data-slot="auth-illustration" className="hidden w-[min(440px,45svh)] lg:[@media(min-height:600px)]:block">
+              <AnimatedImage
+                {...illustration}
+                animated={desktop ? illustration.animated : undefined}
+                playing={!(settled || landed)}
+              />
+            </div>
+          )}
           {/* A size container: the headline's font follows the column, not the viewport. In px, not rem: the live
               app's root is still Metronic's 13px, which would shrink a rem cap (and the headline) by a fifth.
               Short screens put the FORM first (stacked, below lg): under 640px tall the tagline goes, under 480px
@@ -141,9 +161,11 @@ export function AuthLayout({
 
         <main
           data-slot="auth-main"
-          className="flex items-start justify-center px-4 pb-10 sm:px-8 lg:items-center lg:px-10 lg:py-12 xl:px-12 xl:py-16"
+          className="flex items-start justify-center px-4 pb-10 sm:px-8 lg:items-center lg:px-10 lg:py-12 lg:[@media(max-height:719px)]:pt-[124px] xl:px-12 xl:py-16"
           onFocusCapture={() => setSettled(true)}
         >
+          {/* Short desktop windows (< 720px tall): the centred card would rise into the header row (logo / theme
+              toggle, ~108px) — the top padding keeps it below; taller windows stay symmetric (truly centred). */}
           {/* `panel`: a still form surface — no corner glow, no hover lift or accent underline (user decision
               2026-11-14; a sign-in form is a place to type, not a tile to hover). Lifted (shadow-lg, the top of the
               Foundations elevation scale) so it floats clearly over the moving background. */}

@@ -12,6 +12,18 @@ import { DEFAULT_BRAND, SIGN_IN_HEADLINE, SIGN_IN_TAGLINE } from './signInCopy'
  */
 const DEFAULT_LOGO = `${import.meta.env.BASE_URL}media/brand/wisetech-logo.png`
 
+/**
+ * The sign-in illustration (the original page's): a 27 KB still paints first; the 3.6 MB GIF loads in the
+ * background on desktop only, plays with the headline (4.47s loops) and rests on the still. Its 800px frame
+ * carries transparent margins — the crop shows only the drawing.
+ */
+const ILLUSTRATION = {
+  still: `${import.meta.env.BASE_URL}media/login/wtgif-still.webp`,
+  animated: `${import.meta.env.BASE_URL}media/login/WTgif.gif`,
+  loopMs: 4470,
+  crop: { width: 800, height: 800, x: 71, y: 186, w: 658, h: 517 },
+}
+
 /** The organisation's name and logo for the sign-in pages (public endpoint); defaults until it answers or if it fails. */
 function useAuthBrand() {
   const [brand, setBrand] = useState({ name: DEFAULT_BRAND, logo: DEFAULT_LOGO })
@@ -59,6 +71,7 @@ export function AuthScreen({
       description={description}
       footer={footer}
       actions={<ThemeToggle mode={mode} onToggle={toggle} />}
+      illustration={ILLUSTRATION}
     >
       {children}
     </AuthLayout>

@@ -97,6 +97,7 @@ export function ForgotPassword() {
               </InputGroupAddon>
               <InputGroupInput
                 id="forgot-email"
+                required
                 size="lg"
                 ref={emailRef}
                 type="email"

@@ -128,6 +128,7 @@ export default function Login() {
               </InputGroupAddon>
               <InputGroupInput
                 id="signin-email"
+                required
                 size="lg"
                 ref={emailRef}
                 type="email"
@@ -145,6 +146,7 @@ export default function Login() {
             <FieldLabel htmlFor="signin-password">Password</FieldLabel>
             <PasswordField
               id="signin-password"
+              required
               size="lg"
               leadingIcon={<Lock />}
               inputRef={passwordRef}

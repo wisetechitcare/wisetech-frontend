@@ -110,6 +110,7 @@ export default function ResetPassword() {
             <FieldLabel htmlFor="reset-password">New Password</FieldLabel>
             <PasswordField
               id="reset-password"
+              required
               size="lg"
               leadingIcon={<Lock />}
               inputRef={passwordRef}
@@ -128,6 +129,7 @@ export default function ResetPassword() {
             <FieldLabel htmlFor="reset-confirm-password">Confirm Password</FieldLabel>
             <PasswordField
               id="reset-confirm-password"
+              required
               size="lg"
               leadingIcon={<Lock />}
               inputRef={confirmRef}
