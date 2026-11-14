@@ -31,6 +31,7 @@ export function PasswordField({
   className,
   inputRef,
   size = "default",
+  leadingIcon,
 }: {
   id: string
   name?: string
@@ -47,6 +48,8 @@ export function PasswordField({
   inputRef?: React.Ref<HTMLInputElement>
   /** Input's control size: `lg` (44px) where the form is the whole page, e.g. sign-in. */
   size?: InputSize
+  /** A decorative icon before the text (e.g. Lucide `Lock`) — the label then stays floated on the border. */
+  leadingIcon?: React.ReactNode
 }) {
   const [revealed, setRevealed] = React.useState(false)
   const [capsLock, setCapsLock] = React.useState(false)
@@ -62,6 +65,7 @@ export function PasswordField({
 
   return (
     <InputGroup className={className} size={size} data-disabled={disabled || undefined}>
+      {leadingIcon && <InputGroupAddon aria-hidden="true">{leadingIcon}</InputGroupAddon>}
       <InputGroupInput
         id={id}
         size={size}

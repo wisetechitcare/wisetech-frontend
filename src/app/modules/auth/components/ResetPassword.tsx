@@ -3,7 +3,7 @@ import * as Yup from 'yup'
 import { useFormik } from 'formik'
 import { useDispatch } from 'react-redux'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CircleAlert } from 'lucide-react'
+import { ArrowLeft, CircleAlert, KeyRound, Lock, MailPlus } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
 import { Button, buttonVariants } from '@/ds/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field'
@@ -70,7 +70,7 @@ export default function ResetPassword() {
   const confirmError = formik.touched.confirmPassword ? formik.errors.confirmPassword : undefined
 
   const backToSignIn = (
-    <Link to="/auth/login" className={buttonVariants({ variant: 'link', className: 'mx-auto px-0' })}>
+    <Link data-slot="button" to="/auth/login" className={buttonVariants({ variant: 'link', className: 'mx-auto px-0' })}>
       <ArrowLeft aria-hidden="true" />
       Back to Sign In
     </Link>
@@ -87,7 +87,8 @@ export default function ResetPassword() {
               Open the reset link from your email again, or request a new one.
             </AlertDescription>
           </Alert>
-          <Link to="/auth/forgot-password" className={buttonVariants({ size: 'lg', className: 'w-full' })}>
+          <Link data-slot="button" to="/auth/forgot-password" className={buttonVariants({ size: 'lg', className: 'w-full' })}>
+            <MailPlus data-icon="inline-start" />
             Request a New Link
           </Link>
         </div>
@@ -110,6 +111,7 @@ export default function ResetPassword() {
             <PasswordField
               id="reset-password"
               size="lg"
+              leadingIcon={<Lock />}
               inputRef={passwordRef}
               name="password"
               autoComplete="new-password"
@@ -127,6 +129,7 @@ export default function ResetPassword() {
             <PasswordField
               id="reset-confirm-password"
               size="lg"
+              leadingIcon={<Lock />}
               inputRef={confirmRef}
               name="confirmPassword"
               autoComplete="new-password"
@@ -141,6 +144,7 @@ export default function ResetPassword() {
         </FieldGroup>
 
         <Button type="submit" size="lg" glow className="w-full" loading={formik.isSubmitting} disabled={formik.isSubmitting}>
+          {!formik.isSubmitting && <KeyRound data-icon="inline-start" />}
           {formik.isSubmitting ? 'Saving…' : 'Reset Password'}
         </Button>
       </form>

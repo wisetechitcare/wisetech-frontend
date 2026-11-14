@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import * as Yup from 'yup'
 import { useFormik } from 'formik'
 import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, CircleAlert, Mail, MailCheck, Send } from 'lucide-react'
 import { Alert, AlertDescription } from '@/ds/ui/alert'
 import { Button, buttonVariants } from '@/ds/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field'
-import { Input } from '@/ds/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/ds/ui/input-group'
 import { forgotPassword } from '@services/auth'
 import { AuthScreen } from '../AuthScreen'
 
@@ -70,11 +70,11 @@ export function ForgotPassword() {
 
   return (
     <AuthScreen
-      title="Forgot Password"
+      title="Reset Your Password"
       titleTone="rose"
       description="Enter your work email and we'll send you a link to reset your password."
       footer={
-        <Link to="/auth/login" className={buttonVariants({ variant: 'link', className: 'mx-auto px-0' })}>
+        <Link data-slot="button" to="/auth/login" className={buttonVariants({ variant: 'link', className: 'mx-auto px-0' })}>
           <ArrowLeft aria-hidden="true" />
           Back to Sign In
         </Link>
@@ -83,6 +83,7 @@ export function ForgotPassword() {
       <form className="grid gap-5" onSubmit={formik.handleSubmit} noValidate>
         {result && (
           <Alert variant={result.kind === 'sent' ? 'info' : 'danger'}>
+            {result.kind === 'sent' ? <MailCheck aria-hidden /> : <CircleAlert aria-hidden />}
             <AlertDescription role={result.kind === 'sent' ? 'status' : 'alert'}>{result.message}</AlertDescription>
           </Alert>
         )}
@@ -90,17 +91,22 @@ export function ForgotPassword() {
         <FieldGroup className="gap-5">
           <Field data-invalid={emailError ? true : undefined}>
             <FieldLabel htmlFor="forgot-email">Email</FieldLabel>
-            <Input
-              id="forgot-email"
-              size="lg"
-              ref={emailRef}
-              type="email"
-              inputMode="email"
-              autoComplete="username"
-              aria-invalid={emailError ? true : undefined}
-              aria-describedby={emailError ? 'forgot-email-error' : undefined}
-              {...formik.getFieldProps('email')}
-            />
+            <InputGroup size="lg">
+              <InputGroupAddon aria-hidden="true">
+                <Mail />
+              </InputGroupAddon>
+              <InputGroupInput
+                id="forgot-email"
+                size="lg"
+                ref={emailRef}
+                type="email"
+                inputMode="email"
+                autoComplete="username"
+                aria-invalid={emailError ? true : undefined}
+                aria-describedby={emailError ? 'forgot-email-error' : undefined}
+                {...formik.getFieldProps('email')}
+              />
+            </InputGroup>
             {emailError && <FieldError id="forgot-email-error">{emailError}</FieldError>}
           </Field>
         </FieldGroup>
@@ -113,6 +119,7 @@ export function ForgotPassword() {
           loading={formik.isSubmitting}
           disabled={formik.isSubmitting || coolingDown}
         >
+          {!formik.isSubmitting && <Send data-icon="inline-start" />}
           {formik.isSubmitting ? 'Sending…' : 'Send Reset Link'}
         </Button>
       </form>

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { SmartAvatar } from "@/ds/ui/smart-avatar"
 import { Typewriter, type TypewriterLine } from "@/ds/effects/typewriter"
 import { LiquidSwirl } from "@/ds/effects/liquid-swirl"
-import { GradientText, type GradientTone } from "@/ds/effects/gradient-text"
+import type { HueTone } from "@/ds/lib/tone"
 import { titleCaseChildren } from "@/ds/lib/text"
 
 /**
@@ -35,12 +35,13 @@ import { titleCaseChildren } from "@/ds/lib/text"
  * - **The headline settles the moment anything in the form takes focus** — it jumps to its landing line and
  *   stops, so it never competes with typing a password (WCAG 2.2.2). Every auth screen gets this from here.
  *   Don't autofocus a field on load, or the headline settles before anyone sees it.
- * - **One page heading:** the Card's `title` is the page's `h1` (a structural heading, UPPERCASE) in Gradient Text —
- *   readable ink, two shimmer passes, then still (none under reduced motion). `titleTone` picks its gradient
- *   (default `brand`; user decision 2026-11-14: Sign In `green`, Forgot Password `rose` — hues, not status colours). The headline
+ * - **One page heading:** the Card's `title` is the page's `h1` (a structural heading, UPPERCASE) in ONE PLAIN
+ *   colour — no gradient, no shimmer (user decision 2026-11-14). `titleTone`: `brand` (default — the brand blue,
+ *   `primary`, per-tenant) or a hue's readable ink (Reset Your Password is `rose`, the red of the link that opens
+ *   it). Both theme-aware, ≥ 4.5:1 on the card. The headline
  *   is a brand moment, not a heading; assistive tech reads only its landing line.
  * - **Sized for a page that is one form** (user decision 2026-11-14): a 440px card (480px from `xl`, 32px padding
- *   from `sm`; 520px from `2xl`), a 22px title, 16px description — pass `size="lg"` (44px) to its fields and buttons. Widths are px:
+ *   from `sm`; 520px from `2xl`), a 26px title (30px from `sm`), 16px description — pass `size="lg"` (44px) to its fields and buttons. Widths are px:
  *   the live app's root is still Metronic's 13px, which shrinks rem widths by a fifth.
  * - The form Card is a still `panel` (no glow, no hover motion).
  */
@@ -66,8 +67,8 @@ export function AuthLayout({
   tagline?: React.ReactNode
   /** The form's title — the page's `h1`. */
   title: React.ReactNode
-  /** The title's Gradient Text tone. */
-  titleTone?: GradientTone
+  /** The title's colour: the brand blue (default) or a hue's readable ink. */
+  titleTone?: TitleTone
   description?: React.ReactNode
   /** The form. */
   children: React.ReactNode
@@ -150,11 +151,15 @@ export function AuthLayout({
             {/* Centred title and description, as the brand panel beside it. */}
             <CardHeader className="justify-items-center gap-2 text-center">
               <CardTitle>
-                <h1 data-slot="auth-title" className="heading-case text-[22px] leading-tight">
-                  <GradientText tone={titleTone} ink="text">{titleCaseChildren(title)}</GradientText>
+                <h1
+                  data-slot="auth-title"
+                  data-tone={titleTone}
+                  className={cn("heading-case text-[26px] leading-tight tracking-[0.01em] sm:text-[30px]", TITLE_INK[titleTone])}
+                >
+                  {titleCaseChildren(title)}
                 </h1>
               </CardTitle>
-              {description && <CardDescription className="text-[16px]">{description}</CardDescription>}
+              {description && <CardDescription className="text-[16px] text-balance">{description}</CardDescription>}
             </CardHeader>
             <CardContent>{children}</CardContent>
             {footer && <CardFooter>{footer}</CardFooter>}
@@ -173,6 +178,21 @@ export function AuthLayout({
       </div>
     </div>
   )
+}
+
+export type TitleTone = "brand" | HueTone
+
+/** Title ink: the brand blue, or each hue's readable text token (light and dark). Literal classes, so Tailwind sees them. */
+const TITLE_INK: Record<TitleTone, string> = {
+  brand: "text-primary",
+  blue: "text-tone-blue-foreground",
+  green: "text-tone-green-foreground",
+  amber: "text-tone-amber-foreground",
+  rose: "text-tone-rose-foreground",
+  purple: "text-tone-purple-foreground",
+  indigo: "text-tone-indigo-foreground",
+  cyan: "text-tone-cyan-foreground",
+  slate: "text-tone-slate-foreground",
 }
 
 /**

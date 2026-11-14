@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, userEvent, waitFor } from 'storybook/test'
 import { animationsSettled } from '@/ds/lib/motion'
+import { Lock } from 'lucide-react'
 import { Field, FieldError, FieldLabel } from '@/ds/ui/field'
 import { PasswordField } from './password-field'
 
@@ -41,6 +42,8 @@ export const Default: Story = {
 
     await userEvent.click(canvas.getByRole('button', { name: 'Hide password' }))
     await expect(input).toHaveAttribute('type', 'password')
+    // Let the toggle's tooltip finish closing: the axe check after play otherwise measures it mid-fade (1.09:1).
+    await animationsSettled()
   },
 }
 
@@ -52,6 +55,34 @@ export const Large: Story = {
     await expect(group).toHaveAttribute('data-size', 'lg')
     await expect(group.getBoundingClientRect().height).toBe(44)
     await expect(getComputedStyle(canvas.getByLabelText('Password')).fontSize).toBe('16px')
+  },
+}
+
+/**
+ * `leadingIcon`: a decorative icon before the text (the sign-in form's lock), hidden from assistive tech. The label
+ * rests just after it, like a placeholder, and floats onto the border on focus or once there is a value.
+ */
+export const WithIcon: Story = {
+  args: { size: 'lg', leadingIcon: <Lock /> },
+  play: async ({ canvas, canvasElement }) => {
+    const addon = canvasElement.querySelector<HTMLElement>('[data-slot="input-group-addon"][data-align="inline-start"]')!
+    await expect(addon).toHaveAttribute('aria-hidden', 'true')
+    await expect(addon.querySelector('svg')).not.toBeNull()
+    const label = canvasElement.querySelector<HTMLElement>('[data-slot="field-label"]')!
+    const group = canvasElement.querySelector<HTMLElement>('[data-slot="input-group"]')!
+    const input = canvas.getByLabelText('Password')
+    // Resting: inside the field, after the icon, on the field's centre line.
+    const g = group.getBoundingClientRect()
+    const rest = label.getBoundingClientRect()
+    await expect(rest.left).toBeGreaterThan(addon.querySelector('svg')!.getBoundingClientRect().right)
+    await expect(Math.abs(rest.top + rest.height / 2 - (g.top + g.height / 2))).toBeLessThan(1.5)
+    // Focused: floated — the label's centre sits on the group's top border.
+    await userEvent.click(input)
+    await waitFor(() => {
+      const l = label.getBoundingClientRect()
+      expect(Math.abs(l.top + l.height / 2 - group.getBoundingClientRect().top)).toBeLessThan(2)
+    })
+    await expect(canvas.getByLabelText('Password')).toHaveAttribute('type', 'password')
   },
 }
 

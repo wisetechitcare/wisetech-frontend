@@ -139,25 +139,25 @@ export const LogoOutsideCardOnPhone: Story = {
   },
 }
 
-/** The page heading is Gradient Text in readable ink: two shimmer passes, then still. */
-export const GradientHeading: Story = {
+/** The page heading is ONE plain colour — the brand blue by default: no gradient, no shimmer. */
+export const PlainHeading: Story = {
   tags: ['!autodocs'], // a test, not a demo
   play: async ({ canvasElement }) => {
-    const heading = canvasElement.querySelector<HTMLElement>('[data-slot="auth-title"] [data-slot="gradient-text"]')!
+    const heading = canvasElement.querySelector<HTMLElement>('[data-slot="auth-title"]')!
     await expect(heading).toHaveAttribute('data-tone', 'brand')
-    await expect(heading).toHaveAttribute('data-shimmer', 'twice')
-    await expect(getComputedStyle(heading).animationIterationCount).toBe('2')
-    await expect(canvasElement.querySelector('h1')).toHaveTextContent('Sign In')
+    await expect(heading.querySelector('[data-slot="gradient-text"]')).toBeNull()
+    await expect(getComputedStyle(heading).backgroundImage).toBe('none')
+    await expect(heading).toHaveTextContent('Sign In')
   },
 }
 
-/** `titleTone` colours the page heading's gradient — Sign In is `green`, Forgot Password `rose` (the brand gradient by default). */
+/** `titleTone` picks the heading's plain colour — Reset Your Password is `rose`, the red of the link that opens it. */
 export const TitleTone: Story = {
-  args: { titleTone: 'green' },
+  args: { titleTone: 'rose', title: 'Reset Your Password' },
   play: async ({ canvasElement }) => {
-    const heading = canvasElement.querySelector<HTMLElement>('[data-slot="auth-title"] [data-slot="gradient-text"]')!
-    await expect(heading).toHaveAttribute('data-tone', 'green')
-    await expect(canvasElement.querySelector('h1')).toHaveTextContent('Sign In')
+    const heading = canvasElement.querySelector<HTMLElement>('[data-slot="auth-title"]')!
+    await expect(heading).toHaveAttribute('data-tone', 'rose')
+    await expect(heading.querySelector('[data-slot="gradient-text"]')).toBeNull()
   },
 }
 

@@ -6,7 +6,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/ds/ui/alert'
 import { Button, buttonVariants } from '@/ds/ui/button'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field'
-import { Input } from '@/ds/ui/input'
+import { CircleAlert, KeyRound, Lock, LogIn, Mail, TriangleAlert } from 'lucide-react'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/ds/ui/input-group'
 import { PasswordField } from '@/ds/patterns/password-field'
 import { login } from '@services/auth'
 import { fetchCurrentUser } from '@services/users'
@@ -103,15 +104,17 @@ export default function Login() {
   const passwordError = formik.touched.password ? formik.errors.password : undefined
 
   return (
-    <AuthScreen title="Sign In" titleTone="green" description="Welcome back. Use your work email.">
+    <AuthScreen title="Welcome back" description="One sign-in for your people, projects and payroll.">
       <form className="grid gap-5" onSubmit={formik.handleSubmit} noValidate>
         {sessionNotice && (
           <Alert variant="warning">
+            <TriangleAlert aria-hidden />
             <AlertDescription>{sessionNotice}</AlertDescription>
           </Alert>
         )}
         {formik.status && (
           <Alert variant="danger">
+            <CircleAlert aria-hidden />
             <AlertDescription>{formik.status}</AlertDescription>
           </Alert>
         )}
@@ -119,17 +122,22 @@ export default function Login() {
         <FieldGroup className="gap-5">
           <Field data-invalid={emailError ? true : undefined}>
             <FieldLabel htmlFor="signin-email">Email</FieldLabel>
-            <Input
-              id="signin-email"
-              size="lg"
-              ref={emailRef}
-              type="email"
-              inputMode="email"
-              autoComplete="username"
-              aria-invalid={emailError ? true : undefined}
-              aria-describedby={emailError ? 'signin-email-error' : undefined}
-              {...formik.getFieldProps('email')}
-            />
+            <InputGroup size="lg">
+              <InputGroupAddon aria-hidden="true">
+                <Mail />
+              </InputGroupAddon>
+              <InputGroupInput
+                id="signin-email"
+                size="lg"
+                ref={emailRef}
+                type="email"
+                inputMode="email"
+                autoComplete="username"
+                aria-invalid={emailError ? true : undefined}
+                aria-describedby={emailError ? 'signin-email-error' : undefined}
+                {...formik.getFieldProps('email')}
+              />
+            </InputGroup>
             {emailError && <FieldError id="signin-email-error">{emailError}</FieldError>}
           </Field>
 
@@ -138,6 +146,7 @@ export default function Login() {
             <PasswordField
               id="signin-password"
               size="lg"
+              leadingIcon={<Lock />}
               inputRef={passwordRef}
               name="password"
               autoComplete="current-password"
@@ -151,11 +160,18 @@ export default function Login() {
           </Field>
         </FieldGroup>
 
-        <Link to="/auth/forgot-password" className={buttonVariants({ variant: 'link', className: 'justify-self-end px-0' })}>
+        {/* Red (the rose hue's readable ink, user decision 2026-11-14) — the colour of the page it opens. */}
+        <Link
+          data-slot="button"
+          to="/auth/forgot-password"
+          className={buttonVariants({ variant: 'link', className: 'justify-self-end px-0 text-tone-rose-foreground' })}
+        >
+          <KeyRound aria-hidden="true" />
           Forgot password?
         </Link>
 
         <Button type="submit" size="lg" glow className="w-full" loading={loading} disabled={formik.isSubmitting}>
+          {!loading && <LogIn data-icon="inline-start" />}
           {loading ? 'Signing in…' : 'Sign In'}
         </Button>
       </form>

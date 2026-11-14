@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AuthLayout } from '@/ds/patterns/auth-layout'
-import type { GradientTone } from '@/ds/effects/gradient-text'
+import type { TitleTone } from '@/ds/patterns/auth-layout'
 import { ThemeToggle } from '@/ds/patterns/theme-toggle'
 import { useColorMode } from '@app/theme/ColorMode'
 import { fetchCompanyLogo } from '@services/company'
@@ -40,8 +40,8 @@ export function AuthScreen({
   footer,
 }: {
   title: ReactNode
-  /** The title's gradient (default: the brand gradient). */
-  titleTone?: GradientTone
+  /** The title's colour (default: the brand blue). */
+  titleTone?: TitleTone
   description?: ReactNode
   children: ReactNode
   footer?: ReactNode
