@@ -9,16 +9,20 @@ import type { HueTone } from "@/ds/lib/tone"
  */
 export type TypewriterLine = string | ReadonlyArray<string | { text: string; tone: HueTone }>
 
-/** Static class names, so Tailwind sees every one. The solid hue — the launcher tile's icon colour. */
-const HUE_CLASS: Record<HueTone, string> = {
-  blue: "text-(--tone-blue)",
-  green: "text-(--tone-green)",
-  amber: "text-(--tone-amber)",
-  rose: "text-(--tone-rose)",
-  purple: "text-(--tone-purple)",
-  indigo: "text-(--tone-indigo)",
-  cyan: "text-(--tone-cyan)",
-  slate: "text-(--tone-slate)",
+/**
+ * Each key word's gradient: its module hue flowing into a neighbouring kit hue (HR blue → indigo, CRM green →
+ * cyan, Projects purple → rose, Finance rose → amber…). Kit tokens only, as static classes (Tailwind sees every
+ * one) setting --hue-gradient; light and dark come with the tokens.
+ */
+const HUE_GRADIENT: Record<HueTone, string> = {
+  blue: "[--hue-gradient:linear-gradient(90deg,var(--tone-blue),var(--tone-indigo))]",
+  green: "[--hue-gradient:linear-gradient(90deg,var(--tone-green),var(--tone-cyan))]",
+  amber: "[--hue-gradient:linear-gradient(90deg,var(--tone-amber),var(--tone-rose))]",
+  rose: "[--hue-gradient:linear-gradient(90deg,var(--tone-rose),var(--tone-amber))]",
+  purple: "[--hue-gradient:linear-gradient(90deg,var(--tone-purple),var(--tone-rose))]",
+  indigo: "[--hue-gradient:linear-gradient(90deg,var(--tone-indigo),var(--tone-purple))]",
+  cyan: "[--hue-gradient:linear-gradient(90deg,var(--tone-cyan),var(--tone-blue))]",
+  slate: "[--hue-gradient:linear-gradient(90deg,var(--tone-slate),var(--tone-blue))]",
 }
 
 /**
@@ -26,9 +30,10 @@ const HUE_CLASS: Record<HueTone, string> = {
  * landing on the last — then rest. For moments only (the sign-in brand panel). Never in tables,
  * forms, wizards or approvals.
  *
- * One motion idea, on purpose: typing — as a person types. Key words wear their module's hue; the rest
- * is the heading's own ink. The original Login typewriter's pace and caret: 55ms per character after a
- * 300ms delay, a 2s hold, backspace at 30ms; the gradient caret (0.09em × 0.92em, 0.06em radius, sat
+ * Typing, as a person types. Key words wear their module's hue as a gradient into a neighbouring hue, with a soft
+ * light shimmer swept across them — looping while it types, two passes once landed, then still (all motion ends
+ * within 5s: WCAG 2.2.2). The rest is the heading's own ink. The original Login typewriter's pace and caret:
+ * 55ms per character after a 300ms delay, a 2s hold, backspace at 30ms; the gradient caret (0.09em × 0.92em, 0.06em radius, sat
  * 0.1em low, 0.25rem from the text, purple glow) with its hard 1s on/off blink.
  *
  * What makes it read as real typing:
@@ -147,7 +152,7 @@ function Typewriter({
         className="relative col-start-1 row-start-1"
         style={{ clipPath: reveal.clip }}
       >
-        <Runs line={lines[index]} />
+        <Runs line={lines[index]} shimmer={reduced || settled ? "off" : landed ? "twice" : "loop"} />
       </span>
       {/* Positioned from the root, so it stays on the text however a parent aligns the line (e.g. self-end). */}
       {!reduced && reveal.caret && <Caret blinking={!pressing} left={reveal.caret.left} top={reveal.caret.top} />}
@@ -185,8 +190,12 @@ function flatten(line: TypewriterLine): Flat {
   return { text, tones }
 }
 
-/** The line as runs of one hue each: key words in colour, the rest plain. */
-function Runs({ line }: { line: Flat }) {
+/**
+ * The line as runs of one hue each: key words in their gradient, the rest plain. `shimmer` sweeps a light band
+ * across the key words — "loop" while typing, "twice" once landed (then still), "off" when settled, reduced
+ * motion, or for the invisible copies.
+ */
+function Runs({ line, shimmer = "off" }: { line: Flat; shimmer?: "loop" | "twice" | "off" }) {
   const count = line.text.length
   const out: React.ReactNode[] = []
   let start = 0
@@ -194,7 +203,26 @@ function Runs({ line }: { line: Flat }) {
     if (i === count || line.tones[i] !== line.tones[start]) {
       const tone = line.tones[start]
       const s = line.text.slice(start, i)
-      out.push(tone ? <span key={start} data-tone={tone} className={HUE_CLASS[tone]}>{s}</span> : s)
+      out.push(
+        tone ? (
+          <span
+            key={start}
+            data-tone={tone}
+            data-shimmer={shimmer === "off" ? undefined : shimmer}
+            className={cn(
+              HUE_GRADIENT[tone],
+              // The shimmer band (first layer, tokens.css) over the word's gradient, clipped to the letters.
+              "bg-clip-text text-transparent [background-image:var(--typewriter-shimmer-band),var(--hue-gradient)] [background-size:250%_100%,100%_100%] [background-position:150%_0,0_0] [background-repeat:no-repeat]",
+              shimmer !== "off" && "animate-typewriter-shimmer",
+              shimmer === "twice" && "[animation-iteration-count:2]",
+            )}
+          >
+            {s}
+          </span>
+        ) : (
+          s
+        ),
+      )
       start = i
     }
   }

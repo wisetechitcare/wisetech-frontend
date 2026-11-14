@@ -103,7 +103,7 @@ export const Settled: Story = {
   },
 }
 
-/** Key words wear their module's hue; the landing line is tri-colour; the rest is the heading's own ink. */
+/** Key words wear their module's hue as a gradient (into a neighbouring hue); the rest is the heading's own ink. */
 export const Tones: Story = {
   tags: ['!autodocs'], // a test, not a demo
   args: { settled: true },
@@ -121,10 +121,43 @@ export const Tones: Story = {
     await expect(word('blue').textContent).toBe('Fast')
     await expect(word('green').textContent).toBe('Efficient')
     await expect(word('purple').textContent).toBe('Productive')
-    for (const hue of ['blue', 'green', 'purple']) await expect(getComputedStyle(word(hue)).color).toBe(probe(`--tone-${hue}`))
-    // Three different colours, and the connecting "," / "&" stay in the heading's ink.
-    await expect(new Set(['blue', 'green', 'purple'].map((h) => getComputedStyle(word(h)).color)).size).toBe(3)
+    for (const [hue, into] of [['blue', 'indigo'], ['green', 'cyan'], ['purple', 'rose']]) {
+      const css = getComputedStyle(word(hue))
+      await expect(css.backgroundClip).toBe('text, text') // shimmer band + gradient, both clipped to the letters
+      await expect(css.color).toBe('rgba(0, 0, 0, 0)')
+      // The word's gradient runs from its module hue into the neighbouring hue.
+      await expect(css.backgroundImage).toContain(probe(`--tone-${hue}`))
+      await expect(css.backgroundImage).toContain(probe(`--tone-${into}`))
+    }
+    // The connecting "," / "&" stay in the heading's ink.
     await expect(getComputedStyle(text).color).toBe(getComputedStyle(text.closest('h1')!).color)
+  },
+}
+
+/** (Test speed) Shimmer: loops while typing, exactly two passes once landed, none when settled. */
+export const Shimmer: Story = {
+  tags: ['!autodocs'], // a test, not a demo
+  args: FAST,
+  play: async ({ canvasElement }) => {
+    const toned = () => canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"] [data-tone]')
+    await waitFor(() => expect(toned()).not.toBeNull(), { timeout: 3000 })
+    await expect(toned()).toHaveAttribute('data-shimmer', 'loop')
+    await expect(getComputedStyle(toned()!).animationName).toBe('typewriter-shimmer')
+    await waitFor(() => expect(landed(canvasElement)).toBe(true), { timeout: 8000 })
+    await expect(toned()).toHaveAttribute('data-shimmer', 'twice')
+    await expect(getComputedStyle(toned()!).animationIterationCount).toBe('2')
+    await expect(2 * parseFloat(getComputedStyle(toned()!).animationDuration)).toBeLessThan(5) // WCAG 2.2.2
+  },
+}
+
+/** Settled (a sign-in field took focus): the gradients, still — no shimmer. */
+export const SettledNoShimmer: Story = {
+  tags: ['!autodocs'], // a test, not a demo
+  args: { settled: true },
+  play: async ({ canvasElement }) => {
+    for (const w of canvasElement.querySelectorAll<HTMLElement>('[data-slot="typewriter-text"] [data-tone]')) {
+      await expect(getComputedStyle(w).animationName).toBe('none')
+    }
   },
 }
 
@@ -165,7 +198,7 @@ function contrast(fg: string, bg: string) {
   return (a + 0.05) / (b + 0.05)
 }
 
-/** Every hue the headline uses reads as large text (≥ 3:1) on the page, in light AND dark. */
+/** Every hue the headline's gradients use reads as large text (≥ 3:1) on the page, in light AND dark. */
 export const ToneContrast: Story = {
   tags: ['!autodocs'], // a test, not a demo
   render: () => (
@@ -177,7 +210,8 @@ export const ToneContrast: Story = {
   play: async ({ canvasElement }) => {
     for (const probe of canvasElement.querySelectorAll<HTMLElement>('[data-theme-probe]')) {
       const css = getComputedStyle(probe)
-      for (const hue of ['blue', 'green', 'purple', 'rose']) {
+      // Every hue a word starts on or flows into.
+      for (const hue of ['blue', 'green', 'purple', 'rose', 'indigo', 'cyan', 'amber']) {
         const ratio = contrast(css.getPropertyValue(`--tone-${hue}`).trim(), css.backgroundColor)
         await expect(ratio, `${probe.dataset.themeProbe} ${hue} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3)
       }
