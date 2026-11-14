@@ -19,20 +19,19 @@ overrides:
   nanoid: '>=3.3.16' # non-secure generator can loop indefinitely
   source-map-js: '>=1.2.2' # event-loop DoS via indexed source-map section offsets
   follow-redirects: '>=1.16.2'
-  vite: '>=7.3.7'
+  vite: '>=8.3.8 <9' # security floor; capped at the major — an open range once silently jumped a major (7 -> 8)
   dompurify: '>=3.4.17' # SAFE_FOR_TEMPLATES bypass (critical, GHSA-cg2g-xh64-v4q7) + IN_PLACE hook (GHSA-mrv2-3pqr-j5jr); covers jspdf's copy
   undici: '>=8.12.2' # DoS via excessive content-encodings (GHSA-xjj6-f33q-929c), via jsdom
   '@tanstack/react-virtual': '3.14.22' # React 19 support; material-react-table pins 3.10.6 (same major)
 
 # pnpm blocks dependency install scripts by default. These need theirs:
-#   esbuild, @swc/core   -> Vite's bundler + the React SWC plugin (build breaks without)
+#   esbuild              -> Storybook's bundler (Vite 8 itself uses Rolldown/Oxc)
 #   canvas               -> native addon behind react-pdf/pdfjs rendering
 #   @parcel/watcher      -> native file watcher
 #   puppeteer            -> downloads Chromium
 #   core-js, @fortawesome/fontawesome-free -> postinstall funding notices only
 allowBuilds:
   esbuild: true
-  '@swc/core': true
   canvas: true
   '@parcel/watcher': true
   puppeteer: true
