@@ -1,15 +1,15 @@
 import { useState } from "react"
-import { initialsOf, pickLimit, type CompaniesSection, type ServicesSection } from "@app/modules/company-profile/profile"
+import { initialsOf, pickLimit, type PickSection } from "@app/modules/company-profile/profile"
 import { pick, toggleIn } from "@app/modules/company-profile/profileBuilder"
 import { PickTile, PickerDialog, SelectedOrder } from "./PickerDialog"
 
 export type ListItem = { id: string; label: string; sub: string; image?: string | null }
 
 /**
- * Choose what a list slide shows and in what order: CRM services (up to PICK_LIMIT.services) or client logos
- * (no cap: the wall flows onto more slides, within the presentation's slide limit).
+ * Choose what a list slide shows and in what order: CRM services, repeat clients or map pins (each up to its
+ * PICK_LIMIT), or client logos (no cap: the wall flows onto more slides, within the presentation's slide limit).
  */
-export function ListPicker<S extends ServicesSection | CompaniesSection>({
+export function ListPicker<S extends PickSection>({
   heading,
   section,
   items,
