@@ -14,13 +14,16 @@ import { titleCaseChildren } from "@/ds/lib/text"
  * - **One continuous page**, as the original sign-in: no divider and no separate panel colour between the
  *   columns — the form Card (lifted) floats beside the brand content, over the Liquid Swirl background, which
  *   settles with the headline (or as soon as the form is focused) and is still under reduced motion.
- * - **The logo is the organisation's real logo** in the kit's company-logo tile (Smart Avatar's Logo recipe — a
- *   rounded plate, the whole image inset, never cropped; the initials stay if it fails to load).
+ * - **The logo is shown as itself** — the organisation's real logo at its own proportions (a stacked lockup stays
+ *   a lockup, a square mark stays square), never cropped or boxed into a tile; Smart Avatar's initials if there is
+ *   no logo or it fails to load.
  * - **The logo stays outside the form card** at every size (user decisions 2026-11-14): pinned to the page's
  *   top-left corner from `lg` (as the original sign-in; the page actions sit top-right), and at the top of the
- *   stacked brand row, centred, on tablets and phones — 56px there, 84px from `lg`.
+ *   stacked brand row, centred, on tablets and phones — 64px tall there, 80px from `lg`, 96px from `xl`.
  * - **Centred text** at every size: the headline and tagline, and the card's title and description.
- * - **Brand panel:** the Typewriter headline and one supporting line.
+ * - **Brand panel:** the Typewriter headline and one supporting line. The headline is sized by its column (a
+ *   container query), so its longest line stays on ONE line whenever the column can hold it at a readable size
+ *   (≥ 22px; every phone from 360px); narrower than that it wraps, balanced.
  * - **The headline settles the moment anything in the form takes focus** — it jumps to its landing line and
  *   stops, so it never competes with typing a password (WCAG 2.2.2). Every auth screen gets this from here.
  *   Don't autofocus a field on load, or the headline settles before anyone sees it.
@@ -82,20 +85,22 @@ export function AuthLayout({
         className="flex flex-col items-center gap-6 px-4 pt-10 pb-6 text-center sm:px-8 lg:justify-center lg:p-16"
       >
         {/* The logo: top-centre of the stacked brand row below lg; pinned to the page's top-left corner from lg
-            (absolute to the layout). Two sizes for two layouts — SmartAvatar's size is a prop, not a class; the
-            hidden one is display:none, so assistive tech meets the logo once. */}
-        <span data-slot="auth-logo" className="lg:hidden">
-          <SmartAvatar name={brandName} src={logoSrc} seed={brandName} shape="rounded" fit="contain" size="lg" />
-        </span>
-        <span data-slot="auth-logo" className="absolute top-8 left-8 z-10 max-lg:hidden xl:top-10 xl:left-12">
-          <SmartAvatar name={brandName} src={logoSrc} seed={brandName} shape="rounded" fit="contain" size="xl" />
-        </span>
-        <div className="max-w-xl">
+            (absolute to the layout, clear of the page actions top-right). */}
+        <div
+          data-slot="auth-logo"
+          className="flex h-16 max-w-full justify-center lg:absolute lg:top-8 lg:left-8 lg:z-10 lg:h-20 lg:max-w-72 lg:justify-start xl:top-10 xl:left-12 xl:h-24"
+        >
+          <BrandLogo name={brandName} src={logoSrc} />
+        </div>
+        {/* A size container: the headline's font follows the column, not the viewport. In px, not rem: the live
+            app's root is still Metronic's 13px, which would shrink a rem cap (and the headline) by a fifth. */}
+        <div className="@container w-full max-w-[672px]">
           {/* The typed text sits at the BOTTOM of the box reserved for the longest line, so a one-line phrase
-              stays right above the tagline and the spare room falls into the gap above, by the logo. */}
+              stays right above the tagline and the spare room falls into the gap above, by the logo.
+              6.8cqi: the longest line is ~14.5em wide, so it fills ~99% of the column at most — one line. */}
           <p
             data-slot="auth-headline"
-            className="font-heading text-[clamp(22px,7vw,30px)] leading-[1.12] font-bold tracking-[-0.025em] text-foreground lg:text-[clamp(30px,3.2vw,44px)] [&_[data-slot=typewriter-text]]:self-end"
+            className="font-heading text-[clamp(22px,6.8cqi,32px)] leading-[1.12] font-bold tracking-[-0.025em] text-balance text-foreground lg:text-[clamp(22px,6.8cqi,44px)] [&_[data-slot=typewriter-text]]:self-end"
           >
             <Typewriter lines={headline} settled={settled} onLanded={onLanded} />
           </p>
@@ -128,5 +133,25 @@ export function AuthLayout({
       {/* Last in the DOM, so Tab reaches the form first; still pinned top-right on screen. */}
       {actions && <div data-slot="auth-actions" className="absolute top-4 right-4 z-10 flex items-center gap-2">{actions}</div>}
     </div>
+  )
+}
+
+/**
+ * The organisation's logo at its own proportions, as tall as its slot (and never wider); Smart Avatar's initials
+ * when there is no logo or it fails to load — never an empty or broken image.
+ */
+function BrandLogo({ name, src }: { name: string; src?: string | null }) {
+  const [failed, setFailed] = React.useState(false)
+  React.useEffect(() => setFailed(false), [src])
+  if (!src || failed) return <SmartAvatar name={name} seed={name} shape="rounded" size="lg" className="self-center" />
+  return (
+    <img
+      data-slot="auth-logo-image"
+      src={src}
+      alt={name}
+      decoding="async"
+      className="h-full w-auto max-w-full object-contain"
+      onError={() => setFailed(true)}
+    />
   )
 }

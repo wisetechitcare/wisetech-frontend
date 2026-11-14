@@ -4,7 +4,10 @@ import { Button, buttonVariants } from '@/ds/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
 import { LANDING_LINE, PRODUCT_LINES } from '@/ds/effects/typewriter.fixtures'
-import logo from '@/ds/ui/__fixtures__/logo.svg'
+import wideLogo from '@/ds/ui/__fixtures__/logo.svg'
+
+/** The real WiseTech lockup (public/, served by Storybook and the app). */
+const LOCKUP = '/media/brand/wisetech-logo.png'
 import { AuthLayout } from './auth-layout'
 import { PasswordField } from './password-field'
 
@@ -41,7 +44,7 @@ const meta = {
   parameters: { layout: 'fullscreen' },
   args: {
     brandName: 'WiseTech',
-    logoSrc: logo,
+    logoSrc: LOCKUP,
     headline: PRODUCT_LINES,
     tagline: 'All-in-one HR, CRM, Projects and Payroll for your whole organisation.',
     title: 'Sign In',
@@ -108,7 +111,8 @@ export const SettlesOnFocus: Story = {
 /** A logo that fails to load leaves the organisation's initials, never an empty or broken tile. */
 export const BrokenLogo: Story = {
   tags: ['!autodocs'], // a test, not a demo
-  args: { logoSrc: 'https://invalid.example/missing-logo.png' },
+  // Same-origin 404: fails at once (an unresolvable host waits on DNS and made this test flaky).
+  args: { logoSrc: '/media/brand/missing-logo.png' },
   play: async ({ canvasElement }) => {
     const brand = canvasElement.querySelector('[data-slot="auth-brand"]')!
     await waitFor(() => expect(brand.querySelector('img[src*="missing-logo"]')).toBeNull(), { timeout: 3000 })
@@ -122,8 +126,8 @@ export const LogoOutsideCardOnPhone: Story = {
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvasElement }) => {
     const cardEl = canvasElement.querySelector('[data-slot="card"]')!
-    await expect(cardEl.querySelector('[data-slot="smart-avatar"]')).toBeNull()
-    const mark = canvasElement.querySelector('[data-slot="auth-brand"] [data-slot="smart-avatar"]')!
+    await expect(cardEl.querySelector('[data-slot="auth-logo"]')).toBeNull()
+    const mark = canvasElement.querySelector('[data-slot="auth-brand"] [data-slot="auth-logo-image"]')!
     await waitFor(() => expect(box(mark).width).toBeGreaterThan(0))
     const card = box(cardEl)
     await expect(box(mark).bottom).toBeLessThanOrEqual(card.top)
@@ -150,18 +154,49 @@ export const LogoTopLeftOnDesktop: Story = {
   tags: ['!autodocs'], // a test, not a demo
   globals: { viewport: { value: 'desktop' } },
   play: async ({ canvasElement }) => {
-    const marks = [...canvasElement.querySelectorAll<HTMLElement>('[data-slot="auth-logo"]')]
-    const shown = marks.filter((m) => m.getBoundingClientRect().width > 0)
-    await expect(shown).toHaveLength(1) // one logo for each layout, never two on screen
+    const marks = canvasElement.querySelectorAll('[data-slot="auth-logo"]')
+    await expect(marks).toHaveLength(1)
     const root = box(canvasElement.querySelector('[data-slot="auth-layout"]')!)
-    const mark = box(shown[0])
+    const image = canvasElement.querySelector<HTMLImageElement>('[data-slot="auth-logo-image"]')!
+    await waitFor(() => expect(image.naturalWidth).toBeGreaterThan(0), { timeout: 3000 })
+    const mark = box(image)
     await expect(mark.left - root.left).toBeLessThan(64)
     await expect(mark.top - root.top).toBeLessThan(64)
-    await expect(mark.width).toBeGreaterThanOrEqual(84)
+    await expect(mark.height).toBeGreaterThanOrEqual(80)
     await expect(canvasElement.querySelector('[data-slot="card"] [data-slot="smart-avatar"]')).toBeNull()
     await expect(mark.bottom).toBeLessThanOrEqual(box(canvasElement.querySelector('[data-slot="auth-headline"]')!).top)
     await expect(getComputedStyle(canvasElement.querySelector('[data-slot="auth-brand"]')!).textAlign).toBe('center')
     await expect(getComputedStyle(canvasElement.querySelector('[data-slot="card-header"]')!).textAlign).toBe('center')
+  },
+}
+
+/** A logo keeps its own proportions — a wide logo stays wide (here 3:1), never squeezed into a square tile. */
+export const LogoKeepsItsShape: Story = {
+  tags: ['!autodocs'], // a test, not a demo
+  globals: { viewport: { value: 'desktop' } },
+  args: { logoSrc: wideLogo },
+  play: async ({ canvasElement }) => {
+    const image = canvasElement.querySelector<HTMLImageElement>('[data-slot="auth-logo-image"]')!
+    await waitFor(() => expect(image.naturalWidth).toBeGreaterThan(0), { timeout: 3000 })
+    const r = box(image)
+    await expect(Math.abs(r.width / r.height - 3)).toBeLessThan(0.05)
+    await expect(image).toHaveAccessibleName('WiseTech')
+  },
+}
+
+/** Wherever the column can hold it, the longest headline line stays on ONE line (here the desktop viewport). */
+export const HeadlineOnOneLine: Story = {
+  tags: ['!autodocs'], // a test, not a demo
+  globals: { viewport: { value: 'desktop' } },
+  args: { headline: [['Performance You Can Measure']] },
+  play: async ({ canvasElement }) => {
+    const text = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"]')!
+    await waitFor(() => expect(text).toHaveAttribute('data-landed'), { timeout: 5000 })
+    const range = document.createRange()
+    range.selectNodeContents(text)
+    const lineTops = new Set([...range.getClientRects()].map((r) => Math.round(r.top)))
+    await expect(lineTops.size).toBe(1)
+    await expect(parseFloat(getComputedStyle(text).fontSize)).toBeGreaterThanOrEqual(22)
   },
 }
 
