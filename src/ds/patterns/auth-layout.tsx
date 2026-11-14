@@ -32,6 +32,7 @@ export function AuthLayout({
   description,
   children,
   footer,
+  actions,
   className,
 }: {
   /** The organisation's name — the logo's accessible name, and its initials when there is no logo. */
@@ -48,6 +49,8 @@ export function AuthLayout({
   children: React.ReactNode
   /** Under the form, inside the card (e.g. "Back to sign in"). */
   footer?: React.ReactNode
+  /** Page actions in the top-right corner (e.g. the Theme Toggle). */
+  actions?: React.ReactNode
   className?: string
 }) {
   /** A form field took focus: the headline jumps to its landing line and the background settles. */
@@ -111,6 +114,8 @@ export function AuthLayout({
           {footer && <CardFooter>{footer}</CardFooter>}
         </Card>
       </main>
+      {/* Last in the DOM, so Tab reaches the form first; still pinned top-right on screen. */}
+      {actions && <div data-slot="auth-actions" className="absolute top-4 right-4 z-10 flex items-center gap-2">{actions}</div>}
     </div>
   )
 }
