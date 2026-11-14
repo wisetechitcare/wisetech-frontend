@@ -5,11 +5,12 @@ import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
 import { LANDING_LINE, PRODUCT_LINES } from '@/ds/effects/typewriter.fixtures'
 import wideLogo from '@/ds/ui/__fixtures__/logo.svg'
+import { AuthLayout } from './auth-layout'
+import { PasswordField } from './password-field'
+import { ThemeToggle } from './theme-toggle'
 
 /** The real WiseTech lockup (public/, served by Storybook and the app). */
 const LOCKUP = '/media/brand/wisetech-logo.png'
-import { AuthLayout } from './auth-layout'
-import { PasswordField } from './password-field'
 
 /** A sign-in form, composed from the kit — what the Sign In screen will render inside the layout. */
 function SignInForm() {
@@ -18,17 +19,17 @@ function SignInForm() {
       <FieldGroup className="gap-5">
         <Field>
           <FieldLabel htmlFor="auth-email">Email</FieldLabel>
-          <Input id="auth-email" type="email" name="email" autoComplete="username" inputMode="email" />
+          <Input id="auth-email" size="lg" type="email" name="email" autoComplete="username" inputMode="email" />
         </Field>
         <Field>
           <FieldLabel htmlFor="auth-password">Password</FieldLabel>
-          <PasswordField id="auth-password" name="password" autoComplete="current-password" />
+          <PasswordField id="auth-password" size="lg" name="password" autoComplete="current-password" />
         </Field>
       </FieldGroup>
       <a href="#forgot" className={buttonVariants({ variant: 'link', className: 'justify-self-end px-0' })}>
         Forgot password?
       </a>
-      <Button type="submit" className="w-full">Sign In</Button>
+      <Button type="submit" size="lg" className="w-full">Sign In</Button>
     </form>
   )
 }
@@ -50,6 +51,7 @@ const meta = {
     title: 'Sign In',
     description: 'Welcome back. Use your work email.',
     children: <SignInForm />,
+    actions: <ThemeToggle mode="light" onToggle={() => {}} />,
   },
 } satisfies Meta<typeof AuthLayout>
 
@@ -156,7 +158,7 @@ export const LogoTopLeftOnDesktop: Story = {
   play: async ({ canvasElement }) => {
     const marks = canvasElement.querySelectorAll('[data-slot="auth-logo"]')
     await expect(marks).toHaveLength(1)
-    const root = box(canvasElement.querySelector('[data-slot="auth-frame"]')!) // the composition's corner
+    const root = box(canvasElement.querySelector('[data-slot="auth-layout"]')!) // the window's corner
     const image = canvasElement.querySelector<HTMLImageElement>('[data-slot="auth-logo-image"]')!
     await waitFor(() => expect(image.naturalWidth).toBeGreaterThan(0), { timeout: 3000 })
     const mark = box(image)
@@ -165,6 +167,9 @@ export const LogoTopLeftOnDesktop: Story = {
     await expect(mark.height).toBeGreaterThanOrEqual(80)
     await expect(canvasElement.querySelector('[data-slot="card"] [data-slot="smart-avatar"]')).toBeNull()
     await expect(mark.bottom).toBeLessThanOrEqual(box(canvasElement.querySelector('[data-slot="auth-headline"]')!).top)
+    // The page actions share the logo's centre line — one header row.
+    const actions = box(canvasElement.querySelector('[data-slot="auth-actions"]')!)
+    await expect(Math.abs(actions.top + actions.height / 2 - (mark.top + mark.height / 2))).toBeLessThan(3)
     await expect(getComputedStyle(canvasElement.querySelector('[data-slot="auth-brand"]')!).textAlign).toBe('center')
     await expect(getComputedStyle(canvasElement.querySelector('[data-slot="card-header"]')!).textAlign).toBe('center')
   },
