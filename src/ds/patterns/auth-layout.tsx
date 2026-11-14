@@ -16,10 +16,11 @@ import { titleCaseChildren } from "@/ds/lib/text"
  *   settles with the headline (or as soon as the form is focused) and is still under reduced motion.
  * - **The logo is the organisation's real logo** in the kit's company-logo tile (Smart Avatar's Logo recipe — a
  *   rounded plate, the whole image inset, never cropped; the initials stay if it fails to load).
- * - **The logo stays outside the form card** at every size (user decision 2026-11-14, as the original sign-in):
- *   in the brand panel beside the form, or on phones at the top of the stacked brand row, centred above the
- *   headline. On phones the card's title and description are centred under it.
- * - **Brand panel:** the logo, the Typewriter headline and one supporting line.
+ * - **The logo stays outside the form card** at every size (user decisions 2026-11-14): pinned to the page's
+ *   top-left corner from `lg` (as the original sign-in; the page actions sit top-right), and at the top of the
+ *   stacked brand row, centred, on tablets and phones — 56px there, 84px from `lg`.
+ * - **Centred text** at every size: the headline and tagline, and the card's title and description.
+ * - **Brand panel:** the Typewriter headline and one supporting line.
  * - **The headline settles the moment anything in the form takes focus** — it jumps to its landing line and
  *   stops, so it never competes with typing a password (WCAG 2.2.2). Every auth screen gets this from here.
  *   Don't autofocus a field on load, or the headline settles before anyone sees it.
@@ -78,9 +79,17 @@ export function AuthLayout({
       <section
         data-slot="auth-brand"
         aria-label={brandName}
-        className="flex flex-col items-center gap-6 px-4 pt-10 pb-6 text-center sm:px-8 lg:items-start lg:justify-center lg:gap-10 lg:p-16 lg:text-left"
+        className="flex flex-col items-center gap-6 px-4 pt-10 pb-6 text-center sm:px-8 lg:justify-center lg:p-16"
       >
-        <SmartAvatar name={brandName} src={logoSrc} seed={brandName} shape="rounded" fit="contain" size="xl" />
+        {/* The logo: top-centre of the stacked brand row below lg; pinned to the page's top-left corner from lg
+            (absolute to the layout). Two sizes for two layouts — SmartAvatar's size is a prop, not a class; the
+            hidden one is display:none, so assistive tech meets the logo once. */}
+        <span data-slot="auth-logo" className="lg:hidden">
+          <SmartAvatar name={brandName} src={logoSrc} seed={brandName} shape="rounded" fit="contain" size="lg" />
+        </span>
+        <span data-slot="auth-logo" className="absolute top-8 left-8 z-10 max-lg:hidden xl:top-10 xl:left-12">
+          <SmartAvatar name={brandName} src={logoSrc} seed={brandName} shape="rounded" fit="contain" size="xl" />
+        </span>
         <div className="max-w-xl">
           {/* The typed text sits at the BOTTOM of the box reserved for the longest line, so a one-line phrase
               stays right above the tagline and the spare room falls into the gap above, by the logo. */}
@@ -103,8 +112,8 @@ export function AuthLayout({
             2026-11-14; a sign-in form is a place to type, not a tile to hover). Lifted (shadow-lg, the top of the
             Foundations elevation scale) so it floats clearly over the moving background. */}
         <Card variant="panel" className="w-full max-w-md shadow-lg">
-          {/* Phones: the title and description centred, under the centred brand row. */}
-          <CardHeader className="max-lg:justify-items-center max-lg:text-center">
+          {/* Centred title and description, as the brand panel beside it. */}
+          <CardHeader className="justify-items-center text-center">
             <CardTitle>
               <h1 data-slot="auth-title" className="heading-case">
                 <GradientText tone="brand" ink="text">{titleCaseChildren(title)}</GradientText>

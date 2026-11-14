@@ -31,8 +31,9 @@ function SignInForm() {
 }
 
 /**
- * The sign-in pages' frame: brand panel (logo, Typewriter headline, supporting line) beside the form Card from
- * `lg`, stacked above it on tablets and phones. The headline settles as soon as the form takes focus.
+ * The sign-in pages' frame: brand panel (Typewriter headline, supporting line) beside the form Card from `lg`,
+ * stacked above it on tablets and phones. Text is centred at every size. The logo sits in the page's top-left
+ * corner from `lg`, and centred at the top of the stack below it. The headline settles as soon as the form takes focus.
  */
 const meta = {
   title: 'Patterns/Auth Layout',
@@ -141,6 +142,26 @@ export const GradientHeading: Story = {
     await expect(heading).toHaveAttribute('data-shimmer', 'twice')
     await expect(getComputedStyle(heading).animationIterationCount).toBe('2')
     await expect(canvasElement.querySelector('h1')).toHaveTextContent('Sign In')
+  },
+}
+
+/** Desktop: the logo pinned to the page's top-left corner, outside the card and clear of the headline; text centred. */
+export const LogoTopLeftOnDesktop: Story = {
+  tags: ['!autodocs'], // a test, not a demo
+  globals: { viewport: { value: 'desktop' } },
+  play: async ({ canvasElement }) => {
+    const marks = [...canvasElement.querySelectorAll<HTMLElement>('[data-slot="auth-logo"]')]
+    const shown = marks.filter((m) => m.getBoundingClientRect().width > 0)
+    await expect(shown).toHaveLength(1) // one logo for each layout, never two on screen
+    const root = box(canvasElement.querySelector('[data-slot="auth-layout"]')!)
+    const mark = box(shown[0])
+    await expect(mark.left - root.left).toBeLessThan(64)
+    await expect(mark.top - root.top).toBeLessThan(64)
+    await expect(mark.width).toBeGreaterThanOrEqual(84)
+    await expect(canvasElement.querySelector('[data-slot="card"] [data-slot="smart-avatar"]')).toBeNull()
+    await expect(mark.bottom).toBeLessThanOrEqual(box(canvasElement.querySelector('[data-slot="auth-headline"]')!).top)
+    await expect(getComputedStyle(canvasElement.querySelector('[data-slot="auth-brand"]')!).textAlign).toBe('center')
+    await expect(getComputedStyle(canvasElement.querySelector('[data-slot="card-header"]')!).textAlign).toBe('center')
   },
 }
 
