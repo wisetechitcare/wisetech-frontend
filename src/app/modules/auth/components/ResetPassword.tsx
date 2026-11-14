@@ -98,7 +98,7 @@ export default function ResetPassword() {
 
   return (
     <AuthScreen title="Reset Password" description="Choose a new password — at least 8 characters." footer={backToSignIn}>
-      <form className="grid gap-5" onSubmit={formik.handleSubmit} noValidate>
+      <form className="grid gap-6" onSubmit={formik.handleSubmit} noValidate>
         {formik.status && (
           <Alert variant="danger">
             <AlertDescription>{formik.status}</AlertDescription>

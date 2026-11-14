@@ -96,8 +96,9 @@ export function AuthLayout({
   const desktop = useMediaQuery("(min-width: 1024px)")
 
   return (
-    // Stacked (below lg) the brand row is as tall as its content and the form takes the rest — otherwise the
-    // min-height is split between the rows and a gap opens between the tagline and the form.
+    // Stacked (below lg) the brand row and the form are ONE centred group: both rows size to their content and
+    // the spare height splits evenly above and below (user 2026-11-14: no empty band under the card). On a short
+    // screen there is no spare height, so the form still comes straight after the brand row.
     <div data-slot="auth-layout" className={cn("relative isolate min-h-svh bg-background", className)}>
       {/* The background: Liquid Swirl — marbled brand swirls under a 90% veil of the page colour, as the reference
           (uiable Housiq sign-in). Moves while the headline types; settles when it lands or the form is focused;
@@ -110,7 +111,7 @@ export function AuthLayout({
           the logo and the actions pin to the window's corners (the layout root), where people look for them. */}
       <div
         data-slot="auth-frame"
-        className="mx-auto grid min-h-svh w-full max-w-[1600px] grid-rows-[auto_1fr] lg:grid-cols-2 lg:grid-rows-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
+        className="mx-auto grid min-h-svh w-full max-w-[1600px] content-center lg:content-normal lg:grid-cols-2 lg:grid-rows-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
       >
         <section
           data-slot="auth-brand"
@@ -176,7 +177,7 @@ export function AuthLayout({
                 <h1
                   data-slot="auth-title"
                   data-tone={titleTone}
-                  className={cn("heading-case text-[26px] leading-tight tracking-[0.01em] sm:text-[30px]", TITLE_INK[titleTone])}
+                  className={cn("heading-case text-[26px] leading-tight tracking-[0.01em] text-balance sm:text-[30px]", TITLE_INK[titleTone])}
                 >
                   {titleCaseChildren(title)}
                 </h1>

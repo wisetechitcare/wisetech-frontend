@@ -105,7 +105,7 @@ export default function Login() {
 
   return (
     <AuthScreen title="Welcome back" description="One sign-in for your people, projects and payroll.">
-      <form className="grid gap-5" onSubmit={formik.handleSubmit} noValidate>
+      <form className="grid gap-6" onSubmit={formik.handleSubmit} noValidate>
         {sessionNotice && (
           <Alert variant="warning">
             <TriangleAlert aria-hidden />
@@ -159,18 +159,18 @@ export default function Login() {
               aria-describedby={passwordError ? 'signin-password-error' : undefined}
             />
             {passwordError && <FieldError id="signin-password-error">{passwordError}</FieldError>}
+            {/* Right under the password it belongs to (proximity), not floating between the fields and the button.
+                Red — the rose hue's readable ink, the colour of the page it opens (user decision 2026-11-14). */}
+            <Link
+              data-slot="button"
+              to="/auth/forgot-password"
+              className={buttonVariants({ variant: 'link', className: 'h-auto justify-end px-0 py-0.5 text-tone-rose-foreground' })}
+            >
+              <KeyRound aria-hidden="true" />
+              Forgot password?
+            </Link>
           </Field>
         </FieldGroup>
-
-        {/* Red (the rose hue's readable ink, user decision 2026-11-14) — the colour of the page it opens. */}
-        <Link
-          data-slot="button"
-          to="/auth/forgot-password"
-          className={buttonVariants({ variant: 'link', className: 'justify-self-end px-0 text-tone-rose-foreground' })}
-        >
-          <KeyRound aria-hidden="true" />
-          Forgot password?
-        </Link>
 
         <Button type="submit" size="lg" glow className="w-full" loading={loading} disabled={formik.isSubmitting}>
           {!loading && <LogIn data-icon="inline-start" />}

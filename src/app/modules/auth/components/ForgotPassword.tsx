@@ -80,7 +80,7 @@ export function ForgotPassword() {
         </Link>
       }
     >
-      <form className="grid gap-5" onSubmit={formik.handleSubmit} noValidate>
+      <form className="grid gap-6" onSubmit={formik.handleSubmit} noValidate>
         {result && (
           <Alert variant={result.kind === 'sent' ? 'info' : 'danger'}>
             {result.kind === 'sent' ? <MailCheck aria-hidden /> : <CircleAlert aria-hidden />}

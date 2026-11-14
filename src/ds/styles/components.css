@@ -222,3 +222,18 @@
     stroke-width: 1.75;
   }
 }
+
+/* ── Browser autofill: no foreign highlight box inside our fields ──────────────────────────────────────
+ * When Chrome / Edge / Safari autofill a saved email or password they paint their own fill behind the input
+ * (light blue, or grey-blue in dark mode) with an `!important` UA rule no stylesheet can override. In a pill
+ * whose input sits INSIDE a group (an icon, a reveal button) that shows as a square block within the rounded
+ * field — light and dark (user report 2026-11-14: "I don't want this bad bg anywhere in the app").
+ * The standard remedy: postpone the UA background change for ~a week of wall time, so the field keeps its own
+ * surface; keep the text in the field's ink (the UA forces `fieldtext`, black on dark surfaces) and the caret.
+ * Deliberately UNSCOPED — every input, kit and legacy: autofill is browser chrome, not a component's look. */
+:is(input, textarea, select):is(:autofill, :-webkit-autofill),
+:is(input, textarea, select):is(:autofill, :-webkit-autofill):is(:hover, :focus, :active) {
+  transition: background-color 600000s 0s, color 600000s 0s;
+  -webkit-text-fill-color: var(--foreground);
+  caret-color: var(--foreground);
+}
