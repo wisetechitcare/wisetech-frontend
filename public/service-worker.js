@@ -5,7 +5,7 @@
    ========================================================================== */
 
 const APP_NAME = 'WiseTech HR';
-const OFFLINE_CACHE = 'wisetech-offline-v1';
+const OFFLINE_CACHE = 'wisetech-offline-v2'; // v2: the new WiseTech emblem icons
 const OFFLINE_ASSETS = [
   '/offline.html',
   '/icons/pwa-192.png',
@@ -26,8 +26,9 @@ self.addEventListener('push', (event) => {
   const title   = payload.title  ?? APP_NAME;
   const options = {
     body:               payload.body              ?? '',
-    icon:               payload.icon              ?? '/WT-logo.ico',
-    badge:              payload.badge             ?? '/WT-logo.ico',
+    // The app icon, and a transparent badge: Android paints the badge's alpha only, so it must have no solid fill.
+    icon:               payload.icon              ?? '/icons/pwa-192.png',
+    badge:              payload.badge             ?? '/icons/badge-96.png',
     tag:                payload.tag               ?? 'wisetech-attendance',
     data:               payload.data              ?? { path: '/' },
     vibrate:            payload.vibrate           ?? [200, 100, 200],

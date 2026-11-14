@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * The escape that stands between a typed-in name and a script tag.
  *
@@ -11,7 +12,7 @@
  * `<script>`, which most sinks strip anyway.
  */
 import { describe, expect, it } from 'vitest';
-import { escapeHtml, safeHtml } from './safeHtml';
+import { cssUrl, escapeHtml, safeHtml } from './safeHtml';
 
 describe('escapeHtml', () => {
     it('neutralises the five characters that can leave text position', () => {
@@ -85,5 +86,44 @@ describe('safeHtml', () => {
     it('handles interpolation at the very start and end', () => {
         const x = '<x>';
         expect(safeHtml`${x}mid${x}`).toBe('&lt;x&gt;mid&lt;x&gt;');
+    });
+});
+
+/**
+ * A user-typed logo / photo URL inside `style="background-image: url(…)"` (the CRM map marker).
+ * HTML escaping alone is not enough there: the HTML parser decodes `&#39;` back to `'` before
+ * CSS runs, so `')` still closed the url() — and an unescaped `"` closed the attribute itself.
+ */
+describe('cssUrl', () => {
+    const marker = (url: unknown) => {
+        const bg = cssUrl(url);
+        const el = document.createElement('div');
+        el.innerHTML = `<div style="background-image: ${escapeHtml(bg)};"></div>`;
+        return el;
+    };
+
+    it('keeps a normal logo URL working (presigned query string included)', () => {
+        const url = 'https://bucket.s3.ap-south-1.amazonaws.com/logos/a.png?X-Amz-Signature=abc&X-Amz-Date=1';
+        expect(cssUrl(url)).toBe(`url("${url}")`);
+    });
+
+    it('an attribute break-out never becomes an element or an event handler', () => {
+        const el = marker('https://x.example/a.png" onmouseover="alert(1)" x="');
+        expect(el.querySelectorAll('*')).toHaveLength(1);
+        expect(el.firstElementChild!.getAttributeNames()).toEqual(['style']);
+    });
+
+    it('a CSS break-out stays inside the url() string', () => {
+        const bg = cssUrl("https://x.example/a.png'); background: url(https://evil.example/t");
+        expect(bg).not.toMatch(/['()]\s*;|'\)/);
+        // Exactly one url( … ) — the injected second one is now just percent-encoded text.
+        expect(bg!.match(/url\(/g)).toHaveLength(1);
+        expect(bg!.endsWith('")')).toBe(true);
+    });
+
+    it('refuses non-http(s) schemes and junk', () => {
+        for (const v of ['javascript:alert(1)', 'data:image/svg+xml,<svg onload=alert(1)>', 'vbscript:x', '', '   ', null, undefined, 42]) {
+            expect(cssUrl(v)).toBeNull();
+        }
     });
 });

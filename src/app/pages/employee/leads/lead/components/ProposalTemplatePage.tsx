@@ -14,7 +14,8 @@ import MeetingConfigurationTable from "./MeetingConfigurationTable";
 import { showError, showSuccess } from "@utils/modal";
 import dayjs from "dayjs";
 import { ExportCenterModal } from "./dms/components/ExportCenterModal";
-import { useAuth } from "../../../../../modules/auth";
+import { useSelector } from "react-redux";
+import type { RootState } from "@redux/store";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
 import { Button } from '@/ds/ui/button';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
@@ -54,7 +55,9 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   contactData,
   projectData,
 }) => {
-  const { currentUser } = useAuth();
+  // The signed-in user (Redux). It used to come from the Metronic AuthProvider, which is never mounted, so the
+  // export's "exported by" was always blank.
+  const currentUser = useSelector((state: RootState) => state.auth.currentUser);
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [currentConfig, setCurrentConfig] = useState<any>(null);
@@ -917,7 +920,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         customTemplate: templateBase64 || undefined,
         userId: currentUser?.id,
         userName:
-          `${currentUser?.first_name || ""} ${currentUser?.last_name || ""}`.trim(),
+          `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim(),
         // --- Export Center Payload from Modal ---
         ...(modalConfig || {}),
       };

@@ -31,8 +31,8 @@ existing API (the way `WtButton` now renders the v2 Button).
 
 **One card, one benchmark.** Everything card-shaped renders `Components/Card`, and every card carries the
 Stat Card design by default — tone glow, accent bar, spring lift, 44px icon tile with pop and wiggle — as
-decoration, clickable or not. The only exception is `variant="panel"`, the frame around a Data Table (lifting
-it would fight scrolling). The compact Stat Card is the same design at a smaller size. Card also owns focus, selected and
+decoration, clickable or not. The only exceptions use `variant="panel"`: the frame around a Data Table (lifting
+it would fight scrolling) and the sign-in form in Auth Layout (a still surface to type in; decided 2026-11-14). The compact Stat Card is the same design at a smaller size. Card also owns focus, selected and
 disabled. **Icons: cards right, rows left, dialogs left** (see Introduction). Stat Card, Entity Card and Choice Cards are content layouts *on* Card, not
 separate cards; rows in a list use `Item`. Hover Preview is a popover, not a card. The consistency test fails
 the build on a hand-drawn card (`bg-card` with a border or radius).

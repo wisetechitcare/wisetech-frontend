@@ -5,8 +5,9 @@ import {
   type ConfirmDialogDismissReason,
 } from '@app/modules/common/components/ui/ConfirmDialog';
 import { logoutUser } from '@redux/slices/auth';
-import { getAuth, removeAuth, AUTH_LOCAL_STORAGE_KEY } from '@app/modules/auth/core/AuthHelpers';
-import { logout as logoutApi } from '@services/auth';
+import { getAuth, AUTH_LOCAL_STORAGE_KEY } from '@app/modules/auth/core/AuthHelpers';
+import type { AppDispatch } from '@redux/store';
+import { signOut } from '@app/modules/auth/core/signOut';
 
 // Idle logout is DISABLED by default: sessions persist until the user signs
 // out explicitly (closing the browser / shutting down the PC never ends the
@@ -46,7 +47,7 @@ const secondsLeft = ({ deadline, now }: WarningState) =>
   Math.max(0, Math.ceil((deadline - now) / 1000));
 
 export const IdleLogoutGuard = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const [warning, setWarning] = useState<WarningState>({ open: false, deadline: 0, now: 0 });
   // The two user choices live inside the effect's closure (they read/write its flags); the
   // dialog calls them through this ref.
@@ -112,19 +113,8 @@ export const IdleLogoutGuard = () => {
       if (loggingOut) return;
       loggingOut = true;
       closeWarning();
-      // Best-effort server logout first, so the idle session's JWT is
-      // blacklisted on the backend — mirrors the manual Sign Out flow.
-      try {
-        const auth = getAuth();
-        if (auth) await logoutApi(auth.token, auth.id);
-      } catch {
-        /* clear local state regardless */
-      }
-      removeAuth();
-      localStorage.removeItem('selectedCompany');
-      localStorage.removeItem('selectedBranch');
-      dispatch(logoutUser());
-      window.location.href = '/auth';
+      // The one sign-out: server revoke (best effort), local clear, leave for /auth.
+      await signOut(dispatch);
     };
 
     const dismissWarning = () => {

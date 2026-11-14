@@ -135,7 +135,8 @@ const labelTop = (el: HTMLElement) => parseFloat(getComputedStyle(el.closest('[d
 /**
  * Floating labels (decided 2026-11-03, app-wide): the label rests inside an empty control and floats onto its
  * border on focus or once there is a value — for every control type, from one rule (styles/globals.css).
- * A control with a leading icon keeps its label up. The floated label sits in a NOTCH cut into the border — it has
+ * A leading ICON doesn't change that: the label rests just after it, like a placeholder (user decision 2026-11-14);
+ * only a leading TEXT addon (a phone country code) keeps the label up. The floated label sits in a NOTCH cut into the border — it has
  * no background, so it is right on any surface in both themes (lib/floating-notch + styles/components.css).
  */
 export const FloatingLabels: Story = {
@@ -204,9 +205,16 @@ export const FloatingLabels: Story = {
     await userEvent.type(name, 'Meera Joshi')
     await userEvent.tab()
     await waitFor(() => expect(labelTop(name)).toBe(0))
-    // A prefilled field and a field with a leading icon start floated.
+    // A prefilled field starts floated; a field with a leading icon rests inside, after the icon, until focused.
     await expect(labelTop(canvas.getByLabelText('Employee Code'))).toBe(0)
-    await expect(labelTop(canvas.getByLabelText('Reporting Manager'))).toBe(0)
+    const manager = canvas.getByLabelText('Reporting Manager')
+    await expect(labelTop(manager)).toBeGreaterThan(10)
+    const managerLabel = manager.closest('[data-slot="field"]')!.querySelector('[data-slot="field-label"]')!
+    const icon = manager.closest('[data-slot="input-group"]')!.querySelector('svg')!
+    await expect(managerLabel.getBoundingClientRect().left).toBeGreaterThan(icon.getBoundingClientRect().right)
+    await userEvent.click(manager)
+    await waitFor(() => expect(labelTop(manager)).toBe(0))
+    await userEvent.type(manager, 'Arjun') // stays floated with a value — and joins the corner check below
     // The label stays the field's accessible name.
     await expect(canvas.getByRole('textbox', { name: 'Remarks' })).toBeInTheDocument()
     // Floated labels never cover a rounded corner — check a pill and a textarea.

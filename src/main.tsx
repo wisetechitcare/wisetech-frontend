@@ -76,10 +76,10 @@ const queryClient = new QueryClient({
   },
 })
 
-const ls = localStorage.getItem("wise_tech_login")
-const parsedLs = ls ? JSON.parse(ls) : null
-const container = document.getElementById('root')
+// getAuth() parses the stored session safely — corrupted JSON reads as "no session" instead of throwing.
 const currentUser = getAuth();
+const parsedLs = currentUser ?? null
+const container = document.getElementById('root')
 
 // Sessions started after the httpOnly-cookie migration have no token in
 // localStorage — the cookie carries auth and the server validates it on the
@@ -88,11 +88,17 @@ const currentUser = getAuth();
 const hasLegacyToken = Boolean(currentUser?.token);
 let isTokenExpired = false;
 if (hasLegacyToken) {
-  const decodedToken = jwtDecode(currentUser.token);
-
-  if (decodedToken.iat && decodedToken.exp) {
-    const currentTime = Math.floor(Date.now() / 1000);
-    isTokenExpired = currentTime > decodedToken.exp;
+  // A token that cannot be decoded (corrupted / tampered storage) is a dead session: treat it as expired, so the
+  // gate below clears it and shows Sign In. It used to throw here — a permanent white screen on every load, with
+  // no way back to Sign In (audit C-09).
+  try {
+    const decodedToken = jwtDecode(currentUser.token);
+    if (decodedToken.iat && decodedToken.exp) {
+      const currentTime = Math.floor(Date.now() / 1000);
+      isTokenExpired = currentTime > decodedToken.exp;
+    }
+  } catch {
+    isTokenExpired = true;
   }
 }
 

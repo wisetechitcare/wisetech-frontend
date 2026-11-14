@@ -1,7 +1,6 @@
 import {useEffect} from 'react'
 import {useDispatch, useSelector} from 'react-redux'
 
-import {useAuth} from '@app/modules/auth'
 import {RootState} from '@redux/store'
 import {fetchCurrentEmployeeByUserId} from '@services/employee'
 import {saveCurrentEmployee} from '@redux/slices/employee'
@@ -12,7 +11,6 @@ import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions'
 import {SmartAvatar} from '@/ds/ui/smart-avatar'
 
 export const HeaderEmployee = () => {
-  const {currentUser} = useAuth()
   const ls = localStorage.getItem("wise_tech_login")
   const parsedLs = ls ? JSON.parse(ls) : null
   const dispatch = useDispatch()
