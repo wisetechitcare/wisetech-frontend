@@ -1,4 +1,4 @@
-import {Route, Routes} from 'react-router-dom'
+import {Navigate, Route, Routes} from 'react-router-dom'
 import {ForgotPassword} from './components/ForgotPassword'
 import Login from './components/Login'
 import ResetPassword from './components/ResetPassword'
@@ -16,6 +16,8 @@ const AuthPage = () => (
       <Route path='reset-password' element={<ResetPassword />} />
       <Route path='inactive' element={<InactiveEmployee />} />
       <Route index element={<Login />} />
+      {/* Any other /auth/... (an old /auth/registration bookmark, a typo) goes to Sign In, never a blank page. */}
+      <Route path='*' element={<Navigate to='/auth/login' replace />} />
     </Route>
   </Routes>
 )

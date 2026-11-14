@@ -1,5 +1,4 @@
 import {useDispatch, useSelector} from 'react-redux'
-import {useAuth} from '../../../../app/modules/auth'
 import {RootState} from '@redux/store'
 import {useEffect} from 'react'
 import {fetchCurrentEmployeeByUserId} from '@services/employee'
@@ -13,7 +12,8 @@ import { fetchAppSettings } from '@redux/slices/appSettings'
 
 
 const AsideToolbar = () => {
-  const {currentUser} = useAuth()
+  // The signed-in user (Redux) — the Metronic AuthProvider this read was never mounted, so the name was blank.
+  const currentUser = useSelector((state: RootState) => state.auth.currentUser)
   const ls = localStorage.getItem("wise_tech_login")
   const parsedLs = ls ? JSON.parse(ls) : null
   const dispatch = useDispatch()
@@ -73,7 +73,7 @@ const AsideToolbar = () => {
             <div className='flex-grow-1 me-2'>
               {/*begin::Username*/}
               <a href='#' className='text-white text-hover-primary fs-6 fw-bold'>
-                {currentUser?.first_name} {currentUser?.last_name}
+                {currentUser?.firstName} {currentUser?.lastName}
               </a>
               {/*end::Username*/}
 
