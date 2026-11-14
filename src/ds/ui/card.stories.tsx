@@ -144,7 +144,7 @@ export const TileStates: Story = {
   },
 }
 
-/** Panel: the same surface with no glow or motion — only for a frame around a table (Data Table). */
+/** Panel: the same surface with no glow or motion — only for a frame around a table (Data Table) or a chart, and the sign-in form (Auth Layout). */
 export const Panel: Story = {
   render: () => (
     <Card variant="panel">

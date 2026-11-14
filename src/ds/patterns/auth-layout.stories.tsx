@@ -143,3 +143,19 @@ export const StackedOnPhone: Story = {
     await expect(root.clientWidth - card.right).toBeGreaterThanOrEqual(15)
   },
 }
+
+/** The form card is still: no corner glow, no accent underline, no lift on hover. */
+export const StillFormCard: Story = {
+  tags: ['!autodocs'], // a test, not a demo
+  globals: { viewport: { value: 'desktop' } },
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector<HTMLElement>('[data-slot="card"]')!
+    await expect(card).toHaveAttribute('data-variant', 'panel')
+    await expect(card.querySelector('[data-slot="card-glow"]')).toBeNull()
+    await expect(card.querySelector('[data-slot="card-accent"]')).toBeNull()
+    const before = card.getBoundingClientRect().top
+    await userEvent.hover(card)
+    await new Promise((r) => setTimeout(r, 400)) // longer than any card transition
+    await expect(card.getBoundingClientRect().top).toBe(before)
+  },
+}

@@ -18,7 +18,7 @@ import { titleCaseChildren } from "@/ds/lib/text"
  *   Don't autofocus a field on load, or the headline settles before anyone sees it.
  * - **One page heading:** the Card's `title` is the page's `h1` (a structural heading, UPPERCASE). The headline
  *   is a brand moment, not a heading; assistive tech reads only its landing line.
- * - The form Card is the kit's default tile, `max-w-md`.
+ * - The form Card is a still `panel` (no glow, no hover motion), `max-w-md`.
  */
 export function AuthLayout({
   brandName,
@@ -77,7 +77,9 @@ export function AuthLayout({
         className="flex items-start justify-center px-4 pb-10 sm:px-8 lg:items-center lg:p-16"
         onFocusCapture={() => setSettled(true)}
       >
-        <Card className="w-full max-w-md">
+        {/* `panel`: a still form surface — no corner glow, no hover lift or accent underline (user decision
+            2026-11-14; a sign-in form is a place to type, not a tile to hover). */}
+        <Card variant="panel" className="w-full max-w-md">
           <CardHeader>
             <CardTitle>
               <h1 data-slot="auth-title" className="heading-case">{titleCaseChildren(title)}</h1>
