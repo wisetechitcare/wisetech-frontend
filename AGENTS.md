@@ -44,12 +44,15 @@ comment, or a green typecheck is not proof; check the thing itself.
 > The root cause was an index gap: the kit README covered `ui/` only, while the engine lives one
 > level up in `components/`. **When a search fails, fix the index too, not just the code.**
 
-## Design system v2 + Storybook MCP (branch `v2`)
+## Design system — FINAL (ADR-001) + Storybook MCP
 
-The target design system is **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`): the WiseTech kit as owned code on
-**Base UI + Tailwind v4** (shadcn style `base-maia`; React Aria for date, time and number fields; Animate UI
-for primitive motion — never Radix), tokens as CSS variables in `src/ds/styles/globals.css`, components in `src/ds/ui`,
-patterns in `src/ds/patterns`. Storybook (`pnpm storybook`, port 6006) is the catalogue; its MCP server is
+**The design system is final and is the default for all UI.** It is **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`):
+the WiseTech kit as owned code from **shadcn/ui, style `base-maia`, on Base UI + Tailwind v4** — shadcn's shapes,
+type and motion, with **our** brand colours (`src/ds/styles/tokens.css`), effects (`src/ds/effects`) and typeset
+(Inter Variable, `src/ds/styles/typeset.css`). React Aria for date, time and number fields; Animate UI for primitive
+motion — never Radix. Tokens are CSS variables in `src/ds/styles/globals.css`, components in `src/ds/ui`, patterns in
+`src/ds/patterns`. Where any older doc or rule names an MUI kit as the standard, **`src/ds` wins**.
+Storybook (`pnpm storybook`, port 6006) is the catalogue; its MCP server is
 registered for agents as **`wisetech-storybook`** (`http://localhost:6006/mcp`, needs Storybook running).
 
 When working on UI or stories, use the `wisetech-storybook` MCP tools first:
@@ -62,7 +65,7 @@ When working on UI or stories, use the `wisetech-storybook` MCP tools first:
 
 ## UI standard — READ THIS BEFORE WRITING ANY UI
 
-**The standard is MUI + Tailwind, composed from the shared kit. This is not a preference to weigh against what a file already does — it is the target for all new and edited UI.** Ant Design, Mantine, react-bootstrap and raw Bootstrap markup are legacy; never reach for them, and convert what you touch.
+**The standard is the `src/ds` kit (shadcn `base-maia` on Base UI + Tailwind v4), composed from its components and patterns. This is not a preference to weigh against what a file already does — it is the target for all new and edited UI.** MUI, Emotion, Ant Design, Mantine, react-bootstrap, Metronic and raw Bootstrap markup are legacy; never reach for them, and convert what you touch (a file you edit loses its MUI).
 
 The bar for every component: **reusable, responsive, accessible, theme-aware (light AND dark), enterprise-grade.** If you find yourself styling something per-screen, you are doing it wrong — build it once in the kit and consume it.
 
@@ -83,38 +86,31 @@ A second, separate ratchet bans the old UI stack in new code. It reports (1) run
 
 ### The shared kit is the first stop
 
-**READ `src/app/modules/common/components/ui/README.md` FIRST.** It is the
-component index — what exists, what to use instead of building, which of the two
-kits (MUI vs Tailwind twin) a screen belongs on, and the two Metronic/Tailwind
-traps that silently break styling. Searching one folder and finding nothing is
-how this codebase ended up with four close buttons and three dropdowns; the
-index is there so that search is one lookup.
+**Read these three before any UI decision — in this order:**
+1. **`src/ds/Introduction.mdx`** — the principles: token roles not hex, one meaning per colour, Title Case titles,
+   UPPERCASE structural headings (`heading-case`), floating labels, icons cards-right / rows-left / dialogs-left,
+   status never colour alone, effects for moments only.
+2. **`src/ds/KitMap.mdx`** — the component index: every legacy component (`Wt*`, `Glass*`, `ToneChip`,
+   `MaterialTable`, …) and the kit component that replaces it. This is the SSOT for "what do I use instead"; don't
+   copy its table elsewhere.
+3. **The component's `*.stories.tsx`** (or `docs-show` via the MCP) — use the variant/recipe the catalogue shows for
+   that job (e.g. row icon actions = Button `tinted`). Never choose a variant, size or style yourself.
 
-`src/app/modules/common/components/ui/` (barrel: `@app/modules/common/components/ui`) — plus the MUI-free Tailwind twin in `ui/tw/`, and shared inputs in `src/app/modules/common/inputs/`.
-**Search the kit before building anything.** If the right component doesn't exist, BUILD IT IN THE KIT (generic, documented, responsive, theme-aware) and consume it from the feature — do not inline it in a page.
+**Legacy components are thin adapters over the kit.** `@app/modules/common/components/ui` (and `ui/tw/`) keep their
+old prop names for existing call sites and forward to `src/ds` — no own look, palette or MUI. New code imports the
+kit directly. Never build new UI outside `src/ds`. If the kit lacks something: extend an existing component or
+variant, else add it to `src/ds` with a story — and ask before changing a finalised visual spec or adding a new pattern.
+`src/ds/consistency.test.ts` fails the build on a hand-built button, input, textarea, kbd or card.
 
-Canonical primitives — use these, don't reinvent or fork:
-| Need | Use | Never |
-|---|---|---|
-| Date | `WtDateField` | `<input type="date">`, `<TextField type="date">` |
-| Date + time | `WtDateTimeField` | `type="datetime-local"` |
-| Time | `TimeWheelField` | `<input type="time">` |
-| Wizard / steps | `WtStepper` | hand-rolled circles, Metronic `.stepper` SCSS |
-| Buttons | `WtButton` / `WtIconButton` | `<button className="btn btn-primary">` |
-| Toggle | `WtSwitch` / `WtSwitchField` | raw `<Switch>`, `.form-switch` |
-| Modal | `GlassDialog` + `GlassHeader` | react-bootstrap `<Modal>` |
-| Card / surface | `GlassCard` / `GlassSurface` | `<div className="card">` |
-| List / collection layout | `AutoGrid` (auto-fit tile grid) | stretched single-column rows, hand-rolled `gridTemplateColumns` breakpoints |
-| List / page header | `ListHeader` (title + subtitle + actions) | copy-pasted `Stack direction="row" justifyContent="space-between"` toolbars |
-| **Any data table** | **`MaterialTable`** (`components/MaterialTable`, 84 call sites) | a hand-written `<Table>` — you lose sorting, per-column search, column show/hide, export and saved column preferences |
-| Chart drill-down modal | `DrillDownDialog` | a raw `<Dialog>` (it also fixes z-index against fullscreen charts) |
-| Chip / badge | `ToneChip` | `<span className="badge">` |
-| Single-select modal | `OptionPickerDialog` | bespoke option lists |
-| Drag-to-reorder | `ReorderableGroup` + `DragHandle` | up/down arrow buttons |
-| Employee picker | `EmployeeSelectionDialog` | bespoke pickers |
-| Address / map location | `SmartLocationPicker` (`components/SmartLocationPicker.md`) — controlled; free Nominatim, no key | a second Leaflet map, Google/OpenCage geocoding (both keys dead), axios for third-party calls |
+Exceptions the KitMap doesn't cover yet:
+- **Data tables:** Patterns/Data Table is the design, but the live `MaterialTable` swap is **last** — it must first gain
+  the features listed in KitMap (per-column filters, pinning, virtualisation, export, saved column preferences…).
+  Never hand-write a `<Table>`, and don't move a screen off `MaterialTable` until Data Table covers what it uses.
+- **Address / map location:** `SmartLocationPicker` (`components/SmartLocationPicker.md`) — controlled; free
+  Nominatim, no key. Never a second Leaflet map, Google/OpenCage geocoding (both keys dead), or axios for
+  third-party calls.
 
-**Why native inputs are banned:** `<input type="date">` renders the *browser's* picker. It is unstyleable, formats in the OS locale (`dd-mm-yyyy` vs `mm/dd/yyyy`), and stays light-on-white in dark mode because the calendar popup is browser chrome. `WtDateField` wraps `@mui/x-date-pickers`, so it inherits the theme, is correct in dark mode, and renders the company date format.
+**Why native inputs are banned:** `<input type="date">` renders the *browser's* picker. It is unstyleable, formats in the OS locale (`dd-mm-yyyy` vs `mm/dd/yyyy`), and stays light-on-white in dark mode because the calendar popup is browser chrome. The kit's DatePicker / DateField / TimeField (React Aria) follow the theme, work in dark mode, and render the company date format whatever the locale.
 
 ### Dates — company standard is `YYYY.MM.DD`
 Official format guide: **`2025.12.03`** ✅ · `2025-12-03` ❌ (dashes) · `03.12.2025` ❌ (day first).
@@ -127,7 +123,7 @@ Single source of truth: `src/utils/currency.ts` + `src/hooks/useCurrency.ts`. Re
 
 - **Formatting**: `formatCurrency()` / `formatCurrencyDecimal()` / `formatCurrencyRounded()` / `formatCurrencyCompact()`. Omit the currency argument — they use the active one. Pass one ONLY to render an amount that is deliberately not in the viewer's currency — typically the `currency` the API returned on a record (recruitment requisitions, offers, approval details).
 - **Always written in English.** `getCurrencyLocale()` is `en-IN` for lakh/crore currencies and `en-US` for the rest — the backend's rule exactly. Never format in a currency's home locale: that printed Arabic-Indic digits, RTL marks and decimal commas inside English screens.
-- **Money inputs are `WtMoneyField`** — the currency sits inside the frame and the hint reads the figure back as money. A salary is always the **full annual amount**; never label a field in lakhs or LPA. The salary floor lives in `utils/ctc` (twin of the backend's).
+- **Money inputs are the kit's NumberField (currency)** (`WtMoneyField` on screens not yet migrated) — the currency sits inside the frame and the hint reads the figure back as money. A salary is always the **full annual amount**; never label a field in lakhs or LPA. The salary floor lives in `utils/ctc` (twin of the backend's).
 - **A glyph on its own**: `getCurrencySymbol()` in text, or `<CurrencySymbol />` in an icon slot (`IconBox` and `StatTile` take a node). The `dollar` keenicon is banned — it is currency-specific. For a *category* icon on a money feature use `wallet`.
 - **Parsing a formatted amount back to a number**: strip `/[^0-9.-]/g`. Never name the characters to remove — `replace(/[₹,]/g, '')` returns 0 for every other currency.
 - **Building your own number format** (Excel `numFmt` is the real case): `usesIndianGrouping()` tells you whether the pattern needs lakh/crore sections, because a numFmt carries its own grouping and Excel will not infer it from a locale.
@@ -135,17 +131,18 @@ Single source of truth: `src/utils/currency.ts` + `src/hooks/useCurrency.ts`. Re
 - **The one exception**: an amount fixed by statute. India's professional-tax slabs are rupees by law and must not follow the branch; those two files are listed as lint overrides in `.eslintrc.cjs`.
 
 ### Styling rules
-- Layout/spacing: Tailwind utilities or MUI `sx`. **No new `.css` files, no `<style>` blocks, no inline `style={{}}`, no Bootstrap layout classes** (`row`, `col-*`, `d-flex`, `px-5`, `mt-7`, `fw-bold`, `text-muted`, `form-control`, `btn`).
-  - Exception: `KTIcon`'s `fs-*` classes are the icon font's own sizing API — keep those.
-- Colors: MUI theme (`text.primary`, `background.paper`, `divider`, `action.hover`) or kit tokens. **Never hardcode `#fff`/`#000`/greys** — that is what breaks dark mode. For accent tiles use `toneSurface(trio, dark)`.
-- Dark mode: the palette SSOT is `src/app/theme/githubDark.ts` (GitHub/VS Code dark). CSS consumes it via `var(--gh-*)`. Any dark rule keys off `[data-bs-theme="dark"]` — **never `@media (prefers-color-scheme: dark)`**, which follows the OS instead of the in-app toggle.
-- Responsive is mandatory: every surface must work from 360px to ultrawide. Use MUI breakpoint objects (`{ xs, sm, md }`) / Tailwind prefixes, `minmax(0, 1fr)` in grids, and `minWidth: 0` on flex children so text can truncate.
-- **Density — fill the width, no dead whitespace** (a repeated review finding — treat as a default, not a per-task ask): a list of a few fields spread across a full-width row leaves a big empty gutter and reads poorly. Instead: cap the page at `maxWidth ~1600, mx: "auto"`, lay collections out with **`AutoGrid`** (auto-fit tiles that fill wide screens and collapse to one column on mobile), and pack each card — title + muted meta pills + a 2-line clamped description + a bottom-pinned action row (`flex:1` spacer for equal-height tiles). Wrap any wide `Table` in an `overflowX: "auto"` container with a `minWidth` so mobile scrolls instead of the page. Every list view starts with `<ListHeader …/>`. Reference implementation: `pages/employee/recruitment/RequisitionsView.tsx`.
+- Layout/spacing: Tailwind utilities on the kit's spacing scale. **No new `.css` files, no `<style>` blocks, no inline `style={{}}`, no MUI `sx`, no Bootstrap layout classes** (`row`, `col-*`, `d-flex`, `px-5`, `mt-7`, `fw-bold`, `text-muted`, `form-control`, `btn`). To set a CSS variable a story shows inline, use a Tailwind arbitrary property (`className="[--tint:var(--cta-danger)]"`).
+  - Legacy exception: `KTIcon`'s `fs-*` classes are the icon font's own sizing API. New icons are Lucide (`lucide-react`; `DynamicIcon` for icon names stored as data).
+- Colours: kit token roles only (`bg-background`, `text-muted-foreground`, `border-border`, `primary`, `success-soft`…; status/hue through the `tone` prop, `src/ds/lib/tone.ts`). **Never hex, `#fff`/`#000` or greys** — that is what breaks dark mode and per-tenant brand.
+- Dark mode: kit tokens redefine themselves under `.dark` (toggled on `<html>` by `src/app/theme/ColorMode.tsx`); write dark tweaks with Tailwind's `dark:` variant. Legacy CSS still keys off `[data-bs-theme="dark"]`. **Never `@media (prefers-color-scheme: dark)`**, which follows the OS instead of the in-app toggle.
+- Effects: one implementation per effect from `src/ds/effects`, for moments only (KPI counters, an insight highlight, real celebrations) — never in tables, forms, wizards or approvals; nothing under reduced motion.
+- Responsive is mandatory: every surface must work from 360px to ultrawide. Use Tailwind breakpoint prefixes, `minmax(0, 1fr)` in grids, and `min-w-0` on flex children so text can truncate.
+- **Density — fill the width, no dead whitespace** (a repeated review finding — treat as a default, not a per-task ask): a list of a few fields spread across a full-width row leaves a big empty gutter and reads poorly. Instead: cap the page at `max-w-[1600px] mx-auto`, lay collections out with the **Auto Grid** pattern (auto-fit tiles that fill wide screens and collapse to one column on mobile), and pack each Card — title + muted meta pills + a 2-line clamped description + a bottom-pinned action row (`flex-1` spacer for equal-height tiles). Wrap any wide table in an `overflow-x-auto` container with a min width so mobile scrolls instead of the page. Every list view starts with the **Page Header** pattern. Reference layout (pre-kit, layout only): `pages/employee/recruitment/RequisitionsView.tsx`.
 
 ## Conventions
 - TypeScript strict. No `any`; type API responses (`src/models/`, `src/types/`). Zod/Yup available for runtime validation — validate external data.
 - Forms: Formik or react-hook-form (both present) — match whatever the surrounding page already uses; don't mix within one form.
-- Notifications: prefer the kit's `toast` / `confirmDialog` / `alertDialog` (`ui/feedback.ts`). react-toastify / sonner / sweetalert2 all exist from earlier eras; don't add new direct usages.
+- Notifications: the kit's Toaster and Patterns/Confirm Dialog (see KitMap). Until a screen moves, call the existing helpers `toast` / `confirmDialog` / `alertDialog` (`ui/feedback.ts`) rather than a library. react-toastify / sonner / sweetalert2 all exist from earlier eras; don't add new direct usages.
 - Heavy libs (PDF, charts, maps, xlsx) are code-split via `manualChunks` in `vite.config.ts`. Prefer lazy-loading heavy routes/components; don't import a vendor bundle into a hot common path.
 
 ## Lead / Entity module

@@ -71,6 +71,9 @@ export const Decimals: Story = {
 
 /** Under reduced motion the number is there at once; a minute-long count would still be at 0 otherwise. */
 export const ReducedMotion: Story = {
+  // Off the docs page: it renders every story in ONE window, and this story's matchMedia patch would
+  // make every counter there jump straight to its final value. Still in the sidebar and in test runs.
+  tags: ['!autodocs'],
   args: { duration: 60_000 },
   beforeEach: reduceMotion,
   play: async ({ canvasElement }) => {

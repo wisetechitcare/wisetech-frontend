@@ -38,6 +38,8 @@ import { mapStyles } from "./mapTheme";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { Button } from '@/ds/ui/button';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
+import { cssUrl, escapeHtml } from '@app/modules/common/components/ui/safeHtml';
+import { isHexColor } from '@app/modules/common/components/ui/WtColorPicker';
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -302,8 +304,14 @@ const PopupAvatar: React.FC<{
 
 const createCustomIcon = (initials: string, color: string, imageUrl?: string, entityType?: string, isRelated: boolean = false, isDimmed: boolean = false, isAnimating: boolean = false, zoom: number = 4, alwaysShowInitials: boolean = false) => {
   try {
-    // If we have no initials and no image, fallback to theme-colored circle
-    const finalColor = color || "#3498db";
+    // If we have no initials and no image, fallback to theme-colored circle.
+    // This builds a raw HTML string for Leaflet (React's escaping does not apply), so every
+    // value is made safe for where it lands: colour must be a hex, initials are escaped text,
+    // and the image URL becomes a CSS url() via cssUrl (a company logo / contact photo is
+    // typed by users — it used to break out of the style attribute: stored XSS).
+    const finalColor = isHexColor(color) ? color : "#3498db";
+    const safeInitials = escapeHtml(initials || "??");
+    const backgroundImage = cssUrl(imageUrl);
 
     // Dynamic sizing based on zoom level to prevent clutter when zoomed out
     let baseSize = 28;
@@ -364,13 +372,13 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string, en
           overflow: hidden;
           z-index: 1;
         ">
-          ${showDetails ? `<span style="color: ${finalColor}; font-weight: 800; font-size: ${fontSize}px; line-height: 1; z-index: 1; letter-spacing: 0;">${initials || "??"}</span>` : ''}
-          ${showDetails && imageUrl ?
+          ${showDetails ? `<span style="color: ${finalColor}; font-weight: 800; font-size: ${fontSize}px; line-height: 1; z-index: 1; letter-spacing: 0;">${safeInitials}</span>` : ''}
+          ${showDetails && backgroundImage ?
         `<div style="
               position: absolute;
               top: 0; left: 0;
               width: 100%; height: 100%;
-              background-image: url('${imageUrl}');
+              background-image: ${escapeHtml(backgroundImage)};
               background-size: cover;
               background-position: center;
               z-index: 2;
