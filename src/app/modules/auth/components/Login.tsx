@@ -121,6 +121,7 @@ export default function Login() {
             <FieldLabel htmlFor="signin-email">Email</FieldLabel>
             <Input
               id="signin-email"
+              size="lg"
               ref={emailRef}
               type="email"
               inputMode="email"
@@ -136,6 +137,7 @@ export default function Login() {
             <FieldLabel htmlFor="signin-password">Password</FieldLabel>
             <PasswordField
               id="signin-password"
+              size="lg"
               inputRef={passwordRef}
               name="password"
               autoComplete="current-password"
@@ -153,7 +155,7 @@ export default function Login() {
           Forgot password?
         </Link>
 
-        <Button type="submit" glow className="w-full" loading={loading} disabled={formik.isSubmitting}>
+        <Button type="submit" size="lg" glow className="w-full" loading={loading} disabled={formik.isSubmitting}>
           {loading ? 'Signing in…' : 'Sign In'}
         </Button>
       </form>

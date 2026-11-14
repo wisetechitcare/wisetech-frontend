@@ -91,6 +91,7 @@ export function ForgotPassword() {
             <FieldLabel htmlFor="forgot-email">Email</FieldLabel>
             <Input
               id="forgot-email"
+              size="lg"
               ref={emailRef}
               type="email"
               inputMode="email"
@@ -105,6 +106,7 @@ export function ForgotPassword() {
 
         <Button
           type="submit"
+          size="lg"
           glow
           className="w-full"
           loading={formik.isSubmitting}

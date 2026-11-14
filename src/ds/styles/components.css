@@ -37,8 +37,9 @@
   position: absolute;
   z-index: 1;
   display: block; /* not flex: text-overflow needs a block box to show the ellipsis */
-  inset-inline-start: 12px;
-  top: 20px; /* centre of the 40px control */
+  /* The control's geometry, by size: the defaults are the 40px control; size="lg" sets these on the field (below). */
+  inset-inline-start: var(--floating-x, 12px);
+  top: var(--floating-top, 20px); /* centre of the control */
   translate: 0 -50%;
   transform-origin: left center;
   width: auto;
@@ -65,7 +66,7 @@
   scale: 0.85;
   /* Start after the control's rounded end so the whole curve stays visible (a 40px pill curves for 20px):
      the label's masking box begins 2px past it. */
-  inset-inline-start: 26px;
+  inset-inline-start: var(--floating-x-up, 26px);
   max-width: calc(100% - 40px);
   font-weight: 500;
 }
@@ -97,6 +98,17 @@
     transition: none;
   }
 }
+/* Large controls (Input / InputGroup size="lg": 44px, 16px text). The resting label centres on 22px, starts at
+   the 16px padding and matches the 16px text; floated, it starts past the 22px curve. Set once, on the field. */
+.field-floating:has(> :is([data-slot="input"], [data-slot="input-group"])[data-size="lg"]) {
+  --floating-top: 22px;
+  --floating-x: 16px;
+  --floating-x-up: 28px;
+  --floating-notch-x: 24px;
+}
+.field-floating:has(> :is([data-slot="input"], [data-slot="input-group"])[data-size="lg"]) > [data-slot="field-label"] {
+  font-size: 16px;
+}
 
 /* ── The notch: a real gap in the border where the floated label sits — NO label background ─────────────
  * The label used to be painted with the surface colour to hide the border behind it, which showed as a patch
@@ -109,7 +121,7 @@
  * floated label's own `scale`. Start: the floated `inset-inline-start` minus the label's 4px padding.
  * `mask-clip: no-clip` + a mask 8px larger on every side keeps the ring (painted outside the border box). */
 .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"]) {
-  --notch-x: 22px; /* floated label at 26px, less its 4px padding */
+  --notch-x: var(--floating-notch-x, 22px); /* the floated label's start, less its 4px padding */
   mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
   mask-origin: border-box;
   mask-clip: no-clip;

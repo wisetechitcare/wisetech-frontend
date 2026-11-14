@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/ds/ui/input-group"
+import type { InputSize } from "@/ds/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip"
 
 /**
@@ -29,6 +30,7 @@ export function PasswordField({
   "aria-describedby": describedBy,
   className,
   inputRef,
+  size = "default",
 }: {
   id: string
   name?: string
@@ -43,6 +45,8 @@ export function PasswordField({
   "aria-describedby"?: string
   className?: string
   inputRef?: React.Ref<HTMLInputElement>
+  /** Input's control size: `lg` (44px) where the form is the whole page, e.g. sign-in. */
+  size?: InputSize
 }) {
   const [revealed, setRevealed] = React.useState(false)
   const [capsLock, setCapsLock] = React.useState(false)
@@ -57,9 +61,10 @@ export function PasswordField({
   const describedByIds = [describedBy, capsLock ? capsId : undefined].filter(Boolean).join(" ") || undefined
 
   return (
-    <InputGroup className={className} data-disabled={disabled || undefined}>
+    <InputGroup className={className} size={size} data-disabled={disabled || undefined}>
       <InputGroupInput
         id={id}
+        size={size}
         ref={inputRef}
         name={name}
         type={revealed ? "text" : "password"}

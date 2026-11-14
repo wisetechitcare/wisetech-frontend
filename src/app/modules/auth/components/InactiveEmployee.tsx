@@ -31,7 +31,7 @@ export default function InactiveEmployee() {
           <AlertTitle>Next Steps</AlertTitle>
           <AlertDescription>Reach out to your HR department for assistance.</AlertDescription>
         </Alert>
-        <Button type="button" className="w-full" onClick={() => navigate('/auth', { replace: true })}>
+        <Button type="button" size="lg" className="w-full" onClick={() => navigate('/auth', { replace: true })}>
           <ArrowLeft data-icon="inline-start" />
           Back to Sign In
         </Button>

@@ -156,7 +156,7 @@ export const LogoTopLeftOnDesktop: Story = {
   play: async ({ canvasElement }) => {
     const marks = canvasElement.querySelectorAll('[data-slot="auth-logo"]')
     await expect(marks).toHaveLength(1)
-    const root = box(canvasElement.querySelector('[data-slot="auth-layout"]')!)
+    const root = box(canvasElement.querySelector('[data-slot="auth-frame"]')!) // the composition's corner
     const image = canvasElement.querySelector<HTMLImageElement>('[data-slot="auth-logo-image"]')!
     await waitFor(() => expect(image.naturalWidth).toBeGreaterThan(0), { timeout: 3000 })
     const mark = box(image)

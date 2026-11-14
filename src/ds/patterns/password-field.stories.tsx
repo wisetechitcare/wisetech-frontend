@@ -44,6 +44,17 @@ export const Default: Story = {
   },
 }
 
+/** Large (`size="lg"`, 44px) — the sign-in size; the group, its input and the floating label all follow. */
+export const Large: Story = {
+  args: { size: 'lg' },
+  play: async ({ canvas, canvasElement }) => {
+    const group = canvasElement.querySelector<HTMLElement>('[data-slot="input-group"]')!
+    await expect(group).toHaveAttribute('data-size', 'lg')
+    await expect(group.getBoundingClientRect().height).toBe(44)
+    await expect(getComputedStyle(canvas.getByLabelText('Password')).fontSize).toBe('16px')
+  },
+}
+
 /** The icon-only toggle is named by the kit Tooltip on keyboard focus, and is a 32px target. */
 export const ToggleTooltip: Story = {
   play: async ({ canvas }) => {

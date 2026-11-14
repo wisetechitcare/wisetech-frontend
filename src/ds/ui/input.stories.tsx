@@ -58,3 +58,24 @@ export const Disabled: Story = {
     await expect(canvas.getByLabelText('Full Name')).toBeDisabled()
   },
 }
+
+/**
+ * Large (`size="lg"`): 44px with 16px text — Button `lg`'s height — for a form that is the whole page (sign-in).
+ * The floating label follows: it rests centred at 16px, and floats clear of the rounder 22px curve.
+ */
+export const Large: Story = {
+  args: { size: 'lg' },
+  play: async ({ canvas, canvasElement }) => {
+    const input = canvas.getByLabelText('Full Name')
+    const label = canvasElement.querySelector<HTMLElement>('[data-slot="field-label"]')!
+    await expect(input.getBoundingClientRect().height).toBe(44)
+    await expect(getComputedStyle(input).fontSize).toBe('16px')
+    const box = input.getBoundingClientRect()
+    const rest = label.getBoundingClientRect()
+    await expect(Math.abs(rest.top + rest.height / 2 - (box.top + box.height / 2))).toBeLessThan(1.5)
+    await expect(getComputedStyle(label).fontSize).toBe('16px')
+    await userEvent.click(input)
+    // Floated: starts past the 22px curve (28px), not the default size's 26px.
+    await waitFor(() => expect(getComputedStyle(label).insetInlineStart).toBe('28px'))
+  },
+}

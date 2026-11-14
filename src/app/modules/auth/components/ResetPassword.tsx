@@ -87,7 +87,7 @@ export default function ResetPassword() {
               Open the reset link from your email again, or request a new one.
             </AlertDescription>
           </Alert>
-          <Link to="/auth/forgot-password" className={buttonVariants({ className: 'w-full' })}>
+          <Link to="/auth/forgot-password" className={buttonVariants({ size: 'lg', className: 'w-full' })}>
             Request a New Link
           </Link>
         </div>
@@ -109,6 +109,7 @@ export default function ResetPassword() {
             <FieldLabel htmlFor="reset-password">New Password</FieldLabel>
             <PasswordField
               id="reset-password"
+              size="lg"
               inputRef={passwordRef}
               name="password"
               autoComplete="new-password"
@@ -125,6 +126,7 @@ export default function ResetPassword() {
             <FieldLabel htmlFor="reset-confirm-password">Confirm Password</FieldLabel>
             <PasswordField
               id="reset-confirm-password"
+              size="lg"
               inputRef={confirmRef}
               name="confirmPassword"
               autoComplete="new-password"
@@ -138,7 +140,7 @@ export default function ResetPassword() {
           </Field>
         </FieldGroup>
 
-        <Button type="submit" glow className="w-full" loading={formik.isSubmitting} disabled={formik.isSubmitting}>
+        <Button type="submit" size="lg" glow className="w-full" loading={formik.isSubmitting} disabled={formik.isSubmitting}>
           {formik.isSubmitting ? 'Saving…' : 'Reset Password'}
         </Button>
       </form>
