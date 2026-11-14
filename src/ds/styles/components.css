@@ -16,9 +16,10 @@
  * "Filled" is read from each control's own state, so it is right after a programmatic reset too: a visible text
  * input shows its placeholder (Select, Combobox and DatePicker also render a hidden input for form submission —
  * ignored, however it is hidden) (Input/Textarea default it to one space), a Select trigger carries data-placeholder, a
- * date segment carries data-placeholder, a multi-select shows chips. A control with a leading addon (search
- * icon, phone country code) keeps the label floated so the two never overlap. `data-filled="true"` on the
- * field forces it for anything else.
+ * date segment carries data-placeholder, a multi-select shows chips. A control with a leading TEXT addon (phone
+ * country code) keeps the label floated so the two never overlap; a leading ICON (search, mail, lock) does not —
+ * the label rests just after the icon, like a placeholder, and floats on focus or once filled (user decision
+ * 2026-11-14). `data-filled="true"` on the field forces it for anything else.
  *
  * The floated label sits in a NOTCH cut into the border (see "The notch" below) — it has no background.
  * Unlayered so it wins over the controls' utility colours.
@@ -37,8 +38,9 @@
   position: absolute;
   z-index: 1;
   display: block; /* not flex: text-overflow needs a block box to show the ellipsis */
-  inset-inline-start: 12px;
-  top: 20px; /* centre of the 40px control */
+  /* The control's geometry, by size: the defaults are the 40px control; size="lg" sets these on the field (below). */
+  inset-inline-start: var(--floating-x, 12px);
+  top: var(--floating-top, 20px); /* centre of the control */
   translate: 0 -50%;
   transform-origin: left center;
   width: auto;
@@ -60,25 +62,25 @@
 .field-floating:has(> [data-slot="textarea"]) > [data-slot="field-label"] {
   top: 22px; /* first line of the textarea */
 }
-.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]:not(:has(> svg:only-child))), [data-filled="true"]) > [data-slot="field-label"] {
   top: 0;
   scale: 0.85;
   /* Start after the control's rounded end so the whole curve stays visible (a 40px pill curves for 20px):
      the label's masking box begins 2px past it. */
-  inset-inline-start: 26px;
+  inset-inline-start: var(--floating-x-up, 26px);
   max-width: calc(100% - 40px);
   font-weight: 500;
 }
 /* The floated label's resting colour, at ZERO extra specificity (:where): the floated-state selector is a long
    :is() list, and as part of the rule above its colour outranked the focus (primary) and invalid (destructive)
    rules below — no floated label ever turned blue on focus or red on error. */
-.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):where(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):where(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]:not(:has(> svg:only-child))), [data-filled="true"]) > [data-slot="field-label"] {
   color: var(--foreground);
 }
-.field-floating:has(> [data-slot="textarea"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
+.field-floating:has(> [data-slot="textarea"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]:not(:has(> svg:only-child))), [data-filled="true"]) > [data-slot="field-label"] {
   inset-inline-start: 18px; /* textarea corners are 12px */
 }
-.field-floating:has(> [data-slot="combobox-chips"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="field-label"] {
+.field-floating:has(> [data-slot="combobox-chips"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]:not(:has(> svg:only-child))), [data-filled="true"]) > [data-slot="field-label"] {
   inset-inline-start: 38px; /* the chips box grows taller and reaches its full 32px radius */
 }
 .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):focus-within > [data-slot="field-label"] {
@@ -88,14 +90,33 @@
   color: var(--destructive);
 }
 /* While the label rests inside, the control shows nothing else (its placeholder appears once the label moves). */
-.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):not(:is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"])) :is(input, textarea)::placeholder,
-.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):not(:is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"])) :is([data-slot="select-value"], [role="spinbutton"], [data-type="literal"]) {
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):not(:is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]:not(:has(> svg:only-child))), [data-filled="true"])) :is(input, textarea)::placeholder,
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):not(:is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]:not(:has(> svg:only-child))), [data-filled="true"])) :is([data-slot="select-value"], [role="spinbutton"], [data-type="literal"]) {
   color: transparent;
 }
 @media (prefers-reduced-motion: reduce) {
   .field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])) > [data-slot="field-label"] {
     transition: none;
   }
+}
+/* Large controls (Input / InputGroup size="lg": 44px, 16px text). The resting label centres on 22px, starts at
+   the 16px padding and matches the 16px text; floated, it starts past the 22px curve. Set once, on the field. */
+.field-floating:has(> :is([data-slot="input"], [data-slot="input-group"])[data-size="lg"]) {
+  --floating-top: 22px;
+  --floating-x: 16px;
+  --floating-x-up: 28px;
+  --floating-notch-x: 24px;
+}
+/* A leading ICON: the resting label starts where the typed text will — after the addon's inset, the 16px icon
+   and the input's 6px inset (default 12+16+6 = 34px; lg 16+16+6 = 38px, +1 for the lg label's own metrics). */
+.field-floating:has(> [data-slot="input-group"] > [data-slot="input-group-addon"][data-align="inline-start"] > svg:only-child) {
+  --floating-x: 34px;
+}
+.field-floating:has(> [data-slot="input-group"][data-size="lg"] > [data-slot="input-group-addon"][data-align="inline-start"] > svg:only-child) {
+  --floating-x: 39px;
+}
+.field-floating:has(> :is([data-slot="input"], [data-slot="input-group"])[data-size="lg"]) > [data-slot="field-label"] {
+  font-size: 16px;
 }
 
 /* ── The notch: a real gap in the border where the floated label sits — NO label background ─────────────
@@ -108,8 +129,8 @@
  * Width: `--label-w` is the label's layout width, published by FieldLabel (lib/floating-notch); × 0.85 is the
  * floated label's own `scale`. Start: the floated `inset-inline-start` minus the label's 4px padding.
  * `mask-clip: no-clip` + a mask 8px larger on every side keeps the ring (painted outside the border box). */
-.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"]) {
-  --notch-x: 22px; /* floated label at 26px, less its 4px padding */
+.field-floating:has(> :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"])):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]:not(:has(> svg:only-child))), [data-filled="true"]) > :is([data-slot="input"], [data-slot="textarea"], [data-slot="input-group"], [data-slot="select-trigger"], [data-slot="combobox-chips"]) {
+  --notch-x: var(--floating-notch-x, 22px); /* the floated label's start, less its 4px padding */
   mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
   mask-origin: border-box;
   mask-clip: no-clip;
@@ -118,10 +139,10 @@
   mask-size: calc(100% + 16px) calc(100% + 16px), calc(var(--label-w, 0px) * 0.85) 10px;
   mask-composite: exclude;
 }
-.field-floating:has(> [data-slot="textarea"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="textarea"] {
+.field-floating:has(> [data-slot="textarea"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]:not(:has(> svg:only-child))), [data-filled="true"]) > [data-slot="textarea"] {
   --notch-x: 14px; /* floated label at 18px */
 }
-.field-floating:has(> [data-slot="combobox-chips"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]), [data-filled="true"]) > [data-slot="combobox-chips"] {
+.field-floating:has(> [data-slot="combobox-chips"]):is(:focus-within, :has(:is(input:not([aria-hidden="true"], [hidden], [type="hidden"]), textarea):not(:placeholder-shown)), :has([data-slot="select-trigger"]:not([data-placeholder])), :has([role="spinbutton"]:not([data-placeholder])), :has([data-slot="combobox-chip"]), :has([data-slot="input-group-addon"][data-align="inline-start"]:not(:has(> svg:only-child))), [data-filled="true"]) > [data-slot="combobox-chips"] {
   --notch-x: 34px; /* floated label at 38px */
 }
 
@@ -200,4 +221,19 @@
   svg.lucide[stroke-width="2"] {
     stroke-width: 1.75;
   }
+}
+
+/* ── Browser autofill: no foreign highlight box inside our fields ──────────────────────────────────────
+ * When Chrome / Edge / Safari autofill a saved email or password they paint their own fill behind the input
+ * (light blue, or grey-blue in dark mode) with an `!important` UA rule no stylesheet can override. In a pill
+ * whose input sits INSIDE a group (an icon, a reveal button) that shows as a square block within the rounded
+ * field — light and dark (user report 2026-11-14: "I don't want this bad bg anywhere in the app").
+ * The standard remedy: postpone the UA background change for ~a week of wall time, so the field keeps its own
+ * surface; keep the text in the field's ink (the UA forces `fieldtext`, black on dark surfaces) and the caret.
+ * Deliberately UNSCOPED — every input, kit and legacy: autofill is browser chrome, not a component's look. */
+:is(input, textarea, select):is(:autofill, :-webkit-autofill),
+:is(input, textarea, select):is(:autofill, :-webkit-autofill):is(:hover, :focus, :active) {
+  transition: background-color 600000s 0s, color 600000s 0s;
+  -webkit-text-fill-color: var(--foreground);
+  caret-color: var(--foreground);
 }

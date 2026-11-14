@@ -222,3 +222,17 @@ Format: **what** — evidence (file / screen) — suggested fix.
 - **`rebootShield.test.ts` guards Reimbursement only** — the Reboot override on raw `h1-h6`, `p`, `label`, `ul`,
   `ol`, `li`, `button` and `a` bites every module. Its scanner skips tags on a line that opens a template
   literal (HTML strings). — Promote the scan to a repo-wide test (or an ESLint rule) as each module is converted.
+
+## Frontend: auth & app shell (found 2026-11-14, auth section moved to the kit)
+
+- **Header and aside menus still carry their own sign-out** — `_metronic/partials/layout/header-menus/HeaderUserMenu.tsx`
+  and `_metronic/layout/components/aside/AsideDefault.tsx` each repeat the logic now in
+  `app/modules/auth/core/signOut.ts` (used by `/logout` and the idle timeout). — When the app shell moves to the
+  kit (Sidebar / App shell), call `signOut(dispatch)` and delete both copies.
+- **Sign-in footer links** — the old Login showed "FAQs / Plans / Contact Us", all linking to `/` (dead), so they
+  were dropped. — If wanted, add them back pointing at real public pages (Auth Layout `footer` slot).
+- **Links read green in dark mode** — the app's dark palette maps `--primary` to green, so `link` buttons (e.g.
+  "Forgot password?") are green while the CTA stays brand blue. — Decide the dark `--primary` in the theme, not per
+  screen.
+- **Logout leaves some user data in the browser** — onboarding wizard drafts in `sessionStorage` (bank, CTC) and
+  search history not tied to a user (audit C-08). — Clear user-scoped keys in `signOut()` once they are listed.

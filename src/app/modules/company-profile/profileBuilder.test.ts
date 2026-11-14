@@ -99,7 +99,7 @@ describe("show / hide, reorder and numbering", () => {
     expect(deck.map((s) => [s.title, s.page, s.total])).toEqual([
       ["Cover", 1, 6],
       ["About us", 2, 6],
-      ["Who we are", 3, 6],
+      ["What drives us", 3, 6],
       ["Services we offer", 4, 6],
       ["High-rise 1", 5, 6],
       ["High-rise 2", 6, 6],

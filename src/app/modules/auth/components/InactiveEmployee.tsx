@@ -1,182 +1,41 @@
-import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { fetchCompanyLogo } from "@services/company";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { Button } from "@/ds/ui/button";
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ArrowLeft, Mail, UserX } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
+import { Button } from '@/ds/ui/button'
+import { AuthScreen } from '../AuthScreen'
 
-const DEFAULT_LOGO =
-  "https://wise-tech-asset-store.s3.ap-south-1.amazonaws.com/4100960a0f2c5e89381847e6637d3e67aa43d39330";
+const DEFAULT_MESSAGE =
+  "You're currently marked as an inactive employee. Please connect with HR to restore your access."
 
 /**
- * Shown when an inactive / exited employee tries to sign in. The login gate
- * (backend) rejects them with meta.code === 'ACCOUNT_INACTIVE' and the Login
- * form routes here instead of showing an inline error. A short, friendly
- * dead-end that points them to HR — no way back into the app without HR
- * reactivating the account.
+ * Account Inactive, on the kit's Auth Layout via AuthScreen. Shown when an inactive / exited employee tries to
+ * sign in: the backend rejects them with meta.code === 'ACCOUNT_INACTIVE' and Sign In routes here with the
+ * server's message. A short, friendly dead end that points them to HR — no way back into the app until HR
+ * reactivates the account.
  */
 export default function InactiveEmployee() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const message =
-    (location.state as { message?: string } | null)?.message ||
-    "You're currently marked as an inactive employee. Please connect with HR to restore your access.";
-
-  const [logoSrc, setLogoSrc] = useState(DEFAULT_LOGO);
-
-  useEffect(() => {
-    async function getCompanyLogo() {
-      try {
-        const { data: { logo } } = await fetchCompanyLogo();
-        if (logo) setLogoSrc(logo); // keep default if no logo is set
-      } catch { /* keep default logo */ }
-    }
-    getCompanyLogo();
-  }, []);
+  const navigate = useNavigate()
+  const location = useLocation()
+  const message = (location.state as { message?: string } | null)?.message || DEFAULT_MESSAGE
 
   return (
-    <div
-      className="d-flex flex-column flex-column-fluid min-vh-100 align-items-center justify-content-center p-5"
-      style={{
-        background: "linear-gradient(135deg, #f3f4f6 0%, #e2e8f0 100%)",
-        fontFamily: "'Inter', sans-serif",
-      }}
-    >
-      <div
-        className="d-flex flex-column align-items-center text-center p-10 p-lg-15 w-100"
-        style={{
-          maxWidth: 480,
-          background: "rgba(255, 255, 255, 0.95)",
-          backdropFilter: "blur(10px)",
-          borderRadius: 24,
-          boxShadow:
-            "0 20px 40px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.05)",
-          border: "1px solid rgba(255, 255, 255, 0.5)",
-        }}
-      >
-        {/* Logo */}
-        <div
-          style={{
-            minHeight: 100,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 40,
-          }}
-        >
-          <img
-            src={logoSrc}
-            alt="Company Logo"
-            style={{ maxHeight: 100, maxWidth: 300, objectFit: "contain" }}
-            onError={(e) => {
-              if (e.currentTarget.src !== DEFAULT_LOGO)
-                e.currentTarget.src = DEFAULT_LOGO;
-            }}
-          />
-        </div>
-
-        {/* Status Icon */}
-        <div
-          className="d-flex align-items-center justify-content-center rounded-circle mb-8"
-          style={{
-            width: 96,
-            height: 96,
-            background: "linear-gradient(135deg, #fff1f3 0%, #ffe4e8 100%)",
-            boxShadow: "0 8px 16px rgba(241, 65, 108, 0.15)",
-            position: "relative",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: -6,
-              left: -6,
-              right: -6,
-              bottom: -6,
-              border: "2px dashed rgba(241, 65, 108, 0.3)",
-              borderRadius: "50%",
-              animation: "spin 12s linear infinite",
-            }}
-          ></div>
-          <AppIcon name="bi-person-fill-slash" className="fs-3x" color="#f1416c" style={{ zIndex: 1 }} />
-        </div>
-
-        <h1
-          className="fw-bolder mb-3"
-          style={{
-            fontSize: 32,
-            color: "#1e293b",
-            letterSpacing: "-0.5px",
-          }}
-        >
-          Account Inactive
-        </h1>
-
-        <p
-          className="fw-medium mb-8"
-          style={{
-            fontSize: 16,
-            color: "#64748b",
-            lineHeight: 1.6,
-          }}
-        >
-          {message}
-        </p>
-
-        <div
-          className="d-flex align-items-center gap-4 rounded-4 px-6 py-4 mb-10 w-100 text-start"
-          style={{
-            background: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            boxShadow: "inset 0 2px 4px rgba(0,0,0,0.02)",
-          }}
-        >
-          <div
-            className="d-flex align-items-center justify-content-center rounded-circle"
-            style={{
-              width: 48,
-              height: 48,
-              background: "#eff6ff",
-              flexShrink: 0,
-            }}
-          >
-            <AppIcon name="bi-envelope-paper-heart-fill" className="text-primary fs-3" />
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: "#94a3b8",
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                marginBottom: 2,
-              }}
-            >
-              Next Steps
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>
-              Reach out to your HR department for assistance.
-            </div>
-          </div>
-        </div>
-
-        <Button
-          type="button"
-          className="w-100"
-          onClick={() => navigate("/auth", { replace: true })}
-        >
-          <span data-icon="inline-start" className="inline-flex">
-            <AppIcon name="bi-arrow-left" className="fs-3" />
-          </span>
-          Back to Login
+    <AuthScreen title="Account Inactive">
+      <div className="grid gap-5">
+        <Alert variant="warning">
+          <UserX aria-hidden />
+          <AlertTitle>Your access is paused</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+        <Alert variant="info">
+          <Mail aria-hidden />
+          <AlertTitle>Next Steps</AlertTitle>
+          <AlertDescription>Reach out to your HR department for assistance.</AlertDescription>
+        </Alert>
+        <Button type="button" size="lg" className="w-full" onClick={() => navigate('/auth', { replace: true })}>
+          <ArrowLeft data-icon="inline-start" />
+          Back to Sign In
         </Button>
-
-        <style>{`
-          @keyframes spin {
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
-    </div>
-  );
+    </AuthScreen>
+  )
 }
