@@ -26,7 +26,7 @@ const SERVICES = DEMO_DATA.services
 const DECK = [
   "1. Cover",
   "2. About us",
-  "3. Who we are",
+  "3. What drives us",
   "4. Services we offer",
   "5. High-rise 1",
   "6. High-rise 2",
@@ -60,7 +60,7 @@ describe("Company Profile page", () => {
     render(<CompanyProfilePage />)
     await user.click(screen.getByRole("button", { name: "2. About us" }))
     expect(within(stage()).getByTestId("slide-page").textContent).toBe("2 of 20")
-    await user.click(screen.getByRole("button", { name: "Include Who we are", pressed: true }))
+    await user.click(screen.getByRole("button", { name: "Include What drives us", pressed: true }))
     expect(within(stage()).getByTestId("slide-page").textContent).toBe("2 of 19")
   })
 
@@ -69,7 +69,7 @@ describe("Company Profile page", () => {
     render(<CompanyProfilePage />)
     const resetBtn = screen.getByRole("button", { name: "Reset" })
     expect(resetBtn.hasAttribute("disabled")).toBe(true)
-    await user.click(screen.getByRole("button", { name: "Include Who we are", pressed: true }))
+    await user.click(screen.getByRole("button", { name: "Include What drives us", pressed: true }))
     expect(budget().textContent).toBe("19 of 20 slides selected")
     await user.click(resetBtn)
     expect(confirmDialog).toHaveBeenCalledOnce()

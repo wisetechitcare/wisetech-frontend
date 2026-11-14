@@ -328,10 +328,11 @@ export function AboutSlide({
   );
 }
 
-/** The two panel looks shared by Who we are and Services: each capped by an accent bar (navy on white, red on deep navy) with a tinted icon tile. */
+/** The two panel looks shared by What drives us and Services: each capped by an accent bar (navy on white, red on deep navy) with a tinted icon tile. */
 const PANEL = {
   light: {
-    card: "bg-[#1b2a4e]/[0.15] text-slate-600 shadow-md ring-slate-200 before:absolute before:inset-x-0 before:top-0 before:h-[0.45cqw] before:bg-[#1b2a4e]",
+    // Solid: 15% navy over white, pre-mixed. A translucent fill took on the picked slide background and hid the navy text.
+    card: "bg-[#dddfe4] text-slate-600 shadow-md ring-slate-200 before:absolute before:inset-x-0 before:top-0 before:h-[0.45cqw] before:bg-[#1b2a4e]",
     mark: "text-[#1b2a4e]/[0.15]",
     // Same gradient as the app's primary Button (ds/ui/button.tsx): follows the tenant's brand colour.
     tile: "bg-linear-135/srgb from-(--brand-bright) to-(--brand) shadow-md shadow-(--brand)/30",
@@ -387,7 +388,7 @@ export function VisionSlide({ data }: { data: ProfileData }) {
   ];
   return (
     <Frame>
-      <Heading>Who we are</Heading>
+      <Heading>What drives us</Heading>
       {/* Three numbered panels; the middle one (Mission) is the navy focal point. */}
       <ol className="mt-[2.4cqw] grid min-h-0 flex-1 grid-cols-3 gap-[1.6cqw]">
         {cols.map(({ Icon, title, body }, i) => {
@@ -477,12 +478,12 @@ const SERVICE_INFO: Array<[RegExp, LucideIcon, string]> = [
   [
     /fire/i,
     FireExtinguisher,
-    "Sprinklers, hydrants, detection and alarms, built to code.",
+    "Sprinklers, hydrants, alarms and safe exits, built to code.",
   ],
   [
     /elv|security|cctv/i,
     Cctv,
-    "Data, CCTV, access control and PA on one low-voltage backbone.",
+    "CCTV, access control, data and BMS on one smart network.",
   ],
   [/bms/i, Cpu, "One control layer to monitor and tune every building system."],
   [
@@ -535,6 +536,12 @@ const SERVICE_INFO: Array<[RegExp, LucideIcon, string]> = [
     DraftingCompass,
     "Architecture through our associates, integrated from day one.",
   ],
+  // Last: the specific disciplines above win over a name that only says MEP. Same icon as the cover's MEP Design pillar.
+  [
+    /\bmep\b/i,
+    Building2,
+    "Mechanical, electrical and plumbing, designed together.",
+  ],
 ];
 
 function serviceInfo(name: string): [LucideIcon, string] {
@@ -554,7 +561,7 @@ export function ServicesSlide({
   return (
     <Frame>
       <Heading>{title}</Heading>
-      {/* Who we are's panels, light and navy in a checkerboard. */}
+      {/* The What drives us panels, light and navy in a checkerboard. */}
       <ul className="mt-[2.2cqw] grid min-h-0 flex-1 auto-rows-fr grid-cols-4 gap-[1.4cqw]">
         {services.map((s, i) => {
           const [Icon, pitch] = serviceInfo(s.name);

@@ -757,12 +757,12 @@ export const DEMO_COMPANIES: ProfileCompany[] = [
 
 /** CRM services (ProjectService) with their LeadService project counts. */
 export const DEMO_SERVICES: ProfileService[] = [
+  ["MEP", 642],
+  ["Mechanical (HVAC)", 548],
   ["Electrical", 601],
-  ["Public Health Engineering", 577],
-  ["HVAC", 548],
-  ["Fire Protection", 512],
-  ["ELV & Security", 233],
-  ["IBMS / BMS", 141],
+  ["Plumbing (Public Health Engineering)", 577],
+  ["Fire & Life Safety", 512],
+  ["IBMS / ELV & Security", 233],
   ["BIM", 88],
   ["3rd Party Testing & Audit", 64],
   ["Interior (associate)", 52],
@@ -804,7 +804,7 @@ const DEMO_ORG: OrgProfile = {
     {
       year: 2017,
       title: "Company Founded",
-      text: "Started in Mumbai with a team of three.",
+      text: "Started in Mumbai with a 3 team member",
     },
     {
       year: 2019,
@@ -812,7 +812,7 @@ const DEMO_ORG: OrgProfile = {
       text: "Moved to a new office and grew to nearly 25 team members.",
     },
     {
-      year: 2021,
+      year: 2023,
       title: "Jogeshwari Office",
       text: "Opened a new office with a capacity of 35 people.",
     },
@@ -875,7 +875,7 @@ const clients = clientsSection(DEMO_DATA);
 export const DEMO_SECTIONS: Section[] = [
   fixed("cover", "Cover"),
   fixed("about", "About us"),
-  fixed("vision", "Who we are"),
+  fixed("vision", "What drives us"),
   {
     id: "services",
     kind: "services",

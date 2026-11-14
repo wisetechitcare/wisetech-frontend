@@ -3,13 +3,13 @@ import { isDark, matches, places, projectsOf, type ProfileData } from "./profile
 import { pick, type SlideSpec } from "./profileBuilder"
 import { AboutSlide, ClientsSlide, ContactSlide, CoverSlide, MapSlide, ProjectsSlide, RepeatSlide, ServicesSlide, SlideContext, VisionSlide } from "./slides"
 
-function SlideBody({ spec, data, cover }: { spec: SlideSpec; data: ProfileData; cover?: ReactNode }) {
+function SlideBody({ spec, data, cover, about }: { spec: SlideSpec; data: ProfileData; cover?: ReactNode; about?: ReactNode }) {
   const s = spec.section
   switch (s.kind) {
     case "cover":
       return cover ?? <CoverSlide data={data} />
     case "about":
-      return <AboutSlide data={data} />
+      return about ?? <AboutSlide data={data} />
     case "vision":
       return <VisionSlide data={data} />
     case "contact":
@@ -52,17 +52,18 @@ const LIGHT_INK = "[--s-ink:#1b2a4e] [--s-body:#475569] [--s-muted:#64748b] [--s
 const DARK_INK = "[--s-ink:#ffffff] [--s-body:rgb(255_255_255/0.82)] [--s-muted:rgb(255_255_255/0.62)] [--s-line:rgb(255_255_255/0.2)] [--s-brand:#ffffff]"
 
 /**
- * Draws one presentation slide; `cover` replaces the default cover (the CRM's carries the organisation logo).
+ * Draws one presentation slide; `cover` replaces the default cover (the CRM's carries the organisation logo) and
+ * `about` the default About us (the CRM's draws Our journey as a winding road).
  * `bg` colours every slide but the cover, which is fixed artwork (its photo sits on white).
  * `data-artwork` makes Bootstrap's element rules (h3, p, ul) step aside in the app (see scripts/postcss-kit-exemption.ts).
  */
-export function ProfileSlide({ spec, data, cover, bg = "#ffffff" }: { spec: SlideSpec; data: ProfileData; cover?: ReactNode; bg?: string }) {
+export function ProfileSlide({ spec, data, cover, about, bg = "#ffffff" }: { spec: SlideSpec; data: ProfileData; cover?: ReactNode; about?: ReactNode; bg?: string }) {
   const fill = spec.section.kind === "cover" ? "#ffffff" : bg
   return (
     // A user-picked colour has no class; the custom property is the one inline style.
     <div data-artwork="" className={isDark(fill) ? DARK_INK : LIGHT_INK} style={{ "--slide-bg": fill } as CSSProperties}>
       <SlideContext.Provider value={{ page: spec.page, total: spec.total, wordmark: data.org.wordmark }}>
-        <SlideBody spec={spec} data={data} cover={cover} />
+        <SlideBody spec={spec} data={data} cover={cover} about={about} />
       </SlideContext.Provider>
     </div>
   )

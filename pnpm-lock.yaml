@@ -229,6 +229,9 @@ importers:
       material-react-table:
         specifier: ^2.13.0
         version: 2.13.3(4a18a93ce62132c1bbd2af95e95cb1a0)
+      modern-screenshot:
+        specifier: ^4.7.0
+        version: 4.7.0
       motion:
         specifier: 14.7.0
         version: 14.7.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -6037,6 +6040,9 @@ packages:
   mkdirp@0.5.6:
     resolution: {integrity: sha512-FP+p8RB8OWpF3YZBCrP5gtADmtXApB5AMLn+vdyA+PyxCjrCs00mjyUozssO33cwDeT3wNGdLxJ5M//YqtHAJw==}
     hasBin: true
+
+  modern-screenshot@4.7.0:
+    resolution: {integrity: sha512-9YxN+ddPSMMlhylOv25VHzXrl9u67QRxoh7+SEewGtgUw7t6hHTrjptSDJUSne9oG4Xk/h2cwG15nIt4Hc9ujg==}
 
   modern-tar@0.8.6:
     resolution: {integrity: sha512-LYSks0tNVqbtez/9OB0YFP6qLRSqkdAxJWOQpVaR67lNTbj2zNLyYpowkRMia5lXLCZKzxwoxkxH2MbbBR2aEg==}
@@ -13505,6 +13511,8 @@ snapshots:
   mkdirp@0.5.6:
     dependencies:
       minimist: 1.2.8
+
+  modern-screenshot@4.7.0: {}
 
   modern-tar@0.8.6: {}
 

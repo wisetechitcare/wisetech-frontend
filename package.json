@@ -108,6 +108,7 @@
     "lodash": "^4.17.21",
     "lucide-react": "^1.14.0",
     "material-react-table": "^2.13.0",
+    "modern-screenshot": "^4.7.0",
     "motion": "14.7.0",
     "nouislider": "15.5.1",
     "ogl": "^1.0.11",

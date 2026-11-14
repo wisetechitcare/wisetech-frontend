@@ -10,11 +10,13 @@ import { DEMO_DATA, DEMO_SECTIONS } from "@app/modules/company-profile/fixtures"
 import { MAX_SLIDES, places, plural, projectsOf, type PickSection, type ProfileData, type Section } from "@app/modules/company-profile/profile"
 import { sectionMeta, sectionSlides, takenElsewhere, type EditableSection, type SlideSpec } from "@app/modules/company-profile/profileBuilder"
 import { useProfileBuilder } from "@app/modules/company-profile/useProfileBuilder"
+import { AboutSlide } from "@app/modules/company-profile/slides"
 import { useHomeRootOrg } from "@hooks/useRootOrgNames"
 import { CoverSlide } from "./CoverSlide"
-import { DeckPrint } from "./DeckPrint"
+import { DeckExport } from "./DeckExport"
 import { ListPicker, type ListItem } from "./ListPicker"
 import { ProjectsPicker } from "./ProjectsPicker"
+import { WindingRoadJourney } from "./WindingRoadJourney"
 
 
 /** Picker heading and rows for a list section: services, companies (logo wall or repeat chart) or map pins. */
@@ -33,7 +35,7 @@ const SECTIONS = DEMO_SECTIONS
 const notify = (text: string) => void toast({ icon: "warning", title: "Slide limit reached", text })
 
 /**
- * CRM → Company Profile: Cover, About us, Who we are, Services, every project category, Our Clients, Repeat
+ * CRM → Company Profile: Cover, About us, What drives us, Services, every project category, Our Clients, Repeat
  * clients, the India and world maps and Contact. At most MAX_SLIDES are shown; the rest stay listed, hidden.
  * Sample data for now (no API yet); only the cover's logo comes from the app, the organisation's own.
  */
@@ -42,19 +44,22 @@ export default function CompanyProfilePage() {
   const { logo } = useHomeRootOrg()
   const b = useProfileBuilder(data, SECTIONS, notify)
   const [editing, setEditing] = useState<EditableSection | null>(null)
-  const [printWin, setPrintWin] = useState<Window | null>(null)
+  const [exporting, setExporting] = useState(false)
   const stage = useRef<HTMLElement>(null)
   const save = (s: Section) => b.save(s) && setEditing(null)
-  const render = (spec: SlideSpec) => <ProfileSlide spec={spec} data={data} bg={b.bg} cover={<CoverSlide data={data} logo={logo} />} />
+  const render = (spec: SlideSpec) => (
+    <ProfileSlide
+      spec={spec}
+      data={data}
+      bg={b.bg}
+      cover={<CoverSlide data={data} logo={logo} />}
+      about={<AboutSlide data={data} Journey={WindingRoadJourney} />}
+    />
+  )
   const reset = async () => {
     if (await confirmDialog({ title: "Reset the presentation?", text: "Sections, order, picked items and background go back to the original deck.", confirmText: "Reset" })) b.reset()
   }
   const present = () => stage.current?.requestFullscreen?.().then(() => stage.current?.focus())
-  const exportPdf = () => {
-    const win = window.open("", "_blank", "width=1280,height=800")
-    if (win) setPrintWin(win)
-    else void toast({ icon: "warning", title: "Pop-up blocked", text: "Allow pop-ups for this site to export the PDF." })
-  }
 
   return (
     <Box className="mx-auto w-full max-w-[1600px]" sx={{ p: { xs: 2, md: 3 } }}>
@@ -68,8 +73,8 @@ export default function CompanyProfilePage() {
               Reset
             </WtButton>
             <SlideBackground value={b.bg} onChange={b.setBg} trigger={<WtButton ghost startIcon={<PaintBucket />}>Background</WtButton>} />
-            <WtButton ghost startIcon={<Download />} disabled={!b.slides.length || !!printWin} onClick={exportPdf}>
-              Export PDF
+            <WtButton ghost startIcon={<Download />} disabled={!b.slides.length || exporting} onClick={() => setExporting(true)}>
+              {exporting ? "Exporting…" : "Export PDF"}
             </WtButton>
             <WtButton tone="accent" startIcon={<Presentation />} disabled={!b.slides.length} onClick={present}>
               Present
@@ -112,7 +117,7 @@ export default function CompanyProfilePage() {
           onClose={() => setEditing(null)}
         />
       )}
-      {printWin && <DeckPrint win={printWin} slides={b.slides} render={render} onDone={() => setPrintWin(null)} />}
+      {exporting && <DeckExport slides={b.slides} render={render} onDone={() => setExporting(false)} />}
     </Box>
   )
 }
