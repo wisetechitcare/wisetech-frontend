@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, waitFor } from 'storybook/test'
-import { Mail, Pencil, Phone } from 'lucide-react'
+import { Globe, Mail, Pencil, Phone } from 'lucide-react'
 import { Badge } from '@/ds/ui/badge'
 import { Button } from '@/ds/ui/button'
 import portrait from '@/ds/ui/__fixtures__/portrait.svg'
+import logo from '@/ds/ui/__fixtures__/logo.svg'
+import { animationsSettled } from '@/ds/lib/motion'
 import { PersonCell, PersonHeader } from './person'
 
 /**
@@ -83,5 +85,32 @@ export const Header: Story = {
     await expect(canvas.getByRole('link', { name: /meera@wisetech.in/ })).toHaveAttribute('href', 'mailto:meera@wisetech.in')
     await userEvent.click(canvas.getByRole('button', { name: 'Back' }))
     await expect(onBack).toHaveBeenCalled()
+    // The back button now carries a tooltip; judge the page once it has faded.
+    await animationsSettled()
+  },
+}
+
+/** An organization (or client) header: the logo is shown whole (`avatarFit="contain"`), the website opens in a new tab. */
+export const OrganizationHeader: Story = {
+  render: () => (
+    <PersonHeader
+      name="Northwind Interiors"
+      avatarUrl={logo}
+      avatarFit="contain"
+      meta={['Fit-out and interiors', 'Founded 2011']}
+      links={[
+        { href: 'tel:+912200000000', label: '+91 22 0000 0000', icon: <Phone aria-hidden /> },
+        { href: 'https://northwind.example', label: 'northwind.example', icon: <Globe aria-hidden />, external: true },
+      ]}
+      onBack={onBack}
+      backLabel="Back to organizations"
+    />
+  ),
+  play: async ({ canvas }) => {
+    const site = canvas.getByRole('link', { name: 'northwind.example' })
+    await expect(site).toHaveAttribute('target', '_blank')
+    await expect(site).toHaveAttribute('rel', 'noopener noreferrer')
+    await expect(canvas.getByRole('link', { name: /0000 0000/ })).not.toHaveAttribute('target')
+    await expect(canvas.getByRole('button', { name: 'Back to organizations' })).toBeInTheDocument()
   },
 }

@@ -1,7 +1,16 @@
 import { resolveActiveOrg } from '@utils/activeOrg';
 
-import React, { useState, useEffect } from 'react';
-import { Box, Link, Stack, Typography } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { BadgeCheck, Briefcase, CalendarRange, Download, FileText, Flag, Globe, IdCard, Image as ImageIcon, ImageOff, Landmark, Mail, MapPin, Pencil, Phone, Receipt, ScrollText } from 'lucide-react';
+import type { Tone } from '@/ds/lib/tone';
+import { Button } from '@/ds/ui/button';
+import { Card, CardContent, CardHeader } from '@/ds/ui/card';
+import { Spinner } from '@/ds/ui/spinner';
+import { DescriptionList } from '@/ds/patterns/description-list';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { PersonHeader } from '@/ds/patterns/person';
+import { SectionHeader } from '@/ds/patterns/section-header';
+import { StatCard } from '@/ds/patterns/stat-card';
 import { fetchCompanyOverview, fetchOrganizationById } from '@services/company';
 import { ICompanyOverview } from "@models/company";
 import { resolveFormSchema } from './formSchema';
@@ -11,11 +20,26 @@ import { useEventBus } from '@hooks/useEventBus';
 import { errorConfirmation } from '@utils/modal';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
-import { AppIcon, GlassSurface, WhatsAppIcon, WtButton, WtIconButton, WtEmptyState } from '@app/modules/common/components/ui';
-import SmartAvatar from '@app/modules/common/components/SmartAvatar';
-import { DetailCard, DetailRow, type AccentColor } from '@app/modules/detail-page/DetailPageComponents';
-import { StatGrid, TwoUpGrid } from '@pages/employee/entity/detail/sections/SummarySection';
-import { DASH } from '@pages/employee/entity/detail/entityViewModel';
+import { WhatsAppIcon } from '@/ds/lib/icons/brandIcons';
+import { formatFiscalYearRange } from '@utils/fiscalYearRange';
+
+/** Per-section look (icon + category hue), shared with the edit form. Unknown (custom) sections: slate. */
+export const ORG_SECTION_LOOK: Record<string, { icon: React.ReactNode; tone: Tone; subtitle: string }> = {
+    basic_info: { icon: <Briefcase aria-hidden />, tone: 'blue', subtitle: 'Who the organization is' },
+    govt: { icon: <FileText aria-hidden />, tone: 'purple', subtitle: 'Registration and addresses' },
+    admin: { icon: <BadgeCheck aria-hidden />, tone: 'cyan', subtitle: 'Registrations and certificates' },
+    tax: { icon: <Receipt aria-hidden />, tone: 'amber', subtitle: 'Tax identifiers' },
+    bank: { icon: <Landmark aria-hidden />, tone: 'green', subtitle: 'Where payments go' },
+};
+export const orgSectionLook = (id: string) =>
+    ORG_SECTION_LOOK[id] || { icon: <ScrollText aria-hidden />, tone: 'slate' as Tone, subtitle: '' };
+
+/** Long free text (addresses) spans the full row. */
+export const isWideOrgField = (f: { id: string; label: string; type?: string }) =>
+    f.type === 'file' || /address|places/i.test(f.id) || /address/i.test(f.label);
+
+/** The kit's inline-link look (the same recipe Person Header uses for its links). */
+const LINK = 'break-all text-primary underline-offset-4 hover:underline';
 
 interface OrganizationInfoProps {
     onEditClick?: () => void;
@@ -139,7 +163,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
         window.open(whatsappUrl, '_blank');
     };
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             setLoading(true);
             if (organizationId) {
@@ -161,11 +185,11 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
         } finally {
             setLoading(false);
         }
-    };
+    }, [organizationId]);
 
     useEffect(() => {
         fetchData();
-    }, [organizationId]);
+    }, [fetchData]);
 
     // Listen for organization profile updates
     useEventBus('organizationProfileUpdated', () => {
@@ -174,21 +198,18 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
 
     if (loading) {
         return (
-            <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 400 }}>
-                <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-            </Stack>
+            <p className="flex min-h-[400px] items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Spinner className="size-5" aria-label="Loading organization" /> Loading organization…
+            </p>
         );
     }
 
     if (!companyData) {
         return (
-            <WtEmptyState
+            <EmptyState
                 title="No organization profile yet"
-                hint="Set up the organization profile to see its details here."
-                actionLabel={onEditClick ? 'Set up profile' : undefined}
-                onAction={onEditClick}
+                description="Set up the organization profile to see its details here."
+                action={onEditClick ? <Button size="sm" onClick={onEditClick}>Set up profile</Button> : undefined}
             />
         );
     }
@@ -199,15 +220,6 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
     // in "Manage Form Fields" reflects here automatically. `showOnInfoPage` (default
     // true) lets admins curate what appears without affecting the edit form.
     const infoSections = resolveFormSchema(companyData).filter(s => s.showOnInfoPage !== false);
-
-    const SECTION_STYLE: Record<string, { icon: string; accent: AccentColor; subtitle: string }> = {
-        basic_info: { icon: 'bi bi-briefcase', accent: 'primary', subtitle: 'Who the organization is' },
-        govt: { icon: 'bi bi-file-earmark-text', accent: 'purple', subtitle: 'Registration and addresses' },
-        admin: { icon: 'bi bi-patch-check', accent: 'teal', subtitle: 'Registrations and certificates' },
-        tax: { icon: 'bi bi-receipt', accent: 'amber', subtitle: 'Tax identifiers' },
-        bank: { icon: 'bi bi-bank', accent: 'green', subtitle: 'Where payments go' },
-    };
-    const sectionStyle = (id: string) => SECTION_STYLE[id] || { icon: 'bi bi-card-text', accent: 'blue' as AccentColor, subtitle: '' };
     // Section titles are stored UPPERCASE in the schema; show them in Title Case here.
     const titleCase = (s: string) => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
@@ -217,12 +229,14 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
     };
     const href = (v: string) => (/^https?:\/\//i.test(v) ? v : `https://${v}`);
 
+    /** Empty values come back as '' — Description List renders those as an em dash. */
     const renderFieldValue = (f: any): React.ReactNode => {
         const val = clean(f.isSystem ? (companyData as any)[f.id] : f.value);
-        if (!val) return DASH;
-        if (f.id === 'websiteUrl') return <Link href={href(val)} target="_blank" rel="noopener noreferrer" underline="hover" sx={{ fontSize: 'inherit', wordBreak: 'break-all' }}>{val}</Link>;
-        if (f.type === 'file' && /^https?:\/\//i.test(val)) return <Link href={val} target="_blank" rel="noopener noreferrer" underline="hover" sx={{ fontSize: 'inherit' }}>View file</Link>;
-        if (/email/i.test(f.id) && val.includes('@')) return <Link href={`mailto:${val}`} underline="hover" sx={{ fontSize: 'inherit' }}>{val}</Link>;
+        if (!val) return '';
+        if (f.id === 'fiscalYear') return formatFiscalYearRange(val, val);
+        if (f.id === 'websiteUrl') return <a href={href(val)} target="_blank" rel="noopener noreferrer" className={LINK}>{val}</a>;
+        if (f.type === 'file' && /^https?:\/\//i.test(val)) return <a href={val} target="_blank" rel="noopener noreferrer" className={LINK}>View file</a>;
+        if (/email/i.test(f.id) && val.includes('@')) return <a href={`mailto:${val}`} className={LINK}>{val}</a>;
         return val;
     };
 
@@ -233,126 +247,117 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
 
     /** Logo or stamp: the image on a quiet plate, or a dashed placeholder that says what is missing. */
     const assetSlot = (url: string | undefined, label: string) => (
-        <Stack alignItems="center" gap={1.25} sx={{ flex: 1, minWidth: 0, py: 1 }}>
-            <Box sx={{
-                width: '100%', maxWidth: 200, height: 110, borderRadius: '12px', display: 'grid', placeItems: 'center', p: 1.5, overflow: 'hidden',
-                ...(url ? { bgcolor: 'action.hover' } : { border: '1.5px dashed', borderColor: 'divider', color: 'text.disabled' }),
-            }}>
-                {url
-                    ? <Box component="img" src={url} alt={label} sx={{ display: 'block', maxHeight: 86, maxWidth: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} />
-                    : <AppIcon name="bi-image" className="fs-2qx" />}
-            </Box>
-            <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: url ? 'text.primary' : 'text.disabled' }}>
+        <figure className="flex min-w-0 flex-1 flex-col items-center gap-2.5 py-1">
+            {url ? (
+                <div className="grid h-28 w-full max-w-52 place-items-center overflow-hidden rounded-xl bg-muted p-3">
+                    <img src={url} alt={label} className="block max-h-20 max-w-full object-contain" />
+                </div>
+            ) : (
+                <div className="grid h-28 w-full max-w-52 place-items-center rounded-xl border-[1.5px] border-dashed border-border text-muted-foreground">
+                    <ImageOff className="size-7" aria-hidden />
+                </div>
+            )}
+            <figcaption className={url ? 'text-xs font-semibold' : 'text-xs font-semibold text-muted-foreground'}>
                 {url ? label : `No ${label.toLowerCase()} uploaded`}
-            </Typography>
-        </Stack>
+            </figcaption>
+        </figure>
     );
 
+    const facts: Array<{ label: string; value: string; icon: React.ReactNode; tone: Tone }> = [
+        { label: 'Fiscal year', value: formatFiscalYearRange(companyData.fiscalYear), icon: <CalendarRange aria-hidden />, tone: 'cyan' },
+        { label: 'Founded', value: clean(companyData.foundedIn) || '—', icon: <Flag aria-hidden />, tone: 'purple' },
+        { label: 'GST number', value: clean(companyData.gstNumber) || '—', icon: <Receipt aria-hidden />, tone: 'amber' },
+        { label: 'PAN', value: clean(companyData.panNo) || '—', icon: <IdCard aria-hidden />, tone: 'blue' },
+        { label: 'TAN', value: clean(companyData.tanNo) || '—', icon: <FileText aria-hidden />, tone: 'indigo' },
+        { label: 'Contact', value: phone || '—', icon: <Phone aria-hidden />, tone: 'green' },
+    ];
+
     return (
-        <Box sx={{ px: { xs: 1, md: 2 }, py: { xs: 1.5, md: 2 } }}>
-            {/* Identity header — the contact / company page's shape: avatar, name, the ways to
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-1 py-3 md:px-2 md:py-4">
+            {/* Identity header — the contact / company page's shape: logo, name, the ways to
                 reach the organization as links, and every action in one row. */}
-            <GlassSurface
-                variant="thin"
-                radius={16}
-                sx={{ p: { xs: 2, md: 2.5 }, mb: { xs: 2, md: 2.5 }, display: 'flex', alignItems: 'flex-start', gap: { xs: 1.5, md: 2.5 }, flexWrap: { xs: 'wrap', lg: 'nowrap' } }}
-            >
-                {onBack && (
-                    <WtIconButton
-                        onClick={onBack}
-                        title="Back to organizations"
-                        sx={{ mt: 0.25, flexShrink: 0, width: 32, height: 32, borderRadius: '10px', bgcolor: 'transparent', borderColor: 'transparent', '& .fs-3': { fontSize: '1.05rem' } }}
-                    >
-                        <AppIcon name="arrow-left" className="fs-3" />
-                    </WtIconButton>
-                )}
-                <Box sx={{ flexShrink: 0 }}>
-                    <SmartAvatar name={companyData.name} imageUrl={companyData.logo} size={84} shape="rounded" imageFit="contain" enablePreview />
-                </Box>
-                <Stack spacing={0.75} sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{companyData.name}</Typography>
-                    <Stack direction="row" alignItems="center" gap={1.25} flexWrap="wrap">
-                        {clean(companyData.businessType) && <Typography variant="body2" sx={{ fontWeight: 600 }}>{companyData.businessType}</Typography>}
-                        {clean(companyData.foundedIn) && <Typography variant="body2" color="text.secondary">Founded {companyData.foundedIn}</Typography>}
-                    </Stack>
-                    <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap" sx={{ pt: 0.25 }}>
-                        {phone && (
-                            <Link href={`tel:${phone.replace(/[^\d+]/g, '')}`} underline="hover" variant="body2" color="text.primary" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-                                <AppIcon name="phone" className="fs-6" />{phone}
-                            </Link>
+            <PersonHeader
+                name={companyData.name}
+                avatarUrl={companyData.logo}
+                avatarFit="contain"
+                meta={[
+                    clean(companyData.businessType),
+                    clean(companyData.foundedIn) ? `Founded ${companyData.foundedIn}` : '',
+                ].filter(Boolean)}
+                links={[
+                    ...(phone ? [{ href: `tel:${phone.replace(/[^\d+]/g, '')}`, label: phone, icon: <Phone aria-hidden /> }] : []),
+                    ...(email ? [{ href: `mailto:${email}`, label: email, icon: <Mail aria-hidden /> }] : []),
+                    ...(website ? [{ href: href(website), label: website.replace(/^https?:\/\//i, ''), icon: <Globe aria-hidden />, external: true }] : []),
+                ]}
+                onBack={onBack}
+                backLabel="Back to organizations"
+                actions={
+                    <>
+                        {onBranchesClick && (
+                            <Button variant="inverted" size="sm" onClick={onBranchesClick}>
+                                <MapPin data-icon="inline-start" aria-hidden /> Branches
+                            </Button>
                         )}
-                        {email && (
-                            <Link href={`mailto:${email}`} underline="hover" variant="body2" color="text.primary" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-                                <AppIcon name="sms" className="fs-6" />
-                                <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{email}</Box>
-                            </Link>
+                        <Button variant="inverted" size="sm" onClick={handleWhatsAppShare}>
+                            <WhatsAppIcon size={16} /> Share
+                        </Button>
+                        <Button variant="inverted" size="sm" onClick={handleDownloadPdf} disabled={pdfGenerating}>
+                            {pdfGenerating
+                                ? <Spinner className="size-4" aria-hidden />
+                                : <Download data-icon="inline-start" aria-hidden />}
+                            {pdfGenerating ? 'Generating…' : 'Download PDF'}
+                        </Button>
+                        {canEdit && (
+                            <Button size="sm" onClick={onEditClick}>
+                                <Pencil data-icon="inline-start" aria-hidden /> Edit details
+                            </Button>
                         )}
-                        {website && (
-                            <Link href={href(website)} target="_blank" rel="noopener noreferrer" underline="hover" variant="body2" color="text.primary" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-                                <AppIcon name="bi-globe" className="fs-6" />{website.replace(/^https?:\/\//i, '')}
-                            </Link>
-                        )}
-                    </Stack>
-                </Stack>
-                <Stack direction="row" gap={1} flexWrap="wrap" sx={{ flexShrink: 0, width: { xs: '100%', lg: 'auto' }, justifyContent: { lg: 'flex-end' } }}>
-                    {onBranchesClick && (
-                        <WtButton inverted size="small" onClick={onBranchesClick} startIcon={<AppIcon name="bi-geo-alt" className="fs-5" />} sx={{ whiteSpace: 'nowrap' }}>
-                            Branches
-                        </WtButton>
-                    )}
-                    <WtButton inverted size="small" onClick={handleWhatsAppShare} startIcon={<WhatsAppIcon size={16} />} sx={{ whiteSpace: 'nowrap' }}>
-                        Share
-                    </WtButton>
-                    <WtButton inverted size="small" onClick={handleDownloadPdf} disabled={pdfGenerating} startIcon={<AppIcon name="bi-download" className="fs-5" />} sx={{ whiteSpace: 'nowrap' }}>
-                        {pdfGenerating ? 'Generating…' : 'Download PDF'}
-                    </WtButton>
-                    {canEdit && (
-                        <WtButton size="small" onClick={onEditClick} startIcon={<AppIcon name="pencil" className="fs-5" />} sx={{ whiteSpace: 'nowrap' }}>
-                            Edit details
-                        </WtButton>
-                    )}
-                </Stack>
-            </GlassSurface>
+                    </>
+                }
+            />
 
             {/* The facts people look up most, before the full sections. */}
-            <Box sx={{ mb: 2.5 }}>
-                <StatGrid
-                    items={[
-                        { label: 'Fiscal Year', value: clean(companyData.fiscalYear) || DASH, icon: 'bi bi-calendar-range', accent: 'teal' },
-                        { label: 'Founded', value: clean(companyData.foundedIn) || DASH, icon: 'bi bi-flag', accent: 'purple' },
-                        { label: 'GST Number', value: clean(companyData.gstNumber) || DASH, icon: 'bi bi-receipt', accent: 'amber' },
-                        { label: 'PAN', value: clean(companyData.panNo) || DASH, icon: 'bi bi-person-vcard', accent: 'primary' },
-                        { label: 'TAN', value: clean(companyData.tanNo) || DASH, icon: 'bi bi-card-text', accent: 'blue' },
-                        { label: 'Contact', value: phone || DASH, icon: 'bi bi-telephone', accent: 'green' },
-                    ]}
-                />
-            </Box>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+                {facts.map((f) => (
+                    <StatCard key={f.label} size="sm" label={f.label} value={f.value} tone={f.tone} icon={f.icon} />
+                ))}
+            </div>
 
-            <TwoUpGrid>
-                <DetailCard title="Logo & Stamp" subtitle="Used on documents and payslips" icon="bi bi-building" accentColor="blue">
-                    <Stack direction="row" alignItems="stretch" gap={2} sx={{ pt: 1.5 }}>
-                        {assetSlot(companyData.logo, 'Organization logo')}
-                        <Box sx={{ width: '1px', bgcolor: 'divider' }} />
-                        {assetSlot(companyData.salaryStamp, 'Stamp')}
-                    </Stack>
-                </DetailCard>
+            <div className="grid gap-4 lg:grid-cols-2">
+                <Card tone="blue">
+                    <CardHeader>
+                        <SectionHeader icon={<ImageIcon aria-hidden />} tone="blue" title="Logo & stamp" description="Used on documents and payslips" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-stretch gap-4">
+                            {assetSlot(companyData.logo, 'Organization logo')}
+                            <div aria-hidden className="w-px bg-border" />
+                            {assetSlot(companyData.salaryStamp, 'Stamp')}
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Dynamic sections — rendered from the shared form schema so the info
                     page always mirrors the edit form (see infoSections above). */}
                 {infoSections.map(sec => {
                     const fields = sec.fields.filter((f: any) => !f.hidden && f.showOnInfoPage !== false);
                     if (!fields.length) return null;
-                    const st = sectionStyle(sec.id);
+                    const look = orgSectionLook(sec.id);
                     return (
-                        <DetailCard key={sec.id} title={titleCase(sec.title)} subtitle={st.subtitle || undefined} icon={st.icon} accentColor={st.accent}>
-                            {fields.map((f: any, i: number) => (
-                                <DetailRow key={f.id} label={f.label} value={renderFieldValue(f)} isLast={i === fields.length - 1} />
-                            ))}
-                        </DetailCard>
+                        <Card key={sec.id} tone={look.tone}>
+                            <CardHeader>
+                                <SectionHeader icon={look.icon} tone={look.tone} title={titleCase(sec.title)} description={look.subtitle || undefined} />
+                            </CardHeader>
+                            <CardContent>
+                                <DescriptionList
+                                    rows={fields.map((f: any) => ({ label: f.label, value: renderFieldValue(f), wide: isWideOrgField(f) }))}
+                                />
+                            </CardContent>
+                        </Card>
                     );
                 })}
-            </TwoUpGrid>
-        </Box>
+            </div>
+        </div>
     );
 };
 

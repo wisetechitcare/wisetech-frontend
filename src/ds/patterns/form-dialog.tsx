@@ -83,7 +83,13 @@ export function FormDialog({
    * Long forms: a nav rail (wide screens) that jumps to each part. Give each part an element with the
    * matching `id`. Replaces the live `WtFormDialog` section nav.
    */
-  sections?: Array<{ id: string; label: string; icon?: React.ReactNode }>
+  sections?: Array<{
+    id: string
+    label: string
+    icon?: React.ReactNode
+    /** The part has validation errors: flagged in the nav so an off-screen error is not missed. */
+    invalid?: boolean
+  }>
   /** Under the title — a wizard's Stepper. */
   subheader?: React.ReactNode
   /**
@@ -120,10 +126,18 @@ export function FormDialog({
                     <li key={sec.id}>
                       <a
                         href={`#${sec.id}`}
-                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 [&>svg]:size-4"
+                        data-invalid={sec.invalid || undefined}
+                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-invalid:text-destructive [&>svg]:size-4"
                       >
                         {sec.icon}
                         {titleCase(sec.label)}
+                        {/* A part with errors: a dot, red ink AND words — never colour alone. */}
+                        {sec.invalid && (
+                          <>
+                            <span aria-hidden className="ml-auto size-2 shrink-0 rounded-full bg-destructive" />
+                            <span className="sr-only"> (has errors)</span>
+                          </>
+                        )}
                       </a>
                     </li>
                   ))}

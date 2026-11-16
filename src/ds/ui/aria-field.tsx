@@ -32,9 +32,9 @@ function domProps<T extends object>(props: T): Omit<T, "elementType" | "slot"> {
   return rest
 }
 
-function AriaFieldLabel({ children }: { children: React.ReactNode }) {
+function AriaFieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   const [props, ref] = useContextProps({ children }, undefined, LabelContext)
-  return <FieldLabel {...domProps(props)} ref={ref} />
+  return <FieldLabel {...domProps(props)} required={required} ref={ref} />
 }
 
 function AriaFieldDescription({ children }: { children: React.ReactNode }) {
@@ -63,11 +63,12 @@ function FieldChrome({
   label,
   description,
   errorMessage,
+  required,
   children,
-}: FieldChromeProps & { children: React.ReactNode }) {
+}: FieldChromeProps & { children: React.ReactNode; /** Marks the label required (pass the field's `isRequired`). */ required?: boolean }) {
   return (
     <>
-      {label && <AriaFieldLabel>{label}</AriaFieldLabel>}
+      {label && <AriaFieldLabel required={required}>{label}</AriaFieldLabel>}
       {children}
       {description && <AriaFieldDescription>{description}</AriaFieldDescription>}
       <AriaFieldError errorMessage={errorMessage} />

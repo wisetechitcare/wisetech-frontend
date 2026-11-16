@@ -104,8 +104,14 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
 function FieldLabel({
   className,
   ref,
+  required,
+  children,
   ...props
-}: React.ComponentProps<typeof Label>) {
+}: React.ComponentProps<typeof Label> & {
+  /** WiseTech: marks the field required with a `*` (visual only — the control's own `required` /
+   *  `isRequired` is what assistive tech announces). Opt-in, so unmarked forms are unchanged. */
+  required?: boolean
+}) {
   // Publishes the label's width for the border notch (no label background — lib/floating-notch).
   const notchRef = useFloatingNotchRef(ref)
   return (
@@ -118,7 +124,14 @@ function FieldLabel({
         className
       )}
       {...props}
-    />
+    >
+      {children}
+      {required && (
+        <span aria-hidden data-slot="field-required" className="-ms-1 text-destructive">
+          *
+        </span>
+      )}
+    </Label>
   )
 }
 

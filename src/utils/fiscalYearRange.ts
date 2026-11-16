@@ -1,3 +1,5 @@
+import { formatDate } from './dateFormats';
+
 /**
  * Fiscal-year RANGE as a stored string: `"YYYY-MM-DD to YYYY-MM-DD"`.
  *
@@ -97,4 +99,15 @@ export const convertFiscalYearToDates = (fiscalYear: string): Date[] => {
   const end = to ? parseFiscalDateString(to) : null;
   if (!start || !end) return [];
   return [start, end];
+};
+
+/**
+ * A stored range for people to read, in the company date format: `"2026.04.01 – 2027.03.31"`.
+ * Exact dates on purpose (a fiscal year is not always April–March); for the compact `2026-27` label in
+ * selectors use `formatFiscalYearLabel` (fiscalYearHelper). Empty / unreadable → `fallback`.
+ */
+export const formatFiscalYearRange = (value: string | null | undefined, fallback = '—'): string => {
+  const { from, to } = splitFiscalYearRange(value);
+  if (!from || !to) return fallback;
+  return `${formatDate(from)} – ${formatDate(to)}`;
 };

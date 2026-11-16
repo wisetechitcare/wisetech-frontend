@@ -238,3 +238,19 @@ export const FloatingLabelsDark: Story = {
     await expect(labelTop(canvas.getByLabelText('Employee Code'))).toBe(0)
   },
 }
+
+/** Opt-in required marker: a `*` beside the label (visual only); the control's own `required` is what is announced. */
+export const Required: Story = {
+  render: () => (
+    <Field>
+      <FieldLabel htmlFor="legal-name" required>Legal name</FieldLabel>
+      <Input id="legal-name" required />
+    </Field>
+  ),
+  play: async ({ canvas }) => {
+    // By accessible name: the `*` is aria-hidden, so the field is announced as "Legal Name", not "Legal Name *".
+    const input = canvas.getByRole('textbox', { name: 'Legal Name' })
+    await expect(input).toBeRequired()
+    await expect(canvas.getByText('*')).toHaveAttribute('aria-hidden', 'true')
+  },
+}
