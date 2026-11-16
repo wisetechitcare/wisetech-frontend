@@ -31,8 +31,15 @@ function NumberField({
   errorMessage,
   placeholder,
   className,
+  hideSteppers,
+  inputClassName,
   ...props
-}: NumberFieldProps & FieldChromeProps & { placeholder?: string }) {
+}: NumberFieldProps & FieldChromeProps & {
+  placeholder?: string
+  /** No −/+ buttons: for money and other values nobody nudges by one. */
+  hideSteppers?: boolean
+  inputClassName?: string
+}) {
   return (
     <AriaNumberField
       data-slot="number-field"
@@ -52,22 +59,29 @@ function NumberField({
             <Input
               data-slot="input-group-control"
               placeholder={placeholder ?? " "}
-              className="h-full min-w-0 flex-1 bg-transparent px-3 text-base tabular-nums outline-none placeholder:text-muted-foreground md:text-sm"
+              className={cn(
+                "h-full min-w-0 flex-1 bg-transparent px-3 text-base tabular-nums outline-none placeholder:text-muted-foreground md:text-sm",
+                inputClassName,
+              )}
             />
-            <Button
-              slot="decrement"
-              data-slot="number-field-decrement"
-              className={stepperClassName}
-            >
-              <MinusIcon />
-            </Button>
-            <Button
-              slot="increment"
-              data-slot="number-field-increment"
-              className={cn(stepperClassName, "me-0.5")}
-            >
-              <PlusIcon />
-            </Button>
+            {!hideSteppers && (
+              <>
+                <Button
+                  slot="decrement"
+                  data-slot="number-field-decrement"
+                  className={stepperClassName}
+                >
+                  <MinusIcon />
+                </Button>
+                <Button
+                  slot="increment"
+                  data-slot="number-field-increment"
+                  className={cn(stepperClassName, "me-0.5")}
+                >
+                  <PlusIcon />
+                </Button>
+              </>
+            )}
           </Group>
         </AriaInputGroup>
       </FieldChrome>

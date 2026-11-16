@@ -44,10 +44,11 @@ export const COMPANY_BUILTIN_SECTIONS: BuiltinSection[] = [
   ]},
   { id: "gst", title: "GST & Statutory", fields: [
     { id: "gstNumber", label: "GST Number" },
-    { id: "panNumber", label: "PAN Number" },
-    { id: "gstDocument", label: "GST Document", type: "file" },
-    { id: "panDocument", label: "PAN Document", type: "file" },
+    { id: "gstState", label: "GST State" },
     { id: "gstAddress", label: "GST Address" },
+    { id: "gstDocument", label: "GST Document", type: "file" },
+    { id: "panNumber", label: "PAN Number" },
+    { id: "panDocument", label: "PAN Document", type: "file" },
   ]},
   { id: "others", title: "Status & Notes", fields: [
     { id: "status", label: "Status" },

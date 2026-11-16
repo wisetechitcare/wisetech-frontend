@@ -35,7 +35,7 @@ describe("mergeCompanySchema", () => {
     ]}];
     const gst = mergeCompanySchema(legacy).find((s) => s.id === "gst")!;
     expect(gst.title).toBe("GST");
-    expect(gst.fields.map((f) => f.id)).toEqual(["gstNumber", "panNumber", "gstDocument", "panDocument", "gstAddress", "custom-1"]);
+    expect(gst.fields.map((f) => f.id)).toEqual(["gstNumber", "panNumber", "gstDocument", "panDocument", "gstAddress", "gstState", "custom-1"]);
   });
 
   it("never lets a saved config unlock constraints", () => {

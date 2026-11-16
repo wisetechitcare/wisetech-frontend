@@ -1,8 +1,10 @@
 import React from "react";
+import { ListChecks, Plus } from "lucide-react";
 import type { ProjectPointValue } from "@services/projectPoints";
 import ProjectPointRow from "./ProjectPointRow";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { Button } from '@/ds/ui/button';
+import { Badge } from "@/ds/ui/badge";
+import { Button } from "@/ds/ui/button";
+import { EmptyState } from "@/ds/patterns/empty-state";
 
 interface ProjectPointsSectionProps {
     /** Current rows (controlled). */
@@ -23,15 +25,11 @@ const ProjectPointsSection: React.FC<ProjectPointsSectionProps> = ({
 }) => {
     const rows = value || [];
 
-    const patchRow = (idx: number, patch: Partial<ProjectPointValue>) => {
-        const next = rows.map((r, i) => (i === idx ? { ...r, ...patch } : r));
-        onChange(next);
-    };
+    const patchRow = (idx: number, patch: Partial<ProjectPointValue>) =>
+        onChange(rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
 
-    const removeRow = (idx: number) => {
-        const next = rows.filter((_, i) => i !== idx).map((r, i) => ({ ...r, sortOrder: i }));
-        onChange(next);
-    };
+    const removeRow = (idx: number) =>
+        onChange(rows.filter((_, i) => i !== idx).map((r, i) => ({ ...r, sortOrder: i })));
 
     const move = (idx: number, dir: -1 | 1) => {
         const target = idx + dir;
@@ -41,67 +39,52 @@ const ProjectPointsSection: React.FC<ProjectPointsSectionProps> = ({
         onChange(next.map((r, i) => ({ ...r, sortOrder: i })));
     };
 
-    const addCustom = () => {
-        onChange([
-            ...rows,
-            { pointMasterId: null, heading: "", description: "", sortOrder: rows.length },
-        ]);
-    };
+    const addCustom = () =>
+        onChange([...rows, { pointMasterId: null, heading: "", description: "", sortOrder: rows.length }]);
+
+    const addButton = (
+        <Button type="button" variant="outline" size="sm" onClick={addCustom} disabled={disabled}>
+            <Plus data-icon="inline-start" />
+            Add Point
+        </Button>
+    );
 
     return (
-        <div>
-            <div style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                marginBottom: 4, flexWrap: "wrap", gap: 8,
-            }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>{title}</div>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addCustom}
-                    disabled={disabled}
-                >
-                    <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-plus-lg" /></span> Add Point
-                </Button>
+        <section data-slot="project-points" className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="m-0 flex items-center gap-2 text-sm font-semibold text-foreground">
+                    {title}
+                    {rows.length > 0 && <Badge variant="neutral">{rows.length}</Badge>}
+                </h3>
+                {rows.length > 0 && addButton}
             </div>
 
-            {/* Column headers */}
-            {rows.length > 0 && (
-                <div style={{
-                    display: "grid", gridTemplateColumns: "28px 1fr 1.4fr 64px", gap: 10,
-                    padding: "2px 0", fontSize: 11.5, fontWeight: 600, color: "#94a3b8",
-                }}>
-                    <span />
-                    <span>Heading</span>
-                    <span>Description</span>
-                    <span />
-                </div>
-            )}
-
             {rows.length === 0 ? (
-                <div style={{
-                    textAlign: "center", padding: "18px", color: "#94a3b8",
-                    fontSize: 12.5, border: "1px dashed #e2e8f0", borderRadius: 8,
-                }}>
-                    No project points. Click “Add Point” to add one.
-                </div>
+                <EmptyState
+                    size="sm"
+                    icon={<ListChecks />}
+                    title="No project points yet"
+                    description="Add the key points of this project, in the order they should read."
+                    action={addButton}
+                />
             ) : (
-                rows.map((row, idx) => (
-                    <ProjectPointRow
-                        key={row.id || row.pointMasterId || `row-${idx}`}
-                        row={row}
-                        index={idx}
-                        total={rows.length}
-                        disabled={disabled}
-                        onChange={(patch) => patchRow(idx, patch)}
-                        onRemove={() => removeRow(idx)}
-                        onMoveUp={() => move(idx, -1)}
-                        onMoveDown={() => move(idx, 1)}
-                    />
-                ))
+                <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
+                    {rows.map((row, idx) => (
+                        <ProjectPointRow
+                            key={row.id || row.pointMasterId || `row-${idx}`}
+                            row={row}
+                            index={idx}
+                            total={rows.length}
+                            disabled={disabled}
+                            onChange={(patch) => patchRow(idx, patch)}
+                            onRemove={() => removeRow(idx)}
+                            onMoveUp={() => move(idx, -1)}
+                            onMoveDown={() => move(idx, 1)}
+                        />
+                    ))}
+                </ol>
             )}
-        </div>
+        </section>
     );
 };
 

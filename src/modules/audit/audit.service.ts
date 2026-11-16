@@ -11,7 +11,6 @@ import { api } from '@/lib/apiClient';
 export type AuditEntityType =
   | 'LEAD'
   | 'PROJECT'
-  | 'PROPOSAL'
   | 'INVOICE'
   | 'CONTACT'
   | 'COMPANY'

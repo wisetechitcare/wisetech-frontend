@@ -101,17 +101,19 @@ export function FormDialog({
     <>
       <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
         <DialogContent className={cn(formDialogVariants({ size }))}>
-          <DialogHeader className="flex-row items-center gap-3 border-b px-6 py-4 pr-14 text-left">
+          {/* Every border names `border-border`: a bare `border-b` falls back to currentColor under Metronic's CSS and
+              drew a black rule under the header and above the footer. */}
+          <DialogHeader className="flex-row items-center gap-3 border-b border-border px-6 py-4 pr-14 text-left">
             {icon && <IconBox icon={icon} tone={tone} />}
             <div className="min-w-0 space-y-0.5">
               <DialogTitle>{title}</DialogTitle>
               {description && <DialogDescription>{description}</DialogDescription>}
             </div>
           </DialogHeader>
-          {subheader && <div className="border-b px-6 py-3">{subheader}</div>}
+          {subheader && <div className="border-b border-border px-6 py-3">{subheader}</div>}
           <div className="flex min-h-0 flex-1">
             {sections && sections.length > 0 && (
-              <nav aria-label="Form sections" className="hidden w-52 shrink-0 overflow-y-auto border-r p-3 lg:block">
+              <nav aria-label="Form sections" className="hidden w-52 shrink-0 overflow-y-auto border-r border-border p-3 lg:block">
                 <ul className="space-y-0.5">
                   {sections.map((sec) => (
                     <li key={sec.id}>
@@ -129,7 +131,7 @@ export function FormDialog({
             )}
             <div className="min-h-0 flex-1 scroll-smooth overflow-y-auto px-6 py-5">{children}</div>
           </div>
-          <DialogFooter className="items-center border-t px-6 py-4 sm:justify-between">
+          <DialogFooter className="items-center border-t border-border px-6 py-4 sm:justify-between">
             {footer ? (
               footer(requestClose)
             ) : (

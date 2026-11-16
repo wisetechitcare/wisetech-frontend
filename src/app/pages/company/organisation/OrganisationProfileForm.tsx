@@ -13,6 +13,8 @@ import { Box, Typography } from '@mui/material';
 import eventBus from '@utils/EventBus';
 import { WtDateField, WtField, WtButton, WtFormDialog, WtFormSection, WtFormSpan, WtImageField, AppIcon, FiscalYearRangeField } from '@app/modules/common/components/ui';
 import { toCanonicalFiscalYearRange } from '@utils/fiscalYearRange';
+import { GST_STATE_CODES, gstStateCode, gstinPan, typeGstin, typePan } from '@utils/gstin';
+import { Button } from '@/ds/ui/button';
 import { KTIcon } from '@metronic/helpers';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { useSelector, useDispatch } from 'react-redux';
@@ -230,6 +232,39 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                 <Box>
                     <WtDateField label={field.label + (field.required ? ' *' : '')} value={value} onChange={set} />
                     {error && <Typography sx={{ fontSize: 12, color: 'error.main', mt: 0.5, ml: 1.75 }}>{error}</Typography>}
+                </Box>
+            );
+        }
+        // GSTIN / PAN: same typing filter and rules as GstinInput / PanInput on the company forms.
+        if (sys && (field.id === 'gstNumber' || field.id === 'panNo')) {
+            const isGst = field.id === 'gstNumber';
+            const gstinPanValue = gstinPan(f.values.gstNumber);
+            const code = gstinPanValue ? gstStateCode(f.values.gstNumber) : null;
+            const onType = (v: string) => {
+                const next = isGst ? typeGstin(v, value) : typePan(v, value);
+                f.setFieldValue(field.id, next);
+                if (next.length === (isGst ? 15 : 10)) f.setFieldTouched(field.id, true, false);
+                const nextPan = isGst ? gstinPan(next) : null;
+                if (nextPan && !f.values.panNo) f.setFieldValue('panNo', nextPan);
+            };
+            return (
+                <Box>
+                    <WtField
+                        label={field.label}
+                        required={field.required}
+                        value={value}
+                        onChange={onType}
+                        error={error}
+                        hint={isGst && code ? `✓ Valid GSTIN · ${GST_STATE_CODES[code]} (${code}) · PAN ${gstinPanValue}` : undefined}
+                        placeholder={isGst ? 'e.g. 27ABCDE1234F1Z5' : 'e.g. ABCDE1234F'}
+                        size="md"
+                        fullWidth
+                    />
+                    {!isGst && gstinPanValue && value && value.toUpperCase() !== gstinPanValue && (
+                        <Button type="button" variant="outline" size="xs" className="mt-2" onClick={() => f.setFieldValue('panNo', gstinPanValue)}>
+                            Use {gstinPanValue} from GST number
+                        </Button>
+                    )}
                 </Box>
             );
         }

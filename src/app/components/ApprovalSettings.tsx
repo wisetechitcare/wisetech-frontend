@@ -10,7 +10,7 @@ import {
   saveApprovalWorkflowChain,
 } from '@services/employee';
 
-type WorkflowType = 'attendance' | 'leave' | 'reimbursement' | 'billing_request';
+type WorkflowType = 'attendance' | 'leave' | 'reimbursement';
 
 interface ApproverOption {
   value: string;
@@ -49,18 +49,12 @@ const MODULES: Array<{ key: WorkflowType; label: string }> = [
   { key: 'attendance', label: 'Attendance' },
   { key: 'leave', label: 'Leave' },
   { key: 'reimbursement', label: 'Reimbursement' },
-  // Billing Request approval chain. Same generic framework as every other module —
-  // configuring approvers here is all that is needed to route a billing request.
-  // Hidden while the billing REQUEST system is switched off; uncomment to restore.
-  // Saved chains are untouched — this only hides the tab.
-  // { key: 'billing_request', label: 'Billing Request' },
 ];
 
 /**
  * The workflow types this form edits, in display order. Exported because callers used to
- * keep their own copy of the list: the wizard seeded three chains and the onboarding gate
- * checked three, while MODULES had grown a fourth (billing_request) — so the fourth row
- * rendered off an undefined chain and took the step down. One list, no drift.
+ * keep their own copy of the list, and a copy that falls behind MODULES renders a row off an
+ * undefined chain. One list, no drift.
  */
 export const WORKFLOW_TYPES: WorkflowType[] = MODULES.map((m) => m.key);
 
@@ -70,11 +64,10 @@ const emptyRecord = (): Record<WorkflowType, string[]> => ({
   attendance: emptyChain(),
   leave: emptyChain(),
   reimbursement: emptyChain(),
-  billing_request: emptyChain(),
 });
 
-// Read the display name off MODULES rather than capitalizing the key — a snake_case key
-// like `billing_request` would otherwise surface as "Billing_request" in toasts.
+// Read the display name off MODULES rather than capitalizing the key, so a snake_case key
+// never surfaces as "Some_key" in toasts.
 const capitalize = (s: string) =>
   MODULES.find((m) => m.key === s)?.label ?? s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -149,10 +142,7 @@ export const persistApprovalChains = async (
 ): Promise<void> => {
   if (!chains || !targetEmployeeId) return;
 
-  // Derived from MODULES, not listed by hand. This helper arrived with three workflow
-  // types hardcoded and the branch it merged into had added a fourth
-  // (`billing_request`), so a billing chain would have been configured in the UI and
-  // then silently not written. Deriving it means adding a workflow stays a one-line
+  // Derived from MODULES, not listed by hand, so adding a workflow stays a one-line
   // change instead of a hunt for every hardcoded list.
   for (const { key: type } of MODULES) {
     const chain: string[] = Array.isArray(chains?.[type]) ? (chains[type] as string[]) : [];

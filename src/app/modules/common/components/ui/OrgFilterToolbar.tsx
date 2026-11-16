@@ -87,7 +87,9 @@ export function useOrgFilters<T extends OrgFilterableRow>(
         (status !== defaultStatus ? 1 : 0) + (subOrg !== 'All' ? 1 : 0) +
         (branch !== 'All' ? 1 : 0) + (team !== 'All' ? 1 : 0);
 
-    return {
+    // Memoised: callers put `filters` in useMemo/useEffect deps. A fresh object every render made
+    // the reimbursement Payment tab loop (filters → rows → selection effect → setState → render).
+    return useMemo(() => ({
         status, setStatus,
         subOrg, setSubOrg,
         branch, setBranch,
@@ -102,7 +104,7 @@ export function useOrgFilters<T extends OrgFilterableRow>(
             (subOrg === 'All' || row.subOrganization === subOrg) &&
             (branch === 'All' || row.branch === branch) &&
             (team === 'All' || row.team === team),
-    };
+    }), [status, subOrg, branch, team, subOrgOptions, branchOptions, teamOptions, activeCount, defaultStatus]);
 }
 
 export function OrgFilterToolbar({ filters }: { filters: OrgFilterState<any> }) {

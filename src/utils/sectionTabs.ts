@@ -141,7 +141,7 @@ export const DELETABLE_SECTIONS: ReadonlySet<string> = new Set([
   'users', 'attendance.employees', 'timesheets.employees', 'meetings', 'calendar',
   'crm.leads', 'crm.companies', 'crm.contacts', 'projects', 'tasks', 'recruitment', 'gift-management',
   'finance.loans', 'finance.reimbursements', 'finance.salary', 'finance.increment',
-  'billing.configure', 'billing.requests', 'billing.proformas', 'billing.invoices', 'billing.payments',
+  'billing.configure', 'billing.proformas', 'billing.invoices',
   'settings.profile', 'settings.announcements', 'settings.teams', 'settings.employeeLevel',
 ]);
 export const NOTHING_TO_DELETE = "There's nothing to delete in this section, so Delete doesn't apply here.";

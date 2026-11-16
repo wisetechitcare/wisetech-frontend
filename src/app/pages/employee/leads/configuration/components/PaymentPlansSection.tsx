@@ -5,6 +5,7 @@ import { getAllProjectCategories, getAllProjectSubcategories } from '@services/p
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import { deleteConfirmation } from '@utils/modal';
+import { toast } from '@app/modules/common/components/ui/feedback';
 import { PaymentPlan } from '@models/leads';
 import type { CategoryLike, SubCategoryLike } from '@utils/categoryScope';
 import { ChipGrid, ConfigSectionCard, EmptyState, C, FONT, RADIUS } from '@app/modules/configuration';
@@ -105,7 +106,8 @@ const PaymentPlanChip: React.FC<{
                     >
                         <i className="bi bi-pencil" style={{ fontSize: '11px' }} />
                     </Button>
-                    <IfCanDelete>
+                    {/* The default is never deletable — set another plan as default first. */}
+                    {!plan.isDefault && <IfCanDelete>
                     <Button
                         variant="tinted"
                         size="icon-xs"
@@ -115,7 +117,7 @@ const PaymentPlanChip: React.FC<{
                     >
                         <i className="bi bi-trash" style={{ fontSize: '11px' }} />
                     </Button>
-                    </IfCanDelete>
+                    </IfCanDelete>}
                 </div>
             </div>
         </div>
@@ -152,12 +154,15 @@ const PaymentPlansSection: React.FC<{
 
     const handleDelete = async (id: string) => {
         try {
-            const confirmed = await deleteConfirmation('Payment plan deleted.');
+            // announce=false: the server refuses a plan that leads still use, so
+            // "deleted" is only said once it actually was.
+            const confirmed = await deleteConfirmation('Payment plan deleted.', 'Delete', 'Deleted', false);
             if (!confirmed) return;
             await deletePaymentPlan(id);
+            toast({ icon: 'success', title: 'Payment plan deleted.' });
             fetchPaymentPlans();
-        } catch (error) {
-            console.error('Error deleting payment plan:', error);
+        } catch (error: any) {
+            toast({ icon: 'error', title: error?.response?.data?.message ?? 'Could not delete the payment plan.' });
         }
     };
 

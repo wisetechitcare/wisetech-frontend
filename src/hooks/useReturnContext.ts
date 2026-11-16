@@ -33,7 +33,7 @@ const KEY = "returnContext";
 /**
  * Build the nav options that hand a return context to wherever you're going.
  *
- *   navigate(`/billing/requests/${id}`, withReturnContext({ pathname, label: "Project Billing" }))
+ *   navigate(`/billing/documents/${id}`, withReturnContext({ pathname, label: "Project Billing" }))
  */
 export const withReturnContext = (
     context: Omit<ReturnContext, "scrollY"> & { scrollY?: number },

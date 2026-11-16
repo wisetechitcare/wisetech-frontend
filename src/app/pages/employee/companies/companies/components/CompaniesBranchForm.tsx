@@ -9,6 +9,7 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { GST_VALIDATION, EMPTY_GST_VALUES, gstValuesOf, GstStatutoryFields } from "./GstStatutory";
 import {
   createClientBranch,
   updateClientBranch,
@@ -45,6 +46,7 @@ const defaultValues = {
   longitude: "",
   gmbLink: "",
   googleMapLink: "",
+  ...EMPTY_GST_VALUES,
 };
 
 // Validation schema
@@ -54,6 +56,7 @@ const validationSchema = Yup.object().shape({
   // Everything else is optional. Plain Yup.string() rules on those rejected the nulls a saved
   // branch comes back with ("address cannot be null"), blocking every edit of an old branch.
   email: Yup.string().nullable().email("Invalid email format"),
+  ...GST_VALIDATION,
 });
 
 interface CompaniesBranchFormProps {
@@ -268,6 +271,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
           const updatedValues = {
             ...defaultValues,
             ...branchData,
+            ...gstValuesOf(branchData),
             country: selectedCountry ? selectedCountry.id : "",
             state: finalStateValue,
             city: finalCityValue,
@@ -441,6 +445,19 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                           handleCountryChange={handleCountryChange}
                           handleStateChange={handleStateChange}
                         />
+                      ),
+                    },
+                    {
+                      id: "gst",
+                      label: "GST & Statutory",
+                      title: "GST & Statutory",
+                      subtitle: "GST, PAN and their documents",
+                      fields: ["gstNumber", "panNumber", "gstAddress", "gstState", "gstDocument", "panDocument"],
+                      icon: "bi-file-earmark-text",
+                      content: (
+                        <CrmSection title="GST & Statutory">
+                          <GstStatutoryFields />
+                        </CrmSection>
                       ),
                     },
                   ]}

@@ -7,8 +7,6 @@ import type {
   DMSFile, DMSFolder, DMSState, SearchFilters, ViewMode,
   SortField, SortOrder, UploadItem, DocumentStatus, ExportType
 } from '../types/dms.types';
-import * as dmsService from '../services/dmsService';
-
 
 const buildDefaultFolders = (leadId?: string, inquiryNumber?: string): DMSFolder[] => {
   const rootId = leadId ? `root-${leadId}` : 'root-global';
@@ -56,7 +54,7 @@ const buildDefaultFolders = (leadId?: string, inquiryNumber?: string): DMSFolder
 
 const createInitialState = (leadId?: string, inquiryNumber?: string, leadTitle?: string): DMSState => ({
   folders: buildDefaultFolders(leadId, inquiryNumber),
-  files: [], // Always start empty and fetch in useEffect
+  files: [],
   selectedFiles: [],
   currentFolderId: null,
   breadcrumbs: [],
@@ -145,7 +143,6 @@ interface DMSContextValue {
   getFolder: (folderId: string) => DMSFolder | undefined;
   getTotalFilesCount: () => number;
   isGlobalMode: boolean;
-  getLatestTempNumber: (templateId: string, revisionNumber: number) => number;
   deleteFiles: (fileIds: string[]) => Promise<void>;
 }
 
@@ -164,105 +161,6 @@ export const DMSProvider: React.FC<DMSProviderProps> = ({ children, leadId, inqu
   );
 
   const isGlobalMode = !leadId;
-
-  // ─── Data Fetching ───────────────────────────────────────────
-  useEffect(() => {
-    const fetchDocs = async () => {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      try {
-        const response = leadId 
-          ? await dmsService.getLeadDocuments(leadId)
-          : await dmsService.getAllDocuments();
-
-        if (response.status === 'success' && Array.isArray(response.data)) {
-          const rawData = response.data;
-          const mappedFiles: DMSFile[] = rawData.map((doc: any) => {
-            let folderId = doc.exportType === 'temporary' ? 'f-temp' : 'f-rev';
-            if (!leadId && doc.leadId) {
-              folderId = doc.exportType === 'temporary' ? `t-${doc.leadId}` : `r-${doc.leadId}`;
-            }
-
-            return {
-              id: doc.id,
-              name: doc.fileName || doc.generatedDocxUrl?.split('/').pop() || `${doc.template?.templateName || 'Proposal'}.docx`,
-              type: (doc.generatedDocxUrl ? 'docx' : (doc.generatedPdfUrl ? 'pdf' : 'docx')) as any,
-              size: doc.fileSize || 0,
-              folderId,
-              folderPath: leadId ? [] : [(doc.lead?.prefix || 'Project')],
-              status: (doc.exportType || 'draft') as any,
-              exportType: (doc.exportType || 'revision') as any,
-              revisionNumber: doc.revisionNumber,
-              tempNumber: doc.tempNumber,
-              templateId: doc.templateId,
-              s3Url: doc.generatedDocxUrl || doc.generatedPdfUrl,
-              tags: [],
-              notes: '',
-              isPinned: false,
-              isLocked: false,
-              createdAt: doc.createdAt,
-              updatedAt: doc.createdAt,
-              createdBy: doc.creator ? `${doc.creator.users?.firstName || ''} ${doc.creator.users?.lastName || ''}`.trim() : 'System',
-              updatedBy: 'System',
-              cloudSynced: true,
-              metadata: {
-                inquiryNumber: doc.lead?.prefix || '-',
-                clientName: doc.lead?.company?.companyName || 'Unknown',
-                projectName: doc.lead?.title || '-',
-                revisionNumber: doc.exportType === 'temporary' ? '-' : `REV_${String(doc.revisionNumber).padStart(2, '0')}`,
-                exportDate: doc.createdAt,
-                templateUsed: doc.template?.templateName || 'Standard',
-                exportedBy: doc.creator ? `${doc.creator.users?.firstName || ''} ${doc.creator.users?.lastName || ''}`.trim() : 'System',
-                totalPages: 0,
-                fileSizeEstimate: '0 KB'
-              },
-              activityLog: []
-            };
-          });
-
-          if (!leadId) {
-            // Global Mode: Dynamically build folders from files
-            const rootId = 'root-global';
-            const folders: DMSFolder[] = [{
-              id: rootId, name: 'All Projects', parentId: null, children: [], fileCount: 0, totalSize: 0, isPinned: true, isExpanded: true, createdAt: new Date().toISOString(), icon: '📁', isSystem: true, color: '#1E3A8A'
-            }];
-
-            const projectMap = new Map<string, any>();
-            rawData.forEach((doc: any) => {
-              if (doc.leadId && !projectMap.has(doc.leadId)) {
-                projectMap.set(doc.leadId, { prefix: doc.lead?.prefix, title: doc.lead?.title });
-              }
-            });
-
-            projectMap.forEach((info, lId) => {
-              const pId = `p-${lId}`;
-              const tId = `t-${lId}`;
-              const rId = `r-${lId}`;
-
-              const tFolder: DMSFolder = { id: tId, name: 'Temporary', parentId: pId, children: [], fileCount: 0, totalSize: 0, isPinned: false, isExpanded: false, createdAt: new Date().toISOString(), icon: '🕐', isSystem: true };
-              const rFolder: DMSFolder = { id: rId, name: 'Revisions', parentId: pId, children: [], fileCount: 0, totalSize: 0, isPinned: false, isExpanded: false, createdAt: new Date().toISOString(), icon: '🔄', isSystem: true };
-              const pFolder: DMSFolder = {
-                id: pId, name: `${info.prefix || 'PRJ'} - ${info.title || 'Untitled'}`, parentId: rootId, children: [tFolder, rFolder],
-                fileCount: 0, totalSize: 0, isPinned: false, isExpanded: false, createdAt: new Date().toISOString(), icon: '📂', isSystem: true
-              };
-
-              folders[0].children.push(pFolder);
-              folders.push(pFolder, tFolder, rFolder);
-            });
-
-            dispatch({ type: 'SET_FILES_AND_FOLDERS', payload: { files: mappedFiles, folders } });
-          } else {
-            dispatch({ type: 'SET_FILES', payload: mappedFiles });
-          }
-        }
-      } catch (err) {
-        dispatch({ type: 'SET_ERROR', payload: 'Failed to load documents' });
-      } finally {
-        dispatch({ type: 'SET_LOADING', payload: false });
-      }
-    };
-
-    fetchDocs();
-  }, [leadId, inquiryNumber, leadTitle]);
 
   // ─── Breadcrumb Synchronization ──────────────────────────────
   useEffect(() => {
@@ -321,32 +219,13 @@ export const DMSProvider: React.FC<DMSProviderProps> = ({ children, leadId, inqu
   const getFolder = useCallback((folderId: string) => state.folders.find(f => f.id === folderId), [state.folders]);
   const getTotalFilesCount = useCallback(() => state.files.length, [state.files]);
 
-  const getLatestTempNumber = useCallback((templateId: string, revisionNumber: number) => {
-    const matches = state.files.filter(f => 
-      f.templateId === templateId && 
-      f.revisionNumber === revisionNumber
-    );
-    if (matches.length === 0) return 0;
-    return Math.max(...matches.map(f => f.tempNumber || 0));
-  }, [state.files]);
-
   const deleteFiles = useCallback(async (fileIds: string[]) => {
-    dispatch({ type: 'SET_LOADING', payload: true });
-    try {
-      await dmsService.deleteDocuments(fileIds);
-      dispatch({ type: 'DELETE_FILES', payload: fileIds });
-    } catch (err) {
-      console.error('Bulk delete failed:', err);
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to delete files' });
-      throw err;
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
+    dispatch({ type: 'DELETE_FILES', payload: fileIds });
   }, []);
 
   const value = useMemo(() => ({
-    state, dispatch, getFilesInFolder, getFilteredFiles, getFolder, getTotalFilesCount, isGlobalMode, getLatestTempNumber, deleteFiles
-  }), [state, getFilesInFolder, getFilteredFiles, getFolder, getTotalFilesCount, isGlobalMode, getLatestTempNumber, deleteFiles]);
+    state, dispatch, getFilesInFolder, getFilteredFiles, getFolder, getTotalFilesCount, isGlobalMode, deleteFiles
+  }), [state, getFilesInFolder, getFilteredFiles, getFolder, getTotalFilesCount, isGlobalMode, deleteFiles]);
 
   return (
     <DMSContext.Provider value={value}>

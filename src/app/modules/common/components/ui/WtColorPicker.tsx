@@ -1,4 +1,4 @@
-import React, { useId, useMemo } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Box, Stack, TextField, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { TRIO, type Trio } from './patterns';
@@ -83,7 +83,7 @@ export interface WtColorPickerProps {
     /** Stored value: a palette entry's `value`, or a hex. */
     value: string;
     onChange: (value: string) => void;
-    /** Defaults to the kit palette. */
+    /** Defaults to the kit palette. Pass `[]` for a compact custom swatch + hex field on one line. */
     palette?: readonly ColorSwatch[];
     /** Accessible name for the group, e.g. "Section colour". */
     label: string;
@@ -105,10 +105,37 @@ export function WtColorPicker({
     variant = 'grid',
 }: WtColorPickerProps) {
     const inputId = useId();
-    const currentHex = useMemo(() => resolveSwatchHex(value, palette), [value, palette]);
+
+    // Dragging in the browser picker fires an input event per mouse move. The picker
+    // shows the drag locally (`draft`) and hands the parent at most one value per
+    // animation frame, so a caller whose onChange is expensive — Appearance re-themes
+    // the whole app — stays smooth. The ref keeps the frame calling the LATEST onChange.
+    const [draft, setDraft] = useState<string | null>(null);
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
+    const pending = useRef<string | null>(null);
+    const frame = useRef(0);
+    useEffect(() => () => cancelAnimationFrame(frame.current), []);
+    const dragTo = (hex: string) => {
+        setDraft(hex);
+        pending.current = hex;
+        if (frame.current) return;
+        frame.current = requestAnimationFrame(() => {
+            frame.current = 0;
+            if (pending.current) onChangeRef.current(pending.current);
+        });
+    };
+    // Drop the draft once the parent has caught up with it (or the input loses focus,
+    // in case the parent normalised the value away).
+    useEffect(() => {
+        if (draft && value?.toLowerCase() === draft.toLowerCase()) setDraft(null);
+    }, [value, draft]);
+
+    const shown = draft ?? value;
+    const currentHex = useMemo(() => resolveSwatchHex(shown, palette), [shown, palette]);
     const isCustom = useMemo(
-        () => isHexColor(value) && !palette.some((swatch) => swatch.hex.toLowerCase() === value.toLowerCase()),
-        [value, palette],
+        () => isHexColor(shown) && !palette.some((swatch) => swatch.hex.toLowerCase() === shown.toLowerCase()),
+        [shown, palette],
     );
 
     // The hidden `<input type="color">` both layouts drive. A label wrapping it is
@@ -121,7 +148,8 @@ export function WtColorPicker({
             aria-label={`${label} — custom colour`}
             disabled={disabled}
             value={currentHex}
-            onChange={(event: React.ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) => dragTo(event.target.value)}
+            onBlur={() => setDraft(null)}
             sx={{ width: 0, height: 0, opacity: 0, position: 'absolute', pointerEvents: 'none' }}
         />
     );
@@ -159,11 +187,12 @@ export function WtColorPicker({
         );
     }
 
+    // With no palette there is only the custom swatch, so the hex field sits beside it.
     return (
-        <Stack spacing={1.25}>
+        <Stack spacing={1.25} direction={palette.length ? 'column' : 'row'} alignItems={palette.length ? 'stretch' : 'center'}>
             <Box role="radiogroup" aria-label={label} sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
                 {palette.map((swatch) => {
-                    const selected = !isCustom && (value === swatch.value || value?.toLowerCase() === swatch.hex.toLowerCase());
+                    const selected = !isCustom && (shown === swatch.value || shown?.toLowerCase() === swatch.hex.toLowerCase());
                     return (
                         <Tooltip key={swatch.value} title={swatch.label}>
                             <Box
@@ -242,7 +271,7 @@ export function WtColorPicker({
                         const next = event.target.value.trim();
                         // Only commit a complete, valid hex — a partial one would
                         // repaint the preview to the fallback on every keystroke.
-                        if (isHexColor(next)) onChange(next);
+                        if (isHexColor(next)) { setDraft(null); onChange(next); }
                     }}
                     inputProps={{ maxLength: 7, spellCheck: false }}
                     sx={{ width: 140 }}

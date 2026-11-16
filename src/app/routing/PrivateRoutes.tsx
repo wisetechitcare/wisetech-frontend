@@ -91,8 +91,6 @@ const CourtesyDeskLegacyRedirect: FC = () => {
 
 const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisationInfo/OrganisationInfoProfileMain'))
 const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
-const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
-const TemplateDocumentationBuilderPage = lazy(() => import('@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'))
 const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
 const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
 const MyTeamApprovals = lazy(() => import('@pages/my-team/Approvals'))
@@ -168,9 +166,7 @@ const PrivateRoutes = () => {
             old path stays as a one-line redirect rather than a 404. */}
         <Route path='/finance/bills' element={<Navigate to='/finance/reimbursements' replace />} />
         <Route path='/qc/leads' element={<Navigate to='/leads' replace />} />
-        <Route path='/qc/leads/configuration' element={<Navigate to='/leads/configuration' replace />} />
         <Route path='/qc/leads/wizard-beta' element={<Navigate to='/leads/wizard-beta' replace />} />
-        <Route path='/qc/leads/documentation-builder' element={<Navigate to='/leads/documentation-builder' replace />} />
         <Route path='/qc/projects' element={<Navigate to='/projects' replace />} />
         <Route path='/qc/contacts' element={<Navigate to='/contacts' replace />} />
         <Route path='/qc/companies' element={<Navigate to='/companies' replace />} />
@@ -216,13 +212,6 @@ const PrivateRoutes = () => {
         {!NEW_MY_TEAM_IA && <Route path='approvals/inbox' element={<MyTeamApprovals />} />}
         {!NEW_MY_TEAM_IA && <Route path='approvals/my-team' element={<MyTeamOverview />} />}
         {!NEW_MY_TEAM_IA && <Route path='approvals/delegations' element={<MyTeamDelegations />} />}
-        <Route
-          path='/leads/documentation-builder'
-          element={
-            <SuspensedView>
-              <TemplateDocumentationBuilderPage />
-            </SuspensedView>}
-        />
         {/* Lazy Modules */}
         {/* Legacy Metronic demo profile/account → real employee profile */}
         <Route
@@ -275,8 +264,6 @@ const PrivateRoutes = () => {
             </PackGuard>
           }
         />
-        {/* The Accounts queue used to live under Finance; keep the old link working. */}
-        <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
         <Route
           path='/finance/reimbursements/*'
           element={(hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (
@@ -576,15 +563,6 @@ const PrivateRoutes = () => {
                 <PersonalKpiMain />
               </SuspensedView>
             </SectionGuard>}
-        />
-        <Route
-          path='/leads/configuration'
-          element={
-            <PackGuard pack="psa">
-              <SuspensedView>
-                <ProposalConfigurationPage />
-              </SuspensedView>
-            </PackGuard>}
         />
         {tabRoutes(
           '/leads',

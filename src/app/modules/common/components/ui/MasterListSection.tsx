@@ -25,6 +25,10 @@ import { VersionHistory } from '@modules/audit/VersionHistory';
 import type { AuditEntityType } from '@modules/audit/audit.service';
 
 /** Minimum shape every master row must carry. Extra fields ride along as unknowns. */
+
+/** A row the list treats as its default — rows are generic, so read the flag loosely. */
+const isDefaultRow = (row: unknown): boolean => Boolean((row as { isDefault?: boolean } | null)?.isDefault);
+
 export type MasterListRow = { id: string; color?: string | null; sortOrder?: number };
 
 const field = (row: MasterListRow, key: string): unknown =>
@@ -88,6 +92,8 @@ export interface MasterListSectionProps {
    * Intelligence entity type (e.g. APPLICATION_STATUS). Create dialogs omit it.
    */
   auditEntityType?: AuditEntityType;
+  /** Rows the system depends on: shown with a "Built in" badge and no delete. */
+  isBuiltIn?: (row: MasterListRow) => boolean;
 }
 
 const DEFAULT_COLOR = '#4B5563';
@@ -128,6 +134,7 @@ export function MasterListSection({
   removeConfirmText = 'It will be deactivated.',
   newLabel,
   auditEntityType,
+  isBuiltIn,
 }: MasterListSectionProps) {
   const qc = useQueryClient();
   const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
@@ -260,7 +267,8 @@ export function MasterListSection({
           <ConfigChipGrid>
             {rows.map((row) => {
               const activeFlags = flags.filter((f) => field(row, f.key));
-              const badge = activeFlags[0]?.label;
+              const builtIn = !!isBuiltIn?.(row);
+              const badge = builtIn ? 'Built in' : activeFlags[0]?.label;
               const caption =
                 activeFlags.length > 1
                   ? activeFlags.slice(1).map((f) => f.label).join(' · ')
@@ -277,7 +285,8 @@ export function MasterListSection({
                   captionStrong={Boolean(caption)}
                   disabled={busy}
                   onEdit={() => openEdit(row)}
-                  action={{
+                  // Built-ins and the list's default are never deletable (set another default first).
+                  action={builtIn || isDefaultRow(row) ? undefined : {
                     icon: 'bi-trash',
                     title: `Delete ${name}`,
                     danger: true,
@@ -329,6 +338,11 @@ export function MasterListSection({
                 key={f.key}
                 title={f.label}
                 checked={!!flagVals[f.key]}
+                // The saved default stays default until another row takes it over.
+                disabled={f.key === 'isDefault' && !!editing && isDefaultRow(editing)}
+                description={f.key === 'isDefault' && !!editing && isDefaultRow(editing)
+                  ? 'This is the default. To change it, set another one as the default instead.'
+                  : undefined}
                 onChange={(e) => setFlagVals((v) => ({ ...v, [f.key]: e.target.checked }))}
               />
             ))}

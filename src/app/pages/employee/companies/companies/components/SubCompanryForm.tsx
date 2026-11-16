@@ -29,6 +29,7 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { createSubCompany, updateSubCompany, fetchSubCompanyById } from "@services/company";
 import MultiSelectWithInlineCreate, { Option } from "@app/modules/common/components/MultiSelectWithInlineCreate";
 import { transformToOptions, createNewCompanyService } from "@app/modules/common/components/InlineCreateHelpers";
+import { EMPTY_GST_VALUES, GST_VALIDATION, GstStatutoryFields, gstValuesOf } from "./GstStatutory";
 
 // Type definitions
 interface CompanyType {
@@ -88,6 +89,12 @@ interface FormValues {
   visibility: string;
   note: string;
   services: string[];
+  gstNumber: string;
+  panNumber: string;
+  gstAddress: string;
+  gstState: string;
+  gstDocument: string;
+  panDocument: string;
 }
 
 interface Props {
@@ -114,6 +121,7 @@ const validationSchema = Yup.object().shape({
   latitude: Yup.string(),
   longitude: Yup.string(),
   services: Yup.array().of(Yup.string()),
+  ...GST_VALIDATION,
 });
 
 const SubCompanyForm: React.FC<Props> = ({
@@ -162,6 +170,7 @@ const SubCompanyForm: React.FC<Props> = ({
     visibility: "EVERYONE",
     note: "",
     services: [],
+    ...EMPTY_GST_VALUES,
   });
   const [isDataLoading, setIsDataLoading] = useState(false);
 
@@ -362,6 +371,7 @@ const SubCompanyForm: React.FC<Props> = ({
               blacklisted: subCompany.blacklisted || false,
               visibility: subCompany.visibility || "EVERYONE",
               note: subCompany.note || "",
+              ...gstValuesOf(subCompany),
               services: (() => {
                 let extractedServices = [];
 
@@ -433,6 +443,7 @@ const SubCompanyForm: React.FC<Props> = ({
           visibility: "EVERYONE",
           note: "",
           services: [],
+          ...EMPTY_GST_VALUES,
         });
         setLogoPreview(null);
         setLogoFile(null);
@@ -511,6 +522,12 @@ const SubCompanyForm: React.FC<Props> = ({
           blacklisted: values.blacklisted,
           visibility: values.visibility,
           note: values.note || null,
+          gstNumber: values.gstNumber || null,
+          panNumber: values.panNumber || null,
+          gstAddress: values.gstAddress || null,
+          gstState: values.gstState || null,
+          gstDocument: values.gstDocument || null,
+          panDocument: values.panDocument || null,
           logo: logoUrl || null,
           overallRating: 0.0,
           services: values.services || [],
@@ -738,6 +755,19 @@ const SubCompanyForm: React.FC<Props> = ({
                           handleStateChange={handleStateChange}
                           fields={{googleMapLink: "googleMapsLink", gmbLink: "gmbProfileUrl"}}
                         />
+                      ),
+                    },
+                    {
+                      id: "gst",
+                      label: "GST & Statutory",
+                      title: "GST & Statutory",
+                      subtitle: "GST, PAN and their documents",
+                      fields: ["gstNumber", "panNumber", "gstDocument", "panDocument", "gstAddress", "gstState"],
+                      icon: "bi-file-earmark-text",
+                      content: (
+                        <CrmSection title="GST & Statutory">
+                          <GstStatutoryFields />
+                        </CrmSection>
                       ),
                     },
                     {

@@ -53,7 +53,11 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-[1300] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 outline-none sm:max-w-md",
+          // Centred by inset + auto margins, not translate(-50%): an odd width or height puts a translate on a half
+          // pixel and the browser blurs every glyph in the dialog.
+          // `grid-cols-[minmax(0,1fr)]`: the implicit column is `auto`, which grows to the widest unbreakable child
+          // (a truncated label, a long number) and pushes the body past the dialog's edge. One column that may shrink.
+          "fixed inset-0 z-[1300] m-auto grid h-fit w-full grid-cols-[minmax(0,1fr)] max-w-[calc(100%-2rem)] gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 outline-none sm:max-w-md",
           className
         )}
         {...props}

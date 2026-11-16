@@ -1,5 +1,6 @@
 import * as Yup from 'yup';
 import { ICustomSection, IFormSection, IFormField } from '@models/company';
+import { gstinError, panError } from '@utils/gstin';
 
 // ─── Canonical, data-driven Organisation form schema ───────────────────────────
 // Single source of truth shared by the Organisation EDIT form
@@ -159,6 +160,15 @@ export function buildValidationSchema(formSchema: IFormSection[]) {
             // Admin Settings page — this field drives admin-level access, so the working
             // (required + valid email) must stay identical now that it lives in the org form.
             if (f.id === 'superAdminEmail') s = s.email('Invalid email');
+            // Same GSTIN / PAN rules as the company forms (@utils/gstin) and the server.
+            if (f.id === 'gstNumber') s = s.test('gstin', function (v) {
+                const message = v?.trim() ? gstinError(v) : null;
+                return message ? this.createError({ message }) : true;
+            });
+            if (f.id === 'panNo') s = s.test('pan', function (v) {
+                const message = panError(v, this.parent.gstNumber);
+                return message ? this.createError({ message }) : true;
+            });
             shape[f.id] = f.required ? s.required(`${f.label} is required`) : s;
         }
     }));

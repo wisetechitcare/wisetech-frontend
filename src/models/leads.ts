@@ -2,6 +2,8 @@ import type { StageNumberingFormat } from "@utils/stageNumbering";
 
 export interface LeadStatus {
   id: string;
+  /** Set on built-in statuses the code depends on: renameable, never deletable. */
+  code?: string | null;
   name: string;
   color: string;
   isDefault?: boolean;
@@ -14,6 +16,8 @@ export interface LeadStatus {
 
 export interface LeadReferralType {
   id?: string;
+  /** INTERNAL / EXTERNAL: built in — renameable, never deletable. */
+  code?: string | null;
   name: string;
   color: string;
   isInternal?: boolean; // Added: Field to distinguish internal vs external referral types
@@ -35,10 +39,12 @@ export interface LeadDirectSource {
  * An option in the lead form's "PO Status" dropdown.
  *
  * The lead stores the NAME, not the id — `Lead.poStatus` is plain text with no FK — so
- * renaming an option here does not rewrite the leads already carrying the old name.
+ * renaming an option rewrites the leads carrying the old name (server side).
  */
 export interface LeadPoStatus {
   id?: string;
+  /** Set on built-in options the code depends on: renameable, never deletable. */
+  code?: string | null;
   name: string;
   color: string;
   isActive: boolean;

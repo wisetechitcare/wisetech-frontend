@@ -81,7 +81,6 @@ const WORKFLOW_LABELS: Record<string, string> = {
   leave: 'Leave',
   attendance: 'Attendance',
   reimbursement: 'Reimbursement',
-  billing_request: 'Billing Request',
 };
 
 // ─── Step node ────────────────────────────────────────────────────────────────

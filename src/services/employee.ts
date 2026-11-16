@@ -2204,7 +2204,7 @@ export const saveApprovalWorkflowChain = async (
     // The backend stores workflowType as a free-form string and handles every type
     // generically, so this list is the set the settings UI currently exposes — extend it
     // when a new module is added to ApprovalSettings' MODULES.
-    workflowType: 'attendance' | 'leave' | 'reimbursement' | 'billing_request',
+    workflowType: 'attendance' | 'leave' | 'reimbursement',
     levels: Array<{ level: number; approverId?: string | null }>,
 ) => {
     try {

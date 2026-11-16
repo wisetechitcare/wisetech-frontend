@@ -209,7 +209,8 @@ function PaymentTab() {
         [queueRows],
     );
     useEffect(() => {
-        setSelectedIds((ids) => ids.filter((id) => selectableIds.includes(id)));
+        // Keep the same array when nothing dropped, or every run re-renders.
+        setSelectedIds((ids) => (ids.every((id) => selectableIds.includes(id)) ? ids : ids.filter((id) => selectableIds.includes(id))));
     }, [selectableIds]);
 
     const selectedRows = useMemo(

@@ -41,7 +41,7 @@ export function useRealtimeSync(
   // Local saves and socket syncs both emit these events, so one subscription covers both.
   useEffect(() => {
     const refreshBilling = () =>
-      ['billing-project-overview', 'billing-operations', 'project-billing', 'taxInvoices', 'proformas']
+      ['billing-tracker', 'proforma-tracker', 'invoice-tracker', 'billing-dashboard', 'project-billing', 'billing-document']
         .forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
     eventBus.on(EVENT_KEYS.leadUpdated, refreshBilling);
     eventBus.on(EVENT_KEYS.projectUpdated, refreshBilling);

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { DocumentManagementCenter } from './dms/components/DocumentManagementCenter';
-import { ExportCenterModal } from './dms/components/ExportCenterModal';
 
 interface LeadFilesProps {
   lead: any;

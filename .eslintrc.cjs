@@ -270,7 +270,6 @@ module.exports = {
       files: [
         'src/app/modules/common/components/ui/**',
         'src/app/modules/common/inputs/**',
-        'src/app/modules/common/components/TimeWheelField.tsx',
         'src/app/modules/common/components/MultiSelectWithInlineCreate.tsx',
         'src/app/modules/common/utils/DropdownAdd.tsx',
       ],
@@ -322,10 +321,7 @@ module.exports = {
        * input). Downgraded to warn so the build stays green while they're converted.
        * Do NOT add files here; delete entries as they're fixed. Tracked in CLAUDE.md. */
       files: [
-        'src/app/pages/employee/EditMeetingModal.tsx',
-        'src/app/pages/employee/attendance/personal/views/my-leaves/MeetingsForm.tsx',
         'src/app/pages/employee/attendance/personal/views/overview/KPITestPanel.tsx',
-        'src/app/pages/employee/attendance/personal/views/overview/AttendanceCalendar.tsx',
         'src/app/pages/employee/salary/admin/views/salary-configuration/DeductionMaster.tsx',
         'src/app/modules/common/components/Graphs.tsx',
         'src/app/modules/common/components/EmployeeSelectionDialog.tsx',
@@ -373,7 +369,6 @@ module.exports = {
         'src/app/pages/dashboard/DashboardTasks.tsx',
         'src/app/pages/dashboard/Todo.tsx',
         'src/app/pages/employee/MeetingAttendeesDialog.tsx',
-        'src/app/pages/employee/billing/NewBillingRequestDialog.tsx',
         'src/app/pages/employee/calendar/views/Meetings.tsx',
         'src/app/pages/employee/entity/detail/sections/ProjectMeetings.tsx',
         'src/app/pages/employee/entity/detail/sections/TeamsSection.tsx',

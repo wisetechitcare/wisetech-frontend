@@ -1,7 +1,7 @@
 /**
  * Contact / Company wizard — profile layout, avatar, pills, date containment.
  * Palette follows EnterpriseFormWizard navy (#1e3a8a) + slate neutrals.
- * Section chrome: `.wt-section-card` from Workspace.css (via CrmSection).
+ * Section chrome: CrmSection (kit Card).
  */
 
 /*
