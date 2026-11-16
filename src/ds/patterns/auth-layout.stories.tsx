@@ -37,7 +37,7 @@ function SignInForm() {
 /**
  * The sign-in pages' frame: brand panel (Typewriter headline, supporting line) beside the form Card from `lg`,
  * stacked above it on tablets and phones. Text is centred at every size. The logo sits in the page's top-left
- * corner from `lg`, and centred at the top of the stack below it. The headline settles as soon as the form takes focus.
+ * corner from `lg`, and centred at the top of the stack below it. The headline keeps rotating; the background and illustration always move.
  */
 const meta = {
   title: 'Patterns/Auth Layout',
@@ -94,28 +94,25 @@ export const OneHeading: Story = {
   },
 }
 
-/** Focusing the form settles the headline at once — it never competes with typing a password. */
-export const SettlesOnFocus: Story = {
+/** The headline keeps rotating even while the form is focused — nothing settles (user decision 2026-11-16). */
+export const KeepsRotatingOnFocus: Story = {
   tags: ['!autodocs'], // a test, not a demo
   play: async ({ canvas, canvasElement }) => {
-    const shown = () => {
-      const el = canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"]')!
-      return (el.textContent ?? '').slice(0, Number(el.dataset.typed))
-    }
-    await waitFor(() => expect(shown().length).toBeGreaterThan(0), { timeout: 3000 })
-    await expect(shown()).not.toBe(LANDING_LINE)
+    const typed = () => Number(canvasElement.querySelector<HTMLElement>('[data-slot="typewriter-text"]')!.dataset.typed)
+    await waitFor(() => expect(typed()).toBeGreaterThan(0), { timeout: 3000 })
     await userEvent.click(canvas.getByLabelText('Email'))
-    await expect(shown()).toBe(LANDING_LINE)
-    await expect(canvasElement.querySelector('[data-slot="typewriter-text"][data-landed]')).not.toBeNull()
+    // Focus no longer jumps to the landing line: it keeps typing (user decision 2026-11-16).
+    await expect(canvasElement.querySelector('[data-slot="typewriter-text"][data-landed]')).toBeNull()
+    const before = typed()
+    await waitFor(() => expect(typed()).not.toBe(before), { timeout: 3000 })
   },
 }
 
-/** The background keeps moving after the form is focused — only the headline settles (user decision 2026-11-16). */
+/** The background keeps moving after the form is focused (user decision 2026-11-16). */
 export const BackgroundAlwaysMoves: Story = {
   tags: ['!autodocs'], // a test, not a demo
   play: async ({ canvas, canvasElement }) => {
     await userEvent.click(canvas.getByLabelText('Email'))
-    await expect(canvasElement.querySelector('[data-slot="typewriter-text"][data-landed]')).not.toBeNull()
     await new Promise((r) => setTimeout(r, 600))
     const swirl = canvasElement.querySelector('[data-slot="auth-background"] [data-slot]')!
     await expect(swirl).not.toHaveAttribute('data-settled')

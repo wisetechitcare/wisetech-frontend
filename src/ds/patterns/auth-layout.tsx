@@ -15,8 +15,8 @@ import { titleCaseChildren } from "@/ds/lib/text"
  *
  * - **One continuous page**, as the original sign-in: no divider and no separate panel colour between the
  *   columns — the form Card (lifted) floats beside the brand content, over the Liquid Swirl background.
- * - **The background and the illustration ALWAYS move** (user decision 2026-11-16: "always animating") — they no
- *   longer settle with the headline or on form focus. Still under reduced motion (the OS setting) — the one
+ * - **The background, the illustration and the headline ALWAYS move** (user decisions 2026-11-16: "always
+ *   animating", "make headline also keep rotating") — nothing settles, not even on form focus. Still under reduced motion (the OS setting) — the one
  *   exception kept, for vestibular safety. Liquid Swirl pauses itself in a hidden tab / off-screen.
  * - **One composition, capped at 1600px** (the page width standard; user decisions 2026-11-14: "too many empty
  *   spaces", then "too many margins"): the brand side and the form stay together on wide screens, with outer
@@ -40,9 +40,8 @@ import { titleCaseChildren } from "@/ds/lib/text"
  * - **Brand panel:** the Typewriter headline and one supporting line. The headline is sized by its column (a
  *   container query), so its longest line stays on ONE line whenever the column can hold it at a readable size
  *   (≥ 22px; every phone from 360px); narrower than that it wraps, balanced.
- * - **The headline settles the moment anything in the form takes focus** — it jumps to its landing line and
- *   stops, so it never competes with typing a password (WCAG 2.2.2). Every auth screen gets this from here.
- *   Don't autofocus a field on load, or the headline settles before anyone sees it.
+ * - **The headline keeps rotating** through its lines (Typewriter `loop`), the brand line held a little longer
+ *   each cycle; assistive tech reads only the landing line, once. Still under reduced motion.
  * - **One page heading:** the Card's `title` is the page's `h1` (a structural heading, UPPERCASE) in ONE PLAIN
  *   colour — no gradient, no shimmer (user decision 2026-11-14). `titleTone`: `brand` (default — the brand blue,
  *   `primary`, per-tenant) or a hue's readable ink (Reset Your Password is `rose`, the red of the link that opens
@@ -89,8 +88,6 @@ export function AuthLayout({
   illustration?: Omit<React.ComponentProps<typeof AnimatedImage>, "playing" | "className">
   className?: string
 }) {
-  /** A form field took focus: the headline jumps to its landing line (it never competes with typing). */
-  const [settled, setSettled] = React.useState(false)
   /** Side-by-side layout: only there is the illustration shown — and only there may its animation download. */
   const desktop = useMediaQuery("(min-width: 1024px)")
 
@@ -146,7 +143,7 @@ export function AuthLayout({
               data-slot="auth-headline"
               className="font-heading text-[clamp(22px,6.8cqi,34px)] leading-[1.12] font-bold tracking-[-0.025em] text-balance text-foreground lg:text-[clamp(22px,6.8cqi,48px)] [&_[data-slot=typewriter-text]]:self-end"
             >
-              <Typewriter lines={headline} settled={settled} />
+              <Typewriter lines={headline} loop />
             </p>
             {tagline && (
               <p
@@ -162,7 +159,6 @@ export function AuthLayout({
         <main
           data-slot="auth-main"
           className="flex items-start justify-center px-4 pb-10 sm:px-8 lg:items-center lg:px-10 lg:py-12 lg:[@media(max-height:719px)]:pt-[124px] xl:px-12 xl:py-16"
-          onFocusCapture={() => setSettled(true)}
         >
           {/* Short desktop windows (< 720px tall): the centred card would rise into the header row (logo / theme
               toggle, ~108px) — the top padding keeps it below; taller windows stay symmetric (truly centred). */}
