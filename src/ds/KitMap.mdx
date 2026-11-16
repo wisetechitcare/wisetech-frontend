@@ -21,6 +21,7 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `toast`, `GlassNotification`, react-toastify, sonner | Components/Toaster | ✅ |
 | `ConfirmDialog`, `confirmDialog()`, `alertDialog()`, `useConfirmDialog`, `usePromptDialog`, SweetAlert | Patterns/Confirm Dialog | ✅ |
 | `WtTooltip` | Components/Tooltip | ✅ |
+| Row / card icon actions (`ActionIconButton` in a row, hand-rolled tinted icon buttons) | Patterns/Row Action — Button `tinted` + Tooltip + accessible name, `tint="danger"` for destructive | ✅ |
 | `PageLoader`, `Skeleton` (common) | Components/Skeleton, Components/Spinner | ✅ |
 | `WtEmptyState` | Patterns/Empty State (`empty`, `no-match`, `error`) | ✅ |
 | `ExportButton` | Components/ButtonGroup + DropdownMenu | ✅ |
@@ -60,6 +61,7 @@ the build on a hand-drawn card (`bg-card` with a border or radius).
 | `DetailCard`, `KeyValueList`, `KeyValueRow`, `DetailGrid`, `SectionDivider` | Patterns/Description List (+ Card + Section Header = the `DetailCard` look) | ✅ |
 | `EntityIdentityHeader`, `EmployeeIdentityCell` | Patterns/Person (`PersonHeader`, `PersonCell`) | ✅ |
 | `EntityCard` | Patterns/Entity Card | ✅ |
+| `OrgTree` (org / sub-org / branch tree with ├ └ guides and count columns) | Patterns/Tree Table — any hierarchy as rows: expand / collapse, figure columns, row actions | ✅ (OrgTree now renders it) |
 | `NavCard` | Patterns/Entity Card with `href` (one tile for records and navigation) | ✅ |
 | `MaterialTable` / `MaterialTableImpl` (106 screens) | Patterns/Data Table (TanStack) — sort, search, column show/hide, selection, paging, density, loading / empty / error / no-match | ✅ design · ⏳ swap is last (see below) |
 | `TableSelectionBar` | Patterns/Data Table — selection bar | ✅ |

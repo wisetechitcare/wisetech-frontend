@@ -96,6 +96,11 @@ A second, separate ratchet bans the old UI stack in new code. It reports (1) run
 3. **The component's `*.stories.tsx`** (or `docs-show` via the MCP) — use the variant/recipe the catalogue shows for
    that job (e.g. row icon actions = Button `tinted`). Never choose a variant, size or style yourself.
 
+**STRICT: `src/ds` IS the globally shared component library (2026-11-16).** It replaces the legacy shared
+components from now on. A new shared component is created only in `src/ds`, with stories, never under
+`components/`. If the kit lacks something, update Storybook itself (extend or add it in `src/ds`), never compose
+a one-off look in a screen.
+
 **Legacy components are thin adapters over the kit.** `@app/modules/common/components/ui` (and `ui/tw/`) keep their
 old prop names for existing call sites and forward to `src/ds` — no own look, palette or MUI. New code imports the
 kit directly. Never build new UI outside `src/ds`. If the kit lacks something: extend an existing component or

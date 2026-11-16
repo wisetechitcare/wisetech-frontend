@@ -4,7 +4,7 @@
  * They warn; ANY file NOT listed here fails hard. New code cannot regress, and this list can
  * only shrink: regenerating refuses to add a file (growth requires an explicit `--grow`). Burn it down by migrating the file to src/ds.
  *
- * Burn-down: 849 files at baseline. Delete a path once the file is migrated.
+ * Burn-down: 840 files at baseline. Delete a path once the file is migrated.
  */
 module.exports = [
   "src/app/components/ApprovalSettings.tsx",
@@ -35,12 +35,6 @@ module.exports = [
   "src/app/modules/apps/user-management/users-list/user-edit-modal/UserEditModal.tsx",
   "src/app/modules/apps/user-management/users-list/user-edit-modal/UserEditModalForm.tsx",
   "src/app/modules/apps/user-management/users-list/user-edit-modal/UserEditModalHeader.tsx",
-  "src/app/modules/auth/AuthLayout.tsx",
-  "src/app/modules/auth/components/ForgotPassword.tsx",
-  "src/app/modules/auth/components/InactiveEmployee.tsx",
-  "src/app/modules/auth/components/Login.tsx",
-  "src/app/modules/auth/components/Registration.tsx",
-  "src/app/modules/auth/components/ResetPassword.tsx",
   "src/app/modules/common/components/AddonLeavesAllowanceCard.tsx",
   "src/app/modules/common/components/AddonLeavesAllowanceForm.tsx",
   "src/app/modules/common/components/AnalyticsTab.tsx",
@@ -50,7 +44,6 @@ module.exports = [
   "src/app/modules/common/components/AttendanceDurationCell.tsx",
   "src/app/modules/common/components/BiometricDevicesModal/index.tsx",
   "src/app/modules/common/components/BranchCard.tsx",
-  "src/app/modules/common/components/BranchEmployeesModal/index.tsx",
   "src/app/modules/common/components/CommonCard.tsx",
   "src/app/modules/common/components/CommonModal.tsx",
   "src/app/modules/common/components/DepartmentDesignationFields.tsx",
@@ -72,7 +65,6 @@ module.exports = [
   "src/app/modules/common/components/MultiSelectWithInlineCreate.tsx",
   "src/app/modules/common/components/NoAccessPage.tsx",
   "src/app/modules/common/components/NotificationBar.tsx",
-  "src/app/modules/common/components/OrgTree/index.tsx",
   "src/app/modules/common/components/PerOrgPrefixSettings.tsx",
   "src/app/modules/common/components/PeriodFilter.tsx",
   "src/app/modules/common/components/PeriodNavigator.tsx",
@@ -268,11 +260,10 @@ module.exports = [
   "src/app/pages/company/masters/EmployeeTypes.tsx",
   "src/app/pages/company/masters/Towns.tsx",
   "src/app/pages/company/organization/Branding.tsx",
+  "src/app/pages/company/organization/OrganizationFormModal.tsx",
   "src/app/pages/company/organization/OrganizationInfo.tsx",
   "src/app/pages/company/organization/OrganizationProfileForm.tsx",
-  "src/app/pages/company/organization/OrganizationFormModal.tsx",
   "src/app/pages/company/organization/OrganizationProfilePage.tsx",
-  "src/app/pages/company/organization/OrganizationsPage.tsx",
   "src/app/pages/company/organization/Tabs.tsx",
   "src/app/pages/company/organizationInfo/rule/RuleMainPage.tsx",
   "src/app/pages/company/organizationInfo/rule/components/DeductionRulesTable.tsx",

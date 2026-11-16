@@ -17,6 +17,9 @@ const ROOT = path.resolve(__dirname, '..');
  */
 const MUI_FREE_ROOTS: string[] = [
   'src/app/pages/employee/reimbursement',
+  // Organization module, phase 1 (2026-11-16): the hierarchy and the branch roster.
+  'src/app/modules/common/components/OrgTree',
+  'src/app/modules/common/components/BranchEmployeesModal',
 ];
 
 describe('MUI-free modules', () => {
