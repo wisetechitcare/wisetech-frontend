@@ -10,7 +10,7 @@ import { faqsIcons, leadsIcons, navbarIcon } from '@metronic/assets/sidepanelico
 import { resourceNameMapWithCamelCase } from '@constants/statistics';
 import { useDispatch } from 'react-redux';
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions';
-import FaqsMainPage from '@pages/company/organisationInfo/faqs/FaqsMainPage';
+import FaqsMainPage from '@pages/company/organizationInfo/faqs/FaqsMainPage';
 import PersonalRules from './personal-rules/PersonalRules';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppDispatch } from '@redux/store';

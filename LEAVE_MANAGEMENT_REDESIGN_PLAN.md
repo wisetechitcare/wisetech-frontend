@@ -90,7 +90,7 @@ Extract them ONCE and export from the barrel, then have every leave surface impo
 | `company/settings/LeavePolicy.tsx`, `AttendanceConfig/component/LeaveTypesBalance.tsx` | ✅ (shims) |
 | `modules/common/components/AddonLeavesAllowanceCard.tsx` | ✅ **done** — `KTCard`/`card-custom`/`symbol`/`badge`/`alert`/`ki-duotone`/bootstrap-grid → `GlassCard`/`IconBox`/`StatusBadge`/responsive CSS grid |
 | `company/settings/LeavesAndBlance.tsx` | ✅ **done** — react-bootstrap `Row`/`Col`/`Form.Control` → MUI grid + `TextField` + `WtButton`/`WtIconButton` |
-| `company/organisationInfo/rule/components/LeaveAllowanceTable.tsx` | ⬜ (table→responsive) |
+| `company/organizationInfo/rule/components/LeaveAllowanceTable.tsx` | ⬜ (table→responsive) |
 
 ### B. Employee · My Leaves — Phase 1 (highest mobile traffic)
 Dir: `employee/attendance/personal/views/my-leaves/` (+ `personal/MyLeaveView.tsx`, `personal/views/overview/LeaveOverview.tsx`)

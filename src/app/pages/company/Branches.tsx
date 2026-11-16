@@ -188,9 +188,9 @@ interface BranchesProps {
  * The branch's slice of the 12/24h cascade, as the DB must store it.
  *
  * `null` is the important return: it means "this branch has no opinion", which is what
- * lets the organisation setting through. Returning `false` for anything that is not '1'
+ * lets the organization setting through. Returning `false` for anything that is not '1'
  * is the bug this replaces — it made every branch assert 24-hour, and a branch that
- * asserts anything permanently shadows its organisation. See utils/timeFormat.ts.
+ * asserts anything permanently shadows its organization. See utils/timeFormat.ts.
  */
 const toBranchTimeFormat = (value: string): boolean | null =>
   value === '1' ? true : value === '0' ? false : null;
@@ -1193,13 +1193,13 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                         (personal -> branch -> org -> 12h) and each layer only applies when
                         the one above it has no opinion. A Yes/No control cannot say "no
                         opinion", so every save asserted one and the branch permanently
-                        shadowed the organisation. See utils/timeFormat.ts. */}
+                        shadowed the organization. See utils/timeFormat.ts. */}
                     <WtChoiceField
                       name="showDateIn12HourFormat"
                       label="Time Format"
                       variant="segmented"
                       options={[
-                        { label: 'Organisation default', value: 'inherit' },
+                        { label: 'Organization default', value: 'inherit' },
                         { label: '12-hour', value: '1' },
                         { label: '24-hour', value: '0' },
                       ]}

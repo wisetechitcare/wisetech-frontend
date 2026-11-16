@@ -24,7 +24,7 @@ const overviewBreadcrumbs: Array<PageLink> = [
 
 // Validation schema for Formik
 const validationSchema = Yup.object({
-  organisationName: Yup.string().required('Organisation name is required')
+  organizationName: Yup.string().required('Organization name is required')
 });
 
 const Branding: React.FC = () => {
@@ -34,7 +34,7 @@ const Branding: React.FC = () => {
       <TabsComponent />
 
       <Formik
-        initialValues={{ organisationName: '' }}
+        initialValues={{ organizationName: '' }}
         validationSchema={validationSchema}
         onSubmit={(values) => {
           console.log(values);
@@ -57,12 +57,12 @@ const Branding: React.FC = () => {
                       Organization Name
                     </label>
                     <Field
-                      name="organisationName"
+                      name="organizationName"
                       type="text"
                       className="form-control form-control-lg form-control-solid"
                       placeholder="Organization name"
                     />
-                    <ErrorMessage name="organisationName">
+                    <ErrorMessage name="organizationName">
                       {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
                     </ErrorMessage>
                   </div>

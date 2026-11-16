@@ -1,10 +1,10 @@
 import * as Yup from 'yup';
 import { ICustomSection, IFormSection, IFormField } from '@models/company';
 
-// ─── Canonical, data-driven Organisation form schema ───────────────────────────
-// Single source of truth shared by the Organisation EDIT form
-// (OrganisationProfileForm) and the read-only Organization Info page
-// (OrganisationInfo). System fields map 1:1 to DB columns; custom fields store
+// ─── Canonical, data-driven Organization form schema ───────────────────────────
+// Single source of truth shared by the Organization EDIT form
+// (OrganizationProfileForm) and the read-only Organization Info page
+// (OrganizationInfo). System fields map 1:1 to DB columns; custom fields store
 // their value inline. `showOnInfoPage` (undefined/true = shown) controls whether
 // a field/section appears on the Organization Info page.
 
@@ -13,7 +13,7 @@ interface BuiltinSectionConfig { title: string; fields: BuiltinFieldConfig[]; }
 
 export const BUILTIN_SECTION_CONFIGS: Record<string, BuiltinSectionConfig> = {
     basic_info: { title: 'BASIC INFORMATION', fields: [
-        { name: 'name', label: 'Organisation Name', required: true },
+        { name: 'name', label: 'Organization Name', required: true },
         { name: 'fiscalYear', label: 'Fiscal Year', required: true },
         { name: 'contactNumber', label: 'Contact Number', required: true },
         { name: 'websiteUrl', label: 'Website URL', required: true },
@@ -22,7 +22,7 @@ export const BUILTIN_SECTION_CONFIGS: Record<string, BuiltinSectionConfig> = {
         { name: 'founder', label: 'Founder', required: false },
     ]},
     govt: { title: 'GOVERNMENT & STATUTORY DETAILS', fields: [
-        { name: 'address', label: 'Organisation Address', required: true },
+        { name: 'address', label: 'Organization Address', required: true },
         { name: 'additionalplacesofbusiness', label: 'Additional Places of Business', required: true },
         { name: 'gstNumber', label: 'GST Number', required: true },
         { name: 'foundedIn', label: 'Founded In', required: true },

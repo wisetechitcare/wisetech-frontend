@@ -92,7 +92,7 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
   /** Branch row → parent org profile with Branches open and that branch ready to edit. */
   const openBranch = useCallback((branch: IOrgBranchNode, org: IOrgNode) => {
     const params = new URLSearchParams({ openBranches: '1', branchId: branch.id });
-    navigate(`/company/organisation-profile/${org.id}?${params.toString()}`);
+    navigate(`/company/organization-profile/${org.id}?${params.toString()}`);
   }, [navigate]);
 
   const load = useCallback(async () => {

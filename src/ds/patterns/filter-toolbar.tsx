@@ -4,7 +4,7 @@ import { cn } from "@/ds/lib/utils"
 import { Button } from "@/ds/ui/button"
 
 /**
- * The row of quick filters above a list — organisation, branch, team, status — with a clear-all.
+ * The row of quick filters above a list — organization, branch, team, status — with a clear-all.
  * Replaces the live kit's `OrgFilterToolbar` (and the status `StatusCyclePill`: put a ToggleGroup with
  * counts in it instead). Put rarely used filters in a Filter Sheet, not here. Wraps on narrow screens.
  */

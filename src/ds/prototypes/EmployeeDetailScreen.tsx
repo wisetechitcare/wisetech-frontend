@@ -107,7 +107,7 @@ export function EmployeeDetailScreen({ person, onBack }: { person: Person; onBac
                 <Row k="Employment type" v="Full-time" />
                 <Row k="Work mode" v="Office" />
               </InfoCard>
-              <InfoCard title="Organisation" icon={<Building2 />}>
+              <InfoCard title="Organization" icon={<Building2 />}>
                 <Row k="Department" v={person.department} />
                 <Row k="Branch" v={`${person.location} HQ`} />
                 <Row k="Designation" v={person.role} />

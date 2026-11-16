@@ -1,7 +1,7 @@
 import { FaqsBoard } from '@app/modules/faqs';
 
 /**
- * Organisation Info → FAQs page, and the FAQ tab on the attendance views.
+ * Organization Info → FAQs page, and the FAQ tab on the attendance views.
  *
  * Delegates to the single FAQ module. This file previously carried a 543-line
  * bespoke implementation: a hand-rolled rAF scroll-spy that called

@@ -5,7 +5,7 @@
  * people:
  *
  *   Your preference       →  this person, this browser, effective immediately
- *   Organisation default  →  everyone who hasn't chosen (admins only)
+ *   Organization default  →  everyone who hasn't chosen (admins only)
  *
  * Keeping them on one screen is the point: an admin setting the house standard
  * can see what their own override is doing to it, which is the thing that
@@ -95,7 +95,7 @@ export function DateTimePanel() {
      * Nothing fills `company.currentCompany` on login — only the org switcher, the
      * profile form's save, and a lazy call inside generateFiscalYearFromGivenYear. Log
      * in, come straight here, and the slice is empty: saving failed with "No
-     * organisation selected", and, worse, `orgFlag` was null so this screen rendered the
+     * organization selected", and, worse, `orgFlag` was null so this screen rendered the
      * 12-hour FALLBACK as if it were the stored value. An admin could be shown a format
      * the database does not hold.
      */
@@ -117,7 +117,7 @@ export function DateTimePanel() {
         if (!companyId) {
             // Only reachable if the hydration above failed outright — the control is
             // inert while it is in flight, so this is a real error, not a race.
-            toast({ icon: 'error', title: 'Could not load your organisation', text: 'Reload the page and try again.' });
+            toast({ icon: 'error', title: 'Could not load your organization', text: 'Reload the page and try again.' });
             return;
         }
         const previous = orgFormat;
@@ -136,10 +136,10 @@ export function DateTimePanel() {
                 ...currentCompany,
                 showDateIn12HourFormat: wireValue,
             }) as any);
-            toast({ icon: 'success', title: `Organisation times are now ${next === '12h' ? '12-hour' : '24-hour'}` });
+            toast({ icon: 'success', title: `Organization times are now ${next === '12h' ? '12-hour' : '24-hour'}` });
         } catch {
             setOrgFormat(previous);
-            toast({ icon: 'error', title: 'Could not save the organisation time format' });
+            toast({ icon: 'error', title: 'Could not save the organization time format' });
         } finally {
             setSaving(false);
         }
@@ -175,7 +175,7 @@ export function DateTimePanel() {
                     <SettingsNowTile
                         icon="office-bag"
                         trio={TRIO.purple}
-                        label="Organisation"
+                        label="Organization"
                         value={loadingOrg ? 'Loading…' : orgFormat === '12h' ? '12-hour' : '24-hour'}
                         hint={loadingOrg ? undefined : SAMPLE.format(TIME_TOKENS[orgFormat].TIME)}
                     />
@@ -208,12 +208,12 @@ export function DateTimePanel() {
                         <Preview format={resolved} />
                         {preference === 'inherit' && (
                             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                Following your organisation. If it changes, yours changes with it.
+                                Following your organization. If it changes, yours changes with it.
                             </Typography>
                         )}
                         {preference !== 'inherit' && (
                             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                Your own choice, saved in this browser — it overrides the organisation
+                                Your own choice, saved in this browser — it overrides the organization
                                 default and stays put if that changes.
                             </Typography>
                         )}
@@ -224,7 +224,7 @@ export function DateTimePanel() {
                     <SettingsSection
                         tone={TRIO.purple}
                         icon="office-bag"
-                        title="organisation default"
+                        title="organization default"
                         description="What everyone who hasn't picked their own format sees."
                         action={
                             <Box sx={{ opacity: loadingOrg || saving ? 0.5 : 1, pointerEvents: loadingOrg ? 'none' : 'auto' }}>
@@ -232,7 +232,7 @@ export function DateTimePanel() {
                                     options={ORG_OPTIONS}
                                     value={orgFormat}
                                     onChange={saveOrgFormat}
-                                    ariaLabel="Organisation time format"
+                                    ariaLabel="Organization time format"
                                 />
                             </Box>
                         }
@@ -240,7 +240,7 @@ export function DateTimePanel() {
                         <Stack spacing={1.25}>
                             {/* Inert until the org has actually loaded — see action opacity above. */}
                             {loadingOrg
-                                ? <Typography variant="body2" sx={{ color: 'text.secondary' }}>Loading your organisation…</Typography>
+                                ? <Typography variant="body2" sx={{ color: 'text.secondary' }}>Loading your organization…</Typography>
                                 : <Preview format={orgFormat} />}
                             {preference !== 'inherit' && (
                                 <Stack direction="row" spacing={1} alignItems="flex-start">
@@ -248,7 +248,7 @@ export function DateTimePanel() {
                                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                         You have your own format set above, so this change won't alter
                                         what <strong>you</strong> see — only everyone still following the
-                                        organisation.
+                                        organization.
                                     </Typography>
                                 </Stack>
                             )}

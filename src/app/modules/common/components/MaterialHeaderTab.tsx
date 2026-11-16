@@ -250,7 +250,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
      *   'row'  — every tab fits as icon + name on one line (the names are measured in the bar's font).
      *   'nav'  — room for every tab at NAV_CELL: bottom-navigation style, icon over name, all named.
      *   'icons' — not enough for that: icon squares, and the selected tab also shows its name.
-     *   'bare' — not even that (Recruitment: seven tabs and an organisation filter): icons only,
+     *   'bare' — not even that (Recruitment: seven tabs and an organization filter): icons only,
      *            the selected tab marked by its fill.
      * Layout effect, so the first paint is already the right mode.
      */

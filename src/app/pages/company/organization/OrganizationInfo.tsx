@@ -6,7 +6,7 @@ import { fetchCompanyOverview, fetchOrganizationById } from '@services/company';
 import { ICompanyOverview } from "@models/company";
 import { resolveFormSchema } from './formSchema';
 import { pdf } from '@react-pdf/renderer';
-import OrganizationTemplate from './OrganisationReportTemplet';
+import OrganizationTemplate from './OrganizationReportTemplet';
 import { useEventBus } from '@hooks/useEventBus';
 import { errorConfirmation } from '@utils/modal';
 import { hasPermission } from '@utils/authAbac';
@@ -17,7 +17,7 @@ import { DetailCard, DetailRow, type AccentColor } from '@app/modules/detail-pag
 import { StatGrid, TwoUpGrid } from '@pages/employee/entity/detail/sections/SummarySection';
 import { DASH } from '@pages/employee/entity/detail/entityViewModel';
 
-interface OrganisationInfoProps {
+interface OrganizationInfoProps {
     onEditClick?: () => void;
     /** When provided, show this specific organization instead of the default one. */
     organizationId?: string;
@@ -27,7 +27,7 @@ interface OrganisationInfoProps {
     onBranchesClick?: () => void;
 }
 
-const OrganisationInfo: React.FC<OrganisationInfoProps> = ({ onEditClick, organizationId, onBack, onBranchesClick }) => {
+const OrganizationInfo: React.FC<OrganizationInfoProps> = ({ onEditClick, organizationId, onBack, onBranchesClick }) => {
     const [companyData, setCompanyData] = useState<ICompanyOverview | null>(null);
     const [loading, setLoading] = useState(true);
     const [pdfGenerating, setPdfGenerating] = useState(false);
@@ -168,7 +168,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
     }, [organizationId]);
 
     // Listen for organization profile updates
-    useEventBus('organisationProfileUpdated', () => {
+    useEventBus('organizationProfileUpdated', () => {
         fetchData();
     });
 
@@ -229,7 +229,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
     const website = clean(companyData.websiteUrl);
     const phone = clean(companyData.contactNumber);
     const email = clean(companyData.superAdminEmail);
-    const canEdit = !!onEditClick && hasPermission(resourceNameMapWithCamelCase.organisationProfile, permissionConstToUseWithHasPermission.editOthers);
+    const canEdit = !!onEditClick && hasPermission(resourceNameMapWithCamelCase.organizationProfile, permissionConstToUseWithHasPermission.editOthers);
 
     /** Logo or stamp: the image on a quiet plate, or a dashed placeholder that says what is missing. */
     const assetSlot = (url: string | undefined, label: string) => (
@@ -356,4 +356,4 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
     );
 };
 
-export default OrganisationInfo;
+export default OrganizationInfo;

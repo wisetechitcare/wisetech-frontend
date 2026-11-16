@@ -12,14 +12,14 @@ import { useRootOrgNames } from '@hooks/useRootOrgNames';
  * WHY IT LIVES HERE: this composition had been hand-copied onto the payroll table, the
  * reimbursement details table and the payment queue, and the copies had already drifted on the
  * details that matter — which value counts as "no value", whether the top-level org belongs in
- * the sub-organisation list, and what Reset resets to. A filter that offers a different set of
+ * the sub-organization list, and what Reset resets to. A filter that offers a different set of
  * branches on two screens over the same employees is a small inconsistency people stop trusting.
  *
  * The rules, once:
  *  · options are the distinct values of the rows IN VIEW, so a branch with nothing in the current
  *    period is not offered as a dead end
  *  · blanks and "N/A" are never options — they are the absence of a value, not a value
- *  · the top-level organisation is excluded from Sub Organization; only real sub-orgs belong
+ *  · the top-level organization is excluded from Sub Organization; only real sub-orgs belong
  *  · a dropdown with no options does not render at all
  *  · Reset returns every filter to its default, and only appears once something is set
  *
@@ -64,7 +64,7 @@ export interface OrgFilterState<T extends OrgFilterableRow = OrgFilterableRow> {
     matches: (row: T) => boolean;
     /** Branch / team options for ANY selection (e.g. a sheet's unapplied draft) — the cascade rule. */
     optionsFor: (sel: OrgSelection) => { branchOptions: string[]; teamOptions: string[] };
-    /** The same selection with any branch / team its sub-organisation / branch does not contain cleared. */
+    /** The same selection with any branch / team its sub-organization / branch does not contain cleared. */
     reconcile: <S extends OrgSelection>(sel: S) => S;
 }
 
@@ -91,7 +91,7 @@ export interface OrgSelection {
 }
 
 /**
- * THE cascade: a branch is offered only if it has rows in the chosen sub-organisation, a team only if it has rows
+ * THE cascade: a branch is offered only if it has rows in the chosen sub-organization, a team only if it has rows
  * in the chosen branch. Offering every branch under any sub-org let a filter pair ASSOCIATES with an MEP branch —
  * a combination that can only ever show nothing. Pure; options are still the distinct values of the rows in view.
  */

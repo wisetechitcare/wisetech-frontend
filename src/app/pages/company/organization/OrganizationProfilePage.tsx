@@ -4,18 +4,18 @@ import { Box } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { PageTitle, PageLink } from '@metronic/layout/core';
 import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
-import OrganisationProfileForm from './OrganisationProfileForm';
+import OrganizationProfileForm from './OrganizationProfileForm';
 import Branches from '../Branches';
 
 const breadcrumbs: Array<PageLink> = [
   { title: 'Company', path: '#', isSeparator: false, isActive: false },
   { title: '', path: '', isSeparator: true, isActive: false },
-  { title: 'Organizations', path: '/company/organisation-profile', isSeparator: false, isActive: false },
+  { title: 'Organizations', path: '/company/organization-profile', isSeparator: false, isActive: false },
   { title: '', path: '', isSeparator: true, isActive: false },
 ];
 
 /**
- * Routed profile page for a single organization (`/company/organisation-profile/:orgId`).
+ * Routed profile page for a single organization (`/company/organization-profile/:orgId`).
  * Renders the same editable Organization Profile used for the default org, scoped
  * to the selected organization. The org's branches open in a modal from the
  * "Branches" button beside Download PDF.
@@ -47,7 +47,7 @@ export default function OrganizationProfilePage() {
     <>
       <PageTitle breadcrumbs={breadcrumbs}>Organization Profile</PageTitle>
 
-      <OrganisationProfileForm
+      <OrganizationProfileForm
         key={orgId}
         organizationId={orgId}
         onBack={() => navigate(-1)}

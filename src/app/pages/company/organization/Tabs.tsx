@@ -11,9 +11,9 @@ const Tabs: React.FC = () => {
           <Link
             className={
               `nav-link text-active-primary me-6 ` +
-              (location.pathname === '/company/organisation-profile' && 'active')
+              (location.pathname === '/company/organization-profile' && 'active')
             }
-            to='/company/organisation-profile'
+            to='/company/organization-profile'
           >
             Organization Profile
           </Link>

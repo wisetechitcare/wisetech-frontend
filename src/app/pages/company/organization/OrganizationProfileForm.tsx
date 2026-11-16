@@ -6,7 +6,7 @@ import { uploadCompanyAsset } from '@services/uploader';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { ICompanyOverview, IFormSection, IFormField } from "@models/company";
 import { cloneDefaults, resolveFormSchema, buildValidationSchema, deriveCustomSections } from './formSchema';
-import OrganisationInfo from './OrganisationInfo';
+import OrganizationInfo from './OrganizationInfo';
 import FormSchemaManager from '@app/modules/common/components/FormSchemaManager';
 import DragDropFileField from '@app/modules/common/components/DragDropFileField';
 import { Box, Typography } from '@mui/material';
@@ -78,7 +78,7 @@ const uploadImage = async (file: File) => {
     return path as string;
 };
 
-interface OrganisationProfileFormProps {
+interface OrganizationProfileFormProps {
     /** When provided, the form reads/edits this specific organization. */
     organizationId?: string;
     /** When provided, a back button is rendered inline with the info header. */
@@ -87,7 +87,7 @@ interface OrganisationProfileFormProps {
     onBranchesClick?: () => void;
 }
 
-const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: OrganisationProfileFormProps = {}) => {
+const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: OrganizationProfileFormProps = {}) => {
     const dispatch = useDispatch<AppDispatch>();
     const [loading, setLoading] = useState(false);
     const [isCreate, setIsCreate] = useState<boolean>(true);
@@ -169,14 +169,14 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
         try {
             if (isCreate) {
                 const res = await createCompanyOverview(payload as any);
-                if (!res || res.hasError) throw new Error('Failed to create organisation profile');
-                successConfirmation('Successfully created organisation profile');
+                if (!res || res.hasError) throw new Error('Failed to create organization profile');
+                successConfirmation('Successfully created organization profile');
                 setSchemaDirty(false);
             } else {
                 if (!companyId) throw new Error('Company ID is missing');
                 const res = await updateCompanyOverview(companyId, payload as any);
-                if (!res || res.hasError) throw new Error('Failed to update organisation profile');
-                successConfirmation('Successfully updated organisation profile');
+                if (!res || res.hasError) throw new Error('Failed to update organization profile');
+                successConfirmation('Successfully updated organization profile');
                 setSchemaDirty(false);
                 // This REPLACES currentCompany rather than merging, so anything
                 // this form does not own has to be carried through explicitly.
@@ -184,10 +184,10 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                 // back off the store instead of writing a stale form value over it.
                 dispatch(saveCurrentCompanyInfo({ ...storedCompany, id: companyId, name: values.name, fiscalYear: values.fiscalYear }) as any);
                 setShowEditModal(false);
-                eventBus.emit('organisationProfileUpdated');
+                eventBus.emit('organizationProfileUpdated');
             }
         } catch {
-            errorConfirmation('Failed to create/update organisation profile');
+            errorConfirmation('Failed to create/update organization profile');
         } finally {
             setLoading(false);
         }
@@ -252,13 +252,13 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
         );
     };
 
-    // Read on Organization Profile shows it (editing stays behind Write, in OrganisationInfo). This was
+    // Read on Organization Profile shows it (editing stays behind Write, in OrganizationInfo). This was
     // a `readOthers` check, which means Write — a Read-only person got a blank page.
     const canRead = canSection('settings.profile', 'read');
 
     return (
         <>
-            {canRead && <OrganisationInfo onEditClick={() => setShowEditModal(true)} organizationId={organizationId} onBack={onBack} onBranchesClick={onBranchesClick} />}
+            {canRead && <OrganizationInfo onEditClick={() => setShowEditModal(true)} organizationId={organizationId} onBack={onBack} onBranchesClick={onBranchesClick} />}
 
             <Formik
                 initialValues={formInitialValues}
@@ -336,4 +336,4 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
     );
 };
 
-export default OrganisationProfileForm;
+export default OrganizationProfileForm;

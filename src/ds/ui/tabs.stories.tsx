@@ -14,7 +14,7 @@ const meta = {
         <TabsTrigger value="leave">Leave</TabsTrigger>
         <TabsTrigger value="documents">Documents</TabsTrigger>
       </TabsList>
-      <TabsContent value="overview" className="pt-3 text-sm">Employment, organisation and compensation.</TabsContent>
+      <TabsContent value="overview" className="pt-3 text-sm">Employment, organization and compensation.</TabsContent>
       <TabsContent value="leave" className="pt-3 text-sm">Balances and requests.</TabsContent>
       <TabsContent value="documents" className="pt-3 text-sm">Offer letter, ID proofs, policies.</TabsContent>
     </Tabs>

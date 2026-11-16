@@ -10,7 +10,7 @@ import Masters from '../masters/Masters';
 import { IOrgNode } from '@models/company';
 import { useTabRoute } from '@app/hooks/useTabRoute';
 
-function OrganisationProfileMain() {
+function OrganizationProfileMain() {
     const navigate = useNavigate();
 
     const isAdmin = useSelector(
@@ -18,7 +18,7 @@ function OrganisationProfileMain() {
     );
 
     // Open a specific organization's profile as its own routed page.
-    const handleOpenOrg = (org: IOrgNode) => navigate(`/company/organisation-profile/${org.id}`);
+    const handleOpenOrg = (org: IOrgNode) => navigate(`/company/organization-profile/${org.id}`);
 
     const tabItems: TabItem[] = [
         {
@@ -33,11 +33,11 @@ function OrganisationProfileMain() {
         }
     ];
 
-    // The tab is the URL (/company/organisation-profile/configure), so it survives a refresh,
+    // The tab is the URL (/company/organization-profile/configure), so it survives a refresh,
     // a shared link, and the remount the header does at the mobile breakpoint. The base is
     // explicit: this route has no splat of its own (it shares its base with /:orgId), so an
     // omitted base picked up the app-wide `/*` splat and redirected to /organizations → 404.
-    const { activeTab, setActiveTab } = useTabRoute('/company/organisation-profile', tabItems.map((t) => t.title));
+    const { activeTab, setActiveTab } = useTabRoute('/company/organization-profile', tabItems.map((t) => t.title));
 
     const overviewBreadcrumbs: Array<PageLink> = [
         {
@@ -62,4 +62,4 @@ function OrganisationProfileMain() {
     )
 }
 
-export default OrganisationProfileMain
+export default OrganizationProfileMain
