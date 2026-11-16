@@ -4,7 +4,7 @@
    Served at /service-worker.js from the public/ folder.
    ========================================================================== */
 
-const APP_NAME = 'WiseTech HR';
+const APP_NAME = 'KAIZNOVA';
 const OFFLINE_CACHE = 'wisetech-offline-v2'; // v2: the new WiseTech emblem icons
 const OFFLINE_ASSETS = [
   '/offline.html',

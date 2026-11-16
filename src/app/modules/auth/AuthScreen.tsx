@@ -14,7 +14,7 @@ const DEFAULT_LOGO = `${import.meta.env.BASE_URL}media/brand/wisetech-logo.png`
 
 /**
  * The sign-in illustration (the original page's): a 27 KB still paints first; the 3.6 MB GIF loads in the
- * background on desktop only, plays with the headline (4.47s loops) and rests on the still. Its 800px frame
+ * background on desktop only and loops while the page is open (user decision 2026-11-16). Its 800px frame
  * carries transparent margins — the crop shows only the drawing.
  */
 const ILLUSTRATION = {
