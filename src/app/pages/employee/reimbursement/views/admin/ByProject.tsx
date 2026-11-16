@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
-import ExportButton from '@app/modules/common/components/ExportButton';
-import { MRT_ColumnDef } from 'material-react-table';
+import { FolderKanban } from 'lucide-react';
+import { cn } from '@/ds/lib/utils';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { SectionHeader } from '@/ds/patterns/section-header';
+import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
 import { IReimbursementsFetch } from '@models/employee';
 import { summariseReimbursements } from '../../utils/reimbursementSummary';
 import { formatMoney, NO_VALUE, projectTitle } from '../../utils/reimbursementFormat';
-import RecordsEmptyState from '../../components/RecordsEmptyState';
 
 /**
  * What each project has cost in reimbursements.
@@ -21,6 +23,8 @@ import RecordsEmptyState from '../../components/RecordsEmptyState';
  *
  * There is no budget concept anywhere in the system, so this reports spend, not variance. A
  * "remaining" column would need a number nobody has entered.
+ *
+ * The design system's DataTable (search, sort, columns, export, footer totals); no MaterialTable.
  */
 
 interface ProjectRollup {
@@ -43,6 +47,12 @@ interface ByProjectProps {
 
 /** Rows with no project at all are their own bucket, not hidden — 80% of history has none. */
 const UNASSIGNED = '__unassigned__';
+
+/** A money cell in its status colour (the charts' colours), right-aligned and tabular. */
+const money = (value: number, tone?: string) => (
+    <span className={cn('tabular block text-right font-semibold', tone)}>{formatMoney(value)}</span>
+);
+const count = (value: number) => <span className="tabular block text-right">{value}</span>;
 
 function ByProject({ rows, loading, periodLabel }: ByProjectProps) {
     const rollups = useMemo<ProjectRollup[]>(() => {
@@ -81,77 +91,124 @@ function ByProject({ rows, loading, periodLabel }: ByProjectProps) {
 
     const totals = useMemo(() => summariseReimbursements(rows as any[]), [rows]);
 
-    const columns = useMemo<MRT_ColumnDef<ProjectRollup>[]>(() => [
+    const columns = useMemo<ColumnDef<ProjectRollup, any>[]>(() => [
         {
             accessorKey: 'projectName',
-            header: 'Project',
-            size: 260,
-            Cell: ({ row }) => (
-                <span
-                    className='fw-semibold fs-7'
-                    style={{ color: row.original.projectId === UNASSIGNED ? '#94a3b8' : '#0f172a' }}
-                >
+            meta: { label: 'Project' },
+            header: ({ column }) => <SortableHeader column={column} title="Project" />,
+            cell: ({ row }) => (
+                <span className={cn('font-semibold', row.original.projectId === UNASSIGNED ? 'text-muted-foreground' : 'text-foreground')}>
                     {row.original.projectName}
                 </span>
             ),
-            Footer: () => <span style={{ fontWeight: 800 }}>TOTAL</span>,
-        },
-        { accessorKey: 'employees', header: 'Employees', size: 110 },
-        { accessorKey: 'totalRequests', header: 'Requests', size: 110,
-          Footer: () => <span style={{ fontWeight: 800 }}>{totals.totalRequests}</span> },
-        {
-            accessorKey: 'totalAmount', header: 'Claimed', size: 140,
-            Cell: ({ row }) => <span className='fw-bold fs-7'>{formatMoney(row.original.totalAmount)}</span>,
-            Footer: () => <span style={{ fontWeight: 800 }}>{formatMoney(totals.totalAmount)}</span>,
+            footer: () => <span className="heading-case">Total</span>,
         },
         {
-            accessorKey: 'approvedAmount', header: 'Approved', size: 140,
-            Cell: ({ row }) => <span style={{ color: '#15803d', fontWeight: 600 }}>{formatMoney(row.original.approvedAmount)}</span>,
-            Footer: () => <span style={{ fontWeight: 800, color: '#15803d' }}>{formatMoney(totals.approvedAmount)}</span>,
+            accessorKey: 'employees',
+            meta: { label: 'Employees', exportType: 'number' },
+            header: ({ column }) => <SortableHeader column={column} title="Employees" />,
+            cell: ({ row }) => count(row.original.employees),
         },
         {
-            accessorKey: 'pendingAmount', header: 'Awaiting approval', size: 150,
-            Cell: ({ row }) => <span style={{ color: '#d97706', fontWeight: 600 }}>{formatMoney(row.original.pendingAmount)}</span>,
-            Footer: () => <span style={{ fontWeight: 800, color: '#d97706' }}>{formatMoney(totals.pendingAmount)}</span>,
+            accessorKey: 'totalRequests',
+            meta: { label: 'Requests', exportType: 'number', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Requests" />,
+            cell: ({ row }) => count(row.original.totalRequests),
+            footer: () => count(totals.totalRequests),
         },
         {
-            accessorKey: 'paidAmount', header: 'Paid', size: 140,
-            Cell: ({ row }) => <span style={{ color: '#7c3aed', fontWeight: 600 }}>{formatMoney(row.original.paidAmount)}</span>,
-            Footer: () => <span style={{ fontWeight: 800, color: '#7c3aed' }}>{formatMoney(totals.paidAmount)}</span>,
+            accessorKey: 'totalAmount',
+            meta: { label: 'Claimed', exportType: 'currency', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Claimed" />,
+            cell: ({ row }) => money(row.original.totalAmount, 'text-foreground'),
+            footer: () => money(totals.totalAmount),
+        },
+        {
+            accessorKey: 'approvedAmount',
+            meta: { label: 'Approved', exportType: 'currency', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Approved" />,
+            cell: ({ row }) => money(row.original.approvedAmount, 'text-success-foreground'),
+            footer: () => money(totals.approvedAmount, 'text-success-foreground'),
+        },
+        {
+            accessorKey: 'pendingAmount',
+            meta: { label: 'Awaiting Approval', exportType: 'currency', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Awaiting Approval" />,
+            cell: ({ row }) => money(row.original.pendingAmount, 'text-warning-foreground'),
+            footer: () => money(totals.pendingAmount, 'text-warning-foreground'),
+        },
+        {
+            accessorKey: 'paidAmount',
+            meta: { label: 'Paid', exportType: 'currency', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Paid" />,
+            cell: ({ row }) => money(row.original.paidAmount, 'text-info-foreground'),
+            footer: () => money(totals.paidAmount, 'text-info-foreground'),
         },
         {
             // Approved but not yet paid — what the project still owes, which is the number a
             // project manager is usually after.
-            accessorKey: 'outstandingAmount', header: 'Still owed', size: 140,
-            Cell: ({ row }) => <span style={{ color: '#1e3a8a', fontWeight: 700 }}>{formatMoney(row.original.outstandingAmount)}</span>,
-            Footer: () => <span style={{ fontWeight: 800, color: '#1e3a8a' }}>{formatMoney(totals.remainingAmount)}</span>,
+            accessorKey: 'outstandingAmount',
+            meta: { label: 'Still Owed', exportType: 'currency', exportTotal: true },
+            header: ({ column }) => <SortableHeader column={column} title="Still Owed" />,
+            cell: ({ row }) => money(row.original.outstandingAmount, 'text-primary'),
+            footer: () => money(totals.remainingAmount, 'text-primary'),
         },
     ], [totals]);
 
+    const filename = `reimbursements-by-project-${periodLabel.toLowerCase().replace(/\s+/g, '-')}`;
+
     return (
-        <div className='mt-5'>
-            <h1>Reimbursements by Project — {periodLabel}</h1>
-            {!loading && rollups.length === 0 ? (
-                <RecordsEmptyState periodLabel={periodLabel} />
-            ) : (
-                <MaterialTable
-                    data={rollups}
-                    columns={columns}
-                    tableName='ReimbursementsByProject'
-                    isLoading={loading}
-                    showColumnFooter
-                    renderExportActions={() => (
-                        <ExportButton
-                            data={rollups}
-                            columns={columns as any}
-                            filename={`reimbursements-by-project-${periodLabel.toLowerCase().replace(/\s+/g, '-')}`}
-                            showTotals
-                            totalLabel='TOTAL'
-                        />
-                    )}
-                />
-            )}
-        </div>
+        <section className="mt-8 space-y-3">
+            <SectionHeader as="h3" title="By Project" description={`Cost per Project · ${periodLabel}`} />
+            <DataTable
+                caption="Reimbursements by project"
+                columns={columns}
+                data={rollups}
+                getRowId={(r) => r.projectId}
+                loading={loading}
+                searchPlaceholder="Search projects"
+                stateKey="reimbursement.details.by-project"
+                // Phones: one card per project instead of an eight-column table scrolled sideways.
+                renderCard={(r) => (
+                    <div className="rounded-2xl border border-border bg-card px-4 py-3.5">
+                        <p data-slot="project-name" className={cn('m-0 font-semibold', r.projectId === UNASSIGNED ? 'text-muted-foreground' : 'text-foreground')}>{r.projectName}</p>
+                        <p data-slot="project-meta" className="m-0 text-xs text-muted-foreground">
+                            {r.employees} employee{r.employees === 1 ? '' : 's'} · {r.totalRequests} request{r.totalRequests === 1 ? '' : 's'}
+                        </p>
+                        <dl data-slot="amount-summary" className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                            {[
+                                { label: 'Claimed', value: r.totalAmount, tone: 'text-foreground' },
+                                { label: 'Approved', value: r.approvedAmount, tone: 'text-success-foreground' },
+                                { label: 'Paid', value: r.paidAmount, tone: 'text-info-foreground' },
+                                { label: 'Still Owed', value: r.outstandingAmount, tone: 'text-primary' },
+                            ].map((f) => (
+                                <div key={f.label} className="flex justify-between gap-2">
+                                    <dt data-slot="amount-label" className="text-muted-foreground">{f.label}</dt>
+                                    <dd data-slot="amount-value" className={cn('tabular m-0 font-semibold', f.tone)}>{formatMoney(f.value)}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </div>
+                )}
+                empty={
+                    <EmptyState
+                        size="sm"
+                        icon={<FolderKanban aria-hidden />}
+                        title={`No Reimbursements in ${periodLabel}`}
+                        description="Projects appear here once an expense is claimed against them in this period."
+                    />
+                }
+                toolbar={(ctx) => (
+                    <DataTableExport
+                        columns={columns}
+                        ctx={ctx}
+                        filename={filename}
+                        title={`Reimbursements by Project — ${periodLabel}`}
+                        subtitle="Claimed, approved, awaiting approval, paid and still owed per project"
+                    />
+                )}
+            />
+        </section>
     );
 }
 

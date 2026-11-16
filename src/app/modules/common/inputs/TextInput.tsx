@@ -39,6 +39,8 @@ interface TextInputProps {
   readonly?: boolean;
   margin?: string;
   label?: string;
+  /** `above` puts the label on its own line, matching DropDownInput and DateInput in the same row. */
+  labelPlacement?: "floating" | "above";
   placeholder?: string;
   inputTypeNumber?: boolean;
   defaultValue?: unknown;
@@ -56,6 +58,7 @@ interface TextInputProps {
 function TextInput({
   isRequired,
   label,
+  labelPlacement,
   formikField,
   readonly,
   placeholder,
@@ -115,6 +118,7 @@ function TextInput({
     <WtField
       name={field.name}
       label={label}
+      labelPlacement={labelPlacement}
       value={displayValue ?? ""}
       onChange={handleChange}
       onBlur={handleBlur}

@@ -1,16 +1,18 @@
-import { Box, SvgIconProps, Tab, Tabs, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Tab, Tabs, useMediaQuery, useTheme } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { T } from './ui/tokens';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { IconSlot, type IconSource } from '@/ds/ui/dynamic-icon';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
-import { isTabTurnedOff } from '@utils/can';
+import { canSection, isTabTurnedOff } from '@utils/can';
 import { tabSlug } from '@utils/sectionTabs';
 
 export type TabItem = {
     title: string;
-    icon?: React.ElementType<SvgIconProps> | string | null;
+    /** A Lucide component, or a stored name (`bi-*`) / image URL. */
+    icon?: IconSource | null;
     component: any;
     /** Optional count shown as a pill next to the tab title (hidden when 0). */
     badge?: number;
@@ -215,8 +217,8 @@ const switcherIcon = (item: TabItem) => {
             ? <AppIcon name={item.icon} className="fs-3" />
             : <img src={item.icon} alt="" width={20} height={20} />;
     }
-    const Icon = item.icon as React.ElementType<SvgIconProps>;
-    return <Icon fontSize="small" />;
+    // fs-3 = 21px, the size the string branch draws at.
+    return <IconSlot icon={item.icon} className="size-[21px]" />;
 };
 
 const countBadge = (count: number | undefined) =>
@@ -295,9 +297,15 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
         }
     }, [activeTab]);
 
-    // Tabs turned off for this person (Access → Advanced). Re-renders on a live access change.
+    // Tabs turned off for this person (Access → Advanced), and Configure without Write on the
+    // section. Re-renders on a live access change.
     useSelector((s: RootState) => (s as any).authz?.deniedTabs);
-    const shown = (item: TabItem) => !accessSection || !isTabTurnedOff(accessSection, tabSlug(item.title));
+    useSelector((s: RootState) => (s as any).authz?.access);
+    const shown = (item: TabItem) => {
+        if (!accessSection) return true;
+        const slug = tabSlug(item.title);
+        return !isTabTurnedOff(accessSection, slug) && (slug !== 'configure' || canSection(accessSection, 'write'));
+    };
     // Standing on a tab that just got turned off: move to the first one still open.
     useEffect(() => {
         if (!accessSection || !tabItems[value] || shown(tabItems[value])) return;
@@ -343,10 +351,8 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
                                  * all 23 call sites resolves through iconMap to a real keenicon. */
                                 ? <span className="mht-icon"><AppIcon name={tabItem.icon} className="fs-2" /></span>
                                 : <img src={tabItem.icon} alt={tabItem.title} width={24} height={24} className="mr-px" />)
-                            : (() => {
-                                const Icon = tabItem.icon as React.ElementType<SvgIconProps>;
-                                return <Icon />;
-                            })());
+                            // Same `.mht-icon` hook and 23px (fs-2) as the string branch above.
+                            : <span className="mht-icon"><IconSlot icon={tabItem.icon} className="size-[23px]" /></span>);
 
                     const hasBadge = typeof tabItem.badge === 'number' && tabItem.badge > 0;
                     const isSelected = value === index;

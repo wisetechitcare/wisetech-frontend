@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { BottomNavBadge } from './BottomNavBadge'
 import type { BottomNavItemConfig } from './types'
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface Props {
   open: boolean
@@ -52,7 +53,7 @@ function BottomNavMoreBase({ open, onClose, items, activeId, badges }: Props) {
           exit={{ opacity: 0 }}
           transition={{ duration: reduce ? 0 : 0.18 }}
         >
-          <div
+          <div data-wt-control="backdrop"
             className="bottom-nav-more__backdrop"
             onClick={onClose}
             aria-hidden="true"
@@ -72,14 +73,13 @@ function BottomNavMoreBase({ open, onClose, items, activeId, badges }: Props) {
             <div className="bottom-nav-more__grabber" aria-hidden="true" />
             <div className="bottom-nav-more__header">
               <span className="bottom-nav-more__title">More</span>
-              <button
+              <Button variant="ghost" size="icon-sm" className="bottom-nav-more__close"
                 type="button"
-                className="bottom-nav-more__close"
                 onClick={onClose}
                 aria-label="Close"
               >
                 <AppIcon name="bi-x-lg" aria-hidden="true" />
-              </button>
+              </Button>
             </div>
 
             <div className="bottom-nav-more__grid">

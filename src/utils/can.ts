@@ -5,12 +5,13 @@ import { store } from '@redux/store';
  *
  * The server sends, per signed-in employee: `tier` (SUPER_ADMIN holds every section; ADMIN manages
  * roles and sees their whole organization, with section access a Super Admin sets), `access`
- * (section → { read, write }; a section with tabs reads as the OR of its tabs) and `keys` (for
- * checks that are not sections, e.g. approvals). Write implies read.
+ * (section → { read, write, delete }; a section with tabs reads as the OR of its tabs) and `keys`
+ * (for checks that are not sections, e.g. approvals). Delete implies Write implies Read; Delete is
+ * a Super Admin's grant — Write alone never shows a delete button.
  */
 
-export type SectionLevel = 'read' | 'write';
-type SectionAccess = { read: boolean; write: boolean };
+export type SectionLevel = 'read' | 'write' | 'delete';
+type SectionAccess = { read: boolean; write: boolean; delete?: boolean };
 
 interface AccessState {
   tier: 'SUPER_ADMIN' | 'ADMIN' | null;
@@ -30,8 +31,11 @@ export const canSection = (section: string, level: SectionLevel = 'read'): boole
   const { tier, access } = state();
   if (tier === 'SUPER_ADMIN') return true;
   const entry = access[section];
-  return !!entry && (level === 'write' ? entry.write : entry.read);
+  return !!entry?.[level];
 };
+
+/** Delete on a section — what every delete / archive button checks. */
+export const canDelete = (section: string): boolean => canSection(section, 'delete');
 
 // Mirrors sectionForKey in the backend's middlewares/authorize.ts, so a button shows exactly when
 // the server would accept the request behind it.
@@ -87,7 +91,8 @@ export const can = (permissionKey: string): boolean => {
   const section = sectionForKey(module, scope);
   if (!section) return holdsKey(permissionKey);
   // Your own records need only Read (a `.self` key), as on the server.
-  return canSection(section, action === 'view' || scope === 'self' ? 'read' : 'write');
+  if (scope === 'self') return canSection(section, 'read');
+  return canSection(section, action === 'view' ? 'read' : action === 'delete' ? 'delete' : 'write');
 };
 
 /**

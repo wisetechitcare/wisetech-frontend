@@ -1115,6 +1115,7 @@ import { AnythingStatus, LoanStatus } from '@constants/statistics';
 import { IAttendanceRequests } from '@models/employee';
 import { KPITestPanel } from './KPITestPanel';
 import { usePunchIdentity } from './PunchIdentityDialog';
+import { Button } from '@/ds/ui/button';
 // import { KPITestPanel } from './KPITestPanel';
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrBefore);
@@ -2132,7 +2133,7 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
                             )}
                         </div>
                         <div>
-                            <button className='btn btn-lg btn-primary my-5' disabled={isSubmitting || disableBtn || !allTheFactorDetails?.length || !employeeId || !totalWorkingHour || !checkinTimeFromStore || !checkoutTimeFromStore || !isWorkingMethodSelected}>{btnText}</button>
+                            <Button size="lg" type="submit" className="my-5" disabled={isSubmitting || disableBtn || !allTheFactorDetails?.length || !employeeId || !totalWorkingHour || !checkinTimeFromStore || !checkoutTimeFromStore || !isWorkingMethodSelected}>{btnText}</Button>
                         </div>
                     </div>
                 </Form>

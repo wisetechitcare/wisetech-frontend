@@ -1,8 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, type CSSProperties } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { KTIcon } from '@metronic/helpers';
-import { C, FONT, T, SP, RADIUS, BTN, ICON_COLORS } from './ConfigDesignSystem';
+import { Button } from '@/ds/ui/button';
+import { C, FONT, T, SP, RADIUS, ICON_COLORS } from './ConfigDesignSystem';
 import { keeniconFor } from '@app/modules/common/components/ui/iconMap';
+import { IconSlot, type IconSource } from '@/ds/ui/dynamic-icon';
 // Imported from the module, NOT the ui barrel — pulling the barrel into a widely-imported
 // primitive is what makes tsc crawl.
 import { toTitleCase, HEADING_CASE_SX } from '@app/modules/common/components/ui/text';
@@ -16,12 +18,25 @@ import { toTitleCase, HEADING_CASE_SX } from '@app/modules/common/components/ui/
  * everywhere else. An unmapped name keeps rendering its Bootstrap glyph, so a missing
  * entry in `iconMap` looks off-family rather than turning into a blank square.
  *
+ * A Lucide component is also accepted (`icon={Tag}`) and drawn at `slotClass`, which must be the
+ * px size of `className` (`fs-2` = 23px, `fs-5` = 17px) so both kinds of icon render the same size.
+ * The string path is deliberately untouched: resolving a `bi-*` name straight through the
+ * registry can pick a different glyph than bi -> keenicon -> registry, and every existing
+ * consumer must keep rendering today's glyph.
+ *
  * `size` is a px value for the Bootstrap fallback; KTIcon sizes via its own `fs-*` class,
  * which is the icon font's sizing API and the one Bootstrap-ish class the lint rules keep.
  */
-function ConfigIcon({ name, size, className, color }: {
-  name: string; size: number; className: string; color?: string;
+function ConfigIcon({ name, size, className, slotClass, color }: {
+  name: IconSource; size: number; className: string; slotClass: string; color?: string;
 }) {
+  if (typeof name !== 'string') {
+    return (
+      <span style={{ color, display: 'inline-flex', alignItems: 'center' }}>
+        <IconSlot icon={name} className={slotClass} />
+      </span>
+    );
+  }
   const keenicon = keeniconFor(name);
   // KTIcon takes no style prop — the keenicon font paints with currentColor, so the tint
   // is applied by the wrapper and inherited.
@@ -36,7 +51,7 @@ function ConfigIcon({ name, size, className, color }: {
 
 export interface ConfigSectionCardAction {
   label: string;
-  icon?: string;
+  icon?: IconSource;
   onClick: () => void;
   variant?: 'primary' | 'secondary' | 'outline' | 'danger';
   disabled?: boolean;
@@ -45,7 +60,7 @@ export interface ConfigSectionCardAction {
 export interface ConfigSectionCardProps {
   title: string;
   description?: string;
-  icon?: string;
+  icon?: IconSource;
   iconColor?: 'primary' | 'blue' | 'green' | 'purple' | 'amber' | 'teal' | 'danger' | 'warning';
   primaryAction?: ConfigSectionCardAction;
   secondaryActions?: ConfigSectionCardAction[];
@@ -75,49 +90,26 @@ const SkeletonLine: React.FC<{ width?: string; height?: string; pulseBg: string 
 
 // ─── Action button ────────────────────────────────────────────────────────────
 
-const ActionBtn: React.FC<{ action: ConfigSectionCardAction }> = ({ action }) => {
-  const theme = useTheme();
-  const [hov, setHov] = useState(false);
+// The kit Button owns the look: primary → `default`; danger (a red outline) → `tinted` in the
+// danger tone so it still reads as destructive; secondary / outline → `outline`.
+const DANGER_TINT = { '--tint': 'var(--cta-danger)' } as CSSProperties;
 
-  let base: React.CSSProperties = {
-    ...BTN.outline,
-    padding: '7px 16px',
-    fontSize: '13px',
-    fontWeight: 500,
-    backgroundColor: theme.palette.background.paper,
-    color: theme.palette.text.primary,
-    borderColor: theme.palette.divider,
-  };
-  let hovStyle: React.CSSProperties = { backgroundColor: theme.palette.action.hover };
-
-  if (action.variant === 'primary') {
-    base = { ...BTN.primary, padding: '7px 16px', fontSize: '13px' };
-    hovStyle = {
-      transform: 'translateY(-1.5px)',
-      filter: 'brightness(1.05)',
-      boxShadow: `0 3px 6px ${C.primaryShadow}, 0 18px 32px -10px ${C.primaryShadowMd}, inset 0 1px 0 rgba(255,255,255,0.16)`,
-    };
-  } else if (action.variant === 'danger') {
-    base = { ...BTN.outline, color: C.danger, borderColor: C.danger, padding: '7px 16px', fontSize: '13px', backgroundColor: theme.palette.background.paper };
-    hovStyle = { backgroundColor: C.dangerLight };
-  } else if (action.variant === 'secondary') {
-    base = { ...BTN.secondary, padding: '7px 16px', fontSize: '13px', backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, borderColor: theme.palette.divider };
-    hovStyle = { borderColor: theme.palette.divider, backgroundColor: theme.palette.action.hover };
-  }
-
-  return (
-    <button
-      onClick={action.onClick}
-      disabled={action.disabled}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{ ...base, ...(hov && !action.disabled ? hovStyle : {}), opacity: action.disabled ? 0.5 : 1, cursor: action.disabled ? 'not-allowed' : 'pointer' }}
-    >
-      {action.icon && <ConfigIcon name={action.icon} size={13} className="fs-5" />}
-      {action.label}
-    </button>
-  );
-};
+const ActionBtn: React.FC<{ action: ConfigSectionCardAction }> = ({ action }) => (
+  <Button
+    variant={action.variant === 'primary' ? 'default' : action.variant === 'danger' ? 'tinted' : 'outline'}
+    size="sm"
+    style={action.variant === 'danger' ? DANGER_TINT : undefined}
+    onClick={action.onClick}
+    disabled={action.disabled}
+  >
+    {action.icon && (
+      <span data-icon="inline-start" className="inline-flex">
+        <ConfigIcon name={action.icon} size={13} className="fs-5" slotClass="size-[17px]" />
+      </span>
+    )}
+    {action.label}
+  </Button>
+);
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -205,7 +197,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
               flexShrink: 0,
               boxShadow: `0 2px 8px ${scheme.color}22`,
             }}>
-              <ConfigIcon name={icon} size={18} className="fs-2" color={scheme.color} />
+              <ConfigIcon name={icon} size={18} className="fs-2" slotClass="size-[23px]" color={scheme.color} />
             </div>
           )}
 
@@ -262,12 +254,18 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
           {!loading && secondaryActions.map((a, i) => <ActionBtn key={i} action={a} />)}
           {!loading && primaryAction && <ActionBtn action={primaryAction} />}
           {collapsible && (
-            <button
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={collapsed ? 'Expand section' : 'Collapse section'}
               onClick={() => setCollapsed(c => !c)}
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: theme.palette.text.secondary, padding: '4px', display: 'flex', alignItems: 'center', transition: 'transform 0.2s ease', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+              style={{ color: theme.palette.text.secondary }}
             >
-              <i className="bi bi-chevron-down" style={{ fontSize: '15px' }} />
-            </button>
+              <i
+                className="bi bi-chevron-down"
+                style={{ fontSize: '15px', display: 'inline-block', transition: 'transform 0.2s ease', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+              />
+            </Button>
           )}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { PodiumEntry } from "./types";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 
 interface PodiumHeroProps {
   entries: PodiumEntry[];
@@ -68,7 +69,7 @@ const PodiumHero: React.FC<PodiumHeroProps> = ({ entries, allEntries }) => {
             zIndex: 2,
           }}
         >
-          <img src={entry.avatar} alt={entry.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          <SmartAvatar src={entry.photo} name={entry.name} seed={entry.id} size={av - 2 * ringWidth} decorative />
         </div>
 
         {/* Card */}
@@ -238,7 +239,7 @@ const PodiumHero: React.FC<PodiumHeroProps> = ({ entries, allEntries }) => {
                   flexShrink: 0,
                 }}
               >
-                <img src={e.avatar} alt={e.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                <SmartAvatar src={e.photo} name={e.name} seed={e.id} size={30} decorative />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1B1B2F", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

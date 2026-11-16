@@ -4,19 +4,11 @@ import { Link, Typography } from "@mui/material";
 import NoteModal from "./NoteModal";
 import { getClientBranchesByCompanyId } from "@services/lead";
 import { getAllCompanyTypes } from "@services/companies";
-import dayjs from "dayjs";
-import { getTimeTokens } from '@utils/timeFormat';
 import { canSection } from '@utils/can';
 import { DetailCard, DetailRow, DetailMapLink } from "@app/modules/detail-page/DetailPageComponents";
 import { CardGrid } from "@app/pages/employee/entity/detail/sections/SummarySection";
 import { DASH } from "@app/pages/employee/entity/detail/entityViewModel";
 import { AppIcon, ToneChip, WtButton } from "@app/modules/common/components/ui";
-
-// Resolve an audit relation (createdBy/updatedBy) — loaded via getById — into a display name.
-const auditName = (rel: any): string =>
-  [rel?.users?.firstName, rel?.users?.lastName].filter(Boolean).join(" ").trim() || DASH;
-
-const stamp = (v?: string | null) => (v ? dayjs(v).format(`DD MMM YYYY, ${getTimeTokens().TIME}`) : DASH);
 
 /** Valid, non-zero coordinates — a 0,0 pin is "never set", not the Gulf of Guinea. */
 export const coordsOf = (lat: any, lng: any) => {
@@ -54,7 +46,6 @@ const Overview = ({ company }: OverviewProps) => {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
   const [companyTypes, setCompanyTypes] = useState<any[]>([]);
-  const c = company as any;
 
   useEffect(() => {
     Promise.all([getClientBranchesByCompanyId(company.id), getAllCompanyTypes()])
@@ -76,11 +67,8 @@ const Overview = ({ company }: OverviewProps) => {
           <DetailRow label="Company" value={company.companyName || DASH} />
           <DetailRow label="Company Type" value={companyTypes.find((t) => t.id === company.companyTypeId)?.name || DASH} />
           <DetailRow label="Branches" value={branches.length} />
-          <DetailRow label="Visibility" value={company.visibility || DASH} />
-          <DetailRow label="Created By" value={auditName(c.createdBy)} />
-          <DetailRow label="Created" value={stamp(c.createdAt)} />
-          <DetailRow label="Last Edited By" value={auditName(c.updatedBy)} />
-          <DetailRow label="Last Edited" value={stamp(c.updatedAt)} isLast />
+          {/* Created / last edited live in the Audit drawer, with the rest of the record's history. */}
+          <DetailRow label="Visibility" value={company.visibility || DASH} isLast />
         </DetailCard>
 
         <DetailCard title="Contact Information" subtitle="How to reach the company" icon="bi bi-telephone" accentColor="blue">

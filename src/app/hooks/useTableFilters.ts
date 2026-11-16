@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useStickyFilters } from './useStickyFilters';
 
 /** The params this hook owns. They persist between visits (see useStickyFilters). */
-const FILTER_KEYS = ['search', 'status', 'manager', 'missingAddr'] as const;
+const FILTER_KEYS = ['search', 'status', 'manager', 'missingAddr', 'missingProjectView'] as const;
 
 /**
  * Syncs table filter state with URL params so filters persist across navigation.
@@ -28,6 +28,7 @@ export const useTableFilters = (storageKey = 'tableFilters') => {
   const projectStatusFilter = searchParams.get('status') || '';
   const projectManagerFilter = searchParams.get('manager') || '';
   const showMissingAddress = searchParams.get('missingAddr') === 'true';
+  const showMissingProjectView = searchParams.get('missingProjectView') === 'true';
 
   // Always merge into the params currently in the URL rather than replacing
   // them — other owners (e.g. the ?tab= param on the projects page) keep their
@@ -68,6 +69,11 @@ export const useTableFilters = (storageKey = 'tableFilters') => {
     [setParam],
   );
 
+  const updateMissingProjectView = useCallback(
+    (show: boolean) => setParam('missingProjectView', show ? 'true' : null),
+    [setParam],
+  );
+
   const clearAllFilters = useCallback(() => {
     setSearchParams(
       (prev) => {
@@ -76,6 +82,7 @@ export const useTableFilters = (storageKey = 'tableFilters') => {
         next.delete('status');
         next.delete('manager');
         next.delete('missingAddr');
+        next.delete('missingProjectView');
         return next;
       },
       { replace: true },
@@ -88,10 +95,12 @@ export const useTableFilters = (storageKey = 'tableFilters') => {
       projectStatusFilter,
       projectManagerFilter,
       showMissingAddress,
+      showMissingProjectView,
       updateSearchText,
       updateStatusFilter,
       updateManagerFilter,
       updateMissingAddress,
+      updateMissingProjectView,
       clearAllFilters,
     }),
     [
@@ -99,10 +108,12 @@ export const useTableFilters = (storageKey = 'tableFilters') => {
       projectStatusFilter,
       projectManagerFilter,
       showMissingAddress,
+      showMissingProjectView,
       updateSearchText,
       updateStatusFilter,
       updateManagerFilter,
       updateMissingAddress,
+      updateMissingProjectView,
       clearAllFilters,
     ],
   );

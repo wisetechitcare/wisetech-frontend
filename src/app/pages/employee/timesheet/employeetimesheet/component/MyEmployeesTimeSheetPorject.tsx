@@ -1,7 +1,8 @@
 ﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
-import { Avatar, Box, Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import { RootState } from "@redux/store";
 import { fetchConfiguration } from "@services/company";
 import { formatMoneyString } from "@utils/statistics";
@@ -19,6 +20,7 @@ import {
   getAllTimeSheetsByStartDateEndDate,
 } from "@services/tasks";
 import { deleteConfirmation } from "@utils/modal";
+import { canDelete } from "@utils/can";
 import { toast } from "react-toastify";
 import { getAllEmployeeWithMonthDailyHourlySalary } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
@@ -28,6 +30,7 @@ import { usePermission } from "@hooks/usePermission";
 import TimeLogDetailDialog from "../../components/TimeLogDetailDialog";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
 import { getTimeTokens } from '@utils/timeFormat';
+import { Button } from '@/ds/ui/button';
 
 const MyEmployeesTimeSheetPorject = ({
   startDate,
@@ -208,12 +211,13 @@ const MyEmployeesTimeSheetPorject = ({
         size: 200,
         Cell: ({ row }: any) => (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-            <Avatar
-              src={row.original?.employeeAvatar || undefined}
-              sx={{ width: 26, height: 26, fontSize: 11, fontWeight: 700 }}
-            >
-              {String(row.original?.employeeName || "?").charAt(0)}
-            </Avatar>
+            <SmartAvatar
+              name={row.original?.employeeName}
+              src={row.original?.employeeAvatar}
+              seed={row.original?.employeeId}
+              size={26}
+              decorative
+            />
             <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
               {row.original?.employeeName || "—"}
             </Typography>
@@ -289,24 +293,24 @@ const MyEmployeesTimeSheetPorject = ({
         header: "Actions",
         Cell: ({ row }: any) => (
           <div className="d-flex gap-2">
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
               onClick={(e) => {
                 e.stopPropagation();
                 handleEditTimeSheet(row?.original);
               }}
             >
               <KTIcon iconName="pencil" className="fs-2" />
-            </button>
-            <button
-              className="btn btn-icon btn-bg-light btn-active-color-primary btn-sm"
+            </Button>
+            {canDelete("timesheets.employees") && (
+            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteTimeSheet(row?.original);
               }}
             >
               <KTIcon iconName="trash" className="fs-2" />
-            </button>
+            </Button>
+            )}
           </div>
         ),
       },

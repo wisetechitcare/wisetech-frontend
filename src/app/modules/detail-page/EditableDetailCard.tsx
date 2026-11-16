@@ -7,6 +7,7 @@ import { DetailCard, type AccentColor } from './DetailPageComponents';
 import './DetailPageResponsive.css';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
+import { Button } from '@/ds/ui/button';
 
 /**
  * EditableDetailCard — a DetailCard that flips between read-only and inline-edit
@@ -83,12 +84,11 @@ export function EditableDetailCard<T extends Record<string, any>>({
 
   const actions = !canEdit ? null : editing ? (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <button type="button" style={iconBtn} onClick={cancel} disabled={saving}>
+      <Button variant="outline" size="sm" type="button" onClick={cancel} disabled={saving}>
         Cancel
-      </button>
-      <button
+      </Button>
+      <Button size="sm"
         type="button"
-        style={{ ...iconBtn, border: '1px solid #1E3A8A', background: '#1E3A8A', color: '#fff', opacity: saving ? 0.7 : 1 }}
         onClick={save}
         disabled={saving}
       >
@@ -98,12 +98,12 @@ export function EditableDetailCard<T extends Record<string, any>>({
           <AppIcon name="bi-check2" className="fs-6" />
         )}
         {saving ? 'Saving…' : 'Save'}
-      </button>
+      </Button>
     </div>
   ) : (
-    <button type="button" style={iconBtn} onClick={open}>
+    <Button variant="outline" size="sm" type="button" onClick={open}>
       <AppIcon name="bi-pencil" className="fs-7" /> Edit
-    </button>
+    </Button>
   );
 
   return (
@@ -309,7 +309,7 @@ export const DateEditor: React.FC<{ value: any; onChange: (v: string) => void }>
 export const ToggleEditor: React.FC<{ value: boolean; onChange: (v: boolean) => void; onLabel?: string; offLabel?: string }> = ({
   value, onChange, onLabel = 'Yes', offLabel = 'No',
 }) => (
-  <button
+  <button data-wt-control="toggle" aria-pressed={value}
     type="button"
     onClick={() => onChange(!value)}
     style={{

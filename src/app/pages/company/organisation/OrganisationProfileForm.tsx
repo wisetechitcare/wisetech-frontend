@@ -18,8 +18,7 @@ import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@redux/store';
 import { saveCurrentCompanyInfo } from '@redux/slices/company';
-import { hasPermission } from '@utils/authAbac';
-import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
+import { canSection } from '@utils/can';
 
 // The canonical form-schema helpers (defaults, merge, validation, legacy derive)
 // live in ./formSchema so the Organization Info page renders from the same source.
@@ -253,7 +252,9 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
         );
     };
 
-    const canRead = hasPermission(resourceNameMapWithCamelCase.organisationProfile, permissionConstToUseWithHasPermission.readOthers);
+    // Read on Organization Profile shows it (editing stays behind Write, in OrganisationInfo). This was
+    // a `readOthers` check, which means Write — a Read-only person got a blank page.
+    const canRead = canSection('settings.profile', 'read');
 
     return (
         <>

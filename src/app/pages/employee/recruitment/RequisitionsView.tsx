@@ -19,7 +19,7 @@ import {
 } from "@services/recruitment";
 import { formatDate } from '@utils/dateFormats';
 import { apiErrorMessage } from '@utils/apiError';
-import { canSection } from '@utils/can';
+import { canDelete, canSection } from '@utils/can';
 import {
     stageOf, ctcLabel, requisitionColumns,
 } from "./requisitionColumns";
@@ -27,6 +27,7 @@ import { useNavigate } from "react-router-dom";
 
 const RequisitionsView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
+    const canRemove = canDelete("recruitment");
     const navigate = useNavigate();
     const qc = useQueryClient();
     /** Cards or list — remembered like Pipeline (audit M20). */
@@ -101,6 +102,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                         onClick={() => openRoleMut.mutate(r)}
                     />
                 )}
+                {canRemove && (
                 <ActionIconButton
                     iconName="trash"
                     size="sm"
@@ -109,6 +111,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                     disabled={archiveMut.isPending}
                     onClick={() => archive(r)}
                 />
+                )}
             </Stack>
         );
     };
@@ -131,12 +134,14 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                     </WtButton>
                 )}
                 <Box sx={{ flex: 1 }} />
+                {canRemove && (
                 <ActionIconButton
                     iconName="trash" size="sm" tone="danger"
                     title="Archive"
                     disabled={archiveMut.isPending}
                     onClick={() => archive(r)}
                 />
+                )}
             </Stack>
         );
     };
@@ -164,7 +169,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                             onChange={setMode}
                         />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openCreate}>
+                            <WtButton size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openCreate}>
                                 Create Role
                             </WtButton>
                         )}
@@ -190,7 +195,7 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                     data={requisitions}
                     isLoading={isLoading}
                     tableName="RecruitmentRolesList"
-                    enableRowSelection={canWrite}
+                    enableRowSelection={canRemove}
                     renderSelectionActions={(selected: JobRequisition[]) => (
                         <TableSelectionBar count={selected.length}>
                             <WtButton

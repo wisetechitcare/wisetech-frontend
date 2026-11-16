@@ -3,7 +3,7 @@ import { RootState } from "@redux/store";
 import { fetchAllEmployees, getMeetings } from "@services/employee";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "react-bootstrap";
+import { Button } from "@/ds/ui/button";
 import CopyToClipboard from "react-copy-to-clipboard";
 import { useSelector } from "react-redux";
 import MeetingDialog from "./MeetingDialog";

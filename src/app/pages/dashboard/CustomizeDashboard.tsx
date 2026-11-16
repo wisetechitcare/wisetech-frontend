@@ -107,7 +107,7 @@ const CustomizeDashboard: React.FC<CustomizeDashboardProps> = ({ show, onHide, o
         </Stack>
 
         <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
-          <WtButton tone="primary" onClick={handleSave} disabled={isSubmitting}>
+          <WtButton onClick={handleSave} disabled={isSubmitting}>
             {isSubmitting ? "Saving…" : "Save Settings"}
           </WtButton>
         </Box>

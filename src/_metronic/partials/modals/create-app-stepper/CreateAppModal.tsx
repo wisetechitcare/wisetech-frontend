@@ -6,6 +6,8 @@ import {Modal} from 'react-bootstrap'
 import {defaultCreateAppData, ICreateAppData} from './IAppModels'
 import {StepperComponent} from '../../../assets/ts/components'
 import {KTIcon} from '../../../helpers'
+import {Button} from '@/ds/ui/button'
+import {WtCloseButton} from '@/app/modules/common/components/ui/tw/WtCloseButton'
 import {Step1} from './steps/Step1'
 import {Step2} from './steps/Step2'
 import {Step3} from './steps/Step3'
@@ -98,9 +100,7 @@ const CreateAppModal = ({show, handleClose}: Props) => {
       <div className='modal-header'>
         <h2>Create App</h2>
         {/* begin::Close */}
-        <div className='btn btn-sm btn-icon btn-active-color-primary' onClick={handleClose}>
-          <KTIcon className='fs-1' iconName='cross' />
-        </div>
+        <WtCloseButton variant='plain' onClick={handleClose} />
         {/* end::Close */}
       </div>
 
@@ -263,33 +263,34 @@ const CreateAppModal = ({show, handleClose}: Props) => {
               {/*begin::Actions */}
               <div className='d-flex flex-stack pt-10'>
                 <div className='me-2'>
-                  <button
-                    type='button'
-                    className='btn btn-lg btn-light-primary me-3'
+                  {/* The stepper stylesheet sets these buttons' display (inline-block / none)
+                      per step, so the kit's flex gap does not apply: the icons keep their margins. */}
+                  <Button
+                    variant='tinted'
+                    size='lg'
+                    className='me-3'
                     data-kt-stepper-action='previous'
                     onClick={prevStep}
                   >
                     <KTIcon iconName='arrow-left' className='fs-3 me-1' /> Previous
-                  </button>
+                  </Button>
                 </div>
                 <div>
-                  <button
-                    type='button'
-                    className='btn btn-lg btn-primary'
+                  <Button
+                    size='lg'
                     data-kt-stepper-action='submit'
                     onClick={submit}
                   >
                     Submit <KTIcon iconName='arrow-right' className='fs-3 ms-2 me-0' />
-                  </button>
+                  </Button>
 
-                  <button
-                    type='button'
-                    className='btn btn-lg btn-primary'
+                  <Button
+                    size='lg'
                     data-kt-stepper-action='next'
                     onClick={nextStep}
                   >
                     Next Step <KTIcon iconName='arrow-right' className='fs-3 ms-1 me-0' />
-                  </button>
+                  </Button>
                 </div>
               </div>
               {/*end::Actions */}

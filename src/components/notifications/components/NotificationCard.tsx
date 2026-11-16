@@ -4,6 +4,7 @@ import { getNotificationIcon } from '@utils/notificationStyles';
 import { formatNotificationDate } from '@utils/date';
 import type { AppNotification } from '../types';
 import { MODULE_META, PRIORITY_META } from '../constants';
+import { Button } from '@/ds/ui/button';
 
 export interface NotificationCardProps {
   notification: AppNotification;
@@ -45,7 +46,7 @@ function NotificationCardBase({
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
-    <div
+    <div data-wt-control="row"
       className={`wt-card ${n.isRead ? 'wt-card--read' : 'wt-card--unread'}`}
       style={style}
       role="button"
@@ -64,9 +65,8 @@ function NotificationCardBase({
 
           <span className="wt-card__actions">
             {!n.isRead && (
-              <button
+              <Button variant="ghost" size="icon-xs"
                 type="button"
-                className="wt-card__actbtn"
                 title="Mark as read"
                 aria-label="Mark as read"
                 onClick={(e) => {
@@ -75,11 +75,10 @@ function NotificationCardBase({
                 }}
               >
                 <KTIcon iconName="check" className="fs-7" />
-              </button>
+              </Button>
             )}
-            <button
+            <Button variant="tinted" size="icon-xs" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
               type="button"
-              className="wt-card__actbtn wt-card__actbtn--danger"
               title="Dismiss"
               aria-label="Dismiss notification"
               onClick={(e) => {
@@ -88,7 +87,7 @@ function NotificationCardBase({
               }}
             >
               <KTIcon iconName="cross" className="fs-6" />
-            </button>
+            </Button>
           </span>
         </div>
 

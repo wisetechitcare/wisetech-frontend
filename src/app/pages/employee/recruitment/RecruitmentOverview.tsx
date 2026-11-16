@@ -1,80 +1,176 @@
 import { useCallback, useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { Box, Stack, Typography, CircularProgress, LinearProgress } from "@mui/material";
 import {
-    AutoGrid, ListHeader, GlassCard, StatTile, ToneChip, Eyebrow, TRIO, SectionHead,
-    CurrencySymbol, WtEmptyState, WtTooltip,
-    type Trio, type SemanticTone,
+  Box,
+  Stack,
+  Typography,
+  CircularProgress,
+  LinearProgress,
+} from "@mui/material";
+import {
+  AutoGrid,
+  ListHeader,
+  GlassCard,
+  StatTile,
+  ToneChip,
+  Eyebrow,
+  TRIO,
+  SectionHead,
+  CurrencySymbol,
+  WtEmptyState,
+  WtTooltip,
+  type Trio,
+  type SemanticTone,
 } from "@app/modules/common/components/ui";
-import PeriodFilter, { type PeriodRange } from "@app/modules/common/components/PeriodFilter";
+import PeriodFilter, {
+  type PeriodRange,
+} from "@app/modules/common/components/PeriodFilter";
 import { queryKeys } from "@/lib/queryKeys";
 import ApplicationsDrillDown from "./ApplicationsDrillDown";
 import { apiErrorMessage } from "@utils/apiError";
-import { getRecruitmentOverview, type OrgScoped,
-} from "@services/recruitment";
+import { getRecruitmentOverview, type OrgScoped } from "@services/recruitment";
+import { PeriodMode } from "@/constants/common";
 
 /** A bar whose stage has no configured colour. A theme token, so it reads in dark mode too. */
 const FALLBACK_BAR = "text.disabled";
-const OFFER_TONE: Record<string, SemanticTone> = { ACCEPTED: "success", PENDING: "warning", DECLINED: "danger", EXPIRED: "brand" };
-const titleCase = (s: string) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : s);
+const OFFER_TONE: Record<string, SemanticTone> = {
+  ACCEPTED: "success",
+  PENDING: "warning",
+  DECLINED: "danger",
+  EXPIRED: "brand",
+};
+const titleCase = (s: string) =>
+  s ? s.charAt(0) + s.slice(1).toLowerCase() : s;
 
 /** Horizontal magnitude bar. Fill uses the config (admin-set) identity colour; all
  *  text stays in ink tokens so the chart reads correctly in light AND dark mode. */
-const BarRow = ({ label, count, max, color, onOpen }: { label: string; count: number; max: number; color?: string | null; onOpen?: () => void }) => {
-    const pct = max > 0 && count > 0 ? Math.max(5, Math.round((count / max) * 100)) : 0;
-    // A row with nobody in it has nothing to show, so it stays inert rather than opening an
-    // empty dialog — the cursor is the honest signal about which bars lead somewhere.
-    const clickable = Boolean(onOpen) && count > 0;
-    return (
-        <Stack
-            direction="row"
-            alignItems="center"
-            spacing={1.25}
-            sx={{
-                minWidth: 0,
-                ...(clickable && {
-                    cursor: "pointer",
-                    borderRadius: 1,
-                    mx: -0.5, px: 0.5, py: 0.25,
-                    transition: "background-color 150ms ease",
-                    "&:hover": { bgcolor: "action.hover" },
-                }),
-            }}
-            onClick={clickable ? onOpen : undefined}
-            // Keyboard reachable, because a chart that only responds to a mouse excludes
-            // anyone driving the app from the keyboard.
-            role={clickable ? "button" : undefined}
-            tabIndex={clickable ? 0 : undefined}
-            onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } } : undefined}
-            aria-label={clickable ? `${label}: ${count}. Open the list.` : undefined}
-        >
-            {/* The full name stays reachable when the column truncates it — through the kit's
+const BarRow = ({
+  label,
+  count,
+  max,
+  color,
+  onOpen,
+}: {
+  label: string;
+  count: number;
+  max: number;
+  color?: string | null;
+  onOpen?: () => void;
+}) => {
+  const pct =
+    max > 0 && count > 0 ? Math.max(5, Math.round((count / max) * 100)) : 0;
+  // A row with nobody in it has nothing to show, so it stays inert rather than opening an
+  // empty dialog — the cursor is the honest signal about which bars lead somewhere.
+  const clickable = Boolean(onOpen) && count > 0;
+  return (
+    <Stack
+      direction="row"
+      alignItems="center"
+      spacing={1.25}
+      sx={{
+        minWidth: 0,
+        ...(clickable && {
+          cursor: "pointer",
+          borderRadius: 1,
+          mx: -0.5,
+          px: 0.5,
+          py: 0.25,
+          transition: "background-color 150ms ease",
+          "&:hover": { bgcolor: "action.hover" },
+        }),
+      }}
+      onClick={clickable ? onOpen : undefined}
+      // Keyboard reachable, because a chart that only responds to a mouse excludes
+      // anyone driving the app from the keyboard.
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onOpen?.();
+              }
+            }
+          : undefined
+      }
+      aria-label={clickable ? `${label}: ${count}. Open the list.` : undefined}
+    >
+      {/* The full name stays reachable when the column truncates it — through the kit's
                 tooltip, not a native `title`, which never appears on a touch screen. */}
-            <WtTooltip title={label}>
-                <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 88, sm: 132 }, flexShrink: 0, color: "text.secondary" }}>
-                    {label}
-                </Typography>
-            </WtTooltip>
-            <WtTooltip title={clickable ? `${count} — click to see who` : `${count}`}>
-                <Box sx={{ flex: 1, minWidth: 0, height: 20, borderRadius: 999, bgcolor: "action.hover", overflow: "hidden" }}>
-                    <Box sx={{ width: `${pct}%`, height: "100%", borderRadius: 999, bgcolor: color || FALLBACK_BAR, transition: "width .5s cubic-bezier(0.4,0,0.2,1)" }} />
-                </Box>
-            </WtTooltip>
-            <Typography sx={{ fontSize: 13, fontWeight: 700, width: 30, textAlign: "right", flexShrink: 0 }}>{count}</Typography>
-        </Stack>
-    );
+      <WtTooltip title={label}>
+        <Typography
+          noWrap
+          sx={{
+            fontSize: 12.5,
+            fontWeight: 600,
+            width: { xs: 88, sm: 132 },
+            flexShrink: 0,
+            color: "text.secondary",
+          }}
+        >
+          {label}
+        </Typography>
+      </WtTooltip>
+      <WtTooltip title={clickable ? `${count} — click to see who` : `${count}`}>
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            height: 20,
+            borderRadius: 999,
+            bgcolor: "action.hover",
+            overflow: "hidden",
+          }}
+        >
+          <Box
+            sx={{
+              width: `${pct}%`,
+              height: "100%",
+              borderRadius: 999,
+              bgcolor: color || FALLBACK_BAR,
+              transition: "width .5s cubic-bezier(0.4,0,0.2,1)",
+            }}
+          />
+        </Box>
+      </WtTooltip>
+      <Typography
+        sx={{
+          fontSize: 13,
+          fontWeight: 700,
+          width: 30,
+          textAlign: "right",
+          flexShrink: 0,
+        }}
+      >
+        {count}
+      </Typography>
+    </Stack>
+  );
 };
 
 /** Card lead-in. Delegates to the kit's SectionHead so every title is capitalised by the
  *  same rule as the rest of the app rather than by hand. */
-const CardTitle = ({ title, hint, tone, icon }: { title: string; hint?: string; tone: Trio; icon: string }) => (
-    <Box sx={{ mb: 1.5 }}>
-        <SectionHead tone={tone} icon={icon} title={title} desc={hint} />
-    </Box>
+const CardTitle = ({
+  title,
+  hint,
+  tone,
+  icon,
+}: {
+  title: string;
+  hint?: string;
+  tone: Trio;
+  icon: string;
+}) => (
+  <Box sx={{ mb: 1.5 }}>
+    <SectionHead tone={tone} icon={icon} title={title} desc={hint} />
+  </Box>
 );
 
 const EmptyHint = ({ text }: { text: string }) => (
-    <Typography sx={{ fontSize: 12.5, color: "text.disabled", py: 1.5 }}>{text}</Typography>
+  <Typography sx={{ fontSize: 12.5, color: "text.disabled", py: 1.5 }}>
+    {text}
+  </Typography>
 );
 
 /**
@@ -89,9 +185,9 @@ const EmptyHint = ({ text }: { text: string }) => (
  * stays on the server for anyone who needs it.
  */
 const dayWord = (n: number): string => {
-    if (n < 0.5) return "less than a day";
-    const whole = Math.round(n);
-    return `${whole} ${whole === 1 ? "day" : "days"}`;
+  if (n < 0.5) return "less than a day";
+  const whole = Math.round(n);
+  return `${whole} ${whole === 1 ? "day" : "days"}`;
 };
 
 /**
@@ -99,28 +195,68 @@ const dayWord = (n: number): string => {
  * Written for a reader who does not think in averages — "usually takes 3 days" rather than
  * "3d avg", and the small-sample caveat spelled out instead of a sample count.
  */
-const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays, oldestOpenBand }: {
-    name: string; color?: string | null; avgDays: number | null; samples: number; openCount: number; oldestOpenDays: number | null;
-    oldestOpenBand: 'fresh' | 'ageing' | 'stalled' | null;
+const StageRow = ({
+  name,
+  color,
+  avgDays,
+  samples,
+  openCount,
+  oldestOpenDays,
+  oldestOpenBand,
+}: {
+  name: string;
+  color?: string | null;
+  avgDays: number | null;
+  samples: number;
+  openCount: number;
+  oldestOpenDays: number | null;
+  oldestOpenBand: "fresh" | "ageing" | "stalled" | null;
 }) => (
-    <Stack direction="row" alignItems="center" spacing={1.25} flexWrap="wrap" useFlexGap sx={{ py: 0.5 }}>
-        <Box sx={{ width: 8, height: 8, borderRadius: 999, bgcolor: color || FALLBACK_BAR, flexShrink: 0 }} />
-        <WtTooltip title={name}>
-            <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600, width: { xs: 96, sm: 150 }, flexShrink: 0 }}>{name}</Typography>
-        </WtTooltip>
-        <Typography sx={{ fontSize: 12.5, color: "text.secondary", flex: 1, minWidth: 0 }}>
-            {avgDays == null
-                ? "No one has moved past this step yet"
-                : samples < 3
-                  ? `Usually takes ${dayWord(avgDays)} — but only ${samples === 1 ? "1 person has" : `${samples} people have`} gone through so far`
-                  : `Usually takes ${dayWord(avgDays)}`}
-        </Typography>
-        {openCount > 0 && (
-            <WtTooltip
-                wrap
-                title={`${openCount === 1 ? "1 person is" : `${openCount} people are`} waiting here. The one waiting longest has been here ${dayWord(oldestOpenDays ?? 0)}.`}
-            >
-                {/* The longest wait is the number worth acting on: a step that usually takes
+  <Stack
+    direction="row"
+    alignItems="center"
+    spacing={1.25}
+    flexWrap="wrap"
+    useFlexGap
+    sx={{ py: 0.5 }}
+  >
+    <Box
+      sx={{
+        width: 8,
+        height: 8,
+        borderRadius: 999,
+        bgcolor: color || FALLBACK_BAR,
+        flexShrink: 0,
+      }}
+    />
+    <WtTooltip title={name}>
+      <Typography
+        noWrap
+        sx={{
+          fontSize: 12.5,
+          fontWeight: 600,
+          width: { xs: 96, sm: 150 },
+          flexShrink: 0,
+        }}
+      >
+        {name}
+      </Typography>
+    </WtTooltip>
+    <Typography
+      sx={{ fontSize: 12.5, color: "text.secondary", flex: 1, minWidth: 0 }}
+    >
+      {avgDays == null
+        ? "No one has moved past this step yet"
+        : samples < 3
+          ? `Usually takes ${dayWord(avgDays)} — but only ${samples === 1 ? "1 person has" : `${samples} people have`} gone through so far`
+          : `Usually takes ${dayWord(avgDays)}`}
+    </Typography>
+    {openCount > 0 && (
+      <WtTooltip
+        wrap
+        title={`${openCount === 1 ? "1 person is" : `${openCount} people are`} waiting here. The one waiting longest has been here ${dayWord(oldestOpenDays ?? 0)}.`}
+      >
+        {/* The longest wait is the number worth acting on: a step that usually takes
                     2 days with someone sitting 40 days is one person being forgotten, and no
                     average will ever show that.
 
@@ -128,297 +264,438 @@ const StageRow = ({ name, color, avgDays, samples, openCount, oldestOpenDays, ol
                     thresholds. It used to be `days >= 14` here — the default `redDays` — so a
                     customer who moved the threshold was shown somebody else's policy, and the
                     same wait could be amber on a candidate card and red here. */}
-                <ToneChip
-                    dense
-                    tone={oldestOpenBand === "stalled" ? "danger" : oldestOpenBand === "ageing" ? "warning" : "neutral"}
-                    label={`${openCount} waiting · longest ${dayWord(oldestOpenDays ?? 0)}`}
-                />
-            </WtTooltip>
-        )}
-    </Stack>
+        <ToneChip
+          dense
+          tone={
+            oldestOpenBand === "stalled"
+              ? "danger"
+              : oldestOpenBand === "ageing"
+                ? "warning"
+                : "neutral"
+          }
+          label={`${openCount} waiting · longest ${dayWord(oldestOpenDays ?? 0)}`}
+        />
+      </WtTooltip>
+    )}
+  </Stack>
 );
 
 const RecruitmentOverview = ({ companyId }: OrgScoped) => {
-    // The shared PeriodFilter (Daily / Weekly / Monthly / Yearly / All Time) is the same
-    // control Attendance uses, so the period vocabulary is identical across the app.
-    // "All Time" emits no start/end, which the API reads as no window.
-    const [period, setPeriod] = useState<{ from?: string; to?: string; label: string }>({ label: "All Time" });
-    const onPeriodChange = useCallback((r: PeriodRange) => {
-        setPeriod({
-            from: r.start?.toISOString(),
-            to: r.end?.toISOString(),
-            label: r.label || "All Time",
-        });
-    }, []);
-    const range = { from: period.from, to: period.to };
-
-    const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
-        queryKey: queryKeys.recruitment.overview({ ...range, companyId }),
-        queryFn: () => getRecruitmentOverview(range, companyId),
-        // Moving between periods keeps the last figures on screen while the next ones load,
-        // instead of blanking the page to a spinner for every click of an arrow.
-        placeholderData: keepPreviousData,
+  // The shared PeriodFilter (Daily / Weekly / Monthly / Yearly / All Time) is the same
+  // control Attendance uses, so the period vocabulary is identical across the app.
+  // "All Time" emits no start/end, which the API reads as no window.
+  const [period, setPeriod] = useState<{
+    from?: string;
+    to?: string;
+    label: string;
+  }>({ label: "All Time" });
+  const onPeriodChange = useCallback((r: PeriodRange) => {
+    setPeriod({
+      from: r.start?.toISOString(),
+      to: r.end?.toISOString(),
+      label: r.label || "All Time",
     });
+  }, []);
+  const range = { from: period.from, to: period.to };
 
-    /**
-     * Which bar the user opened. Every count on this page used to be a dead end: the
-     * tooltip repeated the number and nothing said WHO. One piece of state rather than one
-     * per chart, because only one drill-down can be open at a time.
-     */
-    const [drillDown, setDrillDown] = useState<{ title: string; statusId?: string; sourceId?: string } | null>(null);
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
+    queryKey: queryKeys.recruitment.overview({ ...range, companyId }),
+    queryFn: () => getRecruitmentOverview(range, companyId),
+    // Moving between periods keeps the last figures on screen while the next ones load,
+    // instead of blanking the page to a spinner for every click of an arrow.
+    placeholderData: keepPreviousData,
+  });
 
-    // NEVER return early above the header. The period filter lives in it, and an early-return
-    // spinner unmounted the filter on every change: it lost its place, snapped back to today, and a
-    // custom range could never be finished because picking "From" remounted it empty.
-    const header = (
-        <ListHeader
-            title="Recruitment Overview"
-            subtitle={
-                period.label === "Pick a range"
-                    ? "Choose a start and end date to see that period."
-                    : `How hiring is going — showing ${period.label}.`
-            }
-            actions={
-                <PeriodFilter
-                    initialMode="allyear"
-                    allowedModes={["daily", "weekly", "monthly", "yearly", "allyear", "custom"]}
-                    storageKey="recruitment:overview:period"
-                    // Compact labels: this control sits in a header that also carries a
-                    // title, and its own docblock recommends compact where width is tight.
-                    dateStyle="compact"
-                    navMinWidth={150}
-                    onChange={onPeriodChange}
-                />
-            }
+  /**
+   * Which bar the user opened. Every count on this page used to be a dead end: the
+   * tooltip repeated the number and nothing said WHO. One piece of state rather than one
+   * per chart, because only one drill-down can be open at a time.
+   */
+  const [drillDown, setDrillDown] = useState<{
+    title: string;
+    statusId?: string;
+    sourceId?: string;
+  } | null>(null);
+
+  // NEVER return early above the header. The period filter lives in it, and an early-return
+  // spinner unmounted the filter on every change: it lost its place, snapped back to today, and a
+  // custom range could never be finished because picking "From" remounted it empty.
+  const header = (
+    <ListHeader
+      title="Recruitment Overview"
+      subtitle={
+        period.label === "Pick a range"
+          ? "Choose a start and end date to see that period."
+          : `How hiring is going — showing ${period.label}.`
+      }
+      actions={
+        <PeriodFilter
+          initialMode={PeriodMode.ALL_YEAR}
+          allowedModes={[
+            PeriodMode.DAILY,
+            PeriodMode.WEEKLY,
+            PeriodMode.MONTHLY,
+            PeriodMode.YEARLY,
+            PeriodMode.ALL_YEAR,
+            PeriodMode.CUSTOM,
+          ]}
+          storageKey="recruitment:overview:period"
+          // Compact labels: this control sits in a header that also carries a
+          // title, and its own docblock recommends compact where width is tight.
+          dateStyle="compact"
+          navMinWidth={150}
+          onChange={onPeriodChange}
         />
-    );
+      }
+    />
+  );
 
-    if (!data) {
-        return (
-            <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
-                {header}
-                {isLoading ? (
-                    <Stack alignItems="center" sx={{ py: 8 }}><CircularProgress size={30} /></Stack>
-                ) : isError ? (
-                    <WtEmptyState variant="error" title="Could not load the overview" hint={apiErrorMessage(error, "Check your connection and try again.")} actionLabel="Retry" onAction={() => refetch()} />
-                ) : (
-                    <WtEmptyState title="Nothing to Show Yet" hint="Numbers appear here once requisitions and applications exist." />
-                )}
-            </Box>
-        );
-    }
-
-    const { kpis, funnel, candidatesBySource, referralsByEmployee = [], requisitionsByStatus, offersByAcceptance, stageDurations, timeToHire } = data;
-    const funnelMax = Math.max(1, ...funnel.map((f) => f.count));
-    const sourceMax = Math.max(1, ...candidatesBySource.map((s) => s.count));
-    const referralMax = Math.max(1, ...referralsByEmployee.map((r) => r.count));
-    const conversion = kpis.totalApplications > 0 ? Math.round((kpis.hires / kpis.totalApplications) * 100) : 0;
-
-    const kpiTiles: Array<{ label: string; value: number | string; trio: Trio; icon: React.ReactNode }> = [
-        { label: "Open Roles", value: kpis.openRequisitions, trio: TRIO.blue, icon: "questionnaire-tablet" },
-        { label: "In Process", value: kpis.activeCandidates, trio: TRIO.purple, icon: "profile-circle" },
-                // "Interviews" sat directly above a funnel bar also called Interview and meant
-        // something else entirely: this counts BOOKINGS still to happen, the bar counts people
-        // parked in that stage. Reading 0 beside a bar of 5 looked broken and was not. The
-        // longer label is the fix — and the gap between the two is the useful signal, because
-        // five people waiting with nothing booked is the thing worth seeing.
-        { label: "Interviews Booked", value: kpis.interviewsScheduled, trio: TRIO.cyan, icon: "message-text-2" },
-        // The branch's own currency, not the icon font's `dollar` — that glyph was showing a
-        // `$` to an office that pays in rupees purely because it is the only money shape the
-        // font ships.
-        { label: "Offers Out", value: kpis.offersOutstanding, trio: TRIO.amber, icon: <CurrencySymbol /> },
-        { label: "Hired", value: kpis.hires, trio: TRIO.green, icon: "user-tick" },
-        // The median, not the average: one long-running role drags an average away from
-        // reality, so "typical" is both the plainer word and the accurate one.
-        { label: "Time to Hire", value: timeToHire.medianDays == null ? "—" : dayWord(timeToHire.medianDays), trio: TRIO.slate, icon: "chart-simple" },
-    ];
-
+  if (!data) {
     return (
-        <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
-            {header}
-            {/* The previous period stays readable while the next loads; this line says it is updating. */}
-            <Box sx={{ height: 3, mb: 1 }}>{isFetching && <LinearProgress sx={{ height: 3, borderRadius: 2 }} aria-label="Updating" />}</Box>
-            {isError && (
-                <Typography sx={{ mb: 1.5, fontSize: 13, color: "error.main" }}>
-                    Could not load {period.label}. Showing the last figures that loaded. {apiErrorMessage(error, "")}
-                </Typography>
+      <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
+        {header}
+        {isLoading ? (
+          <Stack alignItems="center" sx={{ py: 8 }}>
+            <CircularProgress size={30} />
+          </Stack>
+        ) : isError ? (
+          <WtEmptyState
+            variant="error"
+            title="Could not load the overview"
+            hint={apiErrorMessage(
+              error,
+              "Check your connection and try again.",
             )}
-
-            {/* KPI strip: stretch so tiles share the row; xs stays two-up via min. */}
-            <AutoGrid min={160} max={220} stretch sx={{ mb: 2 }}>
-                {kpiTiles.map((t) => <StatTile key={t.label} label={t.label} value={t.value} trio={t.trio} icon={t.icon} />)}
-            </AutoGrid>
-
-            <GlassCard preset="section" sx={{ mb: 2 }}>
-                <CardTitle
-                    tone={TRIO.blue}
-                    icon="chart-simple"
-                    title="Where Candidates Are"
-                    hint={`${kpis.totalApplications} people applied · ${conversion} in every 100 were hired · ${kpis.publishedPostings} jobs live on the careers page`}
-                />
-                {funnel.length === 0 ? (
-                    <EmptyHint text="No hiring steps set up yet. Add them in the Configure tab." />
-                ) : (
-                    <Stack spacing={1}>
-                        {funnel.map((f) => (
-                            <BarRow
-                                key={f.id}
-                                label={f.name}
-                                count={f.count}
-                                max={funnelMax}
-                                color={f.color}
-                                onOpen={() => setDrillDown({ title: `${f.name} — ${f.count} ${f.count === 1 ? "candidate" : "candidates"}`, statusId: f.id })}
-                            />
-                        ))}
-                    </Stack>
-                )}
-            </GlassCard>
-
-            <GlassCard preset="section" sx={{ mb: 2 }}>
-                <CardTitle
-                    tone={TRIO.amber}
-                    icon="time"
-                    title="How Long Each Step Takes"
-                    hint={
-                        // A 90th percentile needs enough hires to mean anything — "9 out of 10
-                        // within 22 days" drawn from two people is a claim the data cannot make.
-                        // Below that, report only what two hires can honestly say.
-                        timeToHire.count >= 5
-                            ? `Across ${timeToHire.count} hires, most people were hired within ${dayWord(timeToHire.medianDays ?? 0)}, and 9 out of 10 within ${dayWord(timeToHire.p90Days ?? 0)}.`
-                            : timeToHire.count > 0
-                              ? `Based on ${timeToHire.count === 1 ? "1 hire" : `${timeToHire.count} hires`} so far, hiring took about ${dayWord(timeToHire.medianDays ?? 0)} — too few to read as a trend yet.`
-                              : "How long people usually wait at each step, and who is waiting right now."
-                    }
-                />
-                {stageDurations.length === 0 ? (
-                    <EmptyHint text="Nobody has moved between steps yet, so there is nothing to measure." />
-                ) : (
-                    <Stack spacing={0.25}>
-                        {stageDurations.map((d) => (
-                            <StageRow
-                                key={d.statusId}
-                                name={d.name}
-                                color={d.color}
-                                avgDays={d.avgDays}
-                                samples={d.samples}
-                                openCount={d.openCount}
-                                oldestOpenBand={d.oldestOpenBand}
-                                oldestOpenDays={d.oldestOpenDays}
-                            />
-                        ))}
-                    </Stack>
-                )}
-            </GlassCard>
-
-            <AutoGrid min={340}>
-                <GlassCard preset="section">
-                    <CardTitle
-                        tone={TRIO.purple}
-                        icon="entity"
-                        title="Where Applications Come From"
-                        hint="The bar counts applications from each source; the line underneath is how many of them were hired — that is the number worth spending on. Applications, not people, so the bar and the list behind it agree."
-                    />
-                    {candidatesBySource.length === 0 ? (
-                        <EmptyHint text="No applications yet." />
-                    ) : (
-                        <Stack spacing={1}>
-                            {candidatesBySource.map((s) => (
-                                <Box key={s.id}>
-                                    <BarRow
-                                        label={s.name}
-                                        count={s.count}
-                                        max={sourceMax}
-                                        color={s.color}
-                                        onOpen={() => setDrillDown({ title: `From ${s.name} — ${s.count} ${s.count === 1 ? "candidate" : "candidates"}`, sourceId: s.id })}
-                                    />
-                                    {s.hires > 0 && (
-                                        <Typography sx={{ fontSize: 11.5, color: "text.secondary", pl: { xs: 12.5, sm: 17 }, mt: -0.25 }}>
-                                            {s.hires} hired — {s.hireRatePct} in every 100 who applied
-                                        </Typography>
-                                    )}
-                                </Box>
-                            ))}
-                        </Stack>
-                    )}
-                </GlassCard>
-
-                <GlassCard preset="section">
-                    <CardTitle
-                        tone={TRIO.cyan}
-                        icon="people"
-                        title="Employee referrals"
-                        hint="Who referred candidates — from the referrer named on the applicant record. Hire rate is applications that reached hired."
-                    />
-                    {referralsByEmployee.length === 0 ? (
-                        <EmptyHint text="No employee referrals recorded in this period." />
-                    ) : (
-                        <Stack spacing={1}>
-                            {referralsByEmployee.map((r) => (
-                                <Box key={r.id}>
-                                    <BarRow
-                                        label={r.name}
-                                        count={r.count}
-                                        max={referralMax}
-                                        color={null}
-                                    />
-                                    {r.hires > 0 && (
-                                        <Typography sx={{ fontSize: 11.5, color: "text.secondary", pl: { xs: 12.5, sm: 17 }, mt: -0.25 }}>
-                                            {r.hires} hired — {r.hireRatePct} in every 100 referred applications
-                                        </Typography>
-                                    )}
-                                </Box>
-                            ))}
-                        </Stack>
-                    )}
-                </GlassCard>
-
-                <GlassCard preset="section">
-                    <CardTitle
-                        tone={TRIO.green}
-                        icon="check-circle"
-                        title="Approvals & Offers"
-                        hint="Roles waiting for sign-off, and how candidates have replied to their offers."
-                    />
-                    <Stack spacing={2}>
-                        <Box>
-                            <Eyebrow sx={{ mb: 0.75 }}>Role Requests</Eyebrow>
-                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                <ToneChip tone="warning" label={`Waiting for Approval ${requisitionsByStatus.pending}`} />
-                                <ToneChip tone="success" label={`Open ${requisitionsByStatus.approved}`} />
-                                <ToneChip tone="danger" label={`Turned Down ${requisitionsByStatus.rejected}`} />
-                            </Stack>
-                        </Box>
-                        <Box>
-                            <Eyebrow sx={{ mb: 0.75 }}>Offers</Eyebrow>
-                            {offersByAcceptance.length === 0 ? (
-                                <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>No offers sent yet.</Typography>
-                            ) : (
-                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                    {offersByAcceptance.map((o) => <ToneChip key={o.status} tone={OFFER_TONE[o.status] ?? "brand"} label={`${titleCase(o.status)} ${o.count}`} />)}
-                                </Stack>
-                            )}
-                        </Box>
-                    </Stack>
-                </GlassCard>
-            </AutoGrid>
-
-            {/* Mounted only while a bar is open, so a closed drill-down costs nothing. */}
-            {drillDown && (
-                <ApplicationsDrillDown
-                    open
-                    onClose={() => setDrillDown(null)}
-                    title={drillDown.title}
-                    statusId={drillDown.statusId}
-                    sourceId={drillDown.sourceId}
-                    // The period these figures were counted in, so the list behind a bar contains
-                    // the people that bar counted. Audit H8.
-                    from={period.from}
-                    to={period.to}
-                    companyId={companyId}
-                />
-            )}
-        </Box>
+            actionLabel="Retry"
+            onAction={() => refetch()}
+          />
+        ) : (
+          <WtEmptyState
+            title="Nothing to Show Yet"
+            hint="Numbers appear here once requisitions and applications exist."
+          />
+        )}
+      </Box>
     );
+  }
+
+  const {
+    kpis,
+    funnel,
+    candidatesBySource,
+    referralsByEmployee = [],
+    requisitionsByStatus,
+    offersByAcceptance,
+    stageDurations,
+    timeToHire,
+  } = data;
+  const funnelMax = Math.max(1, ...funnel.map((f) => f.count));
+  const sourceMax = Math.max(1, ...candidatesBySource.map((s) => s.count));
+  const referralMax = Math.max(1, ...referralsByEmployee.map((r) => r.count));
+  const conversion =
+    kpis.totalApplications > 0
+      ? Math.round((kpis.hires / kpis.totalApplications) * 100)
+      : 0;
+
+  const kpiTiles: Array<{
+    label: string;
+    value: number | string;
+    trio: Trio;
+    icon: React.ReactNode;
+  }> = [
+    {
+      label: "Open Roles",
+      value: kpis.openRequisitions,
+      trio: TRIO.blue,
+      icon: "questionnaire-tablet",
+    },
+    {
+      label: "In Process",
+      value: kpis.activeCandidates,
+      trio: TRIO.purple,
+      icon: "profile-circle",
+    },
+    // "Interviews" sat directly above a funnel bar also called Interview and meant
+    // something else entirely: this counts BOOKINGS still to happen, the bar counts people
+    // parked in that stage. Reading 0 beside a bar of 5 looked broken and was not. The
+    // longer label is the fix — and the gap between the two is the useful signal, because
+    // five people waiting with nothing booked is the thing worth seeing.
+    {
+      label: "Interviews Booked",
+      value: kpis.interviewsScheduled,
+      trio: TRIO.cyan,
+      icon: "message-text-2",
+    },
+    // The branch's own currency, not the icon font's `dollar` — that glyph was showing a
+    // `$` to an office that pays in rupees purely because it is the only money shape the
+    // font ships.
+    {
+      label: "Offers Out",
+      value: kpis.offersOutstanding,
+      trio: TRIO.amber,
+      icon: <CurrencySymbol />,
+    },
+    { label: "Hired", value: kpis.hires, trio: TRIO.green, icon: "user-tick" },
+    // The median, not the average: one long-running role drags an average away from
+    // reality, so "typical" is both the plainer word and the accurate one.
+    {
+      label: "Time to Hire",
+      value:
+        timeToHire.medianDays == null ? "—" : dayWord(timeToHire.medianDays),
+      trio: TRIO.slate,
+      icon: "chart-simple",
+    },
+  ];
+
+  return (
+    <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 1600, mx: "auto" }}>
+      {header}
+      {/* The previous period stays readable while the next loads; this line says it is updating. */}
+      <Box sx={{ height: 3, mb: 1 }}>
+        {isFetching && (
+          <LinearProgress
+            sx={{ height: 3, borderRadius: 2 }}
+            aria-label="Updating"
+          />
+        )}
+      </Box>
+      {isError && (
+        <Typography sx={{ mb: 1.5, fontSize: 13, color: "error.main" }}>
+          Could not load {period.label}. Showing the last figures that loaded.{" "}
+          {apiErrorMessage(error, "")}
+        </Typography>
+      )}
+
+      {/* KPI strip: stretch so tiles share the row; xs stays two-up via min. */}
+      <AutoGrid min={160} max={220} stretch sx={{ mb: 2 }}>
+        {kpiTiles.map((t) => (
+          <StatTile
+            key={t.label}
+            label={t.label}
+            value={t.value}
+            trio={t.trio}
+            icon={t.icon}
+          />
+        ))}
+      </AutoGrid>
+
+      <GlassCard preset="section" sx={{ mb: 2 }}>
+        <CardTitle
+          tone={TRIO.blue}
+          icon="chart-simple"
+          title="Where Candidates Are"
+          hint={`${kpis.totalApplications} people applied · ${conversion} in every 100 were hired · ${kpis.publishedPostings} jobs live on the careers page`}
+        />
+        {funnel.length === 0 ? (
+          <EmptyHint text="No hiring steps set up yet. Add them in the Configure tab." />
+        ) : (
+          <Stack spacing={1}>
+            {funnel.map((f) => (
+              <BarRow
+                key={f.id}
+                label={f.name}
+                count={f.count}
+                max={funnelMax}
+                color={f.color}
+                onOpen={() =>
+                  setDrillDown({
+                    title: `${f.name} — ${f.count} ${f.count === 1 ? "candidate" : "candidates"}`,
+                    statusId: f.id,
+                  })
+                }
+              />
+            ))}
+          </Stack>
+        )}
+      </GlassCard>
+
+      <GlassCard preset="section" sx={{ mb: 2 }}>
+        <CardTitle
+          tone={TRIO.amber}
+          icon="time"
+          title="How Long Each Step Takes"
+          hint={
+            // A 90th percentile needs enough hires to mean anything — "9 out of 10
+            // within 22 days" drawn from two people is a claim the data cannot make.
+            // Below that, report only what two hires can honestly say.
+            timeToHire.count >= 5
+              ? `Across ${timeToHire.count} hires, most people were hired within ${dayWord(timeToHire.medianDays ?? 0)}, and 9 out of 10 within ${dayWord(timeToHire.p90Days ?? 0)}.`
+              : timeToHire.count > 0
+                ? `Based on ${timeToHire.count === 1 ? "1 hire" : `${timeToHire.count} hires`} so far, hiring took about ${dayWord(timeToHire.medianDays ?? 0)} — too few to read as a trend yet.`
+                : "How long people usually wait at each step, and who is waiting right now."
+          }
+        />
+        {stageDurations.length === 0 ? (
+          <EmptyHint text="Nobody has moved between steps yet, so there is nothing to measure." />
+        ) : (
+          <Stack spacing={0.25}>
+            {stageDurations.map((d) => (
+              <StageRow
+                key={d.statusId}
+                name={d.name}
+                color={d.color}
+                avgDays={d.avgDays}
+                samples={d.samples}
+                openCount={d.openCount}
+                oldestOpenBand={d.oldestOpenBand}
+                oldestOpenDays={d.oldestOpenDays}
+              />
+            ))}
+          </Stack>
+        )}
+      </GlassCard>
+
+      <AutoGrid min={340}>
+        <GlassCard preset="section">
+          <CardTitle
+            tone={TRIO.purple}
+            icon="entity"
+            title="Where Applications Come From"
+            hint="The bar counts applications from each source; the line underneath is how many of them were hired — that is the number worth spending on. Applications, not people, so the bar and the list behind it agree."
+          />
+          {candidatesBySource.length === 0 ? (
+            <EmptyHint text="No applications yet." />
+          ) : (
+            <Stack spacing={1}>
+              {candidatesBySource.map((s) => (
+                <Box key={s.id}>
+                  <BarRow
+                    label={s.name}
+                    count={s.count}
+                    max={sourceMax}
+                    color={s.color}
+                    onOpen={() =>
+                      setDrillDown({
+                        title: `From ${s.name} — ${s.count} ${s.count === 1 ? "candidate" : "candidates"}`,
+                        sourceId: s.id,
+                      })
+                    }
+                  />
+                  {s.hires > 0 && (
+                    <Typography
+                      sx={{
+                        fontSize: 11.5,
+                        color: "text.secondary",
+                        pl: { xs: 12.5, sm: 17 },
+                        mt: -0.25,
+                      }}
+                    >
+                      {s.hires} hired — {s.hireRatePct} in every 100 who applied
+                    </Typography>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          )}
+        </GlassCard>
+
+        <GlassCard preset="section">
+          <CardTitle
+            tone={TRIO.cyan}
+            icon="people"
+            title="Employee referrals"
+            hint="Who referred candidates — from the referrer named on the applicant record. Hire rate is applications that reached hired."
+          />
+          {referralsByEmployee.length === 0 ? (
+            <EmptyHint text="No employee referrals recorded in this period." />
+          ) : (
+            <Stack spacing={1}>
+              {referralsByEmployee.map((r) => (
+                <Box key={r.id}>
+                  <BarRow
+                    label={r.name}
+                    count={r.count}
+                    max={referralMax}
+                    color={null}
+                  />
+                  {r.hires > 0 && (
+                    <Typography
+                      sx={{
+                        fontSize: 11.5,
+                        color: "text.secondary",
+                        pl: { xs: 12.5, sm: 17 },
+                        mt: -0.25,
+                      }}
+                    >
+                      {r.hires} hired — {r.hireRatePct} in every 100 referred
+                      applications
+                    </Typography>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          )}
+        </GlassCard>
+
+        <GlassCard preset="section">
+          <CardTitle
+            tone={TRIO.green}
+            icon="check-circle"
+            title="Approvals & Offers"
+            hint="Roles waiting for sign-off, and how candidates have replied to their offers."
+          />
+          <Stack spacing={2}>
+            <Box>
+              <Eyebrow sx={{ mb: 0.75 }}>Role Requests</Eyebrow>
+              <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                <ToneChip
+                  tone="warning"
+                  label={`Waiting for Approval ${requisitionsByStatus.pending}`}
+                />
+                <ToneChip
+                  tone="success"
+                  label={`Open ${requisitionsByStatus.approved}`}
+                />
+                <ToneChip
+                  tone="danger"
+                  label={`Turned Down ${requisitionsByStatus.rejected}`}
+                />
+              </Stack>
+            </Box>
+            <Box>
+              <Eyebrow sx={{ mb: 0.75 }}>Offers</Eyebrow>
+              {offersByAcceptance.length === 0 ? (
+                <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>
+                  No offers sent yet.
+                </Typography>
+              ) : (
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  flexWrap="wrap"
+                  useFlexGap
+                >
+                  {offersByAcceptance.map((o) => (
+                    <ToneChip
+                      key={o.status}
+                      tone={OFFER_TONE[o.status] ?? "brand"}
+                      label={`${titleCase(o.status)} ${o.count}`}
+                    />
+                  ))}
+                </Stack>
+              )}
+            </Box>
+          </Stack>
+        </GlassCard>
+      </AutoGrid>
+
+      {/* Mounted only while a bar is open, so a closed drill-down costs nothing. */}
+      {drillDown && (
+        <ApplicationsDrillDown
+          open
+          onClose={() => setDrillDown(null)}
+          title={drillDown.title}
+          statusId={drillDown.statusId}
+          sourceId={drillDown.sourceId}
+          // The period these figures were counted in, so the list behind a bar contains
+          // the people that bar counted. Audit H8.
+          from={period.from}
+          to={period.to}
+          companyId={companyId}
+        />
+      )}
+    </Box>
+  );
 };
 
 export default RecruitmentOverview;

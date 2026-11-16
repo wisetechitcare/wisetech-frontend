@@ -4,10 +4,7 @@ import MaterialHeaderTab, {
 } from "@app/modules/common/components/MaterialHeaderTab";
 import { tabSlug, useTabRoute } from "@app/hooks/useTabRoute";
 import { PageTitle } from "@metronic/layout/core";
-import { useState } from "react";
-import { Box, Menu, MenuItem, useMediaQuery, useTheme } from "@mui/material";
-import { WtField } from "@app/modules/common/components/ui";
-import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
+import ModuleOrgFilter from "@app/modules/common/components/ModuleOrgFilter";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { useApprovalRealtime } from "@/hooks/useApprovalRealtime";
@@ -65,120 +62,9 @@ const RecruitmentMain = () => {
   const qc = useQueryClient();
   useApprovalRealtime(() => qc.invalidateQueries({ queryKey: queryKeys.recruitment.all }));
 
-  /**
-   * The organization filter, in the tab bar itself.
-   *
-   * It used to sit on its own row underneath, repeated inside every scoped tab, which cost
-   * a full line of vertical space on every screen in the module before any content showed.
-   * `MaterialHeaderTab` has a `headerAction` slot on the right of the bar for precisely
-   * this.
-   *
-   * NO LABEL, deliberately. `WtField` never styles its label — MUI sizes the notch from the
-   * label's default metrics, so restyling one for a dark gradient is how a label ends up
-   * sitting on the border line. It is redundant anyway: the control reads
-   * "All organizations" beside a bank icon, which says what it is without a caption.
-   *
-   * Only the surface is themed for the bar, which is allowed. The white tone also carries
-   * the icon and the focus ring, so one prop covers all three.
-   */
-  const theme = useTheme();
-  const isPhone = useMediaQuery(theme.breakpoints.down("sm"));
-  const [orgMenuAnchor, setOrgMenuAnchor] = useState<HTMLElement | null>(null);
-  const scopedToOne = scopeId !== ALL_ORGS;
-  // Header is always dark navy — frosted white controls, not brand hex literals (360 Wave C).
-  const onBar = theme.palette.common.white;
-  const onBarMuted = "rgba(255,255,255,0.85)";
-  const onBarFill = "rgba(255,255,255,0.14)";
-  const onBarFillActive = "rgba(255,255,255,0.18)";
-
-  /**
-   * Phones: the filter as one 36px icon button, the same size and frosted fill as the tab icons
-   * beside it. A 200px select cannot share a ~360px bar with seven tabs. A white dot on the
-   * icon says a specific organization is selected; the menu names it.
-   */
-  const phoneOrgFilter = hasChoice ? (
-    <>
-      <Box
-        component="button"
-        type="button"
-        aria-label={`Organization: ${selectOptions.find((o) => o.value === scopeId)?.label ?? ""}. Change organization`}
-        aria-haspopup="menu"
-        aria-expanded={Boolean(orgMenuAnchor)}
-        title="Organization"
-        onClick={(e: React.MouseEvent<HTMLElement>) => setOrgMenuAnchor(e.currentTarget)}
-        sx={{
-          // Dressed like a phone tab cell: the bar stretches it to the tabs' height.
-          position: "relative",
-          width: 44,
-          minHeight: 36,
-          display: "grid",
-          placeItems: "center",
-          border: 0,
-          borderRadius: "10px",
-          color: onBar,
-          backgroundColor: scopedToOne || orgMenuAnchor ? onBarFillActive : "transparent",
-          cursor: "pointer",
-          "&:focus-visible": { outline: `2px solid ${onBarMuted}`, outlineOffset: "-2px" },
-        }}
-      >
-        <AppIcon name="bank" className="fs-3" />
-        {scopedToOne && (
-          <Box component="span" sx={{ position: "absolute", top: 7, right: 7, width: 7, height: 7, borderRadius: "50%", bgcolor: "background.paper" }} />
-        )}
-      </Box>
-      <Menu
-        anchorEl={orgMenuAnchor}
-        open={Boolean(orgMenuAnchor)}
-        onClose={() => setOrgMenuAnchor(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-        slotProps={{ paper: { sx: { mt: 0.75, minWidth: 220, borderRadius: "12px" } } }}
-      >
-        {selectOptions.map((option) => {
-          const selected = option.value === scopeId;
-          return (
-            <MenuItem
-              key={option.value}
-              selected={selected}
-              onClick={() => { setOrgMenuAnchor(null); setScopeId(option.value); }}
-              sx={{
-                minHeight: 44, gap: 1, fontSize: 14,
-                fontWeight: selected ? 700 : 500,
-                color: selected ? "primary.main" : "text.primary",
-                "&.Mui-selected": { backgroundColor: "action.selected" },
-                "&.Mui-selected:hover": { backgroundColor: "action.hover" },
-              }}
-            >
-              <Box component="span" sx={{ flex: 1 }}>{option.label}</Box>
-              {selected && (
-                <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-              )}
-            </MenuItem>
-          );
-        })}
-      </Menu>
-    </>
-  ) : null;
-
-  const orgFilter = !hasChoice ? null : isPhone ? phoneOrgFilter : (
-    <WtField
-      icon="bank"
-      value={scopeId}
-      onChange={setScopeId}
-      options={selectOptions}
-      tone={onBar}
-      fullWidth={false}
-      // Content-sized (fitContent default); minWidth keeps short names usable on the navy bar.
-      minWidth={200}
-      ariaLabel="Organization"
-      sx={{
-        "& .MuiOutlinedInput-root": {
-          color: onBar,
-          backgroundColor: onBarFill,
-        },
-        "& .MuiSelect-icon": { color: onBarMuted },
-      }}
-    />
+  // The organization filter sits in the tab bar itself — see ModuleOrgFilter.
+  const orgFilter = (
+    <ModuleOrgFilter scopeId={scopeId} setScopeId={setScopeId} selectOptions={selectOptions} hasChoice={hasChoice} />
   );
 
   /**

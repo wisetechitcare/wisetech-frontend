@@ -8,11 +8,14 @@ import { filterPlansForLead } from './paymentPlanScope';
  * from every lead the moment plans gained a project type.
  */
 
-const untyped = { id: 'legacy', categoryId: null, subCategoryId: null };
-const bungalowWide = { id: 'bungalow-all', categoryId: 'cat-bungalow', subCategoryId: null };
-const bungalowSingle = { id: 'bungalow-single', categoryId: 'cat-bungalow', subCategoryId: 'sub-single' };
-const bungalowMulti = { id: 'bungalow-multi', categoryId: 'cat-bungalow', subCategoryId: 'sub-multi' };
-const hospital = { id: 'hospital', categoryId: 'cat-hospital', subCategoryId: null };
+const whole = (categoryId: string) => ({ categoryId, subCategoryId: null });
+const sub = (categoryId: string, subCategoryId: string) => ({ categoryId, subCategoryId });
+
+const untyped = { id: 'legacy', scopes: [] };
+const bungalowWide = { id: 'bungalow-all', scopes: [whole('cat-bungalow')] };
+const bungalowSingle = { id: 'bungalow-single', scopes: [sub('cat-bungalow', 'sub-single')] };
+const bungalowMulti = { id: 'bungalow-multi', scopes: [sub('cat-bungalow', 'sub-multi')] };
+const hospital = { id: 'hospital', scopes: [whole('cat-hospital')] };
 
 const ALL = [untyped, bungalowWide, bungalowSingle, bungalowMulti, hospital];
 const ids = (plans: { id: string }[]) => plans.map((p) => p.id);
@@ -26,6 +29,11 @@ describe('filterPlansForLead', () => {
   test('un-typed plans stay on offer whatever the lead is', () => {
     // Plans written before they carried a type must not drop off every lead at once.
     expect(ids(filterPlansForLead(ALL, ['cat-hospital'], []))).toContain('legacy');
+  });
+
+  test('a plan with no scopes at all (field absent) is also un-typed', () => {
+    const old: { id: string; scopes?: { categoryId: string; subCategoryId?: string | null }[] } = { id: 'old' };
+    expect(ids(filterPlansForLead([old, hospital], ['cat-bungalow'], []))).toEqual(['old']);
   });
 
   test('a category-wide plan applies, a different category’s does not', () => {
@@ -52,5 +60,11 @@ describe('filterPlansForLead', () => {
   test('a lead spanning two categories sees both their plans', () => {
     expect(ids(filterPlansForLead(ALL, ['cat-bungalow', 'cat-hospital'], [])))
       .toEqual(['legacy', 'bungalow-all', 'hospital']);
+  });
+
+  test('a plan covering several types applies when ANY of them matches', () => {
+    const shared = { id: 'shared', scopes: [whole('cat-bungalow'), whole('cat-villa')] };
+    expect(ids(filterPlansForLead([shared], ['cat-villa'], []))).toEqual(['shared']);
+    expect(ids(filterPlansForLead([shared], ['cat-hospital'], []))).toEqual([]);
   });
 });

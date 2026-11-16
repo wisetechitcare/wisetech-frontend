@@ -1,5 +1,8 @@
 import React, { useState } from "react";
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
+import FormerContactsSetting from "./FormerContactsSetting";
+import AuditWindowSetting from "../../AuditWindowSetting";
 import { useContactConfig } from "@hooks/useContactConfig";
 import {
   ConfigPageLayout,
@@ -114,6 +117,10 @@ const ContactConfigMain = () => {
               )
             }
           </ConfigSectionCard>
+
+          <FormerContactsSetting />
+
+          <AuditWindowSetting entity="CONTACT" what="contact" />
         </div>
       </ConfigPageLayout>
 
@@ -141,4 +148,4 @@ const ContactConfigMain = () => {
   );
 };
 
-export default ContactConfigMain;
+export default withDeleteSection('crm.contacts', ContactConfigMain);

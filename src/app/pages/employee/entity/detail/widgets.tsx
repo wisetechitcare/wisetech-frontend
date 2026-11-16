@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { HealthResult, MissingItem } from './entityViewModel';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 /** Compact circular health gauge with explainable factor list on hover. */
 export const HealthGauge: React.FC<{ health: HealthResult; probability?: number | null }> = ({
@@ -97,27 +98,16 @@ export const MissingInfoChip: React.FC<{ items: MissingItem[]; onJump: (step: nu
   }
   return (
     <div style={{ position: 'relative' }}>
-      <button
-        type="button"
+      <Button
+        variant="tinted"
+        size="sm"
+        style={{ '--tint': 'var(--warning)' } as React.CSSProperties}
+        aria-expanded={open}
         onClick={() => setOpen(o => !o)}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          background: '#FFF7ED',
-          color: '#9A3412',
-          border: '1px solid #F5A62333',
-          borderRadius: 999,
-          padding: '5px 12px',
-          fontFamily: 'Inter',
-          fontSize: 12,
-          fontWeight: 700,
-          cursor: 'pointer',
-        }}
       >
-        <AppIcon name="bi-exclamation-triangle-fill" /> {items.length} field{items.length === 1 ? '' : 's'} missing
-        <i className={`bi bi-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 10 }} />
-      </button>
+        <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-exclamation-triangle-fill" /></span> {items.length} field{items.length === 1 ? '' : 's'} missing
+        <span data-icon="inline-end" className="inline-flex"><i className={`bi bi-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 10 }} /></span>
+      </Button>
       {open && (
         <div
           style={{
@@ -137,6 +127,7 @@ export const MissingInfoChip: React.FC<{ items: MissingItem[]; onJump: (step: nu
             <button
               key={i}
               type="button"
+              role="menuitem"
               onClick={() => {
                 setOpen(false);
                 onJump(it.step);

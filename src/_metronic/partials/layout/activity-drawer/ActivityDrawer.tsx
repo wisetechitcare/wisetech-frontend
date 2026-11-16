@@ -1,6 +1,7 @@
 import React, {FC} from 'react'
 import {Link} from 'react-router-dom'
 import {KTIcon} from '../../../helpers'
+import {WtCloseButton} from '@/app/modules/common/components/ui/tw/WtCloseButton'
 import {Item1} from '../../content/activity/Item1'
 import {Item2} from '../../content/activity/Item2'
 import {Item3} from '../../content/activity/Item3'
@@ -28,13 +29,7 @@ const ActivityDrawer: FC = () => (
         <h3 className='card-title fw-bolder text-gray-900'>Activity Logs</h3>
 
         <div className='card-toolbar'>
-          <button
-            type='button'
-            className='btn btn-sm btn-icon btn-active-light-primary me-n5'
-            id='kt_activities_close'
-          >
-            <KTIcon iconName='cross' className='fs-1' />
-          </button>
+          <WtCloseButton variant='plain' className='me-n5' id='kt_activities_close' />
         </div>
       </div>
       <div className='card-body position-relative' id='kt_activities_body'>

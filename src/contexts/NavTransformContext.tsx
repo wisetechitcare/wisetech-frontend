@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { IconButton, Tooltip, type IconButtonProps } from '@mui/material';
+import { Tooltip } from '@mui/material';
+import { WtIconButton, type WtIconButtonProps } from '@app/modules/common/components/ui/buttons';
 import { KTIcon } from '@metronic/helpers';
 import { useIsMobile } from '@components/navigation/BottomNavigation/useIsMobile';
 import { isWorkspacePath } from '@components/workspace/appSlug';
@@ -108,7 +109,7 @@ export function NavTransformProvider({ children }: { children: ReactNode }) {
  * Renders nothing below the desktop breakpoint: there the rail is already a drawer and
  * BottomNav is the navigation surface, so there is nothing to switch.
  */
-export function NavTransformToggle(props: IconButtonProps) {
+export function NavTransformToggle(props: WtIconButtonProps) {
   const { enabled, toggle } = useNavTransform();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -166,17 +167,18 @@ export function NavTransformToggle(props: IconButtonProps) {
 
   return (
     <Tooltip title={enabled ? 'Switch to the sidebar (Ctrl+I)' : 'Switch to the workspace shell (Ctrl+I)'}>
-      <IconButton
+      <WtIconButton
+        size="medium"
         onClick={handleClick}
         aria-pressed={enabled}
         aria-label="Switch navigation style"
-        sx={{ color: enabled ? 'primary.main' : 'text.secondary' }}
+        color={enabled ? 'var(--primary)' : '#64748b'}
         {...props}
       >
         {/* Each icon names the DESTINATION, not the current state: a sidebar panel to go
             back to the sidebar, the app grid to go to the launcher. */}
         <KTIcon iconName={enabled ? 'panel-left' : 'element-11'} className="fs-3" />
-      </IconButton>
+      </WtIconButton>
     </Tooltip>
   );
 }

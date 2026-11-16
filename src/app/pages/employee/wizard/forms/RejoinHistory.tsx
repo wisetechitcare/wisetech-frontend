@@ -1,6 +1,7 @@
-import { Box, IconButton } from '@mui/material';
+import { Box } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { WtDateField, WtFieldFormik } from '@app/modules/common/components/ui';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 function RejoinHistory({ formikProps, index, onRemove }: any) {
     const element = `rejoinHistory[${index}]`;
@@ -9,7 +10,7 @@ function RejoinHistory({ formikProps, index, onRemove }: any) {
         <>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
                     {index > 0 && (
-                        <IconButton className="flex-end"
+                        <WtIconButton size="medium" className="flex-end"
                             onClick={() => onRemove(index)}
                             title="Remove this entry"
                             sx={{
@@ -20,7 +21,7 @@ function RejoinHistory({ formikProps, index, onRemove }: any) {
                             }}
                         >
                             <Close />
-                        </IconButton>
+                        </WtIconButton>
                     )}
         </Box>
             <Box className="grid grid-cols-1 gap-4 md:grid-cols-3">

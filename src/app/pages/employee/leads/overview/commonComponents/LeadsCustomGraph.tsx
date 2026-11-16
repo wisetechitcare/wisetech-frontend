@@ -12,6 +12,7 @@ import { getAllProjectServices } from "@services/projects";
 import CompanyConfigForm from "@pages/employee/companies/companyConfig/components/CompanyConfigForm";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { formatCurrencyDecimal } from '@utils/currency';
+import { Button } from '@/ds/ui/button';
 
 type PieChartDataItem = {
   label: string;
@@ -421,216 +422,71 @@ const CustomPieCharts: React.FC<CustomPieChartProps> = ({
 
             {/* leads by status graph */}
             {title.toLowerCase().includes("status") && (
-              <button
-                style={{
-                  fontSize: "11px",
-                  border: "1px solid #1E3A8A",
-                  color: "#1E3A8A",
-                  backgroundColor: "transparent",
-                  borderRadius: "3px",
-                  // padding: "0px !importana",
-                  // margin:"0px !important",
-                  alignItems:"center",
-                  justifyContent:"center",
-                  display:"flex",
-                  padding: "9px 12px",
-                  lineHeight: "1",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-in-out",
-                  whiteSpace: "nowrap",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#1E3A8A";
-                  e.currentTarget.style.color = "#fff";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = "#1E3A8A";
-                }}
+              <Button variant="outline" size="xs" type="submit"
                 onClick={handleStatusModalOpen}
               >
               New Status
-              </button>
+              </Button>
 
 
             )}
             {/* Leads by service graph */}
             {(title.toLowerCase().includes("service") || title.toLowerCase().includes("services")) && (
-              <button
-                style={{
-                  fontSize: "11px",
-                  border: "1px solid #1E3A8A",
-                  color: "#1E3A8A",
-                  backgroundColor: "transparent",
-                  borderRadius: "3px",
-                  padding: "9px 12px",
-                  lineHeight: "1",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-in-out",
-                  whiteSpace: "nowrap",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#1E3A8A";
-                  e.currentTarget.style.color = "#fff";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = "#1E3A8A";
-                }}
+              <Button variant="outline" size="xs" type="submit"
                 onClick={handleServiceModalOpen}
               >
                 New Services
-              </button>
+              </Button>
             )}
             {/* leads by category graph */}
             {
               title.toLowerCase().includes("category") && (
-                <button
-                  style={{
-                    fontSize: "11px",
-                    border: "1px solid #1E3A8A",
-                    color: "#1E3A8A",
-                    backgroundColor: "transparent",
-                    borderRadius: "3px",
-                    padding: "9px 12px",
-                    lineHeight: "1",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease-in-out",
-                    whiteSpace: "nowrap",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#1E3A8A";
-                    e.currentTarget.style.color = "#fff";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "#1E3A8A";
-                  }}
+                <Button variant="outline" size="xs" type="submit"
                   onClick={handleCategoryModalOpen}
                 >
                   New Category
-                </button>
+                </Button>
               )
             }
             {/* leads by source graph  */}
             {
               title.toLowerCase().includes("direct sources")  && (
-                <button
-                  style={{
-                    fontSize: "11px",
-                    border: "1px solid #1E3A8A",
-                    color: "#1E3A8A",
-                    backgroundColor: "transparent",
-                    borderRadius: "3px",
-                    padding: "9px 12px",
-                    lineHeight: "1",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease-in-out",
-                    whiteSpace: "nowrap",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#1E3A8A";
-                    e.currentTarget.style.color = "#fff";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "#1E3A8A";
-                  }}
+                <Button variant="outline" size="xs" type="submit"
                 onClick={handleDirectSourceModalOpen}
                 >
                   New Direct Sources
-                </button>
+                </Button>
               )
             }
             {/* leads by referral source graph */}
             {
               title.toLowerCase().includes("referral source") && (
-                <button
-                  style={{
-                    fontSize: "11px",
-                    border: "1px solid #1E3A8A",
-                    color: "#1E3A8A",
-                    backgroundColor: "transparent",
-                    borderRadius: "3px",
-                    padding: "9px 12px",
-                    lineHeight: "1",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease-in-out",
-                    whiteSpace: "nowrap",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#1E3A8A";
-                    e.currentTarget.style.color = "#fff";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "#1E3A8A";
-                  }}
+                <Button variant="outline" size="xs" type="submit"
                   onClick={handleReferralTypeModalOpen}
                 >
                   New Referral Type
-                </button>
+                </Button>
               )
             }
             {/* leads by direct source graph  */}
             {
               title.toLowerCase().includes("by source") && (
-                <button
-                  style={{
-                    fontSize: "11px",
-                    border: "1px solid #1E3A8A",
-                    color: "#1E3A8A",
-                    backgroundColor: "transparent",
-                    borderRadius: "3px",
-                    padding: "9px 12px",
-                    lineHeight: "1",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease-in-out",
-                    whiteSpace: "nowrap",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#1E3A8A";
-                    e.currentTarget.style.color = "#fff";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "#1E3A8A";
-                  }}
+                <Button variant="outline" size="xs" type="submit"
                   onClick={handleDirectSourceModalOpen}
                 >
                   New Source Type
-                </button>
+                </Button>
               )
             }
 
               {/* leads by company type graph  */}
             {
               title.toLowerCase().includes("by company type") && (
-                <button
-                  style={{
-                    fontSize: "11px",
-                    border: "1px solid #1E3A8A",
-                    color: "#1E3A8A",
-                    backgroundColor: "transparent",
-                    borderRadius: "3px",
-                    padding: "9px 12px",
-                    lineHeight: "1",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease-in-out",
-                    whiteSpace: "nowrap",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#1E3A8A";
-                    e.currentTarget.style.color = "#fff";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "#1E3A8A";
-                  }}
+                <Button variant="outline" size="xs" type="submit"
                   onClick={handleCompanyTypeModalOpen}
                 >
                   New Company Type
-                </button>
+                </Button>
               )
             }
             

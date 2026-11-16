@@ -1,7 +1,6 @@
 import { KTIcon } from '@metronic/helpers';
 import { createRole, fetchRoles, updateRoleById, deleteRoleById, addEmployeeToRole, removeEmployeeFromRole } from '@services/roles';
 import { fetchAllEmployees } from '@services/employee';
-import { getAvatar } from '@utils/avatar';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useEffect, useState } from 'react'
 import { Box, Stack, Typography } from '@mui/material';
@@ -10,6 +9,8 @@ import {
 } from '@app/modules/common/components/ui';
 import { EmployeeSelectionDialog, type EmployeeOption } from '@app/modules/common/components/EmployeeSelectionDialog';
 import RoleAccessEditor from './RoleAccessEditor';
+import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 // The server's explanation for a refused change (last Super Admin, role still in use, …).
 const serverMessage = (error: any, fallback: string) => error?.response?.data?.detail || fallback;
@@ -63,7 +64,7 @@ function RoleMembers({ setRefetch, roleDetails }: { setRefetch: (show: boolean) 
       id: e.id,
       name: personName(e),
       designation: e?.designations?.role ?? undefined,
-      avatar: e?.avatar || getAvatar(e?.avatar, e?.gender),
+      avatar: e?.avatar || '',
     }));
 
   const togglePicked = (id: string) => setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -136,12 +137,7 @@ function RoleMembers({ setRefetch, roleDetails }: { setRefetch: (show: boolean) 
               spacing={1.25}
               sx={{ px: 1.25, py: 0.75, borderRadius: 2, '&:hover': { bgcolor: 'action.hover' } }}
             >
-              <Box
-                component="img"
-                src={employee?.avatar || getAvatar(employee?.avatar, employee?.gender)}
-                alt=""
-                sx={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-              />
+              <SmartAvatar src={employee?.avatar} name={personName(employee)} seed={employee?.id} size={34} decorative />
               <Typography sx={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'text.primary' }} noWrap>
                 {personName(employee)}
               </Typography>
@@ -251,7 +247,7 @@ function AddNewRole({ setShowAddNewRole, setRefetch }: { setShowAddNewRole: (sho
         <input type="text" id="name" placeholder="Role Name" className="form-control" value={roleName} onChange={(e) => setRoleName(e.target.value)} />
         <span style={{ color: '#70829A', fontSize: '13px' }}>Must be between 1 - 50 characters </span>
       </div>
-      <button className="btn btn-primary mt-5 mb-5 m-md-0 " style={{ marginRight: "auto" }} disabled={roleName?.length < 1 || roleName?.length > 50} onClick={handleFormSubmit}>Save</button>
+      <Button type="submit" className="mt-5 mb-5 m-md-0" style={{ marginRight: "auto" }} disabled={roleName?.length < 1 || roleName?.length > 50} onClick={handleFormSubmit}>Save</Button>
     </div>
   )
 }
@@ -318,8 +314,7 @@ function RolesAndPermissions({ editingRole, onEditRole }: { editingRole: any, on
             </div>
             <div className='col-4 col-md-3'>{role?.employees?.length}</div>
             <div className='col-4 col-md-3'>
-              <div
-                className="btn p-0 btn-active-color-primary btn-sm"
+              <Button variant="ghost" size="icon-sm" aria-label="Edit role"
                 onClick={() => onEditRole(role)}
                 title="Edit role"
               >
@@ -327,24 +322,23 @@ function RolesAndPermissions({ editingRole, onEditRole }: { editingRole: any, on
                   iconName="pencil"
                   className="fs-3 cursor-pointer"
                 />
-              </div>
-              {(!role?.isSystem) && <div
-                className="btn p-0 btn-active-color-primary btn-sm"
+              </Button>
+              {(!role?.isSystem) && <Button variant="ghost" size="icon-sm" aria-label="Delete role"
                 onClick={() => handleDeleteRole(String(role.id))}
               >
                 <KTIcon
                   iconName="trash"
                   className="fs-3 cursor-pointer"
                 />
-              </div>}
+              </Button>}
             </div>
           </div>
         ))}
-        <button
-          className="btn btn-primary mt-10"
+        <Button type="submit"
+          className="mt-10"
           style={{ marginRight: "auto" }}
           onClick={() => setShowAddNewRole(true)}
-        >New Role</button>
+        >New Role</Button>
       </div>
       {/* One field, so a small dialog rather than a third level — on the kit, so it stacks ABOVE
           the roles dialog instead of behind it. */}

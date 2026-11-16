@@ -212,7 +212,7 @@ const DepartmentConfigureForm: React.FC<DepartmentFormProps> = ({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <WtButton ghost onClick={onClose} disabled={isSubmitting}>Cancel</WtButton>
-        <WtButton tone="primary" onClick={handleSubmit} disabled={isSubmitting}>
+        <WtButton onClick={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? "Saving…" : isEditing ? "Save changes" : "Create"}
         </WtButton>
       </DialogActions>

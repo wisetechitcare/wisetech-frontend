@@ -10,7 +10,7 @@ import {
     BoardListViewSwitch, confirmDialog, TableSelectionBar, type BoardListView,
 } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import { COPY } from "./terms";
 import { queryKeys } from "@/lib/queryKeys";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
@@ -33,6 +33,7 @@ interface PendingMove {
 
 const PipelineView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
+    const canRemove = canDelete("recruitment");
     const qc = useQueryClient();
     const navigate = useNavigate();
     /**
@@ -143,7 +144,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             ? <ToneChip tone="success" label="Converted" dense />
                             : <ActionIconButton iconName="user-tick" size="sm" tone="success" title="Convert to Employee" onClick={() => convertToEmployee(a)} />
                     )}
-                    {canWrite && (
+                    {canRemove && (
                         <ActionIconButton
                             iconName="trash"
                             size="sm"
@@ -159,7 +160,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
         // convertToEmployee is stable for the life of the component; the setters are
         // React state setters, which never change identity.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [canWrite, archiveMut.isPending],
+        [canWrite, canRemove, archiveMut.isPending],
     );
 
     const byStatus = useMemo(() => {
@@ -265,7 +266,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             onChange={setMode}
                         />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
+                            <WtButton size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
                                 Add Candidate
                             </WtButton>
                         )}
@@ -389,7 +390,7 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                     data={applications}
                     isLoading={isLoading}
                     tableName="RecruitmentPipelineList"
-                    enableRowSelection={canWrite}
+                    enableRowSelection={canRemove}
                     renderSelectionActions={(selected: Application[]) => (
                         <TableSelectionBar count={selected.length}>
                             <WtButton

@@ -11,6 +11,7 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { ToneChip } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { getCurrencyLocale } from '@utils/currency';
+import { Button, buttonVariants } from '@/ds/ui/button';
 
 // ---------------------------------------------------------------------------
 // DocumentPreviewModal
@@ -55,7 +56,7 @@ function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
       aria-modal="true"
       aria-label="Document preview"
     >
-      <div
+      <div data-wt-control="container"
         className="d-flex flex-column bg-white rounded shadow overflow-hidden"
         style={{ width: "min(75vw, 900px)", height: "min(78vh, 710px)" }}
         onClick={(e) => e.stopPropagation()}
@@ -70,24 +71,23 @@ function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
           </div>
 
           <div className="d-flex align-items-center gap-2 flex-shrink-0">
-            <a
+            <a data-slot="button"
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn-sm btn-light btn-active-light-primary d-flex align-items-center gap-1"
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
               title="Open in new tab"
             >
               <KTIcon iconName="exit-right-corner" className="fs-5" />
               <span className="d-none d-sm-inline">Open in tab</span>
             </a>
 
-            <button
-              className="btn btn-sm btn-icon btn-light btn-active-light-danger"
+            <Button variant="outline" size="icon-sm" type="submit" aria-label="Close preview (Esc)"
               onClick={onClose}
               title="Close preview (Esc)"
             >
               <KTIcon iconName="cross" className="fs-2" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -302,8 +302,8 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
         enableSorting: false,
         enableColumnActions: false,
         Cell: ({ renderedCellValue }: any) => (
-          <button
-            className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+          <Button variant="ghost" size="icon-sm" type="submit" aria-label="View"
+            className="w-[20px]"
             onClick={() => handleViewDocument(renderedCellValue)}
             disabled={!renderedCellValue}
             title={renderedCellValue ? "Preview document" : "No document attached"}
@@ -313,7 +313,7 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
             ) : (
               <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
             )}
-          </button>
+          </Button>
         ),
       },
     ],

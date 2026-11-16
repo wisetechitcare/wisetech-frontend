@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { IconButton, Menu, MenuItem, Checkbox, ListItemText, Tooltip } from "@mui/material";
+import { Menu, MenuItem, Checkbox, ListItemText, Tooltip } from "@mui/material";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
+import { Button } from "@/ds/ui/button";
 
 /** Which columns of a report table are currently shown, by key. */
 export function useColumnVisibility(allKeys: string[], alwaysOn: string[] = []) {
@@ -9,7 +10,7 @@ export function useColumnVisibility(allKeys: string[], alwaysOn: string[] = []) 
     if (alwaysOn.includes(key)) return;
     setHidden((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
@@ -27,12 +28,12 @@ const ColumnSelector: React.FC<{
   return (
     <>
       <Tooltip title="Choose columns">
-        <IconButton
-          size="small" onClick={(e) => setAnchorEl(e.currentTarget)}
-          sx={{ border: "1px solid", borderColor: "divider", borderRadius: "10px" }}
+        <Button
+          variant="outline" size="icon-sm" aria-label="Choose columns"
+          onClick={(e) => setAnchorEl(e.currentTarget)}
         >
           <ViewColumnIcon sx={{ fontSize: 18 }} />
-        </IconButton>
+        </Button>
       </Tooltip>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
         {columns.map((c) => (

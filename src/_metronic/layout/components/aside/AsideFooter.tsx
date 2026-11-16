@@ -1,4 +1,5 @@
 ﻿import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+import {Button} from '@/ds/ui/button'
 import {HeaderNotificationsMenu, HeaderUserMenu, QuickLinks} from '../../../partials'
 
 const AsideFooter = () => {
@@ -10,8 +11,10 @@ const AsideFooter = () => {
       {/* begin::Quick links */}
       <div className='d-flex align-items-center mb-2'>
         {/* begin::Menu wrapper */}
-        <div
-          className='btn btn-icon btn-active-color-primary btn-color-gray-500 btn-active-light'
+        <Button
+          variant='ghost'
+          size='icon'
+          aria-label='Quick links'
           data-kt-menu-trigger='click'
           data-kt-menu-overflow='true'
           data-kt-menu-placement='top-start'
@@ -21,7 +24,7 @@ const AsideFooter = () => {
           title='Quick links'
         >
           <KTIcon iconName='element-plus' className='fs-2 text-lg-1' />
-        </div>
+        </Button>
         {/* end::Menu wrapper */}
         <QuickLinks backgroundUrl='media/misc/pattern-1.jpg' />
       </div>
@@ -30,8 +33,10 @@ const AsideFooter = () => {
       {/* begin::Activities */}
       <div className='d-flex align-items-center mb-3'>
         {/* begin::Drawer toggle */}
-        <div
-          className='btn btn-icon btn-active-color-primary btn-color-gray-500 btn-active-light'
+        <Button
+          variant='ghost'
+          size='icon'
+          aria-label='Activity Logs'
           data-kt-menu-trigger='click'
           data-kt-menu-overflow='true'
           data-kt-menu-placement='top-start'
@@ -42,7 +47,7 @@ const AsideFooter = () => {
           id='kt_activities_toggle'
         >
           <KTIcon iconName='chart-simple' className='fs-2 text-lg-1' />
-        </div>
+        </Button>
         {/* end::drawer toggle */}
       </div>
       {/* end::Activities */}
@@ -50,8 +55,10 @@ const AsideFooter = () => {
       {/* begin::Notifications */}
       <div className='d-flex align-items-center mb-2'>
         {/* begin::Menu wrapper */}
-        <div
-          className='btn btn-icon btn-active-color-primary btn-color-gray-500 btn-active-light'
+        <Button
+          variant='ghost'
+          size='icon'
+          aria-label='Notifications'
           data-kt-menu-trigger='click'
           data-kt-menu-overflow='true'
           data-kt-menu-placement='top-start'
@@ -61,7 +68,7 @@ const AsideFooter = () => {
           title='Notifications'
         >
           <KTIcon iconName='element-11' className='fs-2 text-lg-1' />
-        </div>
+        </Button>
         {/* end::Menu wrapper */}
         <HeaderNotificationsMenu backgrounUrl='media/misc/pattern-1.jpg' />
       </div>

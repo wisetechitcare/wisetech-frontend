@@ -7,6 +7,8 @@ export interface ConfirmDiscardDialogProps {
   /** Overrides "Discard unsaved changes?" — e.g. "Discard employee changes?". */
   title?: string;
   message?: string;
+  /** Stacking layer — set it above a modal that itself sits above the default dialog layer. */
+  zIndex?: number;
 }
 
 /**
@@ -19,6 +21,7 @@ export function ConfirmDiscardDialog({
   onDiscard,
   title,
   message = "Your changes haven't been saved. Are you sure you want to leave?",
+  zIndex,
 }: ConfirmDiscardDialogProps) {
   return (
     <ConfirmDialog
@@ -28,6 +31,7 @@ export function ConfirmDiscardDialog({
       message={message}
       onClose={onKeepEditing}
       onConfirm={onDiscard}
+      zIndex={zIndex}
     />
   );
 }

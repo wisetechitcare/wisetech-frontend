@@ -6,7 +6,7 @@ import { DEFAULT_TENANT_PACKS, normalizePackFlags, TenantPackFlags } from '@cons
 // @utils/can (canSection / can) — never directly — so every screen follows one decision.
 interface AuthzState {
   tier: 'SUPER_ADMIN' | 'ADMIN' | null;
-  access: Record<string, { read: boolean; write: boolean }>;
+  access: Record<string, { read: boolean; write: boolean; delete?: boolean }>;
   keys: string[];
   /** Leads / projects: see records not their own, and their money. */
   records: Record<string, { readAll: boolean; commercial: boolean }>;

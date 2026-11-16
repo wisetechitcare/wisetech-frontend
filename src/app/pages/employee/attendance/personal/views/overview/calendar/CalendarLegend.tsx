@@ -22,6 +22,7 @@ import { useIsDark, toneSurface } from '@app/modules/common/components/ui/tw/use
 import { legendLabel, resolveLegendVisual, shouldPulse, type DayLabelOverrides, type DayToneOverrides, type ModifierToneOverrides } from './dayTokens';
 import { LEGEND_TONES } from './appearance';
 import type { LegendEntry, LegendKey } from './types';
+import { Button } from '@/ds/ui/button';
 
 export interface CalendarLegendProps {
   legend: LegendEntry[];
@@ -94,13 +95,12 @@ export const CalendarLegend = memo(function CalendarLegend({
           Legend {filtering && <span className="text-[#1E3A8A] dark:text-[#8AA3EC]">· filtered</span>}
         </p>
         {filtering && (
-          <button
+          <Button variant="ghost" size="xs"
             type="button"
             onClick={onClear}
-            className="rounded-md px-1.5 py-0.5 text-[11px] font-bold text-[#1E3A8A] hover:bg-[#EAF0FA] dark:text-[#8AA3EC] dark:hover:bg-white/[0.06]"
           >
             Clear
-          </button>
+          </Button>
         )}
       </div>
 
@@ -132,7 +132,7 @@ export const CalendarLegend = memo(function CalendarLegend({
             spending a row on five zeros. Rendered inside the same strip so it
             scrolls with the chips on a phone rather than stranding above them. */}
         {unusedCount > 0 && present.length > 0 && (
-          <button
+          <button data-wt-control="toggle"
             type="button"
             onClick={() => setShowUnused((v) => !v)}
             aria-expanded={showUnused}

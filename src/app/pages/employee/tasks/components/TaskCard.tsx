@@ -39,7 +39,8 @@
  */
 import { memo, useEffect, useRef } from 'react';
 import { Avatar, Box, Card, Divider, Stack, Tooltip, Typography, alpha, useTheme } from '@mui/material';
-import { type Attendee, initialsOf, ringFor } from '../../MeetingAttendeesDialog';
+import { type Attendee, ringFor } from '../../MeetingAttendeesDialog';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { KTIcon } from '@metronic/helpers';
 import { formatDate } from '@utils/dateFormats';
 import { meetingWhere, modeOfExisting } from '@app/pages/employee/meetingModes';
@@ -458,18 +459,17 @@ const TaskCardBase = ({
                                     key={a.employeeId}
                                     title={`${a.name}${a.isOrganizer ? ' (organizer)' : ''} — ${ringFor(a).label}`}
                                 >
-                                    <Avatar
-                                        src={a.avatar || undefined}
+                                    <Box
                                         sx={{
-                                            width: 26, height: 26, fontSize: 9.5, fontWeight: 800,
+                                            display: 'inline-flex', borderRadius: '50%', flexShrink: 0, position: 'relative',
                                             border: `2px solid ${ringFor(a).color}`,
                                             boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
                                             ml: i === 0 ? 0 : '-9px',
                                             zIndex: shownAttendees.length - i,
                                         }}
                                     >
-                                        {initialsOf(a.name)}
-                                    </Avatar>
+                                        <SmartAvatar name={a.name} src={a.avatar} seed={a.employeeId} size={22} />
+                                    </Box>
                                 </Tooltip>
                             ))}
                             {overflowCount > 0 && (

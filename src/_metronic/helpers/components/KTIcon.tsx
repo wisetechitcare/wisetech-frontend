@@ -17,7 +17,7 @@ type Props = {
  * This used to render `<i class="ki-duotone ki-{name}">` plus one `<span class="pathN">`
  * per duotone layer, driven by a hand-maintained path-count table in `icons-config/icons.ts`
  * — a name missing from that table rendered a broken glyph rather than a fallback. It is now
- * a two-line forward to `AppIcon`, which resolves the same names through `iconRegistry`.
+ * a two-line forward to `AppIcon`, which resolves the same names through `src/ds/lib/icons/registry.ts`.
  *
  * Delegating rather than codemodding was the cheaper correct move: `iconName` and
  * `className` are the only props any of the ~890 call sites pass, and they map one-to-one

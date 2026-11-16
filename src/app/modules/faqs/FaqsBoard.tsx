@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { canDelete } from "@utils/can";
 import { KTIcon } from '@metronic/helpers';
 import {
     Box, Chip, CircularProgress, Divider, InputAdornment, MenuItem, Stack, TextField, Typography,
@@ -546,7 +547,7 @@ export function FaqsBoard({ type, canManage = false, embedded = false }: FaqsBoa
                                                     faq={faq}
                                                     highlight={search}
                                                     onEdit={canManage ? (target) => setEditor({ section, faq: target }) : undefined}
-                                                    onDelete={canManage ? handleDelete : undefined}
+                                                    onDelete={canManage && canDelete('settings.profile') ? handleDelete : undefined}
                                                 />
                                             ))}
                                         </Stack>

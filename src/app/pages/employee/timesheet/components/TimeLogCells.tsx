@@ -1,6 +1,6 @@
 import { Avatar, Box, Stack, Tooltip, Typography, alpha, useTheme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { initialsOf } from '@app/pages/employee/MeetingAttendeesDialog';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import {
     type TimesheetLike, entrySeconds, durationConflict, formatSpan, logSubject,
 } from '../timesheetDuration';
@@ -104,17 +104,16 @@ export const AttendeeAvatars = ({ attendees, max = 4 }: {
         <Stack direction="row" alignItems="center" sx={{ minWidth: 0 }}>
             {shown.map((a, i) => (
                 <Tooltip key={a.employeeId} title={`${a.name}${a.isOrganizer ? ' (organizer)' : ''}`}>
-                    <Avatar
-                        src={a.avatar || undefined}
+                    <Box
                         sx={{
-                            width: 24, height: 24, fontSize: 9.5, fontWeight: 800,
+                            display: 'inline-flex', borderRadius: '50%', flexShrink: 0, position: 'relative',
                             boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
                             ml: i === 0 ? 0 : '-8px',
                             zIndex: shown.length - i,
                         }}
                     >
-                        {initialsOf(a.name)}
-                    </Avatar>
+                        <SmartAvatar name={a.name} src={a.avatar} seed={a.employeeId} size="xs" />
+                    </Box>
                 </Tooltip>
             ))}
             {extra > 0 && (

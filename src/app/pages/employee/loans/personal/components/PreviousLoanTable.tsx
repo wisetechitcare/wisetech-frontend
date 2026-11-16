@@ -9,6 +9,7 @@ import { MRT_ColumnDef } from 'material-react-table';
 import React, { useEffect, useMemo, useState } from 'react'
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/ds/ui/button';
 
 function PreviousLoanTable({ completeLoanData }: { completeLoanData: any[] }) {
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
@@ -117,11 +118,11 @@ function PreviousLoanTable({ completeLoanData }: { completeLoanData: any[] }) {
                     //   const resEdit = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOwn, row?.original);
                     //   const resDelete = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
                     return (
-                        <div className="flex items-center justify-center space-x-4 cursor-pointer"
+                        <Button variant="link" size="sm"
                         onClick={() => navigate(`/finance/loans/${row?.original?.id}`)}>
                             {" "}
                           <p className='text-primary'>View Details</p>
-                        </div>
+                        </Button>
                     )
                 }
             }]),

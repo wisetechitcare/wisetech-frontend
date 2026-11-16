@@ -170,6 +170,7 @@ const ClientAnalysisSection: React.FC<Props> = ({ startDate, endDate, metric = "
           <button
             key={v.key}
             type="button"
+            aria-pressed={isActive}
             onClick={() => setView(v.key)}
             style={{
               display: "flex",

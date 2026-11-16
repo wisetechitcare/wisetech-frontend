@@ -1,6 +1,7 @@
+import CategoryRevisionHistory from "@/modules/audit/CategoryRevisionHistory";
 import React from 'react';
 import { DetailCard, DetailSummaryBar, DetailRow, DetailStatusBadge } from '@app/modules/detail-page/DetailPageComponents';
-import { EditableDetailCard, FieldRow, SelectEditor, DateEditor, NumberEditor, TextEditor } from '@app/modules/detail-page/EditableDetailCard';
+import { EditableDetailCard, FieldRow, SelectEditor, DateEditor, TextEditor } from '@app/modules/detail-page/EditableDetailCard';
 import { updateLeadSection, type LeadSectionKey } from '@services/leadService';
 import eventBus from '@utils/EventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
@@ -8,7 +9,6 @@ import { usePoStatusOptions } from '@hooks/usePoStatusOptions';
 import { EmptyState } from '../widgets';
 import { fmtMoney, fmtDate, DASH, type CommercialTotals } from '../entityViewModel';
 import type { CommercialLineVM, EntityVM } from '../facets';
-import { getCurrencySymbol } from '@utils/currency';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
 
 /**
@@ -33,7 +33,8 @@ const Td: React.FC<{ children?: React.ReactNode; strong?: boolean }> = ({ childr
   </td>
 );
 
-const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accent: any; lines: CommercialLineVM[]; totals: CommercialTotals; isBlurred: boolean }> = ({
+const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accent: any; lines: CommercialLineVM[]; totals: CommercialTotals; isBlurred: boolean; footer?: React.ReactNode }> = ({
+  footer,
   title,
   subtitle,
   icon,
@@ -83,6 +84,7 @@ const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accen
         </table>
       </div>
     )}
+    {footer}
   </DetailCard>
 );
 
@@ -104,7 +106,6 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
   const contractArea = project?.totals.totalArea || lead.totals.totalArea;
 
   const isProject = vm.isProject;
-  const ex = rawLead?.execution || {};
   const ad = Array.isArray(rawLead?.additionalDetails) ? (rawLead.additionalDetails[0] || {}) : (rawLead?.additionalDetails || {});
   const revisionCount: number | null = rawLead?.revisionCount ?? null;
   const leadId: string = rawLead?.id;
@@ -138,6 +139,7 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
           accent="blue"
           lines={lead.lines}
           totals={lead.totals}
+          footer={<CategoryRevisionHistory type="LEAD" id={leadId} fieldPrefix="commercials" />}
           isBlurred={isBlurred}
         />
         {project && (
@@ -154,33 +156,7 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
 
         {isProject && (
           <div className="row g-5">
-            <div className="col-12 col-xl-6">
-              <EditableDetailCard
-                title="Contract Financials"
-                subtitle="Rate & final cost — set from the lead's Lead Status step on receipt"
-                icon="bi bi-cash-stack"
-                accentColor="green"
-                canEdit={false}
-                values={{ rate: ex.rate ?? '', cost: ex.cost ?? '' }}
-                onSave={d => saveSection('financials', d)}
-              >
-                {({ editing, draft, set }) => (
-                  editing ? (
-                    <>
-                      <FieldRow label="Contract Rate"><NumberEditor value={draft.rate} prefix={getCurrencySymbol()} onChange={v => set({ rate: v })} placeholder="0" /></FieldRow>
-                      <FieldRow label="Final Cost" isLast><NumberEditor value={draft.cost} prefix={getCurrencySymbol()} onChange={v => set({ cost: v })} placeholder="0" /></FieldRow>
-                    </>
-                  ) : (
-                    <>
-                      <DetailRow label="Contract Rate" value={<BlurredAmount value={fmtMoney(ex.rate)} isBlurred={isBlurred} />} />
-                      <DetailRow label="Final Cost" isLast value={<BlurredAmount value={fmtMoney(ex.cost)} isBlurred={isBlurred} />} />
-                    </>
-                  )
-                )}
-              </EditableDetailCard>
-            </div>
-
-            <div className="col-12 col-xl-6">
+            <div className="col-12">
               <EditableDetailCard
                 title="Purchase Order"
                 subtitle="PO tracking — set from the lead's Lead Status step on receipt"
@@ -209,6 +185,7 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

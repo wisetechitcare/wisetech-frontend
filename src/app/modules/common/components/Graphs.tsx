@@ -54,6 +54,8 @@ import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { useTimeFormat } from '@hooks/useTimeFormat';
 import { getTimeTokens } from '@utils/timeFormat';
+import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 // Attendance records carry `formattedDate` as "DD/MM/YYYY" (IST). Convert to ISO "YYYY-MM-DD"
 // so it can be matched against the backend's authoritative late-check-in dates.
@@ -1883,9 +1885,9 @@ export const StatisticsTable = ({
                  */
                 const isPastDate = dayjs(row?.original?.date).isBefore(dayjs(), 'day');
                 return !(row?.original?.id == "-") && res && !isPastDate ?
-                    < button className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm' onClick={() => raiseRequest(row?.original)} >
+                    < Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit" onClick={() => raiseRequest(row?.original)} >
                         <KTIcon iconName='pencil' className='fs-3' />
-                    </button > : 'Not Allowed'
+                    </Button > : 'Not Allowed'
             },
         }] : []),
     ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration, backendLateDates, backendDatesReady]);
@@ -2343,7 +2345,8 @@ export const ReportsTable = ({
                 const isApproved = status === LeaveStatus.Approved;
                 const isRejected = status === LeaveStatus.Rejected;
                 const actorId = isApproved ? approvedById : isRejected ? rejectedById : null;
-                const name = actorId ? allEmployees?.find((emp: any) => emp.employeeId === actorId)?.employeeName : null;
+                const actor = actorId ? allEmployees?.find((emp: any) => emp.employeeId === actorId) : null;
+                const name = actor?.employeeName ?? null;
                 const date = row.original.approvedOrRejectedDate
                     ? dayjs(row.original.approvedOrRejectedDate).format(`DD MMM YYYY ${getTimeTokens().TIME}`)
                     : null;
@@ -2352,11 +2355,15 @@ export const ReportsTable = ({
 
                 return (
                     <div className='d-flex align-items-center gap-2'>
-                        <div className='symbol symbol-30px'>
-                            <span className={`symbol-label fw-bold fs-7 ${isApproved ? 'bg-light-success text-success' : 'bg-light-danger text-danger'}`}>
-                                {name.charAt(0).toUpperCase()}
-                            </span>
-                        </div>
+                        {/* Ring tone = the decision (green approved / red rejected); the title and the
+                            screen-reader text say it in words, so it is never colour alone. */}
+                        <span
+                            className={`inline-flex shrink-0 rounded-full ring-2 ${isApproved ? 'ring-success' : 'ring-destructive'}`}
+                            title={isApproved ? 'Approved' : 'Rejected'}
+                        >
+                            <SmartAvatar name={name} src={actor?.avatar} seed={actorId} size={30} decorative />
+                            <span className='sr-only'>{isApproved ? 'Approved by' : 'Rejected by'}</span>
+                        </span>
                         <div className='d-flex flex-column'>
                             <span className='text-dark fw-semibold fs-7'>{name}</span>
                             {date && <span className='text-muted fs-8'>{date}</span>}
@@ -2378,26 +2385,25 @@ export const ReportsTable = ({
                 const editRes = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.editOwn, row?.original);
                 return (
                     <>
-                        {editRes && !isApproved && <button
-                            className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                        {editRes && !isApproved && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
                             onClick={() => raiseRequest(row?.original)}
                         >
                             <KTIcon iconName='pencil' className='fs-3' />
-                        </button>}
-                        {deleteRes && !isApproved && <button
-                            className='ms-2 btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                        </Button>}
+                        {deleteRes && !isApproved && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
+                            className="ms-2"
                             onClick={() => deleteRequest(row?.original)}
                         >
                             <KTIcon iconName='trash' className='fs-3' />
-                        </button>}
+                        </Button>}
                         {isPending && row.original.hasApprovalInstance && (
-                            <button
-                                className='ms-2 btn btn-icon btn-bg-light btn-active-color-info btn-sm'
+                            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Track Approval"
+                                className="ms-2"
                                 title='Track Approval'
                                 onClick={() => openTracker(row.original.id)}
                             >
                                 <KTIcon iconName='map' className='fs-3' />
-                            </button>
+                            </Button>
                         )}
                         {((!editRes && !deleteRes) || isApproved) && !isPending && "Not Allowed"}
                     </>

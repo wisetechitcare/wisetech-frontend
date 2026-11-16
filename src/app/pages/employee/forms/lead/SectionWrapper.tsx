@@ -22,7 +22,7 @@ export const SectionWrapper: React.FC<SectionWrapperProps> = ({
 }) => {
   return (
     <div className="workspace-accordion-section mb-6" id={id}>
-      <div 
+      <div data-wt-control="accordion" 
         className="workspace-accordion-header d-flex justify-content-between align-items-center px-6 py-4"
         onClick={onToggle}
         style={{

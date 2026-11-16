@@ -1,0 +1,7 @@
+{
+  "name": "eslint-plugin-wisetech",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local WiseTech ESLint rules (linked into the app with link:./eslint-rules).",
+  "main": "index.cjs"
+}

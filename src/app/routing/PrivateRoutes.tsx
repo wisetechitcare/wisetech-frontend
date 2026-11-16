@@ -42,6 +42,8 @@ const Increment = lazy(() => import('@pages/employee/increment/Increment'))
 const Media = lazy(() => import('@pages/company/Media'))
 const EmployeeDocumentTable = lazy(() => import('@app/modules/accounts/components/documents/EmployeeDocumentTable'))
 const Calendar = lazy(() => import('@pages/employee/calendar/Calendar'))
+const MeetingsMain = lazy(() => import('@pages/employee/meetings/MeetingsMain'))
+const MeetingDetailPage = lazy(() => import('@pages/employee/meetings/MeetingDetailPage'))
 const Announcements = lazy(() => import('@pages/company/announcement/Announcements'))
 const Notifications = lazy(() => import('@pages/employee/notifications/Notifications'))
 const PersonalLoanMain = lazy(() => import('@pages/employee/loans/personal/PersonalLoanMain'))
@@ -77,6 +79,7 @@ const TasksMainCalenderPage = lazy(() => import('@pages/employee/tasks/calender/
 const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain'))
 const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
 const CourtesyDeskMain = lazy(() => import('@pages/employee/courtesy-desk/CourtesyDeskMain'))
+const CompanyProfilePage = lazy(() => import('@pages/employee/company-profile/CompanyProfilePage'))
 const CourtesyGroupEditorPage = lazy(() => import('@pages/employee/courtesy-desk/pages/GroupEditorPage'))
 const CourtesyDriveCreatePage = lazy(() => import('@pages/employee/courtesy-desk/pages/DriveCreatePage'))
 const CourtesyDriveDetailPage = lazy(() => import('@pages/employee/courtesy-desk/pages/DriveDetailPage'))
@@ -386,6 +389,26 @@ const PrivateRoutes = () => {
                 <Calendar />
               </SuspensedView>
             </SectionGuard>) : <NoAccessPage />}
+        />
+        {/* Meetings module tabs (static slugs) — must register before :meetingId detail. */}
+        {/* Its own section (Access → Meetings): SectionGuard checks Read and the PSA pack. */}
+        {tabRoutes(
+          'employees/meetings',
+          TAB_PATHS.meetings,
+          <SectionGuard module='meetings'>
+            <SuspensedView>
+              <MeetingsMain />
+            </SuspensedView>
+          </SectionGuard>,
+        )}
+        <Route
+          path='employees/meetings/:meetingId'
+          element={
+            <SectionGuard module='meetings'>
+              <SuspensedView>
+                <MeetingDetailPage />
+              </SuspensedView>
+            </SectionGuard>}
         />
         <Route
           path='employees/notifications'
@@ -852,6 +875,17 @@ const PrivateRoutes = () => {
             <SectionGuard module='crm.contacts'>
               <SuspensedView>
                 <CourtesyDriveDetailPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        {/* CRM → Company Profile: on the Companies permission until a dedicated crm.companyProfile exists. */}
+        <Route
+          path='/company-profile'
+          element={
+            <SectionGuard module='crm.companies'>
+              <SuspensedView>
+                <CompanyProfilePage />
               </SuspensedView>
             </SectionGuard>
           }

@@ -1,6 +1,7 @@
 
 import clsx from 'clsx'
 import {toAbsoluteUrl} from '../../../helpers'
+import {buttonVariants} from '@/ds/ui/button'
 
 type Props = {
   className?: string
@@ -31,7 +32,8 @@ const TilesWidget2 = ({
         <div className='m-0'>
           <a
             href='#'
-            className='btn btn-danger fw-semibold px-6 py-3'
+            data-slot='button'
+            className={buttonVariants({variant: 'destructive', size: 'lg'})}
             data-bs-toggle='modal'
             data-bs-target='#kt_modal_create_app'
           >

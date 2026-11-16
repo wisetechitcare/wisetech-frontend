@@ -1,7 +1,19 @@
-import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
-import { useEffect, useState } from "react";
-import { Button, Spinner } from "react-bootstrap";
-import { Formik, Form as FormikForm } from "formik";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Formik, Form as FormikForm, type FormikProps } from "formik";
+import { toast } from "react-toastify";
+import { Box } from "@mui/material";
+import { Button } from "@/ds/ui/button";
+import { AppIcon, FloatingLabels, useDiscardConfirm, WtButton, WtDateField, WtField, WtTooltip } from "@app/modules/common/components/ui";
+import FormSchemaManager from "@app/modules/common/components/FormSchemaManager";
+import DragDropFileField from "@app/modules/common/components/DragDropFileField";
+import { IFormField, IFormSection } from "@models/company";
+import { uploadCompanyAsset } from "@services/uploader";
+import { BRANCH_BUILTIN_SECTIONS, cloneBranchDefaults, mergeBranchSchema } from "./branchFormSchema";
+import { missingCustomFields } from "@app/modules/common/components/FormSchemaManager/builtinSchema";
+import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
+import { CrmWorkspace } from "../../forms/CrmWorkspace";
+import { CrmSection } from "../../forms/CrmSection";
+import { ContactAddressSection } from "../../forms/ContactAddressSection";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -22,9 +34,6 @@ import {
 } from "@services/options";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
-import ClientContactsForm from "../../contacts/components/ClientContactsForm";
-import { Close } from "@mui/icons-material";
-import { Box, IconButton, Typography } from "@mui/material";
 
 // Default empty form values
 const defaultValues = {
@@ -51,14 +60,24 @@ const defaultValues = {
 const validationSchema = Yup.object().shape({
   companyId: Yup.string().required("Company is required"),
   name: Yup.string().required("Branch name is required"),
-  type: Yup.string(),
-  address: Yup.string(),
-  country: Yup.string(),
-  state: Yup.string(),
-  city: Yup.string(),
-  email: Yup.string().email("Invalid email format"),
-  phone: Yup.string(),
+  // Everything else is optional. Plain Yup.string() rules on those rejected the nulls a saved
+  // branch comes back with ("address cannot be null"), blocking every edit of an old branch.
+  email: Yup.string().nullable().email("Invalid email format"),
 });
+
+// Built-ins an admin marked required in Manage Fields: keep the field's own rule, add presence.
+const schemaFor = (sections: IFormSection[]) =>
+  validationSchema.shape(
+    Object.fromEntries(
+      sections
+        .flatMap((s) => s.fields)
+        .filter((f) => f.isSystem && f.required && !f.hidden && !f.essential)
+        .map((f) => {
+          const base = (validationSchema.fields as Record<string, unknown>)[f.id];
+          return [f.id, (base instanceof Yup.StringSchema ? base : Yup.string()).trim().required(`${f.label} is required`)];
+        })
+    )
+  );
 
 interface CompaniesBranchFormProps {
   show: boolean;
@@ -81,8 +100,72 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
   const [cities, setCities] = useState<any[]>([]);
   const [initialValues, setInitialValues] = useState(defaultValues);
   const [isDataLoading, setIsDataLoading] = useState(false);
-  const [showContactModal, setShowContactModal] = useState(false);
+  const formikRef = useRef<FormikProps<any>>(null);
+  // X / Esc / Cancel ask before throwing away unsaved edits - same prompt as every wizard form.
+  const discard = useDiscardConfirm(() => Boolean(formikRef.current?.dirty), onClose);
   const [contacts, setContacts] = useState<any[]>([]);
+  const [formSections, setFormSections] = useState<IFormSection[]>(cloneBranchDefaults());
+  const liveSchema = useMemo(() => schemaFor(formSections), [formSections]);
+  const [showSchemaManager, setShowSchemaManager] = useState(false);
+  const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
+
+  // Custom field values live inline on the schema (field.value), as on the Company form.
+  const updateCustomValue = (sectionId: string, fieldId: string, value: string) => {
+    setFormSections((prev) =>
+      prev.map((sec) =>
+        sec.id === sectionId
+          ? { ...sec, fields: sec.fields.map((f) => (f.id === fieldId ? { ...f, value } : f)) }
+          : sec
+      )
+    );
+    setCustomErrors((p) => {
+      const n = { ...p };
+      delete n[fieldId];
+      return n;
+    });
+  };
+
+  const renderCustomField = (field: IFormField, sectionId: string) => {
+    if (field.type === "file") {
+      return (
+        <DragDropFileField
+          label={field.label}
+          required={field.required}
+          currentFileUrl={field.value}
+          currentFileName={field.value ? field.value.split("/").pop() : ""}
+          uploadFn={uploadCompanyAsset}
+          onChange={(url) => updateCustomValue(sectionId, field.id, url)}
+        />
+      );
+    }
+    if (field.type === "date") {
+      return (
+        <WtDateField
+          label={field.label}
+          required={field.required}
+          value={field.value ?? ""}
+          onChange={(v) => updateCustomValue(sectionId, field.id, v)}
+          error={!!customErrors[field.id]}
+          helperText={customErrors[field.id]}
+          fullWidth
+        />
+      );
+    }
+    const isNumber = field.type === "number";
+    return (
+      <WtField
+        label={field.label}
+        required={field.required}
+        inputMode={isNumber ? "decimal" : undefined}
+        value={field.value ?? ""}
+        onChange={(v) => {
+          const raw = String(v ?? "");
+          updateCustomValue(sectionId, field.id, isNumber ? raw.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") : raw);
+        }}
+        error={customErrors[field.id]}
+      />
+    );
+  };
 
   const fetchContactsByCompany = async (companyId: string) => {
     if (!companyId) {
@@ -101,11 +184,20 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
   // Handle submit
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
     try {
+      const errs = missingCustomFields(formSections);
+      setCustomErrors(errs);
+      if (Object.keys(errs).length) {
+        // Say so: the inline errors sit on their own step, which may not be the one on screen.
+        toast.error(Object.values(errs).join(", "));
+        return;
+      }
       const payload = {
         ...values,
         country: countries.find((c) => c.id === values.country)?.name,
         state: states.find((s) => s.id === values.state)?.name,
-        city: cities.find((c) => c.id === values.city)?.name,
+        // A typed-in city is not in `cities`; keep it rather than dropping it.
+        city: cities.find((c) => c.id === values.city)?.name ?? values.city,
+        sectionConfig: formSections,
       };
 
       const cleanPayload = Object.keys(payload).reduce((acc, key) => {
@@ -130,6 +222,8 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
         "Failed to save branch:",
         error?.response?.data || error.message || error
       );
+      // Say why: a silent failure reads as "Save does nothing".
+      errorConfirmation(error?.response?.data?.message || "Failed to save the branch. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -274,6 +368,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
 
           // console.log("Final updatedValues", updatedValues);
           setInitialValues(updatedValues);
+          setFormSections(mergeBranchSchema(branchData.sectionConfig));
         } catch (error) {
           console.error("Failed to fetch branch data", error);
         } finally {
@@ -287,6 +382,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
         });
         setStates([]);
         setCities([]);
+        setFormSections(cloneBranchDefaults());
       }
     };
 
@@ -311,430 +407,199 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
     }
   };
 
-  const viewLocation = (latitude: string, longitude: string) => {
-    if (latitude && longitude) {
-      const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
-      window.open(googleMapsUrl, '_blank');
-    } else {
-      errorConfirmation("Please enter latitude and longitude first");
-    }
-  };
+  const isEdit = !!editingBranchId;
 
   return (
     <>
-      <Modal
-        show={show}
-        onHide={onClose}
-        size="xl"
-        centered
-        style={{ zIndex: 1500 }}
-      >
-        <Box sx={{ position: "relative", backgroundColor: "#F3F4F7", p: 3 }}>
-          <IconButton
-            onClick={onClose}
-            sx={{
-              position: "absolute",
-              right: 8,
-              top: 8,
-              color: "text.secondary",
-            }}
-          >
-            <Close />
-          </IconButton>
-          <Formik
-            initialValues={initialValues}
-            validationSchema={validationSchema}
-            onSubmit={handleSubmit}
-            enableReinitialize={true}
-            key={editingBranchId || "new"} // Force re-render when editing different branch
-          >
-            {({ setFieldValue, values, isSubmitting, handleSubmit }) => (
-              <FormikForm onSubmit={handleSubmit}>
-                <Modal.Header>
-                  <Typography
-                    variant="h6"
-                    component="h2"
-                    sx={{ mb: 3, fontWeight: 600 }}
-                    style={{
-                      fontSize: "20px",
-                      fontFamily: "Barlow",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {editingBranchId ? "Edit Branch" : "Add New Branch"}
-                  </Typography>
-                </Modal.Header>
-                <Modal.Body>
-                  <fieldset
-                    style={{
-                      borderTop: "1px solid #1E3A8A",
-                      padding: "14px",
-                    }}
-                    className=""
-                  >
-                    <legend
-                      style={{
-                        fontSize: "17px",
-                        fontWeight: 600,
-                        fontFamily: "Inter",
-                        marginTop: "-25px",
-                        marginLeft: "-17px",
-                        backgroundColor: "#F3F4F7",
-                        width: "auto",
-                        lineHeight: "1",
-                        letterSpacing: 0,
-                        color: "#1E3A8A",
-                        padding: "2px 2px 8px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
+      <FullscreenWizardModal show={show} onClose={discard.requestClose} closeLabel="Close branch form">
+        <Formik
+          innerRef={formikRef}
+          initialValues={initialValues}
+          validationSchema={liveSchema}
+          onSubmit={handleSubmit}
+          enableReinitialize={true}
+          key={editingBranchId || "new"} // Force re-render when editing different branch
+        >
+          {({ setFieldValue, values, isSubmitting }) => {
+            // Every field comes from `formSections`, so Manage Fields' label / required /
+            // hidden / order / section edits reach the form. Built-ins keep their widgets.
+            const colOf = (f: IFormField) => (!f.isSystem && f.type === "file" ? "col-12" : "col-12 col-lg-6");
+
+            const renderBuiltin = (f: IFormField): React.ReactNode => {
+              const label = f.label;
+              const req = f.required;
+              switch (f.id) {
+                case "companyId":
+                  return (
+                    <DropDownInput
+                      formikField="companyId"
+                      inputLabel={label}
+                      options={companies.map((company) => ({ label: company.companyName, value: company.id }))}
+                      isRequired={true}
+                      disabled={!!selectedCompanyId}
+                      onChange={(option: any) => {
+                        const companyId = option?.value || "";
+                        setFieldValue("companyId", companyId);
+                        setFieldValue("contactId", ""); // Reset contact when company changes
+                        fetchContactsByCompany(companyId);
                       }}
-                    >
-                      <div
-                        className="ms-5"
-                        style={{
-                          borderTop: "1px solid #1E3A8A",
-                          width: "30px",
-                          height: "0px",
-                        }}
-                      ></div>
-                      IMPORTANT DETAILS
-                    </legend>
-                    <div className="card card-body p-10">
-                      <div className="row">
-                        <div className="col-lg-4">
-                          <DropDownInput
-                            formikField="companyId"
-                            inputLabel="Choose Company"
-                            options={companies.map((company) => ({
-                              label: company.companyName,
-                              value: company.id,
-                            }))}
-                            isRequired={true}
-                            disabled={!!selectedCompanyId}
-                            onChange={(option: any) => {
-                              const companyId = option?.value || "";
-                              setFieldValue("companyId", companyId);
-                              setFieldValue("contactId", ""); // Reset contact when company changes
-                              fetchContactsByCompany(companyId);
-                            }}
-                          />
-                        </div>
-                        <div className="col-lg-4">
-                          <TextInput
-                            formikField="name"
-                            label="Branch Name"
-                            isRequired
-                          />
-                        </div>
-                        <div className="col-lg-4">
-                          <DropDownInput
-                            formikField="type"
-                            inputLabel="Type"
-                            options={[
-                              { label: "Main Office", value: "main" },
-                              { label: "Sub Branch", value: "sub" },
-                            ]}
-                            isRequired={false}
-                          />
-                        </div>
-                        <div className="row mt-3">
-                          <div className="col-md-12">
-                            <DropDownInput
-                              formikField="contactId"
-                              inputLabel="Contact Person"
-                              options={contacts.map((contact) => ({
-                                label: contact.fullName,
-                                value: contact.id,
-                              }))}
-                              isRequired={false}
-                            />
-                            {/* <div
-                              className="text-danger"
-                              onClick={() => setShowContactModal(true)}
-                              style={{ cursor: "pointer" }}
+                    />
+                  );
+                case "name":
+                  return <TextInput formikField="name" label={label} isRequired />;
+                case "type":
+                  return (
+                    <DropDownInput
+                      formikField="type"
+                      inputLabel={label}
+                      options={[
+                        { label: "Main Office", value: "main" },
+                        { label: "Sub Branch", value: "sub" },
+                      ]}
+                      isRequired={req}
+                    />
+                  );
+                case "contactId":
+                  return (
+                    <DropDownInput
+                      formikField="contactId"
+                      inputLabel={label}
+                      options={contacts.map((contact) => ({ label: contact.fullName, value: contact.id }))}
+                      isRequired={req}
+                    />
+                  );
+                case "phone":
+                case "phone2":
+                  return <PhoneNumberInput formikField={f.id} label={label} isRequired={req} placeholder={`Enter ${label.toLowerCase()}`} />;
+                default:
+                  // email and any other plain-text built-in.
+                  return <TextInput formikField={f.id} label={label} isRequired={req} />;
+              }
+            };
+
+            const renderSection = (section: IFormSection) => {
+              if (section.id === "address") {
+                return (
+                  <ContactAddressSection
+                    title={section.title}
+                    schema={section.fields}
+                    countries={countries}
+                    states={states}
+                    cities={cities}
+                    selectedCountry={values.country}
+                    selectedState={values.state}
+                    setSelectedCountry={() => {}}
+                    setSelectedState={() => {}}
+                    handleCountryChange={handleCountryChange}
+                    handleStateChange={handleStateChange}
+                  />
+                );
+              }
+              const visible = section.fields.filter((f) => !f.hidden);
+              if (!visible.length) return null;
+              return (
+                <CrmSection title={section.title || "Custom Fields"}>
+                  <div className="row g-4">
+                    {visible.map((f) => (
+                      <div key={f.id} className={colOf(f)}>
+                        {f.isSystem ? renderBuiltin(f) : renderCustomField(f, section.id)}
+                      </div>
+                    ))}
+                  </div>
+                </CrmSection>
+              );
+            };
+
+            // One wizard step per schema section, in Manage Fields order. A built-in section
+            // keeps its step label/heading until an admin renames it; empty sections drop out
+            // (the details step and the address picker always stay).
+            const STEP_LOOK: Record<string, { label: string; title: string; subtitle: string; icon: string }> = {
+              details: { label: "Branch", title: "Branch Details", subtitle: "Company, branch name, type and contact person", icon: "bi-diagram-3" },
+              contact: { label: "Contact", title: "Contact Details", subtitle: "Phone numbers and email", icon: "bi-telephone" },
+              address: { label: "Address", title: "Address", subtitle: "Where the branch is, and its map pin", icon: "bi-geo-alt" },
+            };
+            const steps = formSections
+              .filter((sec) => sec.id === "address" || sec.id === "details" || sec.fields.some((f) => !f.hidden))
+              .map((sec) => {
+                const name = sec.title || "Custom Fields";
+                const look = STEP_LOOK[sec.id];
+                const named = look && sec.title === BRANCH_BUILTIN_SECTIONS.find((b) => b.id === sec.id)?.title ? look : undefined;
+                const fields = sec.fields.filter((f) => f.isSystem && !f.hidden);
+                return {
+                  id: sec.id,
+                  label: named?.label ?? name,
+                  title: named?.title ?? name,
+                  subtitle: look?.subtitle ?? "Custom fields",
+                  icon: look?.icon ?? "bi-ui-checks",
+                  fields: fields.map((f) => f.id),
+                  requiredFields: fields.filter((f) => f.required).map((f) => f.id),
+                  content: renderSection(sec),
+                };
+              });
+
+            return (
+              <FormikForm style={{ height: "100%" }}>
+                <FloatingLabels>
+                  <CrmWorkspace
+                    module="branch"
+                    moduleIcon="bi-diagram-3"
+                    headerTitle={isEdit ? "Edit Branch" : "Add New Branch"}
+                    headerSub={isEdit ? "Update the branch, its contact and address" : "Company, branch name, contact and address"}
+                    headerActions={
+                      <>
+                        <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)}
+                          startIcon={<AppIcon name="bi-gear" className="fs-6" />} sx={{ display: { xs: "none", sm: "inline-flex" } }}>
+                          Manage fields
+                        </WtButton>
+                        {/* Phones: icon only, the same 32px translucent square as the close button beside it. */}
+                        <Box sx={{ display: { xs: "inline-flex", sm: "none" } }}>
+                          <WtTooltip title="Manage fields" wrap>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              type="button"
+                              aria-label="Manage fields"
+                              onClick={() => setShowSchemaManager(true)}
+                              className="rounded-[10px] border border-white/25 bg-white/12 text-white hover:border-white/40 hover:bg-white/22 hover:text-white"
                             >
-                              + New Contact
-                            </div> */}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </fieldset>
-                  <fieldset
-                    style={{
-                      borderTop: "1px solid #1E3A8A",
-                      padding: "clamp(14px, 2vw, 15px)",
-                    }}
-                    className="mt-7"
-                  >
-                    <legend
-                      style={{
-                        fontSize: "17px",
-                        fontWeight: 600,
-                        fontFamily: "Inter",
-                        marginTop: "-25px",
-                        marginLeft: "-17px",
-                        backgroundColor: "#F3F4F7",
-                        width: "auto",
-                        lineHeight: "1",
-                        letterSpacing: 0,
-                        color: "#1E3A8A",
-                        padding: "2px 2px 8px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px"
-                      }}
-                    >
-                      <div className="ms-5" style={{borderTop: "1px solid #1E3A8A", width: "30px", height: "0px"}}></div>
-                      BRANCH CONTACT DETAILS
-                    </legend>
-                    <div className="card-body card responsive-card p-md-10 p-3">
-                      <div className="row">
-                        <div className="col-lg-4">
-                          <PhoneNumberInput
-                            formikField="phone"
-                            label="Phone"
-                            isRequired={false}
-                            placeholder="Enter phone"
-                          />
-                        </div>
-                        <div className="col-lg-4">
-                          <PhoneNumberInput
-                            formikField="phone2"
-                            label="Phone 2"
-                            isRequired={false}
-                            placeholder="Enter phone 2"
-                          />
-                        </div>
-                        <div className="col-lg-4">
-                          <TextInput
-                            formikField="email"
-                            label="Email"
-                            isRequired={false}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </fieldset>
-
-                  <fieldset
-                    style={{
-                      borderTop: "1px solid #1E3A8A",
-                      padding: "clamp(14px, 2vw, 15px)",
-                    }}
-                    className="mt-7"
-                  >
-                    <legend
-                      style={{
-                        fontSize: "17px",
-                        fontWeight: 600,
-                        fontFamily: "Inter",
-                        marginTop: "-25px",
-                        marginLeft: "-17px",
-                        backgroundColor: "#F3F4F7",
-                        width: "auto",
-                        lineHeight: "1",
-                        letterSpacing: 0,
-                        color: "#1E3A8A",
-                        padding: "2px 2px 8px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px"
-                      }}
-                    >
-                      <div className="ms-5" style={{borderTop: "1px solid #1E3A8A", width: "30px", height: "0px"}}></div>
-                      ADDRESS DETAILS
-                    </legend>
-                    <div className="card-body card responsive-card p-md-10 p-3">
-                      <div className="row mb-3">
-                        <div className="col-lg-6">
-                          <TextInput
-                            formikField="address"
-                            label="Address"
-                            isRequired={false}
-                          />
-                        </div>
-                        <div className="col-lg-6">
-                          <DropDownInput
-                            formikField="country"
-                            inputLabel="Country"
-                            options={countries.map((c) => ({
-                              label: c.name,
-                              value: c.id,
-                            }))}
-                            isRequired={false}
-                            onChange={(option: any) => {
-                              setFieldValue("country", option?.value || "");
-                              setFieldValue("state", "");
-                              setFieldValue("city", "");
-                              if (option?.value) {
-                                handleCountryChange(option.value);
-                              }
-                            }}
-                            value={
-                              values.country
-                                ? {
-                                    label:
-                                      countries.find(
-                                        (c) => c.id === values.country
-                                      )?.name || "",
-                                    value: values.country,
-                                  }
-                                : null
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="row mb-3">
-                        <div className="col-lg-6">
-                          <DropDownInput
-                            formikField="state"
-                            inputLabel="State"
-                            options={values.country ? states.map((s) => ({
-                              label: s.name,
-                              value: s.id,
-                            })) : []}
-                            placeholder={!values.country ? "Please select country first" : "Select State"}
-                            isRequired={false}
-                            onChange={(option: any) => {
-                              setFieldValue("state", option?.value || "");
-                              setFieldValue("city", "");
-                              if (option?.value && values.country) {
-                                handleStateChange(values.country, option.value);
-                              }
-                            }}
-                            value={
-                              values.state
-                                ? {
-                                    label:
-                                      states.find((s) => s.id === values.state)
-                                        ?.name || "",
-                                    value: values.state,
-                                  }
-                                : null
-                            }
-                          />
-                        </div>
-                        <div className="col-lg-6">
-                          <DropDownInput
-                            formikField="city"
-                            inputLabel="City"
-                            options={values.state ? [
-                              ...cities.map((c) => ({
-                                label: c.name,
-                                value: c.id,
-                              })),
-                              // Add custom city if it's not in the list
-                              ...(values.city &&
-                              !cities.find((c) => c.id === values.city)
-                                ? [{ label: values.city, value: values.city }]
-                                : []),
-                            ] : []}
-                            placeholder={!values.state ? "Please select state first" : "Select City"}
-                            isRequired={false}
-                            onChange={(option: any) =>
-                              setFieldValue("city", option?.value || "")
-                            }
-                            value={
-                              values.city
-                                ? {
-                                    label:
-                                      cities.find((c) => c.id === values.city)
-                                        ?.name || values.city,
-                                    value: values.city,
-                                  }
-                                : null
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="row mb-3">
-                        <div className="col-lg-6">
-                          <TextInput
-                            formikField="area"
-                            label="Locality"
-                            isRequired={false}
-                          />
-                        </div>
-                        <div className="col-lg-6">
-                          <TextInput
-                            formikField="zipCode"
-                            label="ZipCode"
-                            isRequired={false}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="mt-5 p-3" style={{ borderRadius: '8px', backgroundColor: '#9fd491' }}>
-                        <div className="mb-4" style={{ fontFamily: 'Inter', fontSize: '14px', fontWeight: '500', color: '#0D47A1' }}>LOCATION ON MAP</div>
-                        <div className="row g-3">
-                          <div className="col-lg-3">
-                            <TextInput
-                              formikField="googleMapLink"
-                              label="Google Map Link"
-                              isRequired={false}
-                            />
-                          </div>
-                          <div className="col-lg-3">
-                            <TextInput
-                              formikField="gmbLink"
-                              label="Google Business Link"
-                              isRequired={false}
-                            />
-                          </div>
-                          <div className="col-lg-3">
-                            <TextInput
-                              formikField="latitude"
-                              label="Latitude"
-                              isRequired={false}
-                              inputValidation="signed-decimal"
-                            />
-                          </div>
-                          <div className="col-lg-3">
-                            <TextInput
-                              formikField="longitude"
-                              label="Longitude"
-                              isRequired={false}
-                              inputValidation="signed-decimal"
-                            />
-                          </div>
-                        </div>
-                        <div
-                          className="d-flex justify-content-end mt-4"
-                          onClick={() => viewLocation(values.latitude || '', values.longitude || '')}
-                          style={{
-                            cursor: 'pointer',
-                            color: '#0D47A1',
-                            fontWeight: '600',
-                            fontSize: '13px'
-                          }}
-                        >
-                          View Location On Map
-                        </div>
-                      </div>
-                    </div>
-                  </fieldset>
-                </Modal.Body>
-
-                <div className="d-flex justify-content-start gap-2 mt-4 mb-4 p-4">
-                  {/* <Button variant="outline-secondary" onClick={onClose}>
-                    Cancel
-                  </Button> */}
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Saving..." : "Save"}
-                  </Button>
-                </div>
+                              <AppIcon name="bi-gear" />
+                            </Button>
+                          </WtTooltip>
+                        </Box>
+                      </>
+                    }
+                    sidebarTitle="Branch"
+                    summaryTitle="Branch Summary"
+                    summaryRows={(v: any) => [
+                      { label: "Branch", value: v.name || "—", isStrong: true },
+                      { label: "Company", value: companies.find((c) => c.id === v.companyId)?.companyName || "—" },
+                      { label: "Type", value: v.type === "main" ? "Main Office" : v.type === "sub" ? "Sub Branch" : "—" },
+                      { label: "Phone", value: v.phone || "—" },
+                      { label: "City", value: cities.find((c) => c.id === v.city)?.name || v.city || "—" },
+                    ]}
+                    isEdit={isEdit}
+                    isSubmitting={isSubmitting || isDataLoading}
+                    onCancel={discard.requestClose}
+                    submitText={isEdit ? "Save Branch" : "Create Branch"}
+                    sections={steps}
+                  />
+                </FloatingLabels>
               </FormikForm>
-            )}
-          </Formik>
-        </Box> 
-      </Modal>
-      {/* <ClientContactsForm show={showContactModal} onClose={() => setShowContactModal(false)} key="add-new"/> */}
+            );
+          }}
+        </Formik>
+      </FullscreenWizardModal>
+      {discard.dialog}
+      <FormSchemaManager
+        show={showSchemaManager}
+        sections={formSections}
+        infoPageLabel="Branch"
+        onSave={(sections) => {
+          setFormSections(sections);
+          setShowSchemaManager(false);
+        }}
+        onClose={() => setShowSchemaManager(false)}
+      />
     </>
   );
 };

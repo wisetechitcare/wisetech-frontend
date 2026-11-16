@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { C, FONT, SP, RADIUS, KEYFRAMES } from './ConfigDesignSystem';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { IconSlot, type IconSource } from '@/ds/ui/dynamic-icon';
 
 export interface ConfigTab {
   id: string;
   label: string;
-  icon: string;
+  icon: IconSource;
   badge?: number;
 }
 
@@ -84,7 +85,7 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
 
         {/* Tab bar */}
         {hasTabs && (
-          <div className="cfg-tab-bar" style={{
+          <div className="cfg-tab-bar" role="tablist" style={{
             display: 'flex',
             gap: '4px',
             padding: `${SP.md} ${SP.xl} 0 ${SP.xl}`,
@@ -100,6 +101,8 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
               return (
                 <button
                   key={tab.id}
+                  role="tab"
+                  aria-selected={isActive}
                   className="cfg-tab-btn"
                   data-active={isActive ? 'true' : 'false'}
                   onClick={() => onTabChange?.(tab.id)}
@@ -130,7 +133,9 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
                     letterSpacing: '0',
                   }}
                 >
-                  <AppIcon name={tab.icon} className="fs-6" style={{ opacity: isActive ? 1 : 0.75 }} />
+                  {typeof tab.icon === 'string'
+                    ? <AppIcon name={tab.icon} className="fs-6" style={{ opacity: isActive ? 1 : 0.75 }} />
+                    : <IconSlot icon={tab.icon} className={isActive ? 'size-[16px] opacity-100' : 'size-[16px] opacity-75'} />}
                   {tab.label}
                   {tab.badge !== undefined && (
                     <span style={{

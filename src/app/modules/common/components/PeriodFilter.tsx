@@ -3,10 +3,15 @@ import dayjs, { Dayjs } from "dayjs";
 import PeriodTabs from "./PeriodTabs";
 import PeriodNavigator from "./PeriodNavigator";
 import { Box, Typography } from "@mui/material";
-import { DATE_FORMATS, formatDateRange, formatDateRangeLong, buildFiscalYearLabel } from "@utils/dateFormats";
+import {
+  DATE_FORMATS,
+  formatDateRange,
+  formatDateRangeLong,
+  buildFiscalYearLabel,
+} from "@utils/dateFormats";
 import { WtDateField } from "@app/modules/common/components/ui";
 
-export type PeriodMode = "daily" | "weekly" | "monthly" | "yearly" | "allyear" | "custom";
+import { PeriodMode } from "@/constants/common";
 
 /** Compact (company `YYYY.MM.DD` family) or detailed (month spelled out). See `dateStyle`. */
 export type PeriodLabelStyle = "compact" | "long";
@@ -29,7 +34,9 @@ interface Props {
   /** If true and useFiscalYear is true, yearly ranges are clamped to today (year-to-date view) */
   clampYearToToday?: boolean;
   /** Custom function to calculate fiscal year range (start, end, clamped end) */
-  getFiscalYearRange?: (date: Dayjs) => Promise<{ startDate: string; endDate: string }>;
+  getFiscalYearRange?: (
+    date: Dayjs,
+  ) => Promise<{ startDate: string; endDate: string }>;
   /** Only show these modes (hides tabs entirely if only 1 mode is provided) */
   allowedModes?: PeriodMode[];
   /** Override the dayjs format for the Daily-mode label. Wins over `dateStyle`.
@@ -55,12 +62,12 @@ interface Props {
 }
 
 const MODES: Array<{ key: PeriodMode; label: string }> = [
-  { key: "daily", label: "Daily" },
-  { key: "weekly", label: "Weekly" },
-  { key: "monthly", label: "Monthly" },
-  { key: "yearly", label: "Yearly" },
-  { key: "allyear", label: "All Time" },
-  { key: "custom", label: "Custom" },
+  { key: PeriodMode.DAILY, label: "Daily" },
+  { key: PeriodMode.WEEKLY, label: "Weekly" },
+  { key: PeriodMode.MONTHLY, label: "Monthly" },
+  { key: PeriodMode.YEARLY, label: "Yearly" },
+  { key: PeriodMode.ALL_YEAR, label: "All Time" },
+  { key: PeriodMode.CUSTOM, label: "Custom" },
 ];
 
 /**
@@ -73,7 +80,7 @@ const MODES: Array<{ key: PeriodMode; label: string }> = [
  */
 const PeriodFilter: React.FC<Props> = ({
   onChange,
-  initialMode = "monthly",
+  initialMode = PeriodMode.MONTHLY,
   storageKey,
   useFiscalYear = false,
   clampYearToToday = false,
@@ -96,7 +103,9 @@ const PeriodFilter: React.FC<Props> = ({
   });
 
   const availableModes = useMemo(() => {
-    return allowedModes ? MODES.filter((m) => allowedModes.includes(m.key)) : MODES;
+    return allowedModes
+      ? MODES.filter((m) => allowedModes.includes(m.key))
+      : MODES;
   }, [allowedModes]);
 
   useEffect(() => {
@@ -118,7 +127,10 @@ const PeriodFilter: React.FC<Props> = ({
       const { startDate, endDate } = await getFiscalYearRange(anchor);
       const fiscalStart = dayjs(startDate);
       const fiscalRawEnd = dayjs(endDate);
-      const fiscalEnd = clampYearToToday && dayjs().isBefore(fiscalRawEnd, "day") ? dayjs() : fiscalRawEnd;
+      const fiscalEnd =
+        clampYearToToday && dayjs().isBefore(fiscalRawEnd, "day")
+          ? dayjs()
+          : fiscalRawEnd;
 
       setYearStart(fiscalStart);
       setYearEnd(fiscalEnd);
@@ -133,26 +145,48 @@ const PeriodFilter: React.FC<Props> = ({
     // in 'long' because the navigator is a standalone heading — "19 - 25 Jul" never said
     // which year the numbers below it covered.
     const long = dateStyle === "long";
-    const dayFormat = dailyLabelFormat || (long ? DATE_FORMATS.DISPLAY_LONG : DATE_FORMATS.DISPLAY);
-    const monthFormat = long ? DATE_FORMATS.MONTH_YEAR_LONG : DATE_FORMATS.MONTH_YEAR;
-    const spanLabel = (s: Dayjs, e: Dayjs) => (long ? formatDateRangeLong(s, e, true) : formatDateRange(s, e, false));
+    const dayFormat =
+      dailyLabelFormat ||
+      (long ? DATE_FORMATS.DISPLAY_LONG : DATE_FORMATS.DISPLAY);
+    const monthFormat = long
+      ? DATE_FORMATS.MONTH_YEAR_LONG
+      : DATE_FORMATS.MONTH_YEAR;
+    const spanLabel = (s: Dayjs, e: Dayjs) =>
+      long ? formatDateRangeLong(s, e, true) : formatDateRange(s, e, false);
 
     switch (mode) {
       case "daily":
-        return { mode, start: anchor.startOf("day"), end: anchor.endOf("day"), label: anchor.format(dayFormat) };
+        return {
+          mode,
+          start: anchor.startOf("day"),
+          end: anchor.endOf("day"),
+          label: anchor.format(dayFormat),
+        };
       case "weekly": {
         const s = anchor.startOf("week");
         const e = anchor.endOf("week");
         return { mode, start: s, end: e, label: spanLabel(s, e) };
       }
       case "monthly":
-        return { mode, start: anchor.startOf("month"), end: anchor.endOf("month"), label: anchor.format(monthFormat) };
+        return {
+          mode,
+          start: anchor.startOf("month"),
+          end: anchor.endOf("month"),
+          label: anchor.format(monthFormat),
+        };
       case "yearly":
         if (useFiscalYear && yearStart && yearEnd) {
-          const label = yearRawEnd ? buildFiscalYearLabel(yearStart, yearRawEnd, yearEnd) : yearStart.format(DATE_FORMATS.FISCAL_YEAR);
+          const label = yearRawEnd
+            ? buildFiscalYearLabel(yearStart, yearRawEnd, yearEnd)
+            : yearStart.format(DATE_FORMATS.FISCAL_YEAR);
           return { mode, start: yearStart, end: yearEnd, label };
         }
-        return { mode, start: anchor.startOf("year"), end: anchor.endOf("year"), label: anchor.format(DATE_FORMATS.YEAR_ONLY) };
+        return {
+          mode,
+          start: anchor.startOf("year"),
+          end: anchor.endOf("year"),
+          label: anchor.format(DATE_FORMATS.YEAR_ONLY),
+        };
       case "allyear":
         return { mode, start: null, end: null, label: "All time" };
       case "custom": {
@@ -164,7 +198,18 @@ const PeriodFilter: React.FC<Props> = ({
       default:
         return { mode, start: null, end: null, label: "" };
     }
-  }, [mode, anchor, customStart, customEnd, useFiscalYear, yearStart, yearEnd, yearRawEnd, dailyLabelFormat, dateStyle]);
+  }, [
+    mode,
+    anchor,
+    customStart,
+    customEnd,
+    useFiscalYear,
+    yearStart,
+    yearEnd,
+    yearRawEnd,
+    dailyLabelFormat,
+    dateStyle,
+  ]);
 
   useEffect(() => {
     onChange(range);
@@ -172,7 +217,15 @@ const PeriodFilter: React.FC<Props> = ({
   }, [range.mode, range.start?.valueOf(), range.end?.valueOf()]);
 
   const navUnit = (): dayjs.ManipulateType | null =>
-    mode === "daily" ? "day" : mode === "weekly" ? "week" : mode === "monthly" ? "month" : mode === "yearly" ? "year" : null;
+    mode === "daily"
+      ? "day"
+      : mode === "weekly"
+        ? "week"
+        : mode === "monthly"
+          ? "month"
+          : mode === "yearly"
+            ? "year"
+            : null;
   const showNav = !!navUnit();
   const step = (dir: 1 | -1) => {
     if (mode === "yearly" && useFiscalYear) {
@@ -191,15 +244,22 @@ const PeriodFilter: React.FC<Props> = ({
   // produces plus the 36px arrow buttons: 'long' has to hold a weekday-prefixed day
   // ("Wednesday, 25 September 2026"), 'compact' only "2026.09.25" / "19 - 25 Sep".
   const resolvedNavWidth =
-    navMinWidth ?? (showTabs ? (dateStyle === "long" ? 260 : 190) : "fit-content");
+    navMinWidth ??
+    (showTabs ? (dateStyle === "long" ? 260 : 190) : "fit-content");
 
   return (
     // Phones: tabs, navigator and custom dates stack full width. Tablet up: one wrapping row.
-    <div className="d-flex flex-column flex-md-row flex-md-wrap align-items-stretch align-items-md-center w-100 w-md-auto" style={{ gap: 10 }}>
+    <div
+      className="d-flex flex-column flex-md-row flex-md-wrap align-items-stretch align-items-md-center w-100 w-md-auto"
+      style={{ gap: 10 }}
+    >
       {showTabs && (
         <PeriodTabs
           value={mode}
-          options={availableModes.map((m) => ({ label: m.label, value: m.key }))}
+          options={availableModes.map((m) => ({
+            label: m.label,
+            value: m.key,
+          }))}
           onChange={(v) => setMode(v as PeriodMode)}
           ariaLabel="period filter"
         />
@@ -213,19 +273,40 @@ const PeriodFilter: React.FC<Props> = ({
           onPickDate={(v) => setAnchor(dayjs(v))}
           pickValue={anchor.format("YYYY-MM-DD")}
           pickGranularity={
-            mode === "yearly" ? "year"
-              : mode === "monthly" ? "month"
-                : "day"
+            mode === "yearly" ? "year" : mode === "monthly" ? "month" : "day"
           }
           minWidth={resolvedNavWidth}
         />
       )}
 
       {mode === "custom" && (
-        <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, alignItems: { xs: "stretch", sm: "center" }, gap: 1 }}>
-          <WtDateField label="From" value={customStart} maxDate={customEnd || undefined} onChange={setCustomStart} sx={{ flex: "1 1 150px", minWidth: 0 }} />
-          <Typography sx={{ color: "text.disabled", textAlign: "center", flexShrink: 0 }}>–</Typography>
-          <WtDateField label="To" value={customEnd} minDate={customStart || undefined} onChange={setCustomEnd} sx={{ flex: "1 1 150px", minWidth: 0 }} />
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "stretch", sm: "center" },
+            gap: 1,
+          }}
+        >
+          <WtDateField
+            label="From"
+            value={customStart}
+            maxDate={customEnd || undefined}
+            onChange={setCustomStart}
+            sx={{ flex: "1 1 150px", minWidth: 0 }}
+          />
+          <Typography
+            sx={{ color: "text.disabled", textAlign: "center", flexShrink: 0 }}
+          >
+            –
+          </Typography>
+          <WtDateField
+            label="To"
+            value={customEnd}
+            minDate={customStart || undefined}
+            onChange={setCustomEnd}
+            sx={{ flex: "1 1 150px", minWidth: 0 }}
+          />
         </Box>
       )}
     </div>

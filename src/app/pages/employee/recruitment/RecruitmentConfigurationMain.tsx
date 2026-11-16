@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Box, Stack, Typography, CircularProgress } from "@mui/material";
 import {
@@ -330,4 +331,4 @@ const RecruitmentConfigurationMain = () => (
     </ConfigPageLayout>
 );
 
-export default RecruitmentConfigurationMain;
+export default withDeleteSection('recruitment', RecruitmentConfigurationMain);

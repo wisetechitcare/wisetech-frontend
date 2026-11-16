@@ -1,8 +1,10 @@
 // Shared by the access editor's two views (AccessControlTable, AccessControlCards).
 import type { SecurityPinSubject } from "@app/modules/common/components/SecurityPin";
 
-// Effective access per section. "none" = no access.
-export type EffLevel = "view" | "edit" | "none";
+// Effective access per section. "none" = no access. Delete implies Write implies Read; only a
+// Super Admin gives Delete.
+export type EffLevel = "view" | "edit" | "delete" | "none";
+export const atLeastWrite = (level: EffLevel) => level === "edit" || level === "delete";
 
 /** The two per-employee record toggles a section may carry (Leads / Projects). */
 export interface RecordCells {

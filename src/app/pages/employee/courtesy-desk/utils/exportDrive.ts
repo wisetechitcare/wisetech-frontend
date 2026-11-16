@@ -16,6 +16,7 @@ export interface ExportRow {
   gift: string;
   quantity: number;
   status: string;
+  deliveredOn: string;
   mode: string;
   assignee: string;
   remark: string;
@@ -53,6 +54,7 @@ export function buildExportRows(
     gift: drive.giftItem,
     quantity: r.quantity ?? 1,
     status: cfg ? deliveryStatusLabel(cfg, r.status) : r.status,
+    deliveredOn: r.deliveredOn || "—",
     mode: DELIVERY_MODE_LABELS[r.mode],
     assignee: r.assigneeName || "—",
     remark: r.remark || "—",
@@ -78,6 +80,7 @@ export function downloadCsv(drive: CourtesyDrive, scope: ExportScope = "ALL") {
     "Gift",
     "Qty",
     "Status",
+    "Delivery date",
     "Mode",
     "Assignee",
     "Remark",
@@ -94,6 +97,7 @@ export function downloadCsv(drive: CourtesyDrive, scope: ExportScope = "ALL") {
         r.gift,
         r.quantity,
         r.status,
+        r.deliveredOn,
         r.mode,
         r.assignee,
         r.remark,
@@ -143,6 +147,7 @@ export async function downloadPdf(
         "Area/Address",
         "Qty",
         "Status",
+        "Delivery date",
         "Mode",
         "Assignee",
         "Remark",
@@ -155,6 +160,7 @@ export async function downloadPdf(
       r.areaAddress,
       String(r.quantity),
       r.status,
+      r.deliveredOn,
       r.mode,
       r.assignee,
       r.remark,

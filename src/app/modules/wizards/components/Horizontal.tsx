@@ -5,6 +5,7 @@ import {Step3} from './steps/Step3'
 import {Step4} from './steps/Step4'
 import {Step5} from './steps/Step5'
 import {KTIcon} from '../../../../_metronic/helpers'
+import {Button} from '@/ds/ui/button'
 import {StepperComponent} from '../../../../_metronic/assets/ts/components'
 import {Form, Formik, FormikValues} from 'formik'
 import {createAccountSchemas, ICreateAccount, inits} from './CreateAccountWizardHelper'
@@ -119,25 +120,29 @@ const Horizontal: FC = () => {
 
                   <div className='d-flex flex-stack pt-15'>
                     <div className='mr-2'>
-                      <button
+                      <Button
                         onClick={prevStep}
                         type='button'
-                        className='btn btn-lg btn-light-primary me-3'
+                        variant='tinted'
+                        size='lg'
+                        className='me-3'
                         data-kt-stepper-action='previous'
                       >
-                        <KTIcon iconName='arrow-left' className='fs-4 me-1' />
+                        <span data-icon='inline-start' className='inline-flex'>
+                          <KTIcon iconName='arrow-left' className='fs-4 me-1' />
+                        </span>
                         Back
-                      </button>
+                      </Button>
                     </div>
 
                     <div>
-                      <button type='submit' className='btn btn-lg btn-primary me-3'>
-                        <span className='indicator-label'>
-                          {!isSubmitButton && 'Continue'}
-                          {isSubmitButton && 'Submit'}
+                      <Button type='submit' size='lg' className='me-3'>
+                        {!isSubmitButton && 'Continue'}
+                        {isSubmitButton && 'Submit'}
+                        <span data-icon='inline-end' className='inline-flex'>
                           <KTIcon iconName='arrow-right' className='fs-3 ms-2 me-0' />
                         </span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </Form>

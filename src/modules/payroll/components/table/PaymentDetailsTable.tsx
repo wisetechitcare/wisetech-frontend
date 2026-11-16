@@ -1,10 +1,12 @@
 import React from 'react';
-import { Button, Badge } from 'react-bootstrap';
+import { Badge } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { PayrollTableRow } from '../../types/payroll.types';
 import { formatMoneyRounded } from '../../utils/payrollFormatters';
+import { Button as KitButton } from '@/ds/ui/button';
+import { canDelete } from '@utils/can';
 
 interface PaymentDetailsTableProps {
     tableRows: PayrollTableRow[];
@@ -137,14 +139,14 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                 </div>
                 {fromAdmin && (
                     <div className="card-toolbar">
-                        <Button
-                            className="btn btn-sm btn-primary d-inline-flex align-items-center px-4 py-2 rounded-2 shadow-sm"
+                        <KitButton
+                            className="d-inline-flex align-items-center"
                             onClick={onAddPayment}
                             style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                         >
                             <KTIcon iconName="plus" className="fs-3 me-2" />
                             Record Payout
-                        </Button>
+                        </KitButton>
                     </div>
                 )}
             </div>
@@ -225,12 +227,14 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
 
                                         {fromAdmin && (
                                             <div className="d-flex justify-content-end gap-2 mt-3">
-                                                <Button variant="light-primary" className="btn-icon btn-sm" onClick={() => onEditPayment(row)}>
+                                                <KitButton variant="tinted" size="icon-sm" aria-label="Edit" onClick={() => onEditPayment(row)}>
                                                     <KTIcon iconName="pencil" className="fs-4" />
-                                                </Button>
-                                                <Button variant="light-danger" className="btn-icon btn-sm" onClick={() => onDeletePayment(row)}>
+                                                </KitButton>
+                                                {canDelete('finance.salary') && (
+                                                <KitButton variant="tinted" size="icon-sm" aria-label="Delete" className="[--tint:var(--cta-danger)]" onClick={() => onDeletePayment(row)}>
                                                     <KTIcon iconName="trash" className="fs-4" />
-                                                </Button>
+                                                </KitButton>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -321,20 +325,19 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                             <div className="d-flex justify-content-center gap-2">
                                                 {fromAdmin ? (
                                                     <>
-                                                        <Button 
-                                                            variant="light-primary" 
-                                                            className="btn-icon btn-sm"
+                                                        <KitButton variant="tinted" size="icon-sm" aria-label="Edit"
                                                             onClick={() => onEditPayment(row)}
                                                         >
                                                             <KTIcon iconName="pencil" className="fs-3" />
-                                                        </Button>
-                                                        <Button 
-                                                            variant="light-danger" 
-                                                            className="btn-icon btn-sm"
+                                                        </KitButton>
+                                                        {canDelete('finance.salary') && (
+                                                        <KitButton variant="tinted" size="icon-sm" aria-label="Delete" 
+                                                            className="[--tint:var(--cta-danger)]"
                                                             onClick={() => onDeletePayment(row)}
                                                         >
                                                             <KTIcon iconName="trash" className="fs-3" />
-                                                        </Button>
+                                                        </KitButton>
+                                                        )}
                                                     </>
                                                 ) : (
                                                     <span className="text-muted">--</span>

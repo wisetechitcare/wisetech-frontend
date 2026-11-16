@@ -1,10 +1,15 @@
 ﻿
-import { FC } from 'react'
+import { CSSProperties, FC } from 'react'
 import {toAbsoluteUrl} from '../../../helpers'
+import {buttonVariants} from '@/ds/ui/button'
 
 type Props = {
   className: string
 }
+
+// Metronic btn-light-<social> colours ($social-colors) as the kit's tinted tone.
+const TWITTER_TINT = {'--tint': '#1da1f2'} as CSSProperties
+const FACEBOOK_TINT = {'--tint': '#3b5998'} as CSSProperties
 
 const TablesWidget4: FC<Props> = ({className}) => {
   return (
@@ -19,7 +24,15 @@ const TablesWidget4: FC<Props> = ({className}) => {
           <ul className='nav'>
             <li className='nav-item'>
               <a
-                className='nav-link btn btn-sm btn-color-muted btn-active btn-active-light-primary active fw-bold px-4 me-1'
+                data-slot='button'
+                role='tab'
+                aria-selected={true}
+                className={buttonVariants({
+                  variant: 'ghost',
+                  size: 'sm',
+                  className:
+                    'nav-link active me-1 aria-selected:bg-muted aria-selected:text-foreground',
+                })}
                 data-bs-toggle='tab'
                 href='#kt_table_widget_4_tab_1'
               >
@@ -28,7 +41,14 @@ const TablesWidget4: FC<Props> = ({className}) => {
             </li>
             <li className='nav-item'>
               <a
-                className='nav-link btn btn-sm btn-color-muted btn-active btn-active-light-primary fw-bold px-4 me-1'
+                data-slot='button'
+                role='tab'
+                aria-selected={false}
+                className={buttonVariants({
+                  variant: 'ghost',
+                  size: 'sm',
+                  className: 'nav-link me-1 aria-selected:bg-muted aria-selected:text-foreground',
+                })}
                 data-bs-toggle='tab'
                 href='#kt_table_widget_4_tab_2'
               >
@@ -37,7 +57,14 @@ const TablesWidget4: FC<Props> = ({className}) => {
             </li>
             <li className='nav-item'>
               <a
-                className='nav-link btn btn-sm btn-color-muted btn-active btn-active-light-primary fw-bold px-4'
+                data-slot='button'
+                role='tab'
+                aria-selected={false}
+                className={buttonVariants({
+                  variant: 'ghost',
+                  size: 'sm',
+                  className: 'nav-link aria-selected:bg-muted aria-selected:text-foreground',
+                })}
                 data-bs-toggle='tab'
                 href='#kt_table_widget_4_tab_3'
               >
@@ -102,10 +129,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -143,10 +186,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -184,10 +243,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -225,10 +300,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -266,10 +357,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -332,10 +439,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -373,10 +496,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -414,10 +553,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -455,10 +610,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -521,10 +692,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -562,10 +749,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>
@@ -603,10 +806,26 @@ const TablesWidget4: FC<Props> = ({className}) => {
                       </div>
                     </td>
                     <td className='text-end'>
-                      <a href='#' className='btn btn-icon btn-light-twitter btn-sm me-3'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Twitter'
+                        style={TWITTER_TINT}
+                        className={buttonVariants({
+                          variant: 'tinted',
+                          size: 'icon-sm',
+                          className: 'me-3',
+                        })}
+                      >
                         <i className='bi bi-twitter fs-4'></i>
                       </a>
-                      <a href='#' className='btn btn-icon btn-light-facebook btn-sm'>
+                      <a
+                        href='#'
+                        data-slot='button'
+                        aria-label='Facebook'
+                        style={FACEBOOK_TINT}
+                        className={buttonVariants({variant: 'tinted', size: 'icon-sm'})}
+                      >
                         <i className='bi bi-facebook fs-4'></i>
                       </a>
                     </td>

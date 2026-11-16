@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import React, {useState} from 'react'
 import {KTIcon} from '../../../_metronic/helpers'
 import {getLayout, ILayout, LayoutSetup, useLayout} from '../../../_metronic/layout/core'
+import { Button } from '@/ds/ui/button';
 
 const BuilderPage: React.FC = () => {
   const {setLayout} = useLayout()
@@ -346,7 +347,7 @@ const BuilderPage: React.FC = () => {
             <div className='row'>
               <div className='col-lg-3'></div>
               <div className='col-lg-9'>
-                <button type='button' onClick={updateConfig} className='btn btn-primary me-2'>
+                <Button type='button' onClick={updateConfig} className="me-2">
                   {!configLoading && <span className='indicator-label'>Preview</span>}
                   {configLoading && (
                     <span className='indicator-progress' style={{display: 'block'}}>
@@ -354,12 +355,11 @@ const BuilderPage: React.FC = () => {
                       <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                     </span>
                   )}
-                </button>
+                </Button>
 
-                <button
+                <Button variant="ghost"
                   type='button'
                   id='kt_layout_builder_reset'
-                  className='btn btn-active-light btn-color-muted'
                   onClick={reset}
                 >
                   {!resetLoading && <span className='indicator-label'>Reset</span>}
@@ -369,7 +369,7 @@ const BuilderPage: React.FC = () => {
                       <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                     </span>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

@@ -9,6 +9,7 @@ import {
     flattenPresetTasks,
 } from '@utils/presetTaskHierarchy';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
 
 /**
@@ -271,7 +272,7 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                 // The WHOLE header row picks the node you are inside — the same target
                 // size as any option row, rather than a small button to aim at. The back
                 // arrow sits inside it and stops the click from bubbling.
-                <div
+                <div data-wt-control="row"
                     role="button"
                     tabIndex={0}
                     aria-label={`Select "${currentName}"`}
@@ -302,30 +303,17 @@ const TaskMenu = (props: MenuProps<HierarchicalTaskOption, false>) => {
                     }}
                 >
                     <Tooltip title="Back" arrow>
-                    <button
+                    <Button
                         type="button"
+                        variant="outline"
+                        size="icon-xs"
                         // Stop both, or going back would also select the node being left.
                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
                         onClick={(e) => { e.stopPropagation(); drill.goUp(); }}
                         aria-label="Back to the previous level"
-                        style={{
-                            border: `1px solid ${C.border}`,
-                            background: C.paper,
-                            borderRadius: 6,
-                            width: 24,
-                            height: 24,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            color: C.accent,
-                            flexShrink: 0,
-                            lineHeight: 1,
-                            padding: 0,
-                        }}
                     >
                         <AppIcon name="bi-arrow-left" className="fs-8" />
-                    </button>
+                    </Button>
                     </Tooltip>
 
                     <span

@@ -2,8 +2,9 @@
 
 **The rule: search here first. If it exists, use it. If it doesn't, build it *here*, not in your feature.**
 
-> **Direction (ADR-001, 2026-10-26):** this kit *is* the WiseTech design system — owned code, moving onto
-> Radix primitives + Tailwind v4 behind the same public API. Screens import UI from this barrel only.
+> **Direction (ADR-001, amended 2026-10-27):** this kit *is* the WiseTech design system — owned code, moving onto
+> Base UI primitives (React Aria for date, time and number fields) + Tailwind v4 behind the same public API.
+> The v2 components live in `src/ds` and are catalogued in Storybook (`pnpm storybook`). Screens import UI from this barrel only.
 > Rules and roadmap: [`docs/DESIGN_SYSTEM_DECISION.md`](../../../../../../docs/DESIGN_SYSTEM_DECISION.md).
 
 This file exists because that rule kept being broken — not out of disagreement,
@@ -58,6 +59,7 @@ are built from.
 | Multi-select + “+ Add” | `MultiSelectWithInlineCreate` (`externalCreate` when parent owns the modal; uses `addOption` under the hood) | raw `react-select` multi |
 | “+ Add …” on any labelled select | `addOption={{ onAdd, label? }}` (`WtAddOption`) | a hand-rolled button beside the field |
 | Currency glyph / code / formatter | `CurrencySymbol` + `useCurrency()` (`hooks/useCurrency`) | `KTIcon iconName="dollar"`, a typed-in `₹`, or `{ style: 'currency', currency: 'INR' }` inline |
+| **Avatar** (employee, user, contact, attendee, company logo) | **`SmartAvatar`** (`@/ds/ui/smart-avatar`) — THE avatar: pass the photo/logo as `src` (empty/broken falls back to initials), the full `name`, the id as `seed`; `decorative` when the name is printed beside it; `fit="contain"` for logos. `avatarInitials(name)` is the one initials rule | MUI `Avatar`, Metronic `symbol` / `symbol-label` initials tiles, gender cartoons (`getAvatar` fallbacks, `media/svg/avatars/*`, `blank.png`, `300-*.jpg`), `ui-avatars.com` (sends names to a third party) |
 | Tooltip / hint on hover | `WtTooltip` (`wrap` for a DISABLED child; an empty title renders nothing) | MUI `Tooltip` imported per screen — 17 files set their own `arrow`/`placement`/delays — or a native `title=`, which never shows on touch |
 | Hover on a tinted tile / card | `hoverTileSx(trio, dark)` | another `'&:hover': { transform: 'translateY(-2px)' }` — 61 files have their own |
 | Dropdown ENGINE (multi / creatable / avatar) | `WtSelect` — **inside adapters only** | `react-select` from a feature file |
@@ -143,6 +145,13 @@ Changed markers are opt-in through `editMode` and disappear after Formik
 | Employee picker | `EmployeeSelectionDialog` | a bespoke picker |
 | Org filter data | `useOrgScope` | re-deriving an org list per feature |
 
+## Icons
+
+- Static icon: import it from `lucide-react` and size it with a px class (`size-[18px]`); never an `<Icon>` wrapper or an icon barrel.
+- Icon whose name is data (DB column, persisted config): `DynamicIcon` from `@/ds/ui/dynamic-icon`; unknown names render nothing and warn in DEV.
+- Shared components that accept `icon` type it `IconSource` and render it with `IconSlot` (same file). `IconSlot` is for those internals only, never call sites.
+- `pnpm lint:icons:baseline` is only ever re-run to SHRINK the list.
+
 ## Buttons — one public API (`WtButton`)
 
 Wizard close ownership: `WtWizardDialog` confirms dirty closes by default.
@@ -198,6 +207,7 @@ the readable default on glass cards. Do **not** invent a private `MetaPill`, mut
 | Meta (location, CTC, notice, source) | `ToneChip tone="neutral\|brand\|cyan\|…" dense` |
 | Dot + label live status | `StatusBadge` (trio + optional pulse) |
 | Solid fill (rare) | `ToneChip solid` |
+| **Design-system v2 status chip** (screens migrated to `src/ds`) | `ToneBadge tone="success\|warning\|…"` — the kit tone names, rendered by the v2 `Badge`. Moving a `ToneChip` is `<ToneChip dense tone="x" label="Y" />` → `<ToneBadge tone="x">Y</ToneBadge>` |
 
 ```tsx
 <ToneChip tone="success" label="Published" dense />

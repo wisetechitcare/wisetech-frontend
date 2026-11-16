@@ -46,6 +46,12 @@ export const archiveUser = async (userId: string, payload: any) => {
     }
 };
 
+/** Colleagues whose birthday is today (`{ id, firstName, lastName }`), for the header celebration. */
+export const fetchTodayBirthdays = async () => {
+    const { data } = await axios.get(`${API_BASE_URL}/${USERS.GET_TODAY_BIRTHDAYS}`);
+    return data;
+}
+
 export const fetchAllUsers = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${USERS.GET_ALL_USERS}`;

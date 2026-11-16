@@ -68,7 +68,7 @@ export const LockGlyph = ({ size = 12, color = AMBER }: { size?: number; color?:
 );
 
 export const Toggle = ({ on, color, onClick, disabled }: { on: boolean; color: string; onClick: () => void; disabled?: boolean }) => (
-    <button onClick={() => { if (!disabled) onClick(); }} disabled={disabled} style={{ width: 42, height: 24, borderRadius: 999, background: on ? color : 'rgba(128,134,142,.45)', position: 'relative', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, flexShrink: 0, transition: 'background .15s' }}>
+    <button data-wt-control="switch" role="switch" aria-checked={on} onClick={() => { if (!disabled) onClick(); }} disabled={disabled} style={{ width: 42, height: 24, borderRadius: 999, background: on ? color : 'rgba(128,134,142,.45)', position: 'relative', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, flexShrink: 0, transition: 'background .15s' }}>
         {/* The knob is white against BOTH the brand-on and the neutral-off track, so it is contrast
             against the track rather than against the page and correctly does not follow the palette. */}
         {/* eslint-disable-next-line no-restricted-syntax -- see above: contrast against the track, not the surface. */}

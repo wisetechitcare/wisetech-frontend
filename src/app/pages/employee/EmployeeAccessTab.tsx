@@ -43,7 +43,7 @@ const RECORD_SECTIONS: RecordSection[] = ["crm.leads", "projects"];
 const RECORD_LABEL: Record<RecordSection, string> = { "crm.leads": "Leads", projects: "Projects" };
 const sameRecord = (a?: RecordAccess, b?: RecordAccess) => a?.readAll === b?.readAll && a?.commercial === b?.commercial;
 
-const levelText = (eff: EffLevel) => (eff === "edit" ? "Read + Write" : eff === "view" ? "Read only" : "Blocked");
+const levelText = (eff: EffLevel) => (eff === "delete" ? "Read + Write + Delete" : eff === "edit" ? "Read + Write" : eff === "view" ? "Read only" : "Blocked");
 
 const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
   const currentEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id);
@@ -100,6 +100,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
 
     setTabStates(s.tabs || {});
     setOrigTabStates(s.tabs || {});
+    setResetModules(new Set());
   };
 
   const load = async () => {
@@ -141,12 +142,17 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
 
   const customModules = useMemo(() => new Set(Object.keys(summary?.overrides || {})), [summary]);
 
+  // Sections sent back to their role. Saved even when the role's level equals the override's —
+  // otherwise nothing looks changed and the override (which stops role changes reaching this
+  // person) stays.
+  const [resetModules, setResetModules] = useState<Set<string>>(new Set());
+
   const changedModules = useMemo(
     () =>
       allLeaves
         .map((l) => l.module)
-        .filter((m) => (levels[m] || "none") !== (origLevels[m] || "none") || (expiries[m] ?? null) !== (origExpiries[m] ?? null)),
-    [levels, origLevels, expiries, origExpiries, allLeaves]
+        .filter((m) => resetModules.has(m) || (levels[m] || "none") !== (origLevels[m] || "none") || (expiries[m] ?? null) !== (origExpiries[m] ?? null)),
+    [levels, origLevels, expiries, origExpiries, allLeaves, resetModules]
   );
 
   const changedRecords = useMemo(
@@ -172,10 +178,12 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
   const onSetLevel = (module: string, level: EffLevel) => {
     setLevels((prev) => ({ ...prev, [module]: level }));
     if (level === "none") setExpiries((prev) => ({ ...prev, [module]: null })); // blocked carries no timer
+    setResetModules((prev) => { const n = new Set(prev); n.delete(module); return n; });
   };
   const onResetToRole = (module: string) => {
     setLevels((prev) => ({ ...prev, [module]: roleLevelOf(module) }));
     setExpiries((prev) => ({ ...prev, [module]: null }));
+    if (customModules.has(module)) setResetModules((prev) => new Set(prev).add(module));
   };
 
   // "Read all" / "Commercials" sit beside Read and Write on the Leads and Projects rows — per
@@ -215,7 +223,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
     if (exp && eff !== "none") return eff;       // explicit timed override
     if (eff === roleLevelOf(m)) return "default"; // matches role → inherit (drops override)
     if (eff === "none") return "blocked";         // explicit deny
-    return eff;                                    // view / edit override
+    return eff;                                    // view / edit / delete override
   };
 
   const saveAll = async () => {
@@ -229,7 +237,7 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
       }
       for (const m of changedModules) {
         const send = sendLevelFor(m);
-        const exp = send === "view" || send === "edit" ? expiries[m] ?? null : null;
+        const exp = send === "view" || send === "edit" || send === "delete" ? expiries[m] ?? null : null;
         await setSectionAccessLevel(employeeId, m, send, exp);
       }
       toast.success("Access updated");
@@ -313,6 +321,16 @@ const EmployeeAccessTab: React.FC<Props> = ({ employeeId }) => {
                         ? "You can't change your own access. A Super Admin sets it."
                         : "Only a Super Admin can change an Admin's access."}
                     </InlineNotice>
+                  </div>
+                )}
+                {summary.editable !== false && customModules.size > 0 && (
+                  <div className="d-flex align-items-center justify-content-between gap-3 mb-4">
+                    <span className="text-muted fs-7">
+                      {customModules.size} section{customModules.size > 1 ? "s are" : " is"} set for this person and won't follow changes to their role.
+                    </span>
+                    <WtButton ghost size="small" onClick={() => customModules.forEach(onResetToRole)} startIcon={<AppIcon name="bi-arrow-counterclockwise" />}>
+                      Reset all to role
+                    </WtButton>
                   </div>
                 )}
                 <AccessControlTree

@@ -1,6 +1,8 @@
 ﻿
 import React, {FC} from 'react'
-import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+import {toAbsoluteUrl} from '../../../helpers'
+import {Button} from '@/ds/ui/button'
+import {WtCloseButton} from '@/app/modules/common/components/ui/tw/WtCloseButton'
 
 const InviteUsers: FC = () => {
   const users = [
@@ -113,9 +115,7 @@ const InviteUsers: FC = () => {
       <div className='modal-dialog mw-650px'>
         <div className='modal-content'>
           <div className='modal-header pb-0 border-0 justify-content-end'>
-            <div className='btn btn-sm btn-icon btn-active-color-primary' data-bs-dismiss='modal'>
-              <KTIcon iconName='cross' className='fs-1' />
-            </div>
+            <WtCloseButton variant='plain' data-bs-dismiss='modal' />
           </div>
 
           <div className='modal-body scroll-y mx-5 mx-xl-18 pt-0 pb-15'>
@@ -132,14 +132,15 @@ const InviteUsers: FC = () => {
               </div>
             </div>
 
-            <div className='btn btn-light-primary fw-bolder w-100 mb-8'>
+            <Button variant='tinted' className='w-100 mb-8'>
               <img
                 alt='Logo'
                 src={toAbsoluteUrl('media/svg/brand-logos/google-icon.svg')}
-                className='h-20px me-3'
+                className='h-20px'
+                data-icon='inline-start'
               />
               Invite Gmail Contacts
-            </div>
+            </Button>
 
             <div className='separator d-flex flex-center mb-8'>
               <span className='text-uppercase bg-body fs-7 fw-bold text-muted px-3'>or</span>

@@ -22,6 +22,7 @@ import {
   KEYFRAMES,
 } from '@app/modules/configuration';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 import { Typography } from '@mui/material';
 import {
   ConfigureFormDialog,
@@ -159,22 +160,14 @@ function WeekendsAndWorkingDays() {
                 accessorKey: 'actions',
                 header: 'Actions',
                 Cell: ({ row }: any) => (
-                    <button
-                        style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: C.primary,
-                            cursor: 'pointer',
-                            padding: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                        }}
+                    <Button
+                        variant="tinted"
+                        size="icon-sm"
+                        aria-label="Edit weekends"
                         onClick={() => handleEdit(row.original)}
-                        onMouseEnter={(e) => e.currentTarget.style.color = C.primaryMid}
-                        onMouseLeave={(e) => e.currentTarget.style.color = C.primary}
                     >
                         <AppIcon name="bi-pencil" className="fs-4" />
-                    </button>
+                    </Button>
                 ),
             });
         }

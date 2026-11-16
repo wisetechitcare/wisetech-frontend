@@ -15,7 +15,7 @@ import { COPY } from "./terms";
 import { formatDate } from "@utils/dateFormats";
 import { formatCurrencyCompact } from "@utils/currency";
 import { apiErrorMessage } from "@utils/apiError";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import { useOrgScope } from "@/hooks/useOrgScope";
 import {
     getApplicants, getApplicantById, updateApplicant, archiveApplicant, getApplicantSources, uploadApplicantResume,
@@ -35,6 +35,7 @@ const SEARCH_DEBOUNCE_MS = 300;
  */
 const CandidatesView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
+    const canRemove = canDelete("recruitment");
     const navigate = useNavigate();
     const qc = useQueryClient();
     // Labels only — shell already owns the filter; we resolve write-company names for R3 badges.
@@ -251,7 +252,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                     onClick={() => toggleBlacklist(a)}
                 />
             )}
-            {canWrite && (
+            {canRemove && (
                 <ActionIconButton
                     iconName="trash"
                     size="sm"
@@ -314,7 +315,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                     onClick={() => toggleBlacklist(a)}
                 />
             )}
-            {canWrite && (
+            {canRemove && (
                 <ActionIconButton
                     iconName="trash"
                     size="sm"
@@ -335,7 +336,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
             omit: companyId ? ["org"] : undefined,
         }),
         // eslint-disable-next-line react-hooks/exhaustive-deps -- actions use live mutators / upload state
-        [companyId, sources, orgOptions, canWrite, uploadingId, blacklistMut.isPending, archiveMut.isPending],
+        [companyId, sources, orgOptions, canWrite, canRemove, uploadingId, blacklistMut.isPending, archiveMut.isPending],
     );
 
     const listChrome = (
@@ -392,7 +393,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                             onChange={setMode}
                         />
                         {canWrite && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
+                            <WtButton size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={startAdd}>
                                 Add Candidate
                             </WtButton>
                         )}
@@ -423,7 +424,7 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                         data={applicants}
                         isLoading={isLoading}
                         tableName="RecruitmentCandidatesList"
-                        enableRowSelection={canWrite}
+                        enableRowSelection={canRemove}
                         renderSelectionActions={(selected: Applicant[]) => (
                             <TableSelectionBar count={selected.length}>
                                 <WtButton

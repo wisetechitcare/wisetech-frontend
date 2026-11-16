@@ -9,6 +9,7 @@ import { uploadCompanyAsset } from '@services/uploader';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle';
 import { FiscalYearRangeField } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
 
 const overviewBreadcrumbs: Array<PageLink> = [
     {
@@ -334,7 +335,7 @@ function Overview() {
                 </KTCard>
 
                 <div className='card-footer d-flex justify-content-end py-6 px-9'>
-                    <button type='submit' className='btn btn-primary' disabled={loading || !formik.isValid}>
+                    <Button type='submit' disabled={loading || !formik.isValid}>
                         {!loading && 'Save Changes'}
                         {loading && (
                             <span className='indicator-progress' style={{ display: 'block' }}>
@@ -342,7 +343,7 @@ function Overview() {
                                 <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                             </span>
                         )}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </>

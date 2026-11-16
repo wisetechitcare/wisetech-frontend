@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useState } from 'react'
 import * as Yup from 'yup'
-import Flatpickr from "react-flatpickr";
+import Flatpickr from "@app/modules/common/inputs/Flatpickr";
 import { isEmpty } from 'lodash';
 import { Form, Formik } from 'formik'
 import { fetchEmployeeProfileData, updateEmployee } from '@services/employee'
@@ -13,8 +13,8 @@ import SignatureInput from '@app/modules/common/inputs/SignatureInput';
 import dayjs from 'dayjs';
 import { uploadUserAsset } from '@services/uploader';
 import { successConfirmation } from '@utils/modal';
-import { getAvatar } from '@utils/avatar';
 import { MAX_FILE_SIZE } from '@constants/statistics';
+import { Button } from '@/ds/ui/button';
 
 const mealPreferences = [
   {
@@ -176,7 +176,8 @@ const ProfileDetails: React.FC = () => {
     async function fetchProfileData() {
       const { data: { employeeProfile } } = await fetchEmployeeProfileData(employeeId)
       setProfileData(employeeProfile)
-      setAvatar(getAvatar(employeeProfile.avatar, employeeProfile.gender));
+      // The real photo or nothing: no photo shows the person's initials, never a gender cartoon.
+      setAvatar(employeeProfile.avatar || '');
     }
 
     fetchProfileData();
@@ -200,7 +201,7 @@ const ProfileDetails: React.FC = () => {
 
   return (
     <div className='card mb-5 mb-xl-10'>
-      <div
+      <div data-wt-control="accordion"
         className='card-header border-0 cursor-pointer'
         role='button'
         data-bs-toggle='collapse'
@@ -226,6 +227,8 @@ const ProfileDetails: React.FC = () => {
                         documentId='userProfilePicture'
                         hidden={true}
                         path={avatar}
+                        avatarName={`${profile?.users?.firstName || ''} ${profile?.users?.lastName || ''}`.trim()}
+                        avatarSeed={employeeId}
                         setFile={addFileToState} />
                     </div>
                   </div>
@@ -273,7 +276,7 @@ const ProfileDetails: React.FC = () => {
                   </div>
 
                   <div className='card-footer d-flex justify-content-end py-6 px-9'>
-                    <button type='submit' className='btn btn-primary' disabled={loading}>
+                    <Button type='submit' disabled={loading}>
                       {!loading && 'Save Changes'}
                       {loading && (
                         <span className='indicator-progress' style={{ display: 'block' }}>
@@ -281,7 +284,7 @@ const ProfileDetails: React.FC = () => {
                           <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
                         </span>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 

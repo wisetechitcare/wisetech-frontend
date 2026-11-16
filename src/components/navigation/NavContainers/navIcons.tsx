@@ -1,4 +1,6 @@
-import type { SvgIconComponent } from '@mui/icons-material';
+import type { ComponentType } from 'react';
+import { GalleryVerticalEnd, type LucideIcon } from 'lucide-react';
+import { SvgIcon, type SvgIconProps } from '@mui/material';
 import AccountTreeRounded from '@mui/icons-material/AccountTreeRounded';
 import AdminPanelSettingsRounded from '@mui/icons-material/AdminPanelSettingsRounded';
 import ApartmentRounded from '@mui/icons-material/ApartmentRounded';
@@ -35,6 +37,7 @@ import ShoppingCartRounded from '@mui/icons-material/ShoppingCartRounded';
 import SpeedRounded from '@mui/icons-material/SpeedRounded';
 import SwapHorizRounded from '@mui/icons-material/SwapHorizRounded';
 import TaskAltRounded from '@mui/icons-material/TaskAltRounded';
+import VideocamRounded from '@mui/icons-material/VideocamRounded';
 import ViewKanbanRounded from '@mui/icons-material/ViewKanbanRounded';
 import WorkRounded from '@mui/icons-material/WorkRounded';
 import { resolveReactComponent } from '@utils/resolveReactComponent';
@@ -50,12 +53,22 @@ import { resolveReactComponent } from '@utils/resolveReactComponent';
  * Although written as deep imports, Vite maps these to MUI's named ESM exports so the
  * CommonJS subpath wrappers never reach React.
  */
-const ICON_BY_BI: Record<string, SvgIconComponent> = {
+type NavIcon = ComponentType<SvgIconProps>;
+
+/** A Lucide glyph in the same slot: callers keep sizing and colouring it as an MUI icon (sx, fontSize, className).
+ *  `fill: none` because MUI fills its icons and Lucide strokes. */
+const lucide = (Icon: LucideIcon): NavIcon =>
+  function LucideNavIcon({ sx, ...props }: SvgIconProps) {
+    return <SvgIcon component={Icon} {...props} sx={[{ fill: 'none' }, ...(Array.isArray(sx) ? sx : [sx])]} />;
+  };
+
+const ICON_BY_BI: Record<string, NavIcon> = {
   'bi-inbox': InboxRounded,
   'bi-speedometer2': SpeedRounded,
   'bi-calendar-event': EventRounded,
   'bi-calendar-check': EventAvailableRounded,
   'bi-calendar2-week': CalendarMonthRounded,
+  'bi-camera-video': VideocamRounded,
   'bi-people': GroupsRounded,
   'bi-file-earmark-text': DescriptionRounded,
   'bi-folder2-open': FolderOpenRounded,
@@ -81,6 +94,8 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
   'bi-images': PermMediaRounded,
   'bi-shield-lock': AdminPanelSettingsRounded,
   'bi-gear': SettingsRounded,
+  // Lucide-only items: the key names the Lucide icon, not a Bootstrap one.
+  'lucide-gallery-vertical-end': lucide(GalleryVerticalEnd),
   // Section headers (assigned in useNavContainers, not present in the nav tree itself)
   'bi-grid-1x2': DashboardRounded,
   'bi-person-rolodex': ContactsRounded,
@@ -99,8 +114,8 @@ const ICON_BY_BI: Record<string, SvgIconComponent> = {
  * rendering a hole. A new nav item ships with a working tile before anyone remembers to
  * add its icon here.
  */
-export function navIcon(fontIcon?: string): SvgIconComponent {
+export function navIcon(fontIcon?: string): NavIcon {
   const icon = (fontIcon && ICON_BY_BI[fontIcon]) || FolderRounded;
 
-  return resolveReactComponent<SvgIconComponent>(icon);
+  return resolveReactComponent<NavIcon>(icon);
 }

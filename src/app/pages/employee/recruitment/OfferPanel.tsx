@@ -220,7 +220,7 @@ const OfferPanel = ({ applicationId, applicantName, companyId }: Props) => {
 
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                         {!locked && (
-                            <WtButton tone="primary" size="small" disabled={!canSave || saveMut.isPending} onClick={() => saveMut.mutate()}>
+                            <WtButton size="small" disabled={!canSave || saveMut.isPending} onClick={() => saveMut.mutate()}>
                                 {saveMut.isPending ? "Saving…" : offer ? "Save offer" : "Create offer"}
                             </WtButton>
                         )}

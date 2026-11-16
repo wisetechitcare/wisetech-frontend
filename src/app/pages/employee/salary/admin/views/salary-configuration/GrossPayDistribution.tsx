@@ -17,6 +17,7 @@ import { hasPermission } from "@utils/authAbac";
 import { canSection } from "@utils/can";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface ISalary {
   name: string,
@@ -222,8 +223,8 @@ const GrossPayDistribution = () => {
             return (
               <div className="">
                 {" "}
-                {resEdit && <button
-                  className="btn btn-icon btn-active-color-primary btn-sm w-[20px]"
+                {resEdit && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
+                  className="w-[20px]"
                   onClick={() => {
                     setIsBasicSalaryRow(isBasicSalaryRowCurr);
                     handleEdit(row.original);
@@ -233,16 +234,16 @@ const GrossPayDistribution = () => {
                     iconName="pencil"
                     className=" inline fs-4 text-red-500"
                   />
-                </button>}
-                {resDelete && !isBasicSalaryRowCurr && <button
-                  className="btn btn-icon btn-active-color-primary btn-sm w-4"
+                </Button>}
+                {resDelete && !isBasicSalaryRowCurr && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
+                  className="w-4"
                   onClick={() => handleDelete(row.original)}
                 >
                   <KTIcon
                     iconName="trash"
                     className="inline fs-4 text-red-500"
                   />
-                </button>}
+                </Button>}
                 {!resEdit && !resDelete && "Not Allowed"}
               </div>
             )
@@ -283,8 +284,7 @@ const GrossPayDistribution = () => {
 
         {(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.create) && hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers)) && (
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <button
-              className="btn btn-sm d-flex align-items-center gap-2"
+            <Button variant="ghost" size="sm" type="submit"
               onClick={() => handleNew()}
               style={{
                 backgroundColor: '#1E3A8A', color: '#fff', border: 'none',
@@ -297,7 +297,7 @@ const GrossPayDistribution = () => {
               onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(30, 58, 138,0.2)'; }}
             >
               <AppIcon name="bi-plus-lg" /> Add New Category
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -362,18 +362,11 @@ const GrossPayDistribution = () => {
             }}>
               {editMode ? "Edit Distribution Category" : "New Distribution Category"}
             </div>
-            <button 
+            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Close" 
               onClick={handleClose}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                fontSize: '24px',
-                color: '#A1A5B7',
-                cursor: 'pointer'
-              }}
             >
               <AppIcon name="bi-x" />
-            </button>
+            </Button>
           </div>
           <Formik
             initialValues={initialState}
@@ -418,48 +411,15 @@ const GrossPayDistribution = () => {
                 </div>
 
                 <div className="d-flex justify-content-end sc-form-footer mt-5 pt-4" style={{ borderTop: '1px solid #E1E3EA' }}>
-                  <button
+                  <Button variant="outline" style={{ marginRight: '12px' }}
                     type="button"
                     onClick={handleClose}
-                    style={{
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #E1E3EA',
-                      borderRadius: '8px',
-                      color: '#3F4254',
-                      height: '44px',
-                      padding: '0 24px',
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 600,
-                      fontSize: '15px',
-                      cursor: 'pointer',
-                      marginRight: '12px',
-                    }}
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
                     disabled={loading || !formikProps.isValid}
-                    style={{
-                      backgroundColor: '#1E3A8A',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: 'white',
-                      height: '44px',
-                      padding: '0 28px',
-                      fontFamily: 'Inter, sans-serif',
-                      fontWeight: 600,
-                      fontSize: '15px',
-                      cursor: (loading || !formikProps.isValid) ? 'not-allowed' : 'pointer',
-                      opacity: (loading || !formikProps.isValid) ? 0.7 : 1,
-                      boxShadow: '0 4px 12px rgba(30, 58, 138, 0.2)',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                    onMouseOver={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                    onMouseOut={(e) => { if (!loading && formikProps.isValid) e.currentTarget.style.transform = 'translateY(0)'; }}
                   >
                     {!loading && "Save Category"}
                     {loading && (
@@ -467,7 +427,7 @@ const GrossPayDistribution = () => {
                         Saving... <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               </Form>
             )}

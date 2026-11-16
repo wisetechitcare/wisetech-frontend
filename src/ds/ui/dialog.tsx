@@ -1,0 +1,176 @@
+import * as React from "react"
+import { titleCaseChildren } from "@/ds/lib/text"
+import { Dialog as DialogPrimitive } from "@animate-ui/react/primitives/base-ui/dialog"
+import { cn } from "cn"
+
+import { Button } from "@/ds/ui/button"
+import { XIcon } from "lucide-react"
+import { useSettledRef } from "@/ds/lib/motion"
+
+function Dialog({ ...props }: DialogPrimitive.Root.Props) {
+  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+}
+
+function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
+  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
+}
+
+function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
+  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+}
+
+function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
+  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
+}
+
+/**
+ * The ONE modal scrim: Dialog, AlertDialog and Sheet all use it, so every modal dims the page the same way.
+ * Same values as the app's GlassDialog (theme tokens glass.scrim / scrimBlur), so v2 and legacy modals match.
+ * The fade is Animate UI's (Motion) — no CSS animate-in beside it.
+ */
+export const modalScrimClassName =
+  "fixed inset-0 isolate bg-[rgb(16_24_40/0.32)] dark:bg-black/55 supports-backdrop-filter:backdrop-blur-[4px]"
+
+function DialogOverlay({
+  className,
+  ...props
+}: DialogPrimitive.Backdrop.Props) {
+  return (
+    <DialogPrimitive.Backdrop
+      data-slot="dialog-overlay"
+      className={cn(
+        modalScrimClassName,
+        "z-(--z-modal)",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function DialogContent({
+  className,
+  children,
+  showCloseButton = true,
+  ...props
+}: DialogPrimitive.Popup.Props & {
+  showCloseButton?: boolean
+}) {
+  // Crisp text at rest: see useSettledWhenOpen (src/ds/lib/motion.ts).
+  const settledRef = useSettledRef()
+  return (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Popup
+        ref={settledRef}
+        data-slot="dialog-content"
+        className={cn(
+          // Centred by layout (inset-0 + m-auto + h-fit), not translate(-50%): a -50% translate of an
+          // odd-sized box lands on a half pixel and blurs every line of text in it.
+          "fixed inset-0 z-(--z-modal) m-auto grid h-fit w-full max-w-[calc(100%-2rem)] gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 outline-none sm:max-w-md",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        {showCloseButton && (
+          <DialogPrimitive.Close
+            data-slot="dialog-close"
+            render={
+              // The Button story's "Tinted" Close: the neutral tint, same family as the other row/card actions.
+              <Button
+                variant="tinted"
+                className="absolute top-4 right-4 [--tint:var(--muted-foreground)]"
+                size="icon-sm"
+              />
+            }
+          >
+            <XIcon
+            />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        )}
+      </DialogPrimitive.Popup>
+    </DialogPortal>
+  )
+}
+
+function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-header"
+      className={cn("flex flex-col items-center gap-2 text-center", className)}
+      {...props}
+    />
+  )
+}
+
+function DialogFooter({
+  className,
+  showCloseButton = false,
+  children,
+  ...props
+}: React.ComponentProps<"div"> & {
+  showCloseButton?: boolean
+}) {
+  return (
+    <div
+      data-slot="dialog-footer"
+      className={cn(
+        "flex gap-3 *:min-w-0 *:flex-1",
+        className
+      )}
+      {...props}
+    >
+      {children}
+      {showCloseButton && (
+        <DialogPrimitive.Close render={<Button variant="outline" />}>
+          Close
+        </DialogPrimitive.Close>
+      )}
+    </div>
+  )
+}
+
+function DialogTitle({ className, children, ...props }: DialogPrimitive.Title.Props) {
+  return (
+    <DialogPrimitive.Title
+      data-slot="dialog-title"
+      className={cn(
+        "heading-case text-base leading-none font-medium",
+        className
+      )}
+      {...props}
+      children={titleCaseChildren(children)}
+    />
+  )
+}
+
+function DialogDescription({
+  className,
+  ...props
+}: DialogPrimitive.Description.Props) {
+  return (
+    <DialogPrimitive.Description
+      data-slot="dialog-description"
+      className={cn(
+        "text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+}

@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
-import { Box, CircularProgress, Stack } from '@mui/material';
+import { Box } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
-import { GlassDialog, GlassDialogActions, PlainDialogHeader, WtButton } from '@app/modules/common/components/ui';
+import { GlassDialog, GlassDialogActions, PlainDialogHeader } from '@app/modules/common/components/ui';
+import { useDiscardConfirm } from '@app/modules/common/components/ui/useDiscardConfirm';
+import { Button } from '@/ds/ui/button';
 import MeetingFormBody, { type MeetingFormBodyHandle, type MeetingFormBodyProps } from './MeetingFormBody';
 
 /**
@@ -29,6 +31,15 @@ export interface MeetingDialogProps extends Pick<MeetingFormBodyProps, 'selected
 export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: MeetingDialogProps) {
     const bodyRef = useRef<MeetingFormBodyHandle>(null);
     const [saving, setSaving] = useState(false);
+    // Cancel, the X, a backdrop click and Escape all route through this: with changes it asks
+    // first, without it simply closes. A successful save closes directly (below).
+    const discard = useDiscardConfirm(() => !!bodyRef.current?.isDirty(), onClose, {
+        title: bodyProps.editing ? 'Discard your changes?' : 'Discard this meeting?',
+        message: bodyProps.editing
+            ? 'Your edits to this meeting have not been saved.'
+            : 'The details you entered will be lost.',
+    });
+    const requestClose = saving ? undefined : discard.requestClose;
 
     const submit = async () => {
         setSaving(true);
@@ -42,7 +53,7 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
     return (
         <GlassDialog
             open={open}
-            onClose={saving ? undefined : onClose}
+            onClose={requestClose}
             maxWidth="lg"
             plain
             preset="form"
@@ -55,7 +66,7 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
                     title={bodyProps.editing
                         ? 'Edit Meeting'
                         : bodyProps.leadName ? 'New Lead Meeting' : 'New Meeting'}
-                    onClose={saving ? undefined : onClose}
+                    onClose={requestClose}
                 />
             }
         >
@@ -74,18 +85,19 @@ export default function MeetingDialog({ open, onClose, onSaved, ...bodyProps }: 
                     gap: 1,
                 }}
             >
-                <WtButton ghost onClick={onClose} disabled={saving} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-                    cancel
-                </WtButton>
-                <WtButton
+                <Button type="button" variant="outline" onClick={discard.requestClose} disabled={saving} className="w-full sm:w-auto">
+                    Cancel
+                </Button>
+                <Button
+                    type="button"
                     onClick={submit}
-                    disabled={saving}
-                    startIcon={saving ? <CircularProgress size={14} color="inherit" /> : undefined}
-                    sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: 150 }}
+                    loading={saving}
+                    className="w-full sm:w-auto sm:min-w-[150px]"
                 >
-                    {saving ? 'saving…' : bodyProps.editing ? 'save changes' : 'create meeting'}
-                </WtButton>
+                    {saving ? 'Saving…' : bodyProps.editing ? 'Save changes' : 'Create meeting'}
+                </Button>
             </GlassDialogActions>
+            {discard.dialog}
         </GlassDialog>
     );
 }

@@ -3,6 +3,7 @@ import {FC, useEffect} from 'react'
 import {useMutation, useQueryClient} from '@tanstack/react-query'
 import {MenuComponent} from '../../../../../../../_metronic/assets/ts/components'
 import {ID, KTIcon, QUERIES} from '../../../../../../../_metronic/helpers'
+import {Button} from '@/ds/ui/button'
 import {useListView} from '../../core/ListViewProvider'
 import {useQueryResponse} from '../../core/QueryResponseProvider'
 import {deleteUser} from '../../core/_requests'
@@ -33,15 +34,18 @@ const UserActionsCell: FC<Props> = ({id}) => {
 
   return (
     <>
-      <a
-        href='#'
-        className='btn btn-light btn-active-light-primary btn-sm'
+      {/* A menu trigger, not a link: Metronic's MenuComponent binds to data-kt-menu-trigger on any element. */}
+      <Button
+        variant='outline'
+        size='sm'
         data-kt-menu-trigger='click'
         data-kt-menu-placement='bottom-end'
       >
         Actions
-        <KTIcon iconName='down' className='fs-5 m-0' />
-      </a>
+        <span data-icon='inline-end' className='inline-flex'>
+          <KTIcon iconName='down' className='fs-5 m-0' />
+        </span>
+      </Button>
       {/* begin::Menu */}
       <div
         className='menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-125px py-4'

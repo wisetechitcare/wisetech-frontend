@@ -39,9 +39,16 @@ frontend:
         - pnpm install --frozen-lockfile
     build:
       commands:
-        # The script already sets NODE_OPTIONS=--max-old-space-size=4096 via cross-env —
-        # the Vite build OOMs at Node's default heap.
-        - pnpm run build
+        # Bundle only — NOT `pnpm run build`, which is `tsc && build:bundle`. The typecheck
+        # already ran in GitHub CI on the branch before it could merge (Build + preview job),
+        # so repeating it here re-checked ~1,900 files on every preview and every deploy for
+        # nothing. That is only true while branch protection on main requires CI's checks
+        # AND "Require branches to be up to date" — with both, nothing reaches main without
+        # passing tsc. If that protection is ever removed, put `pnpm run build` back.
+        # `build:bundle` sets NODE_OPTIONS=--max-old-space-size=4096 via cross-env — the
+        # Vite build OOMs at Node's default heap. CI's `pnpm run build` calls the same
+        # script, so the bundle step itself cannot drift between the two.
+        - pnpm run build:bundle
     postBuild:
       commands:
         # Amplify deploys whatever is in baseDirectory. It does not care whether the

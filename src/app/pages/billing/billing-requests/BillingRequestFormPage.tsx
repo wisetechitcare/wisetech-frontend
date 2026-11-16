@@ -354,7 +354,7 @@ const BillingRequestFormPage: React.FC = () => {
           <WtButton ghost onClick={() => void save(false)} disabled={saving || selected.size === 0}>
             {isEdit ? "Save Changes" : "Save Draft"}
           </WtButton>
-          <WtButton tone="primary" onClick={() => void save(true)} disabled={saving || selected.size === 0}>
+          <WtButton onClick={() => void save(true)} disabled={saving || selected.size === 0}>
             {saving ? "Saving…" : "Save & Submit"}
           </WtButton>
         </Stack>

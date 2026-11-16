@@ -13,6 +13,7 @@ import { fetchAttendanceDetails } from "@services/employee";
 import { generateDatesForMonth } from "@utils/date";
 import { savePersonalAttendance } from "@redux/slices/attendance";
 import { transformAttendance } from "../../OverviewView";
+import { Button } from '@/ds/ui/button';
 
 const newAttendanceWizardBreadcrumb: Array<PageLink> = [
     {
@@ -115,11 +116,10 @@ function PersonalAttendance() {
                 accessorKey: "actions",
                 header: "Actions",
                 Cell: ({ row }: any) => (
-                    <button
-                        className='btn btn-icon btn-bg-light btn-active-color-primary btn-sm'
+                    <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
                     >
                         <KTIcon iconName='pencil' className='fs-3' />
-                    </button>
+                    </Button>
                 ),
             }]
             : []),

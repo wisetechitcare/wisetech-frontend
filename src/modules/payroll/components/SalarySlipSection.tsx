@@ -13,6 +13,7 @@ import { RootState } from '@redux/store';
 import { isAdminRole } from '@utils/media.utils';
 import { payrollService } from '@modules/payroll/services/payrollService';
 import { downloadSalarySlipXlsx, downloadSalarySlipCsv } from '@modules/payroll/utils/salarySlipExport';
+import { Button } from '@/ds/ui/button';
 
 interface SalarySlipSectionProps {
     salarySlipProps: SalarySlipProps | null;
@@ -301,17 +302,14 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
             {salarySlipProps && (canFetchSlip || canExportSheet) ? (
                 !canExportSheet ? (
                     // No sheet formats to choose from — the toggle would open a one-item menu.
-                    <button
+                    <Button variant="outline" size="sm"
                         type="button"
                         onClick={handleDownloadPdf}
                         disabled={loading}
-                        style={downloadBtnStyle}
-                        onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; } }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
                     >
                         <KTIcon iconName="file-down" className="fs-6" />
                         <span>{downloadLabel}</span>
-                    </button>
+                    </Button>
                 ) : (
                 // The Dropdown renders a wrapper div around the toggle, so the flex sizing has
                 // to land here too — otherwise the toggle stretches inside a wrapper that is
@@ -382,69 +380,30 @@ const SalarySlipSection: React.FC<SalarySlipSectionProps> = ({
                 </Dropdown>
                 )
             ) : (
-                <button disabled style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 14px', border: '1.5px solid #e2e8f0', borderRadius: '6px', background: '#f8fafc', color: '#94a3b8', fontWeight: 500, fontSize: '12px', cursor: 'not-allowed', whiteSpace: 'nowrap' }}>
+                <Button variant="outline" size="sm" type="submit" disabled>
                     <KTIcon iconName="file-down" className="fs-6" />
                     <span>No PDF Data</span>
-                </button>
+                </Button>
             )}
 
             {isContractEmployee && salaryId && (
-                <button
+                <Button variant="outline" size="sm" type="submit"
                     onClick={handleDownloadContractBill}
                     disabled={loading}
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '5px',
-                        padding: '7px 14px',
-                        border: '1.5px solid #e2e8f0',
-                        borderRadius: '6px',
-                        background: '#f8fafc',
-                        color: '#475569',
-                        fontWeight: 500,
-                        fontSize: '12px',
-                        cursor: loading ? 'not-allowed' : 'pointer',
-                        opacity: loading ? 0.6 : 1,
-                        transition: 'all 0.2s ease',
-                        whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#cbd5e1'; } }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#e2e8f0'; }}
                 >
                     <KTIcon iconName="file-down" className="fs-6" />
                     <span>{isDownloadingBill ? 'Downloading...' : 'Download Bill'}</span>
-                </button>
+                </Button>
             )}
 
             {salarySlipProps && (
-                <button
+                <Button variant="outline" size="sm" type="submit"
                     onClick={handleEmailSalarySlip}
                     disabled={loading}
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '5px',
-                        border: 'none',
-                        borderRadius: '6px',
-                        background: '#d32f2f',
-                        color: '#fff',
-                        fontWeight: 500,
-                        cursor: loading ? 'not-allowed' : 'pointer',
-                        boxShadow: '0 2px 6px rgba(211,47,47,0.2)',
-                        transition: 'all 0.2s ease',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        ...actionSizing,
-                    }}
-                    onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.background = '#b71c1c'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 12px rgba(211,47,47,0.3)'; } }}
-                    onMouseLeave={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.background = '#d32f2f'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 6px rgba(211,47,47,0.2)'; } }}
                 >
                     <KTIcon iconName="sms" className="fs-6" />
                     <span>{isSending ? 'Sending…' : 'Email Slip'}</span>
-                </button>
+                </Button>
             )}
         </div>
     );

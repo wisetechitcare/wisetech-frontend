@@ -22,11 +22,13 @@
  *
  * Touch devices get a per-card stage menu, because HTML5 DnD does not fire on touch.
  */
+import { canDelete } from "@utils/can";
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Box, Button, Chip, GlobalStyles, Menu, MenuItem, Stack, TextField, Tooltip, Typography,
+    Box, Chip, GlobalStyles, Menu, MenuItem, Stack, TextField, Tooltip, Typography,
     alpha, useTheme,
 } from '@mui/material';
+import { Button } from '@/ds/ui/button';
 import { KTIcon } from '@metronic/helpers';
 import { confirmDialog, toast } from '@app/modules/common/components/ui';
 import {
@@ -572,7 +574,7 @@ export const TaskBoard = ({
                                 {/* Only this project's OWN lanes carry a delete. A company-wide
                                     stage has no × here at all — not a disabled one — because the
                                     action does not exist on this screen for it. */}
-                                {onDeleteList && column.status.leadId && (
+                                {onDeleteList && column.status.leadId && canDelete('tasks') && (
                                     <Tooltip title="Delete this list">
                                         <Box
                                             component="button" type="button"
@@ -884,21 +886,19 @@ export const TaskBoard = ({
                                 {/* Actions last, under the decision they act on. */}
                                 <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 1.5 }}>
                                     <Button
-                                        variant="contained"
-                                        size="small"
-                                        fullWidth
+                                        size="sm"
+                                        className="w-full"
                                         disabled={!listName.trim() || creating}
-                                        startIcon={!creating ? <KTIcon iconName="plus" className="fs-7" /> : undefined}
                                         onClick={() => void submitList()}
-                                        sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
                                     >
+                                        {!creating && <span data-icon="inline-start" className="inline-flex"><KTIcon iconName="plus" className="fs-7" /></span>}
                                         {creating ? 'Adding…' : 'Add list'}
                                     </Button>
                                     <Button
-                                        size="small"
+                                        variant="ghost"
+                                        size="sm"
                                         onClick={closeComposer}
                                         disabled={creating}
-                                        sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, color: 'text.secondary', flexShrink: 0 }}
                                     >
                                         Cancel
                                     </Button>

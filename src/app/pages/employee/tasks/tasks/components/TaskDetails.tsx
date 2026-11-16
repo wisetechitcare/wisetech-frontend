@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { Button, Badge, Dropdown } from 'react-bootstrap';
+import { Badge, Dropdown } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import { getTaskById, createTimeSheet, updateTimeSheetById, updateTaskStatusById, updateTask } from '@services/tasks'; // Add updateTaskStatus service
 import { warningNotification } from '@utils/modal';
@@ -21,6 +21,7 @@ import { Box, Chip } from '@mui/material';
 // import CustomToastNotification from '../../components/notification/Notifications';
 import { miscellaneousIcons } from '@metronic/assets/miscellaneousicons';
 import ProjectTimeSheets from '@pages/employee/projects/project/components/ProjectTimeSheets';
+import { Button } from '@/ds/ui/button';
 
 type TabType = 'overview' | 'timesheet' | 'files' | 'activities';
 
@@ -679,10 +680,9 @@ const TaskDetails = () => {
                     {/* Header */}
                     <div className="d-flex align-items-center justify-content-between mb-6 flex-wrap">
                         <div className="d-flex align-items-center">
-                            <Button
-                                variant="link"
+                            <Button variant="link"
                                 onClick={handleBackClick}
-                                className="btn btn-icon btn-active-color-primary me-3 p-0"
+                                className="me-3 p-0"
                                 style={{ border: 'none', background: 'none' }}
                             >
                                 <img src={miscellaneousIcons?.leftArrow} alt="Task Details"  style={{width:'35px', height:'35px'}}/>
@@ -771,17 +771,13 @@ const TaskDetails = () => {
                                     </Dropdown.Menu>
                                 </Dropdown>
                                 </div>
-                                <Button
-                                    variant="outline-primary"
-                                    className="btn btn-primary"
+                                <Button variant="inverted"
                                     onClick={handleTimerToggle}
                                 >
                                     {reduxIsTimerRunning ? 'Pause Timer' : 'Start Timer'}
                                 </Button>
                                 <Button
-                                    variant="primary"
                                     onClick={handleEditClick}
-                                    className="btn btn-primary"
                                 >
                                     Edit
                                 </Button>
@@ -802,7 +798,7 @@ const TaskDetails = () => {
                             <ul className="nav nav-tabs nav-line-tabs nav-stretch fs-6 border-0">
                                 {tabs.map((tab) => (
                                     <li key={tab.key} className="nav-item" style={{height: '40px'}}>
-                                        <button
+                                        <button data-wt-control="tab"
                                             className={`nav-link ${activeTab === tab.key ? 'active' : ''}`}
                                             onClick={() => setActiveTab(tab.key as TabType)}
                                             style={{

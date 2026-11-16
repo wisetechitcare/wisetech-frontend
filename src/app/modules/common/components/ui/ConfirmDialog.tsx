@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import {
   Box,
   DialogContent,
@@ -48,7 +48,7 @@ const VARIANT_DEFAULTS: Record<
     confirmLabel: "Confirm",
     cancelLabel: "Cancel",
     iconName: "check-circle",
-    submitTone: "primary",
+    submitTone: "accent",
     mediaColor: () => T.color.brand,
   },
   delete: {
@@ -89,7 +89,7 @@ const VARIANT_DEFAULTS: Record<
     confirmLabel: "OK",
     cancelLabel: "Cancel",
     iconName: "information-5",
-    submitTone: "primary",
+    submitTone: "accent",
     mediaColor: () => TRIO.blue.c,
   },
   warning: {
@@ -97,7 +97,7 @@ const VARIANT_DEFAULTS: Record<
     confirmLabel: "OK",
     cancelLabel: "Cancel",
     iconName: "warning",
-    submitTone: "primary",
+    submitTone: "accent",
     mediaColor: () => TRIO.amber.c,
   },
 };
@@ -106,7 +106,7 @@ export interface ConfirmDialogProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  /** `confirm` = primary CTA; `delete` = danger CTA + trash media. */
+  /** `confirm` = the default CTA; `delete` = danger CTA + trash media. */
   variant?: ConfirmDialogVariant;
   /** Overrides variant default title. */
   title?: string;
@@ -182,6 +182,8 @@ export function ConfirmDialog({
   const resolvedConfirm = confirmLabel ?? defaults.confirmLabel;
   const resolvedCancel = cancelLabel ?? defaults.cancelLabel;
   const isDark = theme.palette.mode === "dark";
+  // MUI labels the dialog by a DialogTitle's id; the title here is a Typography, so wire it up.
+  const titleId = useId();
   const dismiss = (reason: ConfirmDialogDismissReason) => {
     if (onDismiss) onDismiss(reason);
     else onClose();
@@ -208,6 +210,7 @@ export function ConfirmDialog({
       fullWidth
       plain
       mobileFullScreen={false}
+      aria-labelledby={titleId}
       sx={zIndex === undefined ? undefined : { zIndex }}
     >
       <DialogContent sx={{ pt: 3, pb: 1.5, px: 3, position: "relative" }}>
@@ -236,7 +239,7 @@ export function ConfirmDialog({
             {media}
           </Box>
           <Box sx={{ px: 1 }}>
-            <Typography variant="h5" fontWeight={700} sx={{ mb: 0.75 }}>
+            <Typography id={titleId} variant="h5" fontWeight={700} sx={{ mb: 0.75 }}>
               {resolvedTitle}
             </Typography>
             <Typography

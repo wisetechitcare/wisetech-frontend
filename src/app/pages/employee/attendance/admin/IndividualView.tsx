@@ -9,8 +9,8 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import dayjs, { Dayjs } from 'dayjs';
 import { fetchEmpAttendanceStatistics } from '@services/employee';
-import { Card, Avatar } from '@mui/material';
-import { getAvatar } from '@utils/avatar';
+import { Card } from '@mui/material';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import Leaves from '../personal/views/my-leaves/Leaves';
 import { resourceNameMapWithCamelCase } from '@constants/statistics';
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions';
@@ -190,7 +190,7 @@ const ProfileCard = ({ employee }: { employee: any }) => {
         name: employee.users.firstName + " " + employee.users.lastName,
         id: employee.employeeCode,
         role: employee.designations?.role,
-        imageUrl: getAvatar(employee.avatar, employee.gender),
+        imageUrl: employee.avatar,
         gender: employee.gender,
         isActive: employee.isActive,
     };
@@ -202,11 +202,14 @@ const ProfileCard = ({ employee }: { employee: any }) => {
             sx={{ border: 'none', boxShadow: '0px 1px 5px rgba(0, 0, 0, 0.1)', minHeight: '80px', flexWrap: 'wrap', gap: 2 }}
         >
             <div className="d-flex flex-row align-items-center">
-                <Avatar
+                <SmartAvatar
                     src={user.imageUrl}
-                    alt="Profile"
+                    name={user.name}
+                    seed={employee.id}
+                    size={60}
+                    preview
+                    decorative
                     className="me-3"
-                    sx={{ width: 60, height: 60 }}
                 />
                 <div>
                     <h5 className="mb-0">{user.name}</h5>

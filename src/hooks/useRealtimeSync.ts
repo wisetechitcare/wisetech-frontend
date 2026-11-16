@@ -36,6 +36,21 @@ export function useRealtimeSync(
   // when it changes — what a reload used to do.
   useSelector((state: RootState) => (state as any).authz);
 
+  // Billing lists carry lead fields (project name, organization, PO status, client) and are cached
+  // for 5 minutes, so a lead save must drop them or Billing / Invoices read stale until a reload.
+  // Local saves and socket syncs both emit these events, so one subscription covers both.
+  useEffect(() => {
+    const refreshBilling = () =>
+      ['billing-project-overview', 'billing-operations', 'project-billing', 'taxInvoices', 'proformas']
+        .forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+    eventBus.on(EVENT_KEYS.leadUpdated, refreshBilling);
+    eventBus.on(EVENT_KEYS.projectUpdated, refreshBilling);
+    return () => {
+      eventBus.off(EVENT_KEYS.leadUpdated, refreshBilling);
+      eventBus.off(EVENT_KEYS.projectUpdated, refreshBilling);
+    };
+  }, [queryClient]);
+
   useEffect(() => {
     const rooms = [userId, employeeId].filter(Boolean) as string[];
     if (!rooms.length) return;

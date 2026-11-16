@@ -17,6 +17,8 @@ import { employeeNameById, fmtDate, DASH } from '../entityViewModel';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { canSection } from '@utils/can';
+import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 /**
  * Teams — the collaboration roster for a lead/project, split in two:
@@ -43,27 +45,6 @@ const th: React.CSSProperties = {
 const td: React.CSSProperties = { padding: '11px 12px', borderBottom: '1px solid #F4F6F9', fontSize: 13, color: '#475569', whiteSpace: 'nowrap' };
 const tdName: React.CSSProperties = { ...td, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap' };
 
-const removeBtn: React.CSSProperties = {
-  flexShrink: 0, width: 32, height: 32, borderRadius: 8,
-  border: '1px solid #f1416c33', background: '#fff1f3', color: '#9b1c44', cursor: 'pointer',
-};
-const addBtn: React.CSSProperties = {
-  marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'Inter',
-  fontSize: 12.5, fontWeight: 600, padding: '7px 14px', borderRadius: 8,
-  border: '1px dashed #cbd5e1', background: '#fff', color: '#475569', cursor: 'pointer',
-};
-const seedBtn: React.CSSProperties = {
-  ...addBtn, borderStyle: 'solid', borderColor: '#1E3A8A33', color: '#1E3A8A', marginLeft: 8,
-};
-const makeManagerBtn: React.CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'Inter', fontSize: 11.5, fontWeight: 600,
-  padding: '4px 10px', borderRadius: 999, border: '1px dashed #cbd5e1', background: '#fff', color: '#475569',
-  cursor: 'pointer', whiteSpace: 'nowrap',
-};
-const managerIconBtn: React.CSSProperties = {
-  width: 22, height: 22, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  borderRadius: 6, border: '1px solid #E2E8F0', background: '#fff', color: '#64748B', cursor: 'pointer', fontSize: 11,
-};
 
 const managerBadge = (isPrimary: boolean): React.CSSProperties => ({
   display: 'inline-flex', alignItems: 'center', fontFamily: 'Inter', fontSize: 10.5,
@@ -88,22 +69,22 @@ const ManagerCell: React.FC<{
 
   if (!isManager) {
     return (
-      <button type="button" disabled={!id} style={{ ...makeManagerBtn, opacity: id ? 1 : 0.5 }} onClick={() => onChange([...managerIds, id])}>
-        <AppIcon name="bi-person-badge" /> Make Manager
-      </button>
+      <Button variant="outline" size="xs" disabled={!id} onClick={() => onChange([...managerIds, id])}>
+        <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-person-badge" /></span> Make Manager
+      </Button>
     );
   }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
       <span style={managerBadge(isPrimary)}>{isPrimary ? 'Primary Manager' : 'Manager'}</span>
       {!isPrimary && (
-        <button type="button" title="Make primary manager" style={managerIconBtn} onClick={() => onChange([id, ...managerIds.filter(m => m !== id)])}>
+        <Button variant="outline" size="icon-xs" title="Make primary manager" aria-label="Make primary manager" onClick={() => onChange([id, ...managerIds.filter(m => m !== id)])}>
           <AppIcon name="bi-star" />
-        </button>
+        </Button>
       )}
-      <button type="button" title="Remove as manager" style={managerIconBtn} onClick={() => onChange(managerIds.filter(m => m !== id))}>
+      <Button variant="outline" size="icon-xs" title="Remove as manager" aria-label="Remove as manager" onClick={() => onChange(managerIds.filter(m => m !== id))}>
         <AppIcon name="bi-x-lg" />
-      </button>
+      </Button>
     </div>
   );
 };
@@ -223,13 +204,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
 
   const formatEmployeeOption = (option: any) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      {option.image ? (
-        <img src={option.image} alt={option.label} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
-      ) : (
-        <div style={{ width: 24, height: 24, borderRadius: '50%', backgroundColor: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#64748B' }}>
-          {option.label.charAt(0).toUpperCase()}
-        </div>
-      )}
+      <SmartAvatar src={option.image} name={option.label} seed={option.value} size="xs" decorative />
       <span>{option.label}</span>
     </div>
   );
@@ -491,11 +466,6 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   //    get sorting, per-column search, column show/hide and saved column preferences that
   //    the hand-written <table> never had. Cells render exactly what they rendered before.
   const currentUserId = useSelector((st: RootState) => st.auth?.currentUser?.id);
-  const avatarFor = (name: string, url?: string | null) =>
-    url || `https://ui-avatars.com/api/?name=${encodeURIComponent(name && name !== DASH ? name : '?')}&background=eeeeee&color=888888&size=20&rounded=true`;
-  const RowAvatar = ({ name, url }: { name: string; url?: string | null }) => (
-    <img src={avatarFor(name, url)} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
-  );
 
   // Flattened so the table can sort and search on real values rather than on JSX.
   // Default order is employee name A→Z; MaterialTable defaultSorting matches, and the
@@ -521,7 +491,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       header: 'Employee',
       Cell: ({ row }: any) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <RowAvatar name={row.original.employeeName} url={empAvatar(row.original.employeeId)} />
+          <SmartAvatar src={empAvatar(row.original.employeeId)} name={row.original.employeeName === DASH ? null : row.original.employeeName} seed={row.original.employeeId} size="xs" decorative />
           {row.original.employeeId ? (
             <DetailLink href={`/employees/${row.original.employeeId}`} style={{ fontWeight: 700, color: '#1E293B' }}>
               {row.original.employeeName}
@@ -560,7 +530,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       header: 'Company / Client',
       Cell: ({ row }: any) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <RowAvatar name={row.original.name} url={row.original.companyAvatar} />
+          <SmartAvatar src={row.original.companyAvatar} name={row.original.name === DASH ? null : row.original.name} seed={row.original.companyId || row.original.name} size="xs" fit="contain" decorative />
           {row.original.companyId ? (
             <DetailLink href={`/companies/${row.original.companyId}`} style={{ fontWeight: 700, color: '#1E293B' }}>
               {row.original.name}
@@ -578,7 +548,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       Cell: ({ row }: any) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {row.original.contact && row.original.contact !== DASH && (
-            <RowAvatar name={row.original.contact} url={row.original.contactAvatar} />
+            <SmartAvatar src={row.original.contactAvatar} name={row.original.contact} seed={row.original.contactId || row.original.contact} size="xs" decorative />
           )}
           {row.original.contactId && row.original.contact ? (
             <DetailLink href={`/contacts/${row.original.contactId}`} style={{ color: '#1E293B' }}>{row.original.contact}</DetailLink>
@@ -907,9 +877,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                     <div style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team?.name || 'No team selected'}</div>
                   </div>
                   {canWrite && (
-                    <button type="button" onClick={openTeamModal} style={{ ...addBtn, marginTop: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                      <AppIcon name="bi-arrow-left-right" /> {team?.name ? 'Change Team' : 'Assign Team'}
-                    </button>
+                    <Button variant="outline" size="sm" onClick={openTeamModal}>
+                      <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-arrow-left-right" /></span> {team?.name ? 'Change Team' : 'Assign Team'}
+                    </Button>
                   )}
                 </div>
               );
@@ -986,22 +956,22 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                     )}
                     {rows.map((m, i) => (
                       <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9' }}>
-                        <div style={{ flex: 2, minWidth: COL.employee }}><SearchableSelectEditor value={m.employeeId} options={employeeOptions} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" formatOptionLabel={formatEmployeeOption} /></div>
+                        <div style={{ flex: 2, minWidth: COL.employee }}><SearchableSelectEditor value={m.employeeId} options={employeeOptions.filter(o => !rows.some((other, oIdx) => oIdx !== i && String(other.employeeId) === String(o.value)))} onChange={v => update(i, { employeeId: v })} placeholder="Select employee" formatOptionLabel={formatEmployeeOption} /></div>
                         <div style={{ flex: 1, minWidth: COL.date }}><DateEditor value={m.startDate} onChange={v => update(i, { startDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: COL.date }}><DateEditor value={m.endDate} onChange={v => update(i, { endDate: v })} /></div>
                         <div style={{ flex: 1, minWidth: COL.status }}><ToggleEditor value={m.isActive !== false} onChange={v => applyStatusToggle(v, m, patch => update(i, patch))} onLabel="Active" offLabel="Inactive" /></div>
                         <div style={{ flex: 1, minWidth: COL.manager }}>
                           <ManagerCell employeeId={m.employeeId} managerIds={draftManagerIds} onChange={ids => set({ managerIds: ids })} />
                         </div>
-                        <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><AppIcon name="bi-trash" /></button>
+                        <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as React.CSSProperties} onClick={() => remove(i)} title="Remove" aria-label="Remove"><AppIcon name="bi-trash" /></Button>
                       </div>
                     ))}
                   </div>
-                  <button type="button" onClick={add} style={addBtn}><AppIcon name="bi-plus-lg" /> Add member</button>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={add}><span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-plus-lg" /></span> Add member</Button>
                   {teamMembers.length > 0 && (
-                    <button type="button" onClick={seedFromTeam} style={seedBtn}>
-                      <AppIcon name="bi-people-fill" /> Seed from {team?.name || 'team'}
-                    </button>
+                    <Button variant="inverted" size="sm" className="mt-3 ml-2" onClick={seedFromTeam}>
+                      <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-people-fill" /></span> Seed from {team?.name || 'team'}
+                    </Button>
                   )}
                 </div>
               );
@@ -1040,18 +1010,17 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               </div>
             </Modal.Body>
             <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6' }}>
-              <button type="button" className="btn btn-light btn-sm" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
+              <Button variant="outline" size="sm" type="button" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button size="sm"
                 type="button"
-                className="btn btn-primary btn-sm"
                 onClick={continueToRoster}
                 disabled={!draftTeamId}
                 style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
               >
                 Continue <AppIcon name="bi-arrow-right" />
-              </button>
+              </Button>
             </Modal.Footer>
           </>
         ) : (
@@ -1062,12 +1031,12 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                   Roster for <strong style={{ color: '#1E293B' }}>{selectedTeamName}</strong> — grouped below into your project's <strong>Current Team</strong> and the <strong>Incoming</strong> members from {selectedTeamName}. Mark anyone active/inactive, assign project manager(s), or remove a row entirely with <AppIcon name="bi-trash" />.
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={() => markAllActive(true)} style={{ ...addBtn, marginTop: 0, borderColor: '#16a34a55', color: '#15803d' }}>
-                    <AppIcon name="bi-check-all" /> Mark all active
-                  </button>
-                  <button type="button" onClick={() => markAllActive(false)} style={{ ...addBtn, marginTop: 0 }}>
-                    <AppIcon name="bi-slash-circle" /> Mark all inactive
-                  </button>
+                  <Button variant="tinted" size="sm" style={{ '--tint': 'var(--cta-success)' } as React.CSSProperties} onClick={() => markAllActive(true)}>
+                    <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-check-all" /></span> Mark all active
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => markAllActive(false)}>
+                    <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-slash-circle" /></span> Mark all inactive
+                  </Button>
                 </div>
               </div>
 
@@ -1107,10 +1076,12 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                               )}
                               <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9', opacity: x.m.isActive === false ? 0.75 : 1 }}>
                                 <div style={{ flex: 2, minWidth: COL.employee, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <img
-                                    src={empAvatar(x.m.employeeId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(x.m.employeeId) === DASH ? '?' : empName(x.m.employeeId))}&background=eeeeee&color=888888&size=20&rounded=true`}
-                                    alt=""
-                                    style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                                  <SmartAvatar
+                                    src={empAvatar(x.m.employeeId)}
+                                    name={empName(x.m.employeeId) === DASH ? null : empName(x.m.employeeId)}
+                                    seed={x.m.employeeId}
+                                    size={26}
+                                    decorative
                                   />
                                   <span style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName(x.m.employeeId)}</span>
                                 </div>
@@ -1120,7 +1091,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                                 <div style={{ flex: 1, minWidth: COL.manager }}>
                                   <ManagerCell employeeId={x.m.employeeId} managerIds={managerDraft} onChange={setManagerDraft} />
                                 </div>
-                                <button type="button" onClick={() => removeRosterRow(x.i)} title="Remove from roster" style={removeBtn}><AppIcon name="bi-trash" /></button>
+                                <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as React.CSSProperties} onClick={() => removeRosterRow(x.i)} title="Remove from roster" aria-label="Remove from roster"><AppIcon name="bi-trash" /></Button>
                               </div>
                             </React.Fragment>
                           ))}
@@ -1139,22 +1110,21 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
               )}
             </Modal.Body>
             <Modal.Footer style={{ padding: 12, borderTop: '1px solid #EEF2F6', justifyContent: 'space-between' }}>
-              <button type="button" className="btn btn-light btn-sm" onClick={() => setTeamStep(1)} disabled={savingTeam}>
+              <Button variant="outline" size="sm" type="button" onClick={() => setTeamStep(1)} disabled={savingTeam}>
                 <AppIcon name="bi-arrow-left" /> Back
-              </button>
+              </Button>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="btn btn-light btn-sm" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
+                <Button variant="outline" size="sm" type="button" onClick={() => setShowTeamModal(false)} disabled={savingTeam}>
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button size="sm"
                   type="button"
-                  className="btn btn-primary btn-sm"
                   onClick={confirmTeamChange}
                   disabled={savingTeam || !draftTeamId}
                   style={{ backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' }}
                 >
                   {savingTeam ? 'Saving...' : 'Save'}
-                </button>
+                </Button>
               </div>
             </Modal.Footer>
           </>
@@ -1292,9 +1262,9 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         )}
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                           <div style={{ flex: 1, minWidth: 140 }}><SearchableSelectEditor value={t.companyTypeId} options={companyTypeOptions} onChange={v => update(i, { companyTypeId: v })} placeholder="Select type" /></div>
-                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId)} onChange={v => onCompanyChange(i, v)} placeholder="Select company" showColor /></div>
+                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.companyId} options={companyOptionsFor(t.companyTypeId).filter(o => !rows.some((other, oIdx) => oIdx !== i && String(other.companyId) === String(o.value) && !other.contactId))} onChange={v => onCompanyChange(i, v)} placeholder="Select company" showColor /></div>
                           <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.subCompanyId} options={subCompanyOptionsFor(t.companyId)} onChange={v => onSubCompanyChange(i, v)} placeholder="Select sub company" /></div>
-                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId)} onChange={v => onContactChange(i, v)} placeholder="Select contact" showColor /></div>
+                          <div style={{ flex: 1, minWidth: 150 }}><SearchableSelectEditor value={t.contactId} options={contactOptionsFor(t.companyId).filter(o => !rows.some((other, oIdx) => oIdx !== i && String(other.contactId) === String(o.value)))} onChange={v => onContactChange(i, v)} placeholder="Select contact" showColor /></div>
                           <div style={{ flex: 1, minWidth: 130 }}>
                             {/* Auto-fetched from the selected contact's Role in Company. */}
                             <div
@@ -1321,12 +1291,12 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                           <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.startDate} onChange={v => update(i, { startDate: v })} /></div>
                           <div style={{ flex: 1, minWidth: 120 }}><DateEditor value={t.endDate} onChange={v => update(i, { endDate: v })} /></div>
                           <div style={{ flex: 1, minWidth: 110 }}><ToggleEditor value={t.isActive !== false} onChange={v => applyStatusToggle(v, t, patch => update(i, patch))} onLabel="Active" offLabel="Inactive" /></div>
-                          <button type="button" onClick={() => remove(i)} title="Remove" style={removeBtn}><AppIcon name="bi-trash" /></button>
+                          <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as React.CSSProperties} onClick={() => remove(i)} title="Remove" aria-label="Remove"><AppIcon name="bi-trash" /></Button>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <button type="button" onClick={add} style={addBtn}><AppIcon name="bi-plus-lg" /> Add client company connection</button>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={add}><span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-plus-lg" /></span> Add client company connection</Button>
                 </div>
               );
             }}

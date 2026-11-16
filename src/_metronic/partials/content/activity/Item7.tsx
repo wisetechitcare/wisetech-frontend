@@ -1,6 +1,7 @@
 ﻿
 import {FC} from 'react'
 import {KTIcon, toAbsoluteUrl} from '../../../helpers'
+import {buttonVariants} from '@/ds/ui/button'
 
 const Item7: FC = () => {
   return (
@@ -42,7 +43,11 @@ const Item7: FC = () => {
                   Login into Metronic Admin Dashboard to make sure the data integrity is OK
                 </div>
               </div>
-              <a href='#' className='btn btn-primary px-6 align-self-center text-nowrap'>
+              <a
+                href='#'
+                data-slot='button'
+                className={buttonVariants({variant: 'default', className: 'align-self-center'})}
+              >
                 Proceed
               </a>
             </div>

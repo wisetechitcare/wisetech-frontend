@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { IconButton } from '@mui/material';
 import { Edit, Check, Close } from '@mui/icons-material';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 interface PrefixInlineEditProps {
   value: string; // Full prefix like "testLead/2024-25/32"
@@ -288,23 +288,23 @@ const PrefixInlineEdit: React.FC<PrefixInlineEditProps> = ({
               />
             </div>
             
-            <IconButton
+            <WtIconButton
               size="small"
               onClick={handleSave}
               style={{ padding: '2px', marginLeft: '4px' }}
               title="Save"
             >
               <Check style={{ fontSize: '16px', color: '#28a745' }} />
-            </IconButton>
+            </WtIconButton>
             
-            <IconButton
+            <WtIconButton
               size="small"
               onClick={handleCancel}
               style={{ padding: '2px' }}
               title="Cancel"
             >
               <Close style={{ fontSize: '16px', color: '#dc3545' }} />
-            </IconButton>
+            </WtIconButton>
           </div>
           
           {/* Error Row - Only show if there are any errors */}
@@ -334,14 +334,14 @@ const PrefixInlineEdit: React.FC<PrefixInlineEditProps> = ({
             {value}
           </span>
           {!disabled && (
-            <IconButton
+            <WtIconButton
               size="small"
               onClick={handleEdit}
               style={{ padding: '2px', marginLeft: '4px' }}
               title="Edit prefix"
             >
               <Edit style={{ fontSize: '14px', color: '#6c757d' }} />
-            </IconButton>
+            </WtIconButton>
           )}
         </div>
       )}

@@ -1,6 +1,7 @@
 import React, {Dispatch, SetStateAction, useEffect, useState} from 'react'
 import {Modal} from 'react-bootstrap'
-import {KTIcon} from '../../../helpers'
+import {Button} from '@/ds/ui/button'
+import {WtCloseButton} from '@/app/modules/common/components/ui/tw/WtCloseButton'
 
 type Props = {
   data: {location: string; setLocation: Dispatch<SetStateAction<string>>}
@@ -40,24 +41,19 @@ const SelectLocationModal: React.FC<Props> = ({show, handleClose, data}) => {
         <div className='modal-header'>
           <h5 className='modal-title'>Select Location</h5>
 
-          <div
-            className='btn btn-icon btn-sm btn-active-light-primary ms-2'
-            onClick={dissmissLocation}
-          >
-            <KTIcon iconName='cross' className='fs-2x' />
-          </div>
+          <WtCloseButton variant='plain' className='ms-2' onClick={dissmissLocation} />
         </div>
         <div className='modal-body'>
           <input type='text' value={location} onChange={(e) => setLocation(e.target.value)} />
           <div id='kt_modal_select_location_map' className='map h-450px'></div>
         </div>
         <div className='modal-footer'>
-          <button type='button' className='btn btn-light-primary' onClick={dissmissLocation}>
+          <Button variant='tinted' onClick={dissmissLocation}>
             Cancel
-          </button>
-          <button id='submit' type='button' className='btn btn-primary' onClick={applyLocation}>
+          </Button>
+          <Button id='submit' onClick={applyLocation}>
             Apply
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

@@ -103,6 +103,8 @@ export interface EnterpriseWizardStep<TProps = any> extends NavigationSection {
    */
   requiredFields?: string[];
   subtitle?: string;
+  /** Rendered at the right end of the step title row (e.g. a revision chip). */
+  titleAdornment?: React.ReactNode;
   defaultOpen?: boolean;
   hidden?: boolean;
   isSubmitStep?: boolean;
@@ -116,6 +118,8 @@ export interface WizardSummaryConfig<TValues = any> {
   title: string;
   rows: SummaryRow[] | ((values: TValues, currentStep?: any) => SummaryRow[]);
   warningMessage?: string;
+  /** Rendered under the rows — e.g. a step-specific panel. Receives the same arguments as `rows`. */
+  extra?: React.ReactNode | ((values: TValues, currentStep?: any) => React.ReactNode);
 }
 
 export interface WizardActionConfig {

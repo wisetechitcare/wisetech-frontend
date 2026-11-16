@@ -5,6 +5,7 @@ import { useAuditTimeline } from './hooks';
 import { ChangeSetCard } from './ChangeSetCard';
 import { categoryMeta, isBaselineEntry } from './tokens';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 interface Props {
   type: AuditEntityType;
@@ -131,7 +132,7 @@ const BaselineGroup: React.FC<{
           overflow: 'hidden',
         }}
       >
-        <button
+        <button data-wt-control="accordion"
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
@@ -280,9 +281,9 @@ export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset })
   if (query.isError) {
     return (
       <Centered icon="bi bi-exclamation-triangle" title="Couldn't load the audit trail" subtitle="The server returned an error.">
-        <button type="button" style={{ ...BTN.outline, marginTop: 14 }} onClick={() => refetch()}>
+        <Button variant="outline" size="sm" style={{ marginTop: 14 }} type="button" onClick={() => refetch()}>
           <AppIcon name="bi-arrow-clockwise" aria-hidden /> Retry
-        </button>
+        </Button>
       </Centered>
     );
   }
@@ -301,15 +302,14 @@ export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset })
           </>
         )}
       </span>
-      <button
+      <Button variant="ghost" size="sm"
         type="button"
         onClick={handleRefresh}
         disabled={query.isFetching}
-        style={{ ...BTN.ghost, padding: '5px 10px', fontSize: 12 }}
         title="Refresh"
       >
         <i className={`bi bi-arrow-clockwise ${query.isFetching ? 'ci-spin' : ''}`} aria-hidden /> Refresh
-      </button>
+      </Button>
     </div>
   );
 
@@ -362,9 +362,8 @@ export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset })
 
       {query.hasNextPage && (
         <div style={{ textAlign: 'center', paddingTop: 6 }}>
-          <button
+          <Button variant="secondary" size="sm"
             type="button"
-            style={{ ...BTN.secondary }}
             disabled={query.isFetchingNextPage}
             onClick={() => query.fetchNextPage()}
           >
@@ -377,7 +376,7 @@ export const AuditTimeline: React.FC<Props> = ({ type, id, onCompare, onReset })
                 <AppIcon name="bi-arrow-down-circle" aria-hidden /> Load more
               </>
             )}
-          </button>
+          </Button>
         </div>
       )}
     </div>

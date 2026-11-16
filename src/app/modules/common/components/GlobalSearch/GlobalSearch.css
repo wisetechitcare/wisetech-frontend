@@ -243,7 +243,10 @@
   transform: scale(1.05);
 }
 
-.rounded-xl {
+/* Scoped to the search UI. As a bare `.rounded-xl … !important` it overrode Tailwind's rounded-xl on EVERY
+   element in the app — every design-system list, card and row lost its Maia radius to a 12px square-ish one. */
+.global-search-container .rounded-xl,
+.global-search-dropdown.rounded-xl {
   border-radius: 12px !important;
 }
 

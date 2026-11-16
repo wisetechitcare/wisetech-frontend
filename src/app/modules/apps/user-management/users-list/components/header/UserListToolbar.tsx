@@ -1,4 +1,5 @@
 import {KTIcon} from '../../../../../../../_metronic/helpers'
+import {Button} from '@/ds/ui/button'
 import {useListView} from '../../core/ListViewProvider'
 import {UsersListFilter} from './UsersListFilter'
 
@@ -13,17 +14,21 @@ const UsersListToolbar = () => {
       <UsersListFilter />
 
       {/* begin::Export */}
-      <button type='button' className='btn btn-light-primary me-3'>
-        <KTIcon iconName='exit-up' className='fs-2' />
+      <Button variant='tinted' className='me-3'>
+        <span data-icon='inline-start' className='inline-flex'>
+          <KTIcon iconName='exit-up' className='fs-2' />
+        </span>
         Export
-      </button>
+      </Button>
       {/* end::Export */}
 
       {/* begin::Add user */}
-      <button type='button' className='btn btn-primary' onClick={openAddUserModal}>
-        <KTIcon iconName='plus' className='fs-2' />
+      <Button onClick={openAddUserModal}>
+        <span data-icon='inline-start' className='inline-flex'>
+          <KTIcon iconName='plus' className='fs-2' />
+        </span>
         Add User
-      </button>
+      </Button>
       {/* end::Add user */}
     </div>
   )

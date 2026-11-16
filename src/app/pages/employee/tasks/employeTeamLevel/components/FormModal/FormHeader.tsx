@@ -1,5 +1,6 @@
 import React from 'react';
 import { FormHeaderProps } from './types';
+import { Button } from '@/ds/ui/button';
 
 const FormHeader: React.FC<FormHeaderProps> = ({ mode, levelNumber, onClose }) => {
   const getTitle = () => {
@@ -28,11 +29,10 @@ const FormHeader: React.FC<FormHeaderProps> = ({ mode, levelNumber, onClose }) =
       }}>
         {getTitle()}
       </h2>
-      <button
+      <Button variant="ghost"
         type="button"
         data-unsaved-changes-close
         onClick={onClose}
-        className="btn-close"
         aria-label="Close"
         style={{ cursor: 'pointer' }}
       />

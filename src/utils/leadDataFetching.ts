@@ -94,8 +94,6 @@ export const transformLead = (
       (Array.isArray(lead.commercials) && lead.commercials.length > 0
         ? lead.commercials[0]?.area
         : null) ||
-      lead?.additionalDetails?.projectArea ||
-      lead?.addresses?.[0]?.projectArea ||
       "",
     cost: commercialsCost,
     companyId: lead.companyId || "",

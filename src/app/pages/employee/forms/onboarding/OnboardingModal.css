@@ -17,8 +17,11 @@
   overflow: hidden;
 }
 
-/* Close (X) — sits over the navy wizard header, so it is white-on-navy. */
-.ob-wizard-close {
+/* Close (X) — sits over the navy wizard header, so it is white-on-navy.
+   Scoped to the shell on purpose: the design system's button reset
+   `:is(button, a)[data-slot="button"] { position: revert-layer }` outranks a lone class, which
+   dropped the X into the flow above the wizard and pushed the footer off the bottom. */
+.ob-wizard-shell .ob-wizard-close {
   position: absolute;
   /* Centred in the header, so it lines up with the header's own actions. */
   top: calc((var(--wt-header-height, 92px) - 36px) / 2);
@@ -38,12 +41,12 @@
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.ob-wizard-close:hover {
+.ob-wizard-shell .ob-wizard-close:hover {
   background: rgba(255, 255, 255, 0.22);
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-.ob-wizard-close:focus-visible {
+.ob-wizard-shell .ob-wizard-close:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
 }
@@ -385,7 +388,7 @@
 }
 
 @media (max-width: 768px) {
-  .ob-wizard-close {
+  .ob-wizard-shell .ob-wizard-close {
     top: 12px;
     right: 12px;
     width: 32px;

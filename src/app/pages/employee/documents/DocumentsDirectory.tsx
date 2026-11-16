@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Box, Typography } from "@mui/material";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
-import { GlassCard, GlassSurface, ListHeader, StatusCyclePill, ToneChip, ToolbarFilterSelect } from "@app/modules/common/components/ui";
+import { GlassCard, GlassSurface, ListHeader, StatusCyclePill, ToneChip } from "@app/modules/common/components/ui";
 import { formatDate } from "@utils/dateFormats";
 import { fetchDocumentsDirectory } from "@services/employee";
 import type { DocumentsDirectoryEntry } from "@services/employee";
@@ -302,32 +302,6 @@ const DocumentsDirectory: React.FC = () => {
           options={STATUS_OPTIONS}
           value={status}
           onChange={setStatus}
-        />
-
-        <ToolbarFilterSelect
-          label="Sub Organization"
-          icon="bi-building"
-          value={subOrganizationId}
-          onChange={setSubOrganizationId}
-          minWidth={220}
-          theme={subOrganizationId !== "All" ? FILTER_ACTIVE_THEME : undefined}
-          options={[
-            { value: "All", label: "All Sub Organizations" },
-            ...subOrganizations.map((org) => ({ value: org.id, label: org.name })),
-          ]}
-        />
-
-        <ToolbarFilterSelect
-          label="Branch"
-          icon="bi-geo-alt"
-          value={branchId}
-          onChange={setBranchId}
-          minWidth={200}
-          theme={branchId !== "All" ? FILTER_ACTIVE_THEME : undefined}
-          options={[
-            { value: "All", label: "All Branches" },
-            ...visibleBranches.map((branch) => ({ value: branch.id, label: branch.name })),
-          ]}
         />
       </GlassSurface>
 

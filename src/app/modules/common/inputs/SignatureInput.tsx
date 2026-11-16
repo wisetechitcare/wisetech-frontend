@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import SignatureCanvas from 'react-signature-canvas';
+import SignatureCanvasClass from 'react-signature-canvas';
 import { dataURLtoFile } from '@utils/file';
+import { cjsDefault } from '@utils/cjsDefault';
+import { Button } from '@/ds/ui/button';
+
+const SignatureCanvas = cjsDefault(SignatureCanvasClass);
 
 function SignatureInput({ setFile, imageUrl }: any) {
-    const signatureCanvas = useRef<SignatureCanvas>(null);
+    const signatureCanvas = useRef<SignatureCanvasClass>(null);
     const [isPlaceholderVisible, setIsPlaceholderVisible] = useState(true);
     const [signatureUrl, setSignatureUrl] = useState(imageUrl);
 
@@ -65,12 +69,12 @@ function SignatureInput({ setFile, imageUrl }: any) {
                 <div className="row">
                     <div className="col-lg-12">
                         <div className='card-toolbar text-end'>
-                            <button type="button" onClick={clearSignature} className='btn btn-sm btn-light-primary mx-4'>
+                            <Button variant="tinted" size="sm" type="button" onClick={clearSignature} className="mx-4">
                                 Clear Signature
-                            </button>
-                            <button type="button" onClick={saveSignature} className='btn btn-sm btn-light-primary'>
+                            </Button>
+                            <Button variant="tinted" size="sm" type="button" onClick={saveSignature}>
                                 Save Signature
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -84,13 +88,12 @@ function SignatureInput({ setFile, imageUrl }: any) {
                         style={{ maxHeight: 140 }}
                     />
                     <div className='card-toolbar text-end'>
-                        <button
+                        <Button variant="tinted" size="sm"
                             type="button"
                             onClick={() => { setSignatureUrl(''); setIsPlaceholderVisible(true); }}
-                            className='btn btn-sm btn-light-primary'
                         >
                             Change Signature
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}

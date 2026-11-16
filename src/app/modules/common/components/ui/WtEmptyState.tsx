@@ -81,7 +81,7 @@ export const WtEmptyState: React.FC<WtEmptyStateProps> = ({
             )}
 
             {showAction && (
-                <WtButton tone="primary" size="small" onClick={onAction} sx={{ mt: 0.5 }}>
+                <WtButton size="small" onClick={onAction} sx={{ mt: 0.5 }}>
                     {actionLabel}
                 </WtButton>
             )}

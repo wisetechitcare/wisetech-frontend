@@ -243,8 +243,7 @@ const RecordPaymentDialog: React.FC<RecordPaymentDialogProps> = ({
           <WtButton ghost size="small" onClick={onClose} sx={{ minHeight: 36, fontSize: 13 }}>
             Cancel
           </WtButton>
-          <WtButton
-            tone="primary" size="small"
+          <WtButton size="small"
             disabled={!canSubmit || record.isPending}
             onClick={() => record.mutate()}
             sx={{ minHeight: 36, fontSize: 13 }}

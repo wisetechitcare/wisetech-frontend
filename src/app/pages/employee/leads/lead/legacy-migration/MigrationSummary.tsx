@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
 import { GlassSurface, WtButton, toneAlpha } from '@app/modules/common/components/ui';
 import { tonePair } from '@app/theme/tokens';

@@ -1,8 +1,10 @@
 ﻿
 import {FC} from 'react'
-import {KTIcon, toAbsoluteUrl} from '../../../../../_metronic/helpers'
+import {KTIcon} from '../../../../../_metronic/helpers'
+import { SmartAvatar } from '@/ds/ui/smart-avatar'
 import {ChatInner, Dropdown1} from '../../../../../_metronic/partials'
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 
 const Group: FC = () => {
   return (
@@ -38,11 +40,7 @@ const Group: FC = () => {
               >
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
-                    <div className='symbol symbol-45px symbol-circle'>
-                      <span className='symbol-label bg-light-danger text-danger fs-6 fw-bolder'>
-                        M
-                      </span>
-                    </div>
+                    <SmartAvatar name='Melody Macy' size={45} decorative />
 
                     <div className='ms-5'>
                       <a href='#' className='fs-5 fw-bolder text-gray-900 text-hover-primary mb-2'>
@@ -61,9 +59,7 @@ const Group: FC = () => {
 
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
-                    <div className='symbol symbol-45px symbol-circle'>
-                      <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/001-boy.svg')} />
-                    </div>
+                    <SmartAvatar name='Max Smith' size={45} decorative />
 
                     <div className='ms-5'>
                       <a href='#' className='fs-5 fw-bolder text-gray-900 text-hover-primary mb-2'>
@@ -82,9 +78,7 @@ const Group: FC = () => {
 
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
-                    <div className='symbol symbol-45px symbol-circle'>
-                      <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/014-girl-7.svg')} />
-                    </div>
+                    <SmartAvatar name='Sean Bean' size={45} decorative />
 
                     <div className='ms-5'>
                       <a href='#' className='fs-5 fw-bolder text-gray-900 text-hover-primary mb-2'>
@@ -104,9 +98,7 @@ const Group: FC = () => {
 
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
-                    <div className='symbol symbol-45px symbol-circle'>
-                      <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/029-boy-11.svg')} />
-                    </div>
+                    <SmartAvatar name='Brian Cox' size={45} decorative />
 
                     <div className='ms-5'>
                       <a href='#' className='fs-5 fw-bolder text-gray-900 text-hover-primary mb-2'>
@@ -125,11 +117,7 @@ const Group: FC = () => {
 
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
-                    <div className='symbol symbol-45px symbol-circle'>
-                      <span className='symbol-label bg-light-warning text-warning fs-6 fw-bolder'>
-                        M
-                      </span>
-                    </div>
+                    <SmartAvatar name='Mikaela Collins' size={45} decorative />
 
                     <div className='ms-5'>
                       <a href='#' className='fs-5 fw-bolder text-gray-900 text-hover-primary mb-2'>
@@ -148,9 +136,7 @@ const Group: FC = () => {
 
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
-                    <div className='symbol symbol-45px symbol-circle'>
-                      <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/029-boy-11.svg')} />
-                    </div>
+                    <SmartAvatar name='Francis Mitcham' size={45} decorative />
 
                     <div className='ms-5'>
                       <a href='#' className='fs-5 fw-bolder text-gray-900 text-hover-primary mb-2'>
@@ -170,12 +156,7 @@ const Group: FC = () => {
 
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
-                    <div className='symbol symbol-45px symbol-circle'>
-                      <span className='symbol-label bg-light-danger text-danger fs-6 fw-bolder'>
-                        O
-                      </span>
-                      <div className='symbol-badge bg-success start-100 top-100 border-4 h-15px w-15px ms-n2 mt-n2'></div>
-                    </div>
+                    <SmartAvatar name='Olivia Wild' size={45} status='active' decorative />
 
                     <div className='ms-5'>
                       <a href='#' className='fs-5 fw-bolder text-gray-900 text-hover-primary mb-2'>
@@ -194,11 +175,7 @@ const Group: FC = () => {
 
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
-                    <div className='symbol symbol-45px symbol-circle'>
-                      <span className='symbol-label bg-light-primary text-primary fs-6 fw-bolder'>
-                        N
-                      </span>
-                    </div>
+                    <SmartAvatar name='Neil Owen' size={45} decorative />
 
                     <div className='ms-5'>
                       <a href='#' className='fs-5 fw-bolder text-gray-900 text-hover-primary mb-2'>
@@ -218,9 +195,7 @@ const Group: FC = () => {
 
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
-                    <div className='symbol symbol-45px symbol-circle'>
-                      <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/020-girl-11.svg')} />
-                    </div>
+                    <SmartAvatar name='Dan Wilson' size={45} decorative />
 
                     <div className='ms-5'>
                       <a href='#' className='fs-5 fw-bolder text-gray-900 text-hover-primary mb-2'>
@@ -240,12 +215,7 @@ const Group: FC = () => {
 
                 <div className='d-flex flex-stack py-4'>
                   <div className='d-flex align-items-center'>
-                    <div className='symbol symbol-45px symbol-circle'>
-                      <span className='symbol-label bg-light-danger text-danger fs-6 fw-bolder'>
-                        E
-                      </span>
-                      <div className='symbol-badge bg-success start-100 top-100 border-4 h-15px w-15px ms-n2 mt-n2'></div>
-                    </div>
+                    <SmartAvatar name='Emma Bold' size={45} status='active' decorative />
 
                     <div className='ms-5'>
                       <a href='#' className='fs-5 fw-bolder text-gray-900 text-hover-primary mb-2'>
@@ -268,28 +238,14 @@ const Group: FC = () => {
           <div className='card' id='kt_chat_messenger'>
             <div className='card-header' id='kt_chat_messenger_header'>
               <div className='card-title'>
-                <div className='symbol-group symbol-hover'>
-                  <div className='symbol symbol-35px symbol-circle'>
-                    <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/014-girl-7.svg')} />
-                  </div>
-                  <div className='symbol symbol-35px symbol-circle'>
-                    <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/029-boy-11.svg')} />
-                  </div>
-                  <div className='symbol symbol-35px symbol-circle'>
-                    <span className='symbol-label bg-light-warning text-warning 40px'>M</span>
-                  </div>
-                  <div className='symbol symbol-35px symbol-circle'>
-                    <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/029-boy-11.svg')} />
-                  </div>
-                  <div className='symbol symbol-35px symbol-circle'>
-                    <span className='symbol-label bg-light-danger text-danger 40px'>O</span>
-                  </div>
-                  <div className='symbol symbol-35px symbol-circle'>
-                    <span className='symbol-label bg-light-primary text-primary 40px'>N</span>
-                  </div>
-                  <div className='symbol symbol-35px symbol-circle'>
-                    <img alt='Pic' src={toAbsoluteUrl('/media/svg/avatars/020-girl-11.svg')} />
-                  </div>
+                <div className='flex items-center -space-x-2'>
+                  <SmartAvatar name='Sean Bean' size={35} className='ring-2 ring-background' />
+                  <SmartAvatar name='Brian Cox' size={35} className='ring-2 ring-background' />
+                  <SmartAvatar name='Melody Macy' size={35} className='ring-2 ring-background' />
+                  <SmartAvatar name='Max Smith' size={35} className='ring-2 ring-background' />
+                  <SmartAvatar name='Olivia Wild' size={35} className='ring-2 ring-background' />
+                  <SmartAvatar name='Neil Owen' size={35} className='ring-2 ring-background' />
+                  <SmartAvatar name='Dan Wilson' size={35} className='ring-2 ring-background' />
                   <a
                     href='#'
                     className='symbol symbol-35px symbol-circle'
@@ -310,14 +266,16 @@ const Group: FC = () => {
 
               <div className='card-toolbar'>
                 <div className='me-n3'>
-                  <button
-                    className='btn btn-sm btn-icon btn-active-light-primary'
+                  <Button
+                    variant='ghost'
+                    size='icon-sm'
+                    aria-label='Open menu'
                     data-kt-menu-trigger='click'
                     data-kt-menu-placement='bottom-end'
                     data-kt-menu-flip='top-end'
                   >
                     <AppIcon name="bi-three-dots" className="fs-2" />
-                  </button>
+                  </Button>
                   <Dropdown1 />
                 </div>
               </div>

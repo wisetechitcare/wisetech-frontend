@@ -4,16 +4,18 @@ import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
 import { KTCard, KTCardBody, KTIcon } from "@metronic/helpers";
-import { deleteAnnouncementById, getAllAnnouncements } from "@services/company";
+import { deleteAnnouncementById, getAllAnnouncements, reorderAnnouncements } from "@services/company";
 import { miscellaneousIcons } from "../../../../_metronic/assets/miscellaneousicons";
 import dayjs from "dayjs";
 import { ShareWith } from "@constants/statistics";
 import CreateAnnouncementButton from "@pages/dashboard/views/CreateAnnouncementButton";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
-import { confirmDialog } from "@app/modules/common/components/ui";
+import { confirmDialog, DragHandle, ReorderableGroup, toast, type DragHandleProps } from "@app/modules/common/components/ui";
 import { IAnnouncement } from "@models/company";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import AnnouncementFormDialog from "./AnnouncementFormDialog";
+import { Button } from "@/ds/ui/button";
+import { Typography } from "@mui/material";
 
 const announcement: Array<PageLink> = [
     { title: "Company", path: "#", isSeparator: false, isActive: false },
@@ -109,6 +111,21 @@ function Announcements() {
         setCurrentPage(newPage);
     }, []);
 
+    // A drag only reorders the visible page; splice it back into the full list.
+    const withPage = (page: IAnnouncement[]) => {
+        const start = currentPage * itemsPerPage;
+        return [...announcementsList.slice(0, start), ...page, ...announcementsList.slice(start + page.length)];
+    };
+
+    const handleReorderEnd = async (page: IAnnouncement[]) => {
+        try {
+            await reorderAnnouncements(withPage(page).map((a) => a.id));
+        } catch {
+            toast({ icon: "error", title: "Could not save the new order" });
+            setRefetch((r) => !r);
+        }
+    };
+
     return (
         <>
             <PageTitle breadcrumbs={announcement}>Announcements</PageTitle>
@@ -132,15 +149,28 @@ function Announcements() {
                     {/* Announcements are for everyone to read: Read lists them; New / edit / delete need Write. */}
                     {canSection("settings.announcements", "read") && (
                         <KTCardBody>
-                            {paginatedData?.length > 0 &&
-                                paginatedData.map((announcement) => {
+                            {paginatedData?.length > 0 && (
+                                <ReorderableGroup
+                                    items={paginatedData}
+                                    getItemId={(a: IAnnouncement) => a.id}
+                                    axis="y"
+                                    withHandle
+                                    disabled={!canWrite || paginatedData.length < 2}
+                                    onReorder={(page: IAnnouncement[]) => setAnnouncementsList(withPage(page))}
+                                    onReorderEnd={(page: IAnnouncement[]) => { void handleReorderEnd(page); }}
+                                    renderItem={(announcement: IAnnouncement, handleProps?: DragHandleProps) => {
                                     const now = new Date().getTime();
                                     const fromTime = new Date(announcement.fromDate).getTime();
                                     const toTime = new Date(announcement.toDate).getTime();
                                     const isLive = fromTime <= now && toTime >= now;
                                     const notStarted = fromTime > now;
                                     return (
-                                        <div key={announcement?.id} className="d-flex my-5 gap-8">
+                                        <div className="d-flex my-5 gap-8 align-items-center">
+                                            {handleProps && <DragHandle handleProps={handleProps} />}
+                                            {/* Read from the live list, so the number follows the row while it is dragged. */}
+                                            <Typography sx={{ minWidth: 24, fontSize: 14, fontWeight: 600, color: "text.secondary", textAlign: "right" }}>
+                                                {currentPage * itemsPerPage + paginatedData.indexOf(announcement) + 1}.
+                                            </Typography>
                                             <div
                                                 style={{
                                                     position: "relative",
@@ -204,25 +234,29 @@ function Announcements() {
                                                         {announcement.title}
                                                     </h3>
                                                     <div className="d-flex ">
-                                                        {canWrite && <div
-                                                            className="btn p-0 btn-active-color-primary btn-sm"
+                                                        {canWrite && <Button
+                                                            variant="ghost"
+                                                            size="icon-sm"
+                                                            aria-label="Edit announcement"
                                                             onClick={() => handleShowEditModal(announcement)}
                                                         >
                                                             <KTIcon
                                                                 iconName="pencil"
                                                                 className="fs-3 cursor-pointer"
                                                             />
-                                                        </div>}
+                                                        </Button>}
 
-                                                        {canWrite && <div
-                                                            className="btn p-0 btn-active-color-primary btn-sm"
+                                                        {canDelete("settings.announcements") && <Button
+                                                            variant="ghost"
+                                                            size="icon-sm"
+                                                            aria-label="Delete announcement"
                                                             onClick={() => handleConfirmDelete(announcement)}
                                                         >
                                                             <KTIcon
                                                                 iconName="trash"
                                                                 className="fs-3 cursor-pointer"
                                                             />
-                                                        </div>}
+                                                        </Button>}
                                                     </div>
                                                 </div>
                                                 <div
@@ -320,7 +354,9 @@ function Announcements() {
                                             </div>
                                         </div>
                                     );
-                                })}
+                                    }}
+                                />
+                            )}
                             {announcementsList?.length === 0 && <div style={{ minHeight: "50vh", backgroundColor: '#F9FBFF' }} className="card d-flex justify-content-center align-items-center">
                                 <div className="d-flex flex-column align-items-center justify-content-center" style={{ color: "#9CAFC9" }}>
                                     <img src={miscellaneousIcons.announcementsIcon} alt="" />
@@ -331,23 +367,27 @@ function Announcements() {
 
                             {announcementsList.length > itemsPerPage && (
                                 <div className="d-flex justify-content-center mt-3 gap-3">
-                                    <div
-                                        className={`fs-2 cursor-pointer ${currentPage === 0 ? "text-muted" : ""}`}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label="Previous page"
+                                        disabled={currentPage === 0}
                                         onClick={() => currentPage > 0 && handlePageChange(currentPage - 1)}
-                                        style={{ color: currentPage === 0 ? "gray" : "#000", cursor: currentPage === 0 ? "not-allowed" : "pointer" }}
                                     >
                                         <KTIcon iconName="arrow-left" className="fs-2" />
-                                    </div>
+                                    </Button>
                                     <span className="fs-5">
                                         {currentPage + 1} / {totalPages}
                                     </span>
-                                    <div
-                                        className={`fs-2 cursor-pointer ${currentPage >= totalPages - 1 ? "text-muted" : ""}`}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label="Next page"
+                                        disabled={currentPage >= totalPages - 1}
                                         onClick={() => currentPage < totalPages - 1 && handlePageChange(currentPage + 1)}
-                                        style={{ color: currentPage >= totalPages - 1 ? "gray" : "#000", cursor: currentPage >= totalPages - 1 ? "not-allowed" : "pointer" }}
                                     >
                                         <KTIcon iconName="arrow-right" className="fs-2" />
-                                    </div>
+                                    </Button>
                                 </div>
                             )}
                         </KTCardBody>

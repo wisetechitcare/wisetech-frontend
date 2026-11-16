@@ -6,6 +6,7 @@ import { EmptyState } from '../widgets';
 import { DASH } from '../entityViewModel';
 import type { EntityVM } from '../facets';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import FileLocationCard from './FileLocationCard';
 
@@ -61,9 +62,9 @@ const DocumentsSection: React.FC<{ vm: EntityVM; onExport?: () => void; children
         accentColor="purple"
         actions={
           onExport ? (
-            <button type="button" onClick={onExport} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#7239ea', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: 'Inter', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              <AppIcon name="bi-plus-lg" /> Generate
-            </button>
+            <Button size="sm" onClick={onExport}>
+              <span data-icon="inline-start" className="inline-flex"><AppIcon name="bi-plus-lg" /></span> Generate
+            </Button>
           ) : undefined
         }
       >

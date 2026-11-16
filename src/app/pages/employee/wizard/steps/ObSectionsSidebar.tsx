@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
 import { AppIcon } from "@app/modules/common/components/ui";
+import { Button } from '@/ds/ui/button';
 
 export type ObSectionItem = {
   id: string;
@@ -35,7 +36,7 @@ function SectionNavButton({
   onSelect: () => void;
 }) {
   return (
-    <button
+    <button data-wt-control="tab"
       type="button"
       className={`ob-section-nav-link${isActive ? " active" : ""}${section.isComplete ? " complete" : ""}`}
       onClick={onSelect}
@@ -102,16 +103,15 @@ function ObSectionsSidebar({
   return (
     <>
       <div className="ob-mobile-sections-bar">
-        <button
+        <Button variant="outline" size="sm"
           type="button"
-          className="ob-mobile-sections-toggle"
           onClick={() => setDrawerOpen(true)}
           aria-expanded={drawerOpen}
           aria-controls="ob-mobile-sections-drawer"
         >
           <Menu size={18} aria-hidden />
           <span>Sections</span>
-        </button>
+        </Button>
         <span className="ob-mobile-sections-current" title={activeItem?.label}>
           {activeItem?.label}
         </span>
@@ -150,14 +150,13 @@ function ObSectionsSidebar({
       >
         <div className="ob-mobile-sections-drawer-header">
           <span className="ob-mobile-sections-drawer-title">{title}</span>
-          <button
+          <Button variant="ghost" size="icon-sm"
             type="button"
-            className="ob-mobile-sections-close"
             onClick={() => setDrawerOpen(false)}
             aria-label="Close sections menu"
           >
             <X size={18} />
-          </button>
+          </Button>
         </div>
         <nav className="ob-mobile-sections-drawer-nav">
           {sections.map((section) => (

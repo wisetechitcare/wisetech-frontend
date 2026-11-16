@@ -1,4 +1,5 @@
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
+import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
 import React, { useEffect, useState } from "react";
 import { alertDialog } from "@app/modules/common/components/ui/feedback";
 import {
@@ -18,7 +19,6 @@ interface ProjectPointsConfigModalProps {
 
 const FIELD_TYPES: ProjectPointFieldType[] = ["TEXTAREA", "TEXT", "NUMBER", "DATE", "DROPDOWN", "BOOLEAN"];
 
-const PRIMARY = "#1E3A8A";
 const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: "#475569", marginBottom: 4, display: "block" };
 const input: React.CSSProperties = {
     width: "100%", padding: "9px 12px", border: "1px solid #e2e8f0", borderRadius: 8,
@@ -83,14 +83,14 @@ const ProjectPointsConfigModal: React.FC<ProjectPointsConfigModalProps> = ({
     };
 
     return (
-        <div
+        <div data-wt-control="backdrop"
             onClick={onClose}
             style={{
                 position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 1100,
                 display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
             }}
         >
-            <div
+            <div data-wt-control="container"
                 onClick={(e) => e.stopPropagation()}
                 style={{
                     background: "#fff", borderRadius: 14, width: "100%", maxWidth: 520,
@@ -102,9 +102,7 @@ const ProjectPointsConfigModal: React.FC<ProjectPointsConfigModalProps> = ({
                     <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
                         {isEditing ? "Edit Project Point" : "New Project Point"}
                     </div>
-                    <button type="button" onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 18, color: "#94a3b8" }}>
-                        <AppIcon name="bi-x-lg" />
-                    </button>
+                    <WtCloseButton variant="plain" onClick={onClose} />
                 </div>
 
                 <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -148,14 +146,12 @@ const ProjectPointsConfigModal: React.FC<ProjectPointsConfigModalProps> = ({
                 </div>
 
                 <div style={{ padding: "16px 22px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                    <button type="button" onClick={onClose} disabled={saving}
-                        style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#475569", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                    <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
                         Cancel
-                    </button>
-                    <button type="button" onClick={submit} disabled={saving}
-                        style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: PRIMARY, color: "#fff", fontWeight: 600, fontSize: 13, cursor: saving ? "wait" : "pointer", boxShadow: "0 4px 12px rgba(30, 58, 138,0.3)" }}>
+                    </Button>
+                    <Button type="button" onClick={submit} disabled={saving}>
                         {saving ? "Saving…" : isEditing ? "Update" : "Create"}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

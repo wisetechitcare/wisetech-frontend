@@ -14,6 +14,7 @@ import {
     handleAddMultipleEmployees,
     handleDeleteEmployee
 } from './handlers/EmployeeHandlers';
+import { Button } from '@/ds/ui/button';
 
 const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
     levels: propLevels,
@@ -134,9 +135,9 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                         </p>
                     </div>
 
-                    <button
+                    <Button variant="destructive"
                         type="button"
-                        className="btn btn-danger flex-shrink-0"
+                        className="flex-shrink-0"
                         style={{
                             fontFamily: 'Inter',
                             fontSize: '14px',
@@ -153,19 +154,18 @@ const EmployeeTeamLevelMain: React.FC<EmployeeTeamLevelMainProps> = ({
                         disabled={loading}
                     >
                         {loading ? 'Loading...' : 'Add New Level'}
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Error Display */}
                 {error && (
                     <div className="alert alert-danger alert-dismissible fade show mb-4" role="alert">
                         <strong>Error:</strong> {error}
-                        <button
+                        <Button variant="ghost"
                             type="button"
-                            className="btn-close"
                             onClick={() => setError(null)}
                             aria-label="Close"
-                        ></button>
+                        ></Button>
                     </div>
                 )}
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Card, Button, Spinner, Form } from "react-bootstrap";
+import { Card, Spinner, Form } from "react-bootstrap";
 import {
   XAxis,
   YAxis,
@@ -22,6 +22,7 @@ import dayjs from "dayjs";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getCurrencySymbol, currencyPrefix } from '@utils/currency';
 import { canSection } from "@utils/can";
+import { Button as KitButton } from '@/ds/ui/button';
 
 interface PerformanceData {
   receivedCount: number;
@@ -351,10 +352,8 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
             <div className="d-flex align-items-center gap-2">
               {/* SET TARGET BUTTON */}
               {canWrite && (viewMode === "inquiry" ? (
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  className="d-flex align-items-center gap-2 px-3 fw-bold border-0 shadow-sm"
+                <KitButton variant="inverted" size="sm"
+                  className="d-flex align-items-center gap-2"
                   onClick={() => setTargetTypeToEdit("inquiry")}
                   style={{
                     fontSize: "10px",
@@ -366,12 +365,10 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                 >
                   <AppIcon name="bi-gear-fill" />
                   SET TARGET
-                </Button>
+                </KitButton>
               ) : (
-                <Button
-                  variant="outline-success"
-                  size="sm"
-                  className="d-flex align-items-center gap-2 px-3 fw-bold border-0 shadow-sm"
+                <KitButton variant="success" size="sm"
+                  className="d-flex align-items-center gap-2"
                   onClick={() => setTargetTypeToEdit("received")}
                   style={{
                     fontSize: "10px",
@@ -383,22 +380,20 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                 >
                   <AppIcon name="bi-gear-fill" />
                   SET TARGET
-                </Button>
+                </KitButton>
               ))}
 
               <div
                 className="vr mx-1 my-1 text-muted opacity-25"
                 style={{ height: "20px" }}
               ></div>
-              <Button
-                variant="light"
-                size="sm"
-                className="border shadow-sm rounded-3 p-0 bg-white d-flex align-items-center justify-content-center"
+              <KitButton variant="outline" size="sm"
+                className="d-flex align-items-center justify-content-center"
                 onClick={toggleExpand}
                 style={{ width: "32px", height: "32px" }}
               >
                 <AppIcon name={isExpanded ? "bi-fullscreen-exit" : "bi-arrows-fullscreen"} className="fs-7" />
-              </Button>
+              </KitButton>
             </div>
           </div>
 
@@ -408,9 +403,8 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                 className="d-flex align-items-center bg-light rounded-3 p-1 border shadow-sm"
                 style={{ height: "32px" }}
               >
-                <Button
-                  variant="link"
-                  className="p-1 text-secondary d-flex align-items-center justify-content-center"
+                <KitButton variant="link"
+                  className="d-flex align-items-center justify-content-center"
                   onClick={() => navigateMonth("prev")}
                   style={{
                     height: "100%",
@@ -419,7 +413,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                   }}
                 >
                   <AppIcon name="bi-chevron-left" className="fs-7" />
-                </Button>
+                </KitButton>
                 <div className="px-3 border-start border-end">
                   <span
                     className="fw-bold text-primary"
@@ -433,9 +427,8 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                     {currentDate.format("MMMM YYYY")}
                   </span>
                 </div>
-                <Button
-                  variant="link"
-                  className="p-1 text-secondary d-flex align-items-center justify-content-center"
+                <KitButton variant="link"
+                  className="d-flex align-items-center justify-content-center"
                   onClick={() => navigateMonth("next")}
                   style={{
                     height: "100%",
@@ -444,7 +437,7 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
                   }}
                 >
                   <AppIcon name="bi-chevron-right" className="fs-7" />
-                </Button>
+                </KitButton>
               </div>
             </div>
 
@@ -452,28 +445,20 @@ const MonthlyLeadsChart: React.FC<MonthlyLeadsChartProps> = ({
               className="bg-light p-1 rounded-pill d-flex gap-1 border shadow-sm"
               style={{ backgroundColor: "#F8FAFC !important" }}
             >
-              <Button
-                variant={viewMode === "inquiry" ? "white" : "transparent"}
-                size="sm"
-                className={`rounded-pill px-3 py-1 border-0 transition-all ${viewMode === "inquiry" ? "shadow-sm fw-bold text-primary bg-white" : "text-muted opacity-75"}`}
+              <KitButton variant={viewMode === "inquiry" ? 'outline' : 'ghost'} size="sm" aria-pressed={viewMode === "inquiry"}
                 onClick={() => {
                   setViewMode("inquiry");
                 }}
-                style={{ fontSize: "11px" }}
               >
                 Inquiry Value
-              </Button>
-              <Button
-                variant={viewMode === "received" ? "white" : "transparent"}
-                size="sm"
-                className={`rounded-pill px-3 py-1 border-0 transition-all ${viewMode === "received" ? "shadow-sm fw-bold text-success bg-white" : "text-muted opacity-75"}`}
+              </KitButton>
+              <KitButton variant={viewMode === "received" ? 'outline' : 'ghost'} size="sm" aria-pressed={viewMode === "received"}
                 onClick={() => {
                   setViewMode("received");
                 }}
-                style={{ fontSize: "11px" }}
               >
                 Received Value
-              </Button>
+              </KitButton>
             </div>
           </div>
         </div>

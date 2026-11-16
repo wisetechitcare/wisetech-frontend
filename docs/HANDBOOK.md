@@ -28,7 +28,7 @@ Frontend does **not** enforce multi-tenant isolation — the API does. Still nev
 | PR body | Intent, screens/components, API touchpoints, org-scope impact. |
 | Verification | `pnpm exec tsc --noEmit` before claiming done. Build typechecks. |
 
-**CI** [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): hygiene/guard patterns, typecheck, lint on **touched** files (legacy ESLint debt is ratcheted), PR bundle. Amplify ships from `main` — do not rely on local “it builds for me.”
+**CI** [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): hygiene/guard patterns, typecheck, lint on **touched** files (legacy ESLint debt is ratcheted), PR bundle. Amplify ships from `main` — do not rely on local “it builds for me.” Every stage, why it exists and how to fix a red check: [CI_CD.md](CI_CD.md).
 
 ---
 

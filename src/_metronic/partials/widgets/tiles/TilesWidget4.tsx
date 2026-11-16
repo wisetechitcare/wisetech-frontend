@@ -1,5 +1,6 @@
 
 import clsx from 'clsx'
+import {buttonVariants} from '@/ds/ui/button'
 
 type Props = {
   className?: string
@@ -17,7 +18,8 @@ const TilesWidget4 = ({className}: Props) => {
         </div>
         <a
           href='#'
-          className='btn btn-primary fw-semibold'
+          data-slot='button'
+          className={buttonVariants()}
           data-bs-toggle='modal'
           data-bs-target='#kt_modal_create_campaign'
         >

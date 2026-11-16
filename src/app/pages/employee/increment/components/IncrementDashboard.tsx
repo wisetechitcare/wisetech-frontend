@@ -12,7 +12,7 @@ import LayersIcon from '@mui/icons-material/Layers';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { incrementService, IncrementRecord, YearlyAnalytics, AllTimeAnalytics } from '@services/incrementService';
 import { formatCurrencyRounded, formatCurrencyDecimal } from '@utils/currency';
-import { canSection } from '@utils/can';
+import { canDelete, canSection } from '@utils/can';
 import { T } from '@app/modules/common/components/ui/tokens';
 import { toast, alertDialog, confirmDialog } from '@app/modules/common/components/ui/feedback';
 import AddEditIncrementDialog from '@app/modules/employee/salary/AddEditIncrementDialog';
@@ -324,7 +324,7 @@ const IncrementDashboard = ({
                             fromAdmin={fromAdmin}
                             onView={handleView}
                             onEdit={canWrite ? handleEdit : undefined}
-                            onDelete={canWrite ? handleDelete : undefined}
+                            onDelete={fromAdmin && canDelete('finance.increment') ? handleDelete : undefined}
                         />
                     </Box>
 

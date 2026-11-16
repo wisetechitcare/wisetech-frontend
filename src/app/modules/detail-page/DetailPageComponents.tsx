@@ -272,7 +272,7 @@ export const DetailLink: React.FC<{
           {children}
         </a>
       ) : locked ? (
-        <span
+        <span data-wt-control="link"
           role="button"
           tabIndex={0}
           style={{ ...s, color: 'inherit', cursor: 'not-allowed' }}

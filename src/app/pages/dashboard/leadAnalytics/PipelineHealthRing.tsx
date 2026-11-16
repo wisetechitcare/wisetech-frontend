@@ -1,10 +1,7 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
-import CountUpModule from "react-countup";
+import { CountUp } from "@/ds/effects/count-up";
 import { PipelineHealth } from "./leadAnalyticsUtils";
-import { resolveReactComponent } from "@utils/resolveReactComponent";
-
-const CountUp = resolveReactComponent<typeof CountUpModule>(CountUpModule);
 
 interface PipelineHealthRingProps {
   health: PipelineHealth;
@@ -106,7 +103,7 @@ const PipelineHealthRing: React.FC<PipelineHealthRingProps> = ({
             color: health.color,
           }}
         >
-          <CountUp end={health.score} duration={1.1} />
+          <CountUp value={health.score} duration={1100} />
         </div>
         <div
           style={{

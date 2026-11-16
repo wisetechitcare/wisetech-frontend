@@ -2,8 +2,11 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import {
-    Alert, Autocomplete, Avatar, Box, Button, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
+    Alert, Autocomplete, Box, Chip, Grid, InputAdornment, Stack, TextField, Typography, alpha, createFilterOptions, useTheme,
 } from '@mui/material';
+import { Badge } from '@/ds/ui/badge';
+import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { RootState } from '@redux/store';
 import { createMeetings, updateMeeting, fetchAllEmployees, getMyMeetingReminders, setMyMeetingReminders, getMeetingsByProject } from '@services/employee';
 import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
@@ -14,6 +17,7 @@ import { getAllProjects } from '@services/projects';
 // permissions and offered ones they are not really on.
 import { getMeetingProjects } from '@services/employee';
 import { getLeadById } from '@services/leadService';
+import { getCompanyMeetingPurposes, createCompanyMeetingPurpose } from '@services/meetingAgendaMom';
 import { openingRange, type SelectedDateTimeInfo } from './meetingOpening';
 import {
     MEETING_KINDS, MEETING_KIND_META, kindOfExisting, validateMeetingKind, type MeetingKind,
@@ -22,9 +26,8 @@ import {
     MEETING_MODES, MEETING_MODE_META, isOnlineFor, modeHasLink, modeHasPlace, modeOfExisting,
     type MeetingMode,
 } from './meetingModes';
-import { SegmentedControl, ToneChip, WtDateField, WtSwitch } from '@app/modules/common/components/ui';
-import { ContactPicker } from '@app/modules/common/components/ui/ContactPicker';
-import { contactLabel } from '@app/modules/common/components/ui/contactLabel';
+import { SegmentedControl, WtDateField, WtSwitch, toast } from '@app/modules/common/components/ui';
+import { ContactPicker, projectContactOptions } from '@app/modules/common/components/ui/ContactPicker';
 import { useDropdownBoundary } from '@app/modules/common/components/ui/dropdownBoundary';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { KTIcon } from '@metronic/helpers';
@@ -33,6 +36,11 @@ import { ReminderChips } from './MeetingRemindersDialog';
 import { joinAddress } from './meetingAddress';
 import { projectNumberOf } from './entity/entityUtils';
 import { TITLE_MAX_CHARS, AGENDA_MAX_WORDS, countWords } from './meetingLimits';
+import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
+import TaskPathSelect, { buildTaskPathOptions } from './tasks/components/TaskPathSelect';
+import { usePresetTasks } from './tasks/useTaskQueries';
+import { useProjectDeliverables } from './tasks/useProjectDeliverables';
+import type { PresetTask } from './tasks/taskDomain';
 
 /**
  * The meeting form's FIELDS, with no shell of its own.
@@ -63,6 +71,8 @@ import { TITLE_MAX_CHARS, AGENDA_MAX_WORDS, countWords } from './meetingLimits';
 export interface MeetingFormBodyHandle {
     /** Validates and posts. Resolves true when the meeting was created. */
     submit: () => Promise<boolean>;
+    /** Has the person changed anything? Drives the shell's "discard changes?" prompt. */
+    isDirty: () => boolean;
 }
 
 export interface MeetingFormBodyProps {
@@ -141,6 +151,10 @@ interface Option {
 const OTHER_LOCATION = 'other';
 const filterAddresses = createFilterOptions<Option>({ stringify: (o) => `${o.label} ${o.value}` });
 
+/** Title suggestions: a configured meeting purpose, or the "add what I typed as a purpose" row. */
+interface TitleOption { label: string; add?: boolean }
+const filterTitles = createFilterOptions<TitleOption>();
+
 /** The two halves the pickers speak: a wire date and a 24h clock time, off one ISO value. */
 const datePart = (iso: string) => (iso ? dayjs(iso).format('YYYY-MM-DD') : '');
 const timePart = (iso: string) => (iso ? dayjs(iso).format('HH:mm') : '');
@@ -148,9 +162,6 @@ const timePart = (iso: string) => (iso ? dayjs(iso).format('HH:mm') : '');
 /** …and back. Either half missing leaves the value untouched rather than inventing one. */
 const combineDateTime = (date: string, time: string) =>
     (date && time ? dayjs(`${date}T${time}`).toISOString() : '');
-
-const initialsOf = (name: string) =>
-    name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
 
 export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBodyProps>(
     ({ editing, defaultProjectId, lockProject = false, leadName, defaultExternalParticipant, selectedDateTimeInfo, onSaved, onScheduleChange }, ref) => {
@@ -205,6 +216,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [startDate, setStartDate] = useState(opening.start);
         const [endDate, setEndDate] = useState(opening.end);
         const [description, setDescription] = useState('');
+        /** Agenda picks from Task Configure presets — free text is only the joined labels. */
+        const [agendaOpen, setAgendaOpen] = useState(() => Boolean(editing?.description?.trim()));
+        const [agendaItems, setAgendaItems] = useState<Array<{ id: string; label: string }>>([]);
 
         const [companyTypes, setCompanyTypes] = useState<any[]>([]);
         const [companies, setCompanies] = useState<any[]>([]);
@@ -240,7 +254,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         useEffect(() => {
             if (!editing) return;
             setTitle(editing.title || '');
-            setDescription(editing.description || '');
+            const lines = (editing.description || '').split('\n').map((s) => s.trim()).filter(Boolean);
+            setAgendaItems(lines.map((label, i) => ({ id: `legacy:${i}`, label })));
+            setAgendaOpen(lines.length > 0);
             setMode(modeOfExisting(editing));
             setMeetingLink(editing.meetingLink || '');
             setLocation(editing.location || '');
@@ -275,6 +291,37 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [remindersSent, setRemindersSent] = useState<number[]>([]);
 
         const [touched, setTouched] = useState(false);
+
+        /**
+         * Title suggestions come from Meetings → Configure → Meeting purposes.
+         *
+         * Free text stays allowed (`freeSolo`): a title that is not a purpose is still a title.
+         * The extra "Add … to meeting purposes" row is for when it SHOULD be one — it writes to
+         * the same company list Configure edits, so the next person gets it as a suggestion.
+         * "Other (please specify)" is left out: typing your own title already is that.
+         * Best-effort — a failed read leaves a plain text box, never blocks the form.
+         */
+        const [purposes, setPurposes] = useState<Array<{ name: string; isActive: boolean; requiresOther: boolean }>>([]);
+        useEffect(() => {
+            getCompanyMeetingPurposes()
+                .then((res: any) => setPurposes(res?.purposes || []))
+                .catch(() => setPurposes([]));
+        }, []);
+        const titleOptions: TitleOption[] = useMemo(
+            () => purposes.filter((p) => p.isActive && !p.requiresOther).map((p) => ({ label: p.name })),
+            [purposes],
+        );
+        const addPurpose = async (name: string) => {
+            setTitle(name);
+            try {
+                const res = await createCompanyMeetingPurpose({ name });
+                if (res?.purpose) setPurposes((prev) => [...prev, res.purpose]);
+                toast({ icon: 'success', title: `“${name}” added to meeting purposes` });
+            } catch (e: any) {
+                // The title is already set; only the shared list missed out.
+                toast({ icon: 'error', title: 'Could not add purpose', text: e?.response?.data?.message });
+            }
+        };
 
         /**
          * The caller's default project, for a NEW meeting only.
@@ -589,44 +636,9 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 ? [{ value: defaultExternalParticipant.id, label: defaultExternalParticipant.name, avatar: defaultExternalParticipant.avatar ?? null }]
                 : [];
             if (!projectDetail) return fromCaller;
-            /*
-             * Labelled "Name (Company)", exactly as the CRM search labels the same person.
-             *
-             * `contactLabel` is the shared rule, so a stakeholder who is also in the address
-             * book reads identically whichever source named them — and the picker's local
-             * filter, which matches on the label, narrows the roster by company for the same
-             * "manish a2o" a server search would.
-             *
-             * The team row's own company is offered as a fallback: a roster entry carries it
-             * directly, where the contact record may not have been filled in.
-             */
-            const contactOption = (t: any) => ({
-                value: t.contact.id,
-                label: contactLabel({
-                    fullName: t.contact.fullName,
-                    company: t.contact.company ?? t.company,
-                    subCompany: t.contact.subCompany,
-                }),
-                name: t.contact.fullName || undefined,
-                // `getLeadById` includes the WHOLE contact row, so an absent email here is an
-                // absence on the record. A source that did not select the column must leave
-                // this undefined instead — see `ContactOption.hasEmail`.
-                hasEmail: 'email' in (t.contact ?? {}) ? !!t.contact.email : undefined,
-                avatar: t.contact.profilePhoto || t.contact.avatar || null,
-            });
-            const fromTeams = (projectDetail.leadTeams || [])
-                .filter((t: any) => t.contact?.id)
-                .map(contactOption);
-            const fromProjectTeams = (projectDetail.projectExternalTeams || [])
-                .filter((t: any) => t.contact?.id && t.isActive !== false)
-                .map(contactOption);
-            const fromMembers = (projectDetail.externalMembers || [])
-                .filter((m: any) => m.contactId)
-                // `externalMembers` carries a name and an id and nothing else, so whether this
-                // person has an email is NOT KNOWN here — left undefined rather than guessed.
-                .map((m: any) => ({ value: m.contactId, label: m.name || 'Unknown', name: m.name || undefined, avatar: null }));
+            // The roster rule is shared with the MoM attendees picker — see `projectContactOptions`.
             const seen = new Set<string>();
-            return [...fromTeams, ...fromProjectTeams, ...fromMembers, ...fromCaller]
+            return [...projectContactOptions(projectDetail), ...fromCaller]
                 .filter((o: Option) => !seen.has(o.value) && seen.add(o.value))
                 .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
         }, [projectDetail, defaultExternalParticipant]);
@@ -723,6 +735,54 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
 
         const endsBeforeStart = !!startDate && !!endDate && !dayjs(endDate).isAfter(dayjs(startDate));
 
+        // Same catalogue + deliverable filter the New Task form uses — agenda items are
+        // Project Tasks, scoped to the meeting's project when one is chosen.
+        const presetsQuery = usePresetTasks('PROJECT');
+        const deliverables = useProjectDeliverables(projectId || null);
+        const presets = (presetsQuery.data?.presetTaskStatuses ?? []) as PresetTask[];
+        const { deliverableTaskIds } = deliverables;
+        const fromDeliverables = !!projectId && deliverableTaskIds.length > 0;
+        const agendaOptions = useMemo(() => {
+            if (!fromDeliverables) return buildTaskPathOptions(presets);
+            const only = new Set(agendaItems.map((a) => a.id).filter((id) => !id.startsWith('legacy:')));
+            deliverableTaskIds.forEach((id) => getPresetSubtreeIds(presets, id).forEach((n) => only.add(n)));
+            return buildTaskPathOptions(presets, only);
+        }, [presets, fromDeliverables, deliverableTaskIds, agendaItems]);
+        const agendaPickerOptions = useMemo(
+            () => agendaOptions.filter((o) => !agendaItems.some((a) => a.id === o.id)),
+            [agendaOptions, agendaItems],
+        );
+
+        useEffect(() => {
+            setDescription(agendaItems.map((a) => a.label).join('\n'));
+        }, [agendaItems]);
+
+        // Remap free-text agenda lines onto configure nodes once the tree is loaded.
+        useEffect(() => {
+            if (!agendaOptions.length) return;
+            setAgendaItems((prev) => {
+                let changed = false;
+                const next = prev.map((item) => {
+                    if (!item.id.startsWith('legacy:')) return item;
+                    const hit = agendaOptions.find((o) => o.name === item.label);
+                    if (!hit) return item;
+                    changed = true;
+                    return { id: hit.id, label: hit.name };
+                });
+                return changed ? next : prev;
+            });
+        }, [agendaOptions]);
+
+        // Drop picks that leave the deliverable set when the project changes.
+        useEffect(() => {
+            if (!fromDeliverables || !agendaOptions.length) return;
+            const allowed = new Set(agendaOptions.map((o) => o.id));
+            setAgendaItems((prev) => {
+                const next = prev.filter((a) => a.id.startsWith('legacy:') || allowed.has(a.id));
+                return next.length === prev.length ? prev : next;
+            });
+        }, [fromDeliverables, agendaOptions, projectId]);
+
         /** Recomputed per render — the agenda is short and this is cheaper than memoising it. */
         const agendaWords = countWords(description);
 
@@ -793,7 +853,26 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             return null;
         };
 
+        /**
+         * "Changed" = differs from what the form showed at the person's FIRST click or keypress
+         * inside it. Not from mount: the form fills itself in after opening (an edit's values, the
+         * caller's project, the suggested address, saved reminders), and none of that is the
+         * person's work to lose. The baseline is taken in the capture phase, before the handler of
+         * that first interaction runs. Opening and closing without touching anything never prompts.
+         */
+        const snapshot = JSON.stringify({
+            title, mode, meetingLink, location, projectId, kind, internal, external,
+            startDate, endDate, description, reminders, notify, notifyIds,
+        });
+        const snapshotRef = useRef(snapshot);
+        snapshotRef.current = snapshot;
+        const baselineRef = useRef<string | null>(null);
+        const markBaseline = () => {
+            if (baselineRef.current === null) baselineRef.current = snapshotRef.current;
+        };
+
         useImperativeHandle(ref, () => ({
+            isDirty: () => baselineRef.current !== null && baselineRef.current !== snapshotRef.current,
             submit: async () => {
                 setTouched(true);
                 const problem = validate();
@@ -884,9 +963,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const notifySelection = notifyIds ?? notifyOptions.map((o) => o.value);
 
         const chipAvatar = (o: Option) => (
-            <Avatar src={o.avatar || undefined} sx={{ width: 24, height: 24, fontSize: 10, fontWeight: 700 }}>
-                {initialsOf(o.label)}
-            </Avatar>
+            <SmartAvatar name={o.label} src={o.avatar} seed={o.value} size="xs" decorative />
         );
 
         const peoplePicker = (
@@ -912,16 +989,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 ))}
                 renderOption={(props, o) => (
                     <Box component="li" {...props} key={o.value} sx={{ gap: 1 }}>
-                        <Avatar
-                            src={o.avatar || undefined}
-                            sx={{
-                                width: 24, height: 24, fontSize: 10, fontWeight: 700,
-                                bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.3 : 0.16),
-                                color: 'primary.main',
-                            }}
-                        >
-                            {initialsOf(o.label)}
-                        </Avatar>
+                        <SmartAvatar name={o.label} src={o.avatar} seed={o.value} size="xs" decorative />
                         <Typography variant="body2" noWrap>{o.label}</Typography>
                     </Box>
                 )}
@@ -980,26 +1048,69 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const projectLabel = projectOptions.find((o) => o.value === projectId)?.label;
 
         return (
-            <Box ref={dropdown.ref}>
+            <Box ref={dropdown.ref} onPointerDownCapture={markBaseline} onKeyDownCapture={markBaseline}>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
                 {/* TITLE FIRST, and big. It is the meeting's identifier — the string every list,
                     invite and calendar cell shows — so it leads rather than sharing a row. */}
-                <TextField
-                    fullWidth
-                    placeholder="Meeting title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    error={touched && !title.trim()}
-                    // The count only appears once it is worth knowing about. A counter sitting
-                    // under an empty field is a limit announced before anyone has approached
-                    // it, and `maxLength` means most people never see this at all — typing
-                    // simply stops, which is a kinder ceiling than an error after the fact.
-                    helperText={title.length >= TITLE_MAX_CHARS - 5
-                        ? `${title.length} / ${TITLE_MAX_CHARS} characters`
-                        : ' '}
-                    inputProps={{ 'aria-label': 'Meeting title', maxLength: TITLE_MAX_CHARS }}
-                    sx={{ '& .MuiInputBase-input': { fontSize: 15, fontWeight: 600, py: 1.25 } }}
+                <Autocomplete<TitleOption, false, false, true>
+                    freeSolo fullWidth
+                    slotProps={dropdown.slotProps}
+                    options={titleOptions}
+                    // Always null: the TEXT is the value. Selections land in `title` via onChange.
+                    value={null}
+                    inputValue={title}
+                    // 'reset' is MUI echoing a selection's label — onChange already handled it,
+                    // and for the "Add" row that label is not the title.
+                    onInputChange={(_, v, reason) => { if (reason !== 'reset') setTitle(v); }}
+                    onChange={(_, picked) => {
+                        if (!picked) return;
+                        if (typeof picked === 'string') setTitle(picked);
+                        else if (picked.add) void addPurpose(picked.label);
+                        else setTitle(picked.label);
+                    }}
+                    getOptionLabel={(o) => (typeof o === 'string' ? o : o.label)}
+                    filterOptions={(opts, state) => {
+                        const out = filterTitles(opts, state);
+                        const typed = state.inputValue.trim();
+                        // Offer to add only a genuinely new name — inactive ones count, so a
+                        // retired purpose is reactivated in Configure rather than duplicated.
+                        if (typed && !purposes.some((p) => p.name.trim().toLowerCase() === typed.toLowerCase())) {
+                            out.push({ label: typed, add: true });
+                        }
+                        return out;
+                    }}
+                    ListboxProps={{ sx: menuOptionSx }}
+                    renderOption={(props, o) => (
+                        <Box component="li" {...props} key={o.add ? '__add__' : o.label} sx={{ gap: 1 }}>
+                            {o.add ? (
+                                <>
+                                    <KTIcon iconName="plus" className="fs-6" />
+                                    <Typography variant="body2" noWrap>
+                                        Add “{o.label}” to meeting purposes
+                                    </Typography>
+                                </>
+                            ) : (
+                                <Typography variant="body2" noWrap>{o.label}</Typography>
+                            )}
+                        </Box>
+                    )}
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            placeholder="Meeting title — pick a purpose or type your own"
+                            error={touched && !title.trim()}
+                            // The count only appears once it is worth knowing about. A counter sitting
+                            // under an empty field is a limit announced before anyone has approached
+                            // it, and `maxLength` means most people never see this at all — typing
+                            // simply stops, which is a kinder ceiling than an error after the fact.
+                            helperText={title.length >= TITLE_MAX_CHARS - 5
+                                ? `${title.length} / ${TITLE_MAX_CHARS} characters`
+                                : ' '}
+                            inputProps={{ ...params.inputProps, 'aria-label': 'Meeting title', maxLength: TITLE_MAX_CHARS }}
+                            sx={{ '& .MuiInputBase-input': { fontSize: 15, fontWeight: 600, py: 1.25 } }}
+                        />
+                    )}
                 />
 
                 {/* The project — or the LEAD — stated rather than asked, when the screen already
@@ -1051,7 +1162,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                         <Typography sx={{ fontSize: 13, fontWeight: 700, color: 'text.primary' }}>
                             {projectLabel}
                         </Typography>
-                        {leadName && <ToneChip dense tone="warning" label="Lead" />}
+                        {leadName && <Badge variant="warning">Lead</Badge>}
                     </Stack>
                 ) : (
                     <Box sx={{ mb: 2 }}>
@@ -1302,9 +1413,10 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     </Box>
                     {internalOptions.length > 0 && internal.length < internalOptions.length && (
                         <Button
-                            size="small"
+                            variant="ghost"
+                            size="sm"
+                            className="mb-1.5"
                             onClick={() => setInternal(internalOptions.map((o) => o.value))}
-                            sx={{ textTransform: 'none', fontWeight: 600, minWidth: 0, mb: 0.75 }}
                         >
                             Add whole team
                         </Button>
@@ -1331,21 +1443,60 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 </Grid>
 
                 <L text="Agenda" icon="notepad-edit" trio={TRIO.cyan} />
-                <TextField
-                    fullWidth size="small" multiline minRows={3}
-                    placeholder="Optional"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    error={agendaWords > AGENDA_MAX_WORDS}
-                    // Words cannot be capped by `maxLength` the way characters can — you would
-                    // be cutting somebody off mid-word — so this one is counted and refused at
-                    // save, and the count appears in the last quarter so the wall is visible
-                    // before it is hit.
-                    helperText={agendaWords > AGENDA_MAX_WORDS * 0.75
-                        ? `${agendaWords} / ${AGENDA_MAX_WORDS} words`
-                        : ' '}
-                    inputProps={{ 'aria-label': 'Agenda' }}
-                />
+                {!agendaOpen && agendaItems.length === 0 ? (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mb-2 self-start font-bold"
+                        onClick={() => setAgendaOpen(true)}
+                    >
+                        <span data-icon="inline-start" className="inline-flex">
+                            <KTIcon iconName="plus" className="fs-6" />
+                        </span>
+                        Add Agenda
+                    </Button>
+                ) : (
+                    <Box sx={{ mb: 1 }}>
+                        {agendaItems.length > 0 && (
+                            <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.25 }}>
+                                {agendaItems.map((item) => (
+                                    <Chip
+                                        key={item.id}
+                                        label={item.label}
+                                        size="small"
+                                        onDelete={() => setAgendaItems((prev) => prev.filter((a) => a.id !== item.id))}
+                                        sx={{ maxWidth: '100%', height: 'auto', py: 0.5, '& .MuiChip-label': { whiteSpace: 'normal' } }}
+                                    />
+                                ))}
+                            </Stack>
+                        )}
+                        <TaskPathSelect
+                            value=""
+                            options={agendaPickerOptions}
+                            onChange={(opt) => {
+                                if (!opt) return;
+                                setAgendaItems((prev) => (
+                                    prev.some((a) => a.id === opt.id) ? prev : [...prev, { id: opt.id, label: opt.name }]
+                                ));
+                            }}
+                            label="Agenda item"
+                            placeholder={projectId
+                                ? 'Search this project’s deliverable tasks…'
+                                : 'Search, e.g. electrical load sheet'}
+                            loading={presetsQuery.isLoading || (!!projectId && deliverables.isFetching)}
+                            error={agendaWords > AGENDA_MAX_WORDS}
+                            helperText={agendaWords > AGENDA_MAX_WORDS * 0.75
+                                ? `${agendaWords} / ${AGENDA_MAX_WORDS} words`
+                                : (projectId && fromDeliverables
+                                    ? 'Only tasks on this project’s deliverables.'
+                                    : projectId
+                                        ? 'No deliverable tasks on this project yet — showing the full catalogue.'
+                                        : 'Optional. Pick from Tasks → Project Tasks.')}
+                            slotProps={dropdown.slotProps}
+                        />
+                    </Box>
+                )}
 
                 {/* ── the two things that happen after you save ──
                     This one is about YOU, the next is about them. Paired on purpose: both are

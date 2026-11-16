@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { upsertUserTablePreferences, getUserTablePreferences } from "@services/users"
-import { DEFAULT_PAGE_SIZE } from '@metronic/helpers'
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@metronic/helpers'
 
 interface TablePreferences {
     columnVisibility: Record<string, boolean>;
@@ -597,9 +597,19 @@ function useTablePreferences(tableName: string, columns: any[], employeeId?: str
         };
     }, []); // Empty dependency array - runs once
 
+    // A page size saved before the options were trimmed (500, 1000…) would bring the slow page
+    // straight back and show a value the menu no longer offers — fall back to the default.
+    const servedPreferences = useMemo(
+        () =>
+            (PAGE_SIZE_OPTIONS as readonly number[]).includes(preferences.pagination?.pageSize)
+                ? preferences
+                : { ...preferences, pagination: { ...preferences.pagination, pageSize: DEFAULT_PAGE_SIZE } },
+        [preferences],
+    );
+
     return {
         // State
-        preferences,
+        preferences: servedPreferences,
         isLoading,
         isInitialized,
         

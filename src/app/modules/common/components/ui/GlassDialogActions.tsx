@@ -51,6 +51,8 @@ const footerSx: SxProps<Theme> = {
   flexShrink: 0,
   borderTop: '1px solid',
   borderColor: 'divider',
+  // Exactly two CTAs (Cancel + Save) share the width 50/50, like the kit DialogFooter and ConfirmDialog.
+  '& > :first-child:nth-last-child(2), & > :first-child:nth-last-child(2) ~ *': { flex: 1, minWidth: 0 },
 };
 
 export function GlassDialogActions({
@@ -62,7 +64,7 @@ export function GlassDialogActions({
   submitting = false,
   submitDisabled,
   submitStartIcon,
-  submitTone = 'primary',
+  submitTone = 'accent',
   children,
   sx,
   ...rest

@@ -46,12 +46,7 @@ import LocationDropdown from '@app/modules/common/inputs/LocationDropdown'
 import DropDownInput from '@app/modules/common/inputs/DropdownInput'
 import { Option } from '@models/dropdown'
 import { UAParser } from 'ua-parser-js'
-import { hasPermission } from '@utils/authAbac'
-import { canSection } from '@utils/can'
-import {
-  permissionConstToUseWithHasPermission,
-  resourceNameMapWithCamelCase,
-} from '@constants/statistics'
+import { canDelete, canSection } from '@utils/can'
 import { sidePanelIcons } from '@metronic/assets/sidepanelicons'
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_APP_GOOGLE_MAP_KEY
@@ -305,7 +300,9 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
   const [rerender, setRerender] = useState(false);
   
   // Branches have no tab of their own: Write on any settings tab covers them.
-  const canWrite = canSection('settings', 'write')
+  // Branches belong to Organization Profile. `settings` (the parent) read as Write whenever ANY
+  // settings tab had it — Write on Media alone showed New Branch. The server checks the same section.
+  const canWrite = canSection('settings.profile', 'write')
 
   useEffect(() => {
     const parser = new UAParser()
@@ -803,8 +800,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     }
   }, [companyId])
  
-  const newBranchButton = canWrite &&
-    hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.create) && (
+  const newBranchButton = canWrite && (
       // The kit's button, so this one matches every other primary action. The
       // native `title="Add a branch"` is gone with it: a browser tooltip never
       // appears on touch, and it only restated the label next to it.
@@ -857,10 +853,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     in sync. The Bootstrap spacing classes go with it — those are banned in new
     and edited UI, and they are why this page could not follow the theme. */}
 <Box sx={{ px: { xs: 2, lg: 3 }, pt: 1, pb: 3 }}>
-  {hasPermission(
-    resourceNameMapWithCamelCase.branch,
-    permissionConstToUseWithHasPermission.readOthers
-  ) ? (
+  {canSection('settings.profile', 'read') ? (
     Array.isArray(branches) && branches.length > 0 ? (
       <AutoGrid min={320} gap={16}>
         {branches.map((branch: any, index: number) => (
@@ -868,12 +861,12 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
             key={`branch-${index}`}
             branch={branch}
             isAdmin={canWrite}
-            canManage={hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers)}
+            canManage={canWrite}
             onViewEmployees={() => setEmpModal({ show: true, branch })}
             onManageDevices={() => setDevicesModal({ show: true, branch })}
             onPromote={() => handlePromoteBranch(branch)}
             onEdit={() => handleEdit(branch.id)}
-            onDelete={() => handleDeleteBranch(branch)}
+            onDelete={canDelete('settings.profile') ? () => handleDeleteBranch(branch) : undefined}
           />
         ))}
       </AutoGrid>

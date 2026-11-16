@@ -13,7 +13,7 @@ import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { queryKeys } from "@/lib/queryKeys";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import { apiErrorMessage } from "@utils/apiError";
-import { canSection } from "@utils/can";
+import { canDelete, canSection } from "@utils/can";
 import { COPY, TERMS } from "./terms";
 import {
     getPostings, updatePosting, deletePosting, getRequisitions,
@@ -34,6 +34,7 @@ import { postingColumns } from "./postingColumns";
 
 const PostingsView = ({ companyId }: OrgScoped) => {
     const canWrite = canSection("recruitment", "write");
+    const canRemove = canDelete("recruitment");
     const navigate = useNavigate();
     const qc = useQueryClient();
     const [mode, setMode] = useRememberedChoice<CardsListView>(
@@ -120,7 +121,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                     onClick={() => copyLink(p)}
                 />
             ) : null}
-            {canWrite && (
+            {canRemove && (
                 <ActionIconButton
                     iconName="trash"
                     title="Archive"
@@ -165,7 +166,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                     onClick={() => copyLink(p)}
                 />
             ) : null}
-            {canWrite && (
+            {canRemove && (
                 <ActionIconButton
                     iconName="trash"
                     title="Archive"
@@ -184,7 +185,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
             omit: ["ref"],
         }),
         // eslint-disable-next-line react-hooks/exhaustive-deps -- actions use live mutators
-        [canWrite, publishMut.isPending, deleteMut.isPending, publishMut.variables, deleteMut.variables],
+        [canWrite, canRemove, publishMut.isPending, deleteMut.isPending, publishMut.variables, deleteMut.variables],
     );
 
     return (
@@ -200,7 +201,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                             onChange={setMode}
                         />
                         {canWrite && approved.length > 0 && (
-                            <WtButton tone="primary" size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openAttach}>
+                            <WtButton size="small" startIcon={<KTIcon iconName="plus" className="fs-6" />} onClick={openAttach}>
                                 New Advert
                             </WtButton>
                         )}
@@ -236,7 +237,7 @@ const PostingsView = ({ companyId }: OrgScoped) => {
                     data={postings}
                     isLoading={isLoading}
                     tableName="RecruitmentAdvertsList"
-                    enableRowSelection={canWrite}
+                    enableRowSelection={canRemove}
                     renderSelectionActions={(selected: JobPosting[]) => (
                         <TableSelectionBar count={selected.length}>
                             <WtButton

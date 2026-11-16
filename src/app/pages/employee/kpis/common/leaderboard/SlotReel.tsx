@@ -1,9 +1,13 @@
 import React, { useEffect, useRef } from "react";
 import { motion, useAnimationControls } from "framer-motion";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 
 export interface ReelFrame {
-  avatar: string;
+  /** The employee's own photo URL only (no placeholder); SmartAvatar falls back to initials. */
+  photo?: string;
   name: string;
+  /** Employee id: the stable colour seed for the initials tile. */
+  id?: string;
 }
 
 interface SlotReelProps {
@@ -125,10 +129,12 @@ const SlotReel: React.FC<SlotReelProps> = ({
                 justifyContent: "center",
               }}
             >
-              <img
-                src={f.avatar}
-                alt={f.name}
-                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              <SmartAvatar
+                src={f.photo}
+                name={f.name}
+                seed={f.id}
+                size={avatarSize - 4}
+                decorative={showName}
               />
             </div>
             {showName && (

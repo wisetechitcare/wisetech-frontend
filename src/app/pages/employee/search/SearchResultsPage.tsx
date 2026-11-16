@@ -12,6 +12,7 @@ import {
 import { isPackEnabled } from "@utils/tenantPacks";
 import { ToneChip } from "@app/modules/common/components/ui";
 import type { SemanticTone } from "@app/theme/tokens";
+import { Button } from '@/ds/ui/button';
 
 const ALL_RESULT_TABS: Array<"All" | SearchResultType> = [
   "All",
@@ -109,13 +110,12 @@ const SearchResultsPage: React.FC = () => {
                       ? allResults.length
                       : allResults.filter((r) => r.type === type).length;
                   return (
-                    <button
+                    <Button variant={effectiveTab === type ? 'default' : 'tinted'} size="sm" type="submit" aria-pressed={effectiveTab === type}
                       key={type}
-                      className={`btn btn-sm ${effectiveTab === type ? "btn-primary" : "btn-light-primary"}`}
                       onClick={() => setActiveTab(type)}
                     >
                       {label} ({count})
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -130,7 +130,7 @@ const SearchResultsPage: React.FC = () => {
                     key={`${result.type}-${result.id}-${idx}`}
                     className="col-md-6 col-xl-4"
                   >
-                    <div
+                    <div data-wt-control="row"
                       className="card h-100 border border-dashed border-gray-300 card-hover shadow-none"
                       style={{ cursor: "pointer", transition: "all 0.2s ease" }}
                       onClick={() => navigate(result.path)}
@@ -195,9 +195,9 @@ const SearchResultsPage: React.FC = () => {
                         </div>
 
                         <div className="mt-5 d-flex justify-content-end">
-                          <div className="btn btn-sm btn-light-primary fw-bold">
+                          <Button variant="tinted" size="sm">
                             View Profile
-                          </div>
+                          </Button>
                         </div>
                       </div>
                     </div>

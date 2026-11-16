@@ -1,4 +1,4 @@
-import {KTIcon} from '../../../../../../_metronic/helpers'
+import {WtCloseButton} from '@/app/modules/common/components/ui/tw/WtCloseButton'
 import {useListView} from '../core/ListViewProvider'
 
 const UserEditModalHeader = () => {
@@ -11,14 +11,11 @@ const UserEditModalHeader = () => {
       {/* end::Modal title */}
 
       {/* begin::Close */}
-      <div
-        className='btn btn-icon btn-sm btn-active-icon-primary'
+      <WtCloseButton
+        variant='plain'
         data-kt-users-modal-action='close'
         onClick={() => setItemIdForUpdate(undefined)}
-        style={{cursor: 'pointer'}}
-      >
-        <KTIcon iconName='cross' className='fs-1' />
-      </div>
+      />
       {/* end::Close */}
     </div>
   )

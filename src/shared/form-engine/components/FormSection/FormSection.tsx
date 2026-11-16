@@ -24,7 +24,7 @@ export const FormSection: React.FC<FormSectionProps> = ({
 }) => {
   return (
     <section className="workspace-accordion-section mb-6" id={id}>
-      <button
+      <button data-wt-control="accordion"
         type="button"
         className="workspace-accordion-header d-flex justify-content-between align-items-center px-6 py-4 w-100 border-0 text-start"
         onClick={onToggle}

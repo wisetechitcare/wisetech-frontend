@@ -1,19 +1,17 @@
-import { Box, ToggleButton, ToggleButtonGroup, SxProps, Theme, useMediaQuery, useTheme, alpha } from '@mui/material';
+import { cn } from '@/ds/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/ds/ui/tabs';
 
 /**
- * PeriodTabs — the app's period selector (Monthly / Yearly / All Time), used by 18 screens.
+ * PeriodTabs — the app's period / view selector (Monthly / Yearly / All Time, and the other small mode
+ * switches), used across ~20 screens.
  *
- * The selected tab used to be marked by a small triangle floating five pixels ABOVE the group,
- * pointing at whatever happened to sit there. It read as a rendering artifact, and it was the
- * only thing distinguishing selection besides a white chip on a near-white track — which is to
- * say, almost nothing, on a white page.
+ * Drawn with the design system's Tabs (Storybook "Components/Tabs"): the selected option is the kit's filled
+ * brand pill on a muted track — the same control as every other tab bar, in both themes. It used to be an MUI
+ * ToggleButtonGroup with its own greys, a hard-coded navy and a 3px seat rule, so a page's period selector and
+ * its kit tabs looked like two different systems side by side.
  *
- * Selection is now stated three ways that survive both themes: a raised surface, the accent
- * colour on the label, and a 2px seat rule along the bottom of the tab itself. The seat rule is
- * shared with the reimbursement status rail, so a page's period tabs and its filters read as one
- * instrument strip rather than two unrelated widgets.
- *
- * Surfaces come from the theme, not from fixed greys, so the control is legible in dark mode.
+ * Many options on a narrow screen scroll sideways in one row instead of wrapping: a wrapped tab bar reads as
+ * two controls, and clipping silently dropped the last option.
  */
 
 export interface PeriodTabOption {
@@ -26,152 +24,28 @@ interface PeriodTabsProps {
     options: PeriodTabOption[];
     onChange: (value: string) => void;
     ariaLabel?: string;
-    sx?: SxProps<Theme>;
-    /** Color of the selected tab's text and seat rule. Defaults to the app's navy brand color;
-     * pass a page-specific accent to opt just that page's usage into a different palette without
-     * touching every other caller. */
-    selectedColor?: string;
+    className?: string;
 }
 
-/**
- * A tint of the accent, tolerant of what callers actually pass. `selectedColor` may be a CSS
- * variable (CustomCalendar passes `var(--mrd-primary)`), which MUI's `alpha` cannot decompose and
- * throws on — so the tint falls back to a theme-neutral selected surface rather than taking the
- * page down.
- */
-const tint = (color: string, opacity: number, fallback: string) => {
-    try {
-        return alpha(color, opacity);
-    } catch {
-        return fallback;
-    }
-};
-
-const PeriodTabs = ({
-    value,
-    options,
-    onChange,
-    ariaLabel = 'period selection',
-    sx,
-    selectedColor = '#1E3A8A',
-}: PeriodTabsProps) => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const dark = theme.palette.mode === 'dark';
-
-    return (
-    <ToggleButtonGroup
+const PeriodTabs = ({ value, options, onChange, ariaLabel = 'Period selection', className }: PeriodTabsProps) => (
+    <Tabs
         value={value}
-        exclusive
-        onChange={(_, selectedValue) => {
-            if (selectedValue !== null) {
-                onChange(selectedValue);
-            }
+        onValueChange={(next) => {
+            if (next !== null && next !== undefined) onChange(String(next));
         }}
-        aria-label={ariaLabel}
-        sx={{
-            display: 'flex',
-            alignItems: 'stretch',
-            gap: 0,
-            // On a phone the group wraps to as many rows as it needs, so its height can no
-            // longer be fixed. Five modes cannot share 344px without each tab dropping below
-            // a readable width, and the previous behaviour was worse than cramped: the group
-            // clips, so the last tab was cut off entirely and the control silently offered
-            // four options instead of five.
-            flexWrap: isMobile ? 'wrap' : 'nowrap',
-            height: isMobile ? 'auto' : 32,
-            minHeight: 32,
-            p: 0,
-            borderRadius: '8px',
-            overflow: 'hidden',
-            bgcolor: 'background.paper',
-            border: '1px solid',
-            borderColor: 'divider',
-            width: isMobile ? '100%' : 'fit-content',
-            maxWidth: '100%',
-            '& .MuiToggleButtonGroup-grouped': {
-                border: 0,
-                borderRadius: '0 !important',
-                minWidth: 0,
-                // Fixed height only makes sense on the single-row desktop layout; a wrapped
-                // group sizes to its rows.
-                height: isMobile ? 'auto' : '100%',
-                minHeight: 32,
-                // `1 0 auto` on mobile: grow to fill the row, never shrink below the label,
-                // wrap when the line is full. `1` alone forced equal shares on one line, which
-                // is what squeezed the labels. On desktop tabs still hug their label.
-                flex: isMobile ? '1 0 auto' : 'none',
-                px: 1.25,
-                py: 0,
-                // Unselected tabs sit on the lightest grey so the white selected tab stands out.
-                backgroundColor: dark ? 'transparent' : '#F8FAFC',
-                color: 'text.secondary',
-                fontSize: 12,
-                fontWeight: 600,
-                lineHeight: 1,
-                textTransform: 'none',
-                whiteSpace: 'nowrap',
-                letterSpacing: 0,
-                transition: 'background-color 150ms ease, color 150ms ease',
-                '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
-                overflow: 'visible',
-                // Anchors the visible label, which is taken out of flow so the bold
-                // sizer below is what decides this tab's width. See the two spans.
-                position: 'relative',
-            },
-            '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                marginLeft: 0,
-                borderLeft: '1px solid',
-                borderLeftColor: 'divider',
-            },
-            '& .MuiToggleButton-root:hover': {
-                backgroundColor: dark ? 'action.hover' : '#F1F5F9',
-            },
-            '& .MuiToggleButton-root.Mui-focusVisible': {
-                outline: `2px solid ${selectedColor}`,
-                outlineOffset: '-2px',
-            },
-            '& .Mui-selected': {
-                // Pure white in light mode: the seat rule and the accent label carry the
-                // selection. Dark mode keeps a tint, since white would glare on a dark page.
-                backgroundColor: `${dark ? tint(selectedColor, 0.24, theme.palette.action.selected) : '#ffffff'} !important`,
-                color: `${dark ? theme.palette.text.primary : selectedColor} !important`,
-                fontWeight: 700,
-                // Seat rule — the same device the status rail uses for its selected segment.
-                '&::after': {
-                    content: '""',
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: '3px',
-                    backgroundColor: selectedColor,
-                },
-            },
-            ...sx,
-        }}
+        className={cn('max-w-full', className)}
     >
-        {/* Two copies of the label on purpose. The selected tab renders at weight 700 and
-            the rest at 500, so a single in-flow label would make every tab resize the
-            moment you switch modes — the whole control (and the navigator beside it)
-            visibly jumps. The first span is a zero-height, always-bold sizer that fixes
-            the width at its widest state; the second is the one you actually see, taken
-            out of flow so its weight can change without moving anything. */}
-        {options.map((option) => (
-            <ToggleButton key={option.value} value={option.value}>
-                <Box component="span" aria-hidden sx={{ fontWeight: 700, height: 0, overflow: 'hidden', visibility: 'hidden' }}>
+        <TabsList
+            aria-label={ariaLabel}
+            className="max-w-full justify-start overflow-x-auto scrollbar-none"
+        >
+            {options.map((option) => (
+                <TabsTrigger key={option.value} value={option.value} className="flex-none px-3">
                     {option.label}
-                </Box>
-                <Box
-                    component="span"
-                    sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                    {option.label}
-                </Box>
-            </ToggleButton>
-        ))}
-    </ToggleButtonGroup>
-    );
-};
+                </TabsTrigger>
+            ))}
+        </TabsList>
+    </Tabs>
+);
 
 export default PeriodTabs;

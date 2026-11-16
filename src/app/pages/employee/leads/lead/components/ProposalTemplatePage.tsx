@@ -1,6 +1,6 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import React, { useState, useEffect, useRef } from "react";
-import { Button, Form, Row, Col, Badge } from "react-bootstrap";
+import { Form, Row, Col, Badge } from "react-bootstrap";
 import { KTIcon } from "@metronic/helpers";
 import {
   getProposalConfigurations,
@@ -14,8 +14,11 @@ import MeetingConfigurationTable from "./MeetingConfigurationTable";
 import { showError, showSuccess } from "@utils/modal";
 import dayjs from "dayjs";
 import { ExportCenterModal } from "./dms/components/ExportCenterModal";
-import { useAuth } from "../../../../../modules/auth";
+import { useSelector } from "react-redux";
+import type { RootState } from "@redux/store";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
+import { Button } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 interface ProposalTemplatePageProps {
   show: boolean;
@@ -52,7 +55,9 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
   contactData,
   projectData,
 }) => {
-  const { currentUser } = useAuth();
+  // The signed-in user (Redux). It used to come from the Metronic AuthProvider, which is never mounted, so the
+  // export's "exported by" was always blank.
+  const currentUser = useSelector((state: RootState) => state.auth.currentUser);
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [currentConfig, setCurrentConfig] = useState<any>(null);
@@ -322,7 +327,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                       sum + (parseFloat(comm.area) || 0),
                     0,
                   )
-                : details.builtUpArea || details.projectArea || "0") || "0";
+                : details.builtUpArea || "0") || "0";
             break;
           case "built_up_area_unit":
             val = details.builtUpAreaUnit || "sqft";
@@ -420,7 +425,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                       sum + (parseFloat(comm.area) || 0),
                     0,
                   )
-                : details.builtUpArea || details.projectArea || "0") || "0";
+                : details.builtUpArea || "0") || "0";
             break;
           case "total_commercial_area":
             val =
@@ -436,7 +441,6 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
                 0,
               ) ||
               details.builtUpArea ||
-              details.projectArea ||
               "0";
             break;
           case "locality":
@@ -916,7 +920,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         customTemplate: templateBase64 || undefined,
         userId: currentUser?.id,
         userName:
-          `${currentUser?.first_name || ""} ${currentUser?.last_name || ""}`.trim(),
+          `${currentUser?.firstName || ""} ${currentUser?.lastName || ""}`.trim(),
         // --- Export Center Payload from Modal ---
         ...(modalConfig || {}),
       };
@@ -1007,7 +1011,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
             <h6 className="fw-bolder mb-5">Templates</h6>
             <div className="d-flex flex-column gap-2">
               {templates.map((tpl: any) => (
-                <div
+                <div data-wt-control="option" {...pressableProps(() => handleTemplateChange(tpl.id))}
                   key={tpl.id}
                   onClick={() => handleTemplateChange(tpl.id)}
                   className={`p-3 rounded-2 cursor-pointer mb-2 transition-all ${selectedTemplateId === tpl.id ? "bg-primary text-white" : "bg-hover-light border"}`}
@@ -1267,9 +1271,7 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
       </Modal.Body>
 
       <Modal.Footer className="bg-white border-top py-4 px-8 justify-content-between">
-        <Button
-          variant="light"
-          className="fw-bold px-6"
+        <Button variant="outline"
           data-unsaved-changes-close
           onClick={onHide}
           disabled={isGenerating}
@@ -1278,8 +1280,6 @@ const ProposalTemplatePage: React.FC<ProposalTemplatePageProps> = ({
         </Button>
         <div className="d-flex gap-3">
           <Button
-            variant="primary"
-            className="fw-bold px-8 shadow-sm"
             disabled={!canExport || isGenerating}
             onClick={() => setShowExportCenter(true)}
           >

@@ -17,6 +17,7 @@ import { VersionHistory } from "@modules/audit/VersionHistory";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getTimeTokens } from '@utils/timeFormat';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { Button } from '@/ds/ui/button';
 
 const ProjectOverviewById = ({
   projectId,
@@ -1083,8 +1084,7 @@ const ProjectOverviewById = ({
                   </span>
                 </div>
 
-                <button
-                  className="btn btn-sm"
+                <Button variant="ghost" size="sm" type="submit"
                   style={{
                     border: "1px solid #a83232",
                     color: "#a83232",
@@ -1097,7 +1097,7 @@ const ProjectOverviewById = ({
                   onClick={() => setShowCompany(true)}
                 >
                   Add Companies
-                </button>
+                </Button>
               </div>
 
               {/* Table */}

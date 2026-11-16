@@ -1,7 +1,7 @@
 import dayjs, { Dayjs } from "dayjs";
 import React, { useEffect, useState } from "react";
-import PeriodTabs from "@app/modules/common/components/PeriodTabs";
-import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
+import { Tabs, TabsList, TabsTrigger } from "@/ds/ui/tabs";
+import { PeriodNavigator } from "@/ds/patterns/period-navigator";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
 
@@ -34,19 +34,16 @@ const ReimbursementPeriodBar = ({ alignment, date, onChange, actionSlot }: Props
   return (
     // Period tabs and date navigator on one line; collapse to stack on mobile.
     // The status filter rail renders immediately below at full width.
-    <div className="d-flex flex-md-row flex-column justify-content-md-between align-items-md-center gap-3 mb-3">
-      <PeriodTabs
-        value={alignment}
-        options={[
-          { label: "Monthly", value: "monthly" },
-          { label: "Yearly", value: "yearly" },
-          { label: "All Time", value: "allTime" },
-        ]}
-        onChange={(val) => onChange(val as PeriodAlignment, date)}
-        ariaLabel="view selection"
-      />
+    <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <Tabs value={alignment} onValueChange={(val) => onChange(val as PeriodAlignment, date)}>
+        <TabsList aria-label="Reimbursement period">
+          <TabsTrigger value="monthly">Monthly</TabsTrigger>
+          <TabsTrigger value="yearly">Yearly</TabsTrigger>
+          <TabsTrigger value="allTime">All Time</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-      <div className="d-flex align-items-center justify-content-center justify-content-md-end gap-3 flex-wrap w-100 w-md-auto">
+      <div className="flex w-full flex-wrap items-center justify-center gap-3 md:w-auto md:justify-end">
         {actionSlot}
 
         {alignment === "monthly" && (
@@ -54,9 +51,10 @@ const ReimbursementPeriodBar = ({ alignment, date, onChange, actionSlot }: Props
             label={date.format("MMM YYYY")}
             onPrevious={() => onChange("monthly", date.subtract(1, "month"))}
             onNext={() => onChange("monthly", date.add(1, "month"))}
+            unit="month"
             pickGranularity="month"
             pickValue={date.startOf("month").format("YYYY-MM-DD")}
-            onPickDate={(v) => onChange("monthly", dayjs(v).startOf("month"))}
+            onPick={(v) => onChange("monthly", dayjs(v).startOf("month"))}
           />
         )}
 
@@ -65,9 +63,10 @@ const ReimbursementPeriodBar = ({ alignment, date, onChange, actionSlot }: Props
             label={formatFiscalYearLabel(fiscalYear)}
             onPrevious={() => onChange("yearly", date.subtract(1, "year"))}
             onNext={() => onChange("yearly", date.add(1, "year"))}
+            unit="year"
             pickGranularity="year"
             pickValue={date.startOf("year").format("YYYY-MM-DD")}
-            onPickDate={(v) => onChange("yearly", dayjs(v).startOf("year"))}
+            onPick={(v) => onChange("yearly", dayjs(v).startOf("year"))}
           />
         )}
       </div>

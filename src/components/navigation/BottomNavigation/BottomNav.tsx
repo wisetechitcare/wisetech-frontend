@@ -63,7 +63,7 @@ function BottomNavBar() {
 
           {/* Raised Center '+' button */}
           <div className="bottom-nav__center-btn-wrapper">
-            <button
+            <button data-wt-control="shell"
               type="button"
               className="bottom-nav__center-btn"
               aria-label="Quick actions"

@@ -81,7 +81,8 @@ body.page-loading {
   animation: splashLogoIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .splash-logo {
-  height: 72px;
+  /* The stacked WiseTech lockup (emblem over the wordmark, ~1.73:1). */
+  height: clamp(88px, 14vw, 120px);
   width: auto;
   object-fit: contain;
   display: block;
@@ -135,19 +136,6 @@ html[data-bs-theme='dark'] .splash-orb {
   opacity: 0.4;
 }
 
-/* theme-scoped logo visibility (unchanged behaviour) */
-.splash-screen .dark-logo {
-  display: none;
-}
-.splash-screen .light-logo {
-  display: block;
-}
-html[data-bs-theme='dark'] .splash-screen .light-logo {
-  display: none;
-}
-html[data-bs-theme='dark'] .splash-screen .dark-logo {
-  display: block;
-}
 
 /* ── Keyframes ──────────────────────────────────────────────── */
 @keyframes splashFadeIn {

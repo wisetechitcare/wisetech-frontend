@@ -1,10 +1,8 @@
 import React, { useId, useMemo } from "react";
 import { motion } from "framer-motion";
-import CountUpModule from "react-countup";
+import { CountUp } from "@/ds/effects/count-up";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { resolveReactComponent } from '@utils/resolveReactComponent';
-
-const CountUp = resolveReactComponent<typeof CountUpModule>(CountUpModule);
+import { getCurrencyLocale } from '@utils/currency';
 
 export interface KpiStatCardProps {
   label: string;
@@ -36,7 +34,7 @@ export interface KpiStatCardProps {
   sparkline?: number[];
   /**
    * Optional formatter for the big number (e.g. compact ₹). When given, the
-   * value is shown formatted (CountUp still animates via formattingFn).
+   * value is shown formatted (CountUp still animates through it).
    */
   valueFormatter?: (n: number) => string;
 }
@@ -81,8 +79,8 @@ const Sparkline: React.FC<{ data: number[]; color: string }> = ({ data, color })
 };
 
 /**
- * A single premium KPI tile. The number animates from 0 → value with
- * react-countup, the card reveals with Framer Motion and lifts on hover.
+ * A single premium KPI tile. The number animates from 0 → value with the
+ * kit's CountUp, the card reveals with Framer Motion and lifts on hover.
  * Optionally shows a YoY trend pill and an inline sparkline.
  */
 const KpiStatCard: React.FC<KpiStatCardProps> = ({
@@ -156,11 +154,11 @@ const KpiStatCard: React.FC<KpiStatCardProps> = ({
       >
         {prefix}
         <CountUp
-          end={value}
-          duration={1.2}
+          value={value}
+          duration={1200}
           decimals={decimals}
-          separator=","
-          formattingFn={valueFormatter}
+          locale={getCurrencyLocale()}
+          format={valueFormatter}
         />
         {suffix}
       </div>

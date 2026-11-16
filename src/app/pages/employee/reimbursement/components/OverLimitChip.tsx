@@ -1,5 +1,7 @@
-import { Tooltip } from '@mui/material';
-import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { TriangleAlert } from 'lucide-react';
+import { Badge } from '@/ds/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
+import { formatMoney } from '../utils/reimbursementFormat';
 
 /**
  * Marks an expense that exceeded a spend limit.
@@ -10,7 +12,8 @@ import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
  * perfectly. An approver looking at a red number could not tell whether it was over a category
  * cap, over the employee's per-request limit, or simply large.
  *
- * The chip carries the word as well as the colour, and names the cap when it is known.
+ * The chip carries the word as well as the colour, and names the cap when it is known — a kit
+ * Badge with the kit Tooltip (focusable, so keyboard users get the tooltip too).
  */
 
 interface OverLimitChipProps {
@@ -24,24 +27,16 @@ export default function OverLimitChip({ limit, limitLabel }: OverLimitChipProps)
     const cap = Number(limit ?? NaN);
     const hasCap = Number.isFinite(cap) && cap > 0;
     const tooltip = hasCap
-        ? `Over the ${limitLabel ? `${limitLabel} ` : ''}limit of ${currencyPrefix()}${cap.toLocaleString(getCurrencyLocale())}`
+        ? `Over the ${limitLabel ? `${limitLabel} ` : ''}limit of ${formatMoney(cap)}`
         : 'This expense exceeded a spend limit';
 
     return (
-        <Tooltip title={tooltip} arrow>
-            <span
-                style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 3,
-                    fontSize: 10, fontWeight: 800, lineHeight: 1.6,
-                    padding: '1px 7px', borderRadius: 999,
-                    color: '#b45309', backgroundColor: '#fffbeb', border: '1px solid #fde68a',
-                    whiteSpace: 'nowrap', cursor: 'help',
-                }}
-            >
-                {/* aria-hidden on the glyph — the word next to it is the accessible name. */}
-                <span aria-hidden="true">⚠</span>
-                Over limit
-            </span>
+        <Tooltip>
+            <TooltipTrigger render={<Badge variant="warning" tabIndex={0} className="cursor-help" />}>
+                <TriangleAlert aria-hidden />
+                Over Limit
+            </TooltipTrigger>
+            <TooltipContent>{tooltip}</TooltipContent>
         </Tooltip>
     );
 }

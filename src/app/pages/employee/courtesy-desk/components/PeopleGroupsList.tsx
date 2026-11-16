@@ -30,6 +30,7 @@ import {
 import { T } from "@app/modules/common/components/ui/tokens";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
+import { canDelete } from "@utils/can";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
@@ -41,7 +42,7 @@ import {
   unarchiveGroupToApi,
 } from "../store/courtesyDeskStore";
 import type { PeopleGroup } from "../types";
-import { groupStatusColor, parseGroupStatus } from "../types";
+import { driveGroupIds, groupStatusColor, parseGroupStatus } from "../types";
 
 type GroupStatusScope = "ACTIVE" | "ARCHIVED" | "ALL";
 
@@ -66,7 +67,7 @@ export default function PeopleGroupsList() {
   const runCountByGroup = useMemo(() => {
     const map = new Map<string, number>();
     for (const d of drives) {
-      map.set(d.sourceGroupId, (map.get(d.sourceGroupId) || 0) + 1);
+      for (const gid of driveGroupIds(d)) map.set(gid, (map.get(gid) || 0) + 1);
     }
     return map;
   }, [drives]);
@@ -175,7 +176,7 @@ export default function PeopleGroupsList() {
                   });
                 }}
               />
-              {g.status === "ACTIVE" ? (
+              {g.status === "ACTIVE" ? canDelete("gift-management") && (
                 <ActionIconButton
                   icon={<ArchiveOutlinedIcon sx={{ fontSize: 18 }} />}
                   title="Archive group"
@@ -222,6 +223,7 @@ export default function PeopleGroupsList() {
                         )
                     }
                   />
+                  {canDelete("gift-management") && (
                   <ActionIconButton
                     iconName="trash"
                     title={
@@ -251,6 +253,7 @@ export default function PeopleGroupsList() {
                       });
                     }}
                   />
+                  )}
                 </>
               )}
               <ActionIconButton

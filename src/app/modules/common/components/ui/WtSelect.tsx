@@ -41,6 +41,12 @@ export interface WtSelectOption {
     /** Secondary line under the label. */
     description?: string;
     isDisabled?: boolean;
+    /**
+     * A section heading inside a FLAT list (pair with `isDisabled`). Use this rather than
+     * `WtSelectGroup` when the list may be windowed: a group renders as one tall row,
+     * which the fixed-height windowed menu would overlap.
+     */
+    isHeader?: boolean;
 }
 
 /** A grouped list renders a non-selectable header above its options. */
@@ -181,6 +187,9 @@ function OptionBody({ data }: { data: WtSelectOption }) {
                 <img
                     src={data.avatar}
                     alt=""
+                    // A photo that will not load (e.g. a rate-limited Google Contacts link)
+                    // disappears instead of showing the browser's broken-image icon.
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                 />
             )}
@@ -315,7 +324,15 @@ export function WtSelect({
                 '&:hover': { borderColor: error ? T.color.danger : accentColor || T.color.brand },
             }),
             menu: (base: any) => ({ ...base, backgroundColor: surface, zIndex: 9999 }),
-            option: (base: any, state: any) => ({
+            option: (base: any, state: any) => state.data?.isHeader ? {
+                ...base,
+                fontSize: 11.5,
+                fontWeight: 700,
+                letterSpacing: '0.02em',
+                color: T.color.brand,
+                backgroundColor: T.color.brandSoft,
+                cursor: 'default',
+            } : ({
                 ...base,
                 ...(allowOptionWrap
                     ? { whiteSpace: 'normal', lineHeight: 1.4, minHeight: 40, display: 'flex', alignItems: 'center' }

@@ -93,7 +93,7 @@ const MonthlyOverviewCard = (props: MonthlyOverviewCardProps) => {
                                         mr: 1.5,
                                     }}
                                 >
-                                    {React.cloneElement(row.icon as React.ReactElement, { style: { fontSize: '1rem' } })}
+                                    {React.cloneElement(row.icon as React.ReactElement<{ style?: React.CSSProperties }>, { style: { fontSize: '1rem' } })}
                                 </Box>
                                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                                     <Typography sx={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, mb: 0.1 }}>

@@ -9,7 +9,7 @@ import {
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { confirmDialog, toast } from '@app/modules/common/components/ui/feedback';
 import { formatDateTime } from '@utils/dateFormats';
-import { canSection } from '@utils/can';
+import { canDelete, canSection } from '@utils/can';
 import type { SavedMigrationRun } from '@/types/legacyMigration';
 
 /**
@@ -132,7 +132,7 @@ export default function SavedRunsPanel({
                     Resume
                   </WtButton>
                 )}
-                {canWrite && (
+                {canDelete('crm.leads') && (
                 <WtIconButton
                   title={`Delete ${run.migrationCode}`}
                   color="#dc2626"

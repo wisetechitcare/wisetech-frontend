@@ -1,5 +1,4 @@
 import { safeJsonParse } from '@utils/safeJson';
-import { Button } from "@mui/material";
 import React, { useEffect } from "react";
 import MyTimeSheetToggle from "./MyTimeSheetToggle";
 import { fetchConfiguration } from "@services/company";
@@ -11,6 +10,7 @@ import {
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
 import { memo } from "react";
 import { canSection } from "@utils/can";
+import { WtButton } from '@app/modules/common/components/ui/buttons';
 
 const MemoizedTimeSheetToggle = memo(MyTimeSheetToggle);
 
@@ -62,7 +62,7 @@ const MyTimeSheetPage = () => {
             My Timesheet
           </div>
           <div className="d-flex align-items-center gap-3">
-            {canLog && <Button
+            {canLog && <WtButton
               variant="contained"
               onClick={handleNewTimeLogClick}
               sx={{
@@ -79,7 +79,7 @@ const MyTimeSheetPage = () => {
               }}
             >
               New Time Log
-            </Button>}
+            </WtButton>}
           </div>
         </div>
         <MemoizedTimeSheetToggle

@@ -1,5 +1,6 @@
 ﻿import {useEffect, useRef, useState} from 'react'
 import {KTIcon} from '../../../../_metronic/helpers'
+import {Button} from '@/ds/ui/button'
 import {Step1} from './steps/Step1'
 import {Step2} from './steps/Step2'
 import {Step3} from './steps/Step3'
@@ -230,25 +231,29 @@ const Vertical = () => {
 
                   <div className='d-flex flex-stack pt-10'>
                     <div className='mr-2'>
-                      <button
+                      <Button
                         onClick={prevStep}
                         type='button'
-                        className='btn btn-lg btn-light-primary me-3'
+                        variant='tinted'
+                        size='lg'
+                        className='me-3'
                         data-kt-stepper-action='previous'
                       >
-                        <KTIcon iconName='arrow-left' className='fs-4 me-1' />
+                        <span data-icon='inline-start' className='inline-flex'>
+                          <KTIcon iconName='arrow-left' className='fs-4 me-1' />
+                        </span>
                         Back
-                      </button>
+                      </Button>
                     </div>
 
                     <div>
-                      <button type='submit' className='btn btn-lg btn-primary me-3'>
-                        <span className='indicator-label'>
-                          {stepper?.currentStepIndex !== ((stepper?.totalStepsNumber || 2) - 1) && 'Continue'}
-                          {stepper?.currentStepIndex === ((stepper?.totalStepsNumber || 2) - 1) && 'Submit'}
+                      <Button type='submit' size='lg' className='me-3'>
+                        {stepper?.currentStepIndex !== ((stepper?.totalStepsNumber || 2) - 1) && 'Continue'}
+                        {stepper?.currentStepIndex === ((stepper?.totalStepsNumber || 2) - 1) && 'Submit'}
+                        <span data-icon='inline-end' className='inline-flex'>
                           <KTIcon iconName='arrow-right' className='fs-3 ms-2 me-0' />
                         </span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </Form>

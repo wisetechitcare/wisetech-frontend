@@ -93,6 +93,34 @@ export interface City {
   [key: string]: any;
 }
 
+/** One phone / email of a contact, as the API returns it. */
+export interface ContactChannel {
+  id: string;
+  type: "EMAIL" | "PHONE";
+  value: string;
+  label?: string | null;
+  isPrimary: boolean;
+}
+
+/** One stint of a contact at a client company. `endDate` null = the current company. */
+export interface ContactCompanyStint {
+  id: string;
+  companyId: string;
+  roleInCompany?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  company?: { id: string; companyName: string; logo?: string | null } | null;
+  contactRole?: { id: string; name: string } | null;
+}
+
+/** One row of the contact form's phone / email list. `key` is client-only (React list key). */
+export interface ContactChannelInput {
+  key: string;
+  value: string;
+  label: string;
+  isPrimary: boolean;
+}
+
 export interface ContactFormValues {
   // Company Details
   companyId: string;
@@ -116,11 +144,18 @@ export interface ContactFormValues {
   dateOfBirth?: string;
   
 
-  // Contact Details
-  phone: string;
-  phone2: string;
-  email: string;
-  
+  // Contact Details. The form edits `phones` / `emails`; the server writes the primary ones
+  // back to `phone` / `phone2` / `email`, which is what the rest of the app reads.
+  phones: ContactChannelInput[];
+  emails: ContactChannelInput[];
+  phone?: string;
+  phone2?: string;
+  email?: string;
+  channels?: ContactChannel[];
+  companyHistory?: ContactCompanyStint[];
+  /** Set by "Move to another company": the day the new stint starts. */
+  companyMovedOn?: string;
+
   // Address
   country: string;
   zipCode: string;

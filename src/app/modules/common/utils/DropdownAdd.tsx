@@ -1,5 +1,6 @@
-import { Button } from 'react-bootstrap';
+
 import { components } from 'react-select';
+import { Button } from '@/ds/ui/button';
 
 const DropdownAdd = (props: any) => {
     const { onClick } = props;
@@ -13,9 +14,8 @@ const DropdownAdd = (props: any) => {
                     justifyContent: 'center',
                 }}
             >
-                <Button
+                <Button variant="outline"
                     onClick={onClick}
-                    variant="light"
                     style={{
                         textAlign: 'center',
                         color: 'black',

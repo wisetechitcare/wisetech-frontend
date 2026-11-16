@@ -52,7 +52,7 @@ const TABS: ConfigTab[] = [
   // Its own tab, next to the settings that decide what the calendar DRAWS rather than
   // among them: this one sends email, and email cannot be unticked.
   { id: 'greetings', label: 'Greetings', icon: 'bi-envelope-paper-heart-fill' },
-  { id: 'meetings', label: 'Meetings', icon: 'bi-camera-video' },
+  // Meetings appearance moved to Meetings → Configure (MeetingsAppearancePanel).
   { id: 'holidays', label: 'Public Holidays', icon: 'bi-calendar-heart' },
   { id: 'weekends', label: 'Weekends & Working Days', icon: 'bi-calendar-week' },
 ]
@@ -217,10 +217,11 @@ const MEETING_SECTIONS: EventSection[] = [
   },
 ]
 
-const ALL_ITEMS = [...SECTIONS, ...MEETING_SECTIONS].flatMap((s) => s.items)
+const CALENDAR_ITEMS = SECTIONS.flatMap((s) => s.items)
+const MEETING_ITEMS = MEETING_SECTIONS.flatMap((s) => s.items)
 
-const defaultSettings = (): Record<string, CalendarConfigItem> =>
-  Object.fromEntries(ALL_ITEMS.map((i) => [i.key, {
+const defaultSettings = (items: EventItem[]): Record<string, CalendarConfigItem> =>
+  Object.fromEntries(items.map((i) => [i.key, {
     id: null, enabled: i.defaultEnabled ?? false, color: i.defaultColor, icon: '', label: '',
   }]))
 
@@ -440,16 +441,15 @@ function EventSettingCard({ item, setting, tone, onOpen }: {
 
 // ─── Main component ─────────────────────────────────────────────────────────
 
-function CalendarConfigure() {
+function useAppearanceSettings(items: EventItem[]) {
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>('display');
-  const [settings, setSettings] = useState<Record<string, CalendarConfigItem>>(defaultSettings);
-
-  // Modal State
+  const [settings, setSettings] = useState<Record<string, CalendarConfigItem>>(() => defaultSettings(items));
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [editingModuleKey, setEditingModuleKey] = useState('');
   const [editingSetting, setEditingSetting] = useState<CalendarConfigItem | null>(null);
+  const [editingTextLabel, setEditingTextLabel] = useState<{ caption: string; fallback: string } | undefined>();
+  const [resetting, setResetting] = useState<string | null>(null);
 
   const loadConfigs = async () => {
     setIsLoading(true);
@@ -459,7 +459,7 @@ function CalendarConfigure() {
       // module would wipe all the already-saved settings back to their disabled defaults
       // on each reload. Catch per request so missing modules fall back to defaults while
       // the saved ones load correctly.
-      const entries = await Promise.all(ALL_ITEMS.map(async (item) => {
+      const entries = await Promise.all(items.map(async (item) => {
         const res = await fetchConfiguration(item.key).catch(() => null);
         const config = safeJsonParse(res?.data?.configuration?.configuration || '{}');
         return [item.key, {
@@ -479,9 +479,8 @@ function CalendarConfigure() {
 
   useEffect(() => {
     loadConfigs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const [editingTextLabel, setEditingTextLabel] = useState<{ caption: string; fallback: string } | undefined>();
 
   const openEditModal = (section: EventSection, item: EventItem) => {
     setEditingModuleKey(item.key);
@@ -497,8 +496,6 @@ function CalendarConfigure() {
     setSettings((prev) => ({ ...prev, [editingModuleKey]: updatedSetting }));
     setShowModal(false);
   };
-
-  const [resetting, setResetting] = useState<string | null>(null);
 
   /**
    * Put a section's colours back to the ones the calendar shipped with.
@@ -579,7 +576,24 @@ function CalendarConfigure() {
     </Box>
   );
 
-  if (isLoading) {
+  return {
+    isLoading,
+    showModal,
+    setShowModal,
+    editingSetting,
+    editingModuleKey,
+    modalTitle,
+    editingTextLabel,
+    handleSaveSuccess,
+    renderSections,
+  };
+}
+
+function CalendarConfigure() {
+  const [activeTab, setActiveTab] = useState<string>('display');
+  const appearance = useAppearanceSettings(CALENDAR_ITEMS);
+
+  if (appearance.isLoading) {
     return <Loader />;
   }
 
@@ -591,37 +605,20 @@ function CalendarConfigure() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
         >
-          {/* ══════════════════════════════════════════════════════ */}
-          {/* TAB: Event Display */}
-          {/* ══════════════════════════════════════════════════════ */}
-          {activeTab === 'display' && renderSections('display', SECTIONS)}
+          {activeTab === 'display' && appearance.renderSections('display', SECTIONS)}
 
-          {/* ══════════════════════════════════════════════════════ */}
-          {/* TAB: Greetings */}
-          {/* ══════════════════════════════════════════════════════ */}
           {activeTab === 'greetings' && (
             <div key="greetings" className="cfg-fade-in">
               <GreetingsSettings />
             </div>
           )}
 
-          {/* ══════════════════════════════════════════════════════ */}
-          {/* TAB: Meetings */}
-          {/* ══════════════════════════════════════════════════════ */}
-          {activeTab === 'meetings' && renderSections('meetings', MEETING_SECTIONS)}
-
-          {/* ══════════════════════════════════════════════════════ */}
-          {/* TAB: Public Holidays */}
-          {/* ══════════════════════════════════════════════════════ */}
           {activeTab === 'holidays' && (
             <div key="holidays" className="cfg-fade-in">
               <RenameHoliday />
             </div>
           )}
 
-          {/* ══════════════════════════════════════════════════════ */}
-          {/* TAB: Weekends & Working Days */}
-          {/* ══════════════════════════════════════════════════════ */}
           {/* A Work Calendar row used to sit under this tab. Removed: nothing in the app
               could create a WorkCalendar, so its modal could only ever say "Nothing to
               configure". The weekly pattern lives on the branch (Weekends & Working Days)
@@ -634,18 +631,43 @@ function CalendarConfigure() {
         </ConfigPageLayout>
       </Box>
 
-      {/* Reusable Form Modal */}
       <CalendarConfigForm
-        show={showModal}
-        onClose={() => setShowModal(false)}
-        initialData={editingSetting}
-        moduleKey={editingModuleKey}
-        title={modalTitle}
-        textLabel={editingTextLabel}
-        onSuccess={handleSaveSuccess}
+        show={appearance.showModal}
+        onClose={() => appearance.setShowModal(false)}
+        initialData={appearance.editingSetting}
+        moduleKey={appearance.editingModuleKey}
+        title={appearance.modalTitle}
+        textLabel={appearance.editingTextLabel}
+        onSuccess={appearance.handleSaveSuccess}
       />
     </>
-  )
+  );
+}
+
+/** Meetings → Configure: calendar appearance settings that used to live under Calendar → Configure → Meetings. */
+export function MeetingsAppearancePanel() {
+  const appearance = useAppearanceSettings(MEETING_ITEMS);
+
+  if (appearance.isLoading) {
+    return <Loader />;
+  }
+
+  return (
+    <>
+      <Box className="cfg-fade-in" sx={{ py: 1, backgroundColor: C.bgPage }}>
+        {appearance.renderSections('meetings', MEETING_SECTIONS)}
+      </Box>
+      <CalendarConfigForm
+        show={appearance.showModal}
+        onClose={() => appearance.setShowModal(false)}
+        initialData={appearance.editingSetting}
+        moduleKey={appearance.editingModuleKey}
+        title={appearance.modalTitle}
+        textLabel={appearance.editingTextLabel}
+        onSuccess={appearance.handleSaveSuccess}
+      />
+    </>
+  );
 }
 
 export default CalendarConfigure

@@ -3,8 +3,8 @@ import { EMPLOYEE, AUDIT } from "@constants/api-endpoint";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
-export type AccessLevel = "default" | "view" | "edit" | "blocked";
-export type TabLevel = "view" | "edit" | "none";
+export type AccessLevel = "default" | "view" | "edit" | "delete" | "blocked";
+export type TabLevel = "view" | "edit" | "delete" | "none";
 
 /** Per section tab: what the roles give, this employee's overrides, and the result. */
 export interface EmployeeAccessSummary {

@@ -162,15 +162,14 @@ export function makeWisetechTheme(mode: 'light' | 'dark' = 'light', brand: Brand
           label: { fontFamily: T.font.family, fontSize: 13.5, fontWeight: 600, lineHeight: 1.4 },
         },
       },
-      // Global checkbox look (rounded tile + brand fill) — same recipe as WtCheckbox.
-      // Leftover raw `<Checkbox>` inherits this; new code still uses WtCheckbox / WtCheckboxField
-      // for size/tone helpers. Tone follows Appearance brand, not a hardcoded navy.
+      // Global checkbox look — the ds/Storybook checkbox shape, same recipe as WtCheckbox.
+      // Colours come from the --primary/--input/--ring CSS vars, so they follow Appearance brand.
       MuiCheckbox: {
-        defaultProps: wtCheckboxThemeDefaultProps(brand.primary),
+        defaultProps: wtCheckboxThemeDefaultProps(),
         styleOverrides: {
           root: {
             fontFamily: T.font.family,
-            ...(wtCheckboxThemeRootSx(brand.primary) as object),
+            ...(wtCheckboxThemeRootSx() as object),
           },
         },
       },

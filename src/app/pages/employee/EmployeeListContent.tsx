@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, type CSSProperties } from "react";
+import { Button } from "@/ds/ui/button";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import dayjs from "dayjs";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -7,6 +8,7 @@ import { fetchEmployeesPage, fetchEmployeeFacets } from "@services/employee";
 import { useServerPagination } from "@hooks/useServerPagination";
 import {
   buildEmployeeListParams,
+  idForName,
   employeeFilterKey,
   type EmployeeListFilters,
   type FacetOption,
@@ -131,9 +133,9 @@ const EmployeeListContent = () => {
   });
   const [selectedStatus, setSelectedStatus] = useState<StatusType>("active");
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ all: 0, active: 0, inactive: 0 });
-  const [branchFilter, setBranchFilter] = useStoredState<string>('filters:EmployeeListContent:branchFilter', 'All');
-  const [subOrgFilter, setSubOrgFilter] = useStoredState<string>('filters:EmployeeListContent:subOrgFilter', 'All');
-  const [payTypeFilter, setPayTypeFilter] = useStoredState<string>('filters:EmployeeListContent:payTypeFilter', 'All');
+  const [branchFilter, setBranchFilter] = useState<string>('All');
+  const [subOrgFilter, setSubOrgFilter] = useState<string>('All');
+  const [payTypeFilter, setPayTypeFilter] = useState<string>('All');
   const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const rootOrgNames = useRootOrgNames();
   // Which employee's ID card is on screen. Held as {id, name} rather than a boolean
@@ -487,9 +489,14 @@ const EmployeeListContent = () => {
   // Dropdown options come from the API, scoped by status/payType/search but NOT by the
   // branch/sub-org filters themselves — otherwise picking a branch would remove every
   // other branch from the list you picked it from.
+  // The chosen sub-org narrows the BRANCH facet (sub-org → branch cascade; the server keeps the sub-org facet whole).
+  const subOrgId = useMemo(
+    () => (subOrgFilter === 'All' ? undefined : idForName(facets.subOrganizations, subOrgFilter)),
+    [facets.subOrganizations, subOrgFilter],
+  );
   useEffect(() => {
-    fetchEmployeeFacets(
-      buildEmployeeListParams({
+    fetchEmployeeFacets({
+      ...buildEmployeeListParams({
         status: selectedStatus,
         branchName: "All",
         subOrgName: "All",
@@ -498,10 +505,11 @@ const EmployeeListContent = () => {
         sorting: [],
         facets: { branches: [], subOrganizations: [] },
       }),
-    )
+      ...(subOrgId ? { companyId: subOrgId } : {}),
+    })
       .then((res) => setFacets(res.data ?? { branches: [], subOrganizations: [] }))
       .catch((error) => console.error("Error fetching employee facets:", error));
-  }, [selectedStatus, payTypeFilter, search]);
+  }, [selectedStatus, payTypeFilter, search, subOrgId]);
 
   const filters: EmployeeListFilters = useMemo(
     () => ({
@@ -613,6 +621,11 @@ const EmployeeListContent = () => {
     () => facets.subOrganizations.map((o) => o.name).filter((n) => !rootOrgNames.has(n)).sort(),
     [facets, rootOrgNames],
   );
+
+  // A branch the (new) sub-organisation does not contain is cleared — the shared cascade rule.
+  useEffect(() => {
+    if (branchFilter !== 'All' && facets.branches.length > 0 && !branchOptions.includes(branchFilter)) setBranchFilter('All');
+  }, [branchFilter, branchOptions, facets.branches.length]);
 
   const hasActiveFilters = branchFilter !== 'All' || subOrgFilter !== 'All' || payTypeFilter !== 'All';
 
@@ -729,71 +742,6 @@ const EmployeeListContent = () => {
         </Box>
       </Box>
 
-      {/* Row 2. A GRID, not a wrapping flex row: `minWidth` on the selects made
-          them three different widths that reflowed into a ragged second line the
-          moment a branch name grew. Equal tracks, one column on a phone. */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr)) auto' },
-          gap: 1.5,
-          alignItems: 'center',
-        }}
-      >
-      <ToolbarFilterSelect
-        label="Branch"
-        icon="bi-geo-alt"
-        value={branchFilter}
-        onChange={setBranchFilter}
-        theme={branchFilter !== 'All' ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' } : undefined}
-        options={[
-          { value: 'All', label: 'All Branches' },
-          ...branchOptions.map((name) => ({ value: name, label: name })),
-        ]}
-      />
-      <ToolbarFilterSelect
-        label="Sub Organization"
-        icon="bi-building"
-        value={subOrgFilter}
-        onChange={setSubOrgFilter}
-        theme={subOrgFilter !== 'All' ? { icon: '#3b82f6', border: '#bfdbfe', bg: '#eff6ff', text: '#1e40af', ring: 'rgba(59, 130, 246, 0.12)' } : undefined}
-        options={[
-          { value: 'All', label: 'All Sub Organizations' },
-          ...subOrgOptions.map((name) => ({ value: name, label: name })),
-        ]}
-      />
-      <ToolbarFilterSelect
-        label="Pay Type"
-        icon="bi-briefcase"
-        value={payTypeFilter}
-        onChange={setPayTypeFilter}
-        theme={payTypeFilter === 'Salary Based' ? { icon: '#16a34a', border: '#bbf7d0', bg: '#f0fdf4', text: '#166534', ring: 'rgba(22, 163, 74, 0.12)' } : payTypeFilter === 'Contract Based' ? { icon: '#7c3aed', border: '#ddd6fe', bg: '#f5f3ff', text: '#5b21b6', ring: 'rgba(124, 58, 237, 0.12)' } : undefined}
-        options={[
-          { value: 'All', label: 'All Pay Types' },
-          { value: 'Salary Based', label: 'Salary Based' },
-          { value: 'Contract Based', label: 'Contract Based' },
-        ]}
-      />
-      {hasActiveFilters && (
-        <button
-          onClick={() => { setBranchFilter('All'); setSubOrgFilter('All'); setPayTypeFilter('All'); }}
-          title="Reset filters"
-          style={{
-            height: '38px', padding: '0 12px',
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            border: '1px dashed #fca5a5', borderRadius: '10px',
-            backgroundColor: '#ffffff', color: '#dc2626',
-            fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 600,
-            cursor: 'pointer', transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
-        >
-          <AppIcon name="bi-arrow-counterclockwise" className="fs-7" />
-          Reset
-        </button>
-      )}
-      </Box>
     </GlassSurface>
 
     {/* No refetch overlay here on purpose. `dataLoading` is true on EVERY fetch, not just the
@@ -813,7 +761,9 @@ const EmployeeListContent = () => {
           // The animation is on the GRID, not per card: one compositor layer that
           // cannot judder, instead of 25 staggered ones that fill in patches. A CSS
           // animation only replays on mount, hence `gridKey`.
-          <AutoGrid key={gridKey} min={320} gap={14} sx={riseInSx()}>
+          // `stretch`: cards share the full width — capped at 400px they left a column-sized
+          // empty strip on the right of wide screens.
+          <AutoGrid key={gridKey} min={320} gap={14} stretch sx={riseInSx()}>
             {displayedEmployees.map((employee: any) => (
               <EmployeeCard
                 key={employee.id}

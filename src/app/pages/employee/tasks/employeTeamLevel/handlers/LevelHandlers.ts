@@ -1,7 +1,6 @@
 import { createEmployeeLevel, updateEmployeeLevel, deleteEmployeeLevel, getAllEmployeeLevels } from '@services/employee';
 import { deleteConfirmation } from '@utils/modal';
 import { Level } from '../types';
-import defaultImage from '@metronic/assets/defaultAvatar/defaultimage.png';
 
 export const handleCreateLevel = async (
     levelName: string,
@@ -130,11 +129,7 @@ export const fetchEmployeeLevels = async (
                         const lastName = emp.employee?.users?.lastName || emp.users?.lastName || emp.lastName || '';
                         const fullName = `${firstName} ${lastName}`.trim() || emp.employee?.name || emp.name || 'Unknown Employee';
 
-                        const generateAvatar = () => {
-                            return defaultImage;
-                        };
-
-                        const avatar = emp.employee?.users?.avatar || emp.users?.avatar || emp.avatar || emp.profilePicture || generateAvatar();
+                        const avatar = emp.employee?.avatar || emp.employee?.users?.avatar || emp.users?.avatar || emp.avatar || emp.profilePicture || null;
                         const position = emp.employee?.designation?.name || emp.designation?.name || emp.position || 'Employee';
 
                         return {

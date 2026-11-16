@@ -9,6 +9,7 @@ import {
 } from '../shellTokens';
 import { MODULE_SORTS, setModuleSort, useModuleSort } from '../moduleSort';
 import { useWorkspaceShell } from '../WorkspaceShellContext';
+import { Button } from '@/ds/ui/button';
 
 /**
  * How this application's modules are ordered — a filter chip in the workspace header.
@@ -49,16 +50,15 @@ export function ModuleSortMenu() {
           The glyph says neither what it orders nor what it is set to, so both go in the
           hint and in the accessible name rather than into header text nobody needs twice. */}
       <Tooltip title={`Sort modules — ${active.label}`}>
-        <button
+        <Button variant="ghost" size="icon-sm"
           type="button"
           onClick={(e) => setAnchor(e.currentTarget)}
           aria-haspopup="menu"
           aria-expanded={!!anchor}
           aria-label={`Sort modules — ${active.label}`}
-          className={`${SORT_TRIGGER} ${modified ? `${accent.iconWrap} ${SORT_TRIGGER_ON}` : ''}`}
         >
           <FilterAltOutlined sx={{ fontSize: 18 }} />
-        </button>
+        </Button>
       </Tooltip>
 
       <Menu

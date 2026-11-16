@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Box, Chip, IconButton, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, Tooltip, Typography } from '@mui/material';
 import dayjs from 'dayjs';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -9,6 +9,7 @@ import { formatCurrencyDecimal } from '@utils/currency';
 import { T } from '@app/modules/common/components/ui/tokens';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { resourceNameMapWithCamelCase } from '@constants/statistics';
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 interface TableProps {
     data: IncrementRecord[];
@@ -77,22 +78,22 @@ const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, o
             Cell: ({ row }: any) => (
                 <Box>
                     <Tooltip title="View details">
-                        <IconButton size="small" onClick={() => onView(row.original)} sx={{ color: T.color.inkSoft }}>
+                        <WtIconButton size="small" onClick={() => onView(row.original)} sx={{ color: T.color.inkSoft }}>
                             <VisibilityIcon fontSize="small" />
-                        </IconButton>
+                        </WtIconButton>
                     </Tooltip>
                     {fromAdmin && onEdit && (
                         <Tooltip title="Edit increment">
-                            <IconButton size="small" onClick={() => onEdit(row.original)} sx={{ color: T.color.brand }}>
+                            <WtIconButton size="small" onClick={() => onEdit(row.original)} sx={{ color: T.color.brand }}>
                                 <EditIcon fontSize="small" />
-                            </IconButton>
+                            </WtIconButton>
                         </Tooltip>
                     )}
                     {fromAdmin && onDelete && (
                         <Tooltip title="Delete increment">
-                            <IconButton size="small" onClick={() => onDelete(row.original)} sx={{ color: T.color.danger }}>
+                            <WtIconButton size="small" onClick={() => onDelete(row.original)} sx={{ color: T.color.danger }}>
                                 <DeleteOutlineIcon fontSize="small" />
-                            </IconButton>
+                            </WtIconButton>
                         </Tooltip>
                     )}
                 </Box>

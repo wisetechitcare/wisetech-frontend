@@ -1,20 +1,20 @@
 import React from "react";
 import PeriodTabs from "./PeriodTabs";
 
-export type TimePeriodMode = "daily" | "weekly" | "monthly" | "yearly" | "allyear" | "custom";
+import { PeriodMode } from "@/constants/common";
 
 interface TimePeriodSelectorProps {
-  value: TimePeriodMode;
-  onChange: (mode: TimePeriodMode) => void;
+  value: PeriodMode;
+  onChange: (mode: PeriodMode) => void;
 }
 
-const OPTIONS: { label: string; value: TimePeriodMode }[] = [
-  { label: "Daily", value: "daily" },
-  { label: "Weekly", value: "weekly" },
-  { label: "Monthly", value: "monthly" },
-  { label: "Yearly", value: "yearly" },
-  { label: "All Time", value: "allyear" },
-  { label: "Custom", value: "custom" },
+const OPTIONS: { label: string; value: PeriodMode }[] = [
+  { label: "Daily", value: PeriodMode.DAILY },
+  { label: "Weekly", value: PeriodMode.WEEKLY },
+  { label: "Monthly", value: PeriodMode.MONTHLY },
+  { label: "Yearly", value: PeriodMode.YEARLY },
+  { label: "All Time", value: PeriodMode.ALL_YEAR },
+  { label: "Custom", value: PeriodMode.CUSTOM },
 ];
 
 /**
@@ -23,11 +23,14 @@ const OPTIONS: { label: string; value: TimePeriodMode }[] = [
  * Drawn by `PeriodTabs`, the same control the other period screens use, so every period
  * selector in the app looks the same: white selected tab, blue label, blue line under it.
  */
-const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({ value, onChange }) => (
+const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
+  value,
+  onChange,
+}) => (
   <PeriodTabs
     value={value}
     options={OPTIONS}
-    onChange={(mode) => onChange(mode as TimePeriodMode)}
+    onChange={(mode) => onChange(mode as PeriodMode)}
   />
 );
 

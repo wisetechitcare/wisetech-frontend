@@ -11,6 +11,7 @@ import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
 import UnarchiveOutlinedIcon from "@mui/icons-material/UnarchiveOutlined";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
+import { canDelete } from "@utils/can";
 import { MRT_ColumnDef } from "material-react-table";
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
@@ -37,6 +38,7 @@ import {
   cloneDriveToApi,
   deleteDriveToApi,
   listDrives,
+  listGroups,
   unarchiveDriveToApi,
 } from "../store/courtesyDeskStore";
 import { formatCurrencyCompact } from "@utils/currency";
@@ -45,6 +47,8 @@ import type { CourtesyDrive } from "../types";
 import {
   GIFT_RUN_LABEL,
   GIFT_RUN_LABEL_PLURAL,
+  driveGroupIds,
+  formatGiftQty,
   giftRunStatusColor,
   giftRunTotalAmount,
   occasionLabel,
@@ -55,8 +59,12 @@ import {
   isGiftRunEditable,
 } from "./DriveCreate";
 import { T } from "@app/modules/common/components/ui/tokens";
+import GroupsChip from "./GroupsChip";
 
-const EMPTY_FILTERS = { occasion: "ALL", status: "ALL" };
+const giftCount = (r: CourtesyDrive) =>
+  r.recipients.reduce((sum, x) => sum + (x.quantity || 1), 0);
+
+const EMPTY_FILTERS = { occasion: "ALL", status: "ALL", group: "ALL" };
 
 export default function DrivesList() {
   const theme = useTheme();
@@ -113,6 +121,8 @@ export default function DrivesList() {
     return drives.filter((d) => {
       if (filters.occasion !== "ALL" && d.occasionType !== filters.occasion)
         return false;
+      // Any linked group matches, not just the primary one.
+      if (filters.group !== "ALL" && !driveGroupIds(d).includes(filters.group)) return false;
       // "All" keeps archived out of the default list; pick "Archived" (or a
       // specific status) to see those rows.
       if (filters.status === "ALL") return d.status !== "ARCHIVED";
@@ -156,14 +166,21 @@ export default function DrivesList() {
           );
         },
       },
-      { accessorKey: "sourceGroupName", header: "Group" },
+      // Value = all group names (sort / search / export); cell = one chip, rest on hover / click.
+      {
+        accessorKey: "sourceGroupName",
+        header: "Groups",
+        Cell: ({ row }) => <GroupsChip drive={row.original} />,
+      },
       { accessorKey: "driveDate", header: "Date", size: 110 },
       {
         id: "qty",
         header: "Total qty",
-        size: 90,
-        accessorFn: (r) =>
-          r.recipients.reduce((sum, x) => sum + (x.quantity || 1), 0),
+        size: 120,
+        // Value (sort / filter) stays the gift count; the cell adds the run's configured unit.
+        accessorFn: giftCount,
+        Cell: ({ row, cell }) => formatGiftQty(cell.getValue<number>(), row.original),
+        meta: { exportValue: (r: CourtesyDrive) => formatGiftQty(giftCount(r), r) },
       },
       {
         id: "amount",
@@ -297,6 +314,7 @@ export default function DrivesList() {
                       });
                     }}
                   />
+                  {canDelete("gift-management") && (
                   <ActionIconButton
                     iconName="trash"
                     title={`Delete ${GIFT_RUN_LABEL}`}
@@ -323,8 +341,9 @@ export default function DrivesList() {
                       });
                     }}
                   />
+                  )}
                 </>
-              ) : (
+              ) : canDelete("gift-management") && (
                 <ActionIconButton
                   icon={<ArchiveOutlinedIcon sx={{ fontSize: 18 }} />}
                   title={`Archive ${GIFT_RUN_LABEL}`}
@@ -461,7 +480,7 @@ export default function DrivesList() {
             tone={TRIO.green}
             icon="gift"
             title={GIFT_RUN_LABEL}
-            desc="Narrow the list by occasion and progress. Archived runs show only when picked."
+            desc="Narrow the list by occasion, progress or People Group. Archived runs show only when picked."
           >
             <WtField
               label="Occasion"
@@ -480,6 +499,16 @@ export default function DrivesList() {
               options={[
                 { value: "ALL", label: "All (except archived)" },
                 ...giftRunStatuses.map((st) => ({ value: st.id, label: st.name })),
+              ]}
+              fullWidth
+            />
+            <WtField
+              label="People Group"
+              value={draft.group}
+              onChange={(next) => set("group", next)}
+              options={[
+                { value: "ALL", label: "All" },
+                ...listGroups(true).map((g) => ({ value: g.id, label: g.name })),
               ]}
               fullWidth
             />

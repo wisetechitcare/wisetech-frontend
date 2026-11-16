@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { Link } from "react-router-dom";
-import { Avatar, Box, Tooltip, Typography, useMediaQuery, useTheme } from "@mui/material";
+import { Box, Tooltip, Typography, useMediaQuery, useTheme } from "@mui/material";
 import { GlassCard } from "@app/modules/common/components/ui";
-import { initialsOf } from "@app/modules/common/components/EmployeeIdentityCell";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import { toSortableTime } from "@app/modules/common/components/table/dateSort";
 import { formatDate } from "@utils/dateFormats";
 import { formatBloodGroup, formatPhoneWithCode } from "@utils/employeeFormat";
@@ -122,48 +122,17 @@ const BloodChip = ({ value }: { value: string }) => (
 const Photo = ({
   src,
   name,
+  seed,
   size,
   active,
 }: {
   src?: string;
   name: string;
+  seed?: string;
   size: number;
   active: boolean;
 }) => (
-  <Box sx={{ position: "relative", flexShrink: 0, display: "inline-flex" }}>
-    <Avatar
-      src={src || undefined}
-      alt={name}
-      sx={{
-        width: size,
-        height: size,
-        fontSize: size > 60 ? "1.25rem" : "1rem",
-        fontWeight: 700,
-        bgcolor: "rgba(255,255,255,0.16)",
-        color: "#FFFFFF",
-        border: "3px solid rgba(255,255,255,0.9)",
-      }}
-    >
-      {initialsOf(name)}
-    </Avatar>
-    {/* Colour alone would fail WCAG 1.4.1, so the dot carries a name. */}
-    <Box
-      component="span"
-      role="img"
-      aria-label={active ? "Active" : "Inactive"}
-      title={active ? "Active" : "Inactive"}
-      sx={{
-        position: "absolute",
-        right: 0,
-        bottom: 0,
-        width: 12,
-        height: 12,
-        borderRadius: "50%",
-        border: "2px solid #FFFFFF",
-        bgcolor: active ? "#22C55E" : "#94A3B8",
-      }}
-    />
-  </Box>
+  <SmartAvatar src={src} name={name} seed={seed} size={size} status={active ? "active" : "inactive"} decorative />
 );
 
 export interface EmployeeCardProps {
@@ -238,7 +207,7 @@ const EmployeeCard = ({ employee, onOpen, actions }: EmployeeCardProps) => {
     return (
       <GlassCard {...cardProps} sx={{ ...shell, flexDirection: "row", alignItems: "stretch" }}>
         <Box sx={{ display: "grid", placeItems: "center", px: 1.5, background: RAIL, flexShrink: 0 }}>
-          <Photo src={employee.avatar} name={name} size={52} active={active} />
+          <Photo src={employee.avatar} name={name} seed={employee.id} size={52} active={active} />
         </Box>
 
         <Box
@@ -315,7 +284,7 @@ const EmployeeCard = ({ employee, onOpen, actions }: EmployeeCardProps) => {
           minWidth: 0,
         }}
       >
-        <Photo src={employee.avatar} name={name} size={68} active={active} />
+        <Photo src={employee.avatar} name={name} seed={employee.id} size={68} active={active} />
         <Box sx={{ minWidth: 0, flex: 1 }}>
           {nameLink(true)}
           <Typography

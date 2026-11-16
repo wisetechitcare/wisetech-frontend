@@ -11,6 +11,7 @@ import { UploadDropzone } from './UploadDropzone';
 import { RevisionTimeline } from './RevisionTimeline';
 import { StorageUsageWidget } from './StorageUsageWidget';
 import type { DMSFile } from '../types/dms.types';
+import { Button } from '@/ds/ui/button';
 
 export const DocumentManagementCenter: React.FC = () => {
   const { state, dispatch, getFilteredFiles, isGlobalMode } = useDMS();
@@ -90,17 +91,12 @@ export const DocumentManagementCenter: React.FC = () => {
           <div style={{ 
             height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0' 
           }}>
-            <button
+            <Button variant="outline" size="icon-sm" type="submit" aria-label="Expand panel"
               onClick={() => setIsRightPanelCollapsed(false)}
-              style={{
-                background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px',
-                width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: '#1E3A8A', fontSize: '16px'
-              }}
               title="Expand Details"
             >
               ◀
-            </button>
+            </Button>
             <div style={{
               writingMode: 'vertical-rl', transform: 'rotate(180deg)',
               marginTop: '20px', fontSize: '11px', fontWeight: 700,
@@ -115,7 +111,7 @@ export const DocumentManagementCenter: React.FC = () => {
               display: 'flex', borderBottom: '1px solid #f1f5f9', padding: '12px 16px', gap: '16px'
             }}>
           {['details', 'timeline'].map(tab => (
-            <button
+            <button data-wt-control="tab"
               key={tab}
               onClick={() => setActiveRightTab(tab as any)}
               style={{

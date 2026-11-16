@@ -19,7 +19,7 @@ import { GlassDialog, GlassHeader, WtButton, confirmDialog, toast } from '@app/m
 import { formatDate, formatDateTime } from '@utils/dateFormats';
 import dayjs from 'dayjs';
 import { AssigneeAvatar } from '@app/pages/employee/tasks/components/primitives';
-import { canSection } from '@utils/can';
+import { canDelete, canSection } from '@utils/can';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
 import { formatFileSize } from '@utils/fileValidation';
@@ -105,9 +105,12 @@ export const TimeLogDetailDialog = ({
     // Own log needs only Read on My Timesheet; someone else's needs Write on Employees Timesheet.
     const currentEmployeeId = useSelector((s: RootState) => s.employee?.currentEmployee?.id);
     const ownerId = log?.employeeId ?? log?.employee?.id;
-    const canWrite = !!ownerId && ownerId === currentEmployeeId
+    const mine = !!ownerId && ownerId === currentEmployeeId;
+    const canWrite = mine
         ? canSection('timesheets.my', 'read')
         : canSection('timesheets.employees', 'write');
+    // Deleting someone else's log needs Delete on Employees Timesheet; your own stays at Read.
+    const canRemove = mine ? canWrite : canDelete('timesheets.employees');
     const attachments = (log?.attachments ?? []) as Array<{
         url: string; fileName: string; contentType?: string | null; sizeBytes?: number | null;
     }>;
@@ -312,7 +315,7 @@ export const TimeLogDetailDialog = ({
                 <Divider />
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 3, py: 2 }}>
                     {/* Destructive on its own side, away from the button people reach for. */}
-                    {canWrite && (
+                    {canRemove && (
                         <WtButton
                             ghost
                             tone="danger"
@@ -327,7 +330,6 @@ export const TimeLogDetailDialog = ({
                     <WtButton ghost onClick={onClose}>Close</WtButton>
                     {canWrite && (
                         <WtButton
-                            tone="primary"
                             disabled={!log}
                             onClick={() => setEditing(true)}
                             startIcon={<KTIcon iconName="pencil" className="fs-5" />}

@@ -32,7 +32,7 @@ export const isMeetingMode = (v: unknown): v is MeetingMode =>
  * ─── THE GLYPHS CARRY THE MEANING, NOT THE WORDS ─────────────────────────────────────
  * Three same-sized buttons whose only difference is a word are read one at a time; with a
  * glyph they are read by shape and confirmed by the word. So each one is a picture of the
- * thing itself, from the app's single icon family (Lucide, through `iconRegistry`):
+ * thing itself, from the app's single icon family (Lucide, through `src/ds/lib/icons/registry.ts`):
  *
  *   · ONLINE  — a camera. It is a call.
  *   · OFFLINE — a map pin. It is a place you travel to. (The word changed from "In person";

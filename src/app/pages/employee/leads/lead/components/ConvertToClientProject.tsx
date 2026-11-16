@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Typography, Box, Grid, IconButton } from '@mui/material';
+import { Modal, Typography, Box, Grid } from '@mui/material';
 import { Formik } from 'formik';
 import { Add, Close } from '@mui/icons-material';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import DropDownInput from '@app/modules/common/inputs/DropdownInput';
+import { WtIconButton, WtButton } from '@app/modules/common/components/ui/buttons';
 
 interface ConvertToClientProjectProps {
     show: boolean;
@@ -97,7 +98,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                 p: 4,
                 borderRadius: '8px',
             }}>
-                <IconButton
+                <WtIconButton size="medium"
                     onClick={handleClose}
                     sx={{
                         position: 'absolute',
@@ -107,7 +108,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                     }}
                 >
                     <Close />
-                </IconButton>
+                </WtIconButton>
 
                 <Typography variant="h6" component="h2" sx={{ mb: 3, fontWeight: 600 }}>
                     Create New Project
@@ -229,13 +230,13 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                     placeholder='Select service'
                                                 />
                                                 <div>
-                                                    <Button
+                                                    <WtButton variant="text"
                                                         size="small"
                                                         onClick={() => {/* Add new service logic */ }}
                                                         sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Service
-                                                    </Button>
+                                                    </WtButton>
                                                 </div>
                                             </Box>
                                         </Grid>
@@ -253,13 +254,13 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                     placeholder='Select category'
                                                 />
                                                 <div>
-                                                    <Button
+                                                    <WtButton variant="text"
                                                         size="small"
                                                         onClick={() => {/* Add new category logic */ }}
                                                         sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Category
-                                                    </Button>
+                                                    </WtButton>
                                                 </div>
                                             </Box>
                                         </Grid>
@@ -277,13 +278,13 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                     placeholder='Select subcategory'
                                                 />
                                                 <div>
-                                                    <Button
+                                                    <WtButton variant="text"
                                                         size="small"
                                                         onClick={() => {/* Add new subcategory logic */ }}
                                                         sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Subcategory
-                                                    </Button>
+                                                    </WtButton>
                                                 </div>
                                             </Box>
                                         </Grid>
@@ -385,14 +386,14 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                     options={[]}
                                                 />
                                                 <div>
-                                                    <Button
+                                                    <WtButton variant="text"
                                                         // variant=""
                                                         size="small"
                                                         onClick={() => {/* Add new service logic */ }}
                                                         sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Company
-                                                    </Button>
+                                                    </WtButton>
                                                 </div>
                                             </Box>
                                         </Grid>
@@ -409,14 +410,14 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                 // disabled={!values.companyId}
                                                 />
                                                 <div>
-                                                    <Button
+                                                    <WtButton variant="text"
                                                         // variant=""
                                                         size="small"
                                                         onClick={() => {/* Add new service logic */ }}
                                                         sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Branch
-                                                    </Button>
+                                                    </WtButton>
                                                 </div>
                                             </Box>
                                         </Grid>
@@ -432,14 +433,14 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                     options={[]}
                                                 />
                                                 <div>
-                                                    <Button
+                                                    <WtButton variant="text"
                                                         // variant=""
                                                         size="small"
                                                         onClick={() => {/* Add new service logic */ }}
                                                         sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                     >
                                                         + New Contact
-                                                    </Button>
+                                                    </WtButton>
                                                 </div>
                                             </Box>
                                         </Grid>
@@ -500,13 +501,13 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                             options={[]}
                                                         />
                                                         <div>
-                                                            <Button
+                                                            <WtButton variant="text"
                                                                 size="small"
                                                                 onClick={() => { /* Add new company logic */ }}
                                                                 sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                             >
                                                                 + New Company
-                                                            </Button>
+                                                            </WtButton>
                                                         </div>
                                                     </Box>
                                                 </Grid>
@@ -520,13 +521,13 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                             options={[]}
                                                         />
                                                         <div>
-                                                            <Button
+                                                            <WtButton variant="text"
                                                                 size="small"
                                                                 onClick={() => { /* Add new branch logic */ }}
                                                                 sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                             >
                                                                 + New Branch
-                                                            </Button>
+                                                            </WtButton>
                                                         </div>
                                                     </Box>
                                                 </Grid>
@@ -540,13 +541,13 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                             options={[]}
                                                         />
                                                         <div>
-                                                            <Button
+                                                            <WtButton variant="text"
                                                                 size="small"
                                                                 onClick={() => { /* Add new contact logic */ }}
                                                                 sx={{ whiteSpace: 'nowrap', color: "#1E3A8A" }}
                                                             >
                                                                 + New Contact
-                                                            </Button>
+                                                            </WtButton>
                                                         </div>
                                                     </Box>
                                                 </Grid>
@@ -555,7 +556,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
 
                                         {/* Add Another Referral Button */}
                                         <Grid item xs={12}>
-                                            <Button
+                                            <WtButton
                                                 variant="outlined"
                                                 startIcon={<Add />}
                                                 onClick={() => handleAddReferral(setFieldValue, values)}
@@ -574,7 +575,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                                 }}
                                             >
                                                 Add Another Referral
-                                            </Button>
+                                            </WtButton>
                                         </Grid>
                                     </Grid>
                                 </fieldset>
@@ -848,7 +849,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
 
                                 <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 2, mt: 4 }}>
                                   
-                                    <Button
+                                    <WtButton
                                         type="submit"
                                         variant="contained"
                                         disabled={isSubmitting}
@@ -860,7 +861,7 @@ const ConvertToClientProject: React.FC<ConvertToClientProjectProps> = ({
                                         }}
                                     >
                                         {isSubmitting ? 'Converting...' : 'Convert'}
-                                    </Button>
+                                    </WtButton>
                                 </Box>
                             </Box>
                         </form>

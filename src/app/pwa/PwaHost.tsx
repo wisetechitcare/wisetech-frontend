@@ -66,7 +66,7 @@ export function PwaHost() {
     >
       {updateReady ? (
         <>
-          <Typography variant='subtitle1' fontWeight={800}>WiseTech HR has been updated</Typography>
+          <Typography variant='subtitle1' fontWeight={800}>KAIZNOVA has been updated</Typography>
           <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
             Reload to use the latest version.
           </Typography>
@@ -78,11 +78,11 @@ export function PwaHost() {
         </>
       ) : (
         <>
-          <Typography variant='subtitle1' fontWeight={800}>Install WiseTech HR</Typography>
+          <Typography variant='subtitle1' fontWeight={800}>Install KAIZNOVA</Typography>
           <Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
             {showIosHelp
               ? <>Tap <Share size={15} style={{ verticalAlign: 'text-bottom' }} /> Share, then choose “Add to Home Screen”.</>
-              : 'Add WiseTech HR to this device for faster, app-like access.'}
+              : 'Add KAIZNOVA to this device for faster, app-like access.'}
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
             <WtButton ghost size='small' onClick={dismiss}>Not now</WtButton>

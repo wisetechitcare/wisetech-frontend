@@ -1,4 +1,4 @@
-import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { UnsavedChangesModal as Modal, toast } from '@app/modules/common/components/ui';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   MapContainer,
@@ -23,20 +23,23 @@ import {
   Phone as PhoneIcon,
   Email as MailIcon,
   Work as BriefcaseIcon,
-  CurrencyRupee as RupeeIcon,
   Business as CompanyIcon,
   PushPin as PinIcon,
   Navigation as NavigationIcon,
   ReportProblemOutlined as ReportIcon,
-  LayersOutlined as LayersIcon
+  LayersOutlined as LayersIcon,
+  IosShare as ShareIcon
 } from "@mui/icons-material";
+import { shareLink, mapsPlaceUrl } from "@utils/webShare";
 import { flagLocationError } from "@services/companies";
-import { Form, Button } from "react-bootstrap";
+import { Form } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
 import { mapStyles } from "./mapTheme";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { currencyPrefix } from '@utils/currency';
-import { canViewCommercial } from '@utils/can';
+import { Button } from '@/ds/ui/button';
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
+import { cssUrl, escapeHtml } from '@app/modules/common/components/ui/safeHtml';
+import { isHexColor } from '@app/modules/common/components/ui/WtColorPicker';
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -301,8 +304,14 @@ const PopupAvatar: React.FC<{
 
 const createCustomIcon = (initials: string, color: string, imageUrl?: string, entityType?: string, isRelated: boolean = false, isDimmed: boolean = false, isAnimating: boolean = false, zoom: number = 4, alwaysShowInitials: boolean = false) => {
   try {
-    // If we have no initials and no image, fallback to theme-colored circle
-    const finalColor = color || "#3498db";
+    // If we have no initials and no image, fallback to theme-colored circle.
+    // This builds a raw HTML string for Leaflet (React's escaping does not apply), so every
+    // value is made safe for where it lands: colour must be a hex, initials are escaped text,
+    // and the image URL becomes a CSS url() via cssUrl (a company logo / contact photo is
+    // typed by users — it used to break out of the style attribute: stored XSS).
+    const finalColor = isHexColor(color) ? color : "#3498db";
+    const safeInitials = escapeHtml(initials || "??");
+    const backgroundImage = cssUrl(imageUrl);
 
     // Dynamic sizing based on zoom level to prevent clutter when zoomed out
     let baseSize = 28;
@@ -363,13 +372,13 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string, en
           overflow: hidden;
           z-index: 1;
         ">
-          ${showDetails ? `<span style="color: ${finalColor}; font-weight: 800; font-size: ${fontSize}px; line-height: 1; z-index: 1; letter-spacing: 0;">${initials || "??"}</span>` : ''}
-          ${showDetails && imageUrl ?
+          ${showDetails ? `<span style="color: ${finalColor}; font-weight: 800; font-size: ${fontSize}px; line-height: 1; z-index: 1; letter-spacing: 0;">${safeInitials}</span>` : ''}
+          ${showDetails && backgroundImage ?
         `<div style="
               position: absolute;
               top: 0; left: 0;
               width: 100%; height: 100%;
-              background-image: url('${imageUrl}');
+              background-image: ${escapeHtml(backgroundImage)};
               background-size: cover;
               background-position: center;
               z-index: 2;
@@ -565,10 +574,34 @@ const LocationMarker = React.memo(({
   }
 
   const handleNavigation = () => {
-    if (!entityId) return;
-    if (isProject) navigate(`/projects/${entityId}`);
+    // Sub-company/branch markers are also isCompany; they have no overview of their own,
+    // so they open their parent company's overview on the matching tab.
+    const childTab = loc.entityType === 'branch' ? 'branches'
+      : (loc.entityType === 'sub-company' || loc.entityType === 'subCompany') ? 'subcompanies' : null;
+    if (childTab) {
+      const parentId = item.mainCompanyId || item.companyId || parent?.id;
+      if (parentId) navigate(`/companies/${parentId}/${childTab}`);
+    } else if (!entityId) {
+      return;
+    } else if (isProject) navigate(`/projects/${entityId}`);
     else if (isCompany) navigate(`/companies/${entityId}`);
     else if (isContact) navigate(`/contacts/${entityId}`);
+  };
+
+  /** Copies a Google Maps link to this point; on phones also opens the share sheet. */
+  const handleShare = async () => {
+    const name = isCompany
+      ? (loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName)
+      : isContact ? (loc.item?.fullName || loc.item?.name) : loc.item?.title;
+    const { copied, outcome } = await shareLink({
+      url: mapsPlaceUrl(loc.lat, loc.lng),
+      title: name || 'Location',
+      text: [name, popupAddress].filter(Boolean).join(' — '),
+    });
+    if (outcome === 'shared' || outcome === 'dismissed') return; // the sheet was the answer
+    toast(copied
+      ? { icon: 'success', title: 'Location link copied' }
+      : { icon: 'error', title: 'Could not copy the link', text: mapsPlaceUrl(loc.lat, loc.lng) });
   };
 
   // 6. Relationship Data (Sub-company / Branch connections)
@@ -710,8 +743,7 @@ const LocationMarker = React.memo(({
           <div className={`company-popup-container${isError ? " popup-error" : ""}`}>
             <div className="popup-header-section centered-header">
               <div className="header-action-left">
-                <button 
-                  className="report-ghost-btn" 
+                <Button variant="ghost" size="icon-sm" type="submit" 
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsReporting(true);
@@ -719,7 +751,7 @@ const LocationMarker = React.memo(({
                   title="Report Issue"
                 >
                   <ReportIcon style={{ fontSize: '20px' }} />
-                </button>
+                </Button>
               </div>
 
               <div className="header-center-content">
@@ -787,10 +819,14 @@ const LocationMarker = React.memo(({
             </div>
 
             <div className="popup-actions">
-              <button className="primary-go-btn" onClick={() => handleGoToLocation(loc.item)}>
+              <Button size="sm" type="submit" onClick={() => handleGoToLocation(loc.item)}>
                 <NavigationIcon style={{ fontSize: "18px" }} />
                 <span>Go to Location</span>
-              </button>
+              </Button>
+              <Button size="sm" variant="inverted" type="button" onClick={handleShare} aria-label="Share location">
+                <ShareIcon style={{ fontSize: "18px" }} />
+                <span>Share</span>
+              </Button>
             </div>
           </div>
         ) : (
@@ -798,8 +834,7 @@ const LocationMarker = React.memo(({
           <div className={`card-popup-container${isError ? " popup-error" : ""}`}>
             <div className="popup-header-section centered-header">
               <div className="header-action-left">
-                <button 
-                  className="report-ghost-btn" 
+                <Button variant="ghost" size="icon-sm" type="submit" 
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsReporting(true);
@@ -807,7 +842,7 @@ const LocationMarker = React.memo(({
                   title="Report Issue"
                 >
                   <ReportIcon style={{ fontSize: '20px' }} />
-                </button>
+                </Button>
               </div>
 
               <div className="header-center-content">
@@ -845,13 +880,7 @@ const LocationMarker = React.memo(({
               )}
 
               <div className="info-grid">
-                {isProject && loc.item?.cost && canViewCommercial('projects') && (
-                  <div className="info-item">
-                    <RupeeIcon className="info-icon" />
-                    <span className="info-text highlight">{currencyPrefix()}{loc.item.cost.toLocaleString()}</span>
-                  </div>
-                )}
-
+                {/* The project's value is deliberately NOT shown on the map, for anyone. */}
                 {isProject && projectClientName && (
                   <div className="info-item">
                     <CompanyIcon className="info-icon" />
@@ -895,10 +924,14 @@ const LocationMarker = React.memo(({
             </div>
 
             <div className="popup-actions">
-              <button className="primary-go-btn" onClick={() => handleGoToLocation(loc.item)}>
+              <Button size="sm" type="submit" onClick={() => handleGoToLocation(loc.item)}>
                 <NavigationIcon style={{ fontSize: "18px" }} />
                 <span>Go to Location</span>
-              </button>
+              </Button>
+              <Button size="sm" variant="inverted" type="button" onClick={handleShare} aria-label="Share location">
+                <ShareIcon style={{ fontSize: "18px" }} />
+                <span>Share</span>
+              </Button>
             </div>
           </div>
         )}
@@ -946,18 +979,14 @@ const LocationMarker = React.memo(({
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button 
-            variant="secondary" 
-            size="sm"
+          <Button variant="outline" size="sm"
             data-unsaved-changes-close
             onClick={() => setIsReporting(false)}
             disabled={isSubmitting}
           >
             Cancel
           </Button>
-          <Button 
-            variant="danger" 
-            size="sm"
+          <Button variant="destructive" size="sm"
             onClick={handleSubmitError}
             disabled={isSubmitting || (!isError && remark.trim() === "" && !loc.item?.isLocationIncorrect)}
           >
@@ -1049,7 +1078,7 @@ const PillDropdown = ({
 
   return (
     <>
-      <button
+      <button data-wt-control="select"
         ref={triggerRef}
         type="button"
         className={`pill-dd ${active ? "active" : ""}`}
@@ -1092,7 +1121,7 @@ const PillDropdown = ({
               }}
             />
             {query && (
-              <button className="pill-dd-search-clear" onMouseDown={(e) => { e.preventDefault(); setQuery(""); searchRef.current?.focus(); }} aria-label="Clear search">×</button>
+              <Button variant="ghost" size="icon-xs" type="submit" onMouseDown={(e) => { e.preventDefault(); setQuery(""); searchRef.current?.focus(); }} aria-label="Clear search">×</Button>
             )}
           </div>
 
@@ -1246,7 +1275,7 @@ export default function Maps({
   }, []);
 
   // Debounced URL sync — writes filter state to URL without triggering navigation
-  const urlSyncRef = useRef<ReturnType<typeof setTimeout>>();
+  const urlSyncRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     if (urlSyncRef.current) clearTimeout(urlSyncRef.current);
     urlSyncRef.current = setTimeout(() => {
@@ -1317,7 +1346,6 @@ export default function Maps({
   const isContact = !!contactData;
   const isProject = !companyData && !contactData;
   const currentData = contactData || companyData || projectData || [];
-  const displayTitle = isContact ? "Contact by Location" : isCompany ? "Company by Location" : "Project by Location";
   // Entity word drives the search placeholder / empty-state copy across all three maps.
   const entityWord = isContact ? "contact" : isCompany ? "company" : "project";
 
@@ -1676,13 +1704,12 @@ export default function Maps({
           aria-expanded={isSearchOpen}
         />
         {searchQuery && (
-          <button
-            className="map-search-clear"
+          <Button variant="ghost" size="icon-xs" type="submit"
             onMouseDown={e => { e.preventDefault(); setSearchQuery(''); setIsSearchOpen(false); setSearchFocusIndex(-1); }}
             aria-label="Clear search"
           >
             ×
-          </button>
+          </Button>
         )}
       </div>
 
@@ -2348,47 +2375,27 @@ export default function Maps({
         }
 
         /* ── Company / Contact map header (title + search) ──────────────── */
-        .entity-map-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 0.75rem 1.5rem;
-          background-color: #f8f9fa;
-          border-bottom: 1px solid #e9ecef;
-          min-height: 4.5rem;
-        }
-        .entity-map-title {
-          font-weight: 600;
-          font-size: 1.5rem;
-          color: #2c3e50;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          min-width: 0;
-        }
-        .entity-map-search { flex-shrink: 0; }
-        .entity-map-search .map-search-wrapper { width: 260px; }
-
-        /* Map height: project map fills the wrapper; entity maps leave room for the header. */
+        /* Company / contact maps: full-height map, search floats top-right. The bar ignores
+           the mouse except on the search itself, so map drag and wheel stay responsive. */
         .map-leaflet--project { height: 100%; }
-        .map-leaflet--entity { height: calc(100% - 4.5rem); }
-        @media (max-width: 640px) {
-          .map-leaflet--entity { height: calc(100% - 7rem); }
+        .map-leaflet--entity { height: 100%; }
+        .entity-search-bar {
+          top: 16px;
+          left: auto;
+          /* Label control is 20px in + 40px wide collapsed; leave 16px between them. */
+          right: 76px;
+          transform: none;
+          animation: none;
+          backdrop-filter: none;
+          -webkit-backdrop-filter: none;
+          pointer-events: none;
         }
-        /* Anchor the dropdown to the search box's right edge on these maps */
-        .entity-map-search .map-search-dropdown { right: 0; left: auto; }
-
-        @media (max-width: 640px) {
-          .entity-map-header {
-            flex-wrap: wrap;
-            align-items: stretch;
-            padding: 0.6rem 1rem;
-            min-height: 7rem;
-          }
-          .entity-map-title { font-size: 1.15rem; width: 100%; }
-          .entity-map-search { width: 100%; }
-          .entity-map-search .map-search-wrapper { width: 100%; }
+        .entity-search-bar .filter-search-area { pointer-events: auto; }
+        /* Expanded label control is 140px wide: move the search bar left of it. */
+        .map-outer-wrapper:has(.map-control-panel.expanded) .entity-search-bar { right: 176px; }
+        /* At 900px and below the control drops to top 80px, below the search bar. */
+        @media (max-width: 900px) {
+          .map-outer-wrapper:has(.map-control-panel.expanded) .entity-search-bar { right: 16px !important; }
         }
 
         @keyframes search-marker-bounce-pulse {
@@ -2650,6 +2657,9 @@ export default function Maps({
 
         .popup-actions {
           padding: 12px 16px 16px 16px;
+          display: flex;
+          justify-content: center;
+          gap: 8px;
         }
 
         .primary-go-btn {
@@ -2696,8 +2706,7 @@ export default function Maps({
 
           {/* Mobile-only: filter trigger button (hidden on desktop via CSS) */}
           <div className="mobile-filter-btn-wrap">
-            <button
-              className={`mobile-filter-btn${activeFilterCount > 0 ? ' has-filters' : ''}`}
+            <Button variant="outline" size="sm" type="submit"
               onClick={() => setIsMobileFilterOpen(true)}
               aria-label={`Open filters${activeFilterCount > 0 ? `, ${activeFilterCount} active` : ''}`}
             >
@@ -2706,13 +2715,20 @@ export default function Maps({
               {activeFilterCount > 0 && (
                 <span className="mobile-filter-badge">{activeFilterCount}</span>
               )}
-            </button>
+            </Button>
           </div>
 
           {/* Scrollable pills — All, World, count, cascading dropdowns, Clear */}
           <div className="filter-pills-scroll">
 
-            <div
+            <div data-wt-control="chip" {...pressableProps(() => {
+                setIsWorldFilter(false);
+                setSelectedCountry(null);
+                setSelectedState(null);
+                setSelectedCity(null);
+                setSelectedLocality(null);
+                setFlyTarget({ lat: 20, lng: 10, zoom: 2 });
+              })}
               className={`pill-button pill-button--all ${!isWorldFilter && !selectedCountry && !selectedState && !selectedCity && !selectedLocality ? "active" : ""}`}
               onClick={() => {
                 setIsWorldFilter(false);
@@ -2731,7 +2747,13 @@ export default function Maps({
 
             <div className="filter-divider" />
 
-            <div
+            <div data-wt-control="chip" {...pressableProps(() => {
+                setIsWorldFilter(prev => !prev);
+                setSelectedCountry(null);
+                setSelectedState(null);
+                setSelectedCity(null);
+                setSelectedLocality(null);
+              })}
               className={`pill-button ${isWorldFilter ? "active" : ""}`}
               onClick={() => {
                 setIsWorldFilter(prev => !prev);
@@ -2836,7 +2858,7 @@ export default function Maps({
 
             {/* Clear — visible when any filter is active */}
             {(selectedCountry || selectedState || selectedCity || selectedLocality || isWorldFilter) && (
-              <button
+              <Button variant="ghost" size="sm" type="submit" style={{ flexShrink: 0 }}
                 onClick={() => {
                   setSelectedCountry(null);
                   setSelectedState(null);
@@ -2844,11 +2866,10 @@ export default function Maps({
                   setSelectedLocality(null);
                   setIsWorldFilter(false);
                 }}
-                style={{ border: "none", background: "none", color: "#ef4444", fontSize: "13px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, paddingLeft: 4 }}
                 aria-label="Clear all filters"
               >
                 Clear
-              </button>
+              </Button>
             )}
           </div>{/* end filter-pills-scroll */}
 
@@ -2863,12 +2884,12 @@ export default function Maps({
       {/* ── Mobile filter bottom-sheet — portaled to <body>: the wrapper's isolation
           would otherwise trap its fixed overlay under the sticky tab bar. ── */}
       {isMobileFilterOpen && isProject && createPortal(
-        <div className="mobile-filter-overlay" onClick={() => setIsMobileFilterOpen(false)}>
-          <div className="mobile-filter-sheet" onClick={e => e.stopPropagation()}>
+        <div data-wt-control="backdrop" className="mobile-filter-overlay" onClick={() => setIsMobileFilterOpen(false)}>
+          <div data-wt-control="container" className="mobile-filter-sheet" onClick={e => e.stopPropagation()}>
             <div className="mobile-filter-drag-handle" />
             <div className="mobile-filter-header">
               <h3 className="mobile-filter-title">Filters</h3>
-              <button className="mobile-filter-close" onClick={() => setIsMobileFilterOpen(false)} aria-label="Close filters">×</button>
+              <Button variant="ghost" size="icon-sm" type="submit" onClick={() => setIsMobileFilterOpen(false)} aria-label="Close filters">×</Button>
             </div>
             <div className="mobile-filter-body">
 
@@ -2876,14 +2897,14 @@ export default function Maps({
               <div className="mf-row">
                 <span className="mf-label">View</span>
                 <div className="mf-toggle-row">
-                  <button
+                  <button data-wt-control="segmented" aria-pressed={!isWorldFilter}
                     className={`mf-toggle-btn${!isWorldFilter ? ' active' : ''}`}
                     onClick={() => { setIsWorldFilter(false); setSelectedCountry(null); setSelectedState(null); setSelectedCity(null); setSelectedLocality(null); }}
                   >
                     <BriefcaseIcon style={{ fontSize: 15, marginRight: 4 }} />
                     All ({locations.length})
                   </button>
-                  <button
+                  <button data-wt-control="segmented" aria-pressed={isWorldFilter}
                     className={`mf-toggle-btn${isWorldFilter ? ' active' : ''}`}
                     onClick={() => { setIsWorldFilter(true); setSelectedCountry(null); setSelectedState(null); setSelectedCity(null); setSelectedLocality(null); }}
                   >
@@ -2975,26 +2996,24 @@ export default function Maps({
 
             </div>
             <div className="mobile-filter-footer">
-              <button
-                className="mf-btn-reset"
+              <Button variant="outline" type="submit"
                 onClick={() => { setSelectedCountry(null); setSelectedState(null); setSelectedCity(null); setSelectedLocality(null); setIsWorldFilter(false); }}
               >
                 Reset All
-              </button>
-              <button className="mf-btn-apply" onClick={() => setIsMobileFilterOpen(false)}>
+              </Button>
+              <Button type="submit" onClick={() => setIsMobileFilterOpen(false)}>
                 Apply Filters
-              </button>
+              </Button>
             </div>
           </div>
         </div>,
         document.body
       )}
 
-      {/* Header for company / contact maps — title + working, responsive search */}
+      {/* Company / contact maps: the project map's search bar only, floating top-right. */}
       {!isProject && (
-        <div className="entity-map-header">
-          <div className="entity-map-title">{displayTitle}</div>
-          <div className="entity-map-search">
+        <div className="floating-filter-bar entity-search-bar" role="toolbar" aria-label={`${entityWord} search`}>
+          <div className="filter-search-area">
             {renderMapSearch()}
           </div>
         </div>
@@ -3115,8 +3134,7 @@ export default function Maps({
         className={`map-control-panel ${isLabelPanelExpanded ? 'expanded' : 'collapsed'}`}
       >
         {!isLabelPanelExpanded ? (
-          <button
-            className="map-control-toggle-btn"
+          <Button variant="ghost" size="icon-sm" type="submit"
             onClick={() => setIsLabelPanelExpanded(true)}
             title="Label Display"
             aria-label="Toggle map label settings"
@@ -3128,18 +3146,17 @@ export default function Maps({
               }}
             />
             {labelMode !== 'none' && <div className="active-indicator-dot" />}
-          </button>
+          </Button>
         ) : (
           <div className="map-control-expanded-content" role="group" aria-label="Map label options">
             <div className="map-control-header">
               <span className="map-control-title">Map Labels</span>
-              <button
-                className="map-control-close-btn"
+              <Button variant="ghost" size="icon-sm" type="submit"
                 onClick={() => setIsLabelPanelExpanded(false)}
                 aria-label="Close label settings"
               >
                 &times;
-              </button>
+              </Button>
             </div>
 
             <label className="map-control-option">

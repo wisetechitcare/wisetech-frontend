@@ -2,6 +2,7 @@
 import React, {FC} from 'react'
 import {KTIcon} from '../../../helpers'
 import {ChatInner} from '../../chat/ChatInner'
+import { Button } from '@/ds/ui/button';
 
 const DrawerMessenger: FC = () => (
   <div
@@ -33,19 +34,18 @@ const DrawerMessenger: FC = () => (
 
         <div className='card-toolbar'>
           <div className='me-2'>
-            <button
-              className='btn btn-sm btn-icon btn-active-light-primary'
+            <Button variant="ghost" size="icon-sm" type="submit" aria-label="More actions"
               data-kt-menu-trigger='click'
               data-kt-menu-placement='bottom-end'
               data-kt-menu-flip='top-end'
             >
               <i className='bi bi-three-dots fs-3'></i>
-            </button>
+            </Button>
           </div>
 
-          <div className='btn btn-sm btn-icon btn-active-light-primary' id='kt_drawer_chat_close'>
+          <Button variant="ghost" size="icon-sm" aria-label="Close" id='kt_drawer_chat_close'>
             <KTIcon iconName='cross' className='fs-2' />
-          </div>
+          </Button>
         </div>
       </div>
 

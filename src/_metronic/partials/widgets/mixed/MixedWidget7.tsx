@@ -1,6 +1,7 @@
 import React, {useEffect, useRef} from 'react'
 import ApexCharts, {ApexOptions} from 'apexcharts'
 import {KTIcon} from '../../../helpers'
+import {Button, buttonVariants} from '@/ds/ui/button'
 import {getCSSVariableValue} from '../../../assets/ts/_utils'
 import {Dropdown1} from '../../content/dropdown/Dropdown1'
 import {useThemeMode} from '../../layout/theme-mode/ThemeModeProvider'
@@ -49,15 +50,16 @@ const MixedWidget7: React.FC<Props> = ({className, chartColor, chartHeight}) => 
 
         <div className='card-toolbar'>
           {/* begin::Menu */}
-          <button
-            type='button'
-            className='btn btn-sm btn-icon btn-color-primary btn-active-light-primary'
+          <Button
+            variant='tinted'
+            size='icon-sm'
+            aria-label='Menu'
             data-kt-menu-trigger='click'
             data-kt-menu-placement='bottom-end'
             data-kt-menu-flip='top-end'
           >
             <KTIcon iconName='category' className='fs-2' />
-          </button>
+          </Button>
           <Dropdown1 />
           {/* end::Menu */}
         </div>
@@ -78,7 +80,15 @@ const MixedWidget7: React.FC<Props> = ({className, chartColor, chartHeight}) => 
             to approve newly amended policies
           </p>
 
-          <a href='#' className={`btn btn-${chartColor} w-100 py-3`}>
+          <a
+            href='#'
+            data-slot='button'
+            className={buttonVariants({
+              variant: chartColor === 'danger' ? 'destructive' : chartColor === 'success' ? 'success' : 'default',
+              size: 'lg',
+              className: 'w-100',
+            })}
+          >
             Take Action
           </a>
         </div>

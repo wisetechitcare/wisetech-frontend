@@ -1,5 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Button } from '@/ds/ui/button';
 
 const ProjectFormPage: React.FC = () => {
   const { projectId } = useParams();
@@ -17,15 +18,14 @@ const ProjectFormPage: React.FC = () => {
         <div className="mt-8 border p-4 bg-gray-50 rounded">
           <div className="d-flex justify-content-between align-items-center mb-4">
             <h3 className="m-0">Lead Information</h3>
-            <button 
-              className="btn btn-sm btn-primary"
+            <Button size="sm" type="submit"
               onClick={() => {
                 // Example redirect workflow: Edit Lead from Project Form
                 // navigate(`/crm/leads/${leadId}/edit?returnTo=project&projectId=${projectId}`);
               }}
             >
               Edit Lead
-            </button>
+            </Button>
           </div>
           <p className="text-muted">Read-only details of the associated lead...</p>
           {/* TODO: Add Customer, Company, Contact, Sales Exec (Read-only) */}

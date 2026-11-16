@@ -43,10 +43,15 @@ import { contentRevealTransition, fadeAnimation } from '../motion';
  * side of that boundary and is expected to know shell state.
  */
 export function WorkspaceHeader() {
-  const { mode, activeApp, activeModule, homePath } = useWorkspaceShell();
+  const { mode, activeApp, activeModule, requestedSlug, homePath } = useWorkspaceShell();
 
   if (mode === 'home') return null;
   if (!activeApp) return null;
+  // activeApp can be the sticky "last app" for a page that is not in the nav tree at all (a
+  // project's Billing tab, a wizard). Showing the app's identity there reads as "you are in
+  // Finance" when you are not. Only an app landing (/workspace/:slug) or a module page owns the
+  // header; anywhere else the page brings its own title.
+  if (!requestedSlug && !activeModule) return null;
 
   const accent = sectionAccent(activeApp.id);
   const Icon = navIcon(activeApp.icon);

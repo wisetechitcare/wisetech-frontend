@@ -25,6 +25,7 @@ import { rgba, tintOf, borderOf } from '@utils/leaveTypeColors';
 import { ACCENT, RED, PJK, DAY_NAMES, pad, navBtnSt } from './tokens';
 import { structuralDayKind, structuralDayTone, type StructuralColors } from '@app/modules/common/components/ui/tw/calendarDayTones';
 import { useLeavePalette } from './theme';
+import { Button } from '@/ds/ui/button';
 
 export interface LeaveCalendarProps {
     /** Displayed month. */
@@ -426,9 +427,9 @@ function LeaveCalendarBase({
                 document.body,
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: small ? 10 : 12 }}>
-                <button onClick={() => nav(-1)} style={navBtnSt(small, P)}>‹</button>
+                <Button variant="outline" size="icon-sm" type="submit" aria-label="Previous month" onClick={() => nav(-1)}>‹</Button>
                 <span style={{ fontSize: small ? 14 : 15, fontWeight: 700, color: P.ink, fontFamily: PJK }}>{monthLabel}</span>
-                <button onClick={() => nav(1)} style={navBtnSt(small, P)}>›</button>
+                <Button variant="outline" size="icon-sm" type="submit" aria-label="Next month" onClick={() => nav(1)}>›</Button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: small ? 2 : 4, marginBottom: small ? 2 : 4 }}>
                 {labels.map((w, i) => <div key={i} style={{ textAlign: 'center', fontSize: small ? 10 : 11, fontWeight: 600, color: i === 6 ? RED : P.inkMuted, textTransform: 'uppercase' }}>{w}</div>)}

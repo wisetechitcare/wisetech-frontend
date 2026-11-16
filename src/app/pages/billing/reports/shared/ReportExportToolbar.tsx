@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import {
-  Stack, IconButton, Tooltip, CircularProgress, Menu, MenuItem, ListItemIcon, ListItemText, Divider, Button, ButtonGroup,
+  Stack, Tooltip, Menu, MenuItem, ListItemIcon, ListItemText, Divider,
 } from "@mui/material";
+import { Button } from "@/ds/ui/button";
 import DownloadIcon from "@mui/icons-material/Download";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import TableChartIcon from "@mui/icons-material/TableChart";
@@ -99,34 +100,45 @@ function ReportExportToolbar<T>({
         <ExportButton data={data} columns={columns} filename={filename} title={title} subtitle={subtitle} showTotals={showTotals} />
         <Tooltip title="Export PDF">
           <span>
-            <IconButton size="small" onClick={() => run("pdf")} disabled={loading !== null} sx={{ border: "1px solid", borderColor: "divider", borderRadius: "10px" }}>
-              {loading === "pdf" ? <CircularProgress size={16} /> : <PictureAsPdfIcon sx={{ fontSize: 18, color: "#dc2626" }} />}
-            </IconButton>
+            <Button
+              variant="outline" size="icon-sm" aria-label="Export PDF"
+              onClick={() => run("pdf")} disabled={loading !== null} loading={loading === "pdf"}
+            >
+              <PictureAsPdfIcon sx={{ fontSize: 18, color: "#dc2626" }} />
+            </Button>
           </span>
         </Tooltip>
         <Tooltip title="Print">
-          <IconButton size="small" onClick={() => window.print()} sx={{ border: "1px solid", borderColor: "divider", borderRadius: "10px" }}>
+          <Button variant="outline" size="icon-sm" aria-label="Print" onClick={() => window.print()}>
             <PrintIcon sx={{ fontSize: 18 }} />
-          </IconButton>
+          </Button>
         </Tooltip>
       </Stack>
     );
   }
 
+  const exporting = !!loading && loading !== "pdf";
+
   return (
     <Stack direction="row" spacing={0.75} alignItems="center">
-      <ButtonGroup variant="outlined" size="small" disabled={loading !== null} sx={{ borderRadius: "10px", overflow: "hidden" }}>
+      {/* Split button: both halves open the same format menu. */}
+      <div className="inline-flex">
         <Button
-          startIcon={loading && loading !== "pdf" ? <CircularProgress size={14} /> : <DownloadIcon sx={{ fontSize: 16 }} />}
+          variant="outline" size="sm" className="rounded-r-none"
+          disabled={loading !== null} loading={exporting}
           onClick={(e) => setAnchorEl(e.currentTarget)}
-          sx={{ textTransform: "none", fontWeight: 700, fontSize: 13, borderRadius: "10px 0 0 10px" }}
         >
-          {loading && loading !== "pdf" ? "Exporting…" : "Export"}
+          {!exporting && <DownloadIcon data-icon="inline-start" sx={{ fontSize: 16 }} />}
+          {exporting ? "Exporting…" : "Export"}
         </Button>
-        <Button size="small" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ borderRadius: "0 10px 10px 0", px: 0.5 }}>
+        <Button
+          variant="outline" size="icon-sm" className="-ml-px rounded-l-none" aria-label="Choose export format"
+          disabled={loading !== null}
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+        >
           <ArrowDropDownIcon sx={{ fontSize: 20 }} />
         </Button>
-      </ButtonGroup>
+      </div>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
         <MenuItem onClick={() => run("xlsx")}>
           <ListItemIcon><TableChartIcon sx={{ fontSize: 18, color: "#1d6f42" }} /></ListItemIcon>
@@ -140,15 +152,18 @@ function ReportExportToolbar<T>({
       </Menu>
       <Tooltip title="Export PDF">
         <span>
-          <IconButton size="small" onClick={() => run("pdf")} disabled={loading !== null} sx={{ border: "1px solid", borderColor: "divider", borderRadius: "10px" }}>
-            {loading === "pdf" ? <CircularProgress size={16} /> : <PictureAsPdfIcon sx={{ fontSize: 18, color: "#dc2626" }} />}
-          </IconButton>
+          <Button
+            variant="outline" size="icon-sm" aria-label="Export PDF"
+            onClick={() => run("pdf")} disabled={loading !== null} loading={loading === "pdf"}
+          >
+            <PictureAsPdfIcon sx={{ fontSize: 18, color: "#dc2626" }} />
+          </Button>
         </span>
       </Tooltip>
       <Tooltip title="Print">
-        <IconButton size="small" onClick={() => window.print()} sx={{ border: "1px solid", borderColor: "divider", borderRadius: "10px" }}>
+        <Button variant="outline" size="icon-sm" aria-label="Print" onClick={() => window.print()}>
           <PrintIcon sx={{ fontSize: 18 }} />
-        </IconButton>
+        </Button>
       </Tooltip>
     </Stack>
   );

@@ -1,3 +1,5 @@
+import { ProjectAvatar } from "@app/modules/project-gallery/ProjectAvatar";
+import { initialsOf } from "@app/modules/project-gallery/media";
 import { useEffect, useMemo, useState } from "react";
 import { useOpenRecord } from "@hooks/useOpenRecord";
 import { useDispatch, useSelector } from "react-redux";
@@ -111,11 +113,13 @@ export const buildProjectColumns = ({ categories, subcategories, services, pmNam
     header: "Project Name",
     size: 360,
     minSize: 360,
-    Cell: ({ cell }: { cell: any }) => {
+    Cell: ({ cell, row }: { cell: any; row: any }) => {
       const v = cell.getValue();
+      const name = typeof v === "object" ? JSON.stringify(v) : v || "N/A";
       return (
-        <span style={{ whiteSpace: "nowrap" }}>
-          {typeof v === "object" ? JSON.stringify(v) : v || "N/A"}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
+          <ProjectAvatar src={row.original.coverImageUrl} label={initialsOf(name)} className="size-8 text-xs" />
+          {name}
         </span>
       );
     },
@@ -423,6 +427,7 @@ export const ProjectListTable = ({ projects, tableName }: { projects: any[]; tab
       return {
         id: p.id,
         projectName: p.title || "N/A",
+        coverImageUrl: p.coverImageUrl || null,
         projectPrefix: projectNumberOf(p) || "N/A",
         projectStartDate: start || "N/A",
         projectEndDate: end || "N/A",
@@ -440,7 +445,7 @@ export const ProjectListTable = ({ projects, tableName }: { projects: any[]; tab
         projectCost: Number(p.cost) || p.projectValue || 0,
         totalCost: p.projectValue || 0,
         projectRate: Number(p.rate) || 0,
-        projectArea: parseFloat(ad.projectArea) || parseFloat(ad.builtUpArea) || parseFloat(ad.plotArea) || 0,
+        projectArea: (p.commercials || []).reduce((s: number, c: any) => s + (parseFloat(c.area) || 0), 0) || parseFloat(ad.builtUpArea) || parseFloat(ad.plotArea) || 0,
         projectManagerIds: p.projectManagerIds || [],
         projectManagerId: p.execution?.projectManagerId || "N/A",
         projectTeamName: p.team?.name || "N/A",

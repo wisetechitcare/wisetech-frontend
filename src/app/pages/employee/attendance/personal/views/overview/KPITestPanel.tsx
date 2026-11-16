@@ -332,7 +332,7 @@ ORDER BY ks.scoredAt DESC, kf.name;
         <h3 style={{ margin: 0, color: '#89b4fa' }}>
           🧪 KPI Testing Panel
         </h3>
-        <button
+        <button data-wt-control="dev"
           onClick={onClose}
           style={{
             backgroundColor: '#f38ba8',
@@ -477,7 +477,7 @@ ORDER BY ks.scoredAt DESC, kf.name;
           {/* Action Buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px' }}>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button
+              <button data-wt-control="dev"
                 onClick={runCheckinTest}
                 disabled={selectedScenario?.checkinTime === 'NA'}
                 style={{
@@ -493,7 +493,7 @@ ORDER BY ks.scoredAt DESC, kf.name;
               >
                 ▶️ Run Check-In Test
               </button>
-              <button
+              <button data-wt-control="dev"
                 onClick={runCheckoutTest}
                 disabled={!selectedScenario?.checkoutTime}
                 style={{
@@ -510,7 +510,7 @@ ORDER BY ks.scoredAt DESC, kf.name;
                 ▶️ Run Check-Out Test
               </button>
             </div>
-            <button
+            <button data-wt-control="dev"
               onClick={stopTest}
               style={{
                 width: '100%',
@@ -529,7 +529,7 @@ ORDER BY ks.scoredAt DESC, kf.name;
 
           {/* SQL Query */}
           <div style={{ marginBottom: '15px' }}>
-            <button
+            <button data-wt-control="dev"
               onClick={() => {
                 navigator.clipboard.writeText(generateSQLQuery());
                 alert('SQL query copied to clipboard!');

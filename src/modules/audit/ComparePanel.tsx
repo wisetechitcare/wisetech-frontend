@@ -3,13 +3,18 @@ import { C, FONT, RADIUS } from '@/app/modules/configuration/ConfigDesignSystem'
 import { AuditEntityType } from './audit.service';
 import { DiffViewer, DiffMode } from './DiffViewer';
 import { useAuditDiff, useAuditTimeline } from './hooks';
-import { actorKind, displayActor, humanizeSummary, initials } from './tokens';
+import { actorKind, displayActor, humanizeSummary } from './tokens';
 import { fromNow } from './time';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 export interface RevisionMeta {
   rev: number;
   actorName: string;
+  /** The actor's photo URL and employee id (the initials colour seed). */
+  actorAvatar?: string | null;
+  actorId?: string | null;
   isSystem: boolean;
   changedAt?: string | null;
   summary?: string;
@@ -37,8 +42,9 @@ const ORIGINAL: RevisionMeta = {
 };
 
 /* ─── Avatar ──────────────────────────────────────────────────────────────── */
+// A person gets the one SmartAvatar; the system actor keeps its gear tile (it is not a person).
 const Avatar: React.FC<{ meta: RevisionMeta; size?: number }> = ({ meta, size = 30 }) => (
-  <div
+  !meta.isSystem ? <SmartAvatar name={meta.actorName} src={meta.actorAvatar} seed={meta.actorId} size={size} decorative /> : <div
     style={{
       width: size,
       height: size,
@@ -56,11 +62,7 @@ const Avatar: React.FC<{ meta: RevisionMeta; size?: number }> = ({ meta, size = 
     }}
     aria-hidden
   >
-    {meta.isSystem ? (
-      <AppIcon name="bi-gear-fill" style={{ fontSize: size * 0.42 }} />
-    ) : (
-      initials(meta.actorName.split(' ')[0], meta.actorName.split(' ')[1])
-    )}
+    <AppIcon name="bi-gear-fill" style={{ fontSize: size * 0.42 }} />
   </div>
 );
 
@@ -90,7 +92,7 @@ const RevisionPicker: React.FC<{
       <div style={{ fontFamily: FONT.body, fontSize: 11, fontWeight: 700, color: C.textSecondary, marginBottom: 6, letterSpacing: '0.3px' }}>
         {label}
       </div>
-      <button
+      <button data-wt-control="select"
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
@@ -227,6 +229,8 @@ export const ComparePanel: React.FC<Props> = ({ type, id, from, to, onApply, onR
       m.set(cs.revisionNumber, {
         rev: cs.revisionNumber,
         actorName: displayActor(cs.changedByFirstName, cs.changedByLastName),
+        actorAvatar: cs.changedByAvatar ?? null,
+        actorId: cs.changedByEmployeeId,
         isSystem:
           actorKind({
             first: cs.changedByFirstName,
@@ -297,28 +301,14 @@ export const ComparePanel: React.FC<Props> = ({ type, id, from, to, onApply, onR
             disabledRev={inTo}
             onChange={setInFrom}
           />
-          <button
+          <Button variant="outline" size="icon-sm" style={{ marginBottom: 1, flexShrink: 0 }}
             type="button"
             onClick={swap}
             title="Swap revisions"
             aria-label="Swap revisions"
-            style={{
-              marginBottom: 1,
-              width: 36,
-              height: 36,
-              flexShrink: 0,
-              borderRadius: RADIUS.md,
-              border: `1px solid ${C.border}`,
-              backgroundColor: C.bgCard,
-              color: C.textSecondary,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
           >
             <AppIcon name="bi-arrow-left-right" className="fs-7" aria-hidden />
-          </button>
+          </Button>
           <RevisionPicker
             label="COMPARE TO"
             value={inTo}
@@ -326,31 +316,13 @@ export const ComparePanel: React.FC<Props> = ({ type, id, from, to, onApply, onR
             disabledRev={inFrom}
             onChange={setInTo}
           />
-          <button
+          <Button size="sm" style={{ marginBottom: 1 }}
             type="button"
             disabled={!canCompare}
             onClick={() => apply(inFrom, inTo)}
-            style={{
-              marginBottom: 1,
-              padding: '9px 22px',
-              height: 38,
-              borderRadius: RADIUS.md,
-              border: 'none',
-              backgroundColor: canCompare ? C.primary : C.border,
-              color: canCompare ? '#fff' : C.textMuted,
-              fontFamily: FONT.body,
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: canCompare ? 'pointer' : 'not-allowed',
-              boxShadow: canCompare ? `0 4px 12px ${C.primaryShadow}` : 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 7,
-              transition: 'all .15s ease',
-            }}
           >
             <AppIcon name="bi-arrow-left-right" aria-hidden /> Compare
-          </button>
+          </Button>
         </div>
 
         {sameSelected && (
@@ -383,27 +355,13 @@ export const ComparePanel: React.FC<Props> = ({ type, id, from, to, onApply, onR
               // compare R2 ↔ R5 then Reset → rewinds to R2, deleting R3–R5. Hidden when
               // "from" is the synthetic baseline (R0) or already the current revision.
               canReset && from != null && from >= 1 && from !== currentRev ? (
-                <button
+                <Button variant="tinted" size="sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
                   type="button"
                   onClick={() => onReset(from)}
                   title={`Reset the record back to version ${from} (deletes all newer versions)`}
-                  style={{
-                    background: 'transparent',
-                    color: C.danger,
-                    border: `1px solid ${C.danger}55`,
-                    borderRadius: RADIUS.md,
-                    padding: '6px 12px',
-                    fontFamily: FONT.body,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                  }}
                 >
                   <AppIcon name="bi-arrow-counterclockwise" aria-hidden /> Reset to R{from}
-                </button>
+                </Button>
               ) : null
             }
           />

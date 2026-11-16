@@ -1,16 +1,8 @@
 import type { ReactNode } from "react";
-import {
-  Avatar,
-  Box,
-  IconButton,
-  Paper,
-  Stack,
-  Typography,
-  alpha,
-  useTheme,
-} from "@mui/material";
+import { Avatar, Box, Paper, Stack, Typography, alpha, useTheme } from "@mui/material";
 import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
 import { TRIO } from "@app/modules/common/components/ui/patterns";
+import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
 export default function PeopleGroupHeader({
   title,
@@ -54,7 +46,7 @@ export default function PeopleGroupHeader({
         sx={{ width: "100%", minWidth: 0 }}
       >
         {/* WhatsApp-style back — icon only on small screens */}
-        <IconButton
+        <WtIconButton
           onClick={onBack}
           aria-label="Back"
           size="small"
@@ -65,7 +57,7 @@ export default function PeopleGroupHeader({
           }}
         >
           <AppIcon name="bi-chevron-left" className="fs-2" />
-        </IconButton>
+        </WtIconButton>
 
         <Stack
           direction="row"

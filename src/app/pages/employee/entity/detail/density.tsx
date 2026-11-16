@@ -73,6 +73,7 @@ export const DensityToggle: React.FC<{ mode: DensityMode; onChange: (m: DensityM
         <button
           key={m.key}
           type="button"
+          aria-pressed={active}
           onClick={() => onChange(m.key)}
           title={`${m.label} view`}
           style={{

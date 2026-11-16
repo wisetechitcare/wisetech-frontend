@@ -17,6 +17,7 @@ import {
 } from "@mui/icons-material";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 import { canViewCommercial } from '@utils/can';
+import CategoryRevisionHistory from "@/modules/audit/CategoryRevisionHistory";
 
 /**
  * Placeholder body for wizard steps that exist in the flow but are not built yet.
@@ -216,6 +217,13 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       label: "Overview & Assignment",
       title: "Overview & Assignment",
       subtitle: "Basic lead information and assignment details",
+      titleAdornment: props.currLeadData?.revisionCount != null && (
+        <ToneChip
+          tone="brand"
+          label={`Revision No. R${props.currLeadData.revisionCount}`}
+          title="Revision number is managed automatically by the audit system"
+        />
+      ),
       fields: [
         "projectName",
         "serviceIds",
@@ -536,7 +544,15 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       stepProps={props}
       summary={{
         title: "Lead Summary",
-        rows: (values, currentStep) => getSummaryRows(values, currentStep),
+        // On the Commercials step of an existing lead the sidebar is the revision trail alone.
+        rows: (values, currentStep) =>
+          props.isEditMode && props.currLeadData?.id && currentStep?.id === "commercials" ? [] : getSummaryRows(values, currentStep),
+        // The commercial revision trail lives beside the figures it explains, on the
+        // Commercials step of an existing lead only.
+        extra: (_values, currentStep) =>
+          props.isEditMode && props.currLeadData?.id && currentStep?.id === "commercials" ? (
+            <CategoryRevisionHistory type="LEAD" id={props.currLeadData.id} fieldPrefix="commercials" compact />
+          ) : null,
         warningMessage: !props.hasDefaultStatus()
           ? "Please configure a default status in Lead configuration settings first."
           : undefined,
