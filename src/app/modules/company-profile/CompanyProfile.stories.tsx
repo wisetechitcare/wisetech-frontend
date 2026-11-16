@@ -6,7 +6,7 @@ import { DEMO_DATA, DEMO_SECTIONS } from './fixtures'
 
 /**
  * Company Profile builder (prototype: demo data, local state only, not wired to the app). Same builder, section
- * list, stage and slides as CRM → Company Profile. Cover, About, Who we are and Contact are hardcoded copy; every
+ * list, stage and slides as CRM → Company Profile. Cover, About, What drives us and Contact are hardcoded copy; every
  * project category gets its own section, and the client wall flows onto as many slides as it needs. Slides can be
  * shown, hidden and (project slides) reordered one by one; a presentation shows at most 20.
  */
@@ -41,12 +41,12 @@ export const AboutUs: Story = {
   play: async ({ canvas }) => {
     const stage = within(canvas.getByRole('region', { name: /About us/ }))
     await expect(stage.getByText('Our journey')).toBeInTheDocument()
-    await expect(stage.getByText('Company established')).toBeInTheDocument()
+    await expect(stage.getByText('Company Founded')).toBeInTheDocument()
     await expect(stage.getByTestId('slide-page')).toHaveTextContent(`2 of ${N}`)
   },
 }
 
-/** Who we are: vision, mission and values. */
+/** What drives us: vision, mission and values. */
 export const WhoWeAre: Story = { args: { initialSlideId: 'vision' } }
 
 /** Services, picked from the CRM services list, with how many projects used each. */

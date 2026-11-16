@@ -1,4 +1,4 @@
-import React, { useId, useMemo } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 import { Box, Stack, TextField, Tooltip } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { TRIO, type Trio } from './patterns';
@@ -105,6 +105,8 @@ export function WtColorPicker({
     variant = 'grid',
 }: WtColorPickerProps) {
     const inputId = useId();
+    /** The hex being typed, until it loses focus (null = show the current colour). */
+    const [draft, setDraft] = useState<string | null>(null);
     const currentHex = useMemo(() => resolveSwatchHex(value, palette), [value, palette]);
     const isCustom = useMemo(
         () => isHexColor(value) && !palette.some((swatch) => swatch.hex.toLowerCase() === value.toLowerCase()),
@@ -185,6 +187,8 @@ export function WtColorPicker({
                                     color: '#fff',
                                     border: '2px solid',
                                     borderColor: selected ? 'text.primary' : 'transparent',
+                                    // A hairline keeps a white / near-surface swatch visible on the popover.
+                                    boxShadow: (t) => `inset 0 0 0 1px ${t.palette.divider}`,
                                     transform: selected ? 'scale(1.08)' : 'none',
                                     transition: 'transform .15s, border-color .15s',
                                     opacity: disabled ? 0.5 : 1,
@@ -236,14 +240,16 @@ export function WtColorPicker({
                 <TextField
                     size="small"
                     label="Hex"
-                    value={currentHex.toUpperCase()}
+                    value={draft ?? currentHex.toUpperCase()}
                     disabled={disabled}
                     onChange={(event) => {
                         const next = event.target.value.trim();
-                        // Only commit a complete, valid hex — a partial one would
-                        // repaint the preview to the fallback on every keystroke.
+                        // The field keeps what is typed; only a complete, valid hex is
+                        // committed — a partial one would repaint to the fallback.
+                        setDraft(next);
                         if (isHexColor(next)) onChange(next);
                     }}
+                    onBlur={() => setDraft(null)}
                     inputProps={{ maxLength: 7, spellCheck: false }}
                     sx={{ width: 140 }}
                 />

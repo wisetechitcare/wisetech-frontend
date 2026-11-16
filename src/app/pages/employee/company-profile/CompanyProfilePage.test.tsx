@@ -8,9 +8,10 @@ import CompanyProfilePage from "./CompanyProfilePage"
 // CRM → Company Profile on sample data. The organisation's logo is the one thing read from the app, so it is
 // the one thing mocked here; toasts are captured to check the slide-limit message.
 const toast = vi.hoisted(() => vi.fn())
+const confirmDialog = vi.hoisted(() => vi.fn(async () => true))
 vi.mock("@redux/store", () => ({ store: { getState: () => ({ appSettings: {} }), dispatch: () => {}, subscribe: () => () => {} } }))
 vi.mock("@hooks/useRootOrgNames", () => ({ useHomeRootOrg: () => ({ id: "org-1", name: "WISETECH", logo: "https://cdn.example/org-logo.png" }) }))
-vi.mock("@app/modules/common/components/ui", async (real) => ({ ...(await real<object>()), toast }))
+vi.mock("@app/modules/common/components/ui", async (real) => ({ ...(await real<object>()), toast, confirmDialog }))
 
 afterEach(() => {
   cleanup()
@@ -25,7 +26,7 @@ const SERVICES = DEMO_DATA.services
 const DECK = [
   "1. Cover",
   "2. About us",
-  "3. Who we are",
+  "3. What drives us",
   "4. Services we offer",
   "5. High-rise 1",
   "6. High-rise 2",
@@ -39,14 +40,18 @@ const DECK = [
   "14. Our Clients 3",
   "15. Our Clients 4",
   "16. Our Clients 5",
+  "17. Repeat clients",
+  "18. Our projects across India",
+  "19. Our projects worldwide",
+  "20. Contact",
 ]
 
 describe("Company Profile page", () => {
-  test("generates a section per project category and the client wall, and opens on the cover with the organisation's logo", () => {
+  test("generates the Storybook deck (categories, client wall, repeat clients, both maps, contact) and opens on the cover with the organisation's logo", () => {
     render(<CompanyProfilePage />)
     expect(filmstrip()).toEqual(DECK)
-    expect(counter().textContent).toContain("1 / 16")
-    expect(budget().textContent).toBe("16 of 20 slides selected")
+    expect(counter().textContent).toContain("1 / 20")
+    expect(budget().textContent).toBe("20 of 20 slides selected")
     expect(stage().querySelector('img[src="https://cdn.example/org-logo.png"]')).not.toBeNull()
   })
 
@@ -54,9 +59,23 @@ describe("Company Profile page", () => {
     const user = userEvent.setup()
     render(<CompanyProfilePage />)
     await user.click(screen.getByRole("button", { name: "2. About us" }))
-    expect(within(stage()).getByTestId("slide-page").textContent).toBe("2 of 16")
-    await user.click(screen.getByRole("button", { name: "Include Who we are", pressed: true }))
-    expect(within(stage()).getByTestId("slide-page").textContent).toBe("2 of 15")
+    expect(within(stage()).getByTestId("slide-page").textContent).toBe("2 of 20")
+    await user.click(screen.getByRole("button", { name: "Include What drives us", pressed: true }))
+    expect(within(stage()).getByTestId("slide-page").textContent).toBe("2 of 19")
+  })
+
+  test("Reset (after confirming) brings back the original deck and white background", async () => {
+    const user = userEvent.setup()
+    render(<CompanyProfilePage />)
+    const resetBtn = screen.getByRole("button", { name: "Reset" })
+    expect(resetBtn.hasAttribute("disabled")).toBe(true)
+    await user.click(screen.getByRole("button", { name: "Include What drives us", pressed: true }))
+    expect(budget().textContent).toBe("19 of 20 slides selected")
+    await user.click(resetBtn)
+    expect(confirmDialog).toHaveBeenCalledOnce()
+    expect(filmstrip()).toEqual(DECK)
+    expect(resetBtn.hasAttribute("disabled")).toBe(true)
+    expect(localStorage.getItem("company-profile.slide-bg")).toBe("#ffffff")
   })
 
   test("About us shows the milestone timeline, not statistics", async () => {
@@ -83,7 +102,7 @@ describe("Company Profile page", () => {
     const user = userEvent.setup()
     render(<CompanyProfilePage />)
     await user.click(screen.getByRole("button", { name: "Include High-rise 2", pressed: true }))
-    expect(counter().textContent).toContain("1 / 15")
+    expect(counter().textContent).toContain("1 / 19")
     expect(screen.getByText("11 projects · 2 slides, 1 hidden")).toBeTruthy()
     expect(screen.getByRole("button", { name: "Include High-rise 2", pressed: false })).toBeTruthy()
     expect(screen.queryAllByRole("button", { name: /^(Remove|Delete) / })).toEqual([])
@@ -119,7 +138,8 @@ describe("Company Profile page", () => {
     await user.click(screen.getByRole("button", { name: /save section/i }))
     expect(await screen.findByText("7 services · CRM")).toBeTruthy()
     const tiles = within(screen.getByRole("region", { name: /Services we offer/ })).getAllByRole("listitem")
-    expect(tiles.map((t) => t.textContent?.replace(/\d+ projects$/, ""))).toEqual([SERVICES[1], SERVICES[0], ...SERVICES.slice(2, 7)].map((s) => s.name))
+    // Each tile's first paragraph is the service name (number and icon are spans; pitch and count follow).
+    expect(tiles.map((t) => t.querySelector("p")?.textContent)).toEqual([SERVICES[1], SERVICES[0], ...SERVICES.slice(2, 7)].map((s) => s.name))
   })
 
   test("moves a project to another slide: it leaves its old slide, and the preview follows on save", async () => {
@@ -158,25 +178,20 @@ describe("Company Profile page", () => {
   test("never shows more than 20 slides: the picker stops at the limit, and showing a 21st is refused", async () => {
     const user = userEvent.setup()
     render(<CompanyProfilePage />)
-    // Spread High-rise over 6 slides: 16 → 20.
-    await user.click(screen.getByRole("button", { name: "Edit High-rise" }))
-    for (let i = 0; i < 4; i++) {
-      const row = within(within(await screen.findByRole("region", { name: "Slides" })).getByRole("group", { name: "Slide 1" }))
-      await user.selectOptions(row.getAllByRole("combobox")[0], "new")
-    }
-    expect(screen.getByTestId("picker-summary").textContent).toBe("11 selected · 6 slides")
-    await user.click(screen.getByRole("button", { name: /save section/i }))
+    // The default deck is exactly 20: the sidebar says so.
     expect(budget().textContent).toBe("20 of 20 slides selected")
-    // A 7th High-rise slide would pass the limit: the picker says so and will not save.
+    expect(screen.getByTestId("slide-limit-note")).toBeTruthy()
+    // A 3rd High-rise slide would pass the limit: the picker says so and will not save.
     await user.click(screen.getByRole("button", { name: "Edit High-rise" }))
     const row = within(within(await screen.findByRole("region", { name: "Slides" })).getByRole("group", { name: "Slide 1" }))
     await user.selectOptions(row.getAllByRole("combobox")[0], "new")
-    expect(screen.getByTestId("picker-summary").textContent).toContain("only 6 left in the presentation")
+    expect(screen.getByTestId("picker-summary").textContent).toContain("only 2 left in the presentation")
     expect(screen.getByRole("button", { name: /save section/i })).toHaveProperty("disabled", true)
     await user.click(screen.getByRole("button", { name: /cancel/i }))
-    // Hide Services (19) and give its place to a 7th High-rise slide (20): showing Services again is refused.
+    // Hide Services (19) and give its place to a 3rd High-rise slide (20): showing Services again is refused.
     await user.click(screen.getByRole("button", { name: "Include Services we offer", pressed: true }))
     expect(budget().textContent).toBe("19 of 20 slides selected")
+    expect(screen.queryByTestId("slide-limit-note")).toBeNull()
     await user.click(screen.getByRole("button", { name: "Edit High-rise" }))
     const again = within(within(await screen.findByRole("region", { name: "Slides" })).getByRole("group", { name: "Slide 1" }))
     await user.selectOptions(again.getAllByRole("combobox")[0], "new")
@@ -186,7 +201,20 @@ describe("Company Profile page", () => {
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Slide limit reached" }))
     expect(budget().textContent).toBe("20 of 20 slides selected")
     expect(screen.getByRole("button", { name: "Include Services we offer", pressed: false })).toBeTruthy()
+    // Hiding Contact frees a place: Services can come back.
+    await user.click(screen.getByRole("button", { name: "Include Contact", pressed: true }))
+    await user.click(screen.getByRole("button", { name: "Include Services we offer", pressed: false }))
+    expect(budget().textContent).toBe("20 of 20 slides selected")
+    expect(screen.getByRole("button", { name: "Include Services we offer", pressed: true })).toBeTruthy()
   }, 90_000)
+
+  test("the restored map section opens its pin picker", async () => {
+    const user = userEvent.setup()
+    render(<CompanyProfilePage />)
+    await user.click(screen.getByRole("button", { name: "Edit Our projects across India" }))
+    await screen.findByRole("region", { name: "Selected order" })
+    expect(screen.getByTestId("picker-summary").textContent).toMatch(/of 40 selected/)
+  })
 
   test("makes no network request: the deck runs on sample data", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch")
