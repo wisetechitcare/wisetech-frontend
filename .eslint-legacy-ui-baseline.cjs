@@ -4,7 +4,7 @@
  * They warn; ANY file NOT listed here fails hard. New code cannot regress, and this list can
  * only shrink: regenerating refuses to add a file (growth requires an explicit `--grow`). Burn it down by migrating the file to src/ds.
  *
- * Burn-down: 840 files at baseline. Delete a path once the file is migrated.
+ * Burn-down: 838 files at baseline. Delete a path once the file is migrated.
  */
 module.exports = [
   "src/app/components/ApprovalSettings.tsx",
@@ -107,7 +107,6 @@ module.exports = [
   "src/app/modules/common/components/ui/EntityCard.tsx",
   "src/app/modules/common/components/ui/EntityIdentityHeader.tsx",
   "src/app/modules/common/components/ui/EntityPageHeader.tsx",
-  "src/app/modules/common/components/ui/FiscalYearRangeField.tsx",
   "src/app/modules/common/components/ui/FloatingLabel.tsx",
   "src/app/modules/common/components/ui/FormSection.tsx",
   "src/app/modules/common/components/ui/GlassDialogActions.tsx",
@@ -260,7 +259,6 @@ module.exports = [
   "src/app/pages/company/masters/EmployeeTypes.tsx",
   "src/app/pages/company/masters/Towns.tsx",
   "src/app/pages/company/organization/Branding.tsx",
-  "src/app/pages/company/organization/OrganizationFormModal.tsx",
   "src/app/pages/company/organization/OrganizationInfo.tsx",
   "src/app/pages/company/organization/OrganizationProfileForm.tsx",
   "src/app/pages/company/organization/OrganizationProfilePage.tsx",

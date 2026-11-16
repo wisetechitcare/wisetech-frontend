@@ -7,6 +7,7 @@ import {
   Button,
   DatePicker as AriaDatePicker,
   DateRangePicker as AriaDateRangePicker,
+  DateRangePickerStateContext,
   Dialog,
   Group,
   Popover,
@@ -19,7 +20,7 @@ import {
 } from "@animate-ui/react/primitives/react-aria"
 
 import { AriaInputGroup, FieldChrome, type FieldChromeProps } from "@/ds/ui/aria-field"
-import { buttonVariants } from "@/ds/ui/button"
+import { Button as KitButton, buttonVariants } from "@/ds/ui/button"
 import { Calendar, RangeCalendar } from "@/ds/ui/calendar"
 import { DateInput, DisplayDateLocale, DISPLAY_DATE_SEPARATOR } from "@/ds/ui/date-field"
 import { fieldVariants } from "@/ds/ui/field"
@@ -97,13 +98,43 @@ function DatePicker<T extends DateValue>({
   )
 }
 
+/** A one-click range under the calendar (e.g. "Apr–Mar" for a fiscal year, "This month"). */
+type DateRangePreset = { label: string; value: { start: DateValue; end: DateValue } }
+
+/**
+ * WiseTech: quick ranges in the popover, below the calendar. Picking one sets the whole range through the
+ * picker's own state (so validation, onChange and the typed fields all follow) and closes the popover.
+ */
+function RangePresets({ presets }: { presets?: DateRangePreset[] }) {
+  const state = React.useContext(DateRangePickerStateContext)
+  if (!presets?.length || !state) return null
+  return (
+    <div data-slot="date-range-presets" className="mt-2 flex flex-wrap gap-1.5 border-t border-border pt-2">
+      {presets.map((preset) => (
+        <KitButton
+          key={preset.label}
+          variant="outline"
+          size="xs"
+          onClick={() => {
+            state.setValue(preset.value as never)
+            state.close()
+          }}
+        >
+          {preset.label}
+        </KitButton>
+      ))}
+    </div>
+  )
+}
+
 function DateRangePicker<T extends DateValue>({
   label,
   description,
   errorMessage,
   className,
+  presets,
   ...props
-}: DateRangePickerProps<T> & FieldChromeProps) {
+}: DateRangePickerProps<T> & FieldChromeProps & { presets?: DateRangePreset[] }) {
   const { locale } = useLocale()
   return (
     <DisplayDateLocale>
@@ -135,10 +166,11 @@ function DateRangePicker<T extends DateValue>({
       </FieldChrome>
       <PickerPopover>
         <I18nProvider locale={locale}><RangeCalendar /></I18nProvider>
+        <RangePresets presets={presets} />
       </PickerPopover>
     </AriaDateRangePicker>
     </DisplayDateLocale>
   )
 }
 
-export { DatePicker, DateRangePicker }
+export { DatePicker, DateRangePicker, type DateRangePreset }

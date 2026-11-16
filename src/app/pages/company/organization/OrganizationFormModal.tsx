@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Box, Stack, TextField, Typography } from '@mui/material';
+import { Building2, Network } from 'lucide-react';
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field';
+import { Input } from '@/ds/ui/input';
+import { NumberField } from '@/ds/ui/number-field';
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import { ImageField } from '@/ds/patterns/image-field';
 import { createCompanyOverview } from '@services/company';
 import { uploadCompanyAsset } from '@services/uploader';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
-import { GlassDialog, GlassHeader, WtButton, FiscalYearRangeField } from '@app/modules/common/components/ui';
-import { IconBuilding, IconHierarchy, IconImage } from '@app/modules/common/components/icons/OrgIcons';
+import { FiscalYearRangeField } from '@app/modules/common/components/ui';
 import { splitFiscalYearRange } from '@utils/fiscalYearRange';
 
 /**
- * Create an organization, or a sub-organization under one.
+ * Create an organization, or a sub-organization under one — a kit Form Dialog.
  *
  * Fiscal year uses the shared {@link FiscalYearRangeField} (ISO `"start to end"`),
  * the same control as prefix / org profile — not a one-off pair of date fields.
@@ -32,13 +36,19 @@ interface FormState {
   address: string;
 }
 
+const FORM_ID = 'new-organization';
 const blank: FormState = { name: '', logo: '', workingHrs: '8', workingDays: '5', businessType: '', contactNumber: '', address: '' };
+/** Every image type the old `image/*` picker took that a logo realistically is. */
+const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'image/gif'];
+
+/** A number field's value as the API's string, and back. */
+const toNumber = (v: string) => (v.trim() === '' ? NaN : Number(v));
+const fromNumber = (n: number) => (Number.isNaN(n) ? '' : String(n));
 
 export default function OrganizationFormModal({ show, parentOrg, onCreated, onClose }: Props) {
   const [form, setForm] = useState<FormState>(blank);
   const [fiscalYear, setFiscalYear] = useState('');
   const [logoPreview, setLogoPreview] = useState('');
-  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -49,27 +59,22 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
     }
   }, [show]);
 
-  const set = (k: keyof FormState, v: string) => {
-    setForm(p => ({ ...p, [k]: v }));
+  const clearError = (k: string) => {
     if (errors[k]) setErrors(e => { const n = { ...e }; delete n[k]; return n; });
   };
+  const set = (k: keyof FormState, v: string) => {
+    setForm(p => ({ ...p, [k]: v }));
+    clearError(k);
+  };
 
-  async function handleLogo(file?: File) {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) { errorConfirmation('Please choose an image file (PNG or JPG).'); return; }
-    if (file.size > 5 * 1024 * 1024) { errorConfirmation('Logo must be under 5MB.'); return; }
-    setUploading(true);
-    try {
-      const fd = new FormData(); fd.append('file', file);
-      const res: any = await uploadCompanyAsset(fd);
-      const path = res?.data?.path ?? res?.path;
-      if (!path) throw new Error('Upload did not return a file path');
-      set('logo', path);
-      setLogoPreview(URL.createObjectURL(file));
-    } catch (err: any) {
-      errorConfirmation(err?.response?.data?.message || err?.message || 'Failed to upload logo');
-    }
-    finally { setUploading(false); }
+  /** The Image Field's contract: upload, return what is stored (the asset path). */
+  async function uploadLogo(file: File): Promise<string> {
+    const fd = new FormData(); fd.append('file', file);
+    const res: any = await uploadCompanyAsset(fd);
+    const path = res?.data?.path ?? res?.path;
+    if (!path) throw new Error('Upload did not return a file path');
+    setLogoPreview(URL.createObjectURL(file));
+    return path;
   }
 
   function validate(): boolean {
@@ -133,103 +138,102 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
     finally { setSaving(false); }
   }
 
+  const dirty =
+    fiscalYear !== '' ||
+    (Object.keys(blank) as (keyof FormState)[]).some((k) => form[k] !== blank[k]);
+
   return (
-    <GlassDialog
-      open={show} onClose={onClose} maxWidth="md" fullWidth
-      preset="form"
-      header={
-        <GlassHeader
-          title={parentOrg ? 'Add Sub-Organization' : 'New Organization'}
-          subtitle={parentOrg ? `Under ${parentOrg.name}` : 'Create an organization and its working calendar'}
-          icon={parentOrg ? <IconHierarchy size={22} /> : <IconBuilding size={22} />}
-          onClose={onClose}
-        />
-      }
+    <FormDialog
+      open={show}
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title={parentOrg ? 'Add sub-organization' : 'New organization'}
+      description={parentOrg ? `Under ${parentOrg.name}` : 'Create an organization and its working calendar'}
+      icon={parentOrg ? <Network aria-hidden /> : <Building2 aria-hidden />}
+      size="lg"
+      formId={FORM_ID}
+      submitLabel={parentOrg ? 'Create sub-organization' : 'Create organization'}
+      submitting={saving}
+      dirty={dirty}
     >
-      <Box sx={{ p: { xs: 2, sm: 2.75 } }}>
-        <Stack direction="row" spacing={1.75} alignItems="center" sx={{ mb: 2.5 }}>
-          <Box sx={{
-            width: 64, height: 64, borderRadius: '12px', overflow: 'hidden', flexShrink: 0,
-            border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
-            display: 'grid', placeItems: 'center', color: 'text.disabled',
-          }}>
-            {logoPreview
-              ? <Box component="img" src={logoPreview} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <IconImage size={26} />}
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <WtButton
-              inverted size="small" component="label" disabled={uploading}
-              sx={{ mb: 0.5 }}
-            >
-              {uploading ? 'Uploading…' : logoPreview ? 'Change Logo' : 'Upload Logo'}
-              <input type="file" accept="image/*" hidden onChange={e => handleLogo(e.target.files?.[0])} />
-            </WtButton>
-            <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>
-              Optional. You can add a logo later from the profile.
-            </Typography>
-          </Box>
-        </Stack>
-
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-          <TextField
-            label="Organization Name" required size="small" fullWidth
-            sx={{ gridColumn: '1 / -1' }}
-            placeholder="e.g. Wisetech Interiors Pvt. Ltd."
-            value={form.name} onChange={e => set('name', e.target.value)}
-            error={Boolean(errors.name)} helperText={errors.name}
+      <form
+        id={FORM_ID}
+        noValidate
+        onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+      >
+        <FieldGroup>
+          <ImageField
+            id="org-logo"
+            label="Logo"
+            value={form.logo || null}
+            previewUrl={logoPreview || null}
+            onChange={(url) => { set('logo', url ?? ''); if (!url) setLogoPreview(''); }}
+            upload={uploadLogo}
+            accept={LOGO_TYPES}
+            maxSizeMB={5}
+            hint="Optional. You can add a logo later from the profile."
           />
 
-          <Box sx={{ gridColumn: '1 / -1' }}>
-            <FiscalYearRangeField
-              value={fiscalYear}
-              onChange={(v) => {
-                setFiscalYear(v);
-                if (errors.fiscalYear) setErrors(e => { const n = { ...e }; delete n.fiscalYear; return n; });
-              }}
+          <Field data-invalid={Boolean(errors.name) || undefined}>
+            <FieldLabel htmlFor="org-name">Organization name</FieldLabel>
+            <Input
+              id="org-name"
               required
-              error={Boolean(errors.fiscalYear)}
-              helperText={errors.fiscalYear}
+              value={form.name}
+              onChange={(e) => set('name', e.target.value)}
+              aria-invalid={Boolean(errors.name) || undefined}
+              aria-describedby={errors.name ? 'org-name-error' : undefined}
             />
-          </Box>
+            {errors.name && <FieldError id="org-name-error">{errors.name}</FieldError>}
+          </Field>
 
-          <TextField
-            label="Business Type" size="small" fullWidth placeholder="e.g. Consultancy"
-            value={form.businessType} onChange={e => set('businessType', e.target.value)}
+          <FiscalYearRangeField
+            value={fiscalYear}
+            onChange={(v) => { setFiscalYear(v); clearError('fiscalYear'); }}
+            required
+            error={Boolean(errors.fiscalYear)}
+            helperText={errors.fiscalYear}
           />
-          <TextField
-            label="Contact Number" size="small" fullWidth placeholder="+91 …"
-            value={form.contactNumber} onChange={e => set('contactNumber', e.target.value)}
-          />
-          <TextField
-            label="Working Hours per Day" required type="number" size="small" fullWidth
-            value={form.workingHrs} onChange={e => set('workingHrs', e.target.value)}
-            error={Boolean(errors.workingHrs)} helperText={errors.workingHrs}
-          />
-          <TextField
-            label="Working Days per Week" required type="number" size="small" fullWidth
-            value={form.workingDays} onChange={e => set('workingDays', e.target.value)}
-            error={Boolean(errors.workingDays)} helperText={errors.workingDays}
-          />
-          <TextField
-            label="Address" size="small" fullWidth sx={{ gridColumn: '1 / -1' }}
-            placeholder="Registered address"
-            value={form.address} onChange={e => set('address', e.target.value)}
-          />
-        </Box>
 
-        <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: 2 }}>
-          GST, bank details, certificates and custom fields are filled in from the organization’s
-          profile once it exists.
-        </Typography>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="org-business-type">Business type</FieldLabel>
+              <Input id="org-business-type" value={form.businessType} onChange={(e) => set('businessType', e.target.value)} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="org-contact">Contact number</FieldLabel>
+              <Input id="org-contact" type="tel" value={form.contactNumber} onChange={(e) => set('contactNumber', e.target.value)} />
+            </Field>
+            <NumberField
+              label="Working hours per day"
+              isRequired
+              minValue={0}
+              maxValue={24}
+              value={toNumber(form.workingHrs)}
+              onChange={(n) => set('workingHrs', fromNumber(n))}
+              isInvalid={Boolean(errors.workingHrs)}
+              errorMessage={errors.workingHrs}
+            />
+            <NumberField
+              label="Working days per week"
+              isRequired
+              minValue={0}
+              maxValue={7}
+              value={toNumber(form.workingDays)}
+              onChange={(n) => set('workingDays', fromNumber(n))}
+              isInvalid={Boolean(errors.workingDays)}
+              errorMessage={errors.workingDays}
+            />
+          </div>
 
-        <Stack direction="row" spacing={1.25} justifyContent="flex-end" sx={{ mt: 2.5, flexWrap: 'wrap', gap: 1.25 }}>
-          <WtButton ghost onClick={onClose}>Cancel</WtButton>
-          <WtButton onClick={handleSubmit} disabled={saving || uploading}>
-            {saving ? 'Creating…' : parentOrg ? 'Create Sub-Organization' : 'Create Organization'}
-          </WtButton>
-        </Stack>
-      </Box>
-    </GlassDialog>
+          <Field>
+            <FieldLabel htmlFor="org-address">Address</FieldLabel>
+            <Input id="org-address" value={form.address} onChange={(e) => set('address', e.target.value)} />
+            <FieldDescription>
+              GST, bank details, certificates and custom fields are filled in from the organization’s profile once it exists.
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+      </form>
+    </FormDialog>
   );
 }
