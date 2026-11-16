@@ -110,6 +110,18 @@ export const SettlesOnFocus: Story = {
   },
 }
 
+/** The background keeps moving after the form is focused — only the headline settles (user decision 2026-11-16). */
+export const BackgroundAlwaysMoves: Story = {
+  tags: ['!autodocs'], // a test, not a demo
+  play: async ({ canvas, canvasElement }) => {
+    await userEvent.click(canvas.getByLabelText('Email'))
+    await expect(canvasElement.querySelector('[data-slot="typewriter-text"][data-landed]')).not.toBeNull()
+    await new Promise((r) => setTimeout(r, 600))
+    const swirl = canvasElement.querySelector('[data-slot="auth-background"] [data-slot]')!
+    await expect(swirl).not.toHaveAttribute('data-settled')
+  },
+}
+
 /** A logo that fails to load leaves the organisation's initials, never an empty or broken tile. */
 export const BrokenLogo: Story = {
   tags: ['!autodocs'], // a test, not a demo
