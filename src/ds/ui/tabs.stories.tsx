@@ -42,3 +42,25 @@ export const Keyboard: Story = {
     await expect(canvas.getByRole('tab', { name: 'Leave' })).toHaveFocus()
   },
 }
+
+/** `line`: an underline instead of the pill — for a quiet strip of sibling pages under a page title. */
+export const Line: Story = {
+  render: (args) => (
+    <Tabs {...args} className="w-[28rem]">
+      <TabsList variant="line">
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="leave">Leave</TabsTrigger>
+        <TabsTrigger value="documents">Documents</TabsTrigger>
+      </TabsList>
+      <TabsContent value="overview" className="pt-3 text-sm">Employment, organization and compensation.</TabsContent>
+      <TabsContent value="leave" className="pt-3 text-sm">Balances and requests.</TabsContent>
+      <TabsContent value="documents" className="pt-3 text-sm">Offer letter, ID proofs, policies.</TabsContent>
+    </Tabs>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('tablist')).toHaveAttribute('data-variant', 'line')
+    await userEvent.click(canvas.getByRole('tab', { name: 'Documents' }))
+    await expect(canvas.getByRole('tab', { name: 'Documents' })).toHaveAttribute('aria-selected', 'true')
+    await waitFor(() => expect(canvas.getByRole('tabpanel')).toHaveTextContent('Offer letter'))
+  },
+}

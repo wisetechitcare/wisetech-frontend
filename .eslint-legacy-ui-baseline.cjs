@@ -4,7 +4,7 @@
  * They warn; ANY file NOT listed here fails hard. New code cannot regress, and this list can
  * only shrink: regenerating refuses to add a file (growth requires an explicit `--grow`). Burn it down by migrating the file to src/ds.
  *
- * Burn-down: 836 files at baseline. Delete a path once the file is migrated.
+ * Burn-down: 833 files at baseline. Delete a path once the file is migrated.
  */
 module.exports = [
   "src/app/components/ApprovalSettings.tsx",
@@ -257,10 +257,7 @@ module.exports = [
   "src/app/pages/company/components/EmployeeList.tsx",
   "src/app/pages/company/components/MediaBreadcrumb.tsx",
   "src/app/pages/company/masters/EmployeeTypes.tsx",
-  "src/app/pages/company/masters/Towns.tsx",
-  "src/app/pages/company/organization/Branding.tsx",
   "src/app/pages/company/organization/OrganizationProfilePage.tsx",
-  "src/app/pages/company/organization/Tabs.tsx",
   "src/app/pages/company/organizationInfo/rule/RuleMainPage.tsx",
   "src/app/pages/company/organizationInfo/rule/components/DeductionRulesTable.tsx",
   "src/app/pages/company/organizationInfo/rule/components/LeaveAllowanceTable.tsx",

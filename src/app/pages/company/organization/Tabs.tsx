@@ -1,37 +1,27 @@
-import React from 'react'
-import {Link, useLocation} from 'react-router-dom'
+import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Tabs as KitTabs, TabsList, TabsTrigger } from '@/ds/ui/tabs';
+
+/** Sibling pages under Company: the kit Tabs (`line`), one tab per route. The route IS the selection. */
+const PAGES = [
+  { path: '/company/organization-profile', label: 'Organization Profile' },
+  { path: '/company/branding', label: 'Branding' },
+];
 
 const Tabs: React.FC = () => {
-  const location = useLocation()
+  const location = useLocation();
+  const navigate = useNavigate();
+  const current = PAGES.find((p) => p.path === location.pathname)?.path ?? null;
 
   return (
-    <div className='d-flex overflow-auto h-55px'>
-      <ul className='nav nav-stretch nav-line-tabs nav-line-tabs-2x border-transparent fs-5 fw-bolder flex-nowrap'>
-        <li className='nav-item'>
-          <Link
-            className={
-              `nav-link text-active-primary me-6 ` +
-              (location.pathname === '/company/organization-profile' && 'active')
-            }
-            to='/company/organization-profile'
-          >
-            Organization Profile
-          </Link>
-        </li>
-        <li className='nav-item'>
-          <Link
-            className={
-              `nav-link text-active-primary me-6 ` +
-              (location.pathname === '/company/branding' && 'active')
-            }
-            to='/company/branding'
-          >
-            Branding
-          </Link>
-        </li>
-      </ul>
-    </div>
-  )
-}
+    <KitTabs value={current} onValueChange={(path) => navigate(String(path))}>
+      <TabsList variant="line" aria-label="Company pages" className="max-w-full overflow-x-auto">
+        {PAGES.map((p) => (
+          <TabsTrigger key={p.path} value={p.path}>{p.label}</TabsTrigger>
+        ))}
+      </TabsList>
+    </KitTabs>
+  );
+};
 
-export default Tabs
+export default Tabs;

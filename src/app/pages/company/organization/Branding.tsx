@@ -1,10 +1,13 @@
 ﻿import React from 'react';
-import TabsComponent from './Tabs';
-import { PageLink, PageTitle } from "@metronic/layout/core";
-import { Formik, Form, Field, ErrorMessage } from 'formik';
+import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
-import { KTCard, KTCardBody } from '@metronic/helpers';
+import { PageLink, PageTitle } from "@metronic/layout/core";
 import { Button } from '@/ds/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/ds/ui/card';
+import { Field, FieldError, FieldLabel } from '@/ds/ui/field';
+import { Input } from '@/ds/ui/input';
+import { Spinner } from '@/ds/ui/spinner';
+import TabsComponent from './Tabs';
 
 // Breadcrumbs for the page
 const overviewBreadcrumbs: Array<PageLink> = [
@@ -27,6 +30,10 @@ const validationSchema = Yup.object({
   organizationName: Yup.string().required('Organization name is required')
 });
 
+/**
+ * Branding — a placeholder page: its form validates but does not save anything yet (submit only logs).
+ * Rendered from the kit so it matches the rest of the module while it waits for a real branding flow.
+ */
 const Branding: React.FC = () => {
   return (
     <>
@@ -40,55 +47,40 @@ const Branding: React.FC = () => {
           console.log(values);
         }}
       >
-        {({ isSubmitting }) => (
-          <Form className="form">
-            <KTCard className="my-6 shadow-sm">
-              <KTCardBody className="p-0">
-                <div className="card-header border-0 cursor-pointer d-flex align-items-center justify-content-between">
-                  <div className="card-title m-0">
-                    <h3 className="fw-bolder m-0">Organization Profile</h3>
-                  </div>
-                </div>
-
-                {/* Organization Name Field */}
-                <div className="row mb-5 px-7">
-                  <div className="col-lg-12 fv-row">
-                    <label className="required col-form-label fw-bold fs-6">
-                      Organization Name
-                    </label>
-                    <Field
+        {({ isSubmitting, values, errors, touched, handleChange, handleBlur }) => {
+          const error = touched.organizationName ? errors.organizationName : undefined;
+          return (
+            <Form className="mx-auto my-6 w-full max-w-[1600px]" noValidate>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Organization profile</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Field data-invalid={Boolean(error) || undefined}>
+                    <FieldLabel htmlFor="branding-org-name" required>Organization name</FieldLabel>
+                    <Input
+                      id="branding-org-name"
                       name="organizationName"
-                      type="text"
-                      className="form-control form-control-lg form-control-solid"
-                      placeholder="Organization name"
+                      required
+                      value={values.organizationName}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      aria-invalid={Boolean(error) || undefined}
+                      aria-describedby={error ? 'branding-org-name-error' : undefined}
                     />
-                    <ErrorMessage name="organizationName">
-                      {msg => <div className="fv-plugins-message-container"><div className="fv-help-block">{msg}</div></div>}
-                    </ErrorMessage>
-                  </div>
-                </div>
-
-                <div className="row px-7 mb-0">
-                  <div className="col-lg-12 text-end mb-5">
-                    <Button size="lg"
-                      type="submit"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? (
-                        <span>
-                          Please wait...
-                          <span className="spinner-border spinner-border-sm align-middle ms-2"></span>
-                        </span>
-                      ) : (
-                        'Submit'
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </KTCardBody>
-            </KTCard>
-          </Form>
-        )}
+                    {error && <FieldError id="branding-org-name-error">{error}</FieldError>}
+                  </Field>
+                </CardContent>
+                <CardFooter className="justify-end">
+                  <Button type="submit" size="lg" disabled={isSubmitting}>
+                    {isSubmitting && <Spinner className="size-4" aria-hidden />}
+                    {isSubmitting ? 'Please wait…' : 'Submit'}
+                  </Button>
+                </CardFooter>
+              </Card>
+            </Form>
+          );
+        }}
       </Formik>
     </>
   );
