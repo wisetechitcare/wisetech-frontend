@@ -56,11 +56,11 @@ Format: **what** — evidence (file / screen) — suggested fix.
   between visits, so every kit table (Payment History, Payment Queue, Submissions) now opens on its defaults.
   — Persist `sorting`, `pageSize` and `globalFilter` under the same `stateKey`. (found 2026-11-13)
 
-- **Kit DataTable: per-column / faceted filters and nested sub-rows are not built** — shadcn's examples
-  (ui.shadcn.com data-table, shadcn.io "Data Table with Filters" / "Expandable Sub-Rows", shadcnstudio blocks)
-  show both; the kit has a global search, `renderDetail` panels and the status rail (SegmentedFilter) instead,
-  which is all the reimbursement tables use. — Add `facets` (a status/category dropdown per column) and
-  `getSubRows` when the first screen needs them, not before. (found 2026-11-09)
+- **Kit DataTable: faceted filters and nested sub-rows are not built** — per-column TEXT filters exist (the
+  "Show column filters" tool adds a filter row; checked 2026-11-17), but shadcn's examples (ui.shadcn.com
+  data-table, shadcn.io "Data Table with Filters" / "Expandable Sub-Rows") also show a status/category dropdown per
+  column and nested sub-rows. — Add `facets` and `getSubRows` when the first screen needs them, not before.
+  (found 2026-11-09, narrowed 2026-11-17)
 
 - **`ExportButton` (14 users) still draws an MUI menu and MUI icons** — the kit DataTable now reaches it
   through `table/DataTableExport`, so the engine is shared but the button looks legacy. — Rebuild its menu on
@@ -129,12 +129,33 @@ Format: **what** — evidence (file / screen) — suggested fix.
   own border, 8px corners, 11px text), `CsvUploadStep` / `MatchReviewTable` (danger text colour),
   `AddAnotherBtn` (dashed). They win over the kit by design, so they are not pills. — Replace each with a
   kit variant (`outline` / `destructive`, or a new tinted variant if approve/reject needs one) and drop the sx.
-- **Data Table must reach MaterialTable parity before the swap** — the v2 design (Storybook Patterns/Data Table,
-  2026-11-03) covers sort, search, column show/hide, selection bar, paging, density and the load/empty/error states.
-  The live `MaterialTableImpl` also has per-column filters (22 screens), column pinning (6), row virtualisation (5),
-  column drag (5), full screen (5), resizing (4), grouping (4), expandable rows (4), saved column preferences
-  (`useTablePreferences`, all screens) and export. — Build each into the kit Data Table before any screen moves,
-  so no screen silently loses one (Kit Map lists them).
+- **Data Table must reach MaterialTable parity before the swap** — status checked against the code 2026-11-17
+  (the Kit Map's gap table had gone stale and is corrected with it). BUILT in the kit Data Table: per-column text
+  filters, column pinning, column drag, full screen, resizing, expandable rows (`renderDetail`), saved column
+  preferences (`stateKey`: widths, hidden, order, pins, density) and export (`table/DataTableExport` in the
+  `toolbar` slot, as every Reimbursement table does) and grouping ("Group rows" tool, 2026-11-17). STILL MISSING: row virtualisation (5 screens) and remembering sort / page size / search (entry above). —
+  Build virtualisation before the first long-list screen moves.
+- **`DataTableExport` lives outside the kit** — `app/modules/common/components/table/DataTableExport.tsx` (9 users)
+  is the Data Table's export, but sits in the legacy `components/` tree, against the rule that shared UI lives in
+  `src/ds`. It depends on `ExportButton` (app toast + currency utils). — Move it into `src/ds/patterns` with a story
+  once `ExportButton`'s menu is on the kit (entry above), injecting the currency/toast deps. (found 2026-11-17)
+- **Legacy `ui/ConfirmDialog.tsx` still draws its own GlassDialog** — used by `IdleLogoutGuard`,
+  `ConfirmDiscardDialog`, `useConfirmDialog` and `usePromptDialog`, while `DialogServiceHost` (every
+  `showDialog` / `errorConfirmation` call) already renders the kit Confirm Dialog. — Turn it into a thin adapter
+  over `@/ds/patterns/confirm-dialog` (old prop names only), then retire it with its last caller. (found 2026-11-17)
+- **Organization module → kit: what is still legacy** (tracking, 2026-11-17; phases 1–5a merged into
+  `feat/multi-tenancy`, `18e3dc8a`):
+  - Biometric Devices dialog (`BiometricDevicesModal`, MUI + MaterialTable) and the profile page's Branches frame
+    (still `GlassDialog`, with `disableEnforceFocus` so the kit branch form inside keeps focus) — phase 5b, after
+    Data Table grouping (landed 2026-11-17).
+  - `MaterialHeaderTab` should become a thin adapter over the kit `PageTabs` (affects every screen using it).
+  - `PerOrgPrefixSettings` (inside the New Organization dialog) still renders MUI fields.
+  - `FormSchemaManager` → `UnsavedChangesModal` is react-bootstrap.
+  - `SmartLocationPicker` (Leaflet map + search) still renders MUI; its Nominatim calls now live in
+    `services/geocoding.ts`, so the picker only needs its UI moved.
+  - `organizationInfo/` (Rules, FAQs) still uses Metronic classes and `bi-*` icons.
+  - Branding tab: Save is a `console.log` stub (decision pending: build or remove).
+  - `DropdownInput` (17 users) should become an adapter over the kit `SearchSelect`.
 - **Self-host the phone flags** — v2 Phone Field (fixed 2026-11-03: emoji flags rendered as letters on Windows)
   now uses `react-international-phone`'s `FlagImage`, like the live `WtPhoneField`; both load Twemoji SVGs from
   cdnjs. — Serve the SVGs from our own origin (pass `src` to `FlagImage`) so the field needs no third-party

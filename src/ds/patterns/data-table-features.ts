@@ -1,5 +1,6 @@
 import {
   columnFilteringFeature,
+  columnGroupingFeature,
   columnOrderingFeature,
   columnPinningFeature,
   columnResizingFeature,
@@ -7,6 +8,7 @@ import {
   columnVisibilityFeature,
   createExpandedRowModel,
   createFilteredRowModel,
+  createGroupedRowModel,
   createPaginatedRowModel,
   createSortedRowModel,
   filterFns,
@@ -56,13 +58,14 @@ export interface DataTableColumnMeta<TData = any> {
 /**
  * The table features the kit's DataTable is built from — TanStack Table v9 (shadcn's data-table guide declares
  * these in `data-table-features.ts`; this is that file). Only what the table uses is registered, so the rest of
- * TanStack stays out of the bundle: sorting, global + column filtering, visibility, selection, pagination,
- * expansion (detail panels), sizing + resizing.
+ * TanStack stays out of the bundle: sorting, global + column filtering, grouping, visibility, selection, pagination,
+ * expansion (detail panels and group rows), sizing + resizing.
  */
 export const dataTableFeatures = tableFeatures({
   rowSortingFeature,
   globalFilteringFeature,
   columnFilteringFeature,
+  columnGroupingFeature,
   columnVisibilityFeature,
   rowSelectionFeature,
   rowPaginationFeature,
@@ -73,6 +76,7 @@ export const dataTableFeatures = tableFeatures({
   columnPinningFeature,
   sortedRowModel: createSortedRowModel(),
   filteredRowModel: createFilteredRowModel(),
+  groupedRowModel: createGroupedRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
   expandedRowModel: createExpandedRowModel(),
   sortFns,
