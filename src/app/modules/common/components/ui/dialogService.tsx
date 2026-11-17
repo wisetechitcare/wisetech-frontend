@@ -100,7 +100,7 @@ export function DialogServiceHost() {
       {body}
       {input ? (
         <Field>
-          <FieldLabel htmlFor={inputId}>{input.label ?? opts.title}</FieldLabel>
+          <FieldLabel htmlFor={inputId} required={input.required}>{input.label ?? opts.title}</FieldLabel>
           <Input
             id={inputId}
             autoFocus

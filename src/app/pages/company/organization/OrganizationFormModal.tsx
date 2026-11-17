@@ -174,7 +174,7 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
           />
 
           <Field data-invalid={Boolean(errors.name) || undefined}>
-            <FieldLabel htmlFor="org-name">Organization name</FieldLabel>
+            <FieldLabel htmlFor="org-name" required>Organization name</FieldLabel>
             <Input
               id="org-name"
               required

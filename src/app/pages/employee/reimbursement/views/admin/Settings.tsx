@@ -338,7 +338,7 @@ function Settings() {
               <Form id={FORM_ID} noValidate>
                 <FieldGroup className="gap-6 pt-2">
                   <Field data-invalid={nameError ? true : undefined}>
-                    <FieldLabel htmlFor="category-name">Name</FieldLabel>
+                    <FieldLabel htmlFor="category-name" required>Name</FieldLabel>
                     <Input
                       id="category-name"
                       name="type"

@@ -98,3 +98,17 @@ export const DisabledWithReason: Story = {
     await expect(canvas.getByRole('combobox', { name: 'Company Name (Optional)' })).toBeDisabled()
   },
 }
+
+/** Required: the label carries the kit's `*` marker (visual only) and the field is announced as required. */
+export const Required: Story = {
+  render: () => (
+    <div className="w-80">
+      <SearchSelect id="required-project" label="Project" required value={null} onValueChange={fn()} options={PROJECTS} />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const input = canvas.getByRole('combobox', { name: 'Project' })
+    await expect(input).toHaveAttribute('aria-required', 'true')
+    await expect(canvas.getByText('*')).toHaveAttribute('aria-hidden', 'true')
+  },
+}
