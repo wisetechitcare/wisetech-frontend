@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { GalleryVerticalEnd, type LucideIcon } from 'lucide-react';
+import { GalleryVerticalEnd, BookOpenText, type LucideIcon } from 'lucide-react';
 import { SvgIcon, type SvgIconProps } from '@mui/material';
 import AccountTreeRounded from '@mui/icons-material/AccountTreeRounded';
 import AdminPanelSettingsRounded from '@mui/icons-material/AdminPanelSettingsRounded';
@@ -96,6 +96,7 @@ const ICON_BY_BI: Record<string, NavIcon> = {
   'bi-gear': SettingsRounded,
   // Lucide-only items: the key names the Lucide icon, not a Bootstrap one.
   'lucide-gallery-vertical-end': lucide(GalleryVerticalEnd),
+  'lucide-book-open-text': lucide(BookOpenText),
   // Section headers (assigned in useNavContainers, not present in the nav tree itself)
   'bi-grid-1x2': DashboardRounded,
   'bi-person-rolodex': ContactsRounded,
