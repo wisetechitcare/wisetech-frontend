@@ -76,6 +76,19 @@ export const Rotates: Story = {
   },
 }
 
+/** (Test speed) `loop`: after landing on the brand line it starts again from the first line — never rests. */
+export const Loops: Story = {
+  tags: ['!autodocs'], // a test, not a demo
+  args: { ...FAST, hold: 120, loop: true },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(landed(canvasElement)).toBe(true), { timeout: 8000 })
+    await expect(shown(canvasElement)).toBe(LANDING)
+    // …then backspaces the brand line and types the first line again.
+    await waitFor(() => expect(shown(canvasElement)).toBe(''), { timeout: 3000 })
+    await waitFor(() => expect(shown(canvasElement)).toBe(FIRST), { timeout: 3000 })
+  },
+}
+
 /** (Test speed) The box is the largest line's from the first frame — rotating never moves the page. */
 export const NoReflow: Story = {
   tags: ['!autodocs'], // a test, not a demo

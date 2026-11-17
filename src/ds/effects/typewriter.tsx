@@ -31,8 +31,10 @@ export type TypewriterLine = string | ReadonlyArray<string | { text: string; ton
  *   before the next line starts.
  *
  * Also:
- * - **Plays once.** It lands and rests; `settled` (e.g. once a sign-in field is focused) jumps to the
- *   landing line with no further motion — it never competes with typing a password (WCAG 2.2.2).
+ * - **Plays once** by default: it lands and rests; `settled` jumps to the landing line with no further motion.
+ * - **`loop`** keeps it rotating for good: after the landing line (held a little longer — it is the brand line)
+ *   it backspaces and starts again from the first. Opt-in, for a page whose owner wants constant motion (the
+ *   sign-in page, user decision 2026-11-16); `settled` and reduced motion still stop it.
  * - **Accessible.** Assistive tech reads only the landing line, once. Reduced motion: the landing line,
  *   still, in its colours, no caret.
  * - **No reflow.** Every line is laid out invisibly in the same grid cell, so the box is the largest
@@ -45,6 +47,7 @@ function Typewriter({
   hold = 2000,
   delay = 300,
   settled = false,
+  loop = false,
   onLanded,
   className,
   ...props
@@ -61,7 +64,9 @@ function Typewriter({
   delay?: number
   /** Jump to the landing line and stop. */
   settled?: boolean
-  /** Called once when the headline lands (or settles) — e.g. to settle an animated background with it. */
+  /** Keep rotating: after the landing line, start again from the first (never rests). */
+  loop?: boolean
+  /** Called when the headline lands (each cycle, with `loop`) or settles. */
   onLanded?: () => void
 }) {
   const lines = React.useMemo(() => input.map(flatten), [input])
@@ -97,7 +102,7 @@ function Typewriter({
         // A beat before the next line, as a person would pause.
         timer = setTimeout(() => {
           setDeleting(false)
-          setIndex((i) => i + 1)
+          setIndex((i) => (i >= last ? 0 : i + 1))
         }, Math.round(speed * 6))
       }
     } else if (count < line.text.length) {
@@ -110,9 +115,11 @@ function Typewriter({
     } else {
       setPressing(false)
       if (index < last) timer = setTimeout(() => setDeleting(true), hold)
+      // Looping: the landing (brand) line is held twice as long, then the cycle starts again.
+      else if (loop) timer = setTimeout(() => setDeleting(true), hold * 2)
     }
     return () => clearTimeout(timer)
-  }, [still, index, count, deleting, lines, last, landing, speed, deleteSpeed, hold, delay])
+  }, [still, loop, index, count, deleting, lines, last, landing, speed, deleteSpeed, hold, delay])
 
   const landed = index === last && count === landing.text.length && !deleting
   const onLandedRef = React.useRef(onLanded)

@@ -2,7 +2,7 @@
  * Twin of the backend's officeGeofence tests — same cases, so the button and the server agree.
  */
 import { describe, expect, it } from 'vitest';
-import { evaluateOfficeGeofence, isOfficeWorkingMethod, outsideFenceMessage } from './officeGeofence';
+import { evaluateOfficeGeofence, isOfficeWorkingMethod, misconfiguredFenceMessage, outsideFenceMessage } from './officeGeofence';
 
 // A branch pin, and points due north of it. 0.0001° of latitude is ~11.1 m.
 const office = { latitude: 19.076, longitude: 72.8777 };
@@ -23,12 +23,22 @@ describe('the radius is exactly what the admin typed', () => {
     });
 });
 
-describe('nothing to fence around refuses nobody', () => {
-    it('no radius, a 0 radius, no branch pin, or no reading', () => {
+describe('no radius means no fence — nobody refused', () => {
+    it('null or zero radius is unconfigured', () => {
         expect(evaluateOfficeGeofence({ center: office, point: north(9000), radiusMeters: null }).verdict).toBe('unconfigured');
         expect(evaluateOfficeGeofence({ center: office, point: north(9000), radiusMeters: 0 }).verdict).toBe('unconfigured');
-        expect(evaluateOfficeGeofence({ center: { latitude: 0, longitude: 0 }, point: north(10), radiusMeters: 12 }).verdict).toBe('unconfigured');
-        expect(evaluateOfficeGeofence({ center: office, point: undefined, radiusMeters: 12 }).verdict).toBe('unconfigured');
+    });
+});
+
+describe('radius set but data incomplete is misconfigured — BLOCKS', () => {
+    it('branch center is 0/0', () => {
+        expect(evaluateOfficeGeofence({ center: { latitude: 0, longitude: 0 }, point: north(10), radiusMeters: 12 }).verdict).toBe('misconfigured');
+    });
+    it('no GPS reading from the device', () => {
+        expect(evaluateOfficeGeofence({ center: office, point: undefined, radiusMeters: 12 }).verdict).toBe('misconfigured');
+    });
+    it('no branch pin at all', () => {
+        expect(evaluateOfficeGeofence({ center: null, point: north(10), radiusMeters: 12 }).verdict).toBe('misconfigured');
     });
 });
 
@@ -42,5 +52,11 @@ describe('labels and wording', () => {
         expect(outsideFenceMessage(r, 12, 'Andheri')).toBe(
             "You're about 140 m from Andheri. Office check-in works within 12 m of the office. Move closer, or choose another working method.",
         );
+    });
+    it('says what to fix when the branch has no pin', () => {
+        expect(misconfiguredFenceMessage('Andheri', false)).toContain('no map coordinates');
+    });
+    it('says to enable GPS when the device has no reading', () => {
+        expect(misconfiguredFenceMessage('Andheri', true)).toContain('enable GPS');
     });
 });
