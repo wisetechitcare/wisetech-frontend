@@ -373,7 +373,7 @@ module.exports = {
         'src/app/modules/projectPoints/ProjectPointsConfigModal.tsx',
         'src/app/modules/projectPoints/ProjectPointsConfigSection.tsx',
         'src/app/pages/company/Branches.tsx',
-        'src/app/pages/company/organisation/OrganizationsPage.tsx',
+        'src/app/pages/company/organization/OrganizationsPage.tsx',
         'src/app/pages/dashboard/DashboardTasks.tsx',
         'src/app/pages/dashboard/Todo.tsx',
         'src/app/pages/employee/MeetingAttendeesDialog.tsx',
@@ -413,7 +413,7 @@ module.exports = {
        * active currency. The two files are duplicates of each other and worth collapsing,
        * but that is a separate job. */
       files: [
-        'src/app/pages/company/organisationInfo/rule/mockData.ts',
+        'src/app/pages/company/organizationInfo/rule/mockData.ts',
         'src/app/pages/employee/personal-rules/components/SalarySection.tsx',
       ],
       rules: { 'no-restricted-syntax': 'off' },

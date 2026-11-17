@@ -104,3 +104,27 @@ export const Range: Story = {
     await expect(canvas.getByRole('group', { name: 'Leave Dates' })).toHaveTextContent('2026.10.28–2026.10.31')
   },
 }
+
+/** Quick ranges under the calendar: one click sets the whole range and closes (here, a fiscal year). */
+export const RangeWithPresets: Story = {
+  render: (args) => (
+    <div className="w-80">
+      <DateRangePicker
+        label="Fiscal year"
+        placeholderValue={args.placeholderValue}
+        onChange={args.onChange as (value: RangeValue<DateValue> | null) => void}
+        presets={[{ label: 'Apr–Mar', value: { start: parseDate('2026-04-01'), end: parseDate('2027-03-31') } }]}
+      />
+    </div>
+  ),
+  play: async ({ args, canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Apr–Mar' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const range = mocked(args.onChange!).mock.lastCall?.[0] as unknown as RangeValue<DateValue>
+    await expect(range.start.toString()).toBe('2026-04-01')
+    await expect(range.end.toString()).toBe('2027-03-31')
+    await expect(canvas.getByRole('group', { name: 'Fiscal Year' })).toHaveTextContent('2026.04.01–2027.03.31')
+  },
+}

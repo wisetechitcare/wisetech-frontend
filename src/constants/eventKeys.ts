@@ -19,7 +19,7 @@ export type AppEventMap = {
     leadCancellationReasonUpdated: { id: string };
     leadPoStatusCreated: { id: string };
     leadPoStatusUpdated: { id: string };
-    leadPoStatusDeleted: { id: string };
+    leadPoStatusDeleted: { id?: string };
 
     paymentPlanCreated: { id: string };
     paymentPlanUpdated: { id: string };
@@ -90,11 +90,11 @@ export type AppEventMap = {
     taskStageDeleted: { id: string };
     
     timesheetDeleted: { id: string };
-    closeChartDialogModal: {  };
-    chartSettingsUpdated: {  };
+    closeChartDialogModal: Record<string, never>;
+    chartSettingsUpdated: Record<string, never>;
 
-    NewTimeLogFromCreated: { id: string };
-    organisationProfileUpdated: {  };
+    NewTimeLogFromCreated: { id?: string };
+    organizationProfileUpdated: Record<string, never>;
     leaveManagementRequestCreated: { requestId: string };
     leaveManagementRequestUpdated: { requestId: string };
     leaveRequestCreated: { leaveId: string };
@@ -107,7 +107,7 @@ export type AppEventMap = {
     organizationConfigUpdated: { id: string };
     employeeConfigCreated: { type: string };
     employeeConfigUpdated: { id: string };
-    attendanceRequestCreated: { id: string };
+    attendanceRequestCreated: { id: string; employeeId?: string };
     attendanceRequestUpdated: { id: string };
     attendanceRequestApproved: { id: string };
     attendanceRequestRejected: { id: string };
@@ -121,7 +121,7 @@ export type AppEventMap = {
 
   export type AppEventKey = keyof AppEventMap;
   
-  export const EVENT_KEYS: Record<AppEventKey, AppEventKey> = {
+  export const EVENT_KEYS = {
     userRaisedRequestSubmitted: 'userRaisedRequestSubmitted',
     weekendColor: 'weekendColor',
     reimbursementRecords: 'reimbursementRecords',
@@ -214,7 +214,7 @@ export type AppEventMap = {
     chartSettingsUpdated: 'chartSettingsUpdated',
 
     NewTimeLogFromCreated: 'NewTimeLogFromCreated',
-    organisationProfileUpdated: 'organisationProfileUpdated',
+    organizationProfileUpdated: 'organizationProfileUpdated',
     leaveManagementRequestCreated: 'leaveManagementRequestCreated',
     leaveManagementRequestUpdated: 'leaveManagementRequestUpdated',
     leaveRequestCreated: 'leaveRequestCreated',
@@ -237,4 +237,4 @@ export type AppEventMap = {
     biometricDeviceUpdated: 'biometricDeviceUpdated',
     attendanceUpdated: 'attendanceUpdated',
 
-  };
+  } as const satisfies Record<AppEventKey, AppEventKey>;

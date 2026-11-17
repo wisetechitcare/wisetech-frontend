@@ -3,9 +3,9 @@
  * THE RATCHET: these files already used a legacy icon form (KTIcon, AppIcon, bi-/fa-/la-/ki-
  * classes, @mui/icons-material, other icon libraries) when `wisetech/no-legacy-icons` landed.
  * They warn; ANY file NOT listed here fails hard. New code cannot regress, and this list can
- * only shrink. Separate from .eslint-ui-baseline.cjs on purpose (that list carries unrelated bans).
+ * only shrink: regenerating refuses to add a file (growth requires an explicit `--grow`). Separate from .eslint-ui-baseline.cjs on purpose (that list carries unrelated bans).
  *
- * Burn-down: 585 files at baseline. Delete a path once its icons are converted.
+ * Burn-down: 553 files at baseline. Delete a path once its icons are converted.
  */
 module.exports = [
   "src/app/components/ErrorBoundary.tsx",
@@ -18,19 +18,15 @@ module.exports = [
   "src/app/modules/apps/user-management/users-list/components/header/UsersListSearchComponent.tsx",
   "src/app/modules/apps/user-management/users-list/table/columns/UserActionsCell.tsx",
   "src/app/modules/apps/user-management/users-list/user-edit-modal/UserEditModalForm.tsx",
-  "src/app/modules/auth/components/InactiveEmployee.tsx",
-  "src/app/modules/auth/components/Login.tsx",
   "src/app/modules/common/components/AddonLeavesAllowanceCard.tsx",
   "src/app/modules/common/components/AddonLeavesAllowanceForm.tsx",
   "src/app/modules/common/components/AssignToProjectsDialog.tsx",
   "src/app/modules/common/components/AttendanceCheckCell.tsx",
   "src/app/modules/common/components/AttendanceDayTimes.tsx",
   "src/app/modules/common/components/BiometricDevicesModal/index.tsx",
-  "src/app/modules/common/components/BranchCard.tsx",
   "src/app/modules/common/components/EmployeePickerField.tsx",
   "src/app/modules/common/components/EmployeeSelectionDialog.tsx",
   "src/app/modules/common/components/EmployeeStatGrid.tsx",
-  "src/app/modules/common/components/ExportButton.tsx",
   "src/app/modules/common/components/FormSchemaManager/index.tsx",
   "src/app/modules/common/components/GlobalSearch/GlobalSearch.tsx",
   "src/app/modules/common/components/Graphs.tsx",
@@ -61,12 +57,9 @@ module.exports = [
   "src/app/modules/common/components/ui/ConfirmDialog.tsx",
   "src/app/modules/common/components/ui/ContactPicker.tsx",
   "src/app/modules/common/components/ui/EntityIdentityHeader.tsx",
-  "src/app/modules/common/components/ui/FilterSheet.tsx",
-  "src/app/modules/common/components/ui/FiscalYearRangeField.tsx",
   "src/app/modules/common/components/ui/InlineNotice.tsx",
   "src/app/modules/common/components/ui/MasterListSection.tsx",
   "src/app/modules/common/components/ui/NavCard.tsx",
-  "src/app/modules/common/components/ui/OrgFilterToolbar.tsx",
   "src/app/modules/common/components/ui/Pager.tsx",
   "src/app/modules/common/components/ui/SwatchPicker.tsx",
   "src/app/modules/common/components/ui/WtColorPicker.tsx",
@@ -136,7 +129,6 @@ module.exports = [
   "src/app/pages/billing/reports/shared/ReportExportToolbar.tsx",
   "src/app/pages/billing/reports/shared/ReportFilterBar.tsx",
   "src/app/pages/billing/reports/shared/SavedFiltersMenu.tsx",
-  "src/app/pages/company/Branches.tsx",
   "src/app/pages/company/Departments.tsx",
   "src/app/pages/company/Designation.tsx",
   "src/app/pages/company/OnboardingDocs.tsx",
@@ -148,12 +140,7 @@ module.exports = [
   "src/app/pages/company/components/MediaBreadcrumb.tsx",
   "src/app/pages/company/masters/EmployeeTypes.tsx",
   "src/app/pages/company/masters/OrganizationConfigure.tsx",
-  "src/app/pages/company/masters/Towns.tsx",
-  "src/app/pages/company/organisation/OrganisationInfo.tsx",
-  "src/app/pages/company/organisation/OrganisationProfileForm.tsx",
-  "src/app/pages/company/organisation/OrganisationProfileMain.tsx",
-  "src/app/pages/company/organisation/OrganizationProfilePage.tsx",
-  "src/app/pages/company/organisationInfo/OrganisationInfoProfileMain.tsx",
+  "src/app/pages/company/organizationInfo/OrganizationInfoProfileMain.tsx",
   "src/app/pages/company/settings/DeductionRules.tsx",
   "src/app/pages/company/settings/LeavesAndBlance.tsx",
   "src/app/pages/company/settings/RolesAndPermissions.tsx",
@@ -565,7 +552,6 @@ module.exports = [
   "src/modules/payroll/components/table/PaymentDetailsTable.tsx",
   "src/modules/payroll/pages/SalaryReport.tsx",
   "src/modules/projects/workspace/ProjectWorkspacePage.tsx",
-  "src/services/tasks.ts",
   "src/shared/form-engine/components/EnterpriseWizard/EnterpriseFormWizard.tsx",
   "src/shared/form-engine/components/EnterpriseWizard/GroupedWizard.tsx",
   "src/shared/form-engine/components/EnterpriseWizard/WizardFooterActions.tsx",

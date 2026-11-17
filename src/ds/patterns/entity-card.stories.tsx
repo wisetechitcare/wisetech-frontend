@@ -103,3 +103,39 @@ export const NavigationTiles: Story = {
     await expect(canvas.queryByRole('link', { name: 'Approvals' })).not.toBeInTheDocument()
   },
 }
+
+const onOpenRecord = fn()
+const onViewPeople = fn()
+
+/** `onOpen`: the whole tile opens a dialog (a record edited in place); its footer actions stay separate. */
+export const OpensInDialog: Story = {
+  args: {
+    title: 'Pune office',
+    subtitle: 'FC Road, Shivajinagar, Pune',
+    icon: <Building2 aria-hidden />,
+    tone: 'cyan',
+    // The meta's default args link the tile; `href` would win over `onOpen`, so this story clears it.
+    href: undefined,
+    status: undefined,
+    meta: undefined,
+    description: undefined,
+    onOpen: onOpenRecord,
+    openLabel: 'Edit branch Pune office',
+    actions: (
+      <Button size="sm" variant="outline" onClick={onViewPeople}>
+        12 Employees
+      </Button>
+    ),
+  },
+  beforeEach: () => {
+    onOpenRecord.mockReset()
+    onViewPeople.mockReset()
+  },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: '12 Employees' }))
+    await expect(onViewPeople).toHaveBeenCalledOnce()
+    await expect(onOpenRecord).not.toHaveBeenCalled()
+    await userEvent.click(canvas.getByRole('button', { name: 'Edit branch Pune office' }))
+    await expect(onOpenRecord).toHaveBeenCalledOnce()
+  },
+}

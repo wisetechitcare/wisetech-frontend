@@ -3,7 +3,7 @@
  * The escape that stands between a typed-in name and a script tag.
  *
  * These are regression tests for a real hole: three dialogs interpolated an
- * employee, branch or organisation name straight into SweetAlert's `html`, which
+ * employee, branch or organization name straight into SweetAlert's `html`, which
  * is assigned to the DOM as markup. A name of `<img src=x onerror=…>` executed in
  * the browser of whoever opened the dialog.
  *

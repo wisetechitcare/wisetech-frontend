@@ -12,7 +12,7 @@ Items marked ✅ were re-checked by reading the code after the initial sweep; it
 | Area | Finding |
 |---|---|
 | Excel / CSV | All generated **in the browser**; no backend endpoint produces a spreadsheet. One shared engine (`ExportButton`) plus one bespoke payslip workbook. |
-| PDF | Three engines: server **Puppeteer** (HTML → PDF, 7 features), server **Word COM** (DOCX → PDF, lead proposals, Windows-only), browser **jsPDF** (reports table, Company Profile) and **@react-pdf** (organisation report). |
+| PDF | Three engines: server **Puppeteer** (HTML → PDF, 7 features), server **Word COM** (DOCX → PDF, lead proposals, Windows-only), browser **jsPDF** (reports table, Company Profile) and **@react-pdf** (organization report). |
 | Word | Two engines: HTML-wrapped `.doc` (billing documents) and docxtemplater `.docx` (lead proposals). |
 | Pagination | 4 server-paginated tables export **only the current page**; 4 billing reports **silently cap at 1,000 rows**. |
 | Security | 1 arbitrary-file-read/SSRF, public-read salary slips and proposals, billing scope with **no tenant filter** for "view all" roles, HTML injection into Puppeteer, a handler that never responds on error. |
@@ -36,7 +36,7 @@ Items marked ✅ were re-checked by reading the code after the initial sweep; it
 | 6 | FE `modules/payroll/utils/salarySlipExport.ts:880-1603` | `downloadSalarySlipXlsx` | XLSX payslip with formulas | exceljs + file-saver | `SalarySlipSection.tsx:155` (admin) |
 | 7 | `salarySlipExport.ts:1624-1843` | `downloadSalarySlipCsv` | CSV | file-saver | `SalarySlipSection.tsx:156` |
 | 8 | FE `app/pages/employee/company-profile/DeckExport.tsx` | `DeckExport` | PDF (one JPEG per slide) | modern-screenshot + jspdf | Company Profile page |
-| 9 | FE `app/pages/company/organisation/OrganisationInfo.tsx:38-101` | `handleDownloadPdf` | PDF | @react-pdf/renderer (**static import**) | Organisation profile |
+| 9 | FE `app/pages/company/organization/OrganizationInfo.tsx:38-101` | `handleDownloadPdf` | PDF | @react-pdf/renderer (**static import**) | Organization profile |
 | 10 | FE `app/pages/employee/components/idcard/EmployeeIdCardDialog.tsx:59-68` | `handleDownload` | PNG (SVG → canvas) | `utils/svgExport.ts` | ID card dialog (data from the JSON endpoint, §2 #14) |
 | 11 | FE `app/pages/employee/leads/lead/CsvUploadStep.tsx:138-142` | `downloadTemplate` | CSV header template | `downloadBlob` | Lead bulk import, legacy migration |
 | 12 | FE `app/pages/employee/recruitment/CandidateDrawer.tsx:97-105` | `downloadJson` | JSON (subject-access export) | hand-rolled | Candidate drawer |
@@ -215,7 +215,7 @@ Exports that go through `renderExportActions` or `fetchAllRows` bypass the clien
 - Browser PDFs stay where they are deliberate:
   - The reports table (jsPDF) should share column logic with ExportButton.
   - Company Profile (raster, so its text is not selectable) can move to server Puppeteer later, giving selectable text.
-  - The organisation report (@react-pdf) should become a lazy import.
+  - The organization report (@react-pdf) should become a lazy import.
 
 ### Word: keep two formats, one module
 - HTML `.doc` (billing documents: one HTML string for preview, PDF and Word) and docxtemplater `.docx` (user-authored proposal templates) serve different needs. Both already live in `services/export/`.

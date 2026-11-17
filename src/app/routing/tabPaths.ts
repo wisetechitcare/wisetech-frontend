@@ -28,7 +28,7 @@ export const TAB_PATHS = {
         // useTabRoute suffixes the repeat, so that URL has to exist too.
         'installments-2',
     ],
-    organisationProfile: ['organizations', 'configure'],
+    organizationProfile: ['organizations', 'configure'],
     employees: ['employees', 'configure'],
     // Detail stays at /employees/meetings/:meetingId — static tab slugs must be registered first.
     meetings: [

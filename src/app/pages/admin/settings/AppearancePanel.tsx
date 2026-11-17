@@ -56,8 +56,8 @@ const ORG_SURFACE_OPTIONS = [
 const SURFACE_OPTIONS = [{ value: 'inherit' as const, label: 'Org default' }, ...ORG_SURFACE_OPTIONS];
 
 /**
- * The organisation's Interface Style default — what everyone on "Org default" sees.
- * Same save path and permission as the organisation time format (DateTimePanel).
+ * The organization's Interface Style default — what everyone on "Org default" sees.
+ * Same save path and permission as the organization time format (DateTimePanel).
  */
 function OrgSurfaceDefault() {
   const dispatch = useDispatch();
@@ -70,7 +70,7 @@ function OrgSurfaceDefault() {
 
   const save = useCallback(async (next: SurfaceStyle) => {
     if (!companyId) {
-      toast({ icon: 'error', title: 'Could not load your organisation', text: 'Reload the page and try again.' });
+      toast({ icon: 'error', title: 'Could not load your organization', text: 'Reload the page and try again.' });
       return;
     }
     setSaving(true);
@@ -78,9 +78,9 @@ function OrgSurfaceDefault() {
       const res = await updateCompanyOverview(companyId, { interfaceStyle: next } as any);
       if (!res || res.hasError) throw new Error('Update rejected');
       dispatch(saveCurrentCompanyInfo({ ...currentCompany, interfaceStyle: next }) as any);
-      toast({ icon: 'success', title: `Organisation default is now ${next === 'glass' ? 'Glass' : 'Material'}` });
+      toast({ icon: 'success', title: `Organization default is now ${next === 'glass' ? 'Glass' : 'Material'}` });
     } catch {
-      toast({ icon: 'error', title: 'Could not save the organisation interface style' });
+      toast({ icon: 'error', title: 'Could not save the organization interface style' });
     } finally {
       setSaving(false);
     }
@@ -97,7 +97,7 @@ function OrgSurfaceDefault() {
       sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}
     >
       <Box sx={{ minWidth: 0 }}>
-        <Typography variant="body2" sx={{ fontWeight: 700 }}>Organisation default</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>Organization default</Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {orgSurface ? 'Applies to everyone on “Org default”.' : 'Not set — everyone on “Org default” sees Material.'}
         </Typography>
@@ -106,11 +106,11 @@ function OrgSurfaceDefault() {
         options={ORG_SURFACE_OPTIONS.map((o) => ({
           ...o,
           disabled: saving || !companyId,
-          disabledReason: saving ? 'Saving…' : 'Organisation not loaded yet',
+          disabledReason: saving ? 'Saving…' : 'Organization not loaded yet',
         }))}
         value={orgSurface ?? 'material'}
         onChange={save}
-        ariaLabel="Organisation interface style"
+        ariaLabel="Organization interface style"
       />
     </Stack>
   );
@@ -180,7 +180,7 @@ export function AppearancePanel() {
           trio={TRIO.cyan}
           label="Surface"
           value={surface === 'glass' ? 'Glass' : 'Material'}
-          hint={surfacePreference === 'inherit' ? 'Organisation default' : surface === 'glass' ? 'Frost + blur' : 'Opaque elevation'}
+          hint={surfacePreference === 'inherit' ? 'Organization default' : surface === 'glass' ? 'Frost + blur' : 'Opaque elevation'}
         />
       </Box>
 
@@ -297,7 +297,7 @@ export function AppearancePanel() {
           }
         >
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {surfacePreference === 'inherit' && `Following your organisation: ${surface === 'glass' ? 'Glass' : 'Material'}. `}
+            {surfacePreference === 'inherit' && `Following your organization: ${surface === 'glass' ? 'Glass' : 'Material'}. `}
             {surface === 'glass'
               ? 'Glass: surfaces are translucent and blur what is behind them, the way macOS and iOS panels do.'
               : 'Material: surfaces are opaque and separated by elevation instead of blur — steadier on low-powered devices and easier to read over busy backgrounds.'}

@@ -4,13 +4,13 @@ import { useSelector } from 'react-redux';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { companyOverviewIcons, leadsIcons } from '@metronic/assets/sidepanelicons';
 import Masters from '../masters/Masters';
-import OrganisationProfileForm from '../organisation/OrganisationProfileForm';
+import OrganizationProfileForm from '../organization/OrganizationProfileForm';
 import { RootState } from '@redux/store';
 import RuleMainPage from './rule/RuleMainPage';
 import FaqsMainPage from './faqs/FaqsMainPage';
 import { useTabRoute } from '@app/hooks/useTabRoute';
 
-const OrganisationInfoProfileMain = () => {
+const OrganizationInfoProfileMain = () => {
       const isAdmin = useSelector(
           (state: RootState) => state.auth.currentUser.isAdmin
       );
@@ -18,7 +18,7 @@ const OrganisationInfoProfileMain = () => {
       const tabItems: TabItem[] = [
           {
               title: "Rule",
-            //   component: <OrganisationProfileForm />,
+            //   component: <OrganizationProfileForm />,
             component: <RuleMainPage />,
             icon: 'bi-journal-text',
           },
@@ -30,7 +30,7 @@ const OrganisationInfoProfileMain = () => {
           }
       ];
 
-      // The tab is the URL (/company/organisation-info/faqs), so it survives a refresh, a
+      // The tab is the URL (/company/organization-info/faqs), so it survives a refresh, a
       // shared link, and the remount the header does at the mobile breakpoint.
       const { activeTab, setActiveTab } = useTabRoute(undefined, tabItems.map((t) => t.title));
 
@@ -57,4 +57,4 @@ const OrganisationInfoProfileMain = () => {
       )
 }
 
-export default OrganisationInfoProfileMain
+export default OrganizationInfoProfileMain

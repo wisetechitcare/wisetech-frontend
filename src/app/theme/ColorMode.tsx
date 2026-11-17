@@ -55,7 +55,7 @@ interface ColorModeCtx {
   surface: SurfaceStyle;
   /** This browser's own choice, `inherit` included. */
   surfacePreference: SurfacePreference;
-  /** The organisation default, or null when the org has no opinion. */
+  /** The organization default, or null when the org has no opinion. */
   orgSurface: SurfaceStyle | null;
   setPreference: (p: ColorPreference) => void;
   setBrand: (b: BrandPalette) => void;
@@ -82,7 +82,7 @@ export function ColorModeProvider({ children }: { children: React.ReactNode }) {
 
   const { preference, brand, surface: surfacePreference } = settings;
 
-  // The organisation layer of Interface Style. `company.currentCompany` is filled lazily,
+  // The organization layer of Interface Style. `company.currentCompany` is filled lazily,
   // so load it once the signed-in employee is known — otherwise an org default would only
   // apply after someone happened to open a screen that loads the company.
   const rawOrgSurface = useSelector((s: RootState) => (s as any)?.company?.currentCompany?.interfaceStyle);

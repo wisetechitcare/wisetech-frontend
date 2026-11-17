@@ -16,7 +16,7 @@ export const SIGN_IN_HEADLINE: readonly TypewriterLine[] = [
   [{ text: 'Fast', tone: 'blue' }, ', ', { text: 'Efficient', tone: 'green' }, ' & ', { text: 'Productive', tone: 'purple' }],
 ]
 
-export const SIGN_IN_TAGLINE = 'All-in-one HR, CRM, Projects and Payroll for your whole organisation.'
+export const SIGN_IN_TAGLINE = 'All-in-one HR, CRM, Projects and Payroll for your whole organization.'
 
-/** The organisation shown before the logo endpoint answers (and if it fails). */
+/** The organization shown before the logo endpoint answers (and if it fails). */
 export const DEFAULT_BRAND = 'WiseTech'

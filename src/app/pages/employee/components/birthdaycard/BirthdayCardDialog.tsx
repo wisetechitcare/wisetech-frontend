@@ -50,7 +50,7 @@ export default function BirthdayCardDialog({ open, onClose, kind, personId, pers
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
 
-  /** Name and organisation — what titles the dialog and captions a share. */
+  /** Name and organization — what titles the dialog and captions a share. */
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["birthday-card", kind, personId],
     queryFn: () => fetchBirthdayCard(kind, personId),

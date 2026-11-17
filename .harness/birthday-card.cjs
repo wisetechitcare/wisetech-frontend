@@ -23,14 +23,14 @@ const PIXEL =
 const asDataUri = (file) =>
     'data:image/png;base64,' + fs.readFileSync(path.join('.harness', 'fixtures', file)).toString('base64');
 
-// What production actually serves: the ROOT organisation's mark, the one Organization
+// What production actually serves: the ROOT organization's mark, the one Organization
 // Profile shows. Stacked, 1147 x 673, and OPAQUE -- a white background baked in. Rendering
 // the transparent lockup here instead would hide the very case the filter exists for.
 const ORG = { name: 'WISETECH GROUP', logo: asDataUri('root-WISETECH-GROUP.png'), logoWidth: 1147, logoHeight: 673 };
 /**
  * The mark the card is handed is OPAQUE — a white background baked in — so the artwork
  * keys the white out rather than drawing the file as-is. Pinning the colour type here is
- * what makes that visible: if the organisation ever uploads a transparent mark the filter
+ * what makes that visible: if the organization ever uploads a transparent mark the filter
  * still behaves (it subtracts from the incoming alpha), but the assumption has changed
  * and this check says so out loud.
  *
@@ -56,7 +56,7 @@ const CASES = [
       person: { id: '3', name: 'Shaikhs', photo: null, dateOfBirth: null, subtitle: null } },
     { key: 'long-name', label: 'name long enough to wrap',
       person: { id: '4', name: 'Suwarnadurgakar Venkataraman Krishnamurthy', photo: PIXEL, dateOfBirth: '1990-03-02', subtitle: 'MEP Co-Ordinator (D) (L1)' } },
-    { key: 'no-logo', label: 'organisation with no mark on file', org: NO_LOGO_ORG,
+    { key: 'no-logo', label: 'organization with no mark on file', org: NO_LOGO_ORG,
       person: { id: '5', name: 'Kanhai Gandhi', photo: PIXEL, dateOfBirth: '1980-11-04', subtitle: 'Director · KNS Architect' } },
 ];
 

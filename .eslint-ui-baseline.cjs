@@ -5,7 +5,7 @@
  * warnings so the build stays green — while ANY file NOT listed here fails hard on the same
  * violation. New code therefore cannot regress, and this list can only shrink.
  *
- * Burn-down: 263 files at baseline. Delete a path once its violations are fixed.
+ * Burn-down: 257 files at baseline. Delete a path once its violations are fixed.
  */
 module.exports = [
   "src/app/components/ErrorBoundary.tsx",
@@ -21,11 +21,6 @@ module.exports = [
   "src/app/modules/apps/user-management/users-list/table/columns/UserLastLoginCell.tsx",
   "src/app/modules/apps/user-management/users-list/table/columns/UserTwoStepsCell.tsx",
   "src/app/modules/apps/user-management/users-list/user-edit-modal/UserEditModalForm.tsx",
-  "src/app/modules/auth/components/ForgotPassword.tsx",
-  "src/app/modules/auth/components/InactiveEmployee.tsx",
-  "src/app/modules/auth/components/Login.tsx",
-  "src/app/modules/auth/components/Registration.tsx",
-  "src/app/modules/auth/components/ResetPassword.tsx",
   "src/app/modules/common/components/CommonCard.tsx",
   "src/app/modules/common/components/DragDropFileField/index.tsx",
   "src/app/modules/common/components/FormSchemaManager/index.tsx",
@@ -64,10 +59,9 @@ module.exports = [
   "src/app/pages/company/components/EmployeeList.tsx",
   "src/app/pages/company/masters/EmployeeTypes.tsx",
   "src/app/pages/company/masters/OrganizationConfigure.tsx",
-  "src/app/pages/company/organisation/Branding.tsx",
-  "src/app/pages/company/organisation/OrganisationReportTemplet.tsx",
-  "src/app/pages/company/organisationInfo/rule/RuleMainPage.tsx",
-  "src/app/pages/company/organisationInfo/rule/components/RuleDivider.tsx",
+  "src/app/pages/company/organization/OrganizationReportTemplet.tsx",
+  "src/app/pages/company/organizationInfo/rule/RuleMainPage.tsx",
+  "src/app/pages/company/organizationInfo/rule/components/RuleDivider.tsx",
   "src/app/pages/company/settings/Appearance.tsx",
   "src/app/pages/company/settings/RolesAndPermissions.tsx",
   "src/app/pages/company/settings/SandwhichLeave.tsx",

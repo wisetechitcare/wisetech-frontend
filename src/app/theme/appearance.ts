@@ -35,7 +35,7 @@ import { resolve, type PreferenceSpec } from '@/preferences/core';
 export type ThemeMode = 'light' | 'dark';
 export type ColorPreference = ThemeMode | 'system';
 export type SurfaceStyle = 'glass' | 'material';
-/** What a person can choose. `inherit` = follow the organisation default (no opinion). */
+/** What a person can choose. `inherit` = follow the organization default (no opinion). */
 export type SurfacePreference = SurfaceStyle | 'inherit';
 
 /**
@@ -76,7 +76,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
 };
 
 /**
- * Interface Style as a scoped preference: this browser -> the organisation -> Material.
+ * Interface Style as a scoped preference: this browser -> the organization -> Material.
  * The org layer is `Organization.interfaceStyle` (null = no opinion).
  */
 export const interfaceStyleSpec: PreferenceSpec<SurfaceStyle> = {
@@ -109,7 +109,7 @@ const isSurfacePreference = (v: unknown): v is SurfacePreference => v === 'glass
 /**
  * Read this browser's surface choice.
  *
- * Current shape: `surfacePref`. Before the organisation default existed the value lived in
+ * Current shape: `surfacePref`. Before the organization default existed the value lived in
  * `surface` and could not record "no opinion" — every save wrote the default `material`
  * alongside mode and brand, so a stored `material` is indistinguishable from "never chose".
  * Only `glass` was reachable by choosing, so only it is carried over as explicit.

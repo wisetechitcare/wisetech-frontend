@@ -9,6 +9,7 @@ import { Box, Chip, CircularProgress, InputAdornment, TextField, Typography, Pap
 import { LocationOn, MyLocation } from "@mui/icons-material";
 import { useFloatingLabels } from "./ui/FloatingLabel";
 import { WtIconButton } from '@app/modules/common/components/ui/buttons';
+import { AREA_ZOOM, reverseGeocode, searchPlaces, toGeoPick, type GeoPick } from '@services/geocoding';
 // import { resolveReactComponent } from "../../../../utils/resolveReactComponent";
 // import { LocationOn as RawLocationOn, MyLocation as RawMyLocation } from "@mui/icons-material";
 
@@ -24,56 +25,11 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-/**
- * Geocoding runs on Nominatim (OpenStreetMap) — no key, no billing.
- *
- * Both keys this app carries are dead: VITE_APP_OPEN_CAGE_API_KEY returns
- * "401 unknown API key" and VITE_APP_GOOGLE_MAP_KEY returns REQUEST_DENIED
- * (billing disabled). Map TILES still draw because Google's tile endpoint
- * ignores the key, which is why the map looked fine while every field stayed
- * blank. Nominatim asks for ≤1 request/sec — the search below is debounced and
- * a pin drop is one call, so a form stays well inside that.
- */
-const NOMINATIM = "https://nominatim.openstreetmap.org";
+// Geocoding (Nominatim, plain fetch, zoom contract, GeoPick shape) lives in ONE place: @services/geocoding.
+export type { GeoPick } from '@services/geocoding';
 
 /** Where the pin lands when nothing is set yet — roughly the middle of India. */
 const DEFAULT_CENTER: [number, number] = [19.076, 72.8777];
-
-/**
- * Reverse-geocoding detail levels.
- *
- * POINT_ZOOM (18, building) resolves the street under the pin. Nominatim happens to
- * default to it, but the default is not contractual and a coarser one would quietly
- * return a suburb centroid instead of the address.
- *
- * AREA_ZOOM (14, suburb/locality) is only used to read the postcode. Postcodes tagged
- * on individual buildings are sparse and inconsistent in OSM, so reading them at
- * building level makes the same locality report different codes from click to click;
- * the locality boundary carries one code for the whole area.
- */
-const POINT_ZOOM = 18;
-const AREA_ZOOM = 14;
-
-export interface GeoPick {
-  lat: number;
-  lng: number;
-  /** Nominatim's full display_name — street through to country. */
-  formatted: string;
-  /**
-   * Just the street line: house number, road, and the named place it sits in.
-   *
-   * `formatted` repeats the city, district, state, postcode and country that a form
-   * already collects in their own fields, so writing it into an "Address" input
-   * duplicates half the form. Callers that have those fields separately want this.
-   */
-  street: string;
-  country: string;
-  state: string;
-  city: string;
-  locality: string;
-  postcode: string;
-  googleMapLink: string;
-}
 
 interface SmartLocationPickerProps {
   lat?: number | string | null;
@@ -86,46 +42,6 @@ interface SmartLocationPickerProps {
 const num = (v: unknown): number | null => {
   const n = typeof v === "number" ? v : parseFloat(String(v ?? ""));
   return Number.isFinite(n) ? n : null;
-};
-
-/**
- * Nominatim's `address` bag varies by country — a city arrives as `city`, `town`,
- * `village` or `municipality` depending on how OSM classifies the place. Collapse
- * those to the single field the form actually has.
- */
-const toGeoPick = (result: any): GeoPick => {
-  const a = result?.address ?? {};
-  const lat = Number(result?.lat);
-  const lng = Number(result?.lon);
-
-  // Street line, most specific first. `name` catches a named building or complex that
-  // OSM records without a house number. Duplicates are dropped because Nominatim often
-  // repeats the same string across name/road/neighbourhood for a single-entity result.
-  const street = Array.from(
-    new Set(
-      [
-        result?.name,
-        [a.house_number, a.road].filter(Boolean).join(" "),
-        a.neighbourhood ?? a.residential,
-        a.suburb,
-      ]
-        .map((part) => (part ?? "").toString().trim())
-        .filter(Boolean)
-    )
-  ).join(", ");
-
-  return {
-    lat,
-    lng,
-    formatted: result?.display_name ?? "",
-    street,
-    country: a.country ?? "",
-    state: a.state ?? a.province ?? "",
-    city: a.city ?? a.town ?? a.village ?? a.municipality ?? a.county ?? "",
-    locality: a.suburb ?? a.neighbourhood ?? a.city_district ?? a.residential ?? "",
-    postcode: a.postcode ?? "",
-    googleMapLink: `https://www.google.com/maps/@${lat},${lng},17z`,
-  };
 };
 
 /** Keeps the map centred on the pin when it moves from outside (search, GPS). */
@@ -168,27 +84,6 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
   const [showSuggestions, setShowSuggestions] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  // Third-party geocoding goes through plain fetch, never the app's axios — that
-  // instance carries our JWT and treats any 401 as a session end, so a geocoder
-  // rejecting our request would otherwise log the user out mid-form.
-  const searchPlaces = useCallback(async (q: string): Promise<any[]> => {
-    const res = await fetch(`${NOMINATIM}/search?format=jsonv2&addressdetails=1&limit=6&q=${encodeURIComponent(q)}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  }, []);
-
-  const reverseGeocode = useCallback(async (
-    pointLat: number,
-    pointLng: number,
-    zoom: number = POINT_ZOOM,
-  ): Promise<any | null> => {
-    const res = await fetch(
-      `${NOMINATIM}/reverse?format=jsonv2&addressdetails=1&zoom=${zoom}&lat=${pointLat}&lon=${pointLng}`
-    );
-    const data = await res.json();
-    return data?.address ? data : null;
-  }, []);
-
   // Debounced forward search — one request per pause in typing, not per keystroke.
   useEffect(() => {
     const q = query.trim();
@@ -215,7 +110,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
       cancelled = true;
       clearTimeout(t);
     };
-  }, [query, searchPlaces]);
+  }, [query]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -280,7 +175,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
         googleMapLink: `https://www.google.com/maps/@${pointLat},${pointLng},17z`,
       });
     },
-    [reverseGeocode, onPick],
+    [onPick],
   );
 
   const useMyLocation = () => {

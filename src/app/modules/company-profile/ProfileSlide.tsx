@@ -52,7 +52,7 @@ const LIGHT_INK = "[--s-ink:#1b2a4e] [--s-body:#475569] [--s-muted:#64748b] [--s
 const DARK_INK = "[--s-ink:#ffffff] [--s-body:rgb(255_255_255/0.82)] [--s-muted:rgb(255_255_255/0.62)] [--s-line:rgb(255_255_255/0.2)] [--s-brand:#ffffff]"
 
 /**
- * Draws one presentation slide; `cover` replaces the default cover (the CRM's carries the organisation logo) and
+ * Draws one presentation slide; `cover` replaces the default cover (the CRM's carries the organization logo) and
  * `about` the default About us (the CRM's draws Our journey as a winding road).
  * `bg` colours every slide but the cover, which is fixed artwork (its photo sits on white).
  * `data-artwork` makes Bootstrap's element rules (h3, p, ul) step aside in the app (see scripts/postcss-kit-exemption.ts).

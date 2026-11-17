@@ -60,7 +60,7 @@ export const SETTINGS_AREAS: readonly SettingsArea[] = [
   {
     id: 'date-time',
     title: 'date & time',
-    description: 'Whether times read as 2:30 PM or 14:30, for you and for your organisation.',
+    description: 'Whether times read as 2:30 PM or 14:30, for you and for your organization.',
     icon: 'time',
     tone: TRIO.blue,
     Panel: DateTimePanel,

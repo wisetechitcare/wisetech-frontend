@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "@/ds/lib/utils"
+import { Button } from "@/ds/ui/button"
 import {
   Combobox,
   ComboboxContent,
@@ -48,6 +49,8 @@ export function SearchSelect({
   clearable = true,
   onBlur,
   limit = 100,
+  onCreate,
+  createLabel = (q: string) => `Add “${q}”`,
   className,
 }: {
   id: string
@@ -70,6 +73,14 @@ export function SearchSelect({
    * says how to reach the rest.
    */
   limit?: number
+  /**
+   * Inline create (the Combobox InlineCreate recipe): when the typed text matches nothing, the list offers
+   * to add it. The caller creates the record, adds it to `options` and selects it (only the caller knows the
+   * new value). May return a promise; the button is disabled until it settles.
+   */
+  onCreate?: (label: string) => void | Promise<void>
+  /** Text of the create button. Default: Add “…”. */
+  createLabel?: (query: string) => string
   className?: string
 }) {
   const hintId = hint ? `${id}-hint` : undefined
@@ -77,6 +88,18 @@ export function SearchSelect({
   const selected = React.useMemo(() => options.find((o) => o.value === value) ?? null, [options, value])
   // The same match Base UI applies (case-insensitive "contains" on the label), so the note's count is true.
   const [query, setQuery] = React.useState("")
+  const [creating, setCreating] = React.useState(false)
+  const typed = query.trim()
+  const canCreate = !!onCreate && !!typed && !options.some((o) => o.label.toLowerCase() === typed.toLowerCase())
+  async function create() {
+    if (!onCreate || !canCreate || creating) return
+    setCreating(true)
+    try {
+      await onCreate(typed)
+    } finally {
+      setCreating(false)
+    }
+  }
   const matches = React.useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q || q === selected?.label.toLowerCase()) return options.length
@@ -85,7 +108,7 @@ export function SearchSelect({
 
   return (
     <Field data-invalid={error ? true : undefined} data-disabled={disabled || undefined} className={className}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldLabel htmlFor={id} required={required}>{label}</FieldLabel>
       <Combobox
         items={options}
         value={selected}
@@ -128,7 +151,15 @@ export function SearchSelect({
           )}
         </ComboboxInput>
         <ComboboxContent>
-          <ComboboxEmpty>{emptyText}</ComboboxEmpty>
+          <ComboboxEmpty>
+            {canCreate ? (
+              <Button size="sm" variant="ghost" className="w-full justify-start" disabled={creating} onClick={() => void create()}>
+                + {createLabel(typed)}
+              </Button>
+            ) : (
+              emptyText
+            )}
+          </ComboboxEmpty>
           <ComboboxList>
             {(o: SearchSelectOption) => (
               <ComboboxItem key={o.value} value={o} disabled={o.disabled}>

@@ -37,7 +37,7 @@ const notify = (text: string) => void toast({ icon: "warning", title: "Slide lim
 /**
  * CRM → Company Profile: Cover, About us, What drives us, Services, every project category, Our Clients, Repeat
  * clients, the India and world maps and Contact. At most MAX_SLIDES are shown; the rest stay listed, hidden.
- * Sample data for now (no API yet); only the cover's logo comes from the app, the organisation's own.
+ * Sample data for now (no API yet); only the cover's logo comes from the app, the organization's own.
  */
 export default function CompanyProfilePage() {
   const data = DEMO_DATA

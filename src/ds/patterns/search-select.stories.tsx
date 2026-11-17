@@ -98,3 +98,62 @@ export const DisabledWithReason: Story = {
     await expect(canvas.getByRole('combobox', { name: 'Company Name (Optional)' })).toBeDisabled()
   },
 }
+
+/** Required: the label carries the kit's `*` marker (visual only) and the field is announced as required. */
+export const Required: Story = {
+  render: () => (
+    <div className="w-80">
+      <SearchSelect id="required-project" label="Project" required value={null} onValueChange={fn()} options={PROJECTS} />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const input = canvas.getByRole('combobox', { name: 'Project' })
+    await expect(input).toHaveAttribute('aria-required', 'true')
+    await expect(canvas.getByText('*')).toHaveAttribute('aria-hidden', 'true')
+  },
+}
+
+const onCreated = fn()
+
+function CreateHarness() {
+  const [options, setOptions] = React.useState<SearchSelectOption[]>([
+    { value: 't1', label: 'Andheri' },
+    { value: 't2', label: 'Bandra' },
+  ])
+  const [value, setValue] = React.useState<string | null>(null)
+  return (
+    <div className="w-80">
+      <SearchSelect
+        id="town"
+        label="Town"
+        value={value}
+        onValueChange={(v) => setValue(v)}
+        options={options}
+        onCreate={async (label) => {
+          const created = { value: `t${options.length + 1}`, label }
+          onCreated(label)
+          setOptions((xs) => [...xs, created])
+          setValue(created.value)
+        }}
+      />
+      <p data-testid="town-value" className="sr-only">{value ?? ''}</p>
+    </div>
+  )
+}
+
+/** Inline create: nothing matches → "+ Add “…”"; the caller creates the value and selects it. */
+export const InlineCreate: Story = {
+  render: () => <CreateHarness />,
+  beforeEach: () => {
+    onCreated.mockReset()
+  },
+  play: async ({ canvas }) => {
+    const input = canvas.getByRole('combobox', { name: 'Town' })
+    await userEvent.type(input, 'Thane')
+    await userEvent.click(await screen.findByRole('button', { name: /Add “Thane”/ }))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('Thane'))
+    await waitFor(() => expect(canvas.getByTestId('town-value')).toHaveTextContent('t3'))
+    await userEvent.keyboard('{Escape}')
+    await animationsSettled()
+  },
+}

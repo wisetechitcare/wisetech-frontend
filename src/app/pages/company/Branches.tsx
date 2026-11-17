@@ -1,12 +1,24 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import React, { useEffect, useRef, useState } from 'react'
-import { Form, Formik, FormikValues, useField, useFormik } from 'formik'
+import { Form, Formik, FormikProps, FormikValues } from 'formik'
 import * as Yup from 'yup'
-import { KTIcon } from '@metronic/helpers'
+import { Building2, Clock, LocateFixed, MapPin, Plus, Settings2, TriangleAlert, Info } from 'lucide-react'
 import { PageLink, PageTitle } from '@metronic/layout/core'
+import { Alert, AlertDescription } from '@/ds/ui/alert'
+import { Badge } from '@/ds/ui/badge'
+import { Button } from '@/ds/ui/button'
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet, FieldTitle } from '@/ds/ui/field'
+import { Input } from '@/ds/ui/input'
+import { Spinner } from '@/ds/ui/spinner'
+import { Textarea } from '@/ds/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/ds/ui/toggle-group'
+import { AutoGrid } from '@/ds/patterns/auto-grid'
+import { EmptyState } from '@/ds/patterns/empty-state'
+import { FormDialog } from '@/ds/patterns/form-dialog'
+import { PageHeader } from '@/ds/patterns/page-header'
+import { SearchSelect } from '@/ds/patterns/search-select'
 import {
   createNewTowns,
-  fetchAllCities,
   fetchAllCountries,
   fetchAllCurrencies,
   fetchAllStates,
@@ -23,17 +35,13 @@ import {
   deleteBranchById,
   promoteBranchToSubOrg,
 } from '@services/company'
+import { geocodeAddress } from '@services/geocoding'
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal'
 import BranchEmployeesModal from '@app/modules/common/components/BranchEmployeesModal'
 import BiometricDevicesModal from '@app/modules/common/components/BiometricDevicesModal'
 import BranchCard from '@app/modules/common/components/BranchCard'
-import {
-  Box, Stack, Typography, Paper, CircularProgress, IconButton,
-} from '@mui/material'
-import { GlassDialog, GlassHeader, WtButton, WtChoiceField, AutoGrid, ListHeader, Eyebrow, confirmDialog } from '@app/modules/common/components/ui'
+import { confirmDialog } from '@app/modules/common/components/ui'
 import { safeHtml } from '@app/modules/common/components/ui/safeHtml'
-import TextInput from '@app/modules/common/inputs/TextInput'
-import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@redux/store'
 import { saveCountries } from '@redux/slices/locations'
@@ -42,14 +50,9 @@ import { saveCountries } from '@redux/slices/locations'
 // screen loaded first, and only the raw shape carries a currency.
 import { useCountryDirectory } from '@hooks/useCurrency'
 import { getCurrencySymbol } from '@utils/currency'
-import LocationDropdown from '@app/modules/common/inputs/LocationDropdown'
-import DropDownInput from '@app/modules/common/inputs/DropdownInput'
 import { Option } from '@models/dropdown'
 import { UAParser } from 'ua-parser-js'
 import { canDelete, canSection } from '@utils/can'
-import { sidePanelIcons } from '@metronic/assets/sidepanelicons'
-
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_APP_GOOGLE_MAP_KEY
 
 const branchesBreadCrumb: Array<PageLink> = [
   {
@@ -77,7 +80,6 @@ const branchSchema = Yup.object({
   latitude: Yup.string().required().label('Latitude'),
   longitude: Yup.string().required().label('Longitude'),
   currency: Yup.string().optional().label('Currency'),
-  // dateFormat: Yup.string().optional().label('Date Format'),
   companyId: Yup.string(),
   isActive: Yup.boolean(),
   showDateIn12HourFormat: Yup.string().optional(),
@@ -88,7 +90,7 @@ const branchSchema = Yup.object({
 // UTC offset, not the full ~400-zone IANA database (unnecessary for a branch
 // picker). Auto-filled from the selected Country's `defaultTimezone` (attached
 // server-side in location.ts's getCountries, sourced from countryTimezones.ts) the
-// moment Country changes — see the Country dropdown's handleChange below. Picking a
+// moment Country changes — see the Country field's change handler below. Picking a
 // value here directly always wins from then on (timezoneManuallyEdited), and the
 // backend re-applies the same country-based default as a last-resort fallback if a
 // blank timezone ever reaches it (createBranches/updateBranchById).
@@ -146,30 +148,13 @@ let initialState = {
   latitude: '',
   longitude: '',
   currency: '',
-  // dateFormat: '',
   companyId: '',
   isActive: false,
   showDateIn12HourFormat: 'inherit',
   timezone: '',
 }
 
-/** Titled card section for the branch form (MUI). Reused for each field group. */
-function FormSection({ title, description, icon, children }: { title: string; description?: React.ReactNode; icon?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <Paper variant="outlined" sx={{ p: 2, mb: 1.75, borderRadius: 2 }}>
-      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2 }}>
-        {icon != null && (
-          <Box sx={{ width: 30, height: 30, borderRadius: 1.5, display: 'grid', placeItems: 'center', bgcolor: 'primary.light', color: 'primary.main', border: 1, borderColor: 'divider' }}>{icon}</Box>
-        )}
-        <Box>
-          <Typography sx={{ fontWeight: 700, fontSize: 13.5 }}>{title}</Typography>
-          {description != null && <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{description}</Typography>}
-        </Box>
-      </Stack>
-      {children}
-    </Paper>
-  );
-}
+const FORM_ID = 'branch-form'
 
 interface BranchesProps {
   /** Scope the list + new-branch creation to this organization. */
@@ -188,12 +173,44 @@ interface BranchesProps {
  * The branch's slice of the 12/24h cascade, as the DB must store it.
  *
  * `null` is the important return: it means "this branch has no opinion", which is what
- * lets the organisation setting through. Returning `false` for anything that is not '1'
+ * lets the organization setting through. Returning `false` for anything that is not '1'
  * is the bug this replaces — it made every branch assert 24-hour, and a branch that
- * asserts anything permanently shadows its organisation. See utils/timeFormat.ts.
+ * asserts anything permanently shadows its organization. See utils/timeFormat.ts.
  */
 const toBranchTimeFormat = (value: string): boolean | null =>
   value === '1' ? true : value === '0' ? false : null;
+
+/** One text field of the branch form, bound to Formik: kit Field + floating label + error. */
+function BranchTextField({
+  form, name, label, required, multiline, inputMode,
+}: {
+  form: FormikProps<typeof initialState>
+  name: keyof typeof initialState
+  label: string
+  required?: boolean
+  multiline?: boolean
+  inputMode?: 'decimal' | 'numeric' | 'text'
+}) {
+  const id = `branch-${name}`
+  const error = (form.touched[name] || form.submitCount > 0) ? (form.errors[name] as string | undefined) : undefined
+  const common = {
+    id,
+    name,
+    required,
+    value: String(form.values[name] ?? ''),
+    onChange: form.handleChange,
+    onBlur: form.handleBlur,
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': error ? `${id}-error` : undefined,
+  }
+  return (
+    <Field data-invalid={error ? true : undefined}>
+      <FieldLabel htmlFor={id} required={required}>{label}</FieldLabel>
+      {multiline ? <Textarea {...common} rows={2} /> : <Input {...common} inputMode={inputMode} />}
+      {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
+    </Field>
+  )
+}
 
 function Branches({ companyId, embedded = false, hideHeading = false, editBranchId, onEditBranchConsumed }: BranchesProps = {}) {
   const dispatch = useDispatch()
@@ -211,31 +228,18 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
   // stops the country-change auto-fill from overwriting a deliberate choice. Reset
   // whenever the modal is (re)opened, in handleNew/handleEdit.
   const [timezoneManuallyEdited, setTimezoneManuallyEdited] = useState(false)
-  // null = no country selected yet → Timezone dropdown falls back to the full
+  // null = no country selected yet → Timezone field falls back to the full
   // curated TIMEZONE_OPTIONS list. Once a country is picked, scoped to ONLY that
   // country's real IANA zones (from getCountries' server-side enrichment —
   // countryTimezones.ts, backed by the countries-and-timezones package).
   const [countryTimezoneOptions, setCountryTimezoneOptions] = useState<{ value: string; label: string }[] | null>(null)
 
-  const [statesOption, setStatesOptions] = useState([])
+  const [statesOption, setStatesOptions] = useState<{ value: string; label: string }[]>([])
   const [selectedState, setSelectedState] = useState<Option | null>(null)
 
-  let stateCode = ''
+  const [townsOption, setTownsOptions] = useState<{ value: string; label: string }[]>([])
 
-  const [citiesOption, setCitiesOptions] = useState([])
-  const [selectedCity, setSelectedCity] = useState<Option | null>(null)
-
-  const [townsOption, setTownsOptions] = useState([])
-  const [selectedTown, setSelectedTown] = useState<Option | null>(null)
-
-  const [currenciesOption, setCurrenciesOptions] = useState([])
-  // const [dateFormatOptions] = useState([
-  //   { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY (31/12/2025)' },
-  //   { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY (12/31/2025)' },
-  //   { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD (2025-12-31)' },
-  //   { value: 'DD-MM-YYYY', label: 'DD-MM-YYYY (31-12-2025)' },
-  //   { value: 'MM-DD-YYYY', label: 'MM-DD-YYYY (12-31-2025)' },
-  // ])
+  const [currenciesOption, setCurrenciesOptions] = useState<{ value: string; label: string }[]>([])
   const [isDeviceNotDesktop, setIsDeviceNotDesktop] = useState(false)
 
   const [branches, setBranches] = useState([])
@@ -245,6 +249,8 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
   const [devicesModal, setDevicesModal] = useState<{ show: boolean; branch: any | null }>({ show: false, branch: null })
   const [loading, setLoading] = useState(false)
   const consumedEditBranchId = useRef<string | null>(null)
+  // What the coordinate helpers last did, read out under the buttons (and announced).
+  const [geoStatus, setGeoStatus] = useState<{ busy: boolean; message: string }>({ busy: false, message: '' })
 
   const handlePromoteBranch = async (branch: any) => {
     const empCount = branch._count?.Employees ?? 0
@@ -294,12 +300,9 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       errorConfirmation(err?.response?.data?.message || 'Failed to delete branch')
     }
   }
-  const [detectingLocation, setDetectingLocation] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [branchId, setBranchId] = useState('')
-  const [rerender, setRerender] = useState(false);
-  
-  // Branches have no tab of their own: Write on any settings tab covers them.
+
   // Branches belong to Organization Profile. `settings` (the parent) read as Write whenever ANY
   // settings tab had it — Write on Media alone showed New Branch. The server checks the same section.
   const canWrite = canSection('settings.profile', 'write')
@@ -308,45 +311,15 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
     const parser = new UAParser()
     const result = parser.getResult()
     const type = result.device.type
-    if (type === 'mobile' || type === 'tablet') {
-      setIsDeviceNotDesktop(true)
-    } else {
-      setIsDeviceNotDesktop(false) 
-    }
+    setIsDeviceNotDesktop(type === 'mobile' || type === 'tablet')
   }, [])
 
-  // In your Branches component
-const [countrySearch, setCountrySearch] = useState('');
-
-const filteredCountries = countriesOption.filter((option: any) => {
-  if (!option || !option.label) return false;
-  if (!countrySearch) return true;
-  return option.label.toLowerCase().startsWith(countrySearch.toLowerCase());
-});
-
-// In your LocationDropdown component (if you have access to it)
-interface LocationDropdownProps {
-  // ... other props
-  options: Array<{ value: string; label: string }>;
-  filterOption?: (input: string, option: { label: string; value: string }) => boolean;
-}
-
-const defaultFilterOption = (input: string, option?: { label: string; value: string }) => {
-  if (!option || !option.label) return false;
-  return option.label.toLowerCase().includes(input.toLowerCase());
-};
-
-
-
- 
-
-  // Single source of truth for the Country dropdown's options: derived from the RAW
+  // Single source of truth for the Country field's options: derived from the RAW
   // country records in redux (id, iso2, name, defaultTimezone, timezones — see
-  // fetchCountries below, which now dispatches the raw response instead of a
+  // fetchCountries below, which dispatches the raw response instead of a
   // pre-slimmed {value,label} pair so those extra fields survive). `value` MUST be
-  // iso2, not the numeric id — fetchStates/fetchCities and the backend's
-  // countryId-based timezone resolution all key off the ISO2 code (confirmed against
-  // live Branches rows storing e.g. "IN", not a numeric id).
+  // iso2, not the numeric id — fetchStates and the backend's countryId-based timezone
+  // resolution all key off the ISO2 code (live Branches rows store e.g. "IN").
   useEffect(() => {
     if (countries && countries.length > 0) {
       const options = countries.map((country: any) => ({
@@ -360,10 +333,9 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
   const handleNew = () => {
     setSelectedCountry(null)
     setSelectedState(null)
-    setSelectedCity(null)
-    setSelectedTown(null)
     setTimezoneManuallyEdited(false)
     setCountryTimezoneOptions(null)
+    setGeoStatus({ busy: false, message: '' })
 
     initialState = {
       name: '',
@@ -376,8 +348,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       latitude: '',
       longitude: '',
       currency: '',
-      // dateFormat: '',
-      companyId: '',
+      companyId: initialState.companyId,
       isActive: false,
       showDateIn12HourFormat: 'inherit',
       timezone: '',
@@ -395,6 +366,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
   const handleEdit = async (id: string) => {
     setBranchId(id)
     setTimezoneManuallyEdited(false)
+    setGeoStatus({ busy: false, message: '' })
     const {
       data: { branch },
     } = await fetchBranchById(id)
@@ -409,15 +381,13 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       latitude,
       longitude,
       currency,
-      dateFormat,
       isActive,
       companyId,
-      town,
       timezone,
     } = branch
 
     // Resolve display labels defensively — the geo lookups can fail/return null
-    // (the local states dataset has no iso2). Never let that block opening the modal.
+    // (the local states dataset has no iso2). Never let that block opening the form.
     let countryLabel = countryId
     let stateLabel = stateId
     try { const cn = await fetchCountryName(countryId); if (cn?.name) countryLabel = cn.name } catch { /* keep id */ }
@@ -425,9 +395,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
 
     setSelectedCountry(countryId ? { value: countryId, label: countryLabel } : null)
     setSelectedState(stateId ? { value: stateId, label: stateLabel } : null)
-    setSelectedCity(cityId ? { value: cityId, label: cityId } : null)
-    setSelectedTown(town ? { value: town.id, label: town.name } : null)
-    // Scope the Timezone dropdown to this branch's existing country's zones —
+    // Scope the Timezone field to this branch's existing country's zones —
     // WITHOUT touching the branch's own already-saved `timezone` value below.
     setCountryTimezoneOptions(resolveCountryTimezones(countryId).options)
 
@@ -440,7 +408,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       stateId,
       latitude,
       currency: currency || '',
-      // dateFormat: dateFormat || '',
       companyId,
       isActive,
       longitude,
@@ -455,7 +422,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     setEditMode(true)
 
     setStatesOptions([])
-    setCitiesOptions([])
   }
 
   // Deep-link from the org tree: open edit once the branch list has loaded.
@@ -478,7 +444,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editBranchId, listReady]);
 
-  const handleSubmit = async (values: any, actions: FormikValues) => {
+  const handleSubmit = async (values: any, _actions: FormikValues) => {
     try {
       setLoading(true)
 
@@ -486,7 +452,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
         if (values?.workingAndOffDays) {
           delete values.workingAndOffDays
         }
-        const response = await updateBranchById(branchId, {
+        await updateBranchById(branchId, {
           ...values,
           latitude: Number(values.latitude),
           longitude: Number(values.longitude),
@@ -507,63 +473,33 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
           isActive: true,
         },
       ]
-      const response = await createNewBranch(payload)
+      await createNewBranch(payload)
       setLoading(false)
       successConfirmation('Branch created.')
       setShow(false)
-    } catch (err) {
+    } catch (err: any) {
       setLoading(false)
-    }
-  }
-  const getLocationBasedOnCompanyAddress = async (values: any) => {
-    const apiKey = GOOGLE_MAPS_API_KEY
-    // console.log("formikProps: ",values);
-
-    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-      values.address
-    )}&key=${apiKey}`
-
-    try {
-      const response = await fetch(geocodeUrl)
-      const data = await response.json()
-
-      if (data.status === 'OK') {
-        const { lat, lng } = data.results[0].geometry.location
-        // console.log('Latitude and Longitude:', lat, lng);
-        values.latitude = lat
-        values.longitude = lng
-        // Update Formik fields
-        // formikProps.setFieldValue('latitude', lat, true);
-        // formikProps.setFieldValue('longitude', lng, true);
-      } else {
-        console.error(
-          'Error from Geocoding API:',
-          data.status,
-          data.error_message
-        )
-      }
-    } catch (error) {
-      console.error('Error fetching location:', error)
+      // A failed save used to stop the spinner and say nothing, so a rejected branch looked like a
+      // button that did not work. Say what the server said.
+      errorConfirmation(err?.response?.data?.message || err?.message || 'Could not save the branch. Try again.')
     }
   }
 
-  // Geocode the typed branch address into lat/long (works on desktop, no GPS needed).
-  const geocodeAddressToLatLng = async (formikProps: any) => {
-    const address = formikProps.values?.address
-    if (!address || !String(address).trim()) {
+  /** Fill the coordinates from the typed address (Nominatim through @services/geocoding — no key). */
+  const fillCoordinatesFromAddress = async (formikProps: FormikProps<typeof initialState>) => {
+    const address = String(formikProps.values.address ?? '').trim()
+    if (!address) {
+      setGeoStatus({ busy: false, message: 'Type the branch address first.' })
       return
     }
-    try {
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
-      const res = await fetch(url)
-      const data = await res.json()
-      if (data.status === 'OK' && data.results?.[0]) {
-        const { lat, lng } = data.results[0].geometry.location
-        formikProps.setFieldValue('latitude', Number(lat), true)
-        formikProps.setFieldValue('longitude', Number(lng), true)
-      }
-    } catch (error) {
-      console.error('Geocoding failed:', error)
+    setGeoStatus({ busy: true, message: 'Looking up the address…' })
+    const pick = await geocodeAddress(address)
+    if (pick) {
+      formikProps.setFieldValue('latitude', pick.lat, true)
+      formikProps.setFieldValue('longitude', pick.lng, true)
+      setGeoStatus({ busy: false, message: 'Coordinates filled from the address.' })
+    } else {
+      setGeoStatus({ busy: false, message: "Couldn't find that address. Check it, or enter the coordinates." })
     }
   }
 
@@ -573,10 +509,9 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
    * API key, and no external dependency (supported in every modern browser). This is
    * what "detect timezone" should mean for an admin physically at/near the branch they're
    * creating: their own device already knows its zone. Does NOT touch the Timezone field
-   * if detection fails or the zone isn't a real IANA name — leaves the admin's existing
-   * selection alone rather than clobbering it with a bad guess.
+   * if detection fails — leaves the admin's existing selection alone.
    */
-  const detectBrowserTimezone = (formikProps: any) => {
+  const detectBrowserTimezone = (formikProps: FormikProps<typeof initialState>) => {
     try {
       const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
       if (!zone) return
@@ -587,41 +522,28 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     }
   }
 
-  const getLocation = (formikProps: any) => {
+  const detectCurrentLocation = (formikProps: FormikProps<typeof initialState>) => {
     detectBrowserTimezone(formikProps)
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position: any) => {
-          const {
-            coords: { latitude, longitude },
-          } = position
-          console.log(
-            'latitude and longitude from branches.tsx',
-            latitude,
-            longitude
-          )
-          formikProps.setFieldValue('latitude', Number(latitude), true)
-          formikProps.setFieldValue('longitude', Number(longitude), true)
-        },
-        () => {
-          console.log(
-            'Error from branche location fetching: Unable to retrieve your location'
-          )
-        },
-        {
-          enableHighAccuracy: true,
-        }
-      )
-    } else {
-      console.log('Geo location API is not supported')
+    if (!navigator.geolocation) {
+      setGeoStatus({ busy: false, message: "This browser can't share its location." })
+      return
     }
+    setGeoStatus({ busy: true, message: 'Finding your location…' })
+    navigator.geolocation.getCurrentPosition(
+      ({ coords: { latitude, longitude } }) => {
+        formikProps.setFieldValue('latitude', Number(latitude), true)
+        formikProps.setFieldValue('longitude', Number(longitude), true)
+        setGeoStatus({ busy: false, message: 'Coordinates set to your current location.' })
+      },
+      () => setGeoStatus({ busy: false, message: "Couldn't read your location. Allow location access, or enter the coordinates." }),
+      { enableHighAccuracy: true },
+    )
   }
 
   useEffect(() => {
     async function fetchData() {
       setListReady(false)
-      const promise = [fetchAllBranches()]
-      const [branchesResponse] = await Promise.all(promise)
+      const branchesResponse = await fetchAllBranches()
       const all = branchesResponse.data.branches
       // When scoped to an organization, only show that org's branches.
       setBranches(companyId ? all.filter((b: any) => b.companyId === companyId) : all)
@@ -632,22 +554,11 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     fetchData()
   }, [loading, companyId])
 
-  const handleChange = (
-    selectedOption: any,
-    formikField: string,
-    setSelectedOptionState: React.Dispatch<React.SetStateAction<any>>,
-    setFieldValue: (field: string, value: any) => void
-  ) => {
-    setFieldValue(formikField, selectedOption ? selectedOption.value : '')
-    setSelectedOptionState(selectedOption)
-  }
-
   /**
    * Looks up a country (by ISO2) in the raw redux `countries` list and returns its
-   * timezone dropdown options (sorted by UTC offset) + default zone. Returns null
-   * options when the country has no mapped zones or isn't found — callers fall back
-   * to the global TIMEZONE_OPTIONS in that case, never leaving the field with an
-   * empty dropdown.
+   * timezone options (sorted by UTC offset) + default zone. Returns null options when
+   * the country has no mapped zones or isn't found — callers fall back to the global
+   * TIMEZONE_OPTIONS in that case, never leaving the field with an empty list.
    */
   const resolveCountryTimezones = (iso2: string | null | undefined): { options: { value: string; label: string }[] | null; defaultZone: string | null } => {
     if (!iso2 || !countries) return { options: null, defaultZone: null }
@@ -663,14 +574,14 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
   }
 
   const fetchCountries = async () => {
-    // Already loaded — the useEffect above (keyed on `countries`) owns deriving
+    // Already loaded — the effect above (keyed on `countries`) owns deriving
     // countriesOption from it; nothing to do here.
     if (countries != null) return
 
     // Dispatch the RAW records (id, iso2, name, defaultTimezone, timezones, ...) —
     // NOT a pre-slimmed {value,label} pair — so the Timezone auto-fill/scoping logic
-    // below can still read a selected country's defaultTimezone/timezones straight
-    // out of redux, without a second API round-trip.
+    // can still read a selected country's defaultTimezone/timezones straight out of
+    // redux, without a second API round-trip.
     const countriesResponse = await fetchAllCountries()
     dispatch(saveCountries(countriesResponse))
   }
@@ -686,7 +597,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       console.error('error from branches: ', error)
     }
 
-    // In case if country doesnt have states then assigning selected country
+    // In case the country has no states, offer the country itself.
     if (statesResponse && statesResponse.length > 0) {
       const statesOptions = statesResponse
         .map((state: any) => ({
@@ -697,35 +608,10 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
         .filter((o: any) => o.value)
       setStatesOptions(statesOptions)
     } else {
-      setStatesOptions([selectedCountry] as unknown as [])
+      setStatesOptions([selectedCountry] as { value: string; label: string }[])
     }
   }
 
-  const fetchCities = async () => {
-    // Guard: never call the cities API with an undefined country/state (causes a 500).
-    if (!selectedState?.value || !selectedCountry?.value) return
-
-    countryCode = selectedCountry.value
-    stateCode = selectedState.value
-
-    const citiesResponse = await fetchAllCities(countryCode, stateCode)
-
-    // In case if states doesnt have cities then assigning selected states
-    if (citiesResponse.length > 0) {
-      const citiesOptions = citiesResponse.map((city: any) => ({
-        value: city.name,
-        label: city.name,
-      }))
-      setCitiesOptions(citiesOptions)
-    } else {
-      const citiesOptionAsState = [selectedState].map((state: any) => ({
-        value: state.label,
-        label: state.label,
-      }))
-      setCitiesOptions(citiesOptionAsState as [])
-    }
-  }
-  
   const fetchTowns = async () => {
     const townsResponse = await fetchAllTowns()
     const townsOptions = townsResponse.data.towns.map((town: any) => ({
@@ -733,44 +619,40 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       label: town.name,
     }))
     setTownsOptions(townsOptions)
+    return townsOptions as { value: string; label: string }[]
   }
 
   const fetchCurrencies = async () => {
     try {
       const currenciesResponse = await fetchAllCurrencies()
       const currencies = currenciesResponse.data.currencies
-      // Create options for dropdown
-      // console.log("currencies",currencies);
-      
-      const currenciesOptions = currencies.map((currency: any) => ({
+      setCurrenciesOptions(currencies.map((currency: any) => ({
         value: currency.code,
         label: `${currency.name} (${currency.code})`,
-      }))
-      setCurrenciesOptions(currenciesOptions)
+      })))
     } catch (error) {
       console.error('Error fetching currencies:', error)
     }
   }
-  
-  const handleTownsRefresh = () => {
-    setLoading(prev => !prev) // Toggle loading to trigger re-fetch
+
+  /** Inline create from the Town field: save the town, reload the list, select it. */
+  const createTown = async (name: string, formikProps: FormikProps<typeof initialState>) => {
+    try {
+      await createNewTowns({ companyId: '', towns: [name] })
+      const fresh = await fetchTowns()
+      const created = fresh.find((t) => t.label.toLowerCase() === name.toLowerCase())
+      if (created) formikProps.setFieldValue('townId', created.value, true)
+    } catch (err: any) {
+      errorConfirmation(err?.response?.data?.message || `Couldn't add ${name}. Try again.`)
+    }
   }
 
-  const handleDetectLocation = (formikProps: any) => {
-    getLocation(formikProps)
-  }
- 
   useEffect(() => {
     fetchCountries()
   }, [countries])
   useEffect(() => {
     fetchStates()
   }, [selectedCountry])
-  // Cities are entered as free text (no offline city dataset / CSC key), so we
-  // no longer fetch them from the geo API.
-  useEffect(() => {
-    fetchTowns()
-  }, [selectedCity])
   useEffect(() => {
     fetchCurrencies()
   }, [])
@@ -799,447 +681,309 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       setCompanyFromOverview()
     }
   }, [companyId])
- 
+
   const newBranchButton = canWrite && (
-      // The kit's button, so this one matches every other primary action. The
-      // native `title="Add a branch"` is gone with it: a browser tooltip never
-      // appears on touch, and it only restated the label next to it.
-      <WtButton
-        size="small"
-        startIcon={<KTIcon iconName="plus" className="fs-5" />}
-        onClick={() => handleNew()}
-      >
-        New Branch
-      </WtButton>
-    )
+    <Button size="sm" onClick={() => handleNew()}>
+      <Plus data-icon="inline-start" aria-hidden />
+      New branch
+    </Button>
+  )
+  const count = Array.isArray(branches) ? branches.length : 0
 
   return (
     <>
-      {embedded ? (
-        // ListHeader is the kit's toolbar: title left, actions right, wrapping to a
-        // stacked layout on mobile so the button never clips. The heading it replaces
-        // hardcoded `color: '#000'` and a font family, which is why it stayed black
-        // on a dark background.
-        //
-        // With `hideHeading` the dialog's own header already says BRANCHES, so this
-        // row carries only the count — as an Eyebrow, not a second heading competing
-        // with the one directly above it.
-        <Box sx={{ px: { xs: 2, lg: 3 }, pt: 2.5, pb: 1 }}>
-          {hideHeading ? (
-            <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5}>
-              <Eyebrow>
-                {Array.isArray(branches) ? branches.length : 0} {Array.isArray(branches) && branches.length === 1 ? 'Branch' : 'Branches'}
-              </Eyebrow>
-              {newBranchButton}
-            </Stack>
-          ) : (
-            <ListHeader title="Branches" actions={newBranchButton} sx={{ mb: 0 }} />
-          )}
-        </Box>
-      ) : (
-        <div className="d-flex flex-wrap justify-content-between align-items-center px-lg-9 px-4 py-5">
-          <PageTitle breadcrumbs={branchesBreadCrumb}>Branches</PageTitle>
-          <div className="d-flex align-items-center justify-content-between w-100">
-            <PageHeadingTitle />
+      {!embedded && <PageTitle breadcrumbs={branchesBreadCrumb}>Branches</PageTitle>}
+
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-3 pt-4 pb-6 lg:px-6">
+        {embedded && hideHeading ? (
+          // The dialog's own header already says Branches: this row carries only the count and the action.
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Badge variant="neutral">{count} {count === 1 ? 'Branch' : 'Branches'}</Badge>
             {newBranchButton}
           </div>
-        </div>
-      )}
-        
-{/* AutoGrid, the kit's standard collection layout, instead of a Bootstrap
-    Row/Col with hand-picked breakpoints. It auto-fits as many columns as the
-    width allows, so a wide screen stops leaving a dead right-hand gutter and a
-    narrow one collapses to a single column without another breakpoint to keep
-    in sync. The Bootstrap spacing classes go with it — those are banned in new
-    and edited UI, and they are why this page could not follow the theme. */}
-<Box sx={{ px: { xs: 2, lg: 3 }, pt: 1, pb: 3 }}>
-  {canSection('settings.profile', 'read') ? (
-    Array.isArray(branches) && branches.length > 0 ? (
-      <AutoGrid min={320} gap={16}>
-        {branches.map((branch: any, index: number) => (
-          <BranchCard
-            key={`branch-${index}`}
-            branch={branch}
-            isAdmin={canWrite}
-            canManage={canWrite}
-            onViewEmployees={() => setEmpModal({ show: true, branch })}
-            onManageDevices={() => setDevicesModal({ show: true, branch })}
-            onPromote={() => handlePromoteBranch(branch)}
-            onEdit={() => handleEdit(branch.id)}
-            onDelete={canDelete('settings.profile') ? () => handleDeleteBranch(branch) : undefined}
-          />
-        ))}
-      </AutoGrid>
-    ) : (
-      <Paper variant="outlined" sx={{ borderRadius: 2, minHeight: '46vh', display: 'grid', placeItems: 'center' }}>
-        <Stack alignItems="center" sx={{ textAlign: 'center', p: 4 }}>
-          <Box component="img" src={sidePanelIcons.company} alt="" sx={{ maxHeight: 64, mb: 2 }} />
-          <Typography sx={{ fontWeight: 700, fontSize: 15 }}>No branches yet</Typography>
-          <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.5, maxWidth: 360 }}>
-            Branches you create will appear here. Use “New Branch” to add your first location.
-          </Typography>
-        </Stack>
-      </Paper>
-    )
-  ) : null}
-</Box>
-        {/* disableEnforceFocus/RestoreFocus: let the portaled react-select menus
-            (Country/State/Town/Org) receive focus & clicks inside the dialog. */}
-        <GlassDialog
-          open={show} onClose={handleClose} maxWidth="md" fullWidth
-          preset="form"
-          disableEnforceFocus disableRestoreFocus
-          // Fifth and last copy of that gradient header in this feature. Same
-          // gradient, same accent rule, its own icon tile and close button.
-          header={
-            <GlassHeader
-              title={editMode ? 'Edit Branch' : 'Create a New Branch'}
-              subtitle="Location, address & attendance coordinates"
-              icon={<KTIcon iconName="bank" className="fs-1" />}
-              onClose={handleClose}
+        ) : (
+          <PageHeader title="Branches" description="Locations, addresses and the coordinates on-site check-ins are checked against." actions={newBranchButton} />
+        )}
+
+        {canSection('settings.profile', 'read') ? (
+          count > 0 ? (
+            <AutoGrid min={320}>
+              {branches.map((branch: any) => (
+                <BranchCard
+                  key={branch.id}
+                  branch={branch}
+                  isAdmin={canWrite}
+                  canManage={canWrite}
+                  onViewEmployees={() => setEmpModal({ show: true, branch })}
+                  onManageDevices={() => setDevicesModal({ show: true, branch })}
+                  onPromote={() => handlePromoteBranch(branch)}
+                  onEdit={() => handleEdit(branch.id)}
+                  onDelete={canDelete('settings.profile') ? () => handleDeleteBranch(branch) : undefined}
+                />
+              ))}
+            </AutoGrid>
+          ) : listReady ? (
+            <EmptyState
+              icon={<Building2 aria-hidden />}
+              title="No branches yet"
+              description="Branches you create will appear here. Use New branch to add your first location."
+              action={newBranchButton || undefined}
             />
-          }
-        >
-          <Box sx={{ bgcolor: 'background.default', p: 2 }}>
-          <Formik
-            initialValues={initialState}
-            onSubmit={handleSubmit}
-            validationSchema={branchSchema}
-          >
-            {(formikProps) => {
-              return (
-                <Form
-                  className='d-flex flex-column'
-                  noValidate
-                  id='employee_onboarding_form'
-                 
-                >
-                  <FormSection title="Branch Details" icon={<KTIcon iconName="bank" className="fs-5" />}>
-                    <div className='row'>
-                      <div className='col-lg-12'>
-                        <TextInput
-                          isRequired={true}
-                          label='Branch Name'
-                          margin='mb-7'
-                          formikField='name'
-                        />
-                      </div>
-                      <div className='col-lg-12'>
-                        <DropDownInput
-                          isRequired={true}
-                          formikField='companyId'
-                          inputLabel='Organization'
-                          options={orgOptions}
-                        />
-                      </div>
-                    </div>
-                  </FormSection>
+          ) : (
+            <p className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+              <Spinner className="size-5" aria-label="Loading branches" /> Loading branches…
+            </p>
+          )
+        ) : null}
+      </div>
 
-                  <FormSection title="Location" icon={<KTIcon iconName="geolocation" className="fs-5" />}>
-
-                  <div className='row'>
-
-                    {/* <div className='col-lg-6 mb-7'>
-                      <DropDownInput
-                        isRequired={false}
-                        formikField='dateFormat'
-                        inputLabel='Date Format'
-                        options={dateFormatOptions}
+      <Formik
+        initialValues={initialState}
+        onSubmit={handleSubmit}
+        validationSchema={branchSchema}
+        enableReinitialize
+      >
+        {(formikProps) => {
+          const v = formikProps.values
+          const err = (name: keyof typeof initialState) =>
+            (formikProps.touched[name] || formikProps.submitCount > 0) ? (formikProps.errors[name] as string | undefined) : undefined
+          const fromCountry = geoCountries?.find((c) => c.iso2 === v.countryId)?.currency
+          const currencyDeviates = Boolean(v.currency && fromCountry && fromCountry !== v.currency)
+          return (
+            <FormDialog
+              open={show}
+              onOpenChange={(open) => { if (!open) handleClose() }}
+              title={editMode ? 'Edit branch' : 'New branch'}
+              description="Location, address and attendance coordinates"
+              icon={<Building2 aria-hidden />}
+              tone="cyan"
+              size="lg"
+              formId={FORM_ID}
+              submitLabel={editMode ? 'Save changes' : 'Create branch'}
+              submitting={loading}
+              submitDisabled={!formikProps.isValid}
+              dirty={formikProps.dirty}
+              sections={[
+                { id: 'branch-details', label: 'Branch details', icon: <Building2 aria-hidden />, invalid: Boolean(err('name')) },
+                { id: 'branch-location', label: 'Location', icon: <MapPin aria-hidden />, invalid: Boolean(err('countryId') || err('stateId') || err('cityId') || err('townId') || err('postalCode')) },
+                { id: 'branch-coordinates', label: 'Map coordinates', icon: <LocateFixed aria-hidden />, invalid: Boolean(err('latitude') || err('longitude') || err('address')) },
+                { id: 'branch-preferences', label: 'Preferences', icon: <Settings2 aria-hidden /> },
+              ]}
+            >
+              <Form id={FORM_ID} noValidate className="space-y-8">
+                <section id="branch-details" className="scroll-mt-4">
+                  <FieldSet>
+                    <FieldLegend>Branch details</FieldLegend>
+                    <FieldGroup>
+                      <BranchTextField form={formikProps} name="name" label="Branch name" required />
+                      <SearchSelect
+                        id="branch-companyId"
+                        label="Organization"
+                        required
+                        value={v.companyId || null}
+                        onValueChange={(value) => formikProps.setFieldValue('companyId', value ?? '')}
+                        options={orgOptions}
                       />
-                    </div> */}
-                  </div>
+                    </FieldGroup>
+                  </FieldSet>
+                </section>
 
-                  {/* Country and Currency share a row: currency is DERIVED from country, so
-                      putting them side by side says that without a sentence. Same 6/6 split
-                      the State and City row below already uses. */}
-                  <div className='row'>
-                    <div className='col-lg-6 mb-7'>
-                      <LocationDropdown
-                        isRequired={true}
-                        value={selectedCountry}
-                        handleChange={(option: any) => {
-                          handleChange(
-                            option,
-                            'countryId',
-                            setSelectedCountry,
-                            formikProps.setFieldValue
-                          )
+                <section id="branch-location" className="scroll-mt-4">
+                  <FieldSet>
+                    <FieldLegend>Location</FieldLegend>
+                    <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                      {/* Country and Currency share a row: currency is DERIVED from country. */}
+                      <SearchSelect
+                        id="branch-countryId"
+                        label="Country"
+                        required
+                        value={v.countryId || null}
+                        error={err('countryId')}
+                        onBlur={() => formikProps.setFieldTouched('countryId', true)}
+                        onValueChange={(value, option) => {
+                          formikProps.setFieldValue('countryId', value ?? '')
+                          setSelectedCountry(option ? { value: option.value, label: option.label } : null)
 
                           setSelectedState(null)
                           formikProps.setFieldValue('stateId', '')
-
-                          setSelectedCity(null)
                           formikProps.setFieldValue('cityId', '')
-
-                          setSelectedTown(null)
                           formikProps.setFieldValue('townId', '')
-
                           setStatesOptions([])
-                          setCitiesOptions([])
 
-                          // Scope the Timezone dropdown to ONLY this country's real
-                          // zones, and prefill its default — never overwriting a
-                          // timezone the admin already picked explicitly in this
-                          // session (see TIMEZONE_OPTIONS comment).
-                          const { options: tzOptions, defaultZone } = resolveCountryTimezones(option?.value)
+                          // Scope the Timezone field to ONLY this country's real zones, and
+                          // prefill its default — never overwriting a timezone the admin already
+                          // picked explicitly in this session (see TIMEZONE_OPTIONS).
+                          const { options: tzOptions, defaultZone } = resolveCountryTimezones(value)
                           setCountryTimezoneOptions(tzOptions)
                           if (!timezoneManuallyEdited && defaultZone) {
                             formikProps.setFieldValue('timezone', defaultZone)
                           }
 
-                          // Currency follows the country, on the same terms as the timezone
-                          // above: derived, and stored so the branch says what it bills in
-                          // rather than leaving every reader to infer it from the country.
-                          const picked = geoCountries?.find((c) => c.iso2 === option?.value)
+                          // Currency follows the country, on the same terms as the timezone:
+                          // derived, and stored so the branch says what it bills in.
+                          const picked = geoCountries?.find((c) => c.iso2 === value)
                           if (picked?.currency) {
                             formikProps.setFieldValue('currency', picked.currency)
                           }
                         }}
-                        formikField='countryId'
-                        inputLabel='Country'
-                        options={filteredCountries}
-                        onInputChange={(newValue) => {
-                          setCountrySearch(newValue)
-                        }}
+                        options={countriesOption}
                       />
-                    </div>
 
-                    {/* Editable, because a branch that bills in something other than its local
-                        currency is a real arrangement — a Gulf office invoicing in dollars, a
-                        European subsidiary reporting in euros.
-
-                        The full list, not a country-or-dollar pair. USD is not a universal
-                        second currency: right in the Gulf, wrong for a London or Frankfurt
-                        branch, and hard-coding it would put an American assumption into a
-                        product sold in India and the Gulf. The list is already fetched and
-                        already in state, so offering all of it costs nothing and restricting
-                        it would be extra code for less. */}
-                    <div className='col-lg-6 mb-7'>
-                      <DropDownInput
-                        isRequired={false}
-                        formikField='currency'
-                        inputLabel='Currency'
+                      {/* Editable, because a branch that bills in something other than its local
+                          currency is a real arrangement (a Gulf office invoicing in dollars). The
+                          full list, not a country-or-dollar pair. */}
+                      <SearchSelect
+                        id="branch-currency"
+                        label="Currency"
+                        value={v.currency || null}
+                        onValueChange={(value) => formikProps.setFieldValue('currency', value ?? '')}
                         options={currenciesOption}
+                        hint={v.currency && !currencyDeviates
+                          ? `Salaries, offers and payslips at this branch are shown in ${getCurrencySymbol(v.currency)} ${v.currency}, from the selected country.`
+                          : undefined}
                       />
-                    </div>
-                  </div>
 
-                      {/* Deviating from the country is allowed but never silent. Salary, offers
-                          and exported payslips all read this, and a branch quietly set to the
-                          wrong currency is the kind of thing noticed a quarter later. */}
-                      {(() => {
-                        const code = formikProps.values.currency
-                        if (!code) return null
-                        const fromCountry = geoCountries?.find((c) => c.iso2 === formikProps.values.countryId)?.currency
-                        const deviates = Boolean(fromCountry && fromCountry !== code)
-                        return (
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, mt: -1, mb: 2.5 }}>
-                            <KTIcon
-                              iconName={deviates ? 'information-5' : 'wallet'}
-                              className={`fs-6 ${deviates ? 'text-warning' : 'text-muted'}`}
-                            />
-                            <Typography sx={{ fontSize: 12.5, color: deviates ? 'warning.main' : 'text.secondary' }}>
-                              {deviates ? (
-                                <>
-                                  This branch bills in{' '}
-                                  <Box component="span" sx={{ fontWeight: 700 }}>{getCurrencySymbol(code)} {code}</Box>
-                                  , not its country&rsquo;s {fromCountry}. Salaries, offers and payslips here will
-                                  all use it.
-                                </>
-                              ) : (
-                                <>
-                                  Salaries, offers and payslips at this branch are shown in{' '}
-                                  <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                                    {getCurrencySymbol(code)} {code}
-                                  </Box>
-                                  , from the selected country.
-                                </>
-                              )}
-                            </Typography>
-                          </Box>
-                        )
-                      })()}
+                      {/* Deviating from the country is allowed but never silent. Salary, offers and
+                          exported payslips all read this. */}
+                      {currencyDeviates && (
+                        <Alert variant="warning" className="sm:col-span-2">
+                          <TriangleAlert aria-hidden />
+                          <AlertDescription>
+                            This branch bills in <strong>{getCurrencySymbol(v.currency)} {v.currency}</strong>, not its
+                            country&rsquo;s {fromCountry}. Salaries, offers and payslips here will all use it.
+                          </AlertDescription>
+                        </Alert>
+                      )}
 
-                  <div className='row'>
-                    <div className='col-lg-6 mb-7'>
-                      <LocationDropdown
-                        isDisabled={selectedCountry == null ? true : false}
-                        value={selectedState}
-                        isRequired={true}
-                        handleChange={(option: any) => {
-                          handleChange(
-                            option,
-                            'stateId',
-                            setSelectedState,
-                            formikProps.setFieldValue
-                          )
-
-                          setSelectedCity(null)
+                      <SearchSelect
+                        id="branch-stateId"
+                        label="State"
+                        required
+                        disabled={selectedCountry == null}
+                        value={v.stateId || null}
+                        error={err('stateId')}
+                        onBlur={() => formikProps.setFieldTouched('stateId', true)}
+                        onValueChange={(value, option) => {
+                          formikProps.setFieldValue('stateId', value ?? '')
+                          setSelectedState(option ? { value: option.value, label: option.label } : null)
                           formikProps.setFieldValue('cityId', '')
-
-                          setSelectedTown(null)
                           formikProps.setFieldValue('townId', '')
-
-                          setCitiesOptions([])
                         }}
-                        formikField='stateId'
-                        inputLabel='State'
-                        options={statesOption}
+                        options={selectedState && !statesOption.some((s) => s.value === selectedState.value)
+                          ? [selectedState, ...statesOption]
+                          : statesOption}
                       />
-                    </div>
 
-                    <div className='col-lg-6 mb-7'>
-                      {/* City is a free-text field: the city dataset isn't available
-                          offline (CSC API needs a key) and cities are stored by name. */}
-                      <TextInput
-                        isRequired={true}
-                        label='City'
-                        formikField='cityId'
-                      />
-                    </div>
+                      {/* City is free text: the city dataset isn't available offline (the CSC API
+                          needs a key) and cities are stored by name. */}
+                      <BranchTextField form={formikProps} name="cityId" label="City" required />
 
-                    <div className='col-lg-6 mb-sm-7 mb-md-7 mb-7'>
-                      <DropDownInput
-                        isRequired={true}
-                        formikField='townId'
-                        inputLabel='Town'
+                      <SearchSelect
+                        id="branch-townId"
+                        label="Town"
+                        required
+                        value={v.townId || null}
+                        error={err('townId')}
+                        onBlur={() => formikProps.setFieldTouched('townId', true)}
+                        onValueChange={(value) => formikProps.setFieldValue('townId', value ?? '')}
                         options={townsOption}
-                        showAddBtn={true}
-                        functionToCallOnModalSubmit={createNewTowns}
-                        fieldName="towns"
-                        functionToSetFieldOptions={handleTownsRefresh}
+                        onCreate={(name) => createTown(name, formikProps)}
+                        createLabel={(q) => `Add town “${q}”`}
                       />
-                    </div>
 
-                    <div className='col-lg-6 mb-sm-0 mb-md-0 mb-7'>
-                      <TextInput
-                        isRequired={true}
-                        label='Postal Code'
-                        margin='mb-7'
-                        formikField='postalCode'
-                      />
-                    </div>
-                  </div>
-                  </FormSection>
+                      <BranchTextField form={formikProps} name="postalCode" label="Postal code" required inputMode="numeric" />
+                    </FieldGroup>
+                  </FieldSet>
+                </section>
 
-                  <FormSection title="Map Coordinates" icon={<KTIcon iconName="map" className="fs-5" />} description="Used to validate on-site attendance check-ins.">
-                    <div className='row g-3'>
-                      <div className='col-lg-6'>
-                        <TextInput
-                          isRequired={true}
-                          label='Latitude'
-                          formikField='latitude'
-                        />
+                <section id="branch-coordinates" className="scroll-mt-4">
+                  <FieldSet>
+                    <FieldLegend>Map coordinates</FieldLegend>
+                    <FieldDescription>Used to validate on-site attendance check-ins.</FieldDescription>
+                    <FieldGroup>
+                      <BranchTextField form={formikProps} name="address" label="Branch address" required multiline />
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <BranchTextField form={formikProps} name="latitude" label="Latitude" required inputMode="decimal" />
+                        <BranchTextField form={formikProps} name="longitude" label="Longitude" required inputMode="decimal" />
                       </div>
-                      <div className='col-lg-6'>
-                        <TextInput
-                          isRequired={true}
-                          label='Longitude'
-                          formikField='longitude'
-                        />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button type="button" size="sm" variant="outline" disabled={geoStatus.busy} onClick={() => fillCoordinatesFromAddress(formikProps)}>
+                          <MapPin data-icon="inline-start" aria-hidden /> Get coordinates from address
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" disabled={geoStatus.busy} onClick={() => detectCurrentLocation(formikProps)}>
+                          <LocateFixed data-icon="inline-start" aria-hidden /> Use my current location
+                        </Button>
+                        {geoStatus.busy && <Spinner className="size-4" aria-hidden />}
                       </div>
-                    </div>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.25, flexWrap: 'wrap', gap: 1 }}>
-                      <Typography
-                        component="span"
-                        onClick={() => geocodeAddressToLatLng(formikProps)}
-                        title="Fill coordinates from the Branch Address below"
-                        sx={{ cursor: 'pointer', color: 'primary.main', fontWeight: 600, fontSize: 12.5 }}
-                      >
-                        📍 Get coordinates from Address
-                      </Typography>
-                      <Typography
-                        component="span"
-                        onClick={() => handleDetectLocation(formikProps)}
-                        sx={{ cursor: 'pointer', color: 'primary.main', fontWeight: 600, fontSize: 12.5 }}
-                      >
-                        Detect Current Location
-                      </Typography>
-                    </Stack>
-                    <div className='mt-4'>
-                      <TextInput
-                        isRequired={true}
-                        label='Branch Address'
-                        margin=''
-                        formikField='address'
-                      />
-                    </div>
-                  </FormSection>
+                      <p aria-live="polite" className="text-xs text-muted-foreground">{geoStatus.message}</p>
+                      {!isDeviceNotDesktop && (
+                        <Alert variant="info">
+                          <Info aria-hidden />
+                          <AlertDescription>
+                            On a desktop, the current location comes from the network and can be approximate — a phone
+                            or tablet uses GPS. Prefer the address lookup here.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </FieldGroup>
+                  </FieldSet>
+                </section>
 
-                  <FormSection title="Preferences" icon={<KTIcon iconName="setting-2" className="fs-5" />}>
-                    <div className='row'>
-                      <div className='col-lg-12 mb-7'>
-                        <DropDownInput
-                          isRequired={false}
-                          formikField='timezone'
-                          inputLabel='Timezone'
-                          options={countryTimezoneOptions ?? TIMEZONE_OPTIONS}
-                          onChange={(option: any) => {
+                <section id="branch-preferences" className="scroll-mt-4">
+                  <FieldSet>
+                    <FieldLegend>Preferences</FieldLegend>
+                    <FieldGroup>
+                      <div className="space-y-2">
+                        <SearchSelect
+                          id="branch-timezone"
+                          label="Timezone"
+                          value={v.timezone || null}
+                          onValueChange={(value) => {
                             setTimezoneManuallyEdited(true)
-                            formikProps.setFieldValue('timezone', option?.value || '')
+                            formikProps.setFieldValue('timezone', value ?? '')
                           }}
+                          options={(() => {
+                            const list = countryTimezoneOptions ?? TIMEZONE_OPTIONS
+                            // A detected or saved zone outside the list still shows as chosen.
+                            return v.timezone && !list.some((z) => z.value === v.timezone)
+                              ? [{ value: v.timezone, label: v.timezone }, ...list]
+                              : list
+                          })()}
                         />
-                        <Typography
-                          component="span"
-                          onClick={() => detectBrowserTimezone(formikProps)}
-                          title="Use this device's own timezone — instant, no location permission needed"
-                          sx={{ cursor: 'pointer', color: 'primary.main', fontWeight: 600, fontSize: 12.5, display: 'inline-block', mt: 0.5 }}
-                        >
-                          🕒 Detect my timezone
-                        </Typography>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => detectBrowserTimezone(formikProps)}>
+                          <Clock data-icon="inline-start" aria-hidden /> Detect my timezone
+                        </Button>
                       </div>
-                    </div>
-                    {/* Three choices, not two. The format is a cascade
-                        (personal -> branch -> org -> 12h) and each layer only applies when
-                        the one above it has no opinion. A Yes/No control cannot say "no
-                        opinion", so every save asserted one and the branch permanently
-                        shadowed the organisation. See utils/timeFormat.ts. */}
-                    <WtChoiceField
-                      name="showDateIn12HourFormat"
-                      label="Time Format"
-                      variant="segmented"
-                      options={[
-                        { label: 'Organisation default', value: 'inherit' },
-                        { label: '12-hour', value: '1' },
-                        { label: '24-hour', value: '0' },
-                      ]}
-                    />
-                  </FormSection>
 
-                  {!isDeviceNotDesktop && (
-                    <Box sx={{ bgcolor: 'warning.light', color: 'warning.dark', border: 1, borderColor: 'warning.main', borderRadius: 2, px: 1.75, py: 1.25, fontSize: 12.5, fontWeight: 500, mb: 1.5 }}>
-                      Automatic location detection is only available on mobile / tablet devices.
-                    </Box>
-                  )}
-
-                  {/* Kit buttons: `ghost` is the standard Cancel, `inverted` the
-                      secondary. The three used to be a text/outlined/contained MUI
-                      trio styled here, which is how a footer ends up not matching
-                      the footer one dialog over. */}
-                  <Stack direction="row" spacing={1.25} justifyContent="flex-end" sx={{ flexWrap: 'wrap', gap: 1.25 }}>
-                    <WtButton ghost onClick={handleClose}>Cancel</WtButton>
-                    <WtButton
-                      inverted
-                      disabled={loading || !isDeviceNotDesktop}
-                      startIcon={detectingLocation ? <CircularProgress size={14} /> : undefined}
-                      onClick={(e: any) => { e.preventDefault(); handleDetectLocation(formikProps); }}
-                    >
-                      Detect Location
-                    </WtButton>
-                    <WtButton
-                      type="submit"
-                      disabled={loading || !formikProps.isValid}
-                      startIcon={loading ? <CircularProgress size={14} color="inherit" /> : undefined}
-                    >
-                      {editMode ? 'Save Changes' : 'Create Branch'}
-                    </WtButton>
-                  </Stack>
-                </Form>
-              )
-            }}
-          </Formik>
-          </Box>
-        </GlassDialog>
+                      {/* Three choices, not two. The format is a cascade (personal -> branch -> org
+                          -> 12h) and each layer only applies when the one above it has no opinion. A
+                          Yes/No control cannot say "no opinion". See utils/timeFormat.ts. */}
+                      <Field>
+                        <FieldTitle id="branch-time-format-label">Time format</FieldTitle>
+                        <ToggleGroup
+                          aria-labelledby="branch-time-format-label"
+                          variant="outline"
+                          spacing={0}
+                          value={[v.showDateIn12HourFormat]}
+                          onValueChange={(next: string[]) => {
+                            // A single choice: pressing the current option again must not clear it.
+                            if (next.length) formikProps.setFieldValue('showDateIn12HourFormat', next[next.length - 1])
+                          }}
+                          className="flex-wrap"
+                        >
+                          <ToggleGroupItem value="inherit">Organization default</ToggleGroupItem>
+                          <ToggleGroupItem value="1">12-hour</ToggleGroupItem>
+                          <ToggleGroupItem value="0">24-hour</ToggleGroupItem>
+                        </ToggleGroup>
+                      </Field>
+                    </FieldGroup>
+                  </FieldSet>
+                </section>
+              </Form>
+            </FormDialog>
+          )
+        }}
+      </Formik>
 
       <BranchEmployeesModal
         show={empModal.show}

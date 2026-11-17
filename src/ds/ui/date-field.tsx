@@ -87,7 +87,7 @@ function DateField<T extends DateValue>({
       )}
       {...props}
     >
-      <FieldChrome label={label} description={description} errorMessage={errorMessage}>
+      <FieldChrome label={label} description={description} errorMessage={errorMessage} required={props.isRequired}>
         <AriaInputGroup>
           <DateInput className="flex-1" literal={DISPLAY_DATE_SEPARATOR} />
         </AriaInputGroup>
@@ -113,7 +113,7 @@ function TimeField<T extends TimeValue>({
       )}
       {...props}
     >
-      <FieldChrome label={label} description={description} errorMessage={errorMessage}>
+      <FieldChrome label={label} description={description} errorMessage={errorMessage} required={props.isRequired}>
         <AriaInputGroup>
           <DateInput className="flex-1" />
         </AriaInputGroup>

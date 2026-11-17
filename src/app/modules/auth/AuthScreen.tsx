@@ -7,7 +7,7 @@ import { fetchCompanyLogo } from '@services/company'
 import { DEFAULT_BRAND, SIGN_IN_HEADLINE, SIGN_IN_TAGLINE } from './signInCopy'
 
 /**
- * The WiseTech lockup (served by this app), shown until the organisation's own logo arrives from the public
+ * The WiseTech lockup (served by this app), shown until the organization's own logo arrives from the public
  * endpoint — and if that fails. Local on purpose: no S3 round-trip, and one of the old S3 logos has gone 404.
  */
 const DEFAULT_LOGO = `${import.meta.env.BASE_URL}media/brand/wisetech-logo.png`
@@ -24,7 +24,7 @@ const ILLUSTRATION = {
   crop: { width: 800, height: 800, x: 71, y: 186, w: 658, h: 517 },
 }
 
-/** The organisation's name and logo for the sign-in pages (public endpoint); defaults until it answers or if it fails. */
+/** The organization's name and logo for the sign-in pages (public endpoint); defaults until it answers or if it fails. */
 function useAuthBrand() {
   const [brand, setBrand] = useState({ name: DEFAULT_BRAND, logo: DEFAULT_LOGO })
   useEffect(() => {
@@ -42,7 +42,7 @@ function useAuthBrand() {
 
 /**
  * Every sign-in page (Sign In, Forgot / Reset Password, Account Inactive) in one frame: the kit's Auth Layout with
- * the organisation's brand, the product headline and the light/dark switch. Pages pass only their title and form.
+ * the organization's brand, the product headline and the light/dark switch. Pages pass only their title and form.
  */
 export function AuthScreen({
   title,
