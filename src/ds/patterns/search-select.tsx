@@ -108,7 +108,7 @@ export function SearchSelect({
 
   return (
     <Field data-invalid={error ? true : undefined} data-disabled={disabled || undefined} className={className}>
-      <FieldLabel htmlFor={id} required={required}>{label}</FieldLabel>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Combobox
         items={options}
         value={selected}

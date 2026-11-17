@@ -11,7 +11,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegen
 import { Input } from '@/ds/ui/input'
 import { Spinner } from '@/ds/ui/spinner'
 import { Textarea } from '@/ds/ui/textarea'
-import { ToggleGroup, ToggleGroupItem } from '@/ds/ui/toggle-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select'
 import { AutoGrid } from '@/ds/patterns/auto-grid'
 import { EmptyState } from '@/ds/patterns/empty-state'
 import { FormDialog } from '@/ds/patterns/form-dialog'
@@ -156,6 +156,13 @@ let initialState = {
 
 const FORM_ID = 'branch-form'
 
+/** The branch's 12/24h choice. Each option shows what it looks like, so nobody has to remember the formats. */
+const TIME_FORMAT_OPTIONS = [
+  { value: 'inherit', label: 'Organization default' },
+  { value: '1', label: '12-hour (2:30 PM)' },
+  { value: '0', label: '24-hour (14:30)' },
+]
+
 interface BranchesProps {
   /** Scope the list + new-branch creation to this organization. */
   companyId?: string;
@@ -205,7 +212,7 @@ function BranchTextField({
   }
   return (
     <Field data-invalid={error ? true : undefined}>
-      <FieldLabel htmlFor={id} required={required}>{label}</FieldLabel>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       {multiline ? <Textarea {...common} rows={2} /> : <Input {...common} inputMode={inputMode} />}
       {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
     </Field>
@@ -757,11 +764,10 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
               description="Location, address and attendance coordinates"
               icon={<Building2 aria-hidden />}
               tone="cyan"
-              size="lg"
+              size="2xl"
               formId={FORM_ID}
               submitLabel={editMode ? 'Save changes' : 'Create branch'}
               submitting={loading}
-              submitDisabled={!formikProps.isValid}
               dirty={formikProps.dirty}
               sections={[
                 { id: 'branch-details', label: 'Branch details', icon: <Building2 aria-hidden />, invalid: Boolean(err('name')) },
@@ -774,7 +780,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                 <section id="branch-details" className="scroll-mt-4">
                   <FieldSet>
                     <FieldLegend>Branch details</FieldLegend>
-                    <FieldGroup>
+                    <AutoGrid min={220} stretch>
                       <BranchTextField form={formikProps} name="name" label="Branch name" required />
                       <SearchSelect
                         id="branch-companyId"
@@ -784,15 +790,15 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                         onValueChange={(value) => formikProps.setFieldValue('companyId', value ?? '')}
                         options={orgOptions}
                       />
-                    </FieldGroup>
+                    </AutoGrid>
                   </FieldSet>
                 </section>
 
                 <section id="branch-location" className="scroll-mt-4">
                   <FieldSet>
                     <FieldLegend>Location</FieldLegend>
-                    <FieldGroup className="grid gap-4 sm:grid-cols-2">
-                      {/* Country and Currency share a row: currency is DERIVED from country. */}
+                    <AutoGrid min={220} stretch>
+                      {/* Country and Currency side by side: currency is DERIVED from country. */}
                       <SearchSelect
                         id="branch-countryId"
                         label="Country"
@@ -843,18 +849,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                           : undefined}
                       />
 
-                      {/* Deviating from the country is allowed but never silent. Salary, offers and
-                          exported payslips all read this. */}
-                      {currencyDeviates && (
-                        <Alert variant="warning" className="sm:col-span-2">
-                          <TriangleAlert aria-hidden />
-                          <AlertDescription>
-                            This branch bills in <strong>{getCurrencySymbol(v.currency)} {v.currency}</strong>, not its
-                            country&rsquo;s {fromCountry}. Salaries, offers and payslips here will all use it.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
                       <SearchSelect
                         id="branch-stateId"
                         label="State"
@@ -892,7 +886,18 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                       />
 
                       <BranchTextField form={formikProps} name="postalCode" label="Postal code" required inputMode="numeric" />
-                    </FieldGroup>
+                    </AutoGrid>
+                    {/* Deviating from the country is allowed but never silent. Salary, offers and
+                        exported payslips all read this. */}
+                    {currencyDeviates && (
+                      <Alert variant="warning">
+                        <TriangleAlert aria-hidden />
+                        <AlertDescription>
+                          This branch bills in <strong>{getCurrencySymbol(v.currency)} {v.currency}</strong>, not its
+                          country&rsquo;s {fromCountry}. Salaries, offers and payslips here will all use it.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </FieldSet>
                 </section>
 
@@ -901,11 +906,13 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                     <FieldLegend>Map coordinates</FieldLegend>
                     <FieldDescription>Used to validate on-site attendance check-ins.</FieldDescription>
                     <FieldGroup>
-                      <BranchTextField form={formikProps} name="address" label="Branch address" required multiline />
-                      <div className="grid gap-4 sm:grid-cols-2">
+                      <AutoGrid min={220} stretch>
+                        <div className="col-span-full">
+                          <BranchTextField form={formikProps} name="address" label="Branch address" required multiline />
+                        </div>
                         <BranchTextField form={formikProps} name="latitude" label="Latitude" required inputMode="decimal" />
                         <BranchTextField form={formikProps} name="longitude" label="Longitude" required inputMode="decimal" />
-                      </div>
+                      </AutoGrid>
                       <div className="flex flex-wrap items-center gap-2">
                         <Button type="button" size="sm" variant="outline" disabled={geoStatus.busy} onClick={() => fillCoordinatesFromAddress(formikProps)}>
                           <MapPin data-icon="inline-start" aria-hidden /> Get coordinates from address
@@ -932,7 +939,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                 <section id="branch-preferences" className="scroll-mt-4">
                   <FieldSet>
                     <FieldLegend>Preferences</FieldLegend>
-                    <FieldGroup>
+                    <AutoGrid min={220} stretch>
                       <div className="space-y-2">
                         <SearchSelect
                           id="branch-timezone"
@@ -950,33 +957,33 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                               : list
                           })()}
                         />
-                        <Button type="button" size="sm" variant="ghost" onClick={() => detectBrowserTimezone(formikProps)}>
+                        <Button type="button" size="sm" variant="ghost" className="px-3" onClick={() => detectBrowserTimezone(formikProps)}>
                           <Clock data-icon="inline-start" aria-hidden /> Detect my timezone
                         </Button>
                       </div>
 
                       {/* Three choices, not two. The format is a cascade (personal -> branch -> org
                           -> 12h) and each layer only applies when the one above it has no opinion. A
-                          Yes/No control cannot say "no opinion". See utils/timeFormat.ts. */}
+                          Yes/No control cannot say "no opinion". See utils/timeFormat.ts. A Select with the
+                          same floating label as Timezone, so the two controls share one top edge and height. */}
                       <Field>
-                        <FieldTitle id="branch-time-format-label">Time format</FieldTitle>
-                        <ToggleGroup
-                          aria-labelledby="branch-time-format-label"
-                          variant="outline"
-                          spacing={0}
-                          value={[v.showDateIn12HourFormat]}
-                          onValueChange={(next: string[]) => {
-                            // A single choice: pressing the current option again must not clear it.
-                            if (next.length) formikProps.setFieldValue('showDateIn12HourFormat', next[next.length - 1])
-                          }}
-                          className="flex-wrap"
+                        <FieldLabel id="branch-time-format-label">Time format</FieldLabel>
+                        <Select
+                          items={TIME_FORMAT_OPTIONS}
+                          value={v.showDateIn12HourFormat}
+                          onValueChange={(next) => { if (next) formikProps.setFieldValue('showDateIn12HourFormat', next) }}
                         >
-                          <ToggleGroupItem value="inherit">Organization default</ToggleGroupItem>
-                          <ToggleGroupItem value="1">12-hour</ToggleGroupItem>
-                          <ToggleGroupItem value="0">24-hour</ToggleGroupItem>
-                        </ToggleGroup>
+                          <SelectTrigger className="w-full" aria-labelledby="branch-time-format-label">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TIME_FORMAT_OPTIONS.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </Field>
-                    </FieldGroup>
+                    </AutoGrid>
                   </FieldSet>
                 </section>
               </Form>

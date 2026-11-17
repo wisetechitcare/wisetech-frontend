@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Building2 } from 'lucide-react';
 import { PageTitle, PageLink } from '@metronic/layout/core';
-import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
+import { FormDialog } from '@/ds/patterns/form-dialog';
 import OrganizationProfileForm from './OrganizationProfileForm';
 import Branches from '../Branches';
 
@@ -53,34 +53,26 @@ export default function OrganizationProfilePage() {
         onBranchesClick={() => setShowBranches(true)}
       />
 
-      <GlassDialog
+      {/* The kit Form Dialog (read-only: one Close). Everything Branches opens from here is kit too — the branch
+          form, Employees, Biometric devices — so the dialogs stack and share one focus trap. */}
+      <FormDialog
         open={showBranches}
-        onClose={() => { setShowBranches(false); setEditBranchId(undefined); }}
-        maxWidth="xl"
-        fullWidth
-        // The branch form inside is a kit (Base UI) dialog portalled to <body>; MUI's focus trap would pull
-        // focus back out of it on every keystroke. Goes when this frame becomes a kit dialog (phase 5b).
-        disableEnforceFocus
-        header={
-          <GlassHeader
-            title="Branches"
-            subtitle="Manage this organization’s locations"
-            icon={<Building2 aria-hidden />}
-            onClose={() => { setShowBranches(false); setEditBranchId(undefined); }}
-          />
-        }
+        onOpenChange={(open) => { if (!open) { setShowBranches(false); setEditBranchId(undefined); } }}
+        title="Branches"
+        description="Manage this organization’s locations"
+        icon={<Building2 aria-hidden />}
+        tone="cyan"
+        size="xl"
       >
-        <div className="max-h-[76vh] overflow-y-auto bg-background pb-6">
-          <Branches
-            key={`branches-${orgId}`}
-            companyId={orgId}
-            embedded
-            hideHeading
-            editBranchId={editBranchId}
-            onEditBranchConsumed={() => setEditBranchId(undefined)}
-          />
-        </div>
-      </GlassDialog>
+        <Branches
+          key={`branches-${orgId}`}
+          companyId={orgId}
+          embedded
+          hideHeading
+          editBranchId={editBranchId}
+          onEditBranchConsumed={() => setEditBranchId(undefined)}
+        />
+      </FormDialog>
     </>
   );
 }

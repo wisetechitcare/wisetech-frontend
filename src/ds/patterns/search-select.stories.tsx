@@ -106,10 +106,13 @@ export const Required: Story = {
       <SearchSelect id="required-project" label="Project" required value={null} onValueChange={fn()} options={PROJECTS} />
     </div>
   ),
-  play: async ({ canvas }) => {
+  play: async ({ canvas, canvasElement }) => {
     const input = canvas.getByRole('combobox', { name: 'Project' })
     await expect(input).toHaveAttribute('aria-required', 'true')
-    await expect(canvas.getByText('*')).toHaveAttribute('aria-hidden', 'true')
+    // Exactly one `*`: the kit's CSS marker on the label (from aria-required), and no typed one beside it.
+    const label = canvasElement.querySelector('[data-slot="field-label"]')!
+    await expect(getComputedStyle(label, '::after').content).toContain('*')
+    await expect(label.textContent).not.toContain('*')
   },
 }
 

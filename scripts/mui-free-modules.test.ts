@@ -20,6 +20,8 @@ const MUI_FREE_ROOTS: string[] = [
   // Organization module, phase 1 (2026-11-16): the hierarchy and the branch roster.
   'src/app/modules/common/components/OrgTree',
   'src/app/modules/common/components/BranchEmployeesModal',
+  // Organization module, phase 5b (2026-11-17): biometric devices on the kit Data Table.
+  'src/app/modules/common/components/BiometricDevicesModal',
 ];
 
 describe('MUI-free modules', () => {

@@ -57,7 +57,7 @@ const Branding: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <Field data-invalid={Boolean(error) || undefined}>
-                    <FieldLabel htmlFor="branding-org-name" required>Organization name</FieldLabel>
+                    <FieldLabel htmlFor="branding-org-name">Organization name</FieldLabel>
                     <Input
                       id="branding-org-name"
                       name="organizationName"

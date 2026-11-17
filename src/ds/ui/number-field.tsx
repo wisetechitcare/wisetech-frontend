@@ -47,7 +47,6 @@ function NumberField({
       {...props}
     >
       <FieldChrome
-        required={props.isRequired}
         label={label}
         description={description}
         errorMessage={errorMessage}

@@ -79,7 +79,6 @@ function DatePicker<T extends DateValue>({
       {...props}
     >
       <FieldChrome
-        required={props.isRequired}
         label={label}
         description={description}
         errorMessage={errorMessage}
@@ -147,7 +146,6 @@ function DateRangePicker<T extends DateValue>({
       {...props}
     >
       <FieldChrome
-        required={props.isRequired}
         label={label}
         description={description}
         errorMessage={errorMessage}

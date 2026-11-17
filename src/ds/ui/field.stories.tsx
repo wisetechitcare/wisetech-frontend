@@ -239,18 +239,37 @@ export const FloatingLabelsDark: Story = {
   },
 }
 
-/** Opt-in required marker: a `*` beside the label (visual only); the control's own `required` is what is announced. */
+/**
+ * Required: the `*` comes from the CONTROL's own state (`required`, `aria-required`, React Aria's `isRequired`)
+ * through one CSS rule — never from the label — so every required field shows exactly one marker, and a field that
+ * is not required shows none. The marker is presentation only: the field is announced as required, not as "*".
+ */
 export const Required: Story = {
   render: () => (
-    <Field>
-      <FieldLabel htmlFor="legal-name" required>Legal name</FieldLabel>
-      <Input id="legal-name" required />
-    </Field>
+    <div className="grid w-80 gap-6">
+      <Field>
+        <FieldLabel htmlFor="legal-name">Legal name</FieldLabel>
+        <Input id="legal-name" required />
+      </Field>
+      <DatePicker label="Date of joining" isRequired />
+      <NumberField label="Notice period (days)" isRequired />
+      <Field>
+        <FieldLabel htmlFor="nickname">Nickname</FieldLabel>
+        <Input id="nickname" />
+      </Field>
+    </div>
   ),
-  play: async ({ canvas }) => {
-    // By accessible name: the `*` is aria-hidden, so the field is announced as "Legal Name", not "Legal Name *".
-    const input = canvas.getByRole('textbox', { name: 'Legal Name' })
-    await expect(input).toBeRequired()
-    await expect(canvas.getByText('*')).toHaveAttribute('aria-hidden', 'true')
+  play: async ({ canvasElement, canvas }) => {
+    await expect(canvas.getByRole('textbox', { name: 'Legal Name' })).toBeRequired()
+    const marker = (text: string) => {
+      const label = [...canvasElement.querySelectorAll('[data-slot="field-label"]')].find((l) => l.textContent?.toLowerCase().includes(text.toLowerCase()))!
+      return getComputedStyle(label, '::after').content
+    }
+    // One marker per required field, from the label's ::after (a second, typed `*` once doubled it).
+    for (const text of ['Legal Name', 'Date Of Joining', 'Notice Period']) {
+      await expect(marker(text)).toContain('*')
+    }
+    await expect(canvasElement.textContent).not.toContain('*')
+    await expect(marker('Nickname')).toBe('none')
   },
 }

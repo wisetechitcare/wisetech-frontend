@@ -261,7 +261,7 @@ const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
         };
         return (
             <Field data-invalid={Boolean(error) || undefined}>
-                <FieldLabel htmlFor={id} required={field.required}>{field.label}</FieldLabel>
+                <FieldLabel htmlFor={id}>{field.label}</FieldLabel>
                 {wide ? (
                     <Textarea {...common} rows={2} onChange={(e) => set(e.target.value)} />
                 ) : (

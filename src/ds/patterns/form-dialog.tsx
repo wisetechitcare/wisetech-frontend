@@ -22,6 +22,9 @@ const formDialogVariants = cva("flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-
       default: "sm:max-w-xl",
       lg: "sm:max-w-3xl",
       xl: "sm:max-w-5xl",
+      // Long forms with a section rail on wide screens: fields sit two or three across (AutoGrid) instead of
+      // one long column. Full width on a phone, like every size.
+      "2xl": "sm:max-w-7xl",
     },
   },
   defaultVariants: { size: "default" },

@@ -5,7 +5,7 @@
  * They warn; ANY file NOT listed here fails hard. New code cannot regress, and this list can
  * only shrink: regenerating refuses to add a file (growth requires an explicit `--grow`). Separate from .eslint-ui-baseline.cjs on purpose (that list carries unrelated bans).
  *
- * Burn-down: 553 files at baseline. Delete a path once its icons are converted.
+ * Burn-down: 552 files at baseline. Delete a path once its icons are converted.
  */
 module.exports = [
   "src/app/components/ErrorBoundary.tsx",
@@ -23,7 +23,6 @@ module.exports = [
   "src/app/modules/common/components/AssignToProjectsDialog.tsx",
   "src/app/modules/common/components/AttendanceCheckCell.tsx",
   "src/app/modules/common/components/AttendanceDayTimes.tsx",
-  "src/app/modules/common/components/BiometricDevicesModal/index.tsx",
   "src/app/modules/common/components/EmployeePickerField.tsx",
   "src/app/modules/common/components/EmployeeSelectionDialog.tsx",
   "src/app/modules/common/components/EmployeeStatGrid.tsx",

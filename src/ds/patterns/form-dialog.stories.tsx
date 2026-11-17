@@ -7,6 +7,7 @@ import { Button } from '@/ds/ui/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
 import { Textarea } from '@/ds/ui/textarea'
+import { AutoGrid } from './auto-grid'
 import { DescriptionList } from './description-list'
 import { FormDialog } from './form-dialog'
 import { Stepper } from './stepper'
@@ -172,6 +173,64 @@ export const LongFormWithSections: Story = {
     const nav = await screen.findByRole('navigation', { name: 'Form sections' })
     await expect(nav).toBeInTheDocument()
     await expect(screen.getByRole('link', { name: 'Bank' })).toHaveAttribute('href', '#sec-bank')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await animationsSettled()
+  },
+}
+
+/**
+ * Wide form (`size="2xl"`): a long form on a wide screen uses the width. Each section's fields sit in an
+ * `AutoGrid stretch` — two or three across while there is room, one column on a phone — instead of one long column
+ * that scrolls. A field that needs the whole row (an address) takes `col-span-full`.
+ */
+export const WideForm: Story = {
+  render: () => (
+    <OpenButton label="New branch">
+      {(open, setOpen) => (
+        <FormDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="New branch"
+          icon={<Building2 />}
+          tone="cyan"
+          size="2xl"
+          formId="wide-branch"
+          sections={[{ id: 'wide-details', label: 'Branch details' }, { id: 'wide-location', label: 'Location' }]}
+        >
+          <form id="wide-branch" onSubmit={(e) => e.preventDefault()} className="space-y-8">
+            <section id="wide-details" aria-labelledby="wide-details-h" className="scroll-mt-4 space-y-4">
+              <h3 id="wide-details-h" className="text-base font-medium">Branch details</h3>
+              <AutoGrid min={220} stretch>
+                <Field><FieldLabel htmlFor="wide-name">Branch name</FieldLabel><Input id="wide-name" required /></Field>
+                <Field><FieldLabel htmlFor="wide-code">Branch code</FieldLabel><Input id="wide-code" /></Field>
+              </AutoGrid>
+            </section>
+            <section id="wide-location" aria-labelledby="wide-location-h" className="scroll-mt-4 space-y-4">
+              <h3 id="wide-location-h" className="text-base font-medium">Location</h3>
+              <AutoGrid min={220} stretch>
+                <Field><FieldLabel htmlFor="wide-city">City</FieldLabel><Input id="wide-city" required /></Field>
+                <Field><FieldLabel htmlFor="wide-state">State</FieldLabel><Input id="wide-state" required /></Field>
+                <Field><FieldLabel htmlFor="wide-postal">Postal code</FieldLabel><Input id="wide-postal" required /></Field>
+                <Field className="col-span-full"><FieldLabel htmlFor="wide-address">Address</FieldLabel><Textarea id="wide-address" /></Field>
+              </AutoGrid>
+            </section>
+          </form>
+        </FormDialog>
+      )}
+    </OpenButton>
+  ),
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'New Branch' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New Branch' })
+    await waitFor(() => expect(dialog).toBeVisible())
+    // On a wide screen the location fields share one row; the address takes a row of its own.
+    const top = (label: string) => screen.getByLabelText(label).getBoundingClientRect().top
+    if (window.innerWidth >= 1024) {
+      await expect(Math.round(top('City'))).toBe(Math.round(top('State')))
+      await expect(Math.round(top('State'))).toBe(Math.round(top('Postal Code')))
+      await expect(top('Address')).toBeGreaterThan(top('City'))
+    }
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await animationsSettled()

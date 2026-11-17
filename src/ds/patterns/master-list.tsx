@@ -307,7 +307,15 @@ export function MasterList({
               <InputGroupAddon align="inline-end">
                 {busy && <Spinner className="size-4" aria-label="Saving" />}
                 {onAdd && (
-                  <InputGroupButton size="sm" variant="default" disabled={!draftKey || duplicate || busy} onClick={add}>
+                  <InputGroupButton
+                    size="sm"
+                    variant="default"
+                    // Concentric with the pill: the addon's padding leaves 8px on the right; 5px back makes it the same
+                    // 3px as top and bottom (40px group, 1px border, 32px button).
+                    className="-me-[5px]"
+                    disabled={!draftKey || duplicate || busy}
+                    onClick={add}
+                  >
                     <Plus aria-hidden /> {addLabel}
                   </InputGroupButton>
                 )}

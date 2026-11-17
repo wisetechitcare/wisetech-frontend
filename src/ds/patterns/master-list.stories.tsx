@@ -58,6 +58,15 @@ export const AddValue: Story = {
     await userEvent.type(box, 'referral')
     await expect(canvas.getByText(/is already in the list/)).toBeInTheDocument()
     await expect(canvas.getByRole('button', { name: 'Add' })).toBeDisabled()
+
+    // The Add button nests evenly inside the pill: the same ring top, bottom and right (within a pixel).
+    const button = canvas.getByRole('button', { name: 'Add' }).getBoundingClientRect()
+    const group = box.closest('[data-slot="input-group"]')!.getBoundingClientRect()
+    const top = button.top - group.top
+    const bottom = group.bottom - button.bottom
+    const right = group.right - button.right
+    await expect(Math.abs(top - bottom)).toBeLessThanOrEqual(1)
+    await expect(Math.abs(right - top)).toBeLessThanOrEqual(1)
   },
 }
 

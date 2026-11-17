@@ -101,17 +101,17 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * A field's label. Required fields get their `*` from the CONTROL's own state (`required` / `aria-required` /
+ * React Aria's `isRequired`) through one CSS rule in styles/components.css — never from a prop here, so a label
+ * cannot claim "required" for a control that is not, and the marker cannot appear twice.
+ */
 function FieldLabel({
   className,
   ref,
-  required,
   children,
   ...props
-}: React.ComponentProps<typeof Label> & {
-  /** WiseTech: marks the field required with a `*` (visual only — the control's own `required` /
-   *  `isRequired` is what assistive tech announces). Opt-in, so unmarked forms are unchanged. */
-  required?: boolean
-}) {
+}: React.ComponentProps<typeof Label>) {
   // Publishes the label's width for the border notch (no label background — lib/floating-notch).
   const notchRef = useFloatingNotchRef(ref)
   return (
@@ -126,11 +126,6 @@ function FieldLabel({
       {...props}
     >
       {children}
-      {required && (
-        <span aria-hidden data-slot="field-required" className="-ms-1 text-destructive">
-          *
-        </span>
-      )}
     </Label>
   )
 }

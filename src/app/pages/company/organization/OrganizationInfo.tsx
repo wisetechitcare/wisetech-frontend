@@ -1,7 +1,7 @@
 import { resolveActiveOrg } from '@utils/activeOrg';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { BadgeCheck, Briefcase, CalendarRange, Download, FileText, Flag, Globe, IdCard, Image as ImageIcon, ImageOff, Landmark, Mail, MapPin, Pencil, Phone, Receipt, ScrollText } from 'lucide-react';
+import { BadgeCheck, Briefcase, Download, FileText, Globe, Image as ImageIcon, ImageOff, Landmark, Mail, MapPin, Pencil, Phone, Receipt, ScrollText } from 'lucide-react';
 import type { Tone } from '@/ds/lib/tone';
 import { Button } from '@/ds/ui/button';
 import { Card, CardContent, CardHeader } from '@/ds/ui/card';
@@ -10,7 +10,6 @@ import { DescriptionList } from '@/ds/patterns/description-list';
 import { EmptyState } from '@/ds/patterns/empty-state';
 import { PersonHeader } from '@/ds/patterns/person';
 import { SectionHeader } from '@/ds/patterns/section-header';
-import { StatCard } from '@/ds/patterns/stat-card';
 import { fetchCompanyOverview, fetchOrganizationById } from '@services/company';
 import { ICompanyOverview } from "@models/company";
 import { resolveFormSchema } from './formSchema';
@@ -21,7 +20,8 @@ import { errorConfirmation } from '@utils/modal';
 import { hasPermission } from '@utils/authAbac';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { WhatsAppIcon } from '@/ds/lib/icons/brandIcons';
-import { formatFiscalYearRange } from '@utils/fiscalYearRange';
+import { formatFiscalYearRange, parseFiscalDateString } from '@utils/fiscalYearRange';
+import { formatDate } from '@utils/dateFormats';
 
 /** Per-section look (icon + category hue), shared with the edit form. Unknown (custom) sections: slate. */
 export const ORG_SECTION_LOOK: Record<string, { icon: React.ReactNode; tone: Tone; subtitle: string }> = {
@@ -50,6 +50,17 @@ interface OrganizationInfoProps {
     /** When provided, renders a "Branches" button beside Download PDF. */
     onBranchesClick?: () => void;
 }
+
+/**
+ * "Founded In" is free text: rows hold ISO dates, legacy DD/MM/YYYY, or just a year. A full date shows in the
+ * company format (2017.05.16); a bare year, or anything unreadable, is shown as typed rather than guessed.
+ */
+const formatFounded = (raw: string): string => {
+    if (!raw) return '';
+    if (/^\d{4}$/.test(raw)) return raw;
+    const d = parseFiscalDateString(raw);
+    return d ? formatDate(d, raw) : raw;
+};
 
 const OrganizationInfo: React.FC<OrganizationInfoProps> = ({ onEditClick, organizationId, onBack, onBranchesClick }) => {
     const [companyData, setCompanyData] = useState<ICompanyOverview | null>(null);
@@ -263,13 +274,16 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
         </figure>
     );
 
-    const facts: Array<{ label: string; value: string; icon: React.ReactNode; tone: Tone }> = [
-        { label: 'Fiscal year', value: formatFiscalYearRange(companyData.fiscalYear), icon: <CalendarRange aria-hidden />, tone: 'cyan' },
-        { label: 'Founded', value: clean(companyData.foundedIn) || '—', icon: <Flag aria-hidden />, tone: 'purple' },
-        { label: 'GST number', value: clean(companyData.gstNumber) || '—', icon: <Receipt aria-hidden />, tone: 'amber' },
-        { label: 'PAN', value: clean(companyData.panNo) || '—', icon: <IdCard aria-hidden />, tone: 'blue' },
-        { label: 'TAN', value: clean(companyData.tanNo) || '—', icon: <FileText aria-hidden />, tone: 'indigo' },
-        { label: 'Contact', value: phone || '—', icon: <Phone aria-hidden />, tone: 'green' },
+    // Codes read as codes: tabular figures, so 0/O and 1/I line up and the eye can compare two numbers.
+    const code = (v?: string | null) => (clean(v) ? <span className="tabular">{clean(v)}</span> : '');
+    const founded = formatFounded(clean(companyData.foundedIn));
+    const facts = [
+        { label: 'Fiscal year', value: <span className="tabular">{formatFiscalYearRange(companyData.fiscalYear)}</span> },
+        { label: 'Founded', value: founded ? <span className="tabular">{founded}</span> : '' },
+        { label: 'GST number', value: code(companyData.gstNumber) },
+        { label: 'PAN', value: code(companyData.panNo) },
+        { label: 'TAN', value: code(companyData.tanNo) },
+        { label: 'Contact', value: phone ? <span className="tabular">{phone}</span> : '' },
     ];
 
     return (
@@ -282,7 +296,7 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                 avatarFit="contain"
                 meta={[
                     clean(companyData.businessType),
-                    clean(companyData.foundedIn) ? `Founded ${companyData.foundedIn}` : '',
+                    founded ? `Founded ${founded}` : '',
                 ].filter(Boolean)}
                 links={[
                     ...(phone ? [{ href: `tel:${phone.replace(/[^\d+]/g, '')}`, label: phone, icon: <Phone aria-hidden /> }] : []),
@@ -316,12 +330,17 @@ ${companyData.additionalplacesofbusiness ? `• Additional Address: ${companyDat
                 }
             />
 
-            {/* The facts people look up most, before the full sections. */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-                {facts.map((f) => (
-                    <StatCard key={f.label} size="sm" label={f.label} value={f.value} tone={f.tone} icon={f.icon} />
-                ))}
-            </div>
+            {/* The facts people look up most, before the full sections. Facts, not KPIs: a Description List at
+                reading size (a Stat Card's headline figure clipped the GST number and wrapped the fiscal year),
+                as many columns as the page has room for. */}
+            <Card tone="cyan">
+                <CardHeader>
+                    <SectionHeader icon={<ScrollText aria-hidden />} tone="cyan" title="At a glance" description="Registration, fiscal year and contact" />
+                </CardHeader>
+                <CardContent>
+                    <DescriptionList columns="auto" rows={facts} />
+                </CardContent>
+            </Card>
 
             <div className="grid gap-4 lg:grid-cols-2">
                 <Card tone="blue">

@@ -62,9 +62,9 @@ Format: **what** — evidence (file / screen) — suggested fix.
   column and nested sub-rows. — Add `facets` and `getSubRows` when the first screen needs them, not before.
   (found 2026-11-09, narrowed 2026-11-17)
 
-- **`ExportButton` (14 users) still draws an MUI menu and MUI icons** — the kit DataTable now reaches it
-  through `table/DataTableExport`, so the engine is shared but the button looks legacy. — Rebuild its menu on
-  the kit `DropdownMenu` + lucide icons; keep the CSV/Excel engine as is. (found 2026-11-09)
+- ~~**`ExportButton` (14 users) still draws an MUI menu and MUI icons**~~ **Already fixed (checked 2026-11-17):**
+  `ExportButton` renders the kit `DropdownMenu` + lucide icons and reaches no legacy UI
+  (`node scripts/legacy-ui-reach.mjs src/app/modules/common/components/table` lists nothing for it).
 - **Reimbursement: two colour maps left to fold into `STATUS_TONE`** — `PAYMENT_TONE` in
   `utils/reimbursementFormat.ts` is a hex palette (light-only) used by `PaymentQueueTable`; `BatchWorkflowPanel`
   keeps its own status map (Needs info = cyan "Query"). — Replace both with the tone tokens when the Payment
@@ -137,17 +137,17 @@ Format: **what** — evidence (file / screen) — suggested fix.
   Build virtualisation before the first long-list screen moves.
 - **`DataTableExport` lives outside the kit** — `app/modules/common/components/table/DataTableExport.tsx` (9 users)
   is the Data Table's export, but sits in the legacy `components/` tree, against the rule that shared UI lives in
-  `src/ds`. It depends on `ExportButton` (app toast + currency utils). — Move it into `src/ds/patterns` with a story
-  once `ExportButton`'s menu is on the kit (entry above), injecting the currency/toast deps. (found 2026-11-17)
+  `src/ds`. It depends on `ExportButton` (app toast + currency utils). — Move both into `src/ds/patterns` with a story,
+  injecting the currency/toast deps. (found 2026-11-17)
 - **Legacy `ui/ConfirmDialog.tsx` still draws its own GlassDialog** — used by `IdleLogoutGuard`,
   `ConfirmDiscardDialog`, `useConfirmDialog` and `usePromptDialog`, while `DialogServiceHost` (every
   `showDialog` / `errorConfirmation` call) already renders the kit Confirm Dialog. — Turn it into a thin adapter
   over `@/ds/patterns/confirm-dialog` (old prop names only), then retire it with its last caller. (found 2026-11-17)
 - **Organization module → kit: what is still legacy** (tracking, 2026-11-17; phases 1–5a merged into
-  `feat/multi-tenancy`, `18e3dc8a`):
-  - Biometric Devices dialog (`BiometricDevicesModal`, MUI + MaterialTable) and the profile page's Branches frame
-    (still `GlassDialog`, with `disableEnforceFocus` so the kit branch form inside keeps focus) — phase 5b, after
-    Data Table grouping (landed 2026-11-17).
+  `feat/multi-tenancy`, `18e3dc8a`; phase 5b moved the Biometric Devices dialog onto the kit Data Table and the
+  profile page's Branches frame onto the kit Form Dialog). The org folder's ONLY remaining legacy reach is
+  `OrganizationProfileForm` → `FormSchemaManager` → `UnsavedChangesModal` (react-bootstrap) → legacy
+  `ConfirmDialog` (MUI); converting those two (entry above) lets `pages/company/organization` join `MUI_FREE_ROOTS`.
   - `MaterialHeaderTab` should become a thin adapter over the kit `PageTabs` (affects every screen using it).
   - `PerOrgPrefixSettings` (inside the New Organization dialog) still renders MUI fields.
   - `FormSchemaManager` → `UnsavedChangesModal` is react-bootstrap.
@@ -156,6 +156,28 @@ Format: **what** — evidence (file / screen) — suggested fix.
   - `organizationInfo/` (Rules, FAQs) still uses Metronic classes and `bi-*` icons.
   - Branding tab: Save is a `console.log` stub (decision pending: build or remove).
   - `DropdownInput` (17 users) should become an adapter over the kit `SearchSelect`.
+  - Biometric Devices: deleting a device no longer fades its row to 50% while the request runs (the kit Data Table
+    has no per-row opacity); the row's More button shows the spinner instead. — If the fade is wanted, add a
+    `rowBusy` predicate to the Data Table (with a story) rather than styling the row in the screen.
+  - The Organization profile edit form (phase 3, Form Dialog `xl` with sections) should get the same
+    use-the-width treatment as New Branch (`size="2xl"` + `AutoGrid stretch` field rows), per the laws-of-UX rule.
+- **Two required markers became one (2026-11-17)** — the kit had two competing `*`s: `FieldLabel required` (added
+  2026-11-16) and the CSS rule in `styles/components.css` that reads the control's own `required` /
+  `aria-required` (2026-11-09). Together every required label showed `**`. The label prop is removed; the CSS rule
+  is the single marker (Field story `Required` asserts exactly one). — Any NEW required field must set `required`
+  (or `isRequired`) on the control itself; a label never claims it.
+- **Fixed 2026-11-17, found from the user's screenshots (laws of UI/UX pass):**
+  - `InputGroupButton size="sm"` was an empty variant, so the inner Button fell back to 40px and filled the 40px
+    field (Master List's "Add town" pill). It is now 32px; Master List nests it 3px inside on every side (story
+    `AddValue` measures it).
+  - Organization profile "At a glance": identifiers (GST, PAN, TAN, fiscal year) were Stat Cards — a KPI's headline
+    figure clipped the GST number under its icon and wrapped the fiscal year. Now a Description List
+    (`columns="auto"`, new, story `AutoColumns`) at reading size; "Founded" shows in the company date format.
+  - Branch form Preferences: Time format is a Select with the same floating label as Timezone (it was a
+    label-above ToggleGroup, so the two controls started at different heights).
+- **Stat Cards showing text instead of figures elsewhere** — the profile page used Stat Card for registration numbers;
+  other screens may do the same (a Stat Card is for a KPI: a number, a trend). — Grep `<StatCard` whose `value` is
+  an id, a code or a sentence and move those to a Description List. (found 2026-11-17)
 - **Self-host the phone flags** — v2 Phone Field (fixed 2026-11-03: emoji flags rendered as letters on Windows)
   now uses `react-international-phone`'s `FlagImage`, like the live `WtPhoneField`; both load Twemoji SVGs from
   cdnjs. — Serve the SVGs from our own origin (pass `src` to `FlagImage`) so the field needs no third-party
