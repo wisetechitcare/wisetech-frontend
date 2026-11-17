@@ -12,8 +12,9 @@ const interactiveClass =
 // WiseTech: the benchmark tile (Stat Card's design) — a tone glow in the top-right corner, an accent bar
 // that grows along the bottom, a spring lift on hover, and the icon tile popping in, scaling with a tone
 // shadow and wiggling on hover. It is every card's default look, clickable or not. `panel` (same surface,
-// no glow or motion) is for a frame around a table or a chart: a lifting, glowing frame competes with
-// the data inside it (and with the chart's own hover), so data surfaces stay still.
+// no glow or motion) is for a frame around a table or a chart — a lifting, glowing frame competes with
+// the data inside it (and with the chart's own hover), so data surfaces stay still — and for the sign-in
+// form (Auth Layout): a form is a place to type, not a tile to hover (decided 2026-11-14).
 const tileClass =
   "isolate transition-[box-shadow,translate] duration-300 ease-spring hover:shadow-md motion-safe:hover:-translate-y-0.5 [&_[data-slot=icon-box]]:transition-[scale,box-shadow] [&_[data-slot=icon-box]]:duration-300 hover:[&_[data-slot=icon-box]]:scale-110 hover:[&_[data-slot=icon-box]]:shadow-[0_8px_18px_-8px_var(--tone)] motion-safe:[&_[data-slot=icon-box]]:animate-stat-pop motion-safe:hover:[&_[data-slot=icon-box]>*]:animate-stat-wiggle"
 
@@ -28,7 +29,7 @@ function Card({
   ...props
 }: React.ComponentProps<"div"> & {
   size?: "default" | "sm"
-  /** `tile` (default): the Stat Card benchmark. `panel`: no glow or motion — the frame around a table or a chart. */
+  /** `tile` (default): the Stat Card benchmark. `panel`: no glow or motion — the frame around a table or a chart, and the sign-in form. */
   variant?: "panel" | "tile"
   /** A tile's accent (glow, bar, icon): a status, a category hue or a hex. Defaults to brand. */
   tone?: Tone | (string & {})

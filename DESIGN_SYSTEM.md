@@ -9,7 +9,7 @@
 
 ## Context
 
-We are bringing Apple's iOS/macOS 26–27 "Liquid Glass" design principles into the WiseTech HR frontend. A codebase audit revealed the higher-leverage problem: the app runs **two independent token systems that disagree**, so this is reframed as *unification using Apple's structure as the blueprint*, not a cosmetic reskin.
+We are bringing Apple's iOS/macOS 26–27 "Liquid Glass" design principles into the KAIZNOVA frontend. A codebase audit revealed the higher-leverage problem: the app runs **two independent token systems that disagree**, so this is reframed as *unification using Apple's structure as the blueprint*, not a cosmetic reskin.
 
 **The two conflicting systems today:**
 

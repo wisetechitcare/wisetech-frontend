@@ -1,18 +1,42 @@
-import { useMemo, useState } from "react"
+import { startTransition, useMemo, useState } from "react"
+import { isHexColor } from "@app/modules/common/components/ui/WtColorPicker"
 import { MAX_SLIDES, type ProfileData, type ProjectSection, type Section } from "./profile"
 import { deckOf, fitToCap, generatedCount, reorderSlides, toggleSlide } from "./profileBuilder"
 
 const LIMIT_MESSAGE = `A presentation shows at most ${MAX_SLIDES} slides. Hide another slide first.`
 
+/** The deck background is the one thing remembered across reloads (this browser only). */
+const BG_KEY = "company-profile.slide-bg"
+const savedBg = () => {
+  try {
+    const v = localStorage.getItem(BG_KEY)
+    return isHexColor(v) ? v : "#ffffff"
+  } catch {
+    return "#ffffff"
+  }
+}
+
 /**
- * Builder state: the sections, the presentation derived from them and the slide on the stage. Local only, no
- * persistence. Every change that could show more than MAX_SLIDES is refused through `notify`, never trimmed.
+ * Builder state: the sections, the presentation derived from them, the slide on the stage and the deck's
+ * background colour. Local only; just the background is kept in localStorage. Every change that could show more than MAX_SLIDES is refused through `notify`, never trimmed.
  */
 export function useProfileBuilder(data: ProfileData, initial: Section[], notify: (message: string) => void, initialSlideId?: string) {
-  const [sections, setSections] = useState(() => fitToCap(initial, data))
+  const [start] = useState(() => fitToCap(initial, data))
+  const [sections, setSections] = useState(start)
   const slides = useMemo(() => deckOf(sections, data), [sections, data])
   const [index, setIndex] = useState(() => Math.max(0, slides.findIndex((s) => s.id === initialSlideId)))
   const current = Math.min(index, Math.max(0, slides.length - 1))
+  const [bg, setBgState] = useState(savedBg)
+  const setBg = (c: string) => {
+    // A transition: dragging the custom colour sends dozens of colours a second, and each one repaints every
+    // slide and thumbnail. React drops the stale repaints instead of freezing the picker.
+    startTransition(() => setBgState(c))
+    try {
+      localStorage.setItem(BG_KEY, c)
+    } catch {
+      /* private mode: the colour still applies, it just is not remembered */
+    }
+  }
 
   const replace = (s: Section) => sections.map((x) => (x.id === s.id ? s : x))
   /** Applies a change; refused when it would show more than MAX_SLIDES. Returns the new deck, or null. */
@@ -32,6 +56,17 @@ export function useProfileBuilder(data: ProfileData, initial: Section[], notify:
     slides,
     current,
     go,
+    /** Background of every slide but the cover, as a hex. */
+    bg,
+    setBg,
+    /** Anything changed since the deck opened (order, visibility, picks or background)? */
+    changed: sections !== start || bg !== "#ffffff",
+    /** Back to the starting deck: default sections, order and picks, white background, first slide. */
+    reset: () => {
+      setSections(start)
+      setBg("#ffffff")
+      setIndex(0)
+    },
     /** Every slide the sections generate, shown or hidden. */
     generated: generatedCount(sections, data),
     /** Shows a section's first shown slide, or its slide `n`. */
