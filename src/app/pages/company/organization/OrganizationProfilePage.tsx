@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Box } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
+import { Building2 } from 'lucide-react';
 import { PageTitle, PageLink } from '@metronic/layout/core';
 import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
 import OrganizationProfileForm from './OrganizationProfileForm';
@@ -59,16 +58,19 @@ export default function OrganizationProfilePage() {
         onClose={() => { setShowBranches(false); setEditBranchId(undefined); }}
         maxWidth="xl"
         fullWidth
+        // The branch form inside is a kit (Base UI) dialog portalled to <body>; MUI's focus trap would pull
+        // focus back out of it on every keystroke. Goes when this frame becomes a kit dialog (phase 5b).
+        disableEnforceFocus
         header={
           <GlassHeader
             title="Branches"
             subtitle="Manage this organization’s locations"
-            icon={<KTIcon iconName="bank" className="fs-1" />}
+            icon={<Building2 aria-hidden />}
             onClose={() => { setShowBranches(false); setEditBranchId(undefined); }}
           />
         }
       >
-        <Box sx={{ bgcolor: 'background.default', maxHeight: '76vh', overflowY: 'auto', pb: 3 }}>
+        <div className="max-h-[76vh] overflow-y-auto bg-background pb-6">
           <Branches
             key={`branches-${orgId}`}
             companyId={orgId}
@@ -77,7 +79,7 @@ export default function OrganizationProfilePage() {
             editBranchId={editBranchId}
             onEditBranchConsumed={() => setEditBranchId(undefined)}
           />
-        </Box>
+        </div>
       </GlassDialog>
     </>
   );

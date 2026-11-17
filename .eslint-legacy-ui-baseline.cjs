@@ -4,7 +4,7 @@
  * They warn; ANY file NOT listed here fails hard. New code cannot regress, and this list can
  * only shrink: regenerating refuses to add a file (growth requires an explicit `--grow`). Burn it down by migrating the file to src/ds.
  *
- * Burn-down: 833 files at baseline. Delete a path once the file is migrated.
+ * Burn-down: 830 files at baseline. Delete a path once the file is migrated.
  */
 module.exports = [
   "src/app/components/ApprovalSettings.tsx",
@@ -43,7 +43,6 @@ module.exports = [
   "src/app/modules/common/components/AttendanceDayTimes.tsx",
   "src/app/modules/common/components/AttendanceDurationCell.tsx",
   "src/app/modules/common/components/BiometricDevicesModal/index.tsx",
-  "src/app/modules/common/components/BranchCard.tsx",
   "src/app/modules/common/components/CommonCard.tsx",
   "src/app/modules/common/components/CommonModal.tsx",
   "src/app/modules/common/components/DepartmentDesignationFields.tsx",
@@ -242,7 +241,6 @@ module.exports = [
   "src/app/pages/billing/reports/shared/ReportExportToolbar.tsx",
   "src/app/pages/billing/reports/shared/ReportFilterBar.tsx",
   "src/app/pages/billing/reports/shared/SavedFiltersMenu.tsx",
-  "src/app/pages/company/Branches.tsx",
   "src/app/pages/company/Departments.tsx",
   "src/app/pages/company/Designation.tsx",
   "src/app/pages/company/Holiday.tsx",
@@ -257,7 +255,6 @@ module.exports = [
   "src/app/pages/company/components/EmployeeList.tsx",
   "src/app/pages/company/components/MediaBreadcrumb.tsx",
   "src/app/pages/company/masters/EmployeeTypes.tsx",
-  "src/app/pages/company/organization/OrganizationProfilePage.tsx",
   "src/app/pages/company/organizationInfo/rule/RuleMainPage.tsx",
   "src/app/pages/company/organizationInfo/rule/components/DeductionRulesTable.tsx",
   "src/app/pages/company/organizationInfo/rule/components/LeaveAllowanceTable.tsx",
