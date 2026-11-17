@@ -4,7 +4,7 @@
  * They warn; ANY file NOT listed here fails hard. New code cannot regress, and this list can
  * only shrink: regenerating refuses to add a file (growth requires an explicit `--grow`). Burn it down by migrating the file to src/ds.
  *
- * Burn-down: 829 files at baseline. Delete a path once the file is migrated.
+ * Burn-down: 828 files at baseline. Delete a path once the file is migrated.
  */
 module.exports = [
   "src/app/components/ApprovalSettings.tsx",
@@ -51,7 +51,6 @@ module.exports = [
   "src/app/modules/common/components/EmployeePickerField.tsx",
   "src/app/modules/common/components/EmployeeSelectionDialog.tsx",
   "src/app/modules/common/components/EmployeeStatGrid.tsx",
-  "src/app/modules/common/components/FormSchemaManager/index.tsx",
   "src/app/modules/common/components/GlobalSearch/GlobalSearch.tsx",
   "src/app/modules/common/components/Graphs.tsx",
   "src/app/modules/common/components/LeaveSegmentChips.tsx",

@@ -5,9 +5,10 @@ import { parseDate } from '@internationalized/date';
 import { Image as ImageIcon, Landmark, Settings } from 'lucide-react';
 import { Button } from '@/ds/ui/button';
 import { DatePicker } from '@/ds/ui/date-picker';
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/ds/ui/field';
+import { Field, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from '@/ds/ui/field';
 import { Input } from '@/ds/ui/input';
 import { Textarea } from '@/ds/ui/textarea';
+import { AutoGrid } from '@/ds/patterns/auto-grid';
 import { FormDialog } from '@/ds/patterns/form-dialog';
 import { ImageField } from '@/ds/patterns/image-field';
 import { createCompanyOverview, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview } from '@services/company';
@@ -302,7 +303,7 @@ const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                             title={isCreate ? 'Set up organization profile' : 'Edit organization profile'}
                             description={f.values.name || undefined}
                             icon={<Landmark aria-hidden />}
-                            size="xl"
+                            size="2xl"
                             sections={[
                                 { id: 'org-assets', label: 'Logo & stamp', icon: <ImageIcon aria-hidden /> },
                                 ...visibleSections.map(s => ({ id: `org-${s.id}`, label: titleCase(s.title), icon: orgSectionLook(s.id).icon, invalid: hasError(s) })),
@@ -324,7 +325,7 @@ const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                     <FieldSet>
                                         <FieldLegend>Logo &amp; stamp</FieldLegend>
                                         <FieldDescription>Shown on payslips, letters and the PDF profile</FieldDescription>
-                                        <div className="grid gap-4 sm:grid-cols-2">
+                                        <AutoGrid min={280} stretch>
                                             <ImageField
                                                 id="org-logo"
                                                 label="Organization logo"
@@ -343,7 +344,7 @@ const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                                 accept={ASSET_TYPES}
                                                 maxSizeMB={5}
                                             />
-                                        </div>
+                                        </AutoGrid>
                                     </FieldSet>
                                 </section>
 
@@ -356,18 +357,20 @@ const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                             <FieldSet>
                                                 <FieldLegend>{titleCase(section.title)}</FieldLegend>
                                                 {description && <FieldDescription>{description}</FieldDescription>}
-                                                <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                                                {/* Fields fill the row (2-3 across on a wide screen, 1 on a phone); long
+                                                    text (an address) takes a row of its own. */}
+                                                <AutoGrid min={220} stretch>
                                                     {fields.map(field => (
-                                                        <div key={field.id} className={isWideOrgField(field) ? 'min-w-0 sm:col-span-2' : 'min-w-0'}>
+                                                        <div key={field.id} className={isWideOrgField(field) ? 'col-span-full min-w-0' : 'min-w-0'}>
                                                             {renderField(field, section.id, f)}
                                                         </div>
                                                     ))}
                                                     {!fields.length && (
-                                                        <p className="text-sm text-muted-foreground sm:col-span-2">
+                                                        <p className="col-span-full text-sm text-muted-foreground">
                                                             No fields in this section yet. Use Manage fields to add some.
                                                         </p>
                                                     )}
-                                                </FieldGroup>
+                                                </AutoGrid>
                                             </FieldSet>
                                         </section>
                                     );

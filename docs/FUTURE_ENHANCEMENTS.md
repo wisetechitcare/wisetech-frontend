@@ -145,12 +145,14 @@ Format: **what** — evidence (file / screen) — suggested fix.
   over `@/ds/patterns/confirm-dialog` (old prop names only), then retire it with its last caller. (found 2026-11-17)
 - **Organization module → kit: what is still legacy** (tracking, 2026-11-17; phases 1–5a merged into
   `feat/multi-tenancy`, `18e3dc8a`; phase 5b moved the Biometric Devices dialog onto the kit Data Table and the
-  profile page's Branches frame onto the kit Form Dialog). The org folder's ONLY remaining legacy reach is
-  `OrganizationProfileForm` → `FormSchemaManager` → `UnsavedChangesModal` (react-bootstrap) → legacy
-  `ConfirmDialog` (MUI); converting those two (entry above) lets `pages/company/organization` join `MUI_FREE_ROOTS`.
+  profile page's Branches frame onto the kit Form Dialog). **2026-11-17: `FormSchemaManager` (Manage form fields)
+  moved to a kit Form Dialog, which cut the last legacy chain; `pages/company/organization` and
+  `FormSchemaManager` are locked in `MUI_FREE_ROOTS`.** Still legacy elsewhere:
   - `MaterialHeaderTab` should become a thin adapter over the kit `PageTabs` (affects every screen using it).
   - `PerOrgPrefixSettings` (inside the New Organization dialog) still renders MUI fields.
-  - `FormSchemaManager` → `UnsavedChangesModal` is react-bootstrap.
+  - `UnsavedChangesModal` (react-bootstrap `Modal` wrapper, ~47 screens) and the legacy `ui/ConfirmDialog` (MUI)
+    remain. Turning `UnsavedChangesModal` into a kit adapter re-skins all 47 at once, and several host MUI fields
+    whose popups a kit (Base UI) dialog would trap — do it screen by screen, or with an explicit go-ahead.
   - `SmartLocationPicker` (Leaflet map + search) still renders MUI; its Nominatim calls now live in
     `services/geocoding.ts`, so the picker only needs its UI moved.
   - `organizationInfo/` (Rules, FAQs) still uses Metronic classes and `bi-*` icons.
@@ -159,8 +161,14 @@ Format: **what** — evidence (file / screen) — suggested fix.
   - Biometric Devices: deleting a device no longer fades its row to 50% while the request runs (the kit Data Table
     has no per-row opacity); the row's More button shows the spinner instead. — If the fade is wanted, add a
     `rowBusy` predicate to the Data Table (with a story) rather than styling the row in the screen.
-  - The Organization profile edit form (phase 3, Form Dialog `xl` with sections) should get the same
-    use-the-width treatment as New Branch (`size="2xl"` + `AutoGrid stretch` field rows), per the laws-of-UX rule.
+  - ~~Organization profile edit form width~~ done 2026-11-17: `size="2xl"` + `AutoGrid stretch` field rows.
+- **Stale lint rule removed (2026-11-17)** — `no-restricted-syntax` matched any `<Switch>` by tag name, so it fired
+  on the kit Switch too (it predates the kit). A raw MUI Switch is still caught by its import
+  (`no-restricted-imports`, `wisetech/no-legacy-ui`).
+- **`officeGeofence.test.ts` fails on `feat/multi-tenancy`** — `058ac173` ("office geofence blocks when branch center
+  or GPS is missing") returns `misconfigured` where the test "no radius, a 0 radius, no branch pin, or no reading"
+  still expects `unconfigured`. (found 2026-11-17, not touched: another session's change) — Update the test to the
+  new rule, or narrow the rule, whichever the geofence owner intended.
 - **Two required markers became one (2026-11-17)** — the kit had two competing `*`s: `FieldLabel required` (added
   2026-11-16) and the CSS rule in `styles/components.css` that reads the control's own `required` /
   `aria-required` (2026-11-09). Together every required label showed `**`. The label prop is removed; the CSS rule

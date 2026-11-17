@@ -22,6 +22,9 @@ const MUI_FREE_ROOTS: string[] = [
   'src/app/modules/common/components/BranchEmployeesModal',
   // Organization module, phase 5b (2026-11-17): biometric devices on the kit Data Table.
   'src/app/modules/common/components/BiometricDevicesModal',
+  // Organization module, complete (2026-11-17): every page of it, and the field manager it opens.
+  'src/app/pages/company/organization',
+  'src/app/modules/common/components/FormSchemaManager',
 ];
 
 describe('MUI-free modules', () => {

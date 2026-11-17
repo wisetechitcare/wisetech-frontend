@@ -5,7 +5,7 @@
  * warnings so the build stays green — while ANY file NOT listed here fails hard on the same
  * violation. New code therefore cannot regress, and this list can only shrink.
  *
- * Burn-down: 257 files at baseline. Delete a path once its violations are fixed.
+ * Burn-down: 256 files at baseline. Delete a path once its violations are fixed.
  */
 module.exports = [
   "src/app/components/ErrorBoundary.tsx",
@@ -23,7 +23,6 @@ module.exports = [
   "src/app/modules/apps/user-management/users-list/user-edit-modal/UserEditModalForm.tsx",
   "src/app/modules/common/components/CommonCard.tsx",
   "src/app/modules/common/components/DragDropFileField/index.tsx",
-  "src/app/modules/common/components/FormSchemaManager/index.tsx",
   "src/app/modules/common/components/GlobalSearch/GlobalSearch.tsx",
   "src/app/modules/common/components/Graphs.tsx",
   "src/app/modules/common/components/MaterialTableImpl.tsx",
