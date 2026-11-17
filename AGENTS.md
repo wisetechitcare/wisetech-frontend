@@ -125,6 +125,15 @@ const [mobileNumber, setMobileNumber] = useState<string>("");
    - `src/components/form/input/InputField.tsx`
 4. Create a new reusable component only if the existing components cannot satisfy the requirement without unnecessary modifications.
 
+## Storybook
+
+1. Always check Storybook before creating any new UI component.
+2. Check existing components, variants, props, and examples available in Storybook.
+3. Always prefer using existing Storybook components instead of creating duplicate components.
+4. Extend existing components or use their available variants whenever possible.
+5. Do not create duplicate UI components or functionality that already exists in Storybook.
+6. Create a new component only when the required component or functionality is not available in Storybook and cannot be achieved by extending an existing component.
+
 ## Code Reusability
 
 1. Before creating any new component, hook, utility, enum, type, interface, or constant, always check whether an existing implementation can be reused.
