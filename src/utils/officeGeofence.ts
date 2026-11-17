@@ -11,7 +11,7 @@
  */
 import { distanceInMeters } from '@utils/file';
 
-export type GeofenceVerdict = 'inside' | 'outside' | 'unconfigured';
+export type GeofenceVerdict = 'inside' | 'outside' | 'unconfigured' | 'misconfigured';
 
 export interface GeoPoint {
     latitude: number;
@@ -30,8 +30,11 @@ const hasLocation = (p: GeoPoint | null | undefined): p is GeoPoint =>
     !(p.latitude === 0 && p.longitude === 0);
 
 /**
- * Inside when the distance to the branch pin is at most the radius. Unconfigured (nobody
- * refused) when there is no radius, no branch pin or no reading.
+ * Inside when the distance to the branch pin is at most the radius.
+ *
+ * - 'unconfigured' — no radius set → no fence.
+ * - 'misconfigured' — radius IS set but the branch center or the employee point is missing/0/0.
+ * - 'inside' / 'outside' — fence is fully operational.
  */
 export function evaluateOfficeGeofence(input: {
     center: GeoPoint | null | undefined;
@@ -39,8 +42,11 @@ export function evaluateOfficeGeofence(input: {
     radiusMeters: number | null | undefined;
 }): GeofenceResult {
     const radius = input.radiusMeters;
-    if (!radius || radius <= 0 || !hasLocation(input.center) || !hasLocation(input.point)) {
+    if (!radius || radius <= 0) {
         return { verdict: 'unconfigured', distanceMeters: null };
+    }
+    if (!hasLocation(input.center) || !hasLocation(input.point)) {
+        return { verdict: 'misconfigured', distanceMeters: null };
     }
     const distance = distanceInMeters(
         input.center.latitude, input.center.longitude,
@@ -50,6 +56,15 @@ export function evaluateOfficeGeofence(input: {
         verdict: distance <= radius ? 'inside' : 'outside',
         distanceMeters: Math.round(distance),
     };
+}
+
+/** When a radius is set but the branch has no map pin or the device sent no coordinates. */
+export function misconfiguredFenceMessage(branchName?: string | null, hasCenter?: boolean): string {
+    if (!hasCenter) {
+        const where = branchName ? `"${branchName}"` : 'Your branch';
+        return `${where} has an office check-in radius set but no map coordinates. Ask your administrator to set the branch location.`;
+    }
+    return 'Could not read your location. Please enable GPS and try again.';
 }
 
 /** "Office", "office", " OFFICE " → true. The working-methods table is user-editable. */

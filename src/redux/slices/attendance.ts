@@ -35,8 +35,8 @@ const initialState: Attendance = {
     locationEnabled: false,
     btnText: 'Check in',
     position: {
-        latitude: 19.0760,
-        longitude: 72.8777
+        latitude: 0,
+        longitude: 0
     },
     personalAttendance: [],
     activeMonth: "",

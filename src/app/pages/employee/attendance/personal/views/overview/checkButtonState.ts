@@ -39,5 +39,6 @@ export function isCheckButtonDisabled(input: CheckButtonInput): boolean {
     if (dayState === 'in') return false;
 
     // 'not-in' or 'unknown': the pending action is a check-in, so the fence applies.
-    return isOfficeMethod && fence === 'outside';
+    // 'misconfigured' also blocks — the admin set a radius but the branch or GPS data is missing.
+    return isOfficeMethod && (fence === 'outside' || fence === 'misconfigured');
 }
