@@ -37,6 +37,7 @@ allowBuilds:
   puppeteer: true
   core-js: true
   '@fortawesome/fontawesome-free': true
+  '@swc/core': set this to true or false
 
 # React 19: these two declare an old React peer range but use no API React 19 removed
 # (checked their dist for findDOMNode, ReactDOM.render, string refs, legacy context).
