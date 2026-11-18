@@ -79,6 +79,7 @@ const TasksMainCalenderPage = lazy(() => import('@pages/employee/tasks/calender/
 const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain'))
 const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
 const CourtesyDeskMain = lazy(() => import('@pages/employee/courtesy-desk/CourtesyDeskMain'))
+const CataloguesPage = lazy(() => import('@pages/employee/catalogues/CataloguesPage'))
 const CompanyProfilePage = lazy(() => import('@pages/employee/company-profile/CompanyProfilePage'))
 const CourtesyGroupEditorPage = lazy(() => import('@pages/employee/courtesy-desk/pages/GroupEditorPage'))
 const CourtesyDriveCreatePage = lazy(() => import('@pages/employee/courtesy-desk/pages/DriveCreatePage'))
@@ -875,6 +876,17 @@ const PrivateRoutes = () => {
             <SectionGuard module='crm.contacts'>
               <SuspensedView>
                 <CourtesyDriveDetailPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        {/* CRM → Catalogue: every company's catalogues, on the Companies permission. */}
+        <Route
+          path='/catalogues'
+          element={
+            <SectionGuard module='crm.companies'>
+              <SuspensedView>
+                <CataloguesPage />
               </SuspensedView>
             </SectionGuard>
           }
