@@ -281,10 +281,11 @@ module.exports = {
       rules: { 'no-restricted-syntax': 'off', 'no-restricted-imports': 'off' },
     },
     {
-      /* ADR-001 v2 kit (Radix + Tailwind). It implements its own primitives, so the legacy
-       * MUI-kit syntax rules (raw Switch, raw `title`, etc.) don't apply here. The import
-       * bans stay ON: the v2 kit must not pull in antd / Mantine / raw react-select either. */
-      files: ['src/ds/**'],
+      /* ADR-001 v2 kit (Radix + Tailwind) and its Storybook-only reference pages (src/storybook).
+       * The kit implements its own primitives and the reference pages draw raw tokens and samples,
+       * so the legacy MUI-kit syntax rules (raw Switch, raw `title`, etc.) don't apply here. The
+       * import bans stay ON: neither may pull in antd / Mantine / raw react-select either. */
+      files: ['src/ds/**', 'src/storybook/**'],
       rules: { 'no-restricted-syntax': 'off' },
     },
     {

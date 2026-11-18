@@ -18,8 +18,8 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `WtButton`, `WtIconButton`, `ActionIconButton`, Bootstrap `.btn` | Components/Button | ✅ (live app already on it) |
 | `ToneChip`, `StatusBadge` | Components/Badge — status set, category hues, `custom` colour | ✅ |
 | `InlineNotice`, `InlineHint` | Components/Alert | ✅ |
-| `toast`, `GlassNotification`, react-toastify, sonner | Components/Toaster | ✅ |
-| `ConfirmDialog`, `confirmDialog()`, `alertDialog()`, `useConfirmDialog`, `usePromptDialog`, SweetAlert | Patterns/Confirm Dialog | ✅ |
+| `toast`, `GlassNotification`, react-toastify, sonner | Components/Toast | ✅ |
+| `ConfirmDialog`, `confirmDialog()`, `alertDialog()`, `useConfirmDialog`, `usePromptDialog`, SweetAlert | Components/Modal | ✅ |
 | `WtTooltip` | Components/Tooltip | ✅ |
 | `PageLoader`, `Skeleton` (common) | Components/Skeleton, Components/Spinner | ✅ |
 | `WtEmptyState` | Patterns/Empty State (`empty`, `no-match`, `error`) | ✅ |
@@ -123,8 +123,8 @@ them is how the recruitment drill-down regressed:
 2. **Structural headings stay UPPERCASE** — dialog, page, section, settings card, column header, stat caption,
    eyebrow — via the `heading-case` utility (the twin of `HEADING_CASE_SX`). Buttons, input labels, content
    titles and sentences keep their case.
-3. **Colours stay admin-configurable.** The seven hues are the preset swatches of the colour picker — the same
-   seven names as the live `KIT_SWATCHES` — not fixed assignments; an admin's own hex works everywhere (`custom`).
+3. **Colours stay admin-configurable.** The eight hues (`HUE_TONES`) are the preset swatches of the colour picker — the
+   seven names of the live `KIT_SWATCHES` plus `indigo` — not fixed assignments; an admin's own hex works everywhere (`custom`).
 4. **One chart engine: Recharts** (Components/Chart). Existing charts move over as their screens are rebuilt.
 5. **A single value is never a dialog** (standing rule): `OptionPickerDialog` becomes a Combobox; dialogs remain
    for multi-select.
