@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate,  } from "react-router-dom";
 import { useTabKeyRoute } from "@app/hooks/useTabRoute";
 import { Box, Menu, MenuItem, Rating, Stack, Typography } from "@mui/material";
-import { Upload } from "lucide-react";
+import { BookOpenText, Upload } from "lucide-react";
 import { getClientCompanyById } from "@services/companies";
 import Overview from "./CompanyOverview";
 import NewCompanyForm from "./NewCompanyForm";
@@ -22,7 +22,7 @@ import { getRatingByCompanyId } from "@services/projects";
 import SubCompanies from "./SubCompanies";
 import CompanyCatalogue from "./CompanyCatalogue";
 import CompanyReferences from "./CompanyReferences";
-import { AppIcon, GlassSurface, ToneChip, UnderlineTabs, WtButton, WtIconButton } from "@app/modules/common/components/ui";
+import { AppIcon, GlassSurface, ToneChip, UnderlineTabs, WtButton, type UnderlineTabItem, WtIconButton } from "@app/modules/common/components/ui";
 import LeadReferenceTab from "./LeadReferenceTab";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { canSection, canTab } from "@utils/can";
@@ -167,7 +167,7 @@ const CompanyDetails = () => {
   const [auditOpen, setAuditOpen] = useState(false);
   const canAudit = canTab("crm.companies", "audit");
 
-  const tabs: Array<{ key: TabType; label: string; icon: string }> = [
+  const tabs: Array<UnderlineTabItem<TabType>> = [
     { key: "overview", label: "Overview", icon: "bi bi-building" },
     { key: "lead-reference", label: "Lead Reference", icon: "bi bi-signpost-split" },
     { key: "references", label: "Company References", icon: "bi bi-buildings" },
@@ -175,7 +175,7 @@ const CompanyDetails = () => {
     { key: "contacts", label: "Contacts", icon: "bi bi-person-lines-fill" },
     { key: "subcompanies", label: "Subcompanies", icon: "bi bi-diagram-3" },
     { key: "branches", label: "Branches", icon: "bi bi-geo-alt" },
-    { key: "catalogue", label: "Catalogue", icon: "bi bi-file-earmark-pdf" },
+    { key: "catalogue", label: "Catalogue", icon: BookOpenText },
     { key: "rating", label: "Rating", icon: "bi bi-star" },
     ...(canAudit ? [{ key: "audit", label: "Audit", icon: "bi bi-clock-history" }] : []),
   ].filter((t) => !TAB_SECTION[t.key as TabType] || canSection(TAB_SECTION[t.key as TabType]!)) as Array<{ key: TabType; label: string; icon: string }>;

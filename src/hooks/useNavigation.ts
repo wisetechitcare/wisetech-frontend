@@ -377,6 +377,14 @@ export function useNavigation() {
       },
       {
         type: 'item',
+        id: 'crm-catalogues',
+        to: '/catalogues',
+        title: 'Catalogue',
+        fontIcon: 'lucide-book-open-text',
+        visible: isPackEnabled('psa') && !isSectionBlocked('crm.companies'),
+      },
+      {
+        type: 'item',
         id: 'crm-company-profile',
         to: '/company-profile',
         title: 'Company Showcase',

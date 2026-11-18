@@ -27,6 +27,14 @@ describe('geofencing constrains arriving, never leaving', () => {
         expect(at({ dayState: 'not-in', fence: 'outside' })).toBe(true);
     });
 
+    it('refuses an Office check-in when the fence is misconfigured (radius set, but data incomplete)', () => {
+        expect(at({ dayState: 'not-in', fence: 'misconfigured' })).toBe(true);
+    });
+
+    it('lets a checked-in employee check out even when misconfigured', () => {
+        expect(at({ dayState: 'in', fence: 'misconfigured' })).toBe(false);
+    });
+
     it('allows an Office check-in inside the fence', () => {
         expect(at({ dayState: 'not-in', fence: 'inside' })).toBe(false);
     });

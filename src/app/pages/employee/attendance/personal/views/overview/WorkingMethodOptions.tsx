@@ -1104,7 +1104,7 @@ import { generateDatesForMonth, generateDatesForMonth2, convertToTimeZone, MUMBA
 import { toAbsoluteUrl } from '@metronic/helpers';
 import { transformAttendance } from '../../OverviewView';
 import { fetchMyCheckInGeofence, type MyCheckInGeofence } from '@services/options';
-import { evaluateOfficeGeofence, isOfficeWorkingMethod, misconfiguredFenceMessage, outsideFenceMessage } from '@utils/officeGeofence';
+import { evaluateOfficeGeofence, hasLocation, isOfficeWorkingMethod, misconfiguredFenceMessage, outsideFenceMessage } from '@utils/officeGeofence';
 import Alert from '@mui/material/Alert';
 
 import customParseFormat from 'dayjs/plugin/customParseFormat';
@@ -1966,10 +1966,10 @@ function WorkingMethodOptions({sendNotification}: {sendNotification?:any}) {
     }), [geofence, latitude, longitude]);
     /** Shown only when the fence is what's holding the check-in back. */
     const fenceRefusal = dayState !== 'in' && isOfficeMethod
-        ? fenceResult.verdict === 'misconfigured'
-            ? misconfiguredFenceMessage(geofence?.branchName, !!(geofence?.center && !(geofence.center.latitude === 0 && geofence.center.longitude === 0)))
-            : fenceResult.verdict === 'outside' && geofence?.radiusMeters
-                ? outsideFenceMessage(fenceResult, geofence.radiusMeters, geofence.branchName)
+        ? fenceResult.verdict === 'outside' && geofence?.radiusMeters
+            ? outsideFenceMessage(fenceResult, geofence.radiusMeters, geofence.branchName)
+            : fenceResult.verdict === 'misconfigured'
+                ? misconfiguredFenceMessage(geofence?.branchName, hasLocation(geofence?.center))
                 : null
         : null;
 

@@ -23,7 +23,7 @@ export interface GeofenceResult {
     distanceMeters: number | null;
 }
 
-const hasLocation = (p: GeoPoint | null | undefined): p is GeoPoint =>
+export const hasLocation = (p: GeoPoint | null | undefined): p is GeoPoint =>
     !!p &&
     Number.isFinite(p.latitude) &&
     Number.isFinite(p.longitude) &&
@@ -32,8 +32,9 @@ const hasLocation = (p: GeoPoint | null | undefined): p is GeoPoint =>
 /**
  * Inside when the distance to the branch pin is at most the radius.
  *
- * - 'unconfigured' — no radius set → no fence.
+ * - 'unconfigured' — no radius set anywhere → no fence, nobody refused.
  * - 'misconfigured' — radius IS set but the branch center or the employee point is missing/0/0.
+ *   The admin intended a fence but the data is incomplete → callers should BLOCK, not allow.
  * - 'inside' / 'outside' — fence is fully operational.
  */
 export function evaluateOfficeGeofence(input: {
@@ -58,15 +59,6 @@ export function evaluateOfficeGeofence(input: {
     };
 }
 
-/** When a radius is set but the branch has no map pin or the device sent no coordinates. */
-export function misconfiguredFenceMessage(branchName?: string | null, hasCenter?: boolean): string {
-    if (!hasCenter) {
-        const where = branchName ? `"${branchName}"` : 'Your branch';
-        return `${where} has an office check-in radius set but no map coordinates. Ask your administrator to set the branch location.`;
-    }
-    return 'Could not read your location. Please enable GPS and try again.';
-}
-
 /** "Office", "office", " OFFICE " → true. The working-methods table is user-editable. */
 export function isOfficeWorkingMethod(type?: string | null): boolean {
     return String(type ?? '').trim().toLowerCase() === 'office';
@@ -77,4 +69,13 @@ export function outsideFenceMessage(result: GeofenceResult, radiusMeters: number
     const where = branchName ? branchName : 'your office';
     const away = result.distanceMeters !== null ? `You're about ${result.distanceMeters} m from ${where}. ` : '';
     return `${away}Office check-in works within ${radiusMeters} m of the office. Move closer, or choose another working method.`;
+}
+
+/** When a radius is set but the branch has no map pin or the device sent no coordinates. */
+export function misconfiguredFenceMessage(branchName?: string | null, hasCenter?: boolean): string {
+    if (!hasCenter) {
+        const where = branchName ? `"${branchName}"` : 'Your branch';
+        return `${where} has an office check-in radius set but no map coordinates. Ask your administrator to set the branch location.`;
+    }
+    return 'Could not read your location. Please enable GPS and try again.';
 }
