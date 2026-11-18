@@ -127,3 +127,16 @@ export const isCatalogueFile = async (file: File) => {
   if (/\.webp$/i.test(file.name)) return ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP";
   return false;
 };
+
+/** A catalogue with its company's facts, for CRM -> Catalogue (every company in one table). */
+export interface CatalogueRow extends CompanyCatalogue {
+  companyId: string;
+  companyName: string;
+  companyLogo: string | null;
+  companyTypes: string[];
+  services: string[];
+  subServices: string[];
+}
+
+export const getAllCatalogues = async () =>
+  (await axios.get(`${API_BASE_URL}/api/lead-project-companies/catalogues`)).data.catalogues as CatalogueRow[];
