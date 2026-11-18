@@ -24,6 +24,14 @@ overrides:
   undici: '>=8.12.2' # DoS via excessive content-encodings (GHSA-xjj6-f33q-929c), via jsdom
   '@tanstack/react-virtual': '3.14.22' # React 19 support; material-react-table pins 3.10.6 (same major)
 
+# Advisories with NO patched release on npm yet, so no override can fix them. Each is skipped by
+# `pnpm audit` only until its fix ships: then delete the entry and add an override floor above.
+auditConfig:
+  ignoreGhsas:
+    # picomatch ReDoS via repeated extglobs; fix is 4.0.8, not yet published (latest 4.0.7, checked 2026-11-18).
+    # Build/dev tooling only (shadcn CLI, Vite file scanning) on globs we write — never shipped to the browser.
+    - GHSA-fc5q-39xc-vjpf
+
 # pnpm blocks dependency install scripts by default. These need theirs:
 #   esbuild              -> Storybook's bundler (Vite 8 itself uses Rolldown/Oxc)
 #   canvas               -> native addon behind react-pdf/pdfjs rendering
