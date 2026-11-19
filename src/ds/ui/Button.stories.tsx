@@ -1,20 +1,69 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { expect, fn, userEvent } from "storybook/test";
 import {
   Check,
   ChevronLeft,
   ChevronRight,
   CloudUpload,
+  Columns3,
   Download,
+  ListFilter,
+  Maximize2,
   Pencil,
   Plus,
+  RotateCcw,
+  Rows3,
   Send,
   Settings,
   Trash2,
   X,
+  type LucideIcon,
 } from "lucide-react";
+
 import { Button, buttonVariants } from "./button";
+import { ButtonGroup, ButtonGroupVariant } from "./button-group";
+
+interface TableTool {
+  label: string;
+  icon: LucideIcon;
+  toggle: boolean;
+}
+
+const TABLE_TOOLS: TableTool[] = [
+  { label: "Column filters", icon: ListFilter, toggle: true },
+  { label: "Density", icon: Rows3, toggle: true },
+  { label: "Columns", icon: Columns3, toggle: false },
+  { label: "Reset layout", icon: RotateCcw, toggle: false },
+  { label: "Full screen", icon: Maximize2, toggle: true },
+];
+
+function ToolGroupDemo() {
+  const [active, setActive] = useState<string[]>([TABLE_TOOLS[0].label]);
+  const flip = (label: string) =>
+    setActive((on) => (on.includes(label) ? on.filter((l) => l !== label) : [...on, label]));
+
+  return (
+    <ButtonGroup variant={ButtonGroupVariant.TRAY} aria-label="Table tools">
+      {TABLE_TOOLS.map(({ label, icon: Icon, toggle }) => {
+        const isOn = toggle && active.includes(label);
+        return (
+          <Button
+            key={label}
+            variant={isOn ? "tinted" : "ghost"}
+            size="icon"
+            aria-label={label}
+            aria-pressed={toggle ? isOn : undefined}
+            title={label}
+            onClick={toggle ? () => flip(label) : undefined}
+          >
+            <Icon aria-hidden />
+          </Button>
+        );
+      })}
+    </ButtonGroup>
+  );
+}
 
 /**
  * The one button: the live app's WtButton recipe (colours, gradients, depth, motion, 40px
@@ -255,6 +304,24 @@ export const IconOnly: Story = {
     await expect(
       canvas.getByRole("button", { name: "Settings" }),
     ).toBeInTheDocument();
+  },
+};
+
+/**
+ * Toolbar icons in one `ButtonGroup variant="tray"`: one outline, quiet ghost icons, round hover. An on/off tool
+ * is `tinted` with `aria-pressed` while ON; one-off actions (Columns, Reset layout) stay ghost.
+ */
+export const ToolGroup: Story = {
+  render: () => <ToolGroupDemo />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("group", { name: "Table tools" })).toHaveAttribute("data-variant", ButtonGroupVariant.TRAY);
+    await expect(canvas.getByRole("button", { name: "Column filters" })).toHaveAttribute("aria-pressed", "true");
+    const density = canvas.getByRole("button", { name: "Density" });
+    await userEvent.click(density);
+    await expect(density).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(density);
+    await expect(density).toHaveAttribute("aria-pressed", "false");
+    await expect(canvas.getByRole("button", { name: "Reset layout" })).not.toHaveAttribute("aria-pressed");
   },
 };
 

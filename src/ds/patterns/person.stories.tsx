@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent, waitFor } from 'storybook/test'
 import { Mail, Pencil, Phone } from 'lucide-react'
+
 import { Badge } from '@/ds/ui/badge'
 import { Button } from '@/ds/ui/button'
-import portrait from '@/ds/ui/__fixtures__/portrait.svg'
 import { PersonCell, PersonHeader } from './person'
+
+import portrait from '@/storybook/support/assets/portrait.svg'
 
 /**
  * A person, two ways: `PersonCell` in tables and lists (live `EmployeeIdentityCell`), and `PersonHeader` at

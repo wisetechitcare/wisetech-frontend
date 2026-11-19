@@ -1,13 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, userEvent, waitFor } from 'storybook/test'
+
 import { Button, buttonVariants } from '@/ds/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
-import { LANDING_LINE, PRODUCT_LINES } from '@/ds/effects/typewriter.fixtures'
-import wideLogo from '@/ds/ui/__fixtures__/logo.svg'
 import { AuthLayout } from './auth-layout'
 import { PasswordField } from './password-field'
 import { ThemeToggle } from './theme-toggle'
+
+import { LANDING_LINE, PRODUCT_LINES } from '@/ds/effects/typewriter.fixtures'
+import wideLogo from '@/storybook/support/assets/logo.svg'
 
 /** The real WiseTech lockup (public/, served by Storybook and the app). */
 const LOCKUP = '/media/brand/wisetech-logo.png'

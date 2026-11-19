@@ -508,6 +508,25 @@
   [data-slot="spinner"] > span:nth-child(6) { transform: rotate(-100deg); }
 }
 
+/* Toast (src/ds/ui/sonner.tsx): time left as a thin line in the toast's tone, paused while the stack is hovered
+   (when Sonner pauses its timer). --toast-duration comes from the Toaster. */
+.toaster [data-sonner-toast]:not([data-type="loading"])::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.6;
+  animation: toast-progress var(--toast-duration) linear forwards;
+}
+.toaster [data-sonner-toast][data-expanded="true"]::after {
+  animation-play-state: paused;
+}
+@keyframes toast-progress {
+  from { clip-path: inset(0 0 0 0); }
+  to { clip-path: inset(0 100% 0 0); }
+}
+
 /* ── Settled surfaces render crisp (here, not globals.css: the app loads only this file) ────────────────────────────────────────────────────────────────────────
  * An animated surface's resting transform/filter (identity, but 3D + filter) keeps it on a GPU layer drawn as
  * a texture, so its text looks soft. Once the entrance is over (useSettledWhenOpen in src/ds/lib/motion.ts)
