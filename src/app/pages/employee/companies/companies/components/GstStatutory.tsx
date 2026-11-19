@@ -117,19 +117,19 @@ export const GstStatutoryFields: React.FC = () => (
   <div className="flex flex-col gap-5">
     <FieldSet className="gap-0">
       <FieldLegend className={LEGEND}>GST Details</FieldLegend>
-      <div className="row g-4">
-        <div className="col-12"><GstNumberField label="GST Number" /></div>
-        <div className="col-12"><StatutoryDocumentField field="gstDocument" label="GST Document" /></div>
-        <div className="col-12"><TextInput formikField="gstAddress" label="GST Address" isRequired={false} /></div>
-        <div className="col-12"><GstStateField label="GST State" /></div>
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-12"><GstNumberField label="GST Number" /></div>
+        <div className="col-span-12"><StatutoryDocumentField field="gstDocument" label="GST Document" /></div>
+        <div className="col-span-12"><TextInput formikField="gstAddress" label="GST Address" isRequired={false} /></div>
+        <div className="col-span-12"><GstStateField label="GST State" /></div>
       </div>
     </FieldSet>
     <FieldSeparator />
     <FieldSet className="gap-0">
       <FieldLegend className={LEGEND}>PAN Details</FieldLegend>
-      <div className="row g-4">
-        <div className="col-12"><PanNumberField label="PAN Number" /></div>
-        <div className="col-12"><StatutoryDocumentField field="panDocument" label="PAN Document" /></div>
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-12"><PanNumberField label="PAN Number" /></div>
+        <div className="col-span-12"><StatutoryDocumentField field="panDocument" label="PAN Document" /></div>
       </div>
     </FieldSet>
   </div>

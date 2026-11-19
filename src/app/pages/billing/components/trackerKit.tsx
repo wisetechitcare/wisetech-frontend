@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Box, Stack, Typography } from "@mui/material";
-import { KTIcon } from "@metronic/helpers";
+import { X } from "lucide-react";
+import { cn } from "@/ds/lib/utils";
 import { Button } from "@/ds/ui/button";
 import { Tabs, TabsTrigger } from "@/ds/ui/tabs";
 import { ToggleList, TOGGLE_TAB } from "@/ds/ui/tabs";
@@ -43,35 +43,39 @@ export const sumOf = <T,>(rows: T[], pick: (row: T) => number | null | undefined
 export const Money: React.FC<{ value: number | null | undefined; bold?: boolean; tone?: string; muted?: boolean }> = ({
   value, bold, tone, muted,
 }) => (
-  <Typography
-    component="span"
-    sx={{ fontSize: "inherit", fontWeight: bold ? 700 : 500, color: muted ? "text.disabled" : tone ?? "inherit" }}
+  // `tone` is a runtime colour string from the caller, so it rides a CSS variable; without one the
+  // text keeps the cell's own colour.
+  <span
+    className={cn("text-[length:inherit]", bold ? "font-bold" : "font-medium", muted ? "text-muted-foreground" : tone && "text-(--money-tone)")}
+    style={tone && !muted ? ({ "--money-tone": tone } as React.CSSProperties) : undefined}
   >
     {value === null || value === undefined ? DASH : formatCurrencyDecimal(value)}
-  </Typography>
+  </span>
 );
 
+// `text-primary` rather than the navy hex this used to carry: the brand colour is a token, and a
+// hardcoded #1E3A8A is exactly what breaks dark mode and per-tenant brand.
 export const TotalLabel: React.FC = () => (
-  <Typography sx={{ fontSize: "inherit", fontWeight: 800, color: "#1E3A8A" }}>TOTAL</Typography>
+  <p className="text-[length:inherit] font-extrabold text-primary">TOTAL</p>
 );
 
 export const DueCell: React.FC<{ date: string | null; overdueDays: number }> = ({ date, overdueDays }) => (
-  <Box>
-    <Typography sx={{ fontSize: "inherit" }}>{date ? formatDate(date) : DASH}</Typography>
+  <div>
+    <p className="text-[length:inherit]">{date ? formatDate(date) : DASH}</p>
     {overdueDays > 0 && (
-      <Typography sx={{ fontSize: 11, fontWeight: 700, color: "error.main" }}>
+      <p className="text-[11px] font-bold text-destructive">
         {overdueDays} day{overdueDays === 1 ? "" : "s"} overdue
-      </Typography>
+      </p>
     )}
-  </Box>
+  </div>
 );
 
 /** A number and its date underneath — the "Latest proforma / invoice" cell. */
 export const NumberDate: React.FC<{ number: string | null; date: string | null }> = ({ number, date }) => (
-  <Box>
-    <Typography sx={{ fontSize: "inherit", fontWeight: 600 }}>{number ?? DASH}</Typography>
-    <Typography sx={{ fontSize: 11, color: "text.secondary" }}>{date ? formatDate(date) : ""}</Typography>
-  </Box>
+  <div>
+    <p className="text-[length:inherit] font-semibold">{number ?? DASH}</p>
+    <p className="text-[11px] text-muted-foreground">{date ? formatDate(date) : ""}</p>
+  </div>
 );
 
 /** A project's documents as small counts in the process colours: "2 Draft · 1 Awaiting". */
@@ -82,24 +86,21 @@ export const StateCounts = <K extends string>({
   tiles: TrackerTile<K>[];
 }) => {
   if (!counts?.total) {
-    return <Typography component="span" sx={{ fontSize: "inherit", color: "text.disabled" }}>None yet</Typography>;
+    return <span className="text-[length:inherit] text-muted-foreground">None yet</span>;
   }
   return (
-    <Stack direction="row" spacing={0.75} sx={{ flexWrap: "nowrap" }}>
+    <div className="flex flex-row flex-nowrap gap-1.5">
       {tiles.filter((t) => (counts[t.key] ?? 0) > 0).map((t) => (
-        <Box
+        // The three trio colours are runtime values, so they travel as CSS variables.
+        <span
           key={t.key}
-          component="span"
-          sx={{
-            display: "inline-flex", alignItems: "center", px: 0.9, py: 0.15, borderRadius: "999px",
-            fontSize: 11.5, fontWeight: 700, color: t.trio.c, bgcolor: t.trio.bg, border: `1px solid ${t.trio.bd}`,
-            whiteSpace: "nowrap",
-          }}
+          className="inline-flex items-center rounded-full border border-(--chip-bd) bg-(--chip-bg) px-[7px] py-px text-[11.5px] font-bold whitespace-nowrap text-(--chip-fg)"
+          style={{ "--chip-fg": t.trio.c, "--chip-bg": t.trio.bg, "--chip-bd": t.trio.bd } as React.CSSProperties}
         >
           {counts[t.key]} {t.label.split(" ·")[0]}
-        </Box>
+        </span>
       ))}
-    </Stack>
+    </div>
   );
 };
 
@@ -113,15 +114,10 @@ export const TrackerTiles = <K extends string>({
   loading: boolean;
   onPick: (key: K) => void;
 }) => (
-  <Box
-    sx={{
-      display: "grid", gap: 1.25, mb: 2,
-      gridTemplateColumns: {
-        xs: "repeat(2, minmax(0, 1fr))",
-        md: "repeat(4, minmax(0, 1fr))",
-        xl: `repeat(${tiles.length}, minmax(0, 1fr))`,
-      },
-    }}
+  // The xl track count is the number of tiles, known only at render, so it rides a CSS variable.
+  <div
+    className="mb-4 grid grid-cols-2 gap-2.5 md:grid-cols-4 xl:grid-cols-[repeat(var(--tile-count),minmax(0,1fr))]"
+    style={{ "--tile-count": tiles.length } as React.CSSProperties}
   >
     {tiles.map((tile) => {
       const figure = figures[tile.key];
@@ -139,7 +135,7 @@ export const TrackerTiles = <K extends string>({
         />
       );
     })}
-  </Box>
+  </div>
 );
 
 /** One status option: what it is, its colour, and how many rows of the open view it leaves. */
@@ -161,46 +157,44 @@ export const StatusChips = <K extends string>({
   value: K;
   onChange: (key: K) => void;
 }) => (
-  <Stack direction="row" role="radiogroup" aria-label="Filter by status" sx={{ flexWrap: "wrap", gap: 0.75 }}>
+  <div role="radiogroup" aria-label="Filter by status" className="flex flex-row flex-wrap gap-1.5">
     {options.map((o) => {
       const on = o.key === value;
       const colour = o.trio?.c ?? TRIO.blue.c;
       return (
-        <Box
+        // The pill's colour is the option's runtime trio colour, so it rides --pill and every state
+        // (border, fill, hover, focus ring) reads from that one variable.
+        <button
           key={o.key}
-          component="button"
           type="button"
           role="radio"
           aria-checked={on}
           onClick={() => onChange(o.key)}
-          sx={{
-            display: "inline-flex", alignItems: "center", gap: 0.75, px: 1.25, py: 0.55, borderRadius: "999px",
-            font: "inherit", fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
-            border: "1px solid", borderColor: on ? colour : "divider",
-            bgcolor: on ? colour : "background.paper",
-            color: on ? "#fff" : o.count ? "text.primary" : "text.disabled",
-            transition: "background-color .15s, border-color .15s",
-            "&:hover": on ? {} : { borderColor: colour },
-            "&:focus-visible": { outline: `2px solid ${colour}`, outlineOffset: 2 },
-          }}
+          style={{ "--pill": colour } as React.CSSProperties}
+          className={cn(
+            "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 font-[inherit] text-[12.5px] font-semibold whitespace-nowrap transition-[background-color,border-color] duration-150",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--pill)",
+            on
+              ? "border-(--pill) bg-(--pill) text-white"
+              : cn("border-border bg-card hover:border-(--pill)", o.count ? "text-foreground" : "text-muted-foreground"),
+          )}
         >
           {o.trio && (
-            <Box component="span" sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: on ? "#fff" : colour, opacity: o.count || on ? 1 : 0.4 }} />
+            <span className={cn("size-2 rounded-full", on ? "bg-white" : "bg-(--pill)", o.count || on ? "opacity-100" : "opacity-40")} />
           )}
           {o.label}
-          <Box
-            component="span"
-            sx={{
-              minWidth: 20, px: 0.6, borderRadius: "999px", fontSize: 11.5, fontWeight: 800, textAlign: "center",
-              bgcolor: on ? "rgba(255,255,255,.22)" : "action.hover",
-            }}
+          <span
+            className={cn(
+              "min-w-5 rounded-full px-[5px] text-center text-[11.5px] font-extrabold",
+              on ? "bg-white/22" : "bg-accent",
+            )}
           >
             {o.count}
-          </Box>
-        </Box>
+          </span>
+        </button>
       );
     })}
-  </Stack>
+  </div>
 );
 
 /** Projects / documents switch, plus the filter that is applied and a way out of it. */
@@ -215,7 +209,7 @@ export const TrackerToolbar: React.FC<{
   /** Sits beside the switch — e.g. the StatusChips filter. */
   children?: React.ReactNode;
 }> = ({ view, views, onView, focusTile, shown, shownNoun, onClear, children }) => (
-  <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ sm: "center" }} spacing={1.25} sx={{ mb: 1.25 }}>
+  <div className="mb-2.5 flex flex-col gap-2.5 sm:flex-row sm:items-center">
     <Tabs value={view} onValueChange={(next) => onView(String(next))}>
       <ToggleList aria-label="Tracker view">
         {views.map((v) => (
@@ -225,16 +219,20 @@ export const TrackerToolbar: React.FC<{
     </Tabs>
     {children}
     {focusTile && (
-      <Stack direction="row" alignItems="center" spacing={0.75}>
-        <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
-          Showing <b style={{ color: focusTile.trio.c }}>{focusTile.label}</b> · {shown} {shownNoun}
-        </Typography>
+      <div className="flex flex-row items-center gap-1.5">
+        <p className="text-[12.5px] text-muted-foreground">
+          Showing{" "}
+          <b className="text-(--focus-tone)" style={{ "--focus-tone": focusTile.trio.c } as React.CSSProperties}>
+            {focusTile.label}
+          </b>{" "}
+          · {shown} {shownNoun}
+        </p>
         <Button variant="ghost" size="sm" onClick={onClear}>
-          <KTIcon iconName="cross" className="fs-6" /> Clear
+          <X data-icon="inline-start" aria-hidden /> Clear
         </Button>
-      </Stack>
+      </div>
     )}
-  </Stack>
+  </div>
 );
 
 /** The PO status chip, in the colour configured for it in Leads → Configure (as on the Billing Tracker). */

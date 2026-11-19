@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Box, Stack, Typography } from "@mui/material";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { TRIO } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
@@ -22,12 +21,12 @@ import { lineStatusOf } from "../project/projectBillingRules";
  */
 
 const ComponentCell: React.FC<{ line: SettlementLine | null; note?: string }> = ({ line, note }) =>
-  !line ? <Typography sx={{ fontSize: "inherit", color: "text.disabled" }}>No TDS</Typography> : (
+  !line ? <span className="text-[length:inherit] text-muted-foreground">No TDS</span> : (
     <BillingStatusTint status={lineStatusOf(line.tone).code!}>
-      <Stack spacing={0.25} alignItems="flex-start">
+      <div className="flex flex-col items-start gap-0.5">
         <Money value={line.amount} bold />
-        {note && <Typography sx={{ fontSize: 10.5, color: "text.secondary" }}>{note}</Typography>}
-      </Stack>
+        {note && <span className="text-[10.5px] text-muted-foreground">{note}</span>}
+      </div>
     </BillingStatusTint>
   );
 
@@ -77,14 +76,14 @@ const BillInvoiceTrackerPage: React.FC = () => {
         const s = (row.original as ProformaTrackerRow).settlement;
         return (
           <BillingStatusTint status={lineStatusOf(s.overall).code!}>
-            <Stack spacing={0.25} alignItems="flex-start">
+            <div className="flex flex-col items-start gap-0.5">
               <Money value={s.total} bold />
               {s.tds && (
-                <Typography sx={{ fontSize: 10.5, color: "text.secondary" }} noWrap>
+                <span className="truncate text-[10.5px] text-muted-foreground">
                   {formatCurrencyDecimal(s.basic.amount)} + {formatCurrencyDecimal(s.tds.amount)} TDS + {formatCurrencyDecimal(s.gst.amount)} GST
-                </Typography>
+                </span>
               )}
-            </Stack>
+            </div>
           </BillingStatusTint>
         );
       },
@@ -113,7 +112,7 @@ const BillInvoiceTrackerPage: React.FC = () => {
   ], [bills]);
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <div className="pb-8">
       <MaterialTable
         {...TRACKER_TABLE}
         data={bills}
@@ -130,7 +129,7 @@ const BillInvoiceTrackerPage: React.FC = () => {
           },
         }}
       />
-    </Box>
+    </div>
   );
 };
 
