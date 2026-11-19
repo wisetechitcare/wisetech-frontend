@@ -14,8 +14,10 @@ import { titleCaseChildren } from "@/ds/lib/text"
  * Card, side by side from `lg`, stacked above it on tablets and phones.
  *
  * - **One continuous page**, as the original sign-in: no divider and no separate panel colour between the
- *   columns — the form Card (lifted) floats beside the brand content, over the Liquid Swirl background, which
- *   settles with the headline (or as soon as the form is focused) and is still under reduced motion.
+ *   columns — the form Card (lifted) floats beside the brand content, over the Liquid Swirl background.
+ * - **The background, the illustration and the headline ALWAYS move** (user decisions 2026-11-16: "always
+ *   animating", "make headline also keep rotating") — nothing settles, not even on form focus. Still under reduced motion (the OS setting) — the one
+ *   exception kept, for vestibular safety. Liquid Swirl pauses itself in a hidden tab / off-screen.
  * - **One composition, capped at 1600px** (the page width standard; user decisions 2026-11-14: "too many empty
  *   spaces", then "too many margins"): the brand side and the form stay together on wide screens, with outer
  *   margins and the gap between them in balance; the background stays full-bleed.
@@ -32,15 +34,14 @@ import { titleCaseChildren } from "@/ds/lib/text"
  *   wider from `xl`), stacked below it. Stacked on a short screen the form comes first: under 640px tall the
  *   tagline is dropped, under 480px (landscape phones) the headline too, and the logo shrinks to 48px.
  * - **Illustration (optional, desktop only):** an Animated Image above the headline — a light still paints first,
- *   the animation loads in the background (never on phones or tablets: the form comes first there), moves while
- *   the headline types and rests on the still once it lands or the form is focused. Sized by the window's height
+ *   the animation loads in the background (never on phones or tablets: the form comes first there) and loops
+ *   for as long as the page is open. Sized by the window's height
  *   (45svh, ≤ 440px) so it never meets the logo; dropped under 600px tall. Still under reduced motion.
  * - **Brand panel:** the Typewriter headline and one supporting line. The headline is sized by its column (a
  *   container query), so its longest line stays on ONE line whenever the column can hold it at a readable size
  *   (≥ 22px; every phone from 360px); narrower than that it wraps, balanced.
- * - **The headline settles the moment anything in the form takes focus** — it jumps to its landing line and
- *   stops, so it never competes with typing a password (WCAG 2.2.2). Every auth screen gets this from here.
- *   Don't autofocus a field on load, or the headline settles before anyone sees it.
+ * - **The headline keeps rotating** through its lines (Typewriter `loop`), the brand line held a little longer
+ *   each cycle; assistive tech reads only the landing line, once. Still under reduced motion.
  * - **One page heading:** the Card's `title` is the page's `h1` (a structural heading, UPPERCASE) in ONE PLAIN
  *   colour — no gradient, no shimmer (user decision 2026-11-14). `titleTone`: `brand` (default — the brand blue,
  *   `primary`, per-tenant) or a hue's readable ink (Reset Your Password is `rose`, the red of the link that opens
@@ -83,15 +84,10 @@ export function AuthLayout({
   footer?: React.ReactNode
   /** Page actions in the top-right corner (e.g. the Theme Toggle). */
   actions?: React.ReactNode
-  /** Desktop-only illustration above the headline; it moves with the headline and settles with it. */
+  /** Desktop-only illustration above the headline; it loops while the page is open. */
   illustration?: Omit<React.ComponentProps<typeof AnimatedImage>, "playing" | "className">
   className?: string
 }) {
-  /** A form field took focus: the headline jumps to its landing line and the background settles. */
-  const [settled, setSettled] = React.useState(false)
-  /** The headline has landed: the background eases to a stop with it (WCAG 2.2.2 — motion ends, ~5s). */
-  const [landed, setLanded] = React.useState(false)
-  const onLanded = React.useCallback(() => setLanded(true), [])
   /** Side-by-side layout: only there is the illustration shown — and only there may its animation download. */
   const desktop = useMediaQuery("(min-width: 1024px)")
 
@@ -101,10 +97,10 @@ export function AuthLayout({
     // screen there is no spare height, so the form still comes straight after the brand row.
     <div data-slot="auth-layout" className={cn("relative isolate min-h-svh bg-background", className)}>
       {/* The background: Liquid Swirl — marbled brand swirls under a 90% veil of the page colour, as the reference
-          (uiable Housiq sign-in). Moves while the headline types; settles when it lands or the form is focused;
-          still under reduced motion. Decorative — never focusable or clickable. */}
+          (uiable Housiq sign-in). Always moving (user decision 2026-11-16); still under reduced motion.
+          Decorative — never focusable or clickable. */}
       <div data-slot="auth-background" aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        <LiquidSwirl settled={settled || landed} />
+        <LiquidSwirl />
         <div className="absolute inset-0 bg-background/90" />
       </div>
       {/* The composition: brand + form as one unit, capped so they stay together on wide screens. NOT positioned:
@@ -131,7 +127,7 @@ export function AuthLayout({
               <AnimatedImage
                 {...illustration}
                 animated={desktop ? illustration.animated : undefined}
-                playing={!(settled || landed)}
+                playing
               />
             </div>
           )}
@@ -147,7 +143,7 @@ export function AuthLayout({
               data-slot="auth-headline"
               className="font-heading text-[clamp(22px,6.8cqi,34px)] leading-[1.12] font-bold tracking-[-0.025em] text-balance text-foreground lg:text-[clamp(22px,6.8cqi,48px)] [&_[data-slot=typewriter-text]]:self-end"
             >
-              <Typewriter lines={headline} settled={settled} onLanded={onLanded} />
+              <Typewriter lines={headline} loop />
             </p>
             {tagline && (
               <p
@@ -163,7 +159,6 @@ export function AuthLayout({
         <main
           data-slot="auth-main"
           className="flex items-start justify-center px-4 pb-10 sm:px-8 lg:items-center lg:px-10 lg:py-12 lg:[@media(max-height:719px)]:pt-[124px] xl:px-12 xl:py-16"
-          onFocusCapture={() => setSettled(true)}
         >
           {/* Short desktop windows (< 720px tall): the centred card would rise into the header row (logo / theme
               toggle, ~108px) — the top padding keeps it below; taller windows stay symmetric (truly centred). */}

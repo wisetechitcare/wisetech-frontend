@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
+
 import { CategoryHues, ColourRoles, Foundations, Motion, RadiusElevation, SpacingDensity, StatusColours, TypeScale, TypesetArticle } from './Foundations'
 
 /** Design tokens of Visual Language v2 — every value lives in `src/ds/styles/globals.css`. */
@@ -20,7 +21,7 @@ export const ColourRolesStory: Story = { name: 'Colour roles', render: () => <Co
 /** One status set: solid, soft fill and readable text, in both themes. */
 export const StatusStory: Story = { name: 'Status colours', render: () => <StatusColours /> }
 
-/** Seven identity hues for categories (leave types, departments, modules) — never a status. */
+/** Eight identity hues for categories (leave types, departments, modules) — never a status. */
 export const CategoryHuesStory: Story = { name: 'Category hues', render: () => <CategoryHues /> }
 
 /** Inter, five roles; numbers use tabular figures. */

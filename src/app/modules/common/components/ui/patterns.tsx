@@ -1,3 +1,4 @@
+import { IconSlot, type IconComponent } from "@/ds/ui/dynamic-icon";
 /**
  * Shared UI pattern atoms — **app-wide** primitives for the glassmorphism design system.
  *
@@ -643,8 +644,8 @@ export function ListHeader({
 export interface UnderlineTabItem<K extends string = string> {
   key: K;
   label: string;
-  /** Bootstrap-icon name, with or without the `bi ` prefix (`bi bi-people` / `bi-people`). */
-  icon?: string;
+  /** Bootstrap-icon name (`bi bi-people` / `bi-people`), or a lucide icon component. */
+  icon?: string | IconComponent;
   /** Rendered as a pill after the label when greater than zero. */
   count?: number;
 }
@@ -833,12 +834,10 @@ export function UnderlineTabs<K extends string>({
                     },
                   }}
                 >
-                  {tab.icon && (
-                    <i
-                      className={
-                        tab.icon.startsWith("bi ") ? tab.icon : `bi ${tab.icon}`
-                      }
-                    />
+                  {typeof tab.icon === "string" ? (
+                    <i className={tab.icon.startsWith("bi ") ? tab.icon : `bi ${tab.icon}`} />
+                  ) : (
+                    <IconSlot icon={tab.icon} className="size-4" />
                   )}
                   {tab.label}
                   {count > 0 && (

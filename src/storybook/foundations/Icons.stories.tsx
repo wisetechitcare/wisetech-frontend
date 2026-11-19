@@ -70,7 +70,7 @@ export const Spinner: Story = {
 /** In a squeezed flex row next to a very long label, the icon keeps its size. */
 export const TightRow: Story = {
   render: () => (
-    <div className="flex w-[120px] items-center gap-1">
+    <div className="flex w-30 items-center gap-1">
       <Calendar data-testid="i" className="size-5" />
       <span>{'long label '.repeat(200)}</span>
     </div>

@@ -228,11 +228,17 @@
  * (light blue, or grey-blue in dark mode) with an `!important` UA rule no stylesheet can override. In a pill
  * whose input sits INSIDE a group (an icon, a reveal button) that shows as a square block within the rounded
  * field — light and dark (user report 2026-11-14: "I don't want this bad bg anywhere in the app").
- * The standard remedy: postpone the UA background change for ~a week of wall time, so the field keeps its own
- * surface; keep the text in the field's ink (the UA forces `fieldtext`, black on dark surfaces) and the caret.
+ * The UA forces the COLOUR, not where it is painted: `background-clip: text` confines it to the glyphs, which the
+ * text fill (our ink) then covers — the box is gone whenever and however the field was filled. (The older
+ * "postpone the colour change" transition alone failed whenever a filled input re-appeared — a re-render, a tab,
+ * Chrome filling before first paint: no transition, full blue. Measured 2026-11-16.) The transition stays as a
+ * second layer for engines without background-clip: text on inputs. Text and caret keep the field's ink (the UA
+ * forces `fieldtext`, black on dark surfaces).
  * Deliberately UNSCOPED — every input, kit and legacy: autofill is browser chrome, not a component's look. */
 :is(input, textarea, select):is(:autofill, :-webkit-autofill),
 :is(input, textarea, select):is(:autofill, :-webkit-autofill):is(:hover, :focus, :active) {
+  -webkit-background-clip: text;
+  background-clip: text;
   transition: background-color 600000s 0s, color 600000s 0s;
   -webkit-text-fill-color: var(--foreground);
   caret-color: var(--foreground);

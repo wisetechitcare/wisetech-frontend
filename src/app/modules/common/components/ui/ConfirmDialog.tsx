@@ -15,15 +15,19 @@ import { WtCloseButton } from "./tw/WtCloseButton";
 import { T } from "./tokens";
 import { TRIO } from "./patterns";
 
-export type ConfirmDialogVariant =
-  | "confirm"
-  | "delete"
-  | "discard"
+export enum ConfirmDialogKind {
+  CONFIRM = "confirm",
+  DELETE = "delete",
+  DISCARD = "discard",
   /** Notices — usually paired with `showCancel={false}` (one acknowledge button). */
-  | "success"
-  | "error"
-  | "info"
-  | "warning";
+  SUCCESS = "success",
+  ERROR = "error",
+  INFO = "info",
+  WARNING = "warning",
+}
+
+/** The variant values; callers may pass a `ConfirmDialogKind` member or its string value. */
+export type ConfirmDialogVariant = `${ConfirmDialogKind}`;
 
 /**
  * How the dialog was dismissed. `cancel` = the Cancel button, `close` = the corner X,
