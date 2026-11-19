@@ -1,5 +1,6 @@
 import React from "react";
-import { Box, CircularProgress, Skeleton, Stack, Typography } from "@mui/material";
+import { Skeleton } from "@/ds/ui/skeleton";
+import { Spinner } from "@/ds/ui/spinner";
 import { GlassCard, IconBox, TRIO, type Trio } from "@app/modules/common/components/ui";
 
 export interface BillingStatsCardProps {
@@ -31,24 +32,24 @@ export const BillingStatsCard: React.FC<BillingStatsCardProps> = ({
       ...(onClick ? { "&:hover": { transform: "translateY(-2px)" } } : {}),
     }}
   >
-    <Stack direction="row" alignItems="flex-start" spacing={1.25}>
+    <div className="flex flex-row items-start gap-2.5">
       <IconBox icon={icon} trio={trio} size={38} fs="fs-3" />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.4 }}>
+      <div className="min-w-0 flex-1">
+        {/* The stat caption is a structural heading, so it takes `heading-case` — which is also what
+            carried the MUI `textTransform: uppercase`. */}
+        <p className="heading-case text-[11.5px] font-bold tracking-[0.4px] text-muted-foreground">
           {label}
-        </Typography>
+        </p>
         {loading ? (
-          <Skeleton width={90} height={30} />
+          <Skeleton className="h-[30px] w-[90px]" />
         ) : (
-          <Typography sx={{ fontSize: { xs: 19, sm: 21 }, fontWeight: 700, lineHeight: 1.2, mt: 0.25, wordBreak: "break-word" }}>
+          <p className="mt-0.5 text-[19px] leading-tight font-bold break-words sm:text-[21px]">
             {value}
-          </Typography>
+          </p>
         )}
-        {hint && (
-          <Typography sx={{ fontSize: 11.5, color: "text.disabled", mt: 0.25 }}>{hint}</Typography>
-        )}
-      </Box>
-    </Stack>
+        {hint && <p className="mt-0.5 text-[11.5px] text-muted-foreground">{hint}</p>}
+      </div>
+    </div>
   </GlassCard>
 );
 
@@ -57,13 +58,14 @@ export const BillingLoadingState: React.FC<{ rows?: number; variant?: "spinner" 
   rows = 4, variant = "rows",
 }) => {
   if (variant === "spinner") {
-    return <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={28} /></Stack>;
+    // Spinner is sized by `size-*` and takes the text colour; size-7 is the old CircularProgress 28px.
+    return <div className="flex flex-col items-center py-12"><Spinner className="size-7" /></div>;
   }
   return (
-    <Stack spacing={1}>
+    <div className="flex flex-col gap-2">
       {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} variant="rounded" height={62} sx={{ borderRadius: "12px" }} />
+        <Skeleton key={i} className="h-[62px] rounded-xl" />
       ))}
-    </Stack>
+    </div>
   );
 };
