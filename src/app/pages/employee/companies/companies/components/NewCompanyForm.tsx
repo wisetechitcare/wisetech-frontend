@@ -256,7 +256,7 @@ const NewCompanyForm: React.FC<Props> = ({
   });
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [servicesLoaded, setServicesLoaded] = useState(false);
-  // Per-company admin-defined custom sections/fields (mirrors the Organisation edit form).
+  // Per-company admin-defined custom sections/fields (mirrors the Organization edit form).
   // Seeded with the built-in section anchors so they appear in the schema manager.
   const [formSections, setFormSections] = useState<IFormSection[]>(cloneCompanyDefaults());
   const liveSchema = useMemo(() => schemaFor(formSections), [formSections]);
@@ -719,7 +719,7 @@ const NewCompanyForm: React.FC<Props> = ({
 
   // ── Per-company custom sections/fields ────────────────────────────────────────
   // Custom field values live inline on the schema (field.value), exactly like the
-  // Organisation edit form. File fields upload immediately and store the returned URL.
+  // Organization edit form. File fields upload immediately and store the returned URL.
   const updateCustomValue = (sectionId: string, fieldId: string, value: string) => {
     setFormSections((prev) =>
       prev.map((sec) =>

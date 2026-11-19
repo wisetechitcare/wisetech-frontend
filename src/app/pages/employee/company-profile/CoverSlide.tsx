@@ -6,8 +6,8 @@ import { plus, type ProfileData } from "@app/modules/company-profile/profile"
 const PILLAR_ICONS = [Building2, Cog, Handshake, ShieldCheck]
 
 /**
- * The cover, as designed in the Storybook prototype, except the brand block: only the organisation's own logo
- * (Settings → Organisation profile → Organization logo), fetched from the app, never a bundled file or typed
+ * The cover, as designed in the Storybook prototype, except the brand block: only the organization's own logo
+ * (Settings → Organization profile → Organization logo), fetched from the app, never a bundled file or typed
  * name; the logo carries the name. Its own copy because the prototype's cover bundles its logo and wordmark
  * and the prototype is not edited.
  */

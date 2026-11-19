@@ -39,7 +39,7 @@ const RESOURCE_SECTION: Record<string, string> = {
   // Managed under People → Employees → Configure (not Organization).
   onboardingdocument: "users",
   announcement: "settings.announcements",
-  organisationprofile: "settings.profile",
+  organizationprofile: "settings.profile",
   meeting: "calendar",
   event: "calendar",
   birthdays: "calendar",
@@ -49,7 +49,7 @@ const RESOURCE_SECTION: Record<string, string> = {
   "attendanceandleaves->employees": "attendance.employees",
   "people->employees": "users",
   "people->documents": "documents.employees",
-  "company->organisationprofile": "settings.profile",
+  "company->organizationprofile": "settings.profile",
   "company->announcements": "settings.announcements",
   "company->branches": "settings",
   "company->departments": "settings",

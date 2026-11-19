@@ -1,19 +1,27 @@
 import { resolveActiveOrg, resolveActiveOrgId } from '@utils/activeOrg';
 import { useState, useEffect } from 'react';
 import { Formik, FormikProps } from 'formik';
+import { parseDate } from '@internationalized/date';
+import { Image as ImageIcon, Landmark, Settings } from 'lucide-react';
+import { Button } from '@/ds/ui/button';
+import { DatePicker } from '@/ds/ui/date-picker';
+import { Field, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from '@/ds/ui/field';
+import { Input } from '@/ds/ui/input';
+import { Textarea } from '@/ds/ui/textarea';
+import { AutoGrid } from '@/ds/patterns/auto-grid';
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import { ImageField } from '@/ds/patterns/image-field';
 import { createCompanyOverview, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview } from '@services/company';
 import { uploadCompanyAsset } from '@services/uploader';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { ICompanyOverview, IFormSection, IFormField } from "@models/company";
 import { cloneDefaults, resolveFormSchema, buildValidationSchema, deriveCustomSections } from './formSchema';
-import OrganisationInfo from './OrganisationInfo';
+import OrganizationInfo, { isWideOrgField, orgSectionLook } from './OrganizationInfo';
 import FormSchemaManager from '@app/modules/common/components/FormSchemaManager';
 import DragDropFileField from '@app/modules/common/components/DragDropFileField';
-import { Box, Typography } from '@mui/material';
 import eventBus from '@utils/EventBus';
-import { WtDateField, WtField, WtButton, WtFormDialog, WtFormSection, WtFormSpan, WtImageField, AppIcon, FiscalYearRangeField } from '@app/modules/common/components/ui';
+import { FiscalYearRangeField } from '@app/modules/common/components/ui';
 import { toCanonicalFiscalYearRange } from '@utils/fiscalYearRange';
-import { KTIcon } from '@metronic/helpers';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@redux/store';
@@ -58,18 +66,18 @@ const initialValues: ICompanyOverview = {
     founder: '',
 };
 
-/** Per-section look, matching the Organization Info page's cards. Unknown (custom) sections fall back to blue. */
-const SECTION_LOOK: Record<string, { icon: string; tone: string; description: string }> = {
-    basic_info: { icon: 'bi bi-briefcase', tone: '#1E3A8A', description: 'Who the organization is and how to reach it' },
-    govt: { icon: 'bi bi-file-earmark-text', tone: '#7C3AED', description: 'Registered and business addresses' },
-    admin: { icon: 'bi bi-patch-check', tone: '#0D9488', description: 'Registrations and certificates' },
-    tax: { icon: 'bi bi-receipt', tone: '#D97706', description: 'Tax identifiers used on documents' },
-    bank: { icon: 'bi bi-bank', tone: '#16A34A', description: 'Where payments are made to' },
+const FORM_ID = 'organization-profile';
+/** Section descriptions in the editor (the info page has its own, shorter subtitles). */
+const SECTION_DESCRIPTION: Record<string, string> = {
+    basic_info: 'Who the organization is and how to reach it',
+    govt: 'Registered and business addresses',
+    admin: 'Registrations and certificates',
+    tax: 'Tax identifiers used on documents',
+    bank: 'Where payments are made to',
 };
-const lookOf = (id: string) => SECTION_LOOK[id] || { icon: 'bi bi-card-text', tone: '#2563EB', description: '' };
+/** Logo and stamp go into the react-pdf profile, which renders PNG and JPEG only. */
+const ASSET_TYPES = ['image/png', 'image/jpeg'];
 const titleCase = (s: string) => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-/** Long free-text fields take a full row. */
-const isWide = (f: IFormField) => f.type === 'file' || /address|places/i.test(f.id) || /address/i.test(f.label);
 const numericOnly = (v: string) => v.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
 const uploadImage = async (file: File) => {
     const fd = new FormData();
@@ -77,8 +85,12 @@ const uploadImage = async (file: File) => {
     const { data: { path } } = await uploadCompanyAsset(fd);
     return path as string;
 };
+/** A stored ISO date as the kit picker's value; anything unreadable shows empty. */
+const toCalendarDate = (v: string) => {
+    try { return v ? parseDate(v.slice(0, 10)) : null; } catch { return null; }
+};
 
-interface OrganisationProfileFormProps {
+interface OrganizationProfileFormProps {
     /** When provided, the form reads/edits this specific organization. */
     organizationId?: string;
     /** When provided, a back button is rendered inline with the info header. */
@@ -87,7 +99,7 @@ interface OrganisationProfileFormProps {
     onBranchesClick?: () => void;
 }
 
-const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: OrganisationProfileFormProps = {}) => {
+const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: OrganizationProfileFormProps = {}) => {
     const dispatch = useDispatch<AppDispatch>();
     const [loading, setLoading] = useState(false);
     const [isCreate, setIsCreate] = useState<boolean>(true);
@@ -169,14 +181,14 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
         try {
             if (isCreate) {
                 const res = await createCompanyOverview(payload as any);
-                if (!res || res.hasError) throw new Error('Failed to create organisation profile');
-                successConfirmation('Successfully created organisation profile');
+                if (!res || res.hasError) throw new Error('Failed to create organization profile');
+                successConfirmation('Successfully created organization profile');
                 setSchemaDirty(false);
             } else {
                 if (!companyId) throw new Error('Company ID is missing');
                 const res = await updateCompanyOverview(companyId, payload as any);
-                if (!res || res.hasError) throw new Error('Failed to update organisation profile');
-                successConfirmation('Successfully updated organisation profile');
+                if (!res || res.hasError) throw new Error('Failed to update organization profile');
+                successConfirmation('Successfully updated organization profile');
                 setSchemaDirty(false);
                 // This REPLACES currentCompany rather than merging, so anything
                 // this form does not own has to be carried through explicitly.
@@ -184,10 +196,10 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                 // back off the store instead of writing a stale form value over it.
                 dispatch(saveCurrentCompanyInfo({ ...storedCompany, id: companyId, name: values.name, fiscalYear: values.fiscalYear }) as any);
                 setShowEditModal(false);
-                eventBus.emit('organisationProfileUpdated');
+                eventBus.emit('organizationProfileUpdated');
             }
         } catch {
-            errorConfirmation('Failed to create/update organisation profile');
+            errorConfirmation('Failed to create/update organization profile');
         } finally {
             setLoading(false);
         }
@@ -200,6 +212,7 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
         const set = (v: string) => (sys ? f.setFieldValue(field.id, v) : updateCustomValue(sectionId, field.id, v));
         const formikError = (f.touched as any)[field.id] || f.submitCount > 0 ? (f.errors as any)[field.id] : undefined;
         const error: string | undefined = sys ? formikError : customErrors[field.id];
+        const id = `org-field-${field.id}`;
 
         if (sys && field.id === 'fiscalYear') {
             return (
@@ -227,38 +240,51 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
         }
         if (field.type === 'date') {
             return (
-                <Box>
-                    <WtDateField label={field.label + (field.required ? ' *' : '')} value={value} onChange={set} />
-                    {error && <Typography sx={{ fontSize: 12, color: 'error.main', mt: 0.5, ml: 1.75 }}>{error}</Typography>}
-                </Box>
+                <DatePicker
+                    label={field.label}
+                    isRequired={field.required}
+                    value={toCalendarDate(value)}
+                    onChange={(d) => set(d ? d.toString() : '')}
+                    isInvalid={Boolean(error)}
+                    errorMessage={error}
+                />
             );
         }
         const isNumber = field.type === 'number';
         const isEmail = /email/i.test(field.id);
+        const wide = isWideOrgField(field);
+        const common = {
+            id,
+            value,
+            required: field.required,
+            'aria-invalid': Boolean(error) || undefined,
+            'aria-describedby': error ? `${id}-error` : undefined,
+        };
         return (
-            <WtField
-                label={field.label}
-                required={field.required}
-                value={value}
-                onChange={(v) => set(isNumber ? numericOnly(v) : v)}
-                error={error}
-                size="md"
-                fullWidth
-                type={isEmail ? 'email' : 'text'}
-                inputMode={isNumber ? 'decimal' : isEmail ? 'email' : undefined}
-                multiline={isWide(field)}
-                minRows={isWide(field) ? 2 : undefined}
-            />
+            <Field data-invalid={Boolean(error) || undefined}>
+                <FieldLabel htmlFor={id}>{field.label}</FieldLabel>
+                {wide ? (
+                    <Textarea {...common} rows={2} onChange={(e) => set(e.target.value)} />
+                ) : (
+                    <Input
+                        {...common}
+                        type={isEmail ? 'email' : 'text'}
+                        inputMode={isNumber ? 'decimal' : isEmail ? 'email' : undefined}
+                        onChange={(e) => set(isNumber ? numericOnly(e.target.value) : e.target.value)}
+                    />
+                )}
+                {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
+            </Field>
         );
     };
 
-    // Read on Organization Profile shows it (editing stays behind Write, in OrganisationInfo). This was
+    // Read on Organization Profile shows it (editing stays behind Write, in OrganizationInfo). This was
     // a `readOthers` check, which means Write — a Read-only person got a blank page.
     const canRead = canSection('settings.profile', 'read');
 
     return (
         <>
-            {canRead && <OrganisationInfo onEditClick={() => setShowEditModal(true)} organizationId={organizationId} onBack={onBack} onBranchesClick={onBranchesClick} />}
+            {canRead && <OrganizationInfo onEditClick={() => setShowEditModal(true)} organizationId={organizationId} onBack={onBack} onBranchesClick={onBranchesClick} />}
 
             <Formik
                 initialValues={formInitialValues}
@@ -271,53 +297,86 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                     const hasError = (s: IFormSection) => s.fields.some(fl =>
                         fl.isSystem ? f.submitCount > 0 && !!(f.errors as any)[fl.id] : !!customErrors[fl.id]);
                     return (
-                        <WtFormDialog
+                        <FormDialog
                             open={showEditModal}
-                            onClose={() => setShowEditModal(false)}
+                            onOpenChange={(open) => { if (!open) setShowEditModal(false); }}
                             title={isCreate ? 'Set up organization profile' : 'Edit organization profile'}
-                            subtitle={f.values.name || undefined}
-                            icon={<KTIcon iconName="bank" className="fs-1" />}
-                            headerAction={
-                                <WtButton inverted size="small" onClick={() => setShowSchemaManager(true)} startIcon={<AppIcon name="bi-gear" className="fs-6" />}>
-                                    Manage fields
-                                </WtButton>
-                            }
+                            description={f.values.name || undefined}
+                            icon={<Landmark aria-hidden />}
+                            size="2xl"
                             sections={[
-                                { id: 'org-assets', title: 'Logo & Stamp', icon: 'bi bi-image' },
-                                ...visibleSections.map(s => ({ id: `org-${s.id}`, title: titleCase(s.title), icon: lookOf(s.id).icon, invalid: hasError(s) })),
+                                { id: 'org-assets', label: 'Logo & stamp', icon: <ImageIcon aria-hidden /> },
+                                ...visibleSections.map(s => ({ id: `org-${s.id}`, label: titleCase(s.title), icon: orgSectionLook(s.id).icon, invalid: hasError(s) })),
                             ]}
-                            onSubmit={(e) => { e.preventDefault(); f.handleSubmit(); }}
+                            formId={FORM_ID}
                             submitLabel={isCreate ? 'Create profile' : 'Save changes'}
-                            saving={loading}
+                            submitting={loading}
                             dirty={f.dirty || schemaDirty}
                         >
-                            <WtFormSection id="org-assets" title="Logo & Stamp" description="Shown on payslips, letters and the PDF profile" icon="bi bi-image" tone="#2563EB">
-                                <WtImageField label="Organization logo" value={f.values.logo} onChange={(url) => f.setFieldValue('logo', url)} upload={uploadImage} />
-                                <WtImageField label="Stamp" value={f.values.salaryStamp} onChange={(url) => f.setFieldValue('salaryStamp', url)} upload={uploadImage} />
-                            </WtFormSection>
+                            <form id={FORM_ID} noValidate onSubmit={(e) => { e.preventDefault(); f.handleSubmit(); }} className="space-y-8">
+                                {/* In the body (not the footer) so it is there on a phone too. */}
+                                <div className="flex justify-end">
+                                    <Button type="button" variant="inverted" size="sm" onClick={() => setShowSchemaManager(true)}>
+                                        <Settings data-icon="inline-start" aria-hidden /> Manage fields
+                                    </Button>
+                                </div>
 
-                            {/* Data-driven sections: order, titles and fields all come from formSchema. */}
-                            {visibleSections.map(section => {
-                                const look = lookOf(section.id);
-                                const fields = section.fields.filter(fl => !fl.hidden);
-                                return (
-                                    <WtFormSection key={section.id} id={`org-${section.id}`} title={titleCase(section.title)} description={look.description || undefined} icon={look.icon} tone={look.tone}>
-                                        {fields.map(field => (
-                                            isWide(field)
-                                                ? <WtFormSpan key={field.id}>{renderField(field, section.id, f)}</WtFormSpan>
-                                                : <Box key={field.id} sx={{ minWidth: 0 }}>{renderField(field, section.id, f)}</Box>
-                                        ))}
-                                        {!fields.length && (
-                                            <WtFormSpan>
-                                                <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-                                                    No fields in this section yet. Use Manage fields to add some.
-                                                </Typography>
-                                            </WtFormSpan>
-                                        )}
-                                    </WtFormSection>
-                                );
-                            })}
-                        </WtFormDialog>
+                                <section id="org-assets" className="scroll-mt-4">
+                                    <FieldSet>
+                                        <FieldLegend>Logo &amp; stamp</FieldLegend>
+                                        <FieldDescription>Shown on payslips, letters and the PDF profile</FieldDescription>
+                                        <AutoGrid min={280} stretch>
+                                            <ImageField
+                                                id="org-logo"
+                                                label="Organization logo"
+                                                value={f.values.logo || null}
+                                                onChange={(url) => f.setFieldValue('logo', url ?? '')}
+                                                upload={uploadImage}
+                                                accept={ASSET_TYPES}
+                                                maxSizeMB={5}
+                                            />
+                                            <ImageField
+                                                id="org-stamp"
+                                                label="Stamp"
+                                                value={f.values.salaryStamp || null}
+                                                onChange={(url) => f.setFieldValue('salaryStamp', url ?? '')}
+                                                upload={uploadImage}
+                                                accept={ASSET_TYPES}
+                                                maxSizeMB={5}
+                                            />
+                                        </AutoGrid>
+                                    </FieldSet>
+                                </section>
+
+                                {/* Data-driven sections: order, titles and fields all come from formSchema. */}
+                                {visibleSections.map(section => {
+                                    const fields = section.fields.filter(fl => !fl.hidden);
+                                    const description = SECTION_DESCRIPTION[section.id];
+                                    return (
+                                        <section key={section.id} id={`org-${section.id}`} className="scroll-mt-4">
+                                            <FieldSet>
+                                                <FieldLegend>{titleCase(section.title)}</FieldLegend>
+                                                {description && <FieldDescription>{description}</FieldDescription>}
+                                                {/* Fields fill the row (2-3 across on a wide screen, 1 on a phone); long
+                                                    text (an address) takes a row of its own. */}
+                                                <AutoGrid min={220} stretch>
+                                                    {fields.map(field => (
+                                                        <div key={field.id} className={isWideOrgField(field) ? 'col-span-full min-w-0' : 'min-w-0'}>
+                                                            {renderField(field, section.id, f)}
+                                                        </div>
+                                                    ))}
+                                                    {!fields.length && (
+                                                        <p className="col-span-full text-sm text-muted-foreground">
+                                                            No fields in this section yet. Use Manage fields to add some.
+                                                        </p>
+                                                    )}
+                                                </AutoGrid>
+                                            </FieldSet>
+                                        </section>
+                                    );
+                                })}
+                            </form>
+                        </FormDialog>
                     );
                 }}
             </Formik>
@@ -336,4 +395,4 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
     );
 };
 
-export default OrganisationProfileForm;
+export default OrganizationProfileForm;

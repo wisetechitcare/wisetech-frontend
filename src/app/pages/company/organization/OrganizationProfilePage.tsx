@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Box } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
+import { Building2 } from 'lucide-react';
 import { PageTitle, PageLink } from '@metronic/layout/core';
-import { GlassDialog, GlassHeader } from '@app/modules/common/components/ui';
-import OrganisationProfileForm from './OrganisationProfileForm';
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import OrganizationProfileForm from './OrganizationProfileForm';
 import Branches from '../Branches';
 
 const breadcrumbs: Array<PageLink> = [
   { title: 'Company', path: '#', isSeparator: false, isActive: false },
   { title: '', path: '', isSeparator: true, isActive: false },
-  { title: 'Organizations', path: '/company/organisation-profile', isSeparator: false, isActive: false },
+  { title: 'Organizations', path: '/company/organization-profile', isSeparator: false, isActive: false },
   { title: '', path: '', isSeparator: true, isActive: false },
 ];
 
 /**
- * Routed profile page for a single organization (`/company/organisation-profile/:orgId`).
+ * Routed profile page for a single organization (`/company/organization-profile/:orgId`).
  * Renders the same editable Organization Profile used for the default org, scoped
  * to the selected organization. The org's branches open in a modal from the
  * "Branches" button beside Download PDF.
@@ -47,38 +46,33 @@ export default function OrganizationProfilePage() {
     <>
       <PageTitle breadcrumbs={breadcrumbs}>Organization Profile</PageTitle>
 
-      <OrganisationProfileForm
+      <OrganizationProfileForm
         key={orgId}
         organizationId={orgId}
         onBack={() => navigate(-1)}
         onBranchesClick={() => setShowBranches(true)}
       />
 
-      <GlassDialog
+      {/* The kit Form Dialog (read-only: one Close). Everything Branches opens from here is kit too — the branch
+          form, Employees, Biometric devices — so the dialogs stack and share one focus trap. */}
+      <FormDialog
         open={showBranches}
-        onClose={() => { setShowBranches(false); setEditBranchId(undefined); }}
-        maxWidth="xl"
-        fullWidth
-        header={
-          <GlassHeader
-            title="Branches"
-            subtitle="Manage this organization’s locations"
-            icon={<KTIcon iconName="bank" className="fs-1" />}
-            onClose={() => { setShowBranches(false); setEditBranchId(undefined); }}
-          />
-        }
+        onOpenChange={(open) => { if (!open) { setShowBranches(false); setEditBranchId(undefined); } }}
+        title="Branches"
+        description="Manage this organization’s locations"
+        icon={<Building2 aria-hidden />}
+        tone="cyan"
+        size="xl"
       >
-        <Box sx={{ bgcolor: 'background.default', maxHeight: '76vh', overflowY: 'auto', pb: 3 }}>
-          <Branches
-            key={`branches-${orgId}`}
-            companyId={orgId}
-            embedded
-            hideHeading
-            editBranchId={editBranchId}
-            onEditBranchConsumed={() => setEditBranchId(undefined)}
-          />
-        </Box>
-      </GlassDialog>
+        <Branches
+          key={`branches-${orgId}`}
+          companyId={orgId}
+          embedded
+          hideHeading
+          editBranchId={editBranchId}
+          onEditBranchConsumed={() => setEditBranchId(undefined)}
+        />
+      </FormDialog>
     </>
   );
 }

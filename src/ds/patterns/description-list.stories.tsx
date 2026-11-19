@@ -74,5 +74,35 @@ export const InCard: Story = {
   ),
 }
 
+/**
+ * `columns="auto"`: a strip of short facts across a wide page — as many columns as fit, one on a phone. Values keep
+ * the list's reading size (not a KPI's headline figure), so a long registration number wraps inside its column
+ * instead of running under the next one.
+ */
+export const AutoColumns: Story = {
+  decorators: [(Story) => <div className="w-[min(1200px,calc(100vw-2rem))]"><Story /></div>],
+  args: {
+    columns: 'auto',
+    rows: [
+      { label: 'Fiscal year', value: '2025.04.01 – 2026.03.31' },
+      { label: 'Founded', value: '2017.05.16' },
+      { label: 'GST number', value: <span className="tabular">27BPYPM0187G1ZB</span> },
+      { label: 'PAN', value: <span className="tabular">BPYPM0187G</span> },
+      { label: 'TAN', value: <span className="tabular">MUMJ26823G</span> },
+      { label: 'Contact', value: '098339 94355' },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const items = [...canvasElement.querySelectorAll('[data-slot="description-list"] > div')] as HTMLElement[]
+    // Several columns on a wide page: the first two facts share a row.
+    await expect(Math.round(items[0].getBoundingClientRect().top)).toBe(Math.round(items[1].getBoundingClientRect().top))
+    // Nothing runs past its own column.
+    for (const item of items) {
+      const value = item.querySelector('dd') as HTMLElement
+      await expect(value.scrollWidth).toBeLessThanOrEqual(value.clientWidth)
+    }
+  },
+}
+
 /** Nothing recorded. */
 export const Empty: Story = { args: { rows: [], emptyText: 'No emergency contacts added.' } }

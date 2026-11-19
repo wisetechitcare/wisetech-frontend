@@ -24,7 +24,7 @@ import { titleCaseChildren } from "@/ds/lib/text"
  * - **Logo top-left, page actions top-right — of the WINDOW** (the convention, and the original sign-in): pinned to
  *   the viewport's corners from `lg`, not to the capped composition, so no empty band opens beside them on wide
  *   screens. The actions are centred on the logo's height, one header line.
- * - **The logo is shown as itself** — the organisation's real logo at its own proportions (a stacked lockup stays
+ * - **The logo is shown as itself** — the organization's real logo at its own proportions (a stacked lockup stays
  *   a lockup, a square mark stays square), never cropped or boxed into a tile; Smart Avatar's initials if there is
  *   no logo or it fails to load.
  * - **The logo stays outside the form card** at every size: in the window's top-left corner from `lg`, and at the
@@ -66,7 +66,7 @@ export function AuthLayout({
   illustration,
   className,
 }: {
-  /** The organisation's name — the logo's accessible name, and its initials when there is no logo. */
+  /** The organization's name — the logo's accessible name, and its initials when there is no logo. */
   brandName: string
   logoSrc?: string | null
   /** Typewriter lines; the last is where it lands. */
@@ -214,7 +214,7 @@ const TITLE_INK: Record<TitleTone, string> = {
 }
 
 /**
- * The organisation's logo at its own proportions, as tall as its slot (and never wider); Smart Avatar's initials
+ * The organization's logo at its own proportions, as tall as its slot (and never wider); Smart Avatar's initials
  * when there is no logo or it fails to load — never an empty or broken image.
  */
 function BrandLogo({ name, src }: { name: string; src?: string | null }) {

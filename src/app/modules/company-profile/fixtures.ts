@@ -843,7 +843,7 @@ const DEMO_ORG: OrgProfile = {
   address:
     "1st Floor, Loonawat Compound, Ghaswala Estate, next to Millat Hospital, SV Road, Jogeshwari (W), Mumbai 400102",
   phone: "+91 22 4673 2679",
-  website: "www.wisetech-mep.com",
+  website: "www.kaiznova.com",
   hero: coverHero,
   site: scene("ceiling", 998),
 };

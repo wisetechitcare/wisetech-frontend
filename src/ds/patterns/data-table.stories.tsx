@@ -227,6 +227,9 @@ export const PinColumns: Story = {
     await userEvent.click(screen.getByRole('button', { name: 'Unpin Status' }))
     await waitFor(() => expect(heads()[0]).not.toBe('Status'))
     await userEvent.keyboard('{Escape}')
+    // Focus comes back to the trigger only once the panel has finished closing, and that opens the trigger's
+    // tooltip; wait for it, or the a11y check can catch the tooltip half faded in.
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Show or hide columns' })).toHaveFocus())
     await animationsSettled()
   },
 }
@@ -651,5 +654,72 @@ export const TableTools: Story = {
     await expect(getComputedStyle(root).position).toBe('fixed')
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(getComputedStyle(root).position).not.toBe('fixed'))
+  },
+}
+
+/**
+ * Group rows (the live table's Group by): the "Group rows" tool lists the columns rows can be grouped by. Rows fold
+ * into groups that name the column, show the value as the column draws it and count their records; a second column
+ * nests inside the first. In a grouped column the value is not repeated on every row. Reset layout clears it.
+ */
+export const GroupRows: Story = {
+  play: async ({ canvas }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    await userEvent.click(canvas.getByRole('button', { name: 'Group rows' }))
+    const panel = within(await screen.findByRole('list', { name: 'Group by' }))
+    // A column with no value to group by (row actions) is not offered.
+    await expect(panel.queryByRole('switch', { name: 'actions' })).not.toBeInTheDocument()
+    await userEvent.click(panel.getByRole('switch', { name: 'Status' }))
+    await userEvent.keyboard('{Escape}')
+
+    // 34 employees in three statuses: three group rows, each with its count; the range says how many records.
+    await waitFor(() => expect(bodyRows(table)).toHaveLength(3))
+    await expect(canvas.getByRole('button', { name: 'Expand Status: Active, 21 records' })).toBeInTheDocument()
+    await expect(canvas.getByText('1–3 of 3 · 34 records')).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Group rows 1 applied' })).toBeInTheDocument()
+
+    // Open one group: its rows follow it, and their Status cell is empty (the heading already says Active).
+    await userEvent.click(canvas.getByRole('button', { name: 'Expand Status: Active, 21 records' }))
+    await waitFor(() => expect(canvas.getByText('1–10 of 24 · 34 records')).toBeInTheDocument())
+    const firstMember = bodyRows(table)[1]
+    await expect(within(firstMember).queryByText('Active')).not.toBeInTheDocument()
+
+    // A second column nests inside the first, and the panel numbers the levels.
+    await userEvent.click(canvas.getByRole('button', { name: 'Group rows 1 applied' }))
+    const again = within(await screen.findByRole('list', { name: 'Group by' }))
+    await userEvent.click(again.getByRole('switch', { name: 'Branch' }))
+    await expect(again.getByText('Level 2')).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await expect(canvas.getByRole('button', { name: 'Group rows 2 applied' })).toBeInTheDocument()
+
+    // Reset layout puts the table back as designed.
+    await userEvent.click(canvas.getByRole('button', { name: 'Reset layout' }))
+    await waitFor(() => expect(canvas.getByText('1–10 of 34')).toBeInTheDocument())
+    await animationsSettled()
+  },
+}
+
+/** Grouped on a phone: the group headings sit between the cards and fold them the same way. */
+export const GroupRowsOnPhone: Story = {
+  decorators: [(Story) => <div className="w-[360px]"><Story /></div>],
+  args: {
+    renderCard: (r: Employee) => (
+      <Card size="sm" variant="panel">
+        <CardContent className="text-sm">
+          <div className="font-semibold">{r.name}</div>
+          <div className="text-muted-foreground">{r.status} · {r.department}</div>
+        </CardContent>
+      </Card>
+    ),
+  },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Group rows' }))
+    await userEvent.click(within(await screen.findByRole('list', { name: 'Group by' })).getByRole('switch', { name: 'Status' }))
+    await userEvent.keyboard('{Escape}')
+    const cards = within(canvas.getByRole('list', { name: 'Employees' }))
+    await waitFor(() => expect(cards.getAllByRole('listitem')).toHaveLength(3))
+    await userEvent.click(cards.getByRole('button', { name: 'Expand Status: Probation, 6 records' }))
+    await waitFor(() => expect(cards.getAllByRole('listitem').length).toBeGreaterThan(3))
+    await animationsSettled()
   },
 }

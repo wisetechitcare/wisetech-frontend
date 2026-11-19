@@ -573,7 +573,7 @@ unsaved-changes status and Cancel / Save. It is a real `<form>`.
 - `WtFormSection` lays children out two-up (`columns` to change); `WtFormSpan` takes a full row.
 - Images (logo, stamp, signature): `WtImageField` — preview, drag-and-drop, Change / Remove,
   type and size checks. Pass `upload={(file) => Promise<url>}`; it doesn't know your endpoint.
-- Reference: `pages/company/organisation/OrganisationProfileForm.tsx`.
+- Reference: `pages/company/organization/OrganizationProfileForm.tsx`.
 
 ## Capitalisation
 
@@ -698,7 +698,7 @@ React escapes `{value}` in JSX for you. The moment a string leaves JSX — Sweet
 the browser parses whatever you hand it as markup. SweetAlert2 says so in its own
 typings: *"SweetAlert2 does NOT sanitize this parameter."*
 
-Four dialogs shipped this bug: an employee name, a branch name, an organisation name
+Four dialogs shipped this bug: an employee name, a branch name, an organization name
 and a server error message, each interpolated straight into `html:`. A name of
 `<img src=x onerror=…>` then executes in the browser of whoever opens the dialog —
 planted once, fired later, usually at someone with more access.

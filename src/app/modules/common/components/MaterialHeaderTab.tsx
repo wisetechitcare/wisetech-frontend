@@ -6,8 +6,7 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { IconSlot, type IconSource } from '@/ds/ui/dynamic-icon';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@redux/store';
-import { canSection, isTabTurnedOff } from '@utils/can';
-import { tabSlug } from '@utils/sectionTabs';
+import { isSectionTabHidden } from '@utils/sectionTabs';
 
 export type TabItem = {
     title: string;
@@ -250,7 +249,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
      *   'row'  — every tab fits as icon + name on one line (the names are measured in the bar's font).
      *   'nav'  — room for every tab at NAV_CELL: bottom-navigation style, icon over name, all named.
      *   'icons' — not enough for that: icon squares, and the selected tab also shows its name.
-     *   'bare' — not even that (Recruitment: seven tabs and an organisation filter): icons only,
+     *   'bare' — not even that (Recruitment: seven tabs and an organization filter): icons only,
      *            the selected tab marked by its fill.
      * Layout effect, so the first paint is already the right mode.
      */
@@ -301,11 +300,7 @@ const MaterialHeaderTab = ({ tabItems, onTabChange, activeTab, aboveContent, hid
     // section. Re-renders on a live access change.
     useSelector((s: RootState) => (s as any).authz?.deniedTabs);
     useSelector((s: RootState) => (s as any).authz?.access);
-    const shown = (item: TabItem) => {
-        if (!accessSection) return true;
-        const slug = tabSlug(item.title);
-        return !isTabTurnedOff(accessSection, slug) && (slug !== 'configure' || canSection(accessSection, 'write'));
-    };
+    const shown = (item: TabItem) => !accessSection || !isSectionTabHidden(accessSection, item.title);
     // Standing on a tab that just got turned off: move to the first one still open.
     useEffect(() => {
         if (!accessSection || !tabItems[value] || shown(tabItems[value])) return;

@@ -11,7 +11,7 @@ import { GlassSurface } from './glass';
  * detail page (and a wizard's rail or review step) opens with.
  *
  * Rebuilt on kit parts from the recipe the employee details page hand-assembled
- * (and that contact, company and organisation pages copy-pasted): back button, a
+ * (and that contact, company and organization pages copy-pasted): back button, a
  * SmartAvatar with its active/inactive status ring, the name, a "role · department ·
  * #code" meta line, the ways to reach the record as icon links, and actions on the right.
  *
