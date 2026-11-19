@@ -12,55 +12,60 @@ body.page-loading {
   transition: none !important;
 }
 
-.splash-screen {
-  display: none;
-}
-
 /* ============================================================
-   Premium enterprise loading screen (pre-React HTML splash).
-   Pure CSS — renders before the app bundle loads. Gradient
-   (blue→purple→pink→amber) matches the login's Antigravity caret
-   so loading → app feels like one product.
+   Pre-React loading screen. Pure CSS — drawn before the app bundle loads.
+
+   One centred unit: the organization's logo on a soft tile (the logo is swapped in by index.html's inline script —
+   see src/utils/splashBrand.ts), a slim gradient progress bar, and one line of text. Every size is a clamp() so it
+   reads the same on a phone and an ultrawide; the gradient (blue → purple → pink → amber) matches the login's caret.
+   NOT scoped to body.page-loading: Metronic's LayoutSetup wipes every body class the moment the bundle evaluates, which
+   used to hide the splash before React had even started. It is removed only by src/utils/splashGate.ts.
    ============================================================ */
-.page-loading .splash-screen {
-  position: absolute;
+.splash-screen {
+  position: fixed;
   z-index: 99999;
   inset: 0;
-  width: 100vw;
+  /* dvh: the height actually visible on mobile, where the browser bars come and go. */
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: Inter, Helvetica, 'sans-serif';
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: Inter, Helvetica, sans-serif;
   background:
-    radial-gradient(130% 90% at 50% -10%, #F4F7FF 0%, rgba(244, 247, 255, 0) 55%),
-    #FFFFFF;
+    radial-gradient(120% 80% at 50% 0%, #EEF3FF 0%, rgba(238, 243, 255, 0) 60%),
+    linear-gradient(180deg, #FAFBFF 0%, #F5F7FB 100%);
 }
 
-/* drifting gradient orbs for depth */
+/* Fades out when the app is ready (utils/splashGate adds this, then removes the splash after the fade). */
+.splash-screen { transition: opacity 0.35s ease; }
+.splash-screen.splash--leaving { opacity: 0; pointer-events: none; }
+
+/* Soft colour glows, scaled to the screen so they read on a monitor and stay gentle on a phone. */
 .splash-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(64px);
-  opacity: 0.5;
+  filter: blur(clamp(48px, 7vw, 96px));
   pointer-events: none;
 }
 .splash-orb--1 {
-  width: 360px;
-  height: 360px;
-  top: -9%;
-  left: -6%;
-  background: radial-gradient(circle, rgba(66, 133, 244, 0.42), transparent 70%);
-  animation: orbDrift1 15s ease-in-out infinite;
+  width: clamp(260px, 42vw, 620px);
+  aspect-ratio: 1;
+  top: -18%;
+  left: -12%;
+  background: radial-gradient(circle, rgba(66, 133, 244, 0.30), transparent 68%);
+  animation: orbDrift1 16s ease-in-out infinite;
 }
 .splash-orb--2 {
-  width: 420px;
-  height: 420px;
-  bottom: -12%;
-  right: -8%;
-  background: radial-gradient(circle, rgba(217, 101, 112, 0.36), transparent 70%);
-  animation: orbDrift2 17s ease-in-out infinite;
+  width: clamp(280px, 46vw, 680px);
+  aspect-ratio: 1;
+  bottom: -22%;
+  right: -14%;
+  background: radial-gradient(circle, rgba(217, 101, 112, 0.24), transparent 68%);
+  animation: orbDrift2 18s ease-in-out infinite;
 }
 
 .splash-inner {
@@ -69,20 +74,34 @@ body.page-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 34px;
+  gap: clamp(18px, 2.4vw, 26px);
+  width: 100%;
+  max-width: 360px;
   animation: splashFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* logo with a shimmer sweep */
+/* The logo on a soft tile, with a slow shimmer sweep. */
 .splash-logo-wrap {
   position: relative;
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  animation: splashLogoIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  padding: clamp(18px, 2.6vw, 28px) clamp(26px, 3.6vw, 40px);
+  border-radius: clamp(18px, 2vw, 24px);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 40px -12px rgba(30, 58, 138, 0.18);
+  outline: 1px solid rgba(15, 23, 42, 0.05);
+  -webkit-backdrop-filter: blur(8px); /* guard:allow — pre-React splash, loads before the UI kit exists */
+  backdrop-filter: blur(8px); /* guard:allow — pre-React splash, loads before the UI kit exists */
+  animation: splashLogoIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .splash-logo {
-  height: 72px;
+  height: clamp(56px, 8vw, 92px);
   width: auto;
+  max-width: min(64vw, 260px);
   object-fit: contain;
   display: block;
 }
@@ -90,49 +109,119 @@ body.page-loading {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    115deg,
-    transparent 36%,
-    rgba(255, 255, 255, 0.65) 50%,
-    transparent 64%
-  );
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.7) 50%, transparent 62%);
   transform: translateX(-160%);
-  animation: splashShimmer 2.8s ease-in-out 0.9s infinite;
+  animation: splashShimmer 3s ease-in-out 1s infinite;
 }
 
-/* gradient ring spinner (matches the login gradient caret) */
+/* A slim indeterminate bar in the brand gradient — the element is index.html's role="progressbar". */
 .splash-loader {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: conic-gradient(from 90deg, #4285F4, #9B72CB, #D96570, #F9AB55, #4285F4);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
-  filter: drop-shadow(0 2px 8px rgba(155, 114, 203, 0.35));
-  animation: splashSpin 0.95s linear infinite;
+  position: relative;
+  width: clamp(140px, 18vw, 200px);
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(30, 58, 138, 0.08);
+}
+.splash-loader::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4285F4, #9B72CB, #D96570, #F9AB55);
+  animation: splashBar 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
 .loading-text {
   margin: 0;
   color: #64748B;
-  font-size: 0.9rem;
+  font-size: clamp(12px, 1vw, 13px);
   font-weight: 500;
-  letter-spacing: 0.05em;
-  animation: splashTextPulse 2s ease-in-out infinite;
+  letter-spacing: 0.02em;
+  text-align: center;
+  animation: splashTextPulse 2.2s ease-in-out infinite;
+}
+
+/* ── Organization splash video ──────────────────────────────────
+   index.html adds the <video> and sets .splash--video once its first frame plays. Full-bleed and object-fit: cover,
+   so a 16:9 desktop video and a 9:16 phone video both fill any screen without distortion or letterboxing (the edges
+   crop instead). It is the whole loading screen and loops until the app is ready (see .splash--has-video below). */
+.splash-video {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  background: #000;
+}
+.splash--video .splash-video { opacity: 1; }
+/* index.html adds .splash--has-video up front when an organization video is set: the splash is the video and nothing
+   else — no logo tile, loader or text, not even before the first frame (black until then). If the video fails the
+   class is removed and the logo splash shows instead. */
+.splash--has-video .splash-inner,
+.splash--has-video .splash-orb { display: none; }
+.splash-screen.splash--has-video { background: #000; }
+
+/* When the video's shape doesn't match the screen (a landscape video on a phone, a tall window) it is scaled to the
+   screen's width (or height) and shown whole, never cropped. Its edges fade into a fill painted from its own outermost
+   rows (index.html), so a plain-background video looks like one continuous screen — no bars, no visible seam. */
+.splash-video { z-index: 1; }
+.splash-video-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+.splash--letterbox.splash--video .splash-video-backdrop { opacity: 1; }
+.splash--bars-y .splash-video {
+  inset: auto 0;
+  top: 50%;
+  height: auto;
+  transform: translateY(-50%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent);
+}
+.splash--bars-x .splash-video {
+  inset: 0 auto;
+  left: 50%;
+  width: auto;
+  transform: translateX(-50%);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
 }
 
 /* ── Dark theme ─────────────────────────────────────────────── */
-html[data-bs-theme='dark'] .page-loading .splash-screen {
+html[data-bs-theme='dark'] .splash-screen {
   background:
-    radial-gradient(130% 90% at 50% -10%, rgba(110, 155, 255, 0.10) 0%, rgba(11, 15, 26, 0) 55%),
+    radial-gradient(120% 80% at 50% 0%, rgba(110, 155, 255, 0.10) 0%, rgba(11, 15, 26, 0) 60%),
     #0B0F1A;
   color: #ffffff;
+}
+html[data-bs-theme='dark'] .splash-logo-wrap {
+  /* A light tile on purpose: organization logos are drawn for white paper. */
+  background: rgba(255, 255, 255, 0.94);
+  outline-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.6);
+}
+html[data-bs-theme='dark'] .splash-loader {
+  background: rgba(255, 255, 255, 0.10);
 }
 html[data-bs-theme='dark'] .loading-text {
   color: #94A3B8;
 }
 html[data-bs-theme='dark'] .splash-orb {
-  opacity: 0.4;
+  opacity: 0.55;
 }
 
 /* theme-scoped logo visibility (unchanged behaviour) */
@@ -155,35 +244,36 @@ html[data-bs-theme='dark'] .splash-screen .dark-logo {
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes splashLogoIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes splashShimmer {
   0%        { transform: translateX(-160%); }
   55%, 100% { transform: translateX(160%); }
 }
-@keyframes splashSpin {
-  to { transform: rotate(360deg); }
+@keyframes splashBar {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(250%); }
 }
 @keyframes splashTextPulse {
   0%, 100% { opacity: 1; }
-  50%      { opacity: 0.55; }
+  50%      { opacity: 0.6; }
 }
 @keyframes orbDrift1 {
   0%, 100% { transform: translate(0, 0); }
-  50%      { transform: translate(40px, 30px); }
+  50%      { transform: translate(4vw, 3vh); }
 }
 @keyframes orbDrift2 {
   0%, 100% { transform: translate(0, 0); }
-  50%      { transform: translate(-40px, -28px); }
+  50%      { transform: translate(-4vw, -3vh); }
 }
 
-/* Respect reduced-motion — calm, static state */
+/* Respect reduced-motion — calm, static state; the bar still shows progress, slowly. */
 @media (prefers-reduced-motion: reduce) {
   .splash-inner,
   .splash-logo-wrap { animation: none; }
   .splash-logo-wrap::after { display: none; }
   .splash-orb { animation: none; }
   .loading-text { animation: none; }
-  .splash-loader { animation-duration: 1.8s; }
+  .splash-loader::before { animation-duration: 3s; }
 }

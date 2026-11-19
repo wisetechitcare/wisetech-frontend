@@ -157,6 +157,8 @@ export const COMPANY = {
     CREATE_OVERVIEW: "api/company/overview",
     GET_OVERVIEW: "api/company/overview",
     UPDATE_OVERVIEW: "api/company/overview",
+    // Presigned PUT for an organization splash video (desktop / mobile).
+    SPLASH_VIDEO_UPLOAD_URL: "api/company/overview/:id/splash-video-url",
     GET_OVERVIEW_BY_ID: "api/company/overview/:id",
     PROMOTE_BRANCH_TO_SUBORG: "api/company/branches/:id/promote",
     GET_ORGANIZATION_TREE: "api/company/overview/tree",

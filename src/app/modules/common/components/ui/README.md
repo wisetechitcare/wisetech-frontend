@@ -564,6 +564,8 @@ unsaved-changes status and Cancel / Save. It is a real `<form>`.
 - `WtFormSection` lays children out two-up (`columns` to change); `WtFormSpan` takes a full row.
 - Images (logo, stamp, signature): `WtImageField` — preview, drag-and-drop, Change / Remove,
   type and size checks. Pass `upload={(file) => Promise<url>}`; it doesn't know your endpoint.
+- Videos (splash screens, clips): `WtVideoField` — the same API plus upload progress
+  (`upload={(file, onProgress) => Promise<url>}`) and a `shape` (`landscape` / `portrait`) preview frame.
 - Reference: `pages/company/organisation/OrganisationProfileForm.tsx`.
 
 ## Capitalisation

@@ -1,4 +1,4 @@
-import { Suspense, useEffect/*, useRef, useState*/ } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { I18nProvider } from '../_metronic/i18n/i18nProvider'
@@ -11,7 +11,7 @@ import GlobalTimerModal from '../components/GlobalTimerModal';
 import { IdleLogoutGuard } from './components/IdleLogoutGuard';
 import { SecurityPinHost } from '@app/modules/common/components/SecurityPin';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
-import { fetchColorAndStoreInSlice } from '@utils/file';
+import { ensureCurrentCompanyLoaded, fetchColorAndStoreInSlice } from '@utils/file';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { Toaster } from 'sonner';
 import { ColorModeProvider } from '@app/theme/ColorMode';
@@ -19,7 +19,7 @@ import { GlassToastProvider } from '@app/modules/common/components/ui';
 import { DialogServiceHost } from '@app/modules/common/components/ui/dialogService';
 import { UnsavedChangesProvider } from '@app/modules/common/components/ui/UnsavedChangesProvider';
 import { useTimeFormat } from '@hooks/useTimeFormat';
-import { useCurrencyCode } from '@hooks/useCurrency';
+import { useCurrencyCode, useCountryDirectoryReady } from '@hooks/useCurrency';
 import { PwaHost } from './pwa/PwaHost';
 import { useScrollLockGuard } from './hooks/useScrollLockGuard';
 // import { MaintenancePage } from './modules/errors/MaintenancePage';
@@ -88,6 +88,23 @@ const App = () => {
   // screen. Mounting the hook here is also what publishes the currency to `utils/currency`
   // for every non-React formatter in the app.
   const currency = useCurrencyCode();
+
+  // …which is why the routed tree must not mount until both inputs of that key are known. They arrive just after
+  // startup (the org record carries the 12/24h setting; the country directory resolves the currency), and each arrival
+  // used to change the key and REMOUNT everything — shell, routes, page — so the app visibly loaded twice. Mounting
+  // once they're in means one load, behind the splash. Latched: once mounted it never unmounts (e.g. on login).
+  const [companyReady, setCompanyReady] = useState(false);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let live = true;
+    ensureCurrentCompanyLoaded()
+      .catch(() => undefined) // a failed fetch keeps the default format; it must not block the app
+      .finally(() => { if (live) setCompanyReady(true); });
+    return () => { live = false; };
+  }, [isAuthenticated]);
+  const countriesReady = useCountryDirectoryReady();
+  const treeMounted = useRef(false);
+  if (!isAuthenticated || (companyReady && countriesReady)) treeMounted.current = true;
 
   // // Listen for online/offline and backend-down events
   // useEffect(() => {
@@ -215,7 +232,7 @@ const App = () => {
               <ColorModeProvider>
                 <GlassToastProvider>
                   <UnsavedChangesProvider>
-                    <Outlet key={`${timeFormat}:${currency}`} />
+                    {treeMounted.current ? <Outlet key={`${timeFormat}:${currency}`} /> : <LayoutSplashScreen />}
                   </UnsavedChangesProvider>
                   <MasterInit />
                   <Toaster richColors position="top-right" />

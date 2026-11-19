@@ -26,7 +26,8 @@ export const BILLING_BASE = "/billing";
 // every project, the proformas raised, the tax invoices issued, then the module's settings.
 // A tab is only shown to a user who holds its `accessKey`.
 export const BILLING_TABS: BillingTabDef[] = [
-    { path: "dashboard", title: "Dashboard", icon: "bi-speedometer2", accessKey: "billing.dashboard" },
+    // Hidden for now (2026-11-19) — uncomment to restore. Its route follows this list, so it goes too.
+    // { path: "dashboard", title: "Dashboard", icon: "bi-speedometer2", accessKey: "billing.dashboard" },
     // One row per project: contract, billed, received, pending, and the hand-set Bill Stage.
     { path: "tracker", title: "Bill Status", icon: "bi-diagram-3", accessKey: "billing.tracker" },
     // Every project's proformas, end to end. Hidden for now (2026-11-13) — uncomment to restore.

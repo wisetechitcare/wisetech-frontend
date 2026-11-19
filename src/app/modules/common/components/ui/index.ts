@@ -255,6 +255,8 @@ export { WtFormDialog, WtFormSection, WtFormSpan } from './WtFormDialog';
 export type { WtFormDialogProps, WtFormSectionProps, WtFormNavItem } from './WtFormDialog';
 export { WtImageField } from './WtImageField';
 export type { WtImageFieldProps } from './WtImageField';
+export { WtVideoField } from './WtVideoField';
+export type { WtVideoFieldProps } from './WtVideoField';
 export { WtPhoneField } from './WtPhoneField';
 export { WtPhoneFieldFormik, type WtPhoneFieldFormikProps } from './WtPhoneFieldFormik';
 export type { WtPhoneFieldProps } from './WtPhoneField';

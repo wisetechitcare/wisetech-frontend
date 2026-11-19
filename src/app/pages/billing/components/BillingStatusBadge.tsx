@@ -1,6 +1,13 @@
 import React from "react";
 import { Box } from "@mui/material";
-import { visuallyHidden } from "@mui/utils";
+/**
+ * Screen-reader-only text. Spelled out rather than imported from `@mui/utils`: that package was never a declared
+ * dependency here, only reachable through another package, and a reinstall made it unresolvable.
+ */
+const visuallyHidden = {
+  border: 0, clip: "rect(0 0 0 0)", height: "1px", margin: "-1px", overflow: "hidden",
+  padding: 0, position: "absolute", whiteSpace: "nowrap", width: "1px",
+} as const;
 import { ToneChip, isHexColor, type SemanticTone } from "@app/modules/common/components/ui";
 import { SolidChip } from "@app/modules/common/components/ui/SolidChip";
 import { tonePair } from "@app/theme/tokens";

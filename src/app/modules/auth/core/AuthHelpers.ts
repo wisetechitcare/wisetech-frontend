@@ -53,6 +53,8 @@ const setAuth = (auth: any) => {
 
 const removeAuth = () => {
   inMemoryToken = undefined
+  // The splash branding is deliberately KEPT: the login screen shows the organization's splash too, and re-syncs it to
+  // the company's public branding (/api/company/logo) as soon as it opens.
   if (!localStorage) {
     return
   }

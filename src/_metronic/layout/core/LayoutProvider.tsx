@@ -15,6 +15,7 @@ import {
   ILayoutHTMLAttributes,
 } from './LayoutModels'
 import {WithChildren} from '../../helpers'
+import {requestSplashHide} from '@utils/splashGate'
 
 export interface LayoutContextModel {
   config: ILayout
@@ -34,17 +35,14 @@ const LayoutContext = createContext<LayoutContextModel>({
 
 const enableSplashScreen = () => {
   const splashScreen = document.getElementById('splash-screen')
-  if (splashScreen) {
+  // A video splash plays once at startup; a layout change must not bring back its last frame.
+  if (splashScreen && !splashScreen.classList.contains('splash--has-video')) {
     splashScreen.style.setProperty('display', 'flex')
   }
 }
 
-const disableSplashScreen = () => {
-  const splashScreen = document.getElementById('splash-screen')
-  if (splashScreen) {
-    splashScreen.style.setProperty('display', 'none')
-  }
-}
+// The splash is held until the first route has loaded, and until an organization video has finished (utils/splashGate).
+const disableSplashScreen = () => requestSplashHide()
 
 const LayoutProvider: FC<WithChildren> = ({children}) => {
   const [config, setConfig] = useState(LayoutSetup.config)

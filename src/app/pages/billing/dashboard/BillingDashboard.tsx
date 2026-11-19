@@ -55,6 +55,7 @@ const PIPELINE: Record<ProformaState, { label: string; hint: string; trio: Trio;
   INVOICED: { label: "Invoiced", hint: "billed", trio: TRIO.green, icon: "receipt-square" },
 };
 
+// Keys must match the <Bar dataKey> values below; the colours are the chart theme's CSS variables, so dark mode follows.
 const trendConfig = {
   billed: { label: "Billed", color: "var(--chart-1)" },
   received: { label: "Received", color: "var(--chart-5)" },
@@ -140,6 +141,7 @@ const BillingDashboard: React.FC = () => {
     queryFn: () => getBillingDashboard({ organizationId }),
   });
   const go = (path: string) => () => navigate(path);
+  // Undefined until the first load; each tile shows a dash until then, so the layout does not jump.
   const k = data?.kpis;
 
   /** Where an attention item opens: a draft in the editor, an issued one at its record, otherwise the project. */
@@ -148,6 +150,8 @@ const BillingDashboard: React.FC = () => {
     navigate(`/billing/documents/${item.documentId}${item.state === "DRAFT" ? "/edit" : ""}`);
   };
 
+  // One card per attention list. The header amount opens the tracker with the same filter that built the list, so the
+  // card and the tracker always show the same rows.
   const attentionCard = (
     key: keyof BillingDashboardData["attention"],
     title: string,
@@ -173,6 +177,7 @@ const BillingDashboard: React.FC = () => {
   };
 
   const subOf = (item: DashboardItem) => `${item.projectName ?? item.projectNumber ?? "—"} · ${item.stageName}`;
+  // Share of proformas per stage, by count (the stacked bar's widths). It is not a share of money.
   const pipelineTotal = (data?.pipeline ?? []).reduce((s, p) => s + p.count, 0);
 
   return (

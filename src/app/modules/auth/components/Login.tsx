@@ -23,6 +23,8 @@ import { saveCurrentEmployee } from "@redux/slices/employee";
 import { redirect, saveCurrentUser, saveToken } from "@redux/slices/auth";
 import { RootState } from "@redux/store";
 import { getAvatar } from "@utils/avatar";
+import { rememberSplashLogo, rememberSplashVideo } from "@utils/splashBrand";
+import { showSplashAgain } from "@utils/splashGate";
 import { setAuth } from "../core/AuthHelpers";
 import { toAbsoluteUrl, KTIcon } from "@metronic/helpers";
 import { makeTokens } from "@app/theme/tokens";
@@ -86,6 +88,8 @@ function LoginForm() {
         const { data: loginRes } = await login(values.email, values.password);
         dispatch(saveToken(loginRes.token));
         setAuth(loginRes);
+        // The organization's splash covers the dashboard's first load, exactly as on a fresh open of the app.
+        showSplashAgain();
         const { data: currUserRes } = await fetchCurrentUser(loginRes.id);
         dispatch(saveCurrentUser(currUserRes.user));
         if (!currEmployee.id) {
@@ -256,9 +260,13 @@ export default function Login() {
     async function getCompanyLogo() {
       try {
         const {
-          data: { logo },
+          data: { logo, splashVideoDesktop },
         } = await fetchCompanyLogo();
         if (logo) setLogoSrc(logo); // keep default if no logo is set
+        // The splash (index.html) can't ask the server — it reads what was remembered. Remember the company's public
+        // branding here, so the next open of the login screen, and the splash after Sign In, are the organization's.
+        rememberSplashLogo(logo);
+        rememberSplashVideo(splashVideoDesktop ?? null);
       } catch {
         /* keep default logo */
       }

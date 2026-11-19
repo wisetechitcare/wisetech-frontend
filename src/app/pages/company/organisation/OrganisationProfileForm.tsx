@@ -1,7 +1,7 @@
 import { resolveActiveOrg, resolveActiveOrgId } from '@utils/activeOrg';
 import { useState, useEffect } from 'react';
 import { Formik, FormikProps } from 'formik';
-import { createCompanyOverview, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview } from '@services/company';
+import { createCompanyOverview, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview, uploadSplashVideo, SPLASH_VIDEO_MAX_BYTES } from '@services/company';
 import { uploadCompanyAsset } from '@services/uploader';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { ICompanyOverview, IFormSection, IFormField } from "@models/company";
@@ -11,7 +11,7 @@ import FormSchemaManager from '@app/modules/common/components/FormSchemaManager'
 import DragDropFileField from '@app/modules/common/components/DragDropFileField';
 import { Box, Typography } from '@mui/material';
 import eventBus from '@utils/EventBus';
-import { WtDateField, WtField, WtButton, WtFormDialog, WtFormSection, WtFormSpan, WtImageField, AppIcon, FiscalYearRangeField } from '@app/modules/common/components/ui';
+import { WtDateField, WtField, WtButton, WtFormDialog, WtFormSection, WtFormSpan, WtImageField, WtVideoField, AppIcon, FiscalYearRangeField } from '@app/modules/common/components/ui';
 import { toCanonicalFiscalYearRange } from '@utils/fiscalYearRange';
 import { GST_STATE_CODES, gstStateCode, gstinPan, typeGstin, typePan } from '@utils/gstin';
 import { Button } from '@/ds/ui/button';
@@ -35,6 +35,7 @@ const initialValues: ICompanyOverview = {
     name: "",
     fiscalYear: "",
     logo: "",
+    splashVideoDesktop: "",
     salaryStamp: "",
     contactNumber: "",
     foundedIn: "",
@@ -319,6 +320,7 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                             }
                             sections={[
                                 { id: 'org-assets', title: 'Logo & Stamp', icon: 'bi bi-image' },
+                                { id: 'org-splash', title: 'Splash Screen', icon: 'bi bi-play-btn' },
                                 ...visibleSections.map(s => ({ id: `org-${s.id}`, title: titleCase(s.title), icon: lookOf(s.id).icon, invalid: hasError(s) })),
                             ]}
                             onSubmit={(e) => { e.preventDefault(); f.handleSubmit(); }}
@@ -329,6 +331,28 @@ const OrganisationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                             <WtFormSection id="org-assets" title="Logo & Stamp" description="Shown on payslips, letters and the PDF profile" icon="bi bi-image" tone="#2563EB">
                                 <WtImageField label="Organization logo" value={f.values.logo} onChange={(url) => f.setFieldValue('logo', url)} upload={uploadImage} />
                                 <WtImageField label="Stamp" value={f.values.salaryStamp} onChange={(url) => f.setFieldValue('salaryStamp', url)} upload={uploadImage} />
+                            </WtFormSection>
+
+                            {/* Played full-screen while the app loads, for this organization's people. One video for every
+                                screen (fit to the width on phones); the logo shows when there is none. Saved with the profile,
+                                which checks the stored file. */}
+                            <WtFormSection
+                                id="org-splash"
+                                title="Splash Screen"
+                                description="A short video shown while the app loads. Without one, the logo is shown."
+                                icon="bi bi-play-btn"
+                                tone="#7C3AED"
+                            >
+                                <WtVideoField
+                                    label="Splash video"
+                                    shape="landscape"
+                                    value={f.values.splashVideoDesktop}
+                                    onChange={(url) => f.setFieldValue('splashVideoDesktop', url)}
+                                    upload={(file, onProgress) => uploadSplashVideo(companyId, 'desktop', file, onProgress)}
+                                    maxSizeMB={SPLASH_VIDEO_MAX_BYTES / 1048576}
+                                    hint="Landscape (16:9), MP4 up to 25 MB, plain background. Used on every screen."
+                                    disabledReason={isCreate || !companyId ? 'Save the profile first, then add a video.' : undefined}
+                                />
                             </WtFormSection>
 
                             {/* Data-driven sections: order, titles and fields all come from formSchema. */}

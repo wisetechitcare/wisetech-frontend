@@ -1,4 +1,5 @@
 import { FC, lazy, ReactElement, Suspense, useEffect, useState } from 'react'
+import { holdSplash } from '@utils/splashGate'
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { TAB_PATHS } from './tabPaths'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
@@ -134,6 +135,9 @@ const PrivateRoutes = () => {
     }
     fetchAndStore()
   }, [])
+  // No routes exist until access is known, so keep the startup splash up until then — otherwise it lifts onto an empty
+  // screen and the first page loads a second time under the top progress bar.
+  useEffect(() => (isStored ? undefined : holdSplash()), [isStored])
 
 
   return (
@@ -952,6 +956,12 @@ const tabRoutes = (base: string, slugs: readonly string[], element: ReactElement
   ...slugs.map((slug) => <Route key={`${base}/${slug}`} path={`${base}/${slug}`} element={element} />),
 ]
 
+/** The route fallback: the top bar, and it keeps the startup splash up while a route chunk is still arriving. */
+const RouteLoading: FC = () => {
+  useEffect(() => holdSplash(), [])
+  return <TopBarProgress />
+}
+
 const SuspensedView: FC<WithChildren> = ({ children }) => {
   const baseColor = getCSSVariableValue('--bs-primary')
   TopBarProgress.config({
@@ -961,7 +971,7 @@ const SuspensedView: FC<WithChildren> = ({ children }) => {
     barThickness: 5,
     shadowBlur: 5,
   })
-  return <Suspense fallback={<TopBarProgress />}>{children}</Suspense>
+  return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
 }
 
 export { PrivateRoutes }

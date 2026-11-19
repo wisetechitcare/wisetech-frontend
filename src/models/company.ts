@@ -125,6 +125,8 @@ export interface ICompanyOverview {
     name: string,
     fiscalYear: string,
     logo: string,
+    /** Splash-screen video (MP4 URL), used on every screen; blank = the splash shows the logo. */
+    splashVideoDesktop?: string | null,
     salaryStamp?:string,
     monthlyAnnualLeaveLimit?:string,
     showDateIn12HourFormat?:string,
