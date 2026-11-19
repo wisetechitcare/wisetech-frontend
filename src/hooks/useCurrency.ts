@@ -58,18 +58,20 @@ interface CountryRecord {
  * Exported because a screen that needs the country list should use this rather than dispatch
  * a third shape into the locations slice.
  */
-export const useCountryDirectory = () => {
-    const { data } = useQuery<CountryRecord[]>({
-        queryKey: ['geo', 'countries'],
-        queryFn: fetchAllCountries,
-        staleTime: Infinity,
-        gcTime: Infinity,
-        // A missing directory costs a fallback to INR, not a broken screen — so failing
-        // quietly and quickly beats retrying three times behind every money figure.
-        retry: false,
-    });
-    return data;
-};
+const countryDirectoryQuery = {
+    queryKey: ['geo', 'countries'],
+    queryFn: fetchAllCountries,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    // A missing directory costs a fallback to INR, not a broken screen — so failing
+    // quietly and quickly beats retrying three times behind every money figure.
+    retry: false,
+} as const;
+
+export const useCountryDirectory = () => useQuery<CountryRecord[]>(countryDirectoryQuery).data;
+
+/** True once the directory has answered (or failed) — i.e. the currency will not change again on its own. */
+export const useCountryDirectoryReady = () => useQuery<CountryRecord[]>(countryDirectoryQuery).isFetched;
 
 export interface ResolvedCurrency {
     /** ISO 4217, e.g. `INR`. */

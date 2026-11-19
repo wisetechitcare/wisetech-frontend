@@ -231,7 +231,8 @@ const ScorecardTemplateSection = () => {
                                 captionStrong
                                 disabled={busy}
                                 onEdit={canWrite ? () => openEdit(t) : undefined}
-                                action={canDelete("recruitment") ? {
+                                // The default is never deletable — set another template as default first.
+                                action={canDelete("recruitment") && !t.isDefault ? {
                                     icon: "bi-trash",
                                     title: `Delete ${t.name}`,
                                     danger: true,
@@ -286,8 +287,11 @@ const ScorecardTemplateSection = () => {
                         />
                         <WtSwitchField
                             title="Use as the Default"
-                            description="Applied to any interview whose designation has no scorecard of its own."
+                            description={editing?.isDefault
+                                ? "This is the default. To change it, set another one as the default instead."
+                                : "Applied to any interview whose designation has no scorecard of its own."}
                             checked={isDefault}
+                            disabled={Boolean(editing?.isDefault)}
                             onChange={(_e, checked) => setIsDefault(checked)}
                         />
 

@@ -22,28 +22,21 @@ export interface BillingTabDef {
 
 export const BILLING_BASE = "/billing";
 
-// The order here is the order of the header tabs, and it follows the money: what is
-// asked for, what Accounts is working on, what was issued, what came back, what it
-// all adds up to. A tab is still only shown to a user who holds its `accessKey`.
+// The order here is the order of the header tabs, and it follows the money: the overview,
+// every project, the proformas raised, the tax invoices issued, then the module's settings.
+// A tab is only shown to a user who holds its `accessKey`.
 export const BILLING_TABS: BillingTabDef[] = [
+    // Hidden for now (2026-11-19) — uncomment to restore. Its route follows this list, so it goes too.
     // { path: "dashboard", title: "Dashboard", icon: "bi-speedometer2", accessKey: "billing.dashboard" },
-    // { path: "requests", title: "Billing Requests", icon: "bi-file-earmark-text", accessKey: "billing.requests" },
-    // The Accounts workspace: one row per approved request, carrying its whole
-    // financial journey. Pre-filter with ?status=READY_FOR_PROFORMA to see the queue.
-    // Renamed from "Billing Operations" — it is the sheet you watch, not a thing you
-    // operate — and the path followed the name. /billing/operations still redirects
-    // (BillingRoutes), so old bookmarks land. The ACCESS KEY stays `billing.operations`:
-    // grants are stored per key, and renaming one revokes everybody who holds it.
-    { path: "tracker", title: "Billing Tracker", icon: "bi-diagram-3", accessKey: "billing.operations" },
-    // { path: "proformas", title: "Proformas", icon: "bi-receipt", accessKey: "billing.proformas" },
-    // Record, verify and track client payments against issued proformas.
-    // Title only. The PATH and the ACCESS KEY stay `payments` / `billing.payments`
-    // on purpose: grants are stored per key, so renaming one revokes everybody who
-    // holds it, and the path is in people's bookmarks and in drill-down links.
-    { path: "payments", title: "Invoice Tracker", icon: "bi-cash-coin", accessKey: "billing.payments" },
+    // One row per project: contract, billed, received, pending, and the hand-set Bill Stage.
+    { path: "tracker", title: "Bill Status", icon: "bi-diagram-3", accessKey: "billing.tracker" },
+    // Every project's proformas, end to end. Hidden for now (2026-11-13) — uncomment to restore.
+    // { path: "proformas", title: "Proformas", icon: "bi-file-earmark-text", accessKey: "billing.proformas" },
+    // Every issued bill: Bill Amount / GST / TDS and what has come in against each.
+    { path: "payments", title: "Payments", icon: "bi-cash-coin", accessKey: "billing.invoices" },
+    // Every project's tax invoices, end to end — the Proforma Tracker's sibling. Hidden for now (2026-11-13) — uncomment to restore.
     // { path: "invoices", title: "Tax Invoices", icon: "bi-receipt-cutoff", accessKey: "billing.invoices" },
-    // { path: "reports", title: "Reports", icon: "bi-graph-up", accessKey: "billing.reports" },
-    // Display configuration for the module's statuses and payment states.
+    // Display configuration for the module's statuses and payment states, and the GST / TDS rates.
     { path: "configure", title: "Configure", icon: "bi-gear", accessKey: "billing.configure" },
 ];
 
@@ -56,8 +49,7 @@ export const billingDefaultPath = (isVisible: (key: string) => boolean): string 
 /**
  * Resolve the active tab index from a pathname. -1 when none matches.
  *
- * Uses `startsWith`, so a sub-page like /billing/requests/:id keeps Billing Requests
- * highlighted rather than dropping the whole bar.
+ * Uses `startsWith`, so a sub-page under a tab's path keeps that tab highlighted.
  */
 export const activeBillingTabIndex = (pathname: string, tabs: BillingTabDef[]): number =>
     tabs.findIndex((t) => pathname.startsWith(`${BILLING_BASE}/${t.path}`));

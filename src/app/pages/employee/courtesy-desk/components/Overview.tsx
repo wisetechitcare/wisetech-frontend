@@ -16,7 +16,7 @@ import {
 } from "@app/modules/common/components/ui";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
-import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
+import { SolidChip } from "@app/modules/common/components/ui/SolidChip";
 import { generateFiscalYearFromGivenYear } from "@utils/file";
 import { formatFiscalYearLabel } from "@utils/fiscalYearHelper";
 import { formatCurrencyCompact } from "@utils/currency";

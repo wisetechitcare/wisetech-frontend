@@ -2,7 +2,7 @@ import { resolveActiveOrg, resolveActiveOrgId } from '@utils/activeOrg';
 import { useState, useEffect } from 'react';
 import { Formik, FormikProps } from 'formik';
 import { parseDate } from '@internationalized/date';
-import { Image as ImageIcon, Landmark, Settings } from 'lucide-react';
+import { Clapperboard, Image as ImageIcon, Landmark, Settings } from 'lucide-react';
 import { Button } from '@/ds/ui/button';
 import { DatePicker } from '@/ds/ui/date-picker';
 import { Field, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from '@/ds/ui/field';
@@ -11,7 +11,8 @@ import { Textarea } from '@/ds/ui/textarea';
 import { AutoGrid } from '@/ds/patterns/auto-grid';
 import { FormDialog } from '@/ds/patterns/form-dialog';
 import { ImageField } from '@/ds/patterns/image-field';
-import { createCompanyOverview, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview } from '@services/company';
+import { VideoField } from '@/ds/patterns/video-field';
+import { createCompanyOverview, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview, uploadSplashVideo, SPLASH_VIDEO_MAX_BYTES } from '@services/company';
 import { uploadCompanyAsset } from '@services/uploader';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { ICompanyOverview, IFormSection, IFormField } from "@models/company";
@@ -42,6 +43,7 @@ const initialValues: ICompanyOverview = {
     fiscalYear: "",
     logo: "",
     salaryStamp: "",
+    splashVideoDesktop: "",
     contactNumber: "",
     foundedIn: "",
     gstNumber: "",
@@ -306,6 +308,7 @@ const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                             size="2xl"
                             sections={[
                                 { id: 'org-assets', label: 'Logo & stamp', icon: <ImageIcon aria-hidden /> },
+                                { id: 'org-splash', label: 'Splash screen', icon: <Clapperboard aria-hidden /> },
                                 ...visibleSections.map(s => ({ id: `org-${s.id}`, label: titleCase(s.title), icon: orgSectionLook(s.id).icon, invalid: hasError(s) })),
                             ]}
                             formId={FORM_ID}
@@ -345,6 +348,26 @@ const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                                 maxSizeMB={5}
                                             />
                                         </AutoGrid>
+                                    </FieldSet>
+                                </section>
+
+                                {/* Played full-screen while the app loads, for this organization's people: one video for every
+                                    screen (fit to the width on phones). The logo shows when there is none. Saved with the profile,
+                                    which checks the stored file. */}
+                                <section id="org-splash" className="scroll-mt-4">
+                                    <FieldSet>
+                                        <FieldLegend>Splash screen</FieldLegend>
+                                        <FieldDescription>A short video shown while the app loads. Without one, the logo is shown.</FieldDescription>
+                                        <VideoField
+                                            id="org-splash-video"
+                                            label="Splash video"
+                                            value={f.values.splashVideoDesktop || null}
+                                            onChange={(url) => f.setFieldValue('splashVideoDesktop', url ?? '')}
+                                            upload={(file, onProgress) => uploadSplashVideo(companyId, 'desktop', file, onProgress)}
+                                            maxSizeMB={SPLASH_VIDEO_MAX_BYTES / 1048576}
+                                            hint="Landscape (16:9), MP4 up to 25 MB, plain background. Used on every screen."
+                                            disabledReason={isCreate || !companyId ? 'Save the profile first, then add a video.' : undefined}
+                                        />
                                     </FieldSet>
                                 </section>
 

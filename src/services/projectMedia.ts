@@ -1,6 +1,7 @@
 import axios from "axios";
 import { FILE } from "@constants/api-endpoint";
 import type { GalleryView, MediaItem, UploadMeta } from "@app/modules/project-gallery/media";
+import { putToS3 } from "@utils/directUpload";
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || "";
 const base = (leadId: string) => `${API_BASE_URL}/api/projects/${leadId}`;
@@ -75,21 +76,6 @@ export const createProjectMediaAlbum = async (leadId: string, view: GalleryView,
   await axios.post(`${base(leadId)}/media/albums`, { view, name });
 };
 
-/**
- * PUT a file straight to S3. Plain XHR on purpose: the app's axios interceptors add an
- * Authorization header, which S3 rejects on a presigned request.
- */
-const putToS3 = (url: string, file: File, contentType: string, onProgress: (pct: number) => void) =>
-  new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", contentType);
-    xhr.setRequestHeader("x-amz-acl", "public-read");
-    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress((e.loaded / e.total) * 100);
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Storage refused the upload (${xhr.status}).`)));
-    xhr.onerror = () => reject(new Error("Upload interrupted. Check your connection and retry."));
-    xhr.send(file);
-  });
 
 /**
  * Store one file and add it to the gallery. Photos go through the shared pipeline (content check,

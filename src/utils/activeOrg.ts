@@ -85,6 +85,36 @@ export const resolveHomeRootOrg = (
   return resolveActiveOrg(companyOverview);
 };
 
+export type OrgBranding = {
+  logo: string | null;
+  salaryStamp: string | null;
+  splashVideoDesktop: string | null;
+};
+
+/**
+ * An organization's effective logo / stamp / splash videos: its own when set, else its parent's, up to the root —
+ * resolved per field. Twin of the backend's `resolveOrgBranding` (services/orgBranding.ts); keep the rule identical.
+ * Read-time only: never save an inherited value into the sub-org's own record, or it stops following the parent.
+ */
+export const resolveOrgBranding = (companyOverview?: any[], orgId?: string | null): OrgBranding => {
+  const out: OrgBranding = { logo: null, salaryStamp: null, splashVideoDesktop: null };
+  if (!Array.isArray(companyOverview)) return out;
+  const byId = new Map<string, any>();
+  for (const row of companyOverview) if (row?.id) byId.set(row.id, row);
+
+  const seen = new Set<string>();
+  let cur = orgId ? byId.get(orgId) : undefined;
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    for (const key of Object.keys(out) as (keyof OrgBranding)[]) {
+      const v = typeof cur[key] === 'string' ? cur[key].trim() : '';
+      if (!out[key] && v) out[key] = v;
+    }
+    cur = cur.parentOrganizationId ? byId.get(cur.parentOrganizationId) : undefined;
+  }
+  return out;
+};
+
 export const resolveHomeRootOrgId = (
   companyOverview?: any[],
   homeCompanyId?: string | null,

@@ -3,7 +3,7 @@ import { ToneChip } from '@app/modules/common/components/ui';
 import React from "react";
 import { useFormikContext } from "formik";
 import dayjs from "dayjs";
-import { EnterpriseFormWizard, EnterpriseWizardStep, SummaryRow } from "@/shared/form-engine";
+import { EnterpriseFormWizard, EnterpriseWizardStep, SummaryRow, WizardHeaderBadge } from "@/shared/form-engine";
 import * as L from "./LeadSections";
 import {
   AssignmentOutlined,
@@ -61,7 +61,6 @@ interface LeadWorkspaceProps {
   companies: any[];
   contacts: any[];
   companyTypes: any[];
-  proposalTemplates?: any[];
 
   // ── Inline create / modal triggers ────────────────────────────────────────
   setShowCategoryModal: (show: boolean) => void;
@@ -125,80 +124,6 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
 
   const currentStatusName = props.leadStatuses.find((x) => x.id === values.statusId)?.name;
 
-  const lastTemplateIdRef = React.useRef<string | null>(null);
-  const loadedTemplatesRef = React.useRef<any[]>([]);
-
-  React.useEffect(() => {
-    const templatesLoaded = props.proposalTemplates && props.proposalTemplates.length > 0;
-    const templateIdChanged = values.proposalTemplateId !== lastTemplateIdRef.current;
-    
-    // Robust check using IDs to avoid infinite loops from new array references
-    const currentTplIds = (props.proposalTemplates || []).map((t: any) => t.id).join(',');
-    const loadedTplIds = (loadedTemplatesRef.current || []).map((t: any) => t.id).join(',');
-    const templatesListChanged = currentTplIds !== loadedTplIds;
-
-    if (templateIdChanged || (templatesListChanged && templatesLoaded)) {
-      lastTemplateIdRef.current = values.proposalTemplateId;
-      loadedTemplatesRef.current = props.proposalTemplates || [];
-
-      const tpl = props.proposalTemplates?.find((t: any) => t.id === values.proposalTemplateId);
-      if (tpl) {
-        // Always reload on user-initiated template switch; only guard on passive list refresh
-        const hasStages = values.globalPaymentStages && values.globalPaymentStages.length > 0;
-        const hasRules = values.rules && values.rules.length > 0;
-
-        if (templateIdChanged || (!hasStages && !hasRules)) {
-          const globalPaymentStages: any[] = [];
-          const rules: any[] = [];
-          if (Array.isArray(tpl.rules)) {
-            tpl.rules.forEach((r: any) => {
-              const type = r.configType || r.config_type;
-              const min = r.minArea !== undefined ? r.minArea : r.min_area;
-              const max = r.maxArea !== undefined ? r.maxArea : r.max_area;
-              const key = r.configKey || r.config_key;
-              const val = r.value !== undefined ? r.value : r.config_value;
-
-              const mappedRule = {
-                id: r.id,
-                config_type: type,
-                config_key: key,
-                configType: type,
-                configKey: key,
-                value: val,
-                config_value: val,
-                minArea: min,
-                maxArea: max,
-                min_area: min,
-                max_area: max,
-                completionYear: r.completionYear ?? r.completion_year ?? 0,
-                completionMonth: r.completionMonth ?? r.completion_month ?? 0,
-              };
-
-              if (
-                type === "percentage" ||
-                type === "payment" ||
-                (Number(min) === -1 && Number(max) === -1)
-              ) {
-                globalPaymentStages.push(mappedRule);
-              } else {
-                rules.push(mappedRule);
-              }
-            });
-          }
-          setFieldValue("globalPaymentStages", globalPaymentStages);
-          setFieldValue("rules", rules);
-        }
-      } else {
-        // If we selected nothing or invalid template, clear it
-        if (!values.proposalTemplateId) {
-          setFieldValue("globalPaymentStages", []);
-          setFieldValue("rules", []);
-        }
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.proposalTemplateId, props.proposalTemplates, setFieldValue]);
-
   // ── Wizard Pages ───────────────────────────────────────────────────────────
   // Step 8 (Project Execution) is dynamically appended when status.isProjectTrigger
   // is true — no reload, smooth animated reveal.
@@ -236,7 +161,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       icon: <AssignmentOutlined />,
       render: (p) => (
         <>
-          {/* Lead basic info — uses wt-section-card internally */}
+          {/* Lead basic info — renders CrmSection cards */}
           <L.LeadBasicInfoSection {...p} />
           {/* Internal team: assigned head, telemarketer, coordinator */}
           <L.TeamDetailsSection {...p} />
@@ -254,7 +179,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       icon: <PeopleAlt />,
       render: (p) => (
         <>
-          {/* Linked client companies — uses wt-section-card internally */}
+          {/* Linked client companies — renders CrmSection cards */}
           <L.ClientCompaniesSection {...p} />
           {/* File location company — has its own card wrapper */}
           <L.FileLocationSection {...p} />
@@ -350,9 +275,6 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       : null;
     const assignedEmp = props.employees.find((x) => x.employeeId === values.leadAssignedTo);
 
-    const templateObj = props.proposalTemplates?.find((t) => t.id === values.proposalTemplateId);
-    const templateName = templateObj ? (templateObj.templateName || templateObj.templateCode || templateObj.id) : undefined;
-
     const selectedServices = (values.serviceIds || [])
       .map((id: any) => props.services.find((s) => s.id === id)?.name)
       .filter(Boolean)
@@ -414,7 +336,7 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
           <ToneChip
             dense
             tone={
-              currentStatusName === "Received"
+              props.leadStatuses.find((x) => x.id === values.statusId)?.isProjectTrigger
                 ? "success"
                 : currentStatusName === "Canceled"
                   ? "danger"
@@ -506,11 +428,6 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
         stepId: "overview",
       },
       {
-        label: "Proposal Template",
-        value: templateName || "—",
-        stepId: "lead-status",
-      },
-      {
         label: "File Company",
         value: fileCompanyStr,
         stepId: "company-relations",
@@ -579,19 +496,9 @@ export const LeadWorkspace: React.FC<LeadWorkspaceProps> = (props) => {
       headerSub={
         props.isEditMode ? (
           <>
-            <span className={`wizard-meta-chip is-accent`}>
-              <AppIcon name="bi-clock-history" /> Revision {props.currLeadData?.revisionCount ?? 0}
-            </span>
-            {currentStatusName && (
-              <span className="wizard-meta-chip">
-                <AppIcon name="bi-flag" /> {currentStatusName}
-              </span>
-            )}
-            {props.currLeadData?.prefix && (
-              <span className="wizard-meta-chip">
-                <AppIcon name="bi-hash" /> {props.currLeadData.prefix}
-              </span>
-            )}
+            <WizardHeaderBadge accent icon="bi-clock-history">Revision {props.currLeadData?.revisionCount ?? 0}</WizardHeaderBadge>
+            {currentStatusName && <WizardHeaderBadge icon="bi-flag">{currentStatusName}</WizardHeaderBadge>}
+            {props.currLeadData?.prefix && <WizardHeaderBadge icon="bi-hash">{props.currLeadData.prefix}</WizardHeaderBadge>}
           </>
         ) : (
           "Manage inquiry details and conversion workflow"

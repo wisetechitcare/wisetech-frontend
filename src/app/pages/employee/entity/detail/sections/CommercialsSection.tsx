@@ -10,6 +10,7 @@ import { EmptyState } from '../widgets';
 import { fmtMoney, fmtDate, DASH, type CommercialTotals } from '../entityViewModel';
 import type { CommercialLineVM, EntityVM } from '../facets';
 import { useSensitiveData } from '@app/modules/common/components/SensitiveData';
+import { poDisplayName, poFileIcon } from '@app/pages/employee/forms/lead/LeadSections';
 
 /**
  * A monetary value that blurs on demand.
@@ -87,6 +88,26 @@ const Breakdown: React.FC<{ title: string; subtitle: string; icon: string; accen
     {footer}
   </DetailCard>
 );
+
+/** The PO uploaded on the lead's Lead Status step — opens in a new tab. */
+const PoDocumentLink: React.FC<{ url?: string | null }> = ({ url }) => {
+  if (!url) return <>{DASH}</>;
+  const name = poDisplayName(url);
+  const { icon, color } = poFileIcon(name);
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`${name} — open the PO document in a new tab`}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, maxWidth: 360, fontWeight: 600, color: '#1E3A8A', textDecoration: 'none' }}
+    >
+      <i className={`bi ${icon}`} style={{ color, fontSize: 16 }} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+      <i className="bi bi-box-arrow-up-right" style={{ fontSize: 11, opacity: 0.7 }} />
+    </a>
+  );
+};
 
 /**
  * Commercials tab — the single home for all money. Lead commercials (the quote)
@@ -177,7 +198,8 @@ const CommercialsSection: React.FC<{ vm: EntityVM; rawLead: any }> = ({ vm, rawL
                     <>
                       <DetailRow label="PO Status" value={rawLead?.poStatus ? <DetailStatusBadge status={String(rawLead.poStatus)} /> : DASH} />
                       <DetailRow label="PO Number" value={ad?.poNumber || DASH} />
-                      <DetailRow label="PO Date" value={fmtDate(ad?.poDate)} isLast />
+                      <DetailRow label="PO Date" value={fmtDate(ad?.poDate)} />
+                      <DetailRow label="PO Document" value={<PoDocumentLink url={rawLead?.poFile} />} isLast />
                     </>
                   )
                 )}

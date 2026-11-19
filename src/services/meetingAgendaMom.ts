@@ -36,6 +36,12 @@ export const updateCompanyAgendaStatus = async (
   return data;
 };
 
+/** Restore a built-in status (OPEN / CLOSED / INFORMATION) to its default name and colour. */
+export const resetCompanyAgendaStatus = async (statusId: string) => {
+  const { data } = await axios.post(`${meetingsRoot}/agenda-statuses/${statusId}/reset`);
+  return data;
+};
+
 export const deleteCompanyAgendaStatus = async (statusId: string) => {
   const { data } = await axios.delete(`${meetingsRoot}/agenda-statuses/${statusId}`);
   return data;

@@ -19,6 +19,7 @@ import {
   fetchDocumentNumberPreview,
 } from '@services/options';
 import { fetchCompanyOverview } from '@services/company';
+import { useQueryClient } from '@tanstack/react-query';
 import { useOrgScope } from '@hooks/useOrgScope';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { ToneChip, FiscalYearRangeField } from '@app/modules/common/components/ui';
@@ -95,6 +96,13 @@ interface Series {
   followers: RowState[];
 }
 
+/**
+ * Shared cache keys: a Configure page mounts one of these per series (Proforma, Tax Invoice…), and they all read the
+ * same two lists — so they share one request each instead of every card fetching its own copy.
+ */
+const PREFIX_SETTINGS_KEY = ['prefix-settings'] as const;
+const COMPANY_OVERVIEW_KEY = ['company-overview'] as const;
+
 const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
   typeLabel,
   typeValue,
@@ -117,6 +125,12 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
   const [saving, setSaving] = useState(false);
   const [linkingOrgId, setLinkingOrgId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const queryClient = useQueryClient();
+  /** After a save: drop the cached settings (every card re-reads them) and reload this one. */
+  const reload = () => {
+    queryClient.removeQueries({ queryKey: PREFIX_SETTINGS_KEY });
+    setReloadToken((n) => n + 1);
+  };
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -128,8 +142,8 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
       try {
         setLoading(true);
         const [prefixResponse, companyResponse] = await Promise.all([
-          fetchAllPrefixSettings(),
-          fetchCompanyOverview(),
+          queryClient.fetchQuery({ queryKey: PREFIX_SETTINGS_KEY, queryFn: fetchAllPrefixSettings, staleTime: 30_000 }),
+          queryClient.fetchQuery({ queryKey: COMPANY_OVERVIEW_KEY, queryFn: fetchCompanyOverview, staleTime: 5 * 60_000 }),
         ]);
         if (cancelled) return;
 
@@ -172,14 +186,17 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
     })();
 
     return () => { cancelled = true; };
-  }, [organizations, typeValue, typeLabel, reloadToken]);
+  }, [organizations, typeValue, typeLabel, reloadToken, queryClient]);
 
   // The sample in the "Next ... No." column, straight from the series that will
   // actually issue it. Each identifier has its own preview endpoint because each
   // answers differently when nothing is configured — the lead one refuses, the
   // others fall back — and none of them consume a number.
+  // Keyed on WHICH organizations are configured, not on every row field — otherwise each keystroke in a prefix box
+  // refetched every preview. A save reloads the rows, and `reloadToken` refreshes the previews with them.
+  const configuredOrgIds = rows.filter((r) => r.settingId).map((r) => r.organizationId).join(',');
   useEffect(() => {
-    const configured = rows.filter((r) => r.settingId);
+    const configured = configuredOrgIds ? configuredOrgIds.split(',').map((organizationId) => ({ organizationId })) : [];
     if (!configured.length) return;
     let cancelled = false;
 
@@ -208,7 +225,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
     })();
 
     return () => { cancelled = true; };
-  }, [rows, typeValue]);
+  }, [configuredOrgIds, typeValue, reloadToken]);
 
   const patchRow = (organizationId: string, patch: Partial<RowState>) =>
     setRows((prev) =>
@@ -379,7 +396,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
           ? `${row.organizationName} now shares numbers with ${rowFor(targetId)?.organizationName ?? 'the selected organization'}.`
           : `${row.organizationName} now numbers independently.`,
       );
-      setReloadToken((n) => n + 1);
+      reload();
     } catch (err: any) {
       errorConfirmation(err?.response?.data?.message || 'Could not change the numbering link.');
     } finally {
@@ -423,7 +440,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
         }
       }
       successConfirmation('Prefix settings saved.');
-      setReloadToken((n) => n + 1);
+      reload();
     } catch (err: any) {
       // The server explains a refused save (e.g. a prefix that would duplicate
       // another organization's numbers) — show that, not a generic failure.

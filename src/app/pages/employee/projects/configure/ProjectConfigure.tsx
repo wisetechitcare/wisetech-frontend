@@ -22,6 +22,7 @@ import PaymentPlansSection from "../../leads/configuration/components/PaymentPla
 import StageNumberingFormatsEditor from "./components/StageNumberingFormatsEditor";
 import GalleryViewsSection from "@app/modules/project-gallery/GalleryViewsSection";
 import { ProjectItem } from "@models/clientProject";
+import { confirmAndResetStatus, statusRowAction } from "@app/modules/configuration/builtinStatus";
 import { useDeleteConfirmation } from "@hooks/useDeleteConfirmation";
 import { DropdownOption } from "./../../../../../types/deleteConfirmation";
 import PerOrgPrefixSettings from "@app/modules/common/components/PerOrgPrefixSettings";
@@ -116,7 +117,9 @@ interface StatusFlowRowProps {
   handleProps?: DragHandleProps;
   onNudge: (dir: -1 | 1) => void;
   onEdit: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
+  /** Built-in statuses restore their default instead of deleting (see builtinStatus.ts). */
+  onReset?: () => void;
   disabled?: boolean;
 }
 
@@ -126,7 +129,7 @@ interface DropdownState {
 }
 
 const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
-  index, total, name, color, handleProps, onNudge, onEdit, onDelete, disabled,
+  index, total, name, color, handleProps, onNudge, onEdit, onDelete, onReset, disabled,
 }) => {
   const [hov, setHov] = useState(false);
   const canDeleteHere = useCanDeleteHere();
@@ -190,11 +193,15 @@ const StatusFlowRow: React.FC<StatusFlowRowProps> = ({
           <AppIcon name="bi-pencil" className="fs-9" />
         </Button>
 
-        {/* Delete button */}
-        {canDeleteHere && (
-        <Button variant="ghost" size="icon-xs" title="Delete" aria-label="Delete" onClick={onDelete} style={iconBtn(C.danger)}>
-          <AppIcon name="bi-trash" className="fs-9" />
-        </Button>
+        {/* Delete — or, on a built-in status, restore its default */}
+        {onReset ? (
+          <Button variant="ghost" size="icon-xs" title={`Built in — restore ${name} to its default`} aria-label="Restore default" onClick={onReset} style={iconBtn('#4f82c4')}>
+            <AppIcon name="bi-arrow-counterclockwise" className="fs-9" />
+          </Button>
+        ) : onDelete && canDeleteHere && (
+          <Button variant="ghost" size="icon-xs" title="Delete" aria-label="Delete" onClick={onDelete} style={iconBtn(C.danger)}>
+            <AppIcon name="bi-trash" className="fs-9" />
+          </Button>
         )}
       </div>
 
@@ -486,7 +493,8 @@ const ProjectConfiguration = ({ embedded = false }: ProjectConfigurationProps = 
                           handleProps={handleProps}
                           onNudge={(dir) => nudgeStatus(i, dir)}
                           onEdit={() => handleStatusEdit(s)}
-                          onDelete={() => handleDelete(s.id, 'status')}
+                          onDelete={statusRowAction(s) === 'delete' ? () => handleDelete(s.id, 'status') : undefined}
+                          onReset={statusRowAction(s) === 'reset' ? () => confirmAndResetStatus('project-status', s, fetchProjectStatuses) : undefined}
                         />
                       );
                     }}

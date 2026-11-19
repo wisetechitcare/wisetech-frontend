@@ -37,7 +37,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsTrigger } from "@/ds/ui/tabs";
 import { EmptyState } from "@/ds/patterns/empty-state";
 import { toast } from "@app/modules/common/components/ui/feedback";
-import { GallerySelect, ToggleList, TOGGLE_TAB } from "@app/modules/project-gallery/GalleryDialogs";
+import { GallerySelect } from "@app/modules/project-gallery/GalleryDialogs";
+import { ToggleList, TOGGLE_TAB } from "@/ds/ui/tabs";
 import { formatDateTime, formatSize } from "@app/modules/project-gallery/media";
 import { ItemActionsMenu, shareLink } from "@app/modules/project-gallery/MediaCard";
 import { UploadJobsPanel } from "@app/modules/project-gallery/UploadPanel";

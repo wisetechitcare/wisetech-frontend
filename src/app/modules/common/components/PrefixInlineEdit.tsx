@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { Edit, Check, Close } from '@mui/icons-material';
-import { WtIconButton } from '@app/modules/common/components/ui/buttons';
+import React, { useEffect, useId, useState } from 'react';
+import { Check, Pencil, X } from 'lucide-react';
+import { Button } from '@/ds/ui/button';
+import { Field, FieldError, FieldLabel } from '@/ds/ui/field';
+import { Input } from '@/ds/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/ds/ui/input-group';
 
 interface PrefixInlineEditProps {
   value: string; // Full prefix like "testLead/2024-25/32"
-  label: string; // Display label like "INQUIRY NO." or "PROJECT NO."
+  label: string; // Field label like "Inquiry No." or "Project No."
   onChange: (newPrefix: string) => void;
   disabled?: boolean;
+  required?: boolean;
+  /** Server / form level error shown under the field. */
+  error?: string | null;
   className?: string;
 }
 
@@ -16,336 +22,125 @@ interface PrefixParts {
   count: string;
 }
 
+/** The last two segments are year + count; everything before is the prefix (which may itself contain '/'). */
+const parsePrefix = (prefixValue: string): PrefixParts => {
+  if (!prefixValue || !prefixValue.includes('/')) return { prefix: '', year: '', count: '' };
+  const parts = prefixValue.split('/').filter(Boolean);
+  if (parts.length >= 3) {
+    return { prefix: parts.slice(0, -2).join('/'), year: parts[parts.length - 2], count: parts[parts.length - 1] };
+  }
+  return { prefix: parts[0] || '', year: parts[1] || '', count: parts[2] || '' };
+};
+
+const validate = (v: PrefixParts): Partial<PrefixParts> => {
+  const errors: Partial<PrefixParts> = {};
+  if (!v.prefix.trim()) errors.prefix = 'Prefix is required';
+  if (!v.year.trim()) errors.year = 'Year is required';
+  if (!v.count.trim()) errors.count = 'Count is required';
+  else if (!/^\d+$/.test(v.count.trim())) errors.count = 'Only numbers are allowed';
+  return errors;
+};
+
 const PrefixInlineEdit: React.FC<PrefixInlineEditProps> = ({
-  value,
-  label,
-  onChange,
-  disabled = false,
-  className = '',
+  value, label, onChange, disabled = false, required = false, error, className,
 }) => {
+  const id = useId();
   const [isEditing, setIsEditing] = useState(false);
-  const [editValues, setEditValues] = useState<PrefixParts>({
-    prefix: '',
-    year: '',
-    count: '',
-  });
+  const [edit, setEdit] = useState<PrefixParts>({ prefix: '', year: '', count: '' });
   const [errors, setErrors] = useState<Partial<PrefixParts>>({});
 
-  // Parse prefix value into parts old without unique number edit 
-  // const parsePrefix = (prefixValue: string): PrefixParts => {
-  //   if (!prefixValue || !prefixValue.includes('/')) {
-  //     return { prefix: '', year: '', count: '' };
-  //   }
-    
-  //   const parts = prefixValue.split('/');
-  //   return {
-  //     prefix: parts[0] || '',
-  //     year: parts[1] || '',
-  //     count: parts[2] || '',
-  //   };
-  // };
+  useEffect(() => { setEdit(parsePrefix(value)); }, [value]);
 
-  // Parse prefix value into parts new with unique number edit
-  const parsePrefix = (prefixValue: string): PrefixParts => {
-    if (!prefixValue || !prefixValue.includes('/')) {
-      return { prefix: '', year: '', count: '' };
-    }
-
-    const parts = prefixValue.split('/').filter(Boolean);
-
-    // Support values where "prefix" itself may contain '/'.
-    // We treat the last 2 segments as year + count, everything before as prefix.
-    // Examples:
-    // - "WT/Lead/2025-26/11" => prefix="WT/Lead", year="2025-26", count="11"
-    // - "Lead/2025-26/11"   => prefix="Lead",   year="2025-26", count="11"
-    // - "X/11" (invalid)    => handled by empty fallbacks
-    if (parts.length >= 3) {
-      const count = parts[parts.length - 1] || '';
-      const year = parts[parts.length - 2] || '';
-      const prefix = parts.slice(0, parts.length - 2).join('/') || '';
-      return { prefix, year, count };
-    }
-
-    // Fallback for unexpected formats (keeps behavior safe)
-    return {
-      prefix: parts[0] || '',
-      year: parts[1] || '',
-      count: parts[2] || '',
-    };
-  };
-
-  // Update edit values when prop value changes
-  useEffect(() => {
-    setEditValues(parsePrefix(value));
-  }, [value]);
-
-  // Validation function
-  const validateValues = (values: PrefixParts): Partial<PrefixParts> => {
-    const errors: Partial<PrefixParts> = {};
-    
-    if (!values.prefix.trim()) {
-      errors.prefix = 'Prefix is required';
-    }
-    
-    if (!values.year.trim()) {
-      errors.year = 'Year is required';
-    }
-    
-    if (!values.count.trim()) {
-      errors.count = 'Count is required';
-    } else if (!/^\d+$/.test(values.count.trim())) {
-      errors.count = 'Only numbers are allowed';
-    }
-    
-    return errors;
-  };
-
-  const handleEdit = () => {
-    if (disabled) return;
-    setIsEditing(true);
-    setErrors({});
-  };
-
-  const handleCancel = () => {
+  const cancel = () => {
     setIsEditing(false);
-    setEditValues(parsePrefix(value)); // Reset to original values
+    setEdit(parsePrefix(value));
     setErrors({});
   };
 
-  // old save logic
-  // const handleSave = () => {
-  //   const validationErrors = validateValues(editValues);
-  //   setErrors(validationErrors);
-    
-  //   if (Object.keys(validationErrors).length === 0) {
-  //     const newPrefix = `${editValues.prefix.trim()}/${editValues.year.trim()}/${editValues.count.trim()}`;
-  //     onChange(newPrefix);
-  //     setIsEditing(false);
-  //   }
-  // };
-
-  //new save logic
-  const handleSave = () => {
-    const validationErrors = validateValues(editValues);
-    setErrors(validationErrors);
-
-    if (Object.keys(validationErrors).length === 0) {
-      // Preserve multi-segment prefix (e.g., "WT/Lead")
-      const cleanedPrefix = editValues.prefix
-        .split('/')
-        .map((p) => p.trim())
-        .filter(Boolean)
-        .join('/');
-
-      const newPrefix = `${cleanedPrefix}/${editValues.year.trim()}/${editValues.count.trim()}`;
-      onChange(newPrefix);
-      setIsEditing(false);
-    }
+  const save = () => {
+    const found = validate(edit);
+    setErrors(found);
+    if (Object.keys(found).length) return;
+    // Preserve a multi-segment prefix (e.g. "WT/Lead").
+    const prefix = edit.prefix.split('/').map((p) => p.trim()).filter(Boolean).join('/');
+    onChange(`${prefix}/${edit.year.trim()}/${edit.count.trim()}`);
+    setIsEditing(false);
   };
 
-  const handleInputChange = (field: keyof PrefixParts, newValue: string) => {
-    // Special handling for count field - only allow integers
-    if (field === 'count') {
-      // Allow empty string for clearing
-      if (newValue === '') {
-        setEditValues(prev => ({
-          ...prev,
-          [field]: newValue,
-        }));
-      }
-      // Only allow positive integers (no decimal points, no negative signs)
-      else if (/^\d+$/.test(newValue)) {
-        setEditValues(prev => ({
-          ...prev,
-          [field]: newValue,
-        }));
-        
-        // Clear error for this field when valid input is entered
-        if (errors[field]) {
-          setErrors(prev => ({
-            ...prev,
-            [field]: undefined,
-          }));
-        }
-      }
-      // If invalid input, show error immediately
-      else {
-        setErrors(prev => ({
-          ...prev,
-          [field]: 'Only numbers are allowed',
-        }));
-      }
-    } else {
-      // For other fields (prefix and year), allow normal input
-      setEditValues(prev => ({
-        ...prev,
-        [field]: newValue,
-      }));
-      
-      // Clear error for this field when user starts typing
-      if (errors[field]) {
-        setErrors(prev => ({
-          ...prev,
-          [field]: undefined,
-        }));
-      }
+  const set = (field: keyof PrefixParts, next: string) => {
+    // The count is a number: reject anything else on the spot.
+    if (field === 'count' && next !== '' && !/^\d+$/.test(next)) {
+      setErrors((e) => ({ ...e, count: 'Only numbers are allowed' }));
+      return;
     }
+    setEdit((e) => ({ ...e, [field]: next }));
+    setErrors((e) => ({ ...e, [field]: undefined }));
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSave();
-    } else if (e.key === 'Escape') {
-      handleCancel();
-    }
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); save(); }
+    else if (e.key === 'Escape') cancel();
   };
+
+  const editErrors = [errors.prefix, errors.year, errors.count].filter(Boolean).join(' · ');
+  const message = editErrors || error || undefined;
+
+  const header = label && (
+    <FieldLabel htmlFor={id}>
+      {label}
+      {required && <span aria-hidden className="text-destructive">*</span>}
+    </FieldLabel>
+  );
 
   if (!value) {
     return (
-      <div className={`d-flex flex-column align-items-end ${className}`}>
-        <span style={{ fontSize: "14px", fontFamily: "Inter", color: "#798DB3" }}>
-          {label}
-        </span>
-        <span style={{ fontSize: "14px", fontFamily: "Inter", color: "#999999" }}>
-          Not generated
-        </span>
-      </div>
+      <Field className={className}>
+        {header}
+        <InputGroup>
+          <InputGroupInput id={id} readOnly value="" placeholder="Not generated" />
+        </InputGroup>
+      </Field>
     );
   }
 
   return (
-    <div className={`d-flex flex-column align-items-end ${className}`}>
-      <span style={{ fontSize: "14px", fontFamily: "Inter", color: "#798DB3" }}>
-        {label}
-      </span>
-      
+    <Field className={className} data-invalid={message ? true : undefined}>
+      {header}
       {isEditing ? (
-        <div className="d-flex flex-column" style={{ fontSize: "14px", fontFamily: "Inter" }}>
-          {/* Input Row */}
-          <div className="d-flex align-items-center gap-1 mb-1">
-            <div className="d-flex flex-column">
-              <input
-                type="text"
-                value={editValues.prefix}
-                onChange={(e) => handleInputChange('prefix', e.target.value)}
-                onKeyDown={handleKeyPress}
-                className={`form-control form-control-sm ${errors.prefix ? 'is-invalid' : ''}`}
-                style={{ 
-                  width: '80px', 
-                  fontSize: '12px',
-                  textAlign: 'center',
-                  padding: '2px 4px',
-                  height: 'auto',
-                  minHeight: '24px',
-                  backgroundImage: 'none'
-                }}
-                placeholder="Prefix"
-                autoFocus
-              />
-            </div>
-            
-            <span style={{ color: "#000000", fontWeight: 500 }}>/</span>
-            
-            <div className="d-flex flex-column">
-              <input
-                type="text"
-                value={editValues.year}
-                onChange={(e) => handleInputChange('year', e.target.value)}
-                onKeyDown={handleKeyPress}
-                className={`form-control form-control-sm ${errors.year ? 'is-invalid' : ''}`}
-                style={{ 
-                  width: '70px', 
-                  fontSize: '12px',
-                  textAlign: 'center',
-                  padding: '2px 4px',
-                  height: 'auto',
-                  minHeight: '24px',
-                  backgroundImage: 'none'
-                }}
-                placeholder="Year"
-              />
-            </div>
-            
-            <span style={{ color: "#000000", fontWeight: 500 }}>/</span>
-            
-            <div className="d-flex flex-column">
-              <input
-                type="text"
-                value={editValues.count}
-                onChange={(e) => handleInputChange('count', e.target.value)}
-                onKeyDown={handleKeyPress}
-                className={`form-control form-control-sm ${errors.count ? 'is-invalid' : ''}`}
-                style={{ 
-                  width: '50px', 
-                  fontSize: '12px',
-                  textAlign: 'center',
-                  padding: '2px 4px',
-                  height: 'auto',
-                  minHeight: '24px',
-                  backgroundImage: 'none'
-                }}
-                placeholder="Count"
-              />
-            </div>
-            
-            <WtIconButton
-              size="small"
-              onClick={handleSave}
-              style={{ padding: '2px', marginLeft: '4px' }}
-              title="Save"
-            >
-              <Check style={{ fontSize: '16px', color: '#28a745' }} />
-            </WtIconButton>
-            
-            <WtIconButton
-              size="small"
-              onClick={handleCancel}
-              style={{ padding: '2px' }}
-              title="Cancel"
-            >
-              <Close style={{ fontSize: '16px', color: '#dc3545' }} />
-            </WtIconButton>
-          </div>
-          
-          {/* Error Row - Only show if there are any errors */}
-          {(errors.prefix || errors.year || errors.count) && (
-            <div className="d-flex align-items-start gap-1" style={{ minHeight: '15px' }}>
-              <div style={{ width: '80px', fontSize: '10px', color: '#dc3545' }}>
-                {errors.prefix || ''}
-              </div>
-              
-              <span style={{ width: '8px' }}></span> {/* Spacer for "/" */}
-              
-              <div style={{ width: '70px', fontSize: '10px', color: '#dc3545' }}>
-                {errors.year || ''}
-              </div>
-              
-              <span style={{ width: '8px' }}></span> {/* Spacer for "/" */}
-              
-              <div style={{ width: '50px', fontSize: '10px', color: '#dc3545' }}>
-                {errors.count || ''}
-              </div>
-            </div>
-          )}
+        <div className="flex items-center gap-1.5">
+          <Input id={id} autoFocus value={edit.prefix} placeholder="Prefix" aria-label="Prefix"
+            aria-invalid={errors.prefix ? true : undefined} onChange={(e) => set('prefix', e.target.value)} onKeyDown={onKeyDown}
+            className="min-w-0 flex-[2] text-center" />
+          <span aria-hidden className="text-muted-foreground">/</span>
+          <Input value={edit.year} placeholder="Year" aria-label="Year"
+            aria-invalid={errors.year ? true : undefined} onChange={(e) => set('year', e.target.value)} onKeyDown={onKeyDown}
+            className="min-w-0 flex-[1.4] text-center" />
+          <span aria-hidden className="text-muted-foreground">/</span>
+          <Input value={edit.count} placeholder="Count" aria-label="Count" inputMode="numeric"
+            aria-invalid={errors.count ? true : undefined} onChange={(e) => set('count', e.target.value)} onKeyDown={onKeyDown}
+            className="min-w-0 flex-1 text-center" />
+          <Button type="button" variant="tinted" size="icon-sm" title="Save" aria-label="Save"
+            style={{ '--tint': 'var(--success)' } as React.CSSProperties} onClick={save}>
+            <Check />
+          </Button>
+          <Button type="button" variant="ghost" size="icon-sm" title="Cancel" aria-label="Cancel" onClick={cancel}>
+            <X />
+          </Button>
         </div>
       ) : (
-        <div className="d-flex align-items-center gap-1">
-          <span style={{ fontSize: "14px", fontFamily: "Inter", color: "#000000" }}>
-            {value}
-          </span>
+        <InputGroup>
+          <InputGroupInput id={id} readOnly value={value} aria-invalid={message ? true : undefined} />
           {!disabled && (
-            <WtIconButton
-              size="small"
-              onClick={handleEdit}
-              style={{ padding: '2px', marginLeft: '4px' }}
-              title="Edit prefix"
-            >
-              <Edit style={{ fontSize: '14px', color: '#6c757d' }} />
-            </WtIconButton>
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton type="button" size="icon-xs" variant="ghost" title="Edit number" aria-label={`Edit ${label || 'number'}`} onClick={() => { setIsEditing(true); setErrors({}); }}>
+                <Pencil />
+              </InputGroupButton>
+            </InputGroupAddon>
           )}
-        </div>
+        </InputGroup>
       )}
-    </div>
+      {message && <FieldError>{message}</FieldError>}
+    </Field>
   );
 };
 

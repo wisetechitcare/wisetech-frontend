@@ -36,6 +36,7 @@ import { uploadCompanyAsset } from "@services/uploader";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { ContactFormValues, Branch, ContactRoleType, ContactChannel, ContactCompanyStint } from "@models/companies";
+import { fetchSubCompaniesByCompanyId } from "@services/company";
 import { ContactChannelFields, toChannelRows, toChannelPayload } from "./ContactChannelFields";
 import { CompanyMoveFields, CompanyMoveStage, type MovedFrom } from "./CompanyMoveFields";
 import CompanyConfigForm from "../../companyConfig/components/CompanyConfigForm";
@@ -44,7 +45,8 @@ import NewCompanyForm from "../../companies/components/NewCompanyForm";
 import { useEventBus } from "@hooks/useEventBus";
 import dayjs from "dayjs";
 import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
-import { AppIcon, useDiscardConfirm, FloatingLabels, FloatingLabelFrame, WtFieldFormik } from "@app/modules/common/components/ui";
+import { AppIcon, useDiscardConfirm, FloatingLabels, FloatingLabelFrame, WtFieldFormik, WtSwitchField } from "@app/modules/common/components/ui";
+import MultiSelectWithInlineCreate from "@app/modules/common/components/MultiSelectWithInlineCreate";
 import BirthdayField from "./BirthdayField";
 import { Box } from "@mui/material";
 import {
@@ -138,6 +140,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const [cities, setCities] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<any>("");
+  const [subCompanies, setSubCompanies] = useState<Array<{ id: string; subCompanyName: string }>>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [selectedState, setSelectedState] = useState<string>("");
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -204,6 +207,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   // Create a clean initial values object for new contacts
   const emptyInitialValues: ContactFormValues = {
     companyId: "",
+    subCompanyId: "",
     branchId: "",
     roleInCompany: "",
     contactRoleId: "",
@@ -239,6 +243,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   const initialValues: ContactFormValues = useMemo(() => {
     const values = key === "add-new" ? { ...emptyInitialValues, companyId: selectedCompanyId || "" } : initialData ? {
       companyId: selectedCompanyId || initialData.companyId || "",
+      subCompanyId: initialData.subCompanyId || "",
       branchId: (initialData.branchId) ?? (initialData.branch || ""),
       roleInCompany: initialData.roleInCompany || "",
       contactRoleId: initialData.contactRoleId || "",
@@ -457,9 +462,15 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       if (!targetCompanyId || targetCompanyId === "" || targetCompanyId === "undefined") {
         console.warn("Skipping branch load - invalid companyId:", targetCompanyId);
         setBranches([]);
+        setSubCompanies([]);
         setBranchWarning("");
         return;
       }
+
+      // The company's sub companies load with its branches: every path that picks a company comes through here.
+      fetchSubCompaniesByCompanyId(targetCompanyId)
+        .then((res) => setSubCompanies(res?.data?.subCompanies || []))
+        .catch(() => setSubCompanies([]));
 
       const branchesData = await getClientBranchesByCompanyId(targetCompanyId);
 
@@ -565,6 +576,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
       const contactData: Record<string, any> = {
         companyId: formValues.companyId,
+        // "" clears it on the server — a contact moved off a sub company must not keep pointing at it.
+        subCompanyId: formValues.subCompanyId || "",
         branch: formValues.branchId,
         roleInCompany: formValues.roleInCompany,
         contactRoleId: formValues.contactRoleId,
@@ -820,7 +833,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                       label: "Company",
                       title: "Company",
                       subtitle: "Link company, branch, role and services",
-                      fields: ["companyId","branchId","contactRoleId","statusId","serviceIds","roleInCompany","isPrimaryContact"],
+                      fields: ["companyId","subCompanyId","branchId","contactRoleId","statusId","serviceIds","roleInCompany","isPrimaryContact"],
                       requiredFields: [],
                       icon: "bi-building",
                       content: (
@@ -842,14 +855,16 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                             setSelectedCompany(original.companyId);
                             if (original.companyId) loadBranches(original.companyId);
                           }}>
-                          <Row>
-                            <Col md={12}>
+                          {/* One grid, two columns from md: every field puts its "+ Add" in its own label row, so
+                              neighbouring fields always start and end on the same line. */}
+                          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "repeat(2, minmax(0, 1fr))" }, columnGap: 3, rowGap: 2.5 }}>
+                            <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
                               <DropDownInput
                                 inputLabel="Choose Company"
                                 placeholder="Select company"
                                 isRequired={false}
                                 formikField="companyId"
-                                disabled={false} // Temporarily false for testing
+                                onAddClick={() => setShowCompanyModal(true)}
                                 value={
                                   values.companyId
                                     ? {
@@ -868,6 +883,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   setFieldValue("companyId", companyId);
                                   setSelectedCompany(companyId);
                                   setFieldValue("branchId", ""); // Reset branch when company changes
+                                  setFieldValue("subCompanyId", ""); // A sub company belongs to one company
                                   setFieldValue("serviceIds", []); // Sub-services are company-scoped — reset on company change
                                   if (companyId) {
                                     loadBranches(companyId, true); // Show warnings for manual change
@@ -879,24 +895,33 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                 }}
                               />
                               {branchWarning && (
-                                <small className="text-danger">
+                                <Box component="p" sx={{ m: 0, mt: 0.75, fontSize: 12, color: "warning.main" }}>
                                   {branchWarning}
-                                </small>
+                                </Box>
                               )}
-                              <small
-                                className="text-primary"
-                                onClick={() => setShowCompanyModal(true)}
-                                style={{ cursor: "pointer" }}
-                              >
-                                + New Company
-                              </small>
-                            </Col>
-                            <Col md={6} className="mt-2">
+                            </Box>
+                            {/* Always present so the grid never reflows; it says why when there is nothing to pick. */}
+                            <Box sx={{ minWidth: 0 }}>
+                              <DropDownInput
+                                inputLabel="Sub Company"
+                                placeholder={
+                                  !values.companyId ? "Select a company first"
+                                    : subCompanies.length ? "Select sub company" : "No sub companies"
+                                }
+                                isRequired={false}
+                                formikField="subCompanyId"
+                                disabled={!subCompanies.length}
+                                options={subCompanies.map((s) => ({ value: s.id, label: s.subCompanyName }))}
+                                onChange={(val: any) => setFieldValue("subCompanyId", val?.value ?? val ?? "")}
+                              />
+                            </Box>
+                            <Box sx={{ minWidth: 0 }}>
                               <DropDownInput
                                 inputLabel="Choose Branch"
                                 placeholder="Select branch"
                                 isRequired={false}
                                 formikField="branchId"
+                                onAddClick={() => setShowBranchModal(true)}
                                 options={branches.map((b) => ({
                                   value: b.id,
                                   label: b.name,
@@ -929,20 +954,14 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                     : null
                                 }
                               />
-                              <small
-                                className="text-primary"
-                                onClick={() => setShowBranchModal(true)}
-                                style={{ cursor: "pointer" }}
-                              >
-                                + New Branch
-                              </small>
-                            </Col>
-                            <Col md={6} className="mt-2">
+                            </Box>
+                            <Box sx={{ minWidth: 0 }}>
                               <DropDownInput
                                 inputLabel="Designation in Company"
                                 placeholder="Select Designation"
                                 isRequired={false}
                                 formikField="roleInCompany"
+                                onAddClick={() => setShowModal(true)}
                                 options={contactRoleTypes.map((r) => ({
                                   value: r.id,
                                   label: r.name,
@@ -987,20 +1006,14 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                     : null
                                 }
                               />
-                              <small
-                                className="text-primary"
-                                onClick={() => setShowModal(true)}
-                                style={{ cursor: "pointer" }}
-                              >
-                                + New Designation
-                              </small>
-                            </Col>
-                            <Col md={6} className="mt-2">
+                            </Box>
+                            <Box sx={{ minWidth: 0 }}>
                               <DropDownInput
                                 inputLabel="Contact Status"
                                 placeholder="Select Contact Status"
                                 isRequired={false}
                                 formikField="statusId"
+                                onAddClick={() => setShowContactStatusModal(true)}
                                 options={contactStatuses.map((s) => ({
                                   value: s.id,
                                   label: s.name,
@@ -1041,29 +1054,20 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                     : null
                                 }
                               />
-                              <small
-                                className="text-primary"
-                                onClick={() => setShowContactStatusModal(true)}
-                                style={{ cursor: "pointer" }}
-                              >
-                                + New Status
-                              </small>
-                            </Col>
-                            <Col md={6} className="mt-2">
-                              <FloatingLabelFrame label="Sub-services" filled={(values.serviceIds || []).length > 0} controlHeight={38}>
-                              <Select
-                                aria-label="Sub-services"
-{...FLOATING_MENU_BEHAVIOUR}
-                                isMulti
+                            </Box>
+                            {/* Full width: a multi-select grows with its chips, and a half-width one wraps early. */}
+                            <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
+                              <MultiSelectWithInlineCreate
+                                formikField="serviceIds"
+                                inputLabel="Sub-services"
                                 placeholder={
                                   values.companyId
                                     ? "Select sub-services"
                                     : "Select a company first"
                                 }
-                                classNamePrefix="react-select"
-                                className="react-select-styled"
-                                options={sortOptionsAlphabetically(
-                                  (() => {
+                                externalCreate
+                                onCreate={async () => { setShowCompanyServiceModal(true); }}
+                                options={(() => {
                                     // Strict cascade (mirrors the 3-layer company form): a contact's
                                     // sub-services are scoped to its COMPANY's tagged services. No company
                                     // selected → show nothing. Already-selected services are always kept
@@ -1082,53 +1086,19 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                         selectedServiceIds.has(s.id)
                                       )
                                       .map((s) => ({ value: s.id, label: s.name }));
-                                  })()
-                                )}
-                                value={companyServices
-                                  .filter((s) => (values.serviceIds || []).includes(s.id))
-                                  .map((s) => ({ value: s.id, label: s.name }))}
-                                onChange={(selected: any) =>
-                                  setFieldValue(
-                                    "serviceIds",
-                                    (selected || []).map((o: any) => o.value)
-                                  )
-                                }
-                                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
-                                menuPosition="fixed"
-                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                                  })()}
                               />
-                              </FloatingLabelFrame>
-                              <small
-                                className="text-primary"
-                                onClick={() => setShowCompanyServiceModal(true)}
-                                style={{ cursor: "pointer" }}
-                              >
-                                + New Sub-service
-                              </small>
-                            </Col>
-                          </Row>
-                          <div className="d-flex gap-5 mt-6">
-                            <div className="d-flex align-items-center gap-2">
-                              <label
-                                className="form-check-label"
-                                htmlFor="primaryContactToggle"
-                              >
-                                Primary Contact in company
-                              </label>
-                              <div className="form-check form-switch m-0">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  role="switch"
-                                  id="primaryContactToggle"
-                                  checked={values.isPrimaryContact}
-                                  onChange={(e) =>
-                                    setFieldValue("isPrimaryContact", e.target.checked)
-                                  }
-                                />
-                              </div>
-                            </div>
-                          </div>
+                            </Box>
+                            <Box sx={{ gridColumn: "1 / -1", px: 2, py: 1.5, borderRadius: 2, border: 1, borderColor: "divider", bgcolor: "action.hover" }}>
+                              <WtSwitchField
+                                title="Primary contact in company"
+                                description="The first person to reach at this company."
+                                checked={!!values.isPrimaryContact}
+                                onChange={(_, checked) => setFieldValue("isPrimaryContact", checked)}
+                                inputProps={{ "aria-label": "Primary contact in company" }}
+                              />
+                            </Box>
+                          </Box>
                           </CompanyMoveStage>
                           <CompanyMoveFields
                             canMove={!!contactId && !!initialData?.companyId}

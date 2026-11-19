@@ -89,7 +89,7 @@ const KEENICON: Record<string, AppIconComponent> = {
     // at all: the Tasks board's Table toggle was a blank button.
     'burger-menu-1': List, 'grid-2': LayoutGrid, 'grid': Grid2x2, 'element-equal': Grid2x2,
     'abstract-8': Component, 'auto-brightness': Sun, 'calendar-2': Calendar,
-    'circle': Circle, 'clock': Clock, 'delivery': Truck, 'download-1': Download,
+    'circle': Circle, 'clock': Clock, 'delivery': Truck, 'delivery-24': Truck, 'download-1': Download,
     'error': CircleX, 'file-added': FilePlus, 'file-pdf': FileText, 'file-sheet': Sheet,
     'file-text': FileText, 'gallery': Images, 'graph-3': ChartColumn, 'cake': Cake,
     'info': Info, 'information-4': Info, 'mail': Mail, 'map001': Map, 'pin': Pin,
@@ -114,7 +114,7 @@ const KEENICON: Record<string, AppIconComponent> = {
 
     'add-files': FilePlus, 'address-book': Contact, 'arrow-down': ArrowDown,
     'arrow-left': ArrowLeft, 'arrow-right': ArrowRight, 'arrow-up': ArrowUp,
-    'arrow-two-diagonals': ArrowLeftRight, 'arrow-up-down': ArrowUpDown,
+    'arrow-two-diagonals': ArrowLeftRight, 'arrow-right-left': ArrowLeftRight, 'arrow-up-down': ArrowUpDown,
     'arrow-up-right': ArrowUpRight, 'arrows-circle': RefreshCw, 'badge': IdCard,
     'bank': Landmark, 'basket': ShoppingBasket, 'black-left': ChevronLeft,
     'black-right': ChevronRight, 'briefcase': Briefcase, 'bucket': PaintBucket,

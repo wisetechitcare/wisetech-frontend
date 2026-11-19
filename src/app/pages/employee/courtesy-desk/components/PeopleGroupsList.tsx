@@ -13,7 +13,7 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
-import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
+import { SolidChip } from "@app/modules/common/components/ui/SolidChip";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
 import {
   ActionIconButton,

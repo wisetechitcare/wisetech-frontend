@@ -31,12 +31,15 @@ function NumberField({
   errorMessage,
   placeholder,
   steppers = true,
+  inputClassName,
   className,
   ...props
 }: NumberFieldProps & FieldChromeProps & {
   placeholder?: string
   /** The −/+ buttons. Off for money and other values nobody nudges by one (keyboard arrows still step). */
   steppers?: boolean
+  /** Extra classes on the text input itself (alignment, width) — the frame stays the field's. */
+  inputClassName?: string
 }) {
   return (
     <AriaNumberField
@@ -57,7 +60,10 @@ function NumberField({
             <Input
               data-slot="input-group-control"
               placeholder={placeholder ?? " "}
-              className="h-full min-w-0 flex-1 bg-transparent px-3 text-base tabular-nums outline-none placeholder:text-muted-foreground md:text-sm"
+              className={cn(
+                "h-full min-w-0 flex-1 bg-transparent px-3 text-base tabular-nums outline-none placeholder:text-muted-foreground md:text-sm",
+                inputClassName,
+              )}
             />
             {steppers && (
               <>

@@ -10,6 +10,7 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { PageHeadingTitle } from '@metronic/layout/components/header/page-title/PageHeadingTitle';
 import { FiscalYearRangeField } from '@app/modules/common/components/ui';
 import { Button } from '@/ds/ui/button';
+import { gstinError, typeGstin } from '@utils/gstin';
 
 const overviewBreadcrumbs: Array<PageLink> = [
     {
@@ -49,7 +50,10 @@ const companyOverviewSchema = Yup.object().shape({
     // workingHrs: Yup.string().required('Working hours is required'), // Commented out - not being used in the app
     contactNumber: Yup.string().required('Contact number is required'),
     foundedIn: Yup.string().required('Founded in is required'),
-    gstNumber: Yup.string().required('GST number is required'),
+    gstNumber: Yup.string().required('GST number is required').test('gstin', function (v) {
+        const message = v ? gstinError(v) : null;
+        return message ? this.createError({ message }) : true;
+    }),
     numberOfEmployees: Yup.string().required('Number of employees is required'),
     websiteUrl: Yup.string().required('Website url is required'),
     address: Yup.string().required('Address is required'),
@@ -245,8 +249,9 @@ function Overview() {
                                 <input
                                     type='text'
                                     className='form-control form-control-lg form-control-solid'
-                                    placeholder='GST number'
+                                    placeholder='e.g. 27ABCDE1234F1Z5'
                                     {...formik.getFieldProps('gstNumber')}
+                                    onChange={(e) => formik.setFieldValue('gstNumber', typeGstin(e.target.value, formik.values.gstNumber || ''))}
                                 />
                                 {formik.touched.gstNumber && formik.errors.gstNumber && (
                                     <div className='fv-plugins-message-container'>

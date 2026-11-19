@@ -73,7 +73,7 @@ export const ExplorerToolbar: React.FC<ExplorerToolbarProps> = ({ onUploadClick 
       // 1. Get all unique inquiry numbers from selected files (excluding placeholders like '-')
       const inquiryNumbers = [...new Set(selectedFileData.map(f => f.metadata?.inquiryNumber))].filter(n => n && n !== '-');
       
-      let zipName = "Proposals"; // Default for multiple leads
+      let zipName = "Documents"; // Default for multiple leads
       if (inquiryNumbers.length === 1) {
         zipName = inquiryNumbers[0] as string; // Use the specific inquiry number if only one lead is involved
       } else if (inquiryNumbers.length === 0) {
