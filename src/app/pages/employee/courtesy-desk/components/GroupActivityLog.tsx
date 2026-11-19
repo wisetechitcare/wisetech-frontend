@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Avatar, Box, CircularProgress, Stack, Typography } from "@mui/material";
+import { Box, CircularProgress, Stack, Typography } from "@mui/material";
 import {
   AppIcon,
   TRIO,
@@ -10,15 +10,9 @@ import {
 import { formatDateTime } from "@utils/dateFormats";
 import { fetchDriveActivity, fetchGroupActivity } from "@services/gifts";
 import type { GroupActivity } from "../types";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 
 const PAGE_SIZE = 20;
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-}
 
 function HistoryTimeline({ activity }: { activity: GroupActivity[] }) {
   return (
@@ -35,19 +29,7 @@ function HistoryTimeline({ activity }: { activity: GroupActivity[] }) {
             sx={{ minHeight: 64 }}
           >
             <Stack alignItems="center" sx={{ width: 36, flexShrink: 0 }}>
-              <Avatar
-                src={entry.actorAvatar || undefined}
-                alt={who}
-                sx={{
-                  width: 34,
-                  height: 34,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  bgcolor: "primary.main",
-                }}
-              >
-                {initials(who)}
-              </Avatar>
+              <SmartAvatar src={entry.actorAvatar} name={who} seed={entry.actorId} size={34} decorative />
               {!isLast ? (
                 <Box
                   sx={{

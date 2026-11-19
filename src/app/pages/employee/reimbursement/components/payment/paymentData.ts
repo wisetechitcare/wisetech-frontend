@@ -25,26 +25,10 @@ export type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
  * It is a label for an existing state, not a new one; nothing is stored under this name.
  */
 export const PAYMENT_STATE_LABEL: Record<PaymentState, string> = {
-    UNPAID: 'Ready to pay',
-    PARTIAL: 'Partially paid',
+    UNPAID: 'Ready to Pay',
+    PARTIAL: 'Partially Paid',
     PAID: 'Paid',
 };
-
-/**
- * Compact sizing for the page's action buttons.
- *
- * `WtButton size="small"` is still a 40px CTA with 24px of horizontal padding — right for a
- * dialog footer, far too heavy for a button that repeats on every table row and sits inside a
- * 34px toolbar. One height for all of them, so the row, the run bar and the toolbar line up.
- */
-export const COMPACT_BUTTON_SX = {
-    height: 30,
-    minHeight: 30,
-    px: 1.75,
-    fontSize: 12.5,
-    borderRadius: '8px',
-    whiteSpace: 'nowrap',
-} as const;
 
 /** A payment record is only ever PAID or PARTIAL — those are the two the backend writes. */
 const COUNTS_AS_PAYMENT = (p: any) => p?.status === 'PAID' || p?.status === 'PARTIAL';
@@ -90,7 +74,7 @@ export interface PaymentRecord {
 /**
  * The org facts a finance filter needs, which the batch payload does not carry.
  *
- * `ReimbursementBatch.employee` selects id, code and name and nothing else, so sub-organisation,
+ * `ReimbursementBatch.employee` selects id, code and name and nothing else, so sub-organization,
  * branch and team are joined in from the employee list — the same source and the same shape the
  * payroll and reimbursement-details toolbars use, so the three pages offer identical options for
  * the same population.

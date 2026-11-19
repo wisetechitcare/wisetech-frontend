@@ -30,14 +30,15 @@ function NumberField({
   description,
   errorMessage,
   placeholder,
-  className,
-  hideSteppers,
+  steppers = true,
   inputClassName,
+  className,
   ...props
 }: NumberFieldProps & FieldChromeProps & {
   placeholder?: string
-  /** No −/+ buttons: for money and other values nobody nudges by one. */
-  hideSteppers?: boolean
+  /** The −/+ buttons. Off for money and other values nobody nudges by one (keyboard arrows still step). */
+  steppers?: boolean
+  /** Extra classes on the text input itself (alignment, width) — the frame stays the field's. */
   inputClassName?: string
 }) {
   return (
@@ -64,7 +65,7 @@ function NumberField({
                 inputClassName,
               )}
             />
-            {!hideSteppers && (
+            {steppers && (
               <>
                 <Button
                   slot="decrement"

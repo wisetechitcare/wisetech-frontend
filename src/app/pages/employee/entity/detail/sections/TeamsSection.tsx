@@ -18,6 +18,7 @@ import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { canSection } from '@utils/can';
 import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 /**
  * Teams — the collaboration roster for a lead/project, split in two:
@@ -203,13 +204,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
 
   const formatEmployeeOption = (option: any) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      {option.image ? (
-        <img src={option.image} alt={option.label} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
-      ) : (
-        <div style={{ width: 24, height: 24, borderRadius: '50%', backgroundColor: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#64748B' }}>
-          {option.label.charAt(0).toUpperCase()}
-        </div>
-      )}
+      <SmartAvatar src={option.image} name={option.label} seed={option.value} size="xs" decorative />
       <span>{option.label}</span>
     </div>
   );
@@ -471,11 +466,6 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   //    get sorting, per-column search, column show/hide and saved column preferences that
   //    the hand-written <table> never had. Cells render exactly what they rendered before.
   const currentUserId = useSelector((st: RootState) => st.auth?.currentUser?.id);
-  const avatarFor = (name: string, url?: string | null) =>
-    url || `https://ui-avatars.com/api/?name=${encodeURIComponent(name && name !== DASH ? name : '?')}&background=eeeeee&color=888888&size=20&rounded=true`;
-  const RowAvatar = ({ name, url }: { name: string; url?: string | null }) => (
-    <img src={avatarFor(name, url)} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
-  );
 
   // Flattened so the table can sort and search on real values rather than on JSX.
   // Default order is employee name A→Z; MaterialTable defaultSorting matches, and the
@@ -501,7 +491,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       header: 'Employee',
       Cell: ({ row }: any) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <RowAvatar name={row.original.employeeName} url={empAvatar(row.original.employeeId)} />
+          <SmartAvatar src={empAvatar(row.original.employeeId)} name={row.original.employeeName === DASH ? null : row.original.employeeName} seed={row.original.employeeId} size="xs" decorative />
           {row.original.employeeId ? (
             <DetailLink href={`/employees/${row.original.employeeId}`} style={{ fontWeight: 700, color: '#1E293B' }}>
               {row.original.employeeName}
@@ -540,7 +530,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       header: 'Company / Client',
       Cell: ({ row }: any) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <RowAvatar name={row.original.name} url={row.original.companyAvatar} />
+          <SmartAvatar src={row.original.companyAvatar} name={row.original.name === DASH ? null : row.original.name} seed={row.original.companyId || row.original.name} size="xs" fit="contain" decorative />
           {row.original.companyId ? (
             <DetailLink href={`/companies/${row.original.companyId}`} style={{ fontWeight: 700, color: '#1E293B' }}>
               {row.original.name}
@@ -558,7 +548,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
       Cell: ({ row }: any) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {row.original.contact && row.original.contact !== DASH && (
-            <RowAvatar name={row.original.contact} url={row.original.contactAvatar} />
+            <SmartAvatar src={row.original.contactAvatar} name={row.original.contact} seed={row.original.contactId || row.original.contact} size="xs" decorative />
           )}
           {row.original.contactId && row.original.contact ? (
             <DetailLink href={`/contacts/${row.original.contactId}`} style={{ color: '#1E293B' }}>{row.original.contact}</DetailLink>
@@ -1086,10 +1076,12 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                               )}
                               <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F4F6F9', opacity: x.m.isActive === false ? 0.75 : 1 }}>
                                 <div style={{ flex: 2, minWidth: COL.employee, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <img
-                                    src={empAvatar(x.m.employeeId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(empName(x.m.employeeId) === DASH ? '?' : empName(x.m.employeeId))}&background=eeeeee&color=888888&size=20&rounded=true`}
-                                    alt=""
-                                    style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                                  <SmartAvatar
+                                    src={empAvatar(x.m.employeeId)}
+                                    name={empName(x.m.employeeId) === DASH ? null : empName(x.m.employeeId)}
+                                    seed={x.m.employeeId}
+                                    size={26}
+                                    decorative
                                   />
                                   <span style={{ fontFamily: 'Inter', fontSize: 13, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{empName(x.m.employeeId)}</span>
                                 </div>

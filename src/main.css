@@ -8,9 +8,27 @@
    styles; see the file's header. */
 @import "./ds/styles/tokens.css";
 
+/* Kit component rules (floating labels, option states…): all [data-slot]-scoped, safe beside Metronic. */
+@import "./ds/styles/components.css";
+
+/* The kit's default border colour, as Storybook's globals.css sets it. Tailwind v4's Preflight leaves a bare
+   `border` / `border-t` at currentColor, so in the app (which never imports globals.css) every kit divider without
+   an explicit colour drew in the text colour — near-black rules under a dialog header, white ones in dark mode.
+   In @layer base: any colour a utility, Bootstrap or MUI states still wins; only the default changes. */
+@layer base {
+  *, ::before, ::after {
+    border-color: var(--border);
+  }
+}
+
 /* Drive `dark:` utilities off the app-wide `.dark` class that ColorModeProvider stamps on <html>
    (Tailwind v4 defaults `dark:` to prefers-color-scheme; we want it tied to the in-app toggle). */
 @custom-variant dark (&:where(.dark, .dark *));
+/* Base UI marks orientation as data-orientation="horizontal|vertical"; the shadcn components (tabs, toggle group,
+   separator, slider, button group, scroll area) style `data-horizontal:` / `data-vertical:`. Without these two
+   variants those rules matched nothing — e.g. a connected toggle group had square ends. */
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
 
 /* Bootstrap `.collapse` vs Tailwind `.collapse` — same class name, different meaning.
    Tailwind emits `.collapse { visibility: collapse }`; Bootstrap only styles the CLOSED
@@ -29,6 +47,44 @@
    caller's MUI `sx` still wins: WtButton raises it to (0,2,0) with '&&'. */
 :is(button, a)[data-slot] {
   all: revert-layer;
+}
+
+/* The same opt-out for kit text elements. Bootstrap's unlayered `h1–h6 { color: var(--bs-heading-color);
+   margin-bottom; font-weight; line-height }`, `p { margin-bottom: 1rem }` and `label { display: inline-block }`
+   outrank the kit's layered utilities, so a kit dialog title took Metronic's heading colour (navy on the
+   dark surface — unreadable) instead of its own. Kit-only via [data-slot]; the kit's own unlayered rules
+   (floating labels in components.css) are more specific and still apply. */
+:is(h1, h2, h3, h4, h5, h6, p, label)[data-slot] {
+  all: revert-layer;
+}
+
+/* Kit LISTS too (pagination, breadcrumbs, menus, legends): Reboot gives every ul / ol a 2rem left padding and a
+   bottom margin, which pushed a table's page numbers far from their arrows. Reverting falls back to Tailwind's
+   preflight (zero margin and padding, no bullets), then the kit's own utilities. */
+:is(ul, ol, li, dl, dt, dd)[data-slot] {
+  all: revert-layer;
+}
+
+/* The floating "scroll to top" button (Metronic .scrolltop: 36px, 40px above the viewport bottom; 30 / 30 on
+   phones) sits over the bottom-right of the page. The page reserves that band below its content, so the last row
+   — a table's pagination — can always scroll clear of it instead of hiding under it. The container carries
+   Bootstrap's `p-0` (padding: 0 !important), so only this one side needs !important (id + !important > class). */
+#kt_content_container {
+  padding-bottom: 88px !important;
+}
+@media (max-width: 991.98px) {
+  #kt_content_container {
+    padding-bottom: 72px !important;
+  }
+}
+
+/* The page canvas in dark mode. Metronic's `.content` is `$content-background: #F6F9FC` with no dark override,
+   so in dark mode every page kept a LIGHT canvas, and anything drawn straight on it — section headings,
+   search boxes, toolbar buttons, pagers, all in light-on-dark tokens — went light-on-light and vanished.
+   Dark takes the design system's own canvas token, so canvas, surfaces and text come from ONE palette. Light
+   mode is untouched. (0,2,1) beats Metronic's `.content` (0,1,0) whatever the load order. */
+:root:is([data-bs-theme="dark"], .dark) .content {
+  background-color: var(--background);
 }
 
 /* socicon (style.react.scss) prints any [data-icon] attribute as an icon-font glyph; the kit uses

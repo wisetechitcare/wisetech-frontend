@@ -70,6 +70,29 @@ export function escapeHtml(value: unknown): string {
 }
 
 /**
+ * A user-supplied URL as a CSS `url("…")` value, or null when it must not be used.
+ *
+ * HTML escaping is NOT enough for a URL inside `style="background-image: url('…')"`: the HTML
+ * parser decodes `&#39;` back to `'` before CSS sees the value, so an escaped `')` still closes
+ * the url() and injects CSS. This keeps the URL inside a CSS string instead — only http(s), and
+ * the characters that can end a CSS string or token (quotes, parens, backslash, whitespace) are
+ * percent-encoded, which a URL means identically. Still pass the result through `safeHtml` /
+ * `escapeHtml` when it goes into an HTML attribute.
+ */
+export function cssUrl(value: unknown): string | null {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    let url: URL;
+    try {
+        url = new URL(value.trim(), globalThis.location?.href ?? 'http://localhost/');
+    } catch {
+        return null;
+    }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+    const encoded = url.href.replace(/["'()\\\s]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
+    return `url("${encoded}")`;
+}
+
+/**
  * Tagged template that escapes every interpolated value.
  *
  *   safeHtml`Remove <b>${name}</b> from ${count} project(s)?`

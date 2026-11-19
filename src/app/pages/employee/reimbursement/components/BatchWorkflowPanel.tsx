@@ -1,10 +1,13 @@
-import { Box, Chip, Stack, Tooltip, Typography, useTheme } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
-import { ToneChip, WtButton, tonePair } from '@app/modules/common/components/ui';
-import type { SemanticTone } from '@app/theme/tokens';
-import { fmtDate, fmtAmount, STATUS, type StatusNum } from '../utils/reimbursementFormat';
+import type { CSSProperties } from 'react';
+import { Briefcase, History, Info, MapPin, MessageSquareText, Paperclip, TriangleAlert } from 'lucide-react';
+import { cn } from '@/ds/lib/utils';
+import { toneStyle, type Tone } from '@/ds/lib/tone';
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/ds/ui/alert';
+import { Badge } from '@/ds/ui/badge';
+import { Button } from '@/ds/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
+import { fmtDate, formatMoney, STATUS, type StatusNum } from '../utils/reimbursementFormat';
 import { canResolveQuery } from '@services/reimbursementQueries';
-import { currencyPrefix } from '@utils/currency';
 
 /**
  * The batch, described as a workflow rather than as a table of rows.
@@ -15,7 +18,8 @@ import { currencyPrefix } from '@utils/currency';
  * client. Two separate screens then re-derived a batch's mixed state from the status column alone,
  * which is the most any of them could do.
  *
- * All of it is now computed server-side (`getBatchWorkflowView`) and rendered here.
+ * All of it is now computed server-side (`getBatchWorkflowView`) and rendered here — in the design
+ * system (Badge, Alert, Button, Tooltip); no MUI.
  */
 
 // ─── Types (the shape the batch endpoint now returns) ────────────────────────
@@ -82,21 +86,20 @@ export interface BatchSummaryView {
 
 // ─── Status presentation ─────────────────────────────────────────────────────
 
-const STATUS_TONE: Record<number, { tone: SemanticTone; label: string }> = {
+/** Kit tones (Badge variants / toneStyle). A query is the cyan hue: a conversation, not a verdict. */
+const STATUS_TONE: Record<number, { tone: Tone; label: string }> = {
     [STATUS.PENDING]: { tone: 'warning', label: 'Pending' },
     [STATUS.APPROVED]: { tone: 'success', label: 'Approved' },
     [STATUS.REJECTED]: { tone: 'danger', label: 'Rejected' },
     [STATUS.NEEDS_INFO]: { tone: 'cyan', label: 'Query' },
 };
 
-const BATCH_STATUS_TONE: Record<string, { tone: SemanticTone; label: string }> = {
+const BATCH_STATUS_TONE: Record<string, { tone: Tone; label: string }> = {
     PENDING: { tone: 'warning', label: 'Pending' },
-    PARTIALLY_PROCESSED: { tone: 'indigo', label: 'Partially processed' },
+    PARTIALLY_PROCESSED: { tone: 'purple', label: 'Partially Processed' },
     APPROVED: { tone: 'success', label: 'Approved' },
     REJECTED: { tone: 'danger', label: 'Rejected' },
 };
-
-const inr = (v: unknown) => `${currencyPrefix()}${fmtAmount(v as number)}`;
 
 /**
  * Where one request has got to, in words.
@@ -127,12 +130,13 @@ function levelCaption(status: number, approval: RequestApprovalView | null): str
 
 // ─── Batch summary ───────────────────────────────────────────────────────────
 
+/** Batch status, its size and worth, and a count per state — one line above the requests. */
 export function BatchSummaryStrip({ summary, processingStatus }: {
     summary: BatchSummaryView;
     processingStatus: string;
 }) {
     const status = BATCH_STATUS_TONE[processingStatus] ?? BATCH_STATUS_TONE.PENDING;
-    const pills: Array<{ label: string; tone: SemanticTone }> = [];
+    const pills: Array<{ label: string; tone: Tone }> = [];
     if (summary.approved) pills.push({ label: `${summary.approved} approved`, tone: 'success' });
     if (summary.queried) pills.push({ label: `${summary.queried} query`, tone: 'cyan' });
     if (summary.rejected) pills.push({ label: `${summary.rejected} rejected`, tone: 'danger' });
@@ -142,19 +146,20 @@ export function BatchSummaryStrip({ summary, processingStatus }: {
     const awaitingLevel = Math.max(0, summary.pending - summary.inProgress);
     if (awaitingLevel) pills.push({ label: `${awaitingLevel} pending`, tone: 'warning' });
     if (summary.inProgress) pills.push({ label: `${summary.inProgress} with next approver`, tone: 'neutral' });
-    if (summary.resubmitted) pills.push({ label: `${summary.resubmitted} resubmitted`, tone: 'indigo' });
+    if (summary.resubmitted) pills.push({ label: `${summary.resubmitted} resubmitted`, tone: 'purple' });
 
     return (
-        <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap" sx={{ minWidth: 0 }}>
-            <ToneChip tone={status.tone} label={status.label} solid size="small" />
-            <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-                {summary.totalRequests} request{summary.totalRequests === 1 ? '' : 's'} · {inr(summary.totalAmount)}
-            </Typography>
-            <Box sx={{ flex: 1 }} />
-            <Stack direction="row" gap={0.5} flexWrap="wrap">
-                {pills.map((p) => <ToneChip key={p.label} tone={p.tone} label={p.label} size="small" />)}
-            </Stack>
-        </Stack>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Badge variant={status.tone} dot>{status.label}</Badge>
+            <span className="tabular text-sm text-muted-foreground">
+                {summary.totalRequests} request{summary.totalRequests === 1 ? '' : 's'} · {formatMoney(summary.totalAmount)}
+            </span>
+            {pills.length > 0 && (
+                <span className="ml-auto flex flex-wrap items-center gap-1.5">
+                    {pills.map((p) => <Badge key={p.label} variant={p.tone}>{p.label}</Badge>)}
+                </span>
+            )}
+        </div>
     );
 }
 
@@ -204,227 +209,174 @@ export interface RequestRowProps {
     onResolveQuery?: (queryId: string) => void;
 }
 
+/** A tint for a row action (Button story "Tinted": the label in the tone, a pastel of it behind). */
+const tint = (color: string) => ({ '--tint': color }) as CSSProperties;
+
+/** A line of facts with a leading icon (route, client · project). */
+function FactLine({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+    return (
+        <p data-slot="workflow-note" className="m-0 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground [&>svg]:size-3.5 [&>svg]:shrink-0">
+            {icon}
+            <span className="min-w-0 break-words">{children}</span>
+        </p>
+    );
+}
+
+/**
+ * One expense in a batch: its status and badges, what it was, where it is in the chain, the money,
+ * any open question or rejection reason, who decided what at each level, and — when it is yours —
+ * Approve / Reject / Ask a Question.
+ *
+ * A card with a 4px edge in its status tone (the DataTable's toned-row recipe), so a batch of mixed
+ * outcomes reads at a glance down the left edge.
+ */
 export function RequestWorkflowRow({
     request, canDecide, busy, onApprove, onReject, onQuery, onOpenConversation, onViewDocument,
     onOpenVersionHistory, viewerRole, onResolveQuery,
 }: RequestRowProps) {
-    const theme = useTheme();
     const status = STATUS_TONE[request.status] ?? STATUS_TONE[STATUS.PENDING];
-    const pair = tonePair(status.tone);
     const approval = request.approval ?? null;
     const liveQuery = (request.queries ?? []).find((q) => q.status !== 'RESOLVED')
         ?? (request.queries ?? [])[0];
     const caption = levelCaption(request.status, approval);
     const resubmitted = (request.resubmitCount ?? 0) > 0;
+    const label = request.description || 'Expense';
 
     return (
-        <Box sx={{
-            display: 'flex', flexDirection: 'column', gap: 1,
-            p: { xs: 1.5, sm: 1.75 }, borderRadius: '12px', minWidth: 0,
-            border: `1px solid ${theme.palette.divider}`,
-            borderLeft: `4px solid ${pair.fg}`,
-            bgcolor: request.isExceedingLimit ? tonePair('danger').soft : 'background.paper',
-        }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} gap={1} alignItems={{ sm: 'flex-start' }} sx={{ minWidth: 0 }}>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Stack direction="row" gap={0.75} alignItems="center" flexWrap="wrap">
-                        <ToneChip tone={status.tone} label={status.label} size="small" />
+        <article
+            data-slot="request-workflow-row"
+            aria-label={`${label}, ${status.label}`}
+            style={toneStyle(status.tone)}
+            className={cn(
+                'flex min-w-0 flex-col gap-3 rounded-2xl border border-border p-4 shadow-[inset_4px_0_0_var(--tone)]',
+                // Over the claim limit: the whole card carries the danger tint, as the old row did.
+                request.isExceedingLimit ? 'bg-destructive-soft/40' : 'bg-card',
+            )}
+        >
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge variant={status.tone} dot>{status.label}</Badge>
                         {resubmitted && (
-                            <Tooltip title={`Edited and resubmitted — now version ${request.currentVersion}`}>
-                                <span>
-                                    <ToneChip tone="indigo" label={`Resubmitted · v${request.currentVersion}`} size="small" />
-                                </span>
+                            <Tooltip>
+                                <TooltipTrigger render={<Badge variant="purple" tabIndex={0} />}>
+                                    Resubmitted · v{request.currentVersion}
+                                </TooltipTrigger>
+                                <TooltipContent>Edited and resubmitted — now version {request.currentVersion}</TooltipContent>
                             </Tooltip>
                         )}
-                        {request.isExceedingLimit && <ToneChip tone="danger" label="Over limit" size="small" />}
-                        {request.paymentStatus === 'PAID' && <ToneChip tone="success" label="Paid" size="small" />}
-                    </Stack>
-                    <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', mt: 0.75 }}>
-                        {request.description || 'Expense'}
-                    </Typography>
-                    <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.25 }}>
-                        {[
-                            fmtDate(request.expenseDate),
-                            request.reimbursementType?.type,
-                            caption,
-                        ].filter(Boolean).join(' · ')}
-                    </Typography>
+                        {request.isExceedingLimit && <Badge variant="danger"><TriangleAlert aria-hidden /> Over Limit</Badge>}
+                        {request.paymentStatus === 'PAID' && <Badge variant="success">Paid</Badge>}
+                    </div>
+                    <h4 data-slot="workflow-line-label" className="m-0 pt-1 text-sm font-semibold text-foreground">{label}</h4>
+                    <p data-slot="workflow-line-caption" className="m-0 text-xs text-muted-foreground">
+                        {[fmtDate(request.expenseDate), request.reimbursementType?.type, caption].filter(Boolean).join(' · ')}
+                    </p>
                     {(request.fromLocation || request.toLocation) && (
-                        <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <KTIcon iconName="geolocation" className="fs-7 text-muted" />
-                            <span>
-                                <b>Route:</b> {request.fromLocation || '—'} → {request.toLocation || '—'}
-                            </span>
-                        </Typography>
+                        <FactLine icon={<MapPin aria-hidden />}>
+                            <b className="font-semibold text-foreground">Route:</b> {request.fromLocation || '—'} → {request.toLocation || '—'}
+                        </FactLine>
                     )}
                     {(request.clientCompany?.companyName || request.lead?.title) && (
-                        <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.25, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <KTIcon iconName="briefcase" className="fs-7 text-muted" />
-                            <span>
-                                {request.clientCompany?.companyName && (
-                                    <><b>Client:</b> {request.clientCompany.companyName}</>
-                                )}
-                                {request.clientCompany?.companyName && request.lead?.title && ' · '}
-                                {request.lead?.title && (
-                                    <><b>Project:</b> {request.lead.title}</>
-                                )}
-                            </span>
-                        </Typography>
+                        <FactLine icon={<Briefcase aria-hidden />}>
+                            {request.clientCompany?.companyName && (
+                                <><b className="font-semibold text-foreground">Client:</b> {request.clientCompany.companyName}</>
+                            )}
+                            {request.clientCompany?.companyName && request.lead?.title && ' · '}
+                            {request.lead?.title && (
+                                <><b className="font-semibold text-foreground">Project:</b> {request.lead.title}</>
+                            )}
+                        </FactLine>
                     )}
-                </Box>
-                <Stack alignItems={{ xs: 'flex-start', sm: 'flex-end' }} sx={{ flexShrink: 0 }}>
-                    <Typography sx={{ fontSize: 15, fontWeight: 800, color: 'text.primary' }}>
-                        {inr(request.amount)}
-                    </Typography>
-                    {onOpenVersionHistory && (
-                        <Typography
-                            component="button"
-                            onClick={onOpenVersionHistory}
-                            sx={{
-                                mt: 0.25, fontSize: 11.5, fontWeight: 600, color: 'text.secondary',
-                                background: 'none', border: 'none', p: 0, cursor: 'pointer',
-                            }}
-                        >
-                            History{(request.currentVersion ?? 1) > 1 ? ` (v${request.currentVersion})` : ''}
-                        </Typography>
-                    )}
-                    {request.document && onViewDocument && (
-                        <Typography
-                            component="button"
-                            onClick={() => onViewDocument(request.document!)}
-                            sx={{
-                                mt: 0.25, fontSize: 11.5, fontWeight: 600, color: 'primary.main',
-                                background: 'none', border: 'none', p: 0, cursor: 'pointer',
-                            }}
-                        >
-                            View receipt
-                        </Typography>
-                    )}
-                </Stack>
-            </Stack>
+                </div>
+                <div className="flex shrink-0 flex-row flex-wrap items-center gap-2 sm:flex-col sm:items-end sm:gap-1">
+                    <span className="tabular text-base font-bold text-foreground">{formatMoney(request.amount)}</span>
+                    <span className="flex flex-wrap items-center gap-1">
+                        {request.document && onViewDocument && (
+                            <Button variant="ghost" size="xs" onClick={() => onViewDocument(request.document!)}>
+                                <Paperclip data-icon="inline-start" aria-hidden /> View Receipt
+                            </Button>
+                        )}
+                        {onOpenVersionHistory && (
+                            <Button variant="ghost" size="xs" onClick={onOpenVersionHistory}>
+                                <History data-icon="inline-start" aria-hidden />
+                                History{(request.currentVersion ?? 1) > 1 ? ` (v${request.currentVersion})` : ''}
+                            </Button>
+                        )}
+                    </span>
+                </div>
+            </div>
 
-            {/* The approver's note — a rejection reason, or the open question. Labelled, because
-                the two used to share one column and were told apart only by a status number. */}
+            {/* The approver's note — the open question. Labelled, because a question and a rejection
+                used to share one column and were told apart only by a status number. `role="note"`:
+                it is part of the record, not an interruption to announce. */}
             {liveQuery && (() => {
-                const isWaitingOnEmployee = liveQuery.awaitingRole === 'EMPLOYEE';
-                const toneKey = isWaitingOnEmployee ? 'warning' : 'cyan';
-                const pair = tonePair(toneKey);
+                const waitingOnEmployee = liveQuery.awaitingRole === 'EMPLOYEE';
                 /** The thread is waiting on the role this reader holds — theirs to answer. */
                 const myTurn = !!viewerRole && liveQuery.awaitingRole === viewerRole;
+                const canResolve = viewerRole === 'APPROVER' && !!onResolveQuery && canResolveQuery(liveQuery.status);
                 return (
-                    <Box sx={{
-                        borderRadius: '8px', p: 1.25, minWidth: 0,
-                        bgcolor: pair.soft,
-                        border: `1px solid ${pair.soft}`,
-                        borderLeft: `3px solid ${pair.fg}`,
-                    }}>
-                        <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
-                            <Box component="span" sx={{ color: pair.fg, display: 'inline-flex' }}>
-                                <KTIcon iconName="message-text-2" className="fs-6" />
-                            </Box>
-                            <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: pair.fg }}>
-                                {liveQuery.scope === 'BATCH' ? 'Batch query' : 'Query'}
-                                {liveQuery.level ? ` · level ${liveQuery.level}` : ''}
-                            </Typography>
-                            <Chip size="small" variant="outlined"
-                                sx={{
-                                    height: 18, fontSize: 10,
-                                    color: pair.fg, borderColor: pair.fg,
-                                    bgcolor: 'background.paper', fontWeight: 600,
-                                }}
-                                label={
-                                    liveQuery.awaitingRole === 'EMPLOYEE' ? 'Awaiting employee response'
-                                        : liveQuery.awaitingRole === 'APPROVER' ? 'Employee responded'
-                                            : 'Resolved'
-                                } />
-                            <Box sx={{ flex: 1 }} />
-                            <Typography
-                                component="button"
-                                onClick={() => onOpenConversation(liveQuery.id)}
-                                sx={{
-                                    fontSize: 11.5, fontWeight: 700, color: 'primary.main',
-                                    background: 'none', border: 'none', p: 0, cursor: 'pointer', flexShrink: 0,
-                                }}
-                            >
-                                Open conversation ({liveQuery.messageCount})
-                            </Typography>
-                        </Stack>
+                    <Alert variant={waitingOnEmployee ? 'warning' : 'info'} role="note">
+                        <MessageSquareText aria-hidden />
+                        <AlertTitle className="flex flex-wrap items-center gap-1.5">
+                            {liveQuery.scope === 'BATCH' ? 'Batch Query' : 'Query'}
+                            {liveQuery.level ? ` · Level ${liveQuery.level}` : ''}
+                            <Badge variant="neutral" className="bg-background/70">
+                                {liveQuery.awaitingRole === 'EMPLOYEE' ? 'Awaiting Employee Response'
+                                    : liveQuery.awaitingRole === 'APPROVER' ? 'Employee Responded'
+                                        : 'Resolved'}
+                            </Badge>
+                        </AlertTitle>
                         {liveQuery.lastMessage && (
-                            <Typography sx={{ fontSize: 12.5, color: 'text.primary', mt: 0.5, lineHeight: 1.45 }}>
-                                <b>{liveQuery.lastMessageRole === 'EMPLOYEE' ? 'Employee' : 'Approver'}:</b>{' '}
-                                {liveQuery.lastMessage}
-                            </Typography>
+                            <AlertDescription className="text-foreground">
+                                <b>{liveQuery.lastMessageRole === 'EMPLOYEE' ? 'Employee' : 'Approver'}:</b> {liveQuery.lastMessage}
+                            </AlertDescription>
                         )}
-
-                        {/* The two moves a question actually has, on the question itself. Reaching
-                            them used to mean leaving for the queue and finding the expense again.
-                            Resolve is the approver's alone — it is what closes the thread. */}
-                        {/* Render the row only when it will hold something. Gating Resolve on the
-                            thread state left an approver looking at an unanswered question with an
-                            empty action bar under the question. */}
-                        {liveQuery.status !== 'RESOLVED'
-                            && (myTurn || (viewerRole === 'APPROVER' && !!onResolveQuery && canResolveQuery(liveQuery.status))) && (
-                            <Stack direction="row" gap={0.75} flexWrap="wrap" justifyContent="flex-end" sx={{ mt: 1 }}>
-                                {myTurn && (
-                                    <WtButton size="small" disabled={busy} onClick={() => onOpenConversation(liveQuery.id)}>
-                                        Respond
-                                    </WtButton>
-                                )}
-                                {/* Only once the employee has actually answered. The server
-                                    refuses anything else, so offering it here just produced a
-                                    400 under a chip already saying "Awaiting employee response". */}
-                                {viewerRole === 'APPROVER' && onResolveQuery && canResolveQuery(liveQuery.status) && (
-                                    <WtButton size="small" ghost disabled={busy} onClick={() => onResolveQuery(liveQuery.id)}>
-                                        Resolve
-                                    </WtButton>
-                                )}
-                            </Stack>
-                        )}
-                    </Box>
+                        {/* The moves a question actually has, on the question itself. Respond when it is this
+                            reader's turn; Resolve only once the employee has answered (the server refuses
+                            anything else) — and the row renders only when it holds something. */}
+                        <AlertDescription className="col-start-2 mt-2 flex flex-wrap items-center justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => onOpenConversation(liveQuery.id)}>
+                                Open Conversation ({liveQuery.messageCount})
+                            </Button>
+                            {liveQuery.status !== 'RESOLVED' && myTurn && (
+                                <Button size="sm" disabled={busy} onClick={() => onOpenConversation(liveQuery.id)}>Respond</Button>
+                            )}
+                            {liveQuery.status !== 'RESOLVED' && canResolve && (
+                                <Button variant="outline" size="sm" disabled={busy} onClick={() => onResolveQuery!(liveQuery.id)}>Resolve</Button>
+                            )}
+                        </AlertDescription>
+                    </Alert>
                 );
             })()}
 
             {/* Why this request is back at level 1. Without it, an approver seeing a request they
                 already approved reappear at the start of the chain has no explanation for it. */}
             {resubmitted && (request.approval?.currentLevel ?? 1) === 1 && request.status !== STATUS.APPROVED && (
-                <Stack direction="row" gap={0.75} alignItems="flex-start"
-                    sx={{ p: 1, borderRadius: '8px', bgcolor: tonePair('indigo').soft, minWidth: 0 }}>
-                    <KTIcon iconName="information" className="fs-6" />
-                    <Typography sx={{ fontSize: 12, lineHeight: 1.45, minWidth: 0 }}>
+                <Alert variant="info" role="note">
+                    <Info aria-hidden />
+                    <AlertDescription className="text-foreground">
                         Approval restarted from Level 1 because reimbursement details were modified.
-                        {onOpenVersionHistory && (
-                            <>
-                                {' '}
-                                <Typography
-                                    component="button"
-                                    onClick={onOpenVersionHistory}
-                                    sx={{
-                                        fontSize: 12, fontWeight: 700, color: 'primary.main',
-                                        background: 'none', border: 'none', p: 0, cursor: 'pointer',
-                                    }}
-                                >
-                                    See what changed
-                                </Typography>
-                            </>
-                        )}
-                    </Typography>
-                </Stack>
+                    </AlertDescription>
+                    {onOpenVersionHistory && (
+                        <AlertAction>
+                            <Button variant="link" size="xs" onClick={onOpenVersionHistory}>See What Changed</Button>
+                        </AlertAction>
+                    )}
+                </Alert>
             )}
 
             {request.status === STATUS.REJECTED && request.rejectReason && (
-                <Box sx={{ borderRadius: '8px', p: 1.25, bgcolor: tonePair('danger').soft, minWidth: 0 }}>
-                    <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: tonePair('danger').fg }}>
-                        Rejection reason
-                    </Typography>
-                    <Typography sx={{ fontSize: 12.5, color: 'text.primary', mt: 0.25, lineHeight: 1.45 }}>
-                        {request.rejectReason}
-                    </Typography>
-                </Box>
+                <Alert variant="danger" role="note">
+                    <TriangleAlert aria-hidden />
+                    <AlertTitle>Rejection Reason</AlertTitle>
+                    <AlertDescription className="text-foreground">{request.rejectReason}</AlertDescription>
+                </Alert>
             )}
 
             {/* Per-level history — who decided what, and what they said. */}
             {approval && approval.steps.some((s) => s.status !== 'pending') && (
-                <Stack direction="row" gap={0.5} flexWrap="wrap">
+                <ul data-slot="approval-steps" aria-label="Approval steps" className="m-0 flex list-none flex-wrap gap-1.5 p-0">
                     {approval.steps.map((step) => {
                         // A rejection ends the request there — the levels above it are never asked.
                         // Their steps stay 'pending' in the table, and rendering that verbatim put
@@ -433,7 +385,7 @@ export function RequestWorkflowRow({
                             || request.status === STATUS.APPROVED
                             || (approval.status !== 'pending' && approval.status !== undefined);
                         const untouched = step.status === 'pending';
-                        const tone: SemanticTone = step.status === 'approved' ? 'success'
+                        const tone: Tone = step.status === 'approved' ? 'success'
                             : step.status === 'rejected' ? 'danger'
                                 : settled ? 'neutral'
                                     : step.level === approval.currentLevel ? 'warning' : 'neutral';
@@ -441,45 +393,35 @@ export function RequestWorkflowRow({
                         // onto a colleague before it means anything; the name IS the information,
                         // and the tooltip still carries the level for anyone who wants it.
                         const who = step.approverName || `L${step.level}`;
-                        const label = untouched
+                        const text = untouched
                             ? (settled ? `${who} · not needed`
                                 : step.level === approval.currentLevel ? `${who} · now` : `${who} · pending`)
                             : `${who} · ${step.status}`;
+                        const detail = [
+                            `Level ${step.level}${step.approverName ? ` · ${step.approverName}` : ''}`,
+                            step.status,
+                            step.comments || null,
+                        ].filter(Boolean).join(' — ');
                         return (
-                            <Tooltip
-                                key={step.id}
-                                title={[
-                                    `Level ${step.level}${step.approverName ? ` · ${step.approverName}` : ''}`,
-                                    step.status,
-                                    step.comments || null,
-                                ].filter(Boolean).join(' — ')}
-                            >
-                                <span>
-                                    <ToneChip tone={tone} size="small" dense label={label} />
-                                </span>
-                            </Tooltip>
+                            <li data-slot="approval-step" key={step.id}>
+                                <Tooltip>
+                                    <TooltipTrigger render={<Badge variant={tone} tabIndex={0} />}>{text}</TooltipTrigger>
+                                    <TooltipContent>{detail}</TooltipContent>
+                                </Tooltip>
+                            </li>
                         );
                     })}
-                </Stack>
+                </ul>
             )}
 
             {canDecide && (
-                <Stack direction="row" gap={0.75} sx={{ pt: 0.25 }}>
-                    <Chip
-                        label="Approve" size="small" disabled={busy} onClick={onApprove} clickable
-                        sx={{ fontWeight: 700, bgcolor: tonePair('success').soft, color: tonePair('success').fg }}
-                    />
-                    <Chip
-                        label="Reject" size="small" disabled={busy} onClick={onReject} clickable
-                        sx={{ fontWeight: 700, bgcolor: tonePair('danger').soft, color: tonePair('danger').fg }}
-                    />
-                    <Chip
-                        label="Ask a question" size="small" disabled={busy} onClick={onQuery} clickable
-                        sx={{ fontWeight: 700, bgcolor: tonePair('cyan').soft, color: tonePair('cyan').fg }}
-                    />
-                </Stack>
+                <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                    <Button variant="tinted" size="sm" style={tint('var(--cta-success)')} disabled={busy} onClick={onApprove}>Approve</Button>
+                    <Button variant="tinted" size="sm" style={tint('var(--cta-danger)')} disabled={busy} onClick={onReject}>Reject</Button>
+                    <Button variant="tinted" size="sm" disabled={busy} onClick={onQuery}>Ask a Question</Button>
+                </div>
             )}
-        </Box>
+        </article>
     );
 }
 

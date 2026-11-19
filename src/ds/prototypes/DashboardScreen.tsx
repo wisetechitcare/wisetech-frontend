@@ -1,7 +1,7 @@
 import { CalendarDays, CheckCircle2, Clock, Gift, Plus, Receipt, Sparkles, UserPlus, Users, XCircle } from "lucide-react"
 import { Button } from "@/ds/ui/button"
 import { Badge } from "@/ds/ui/badge"
-import { Avatar, AvatarFallback } from "@/ds/ui/avatar"
+import { SmartAvatar } from "@/ds/ui/smart-avatar"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/ds/ui/card"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/ds/ui/item"
 import { Progress } from "@/ds/ui/progress"
@@ -9,7 +9,6 @@ import { PageHeader } from "@/ds/patterns/page-header"
 import { StatCard } from "@/ds/patterns/stat-card"
 import { BorderBeam } from "@/ds/effects/border-beam"
 import { CountUp } from "@/ds/effects/count-up"
-import { initials } from "./fixtures"
 
 const APPROVALS = [
   { who: "Diya Nair", what: "Casual leave · 28–30 Oct", meta: "3 days · balance after 3.0", icon: <CalendarDays /> },
@@ -146,9 +145,7 @@ export function DashboardScreen() {
               ).map(([n, p]) => (
                 <Item key={n} role="listitem" size="xs" className="px-0">
                   <ItemMedia>
-                    <Avatar>
-                      <AvatarFallback className="bg-accent text-accent-foreground">{initials(n)}</AvatarFallback>
-                    </Avatar>
+                    <SmartAvatar name={n} size="sm" decorative />
                   </ItemMedia>
                   <ItemContent>
                     <ItemTitle>{n}</ItemTitle>

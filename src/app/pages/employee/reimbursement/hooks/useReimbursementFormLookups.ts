@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Option } from '@models/dropdown';
 import { fetchAllReimbursementTypesFromDb } from '@utils/statistics';
-import { getAllCompanyTypes, getAllClientCompanies } from '@services/companies';
+import { getAllCompanyTypes } from '@services/companies';
 import { getReimbursementProjectOptions, getAllProjectStatuses } from '@services/projects';
 
 /**
@@ -72,7 +72,12 @@ export interface LookupSeed {
     leadId?: string | null;
 }
 
-export function useReimbursementFormLookups(seed?: LookupSeed | null): ReimbursementFormLookups {
+/**
+ * @param enabled  Load only once the form is actually shown. The dialog is mounted closed on every page that can
+ *                 add an expense, and this used to fetch all five lookups — including the whole client-company
+ *                 master — on page load, for a form nobody had opened. Loads once, on the first enabled render.
+ */
+export function useReimbursementFormLookups(seed?: LookupSeed | null, enabled = true): ReimbursementFormLookups {
     const [reimbursementOptions, setReimbursementOptions] = useState<Option[]>([]);
     const [allCompanyTypeOptions, setAllCompanyTypeOptions] = useState<Option[]>([]);
     const [companyTypeOptions, setCompanyTypeOptions] = useState<Option[]>([]);
@@ -92,20 +97,24 @@ export function useReimbursementFormLookups(seed?: LookupSeed | null): Reimburse
     // ── Load once ─────────────────────────────────────────────────────────────
     // allSettled, so one failing lookup cannot blank the whole form — every dropdown that CAN
     // load still loads.
+    // Set only when results are APPLIED — a load cancelled mid-flight (closed early, or React's dev double-run of
+    // effects) leaves it false, so the next enabled render loads again instead of being skipped.
+    const [loaded, setLoaded] = useState(false);
     useEffect(() => {
+        if (!enabled || loaded) return;
         let cancelled = false;
         setProjectsLoading(true);
 
         Promise.allSettled([
             fetchAllReimbursementTypesFromDb(),
             getAllCompanyTypes(),
-            getAllClientCompanies(),
             getAllProjectStatuses(),
             getReimbursementProjectOptions(),
         ]).then((results) => {
             if (cancelled) return;
+            setLoaded(true);
             const val = (r: PromiseSettledResult<any>) => (r.status === 'fulfilled' ? r.value : undefined);
-            const [typesR, typeListR, companiesR, statusesR, projectsR] = results;
+            const [typesR, typeListR, statusesR, projectsR] = results;
 
             const types: any[] = val(typesR) || [];
             setReimbursementOptions(
@@ -127,16 +136,12 @@ export function useReimbursementFormLookups(seed?: LookupSeed | null): Reimburse
                 .sort((a: Option, b: Option) => a.label.localeCompare(b.label));
             setAllCompanyTypeOptions(allTypes);
 
-            const companiesRes = val(companiesR) || {};
-            const companies: ClientCompanyRow[] =
-                companiesRes?.data?.companies ||
-                companiesRes?.clientCompanies ||
-                companiesRes?.data?.clientCompanies ||
-                companiesRes?.companies ||
-                [];
+            const projectsRes = val(projectsR) || {};
+            // The File Location companies of the family's projects — id, name, type — sent with the projects.
+            // This is exactly the set the form narrowed the full client-company master down to.
+            const companies: ClientCompanyRow[] = projectsRes?.data?.companies || [];
             setAllClientCompanies(companies);
 
-            const projectsRes = val(projectsR) || {};
             const projects: ProjectRow[] = projectsRes?.data?.projects || projectsRes?.projects || [];
             setAllProjects(projects);
 
@@ -152,7 +157,7 @@ export function useReimbursementFormLookups(seed?: LookupSeed | null): Reimburse
         }).finally(() => { if (!cancelled) setProjectsLoading(false); });
 
         return () => { cancelled = true; };
-    }, []);
+    }, [enabled, loaded]);
 
     const computeFilteredCompaniesForType = useCallback((typeId: string): ClientCompanyRow[] => {
         const usedCompanyIds = new Set(

@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Box, Stack, Typography, CircularProgress, alpha } from '@mui/material';
+import { Link } from 'react-router-dom';
+import { ChevronRight, GitBranch, Users } from 'lucide-react';
+import { Item, ItemActions, ItemGroup } from '@/ds/ui/item';
+import { Spinner } from '@/ds/ui/spinner';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import { PersonCell } from '@/ds/patterns/person';
 import { fetchEmployeesByBranch } from '@services/employee';
-import { getAvatar } from '@utils/avatar';
-import { GlassDialog, GlassHeader, ToneChip, WtEmptyState } from '@app/modules/common/components/ui';
-import SmartAvatar from '@app/modules/common/components/SmartAvatar';
-import { IconBranch, IconChevron } from '@app/modules/common/components/icons/OrgIcons';
 
 /**
- * Employees in one branch.
+ * Employees in one branch — a read-only Form Dialog (one Close button).
  *
- * Rows open the employee profile — this used to be a static roster with no
+ * Each row is a link to the employee profile — this used to be a static roster with no
  * drill-in, so operators saw a name and had to hunt through Employees to act.
  */
 
@@ -34,7 +35,6 @@ interface Props {
 }
 
 export default function BranchEmployeesModal({ show, branchId, branchName, onClose }: Props) {
-  const navigate = useNavigate();
   const [employees, setEmployees] = useState<EmpRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -55,89 +55,59 @@ export default function BranchEmployeesModal({ show, branchId, branchName, onClo
     return () => { cancelled = true; };
   }, [show, branchId]);
 
-  function openEmployee(empId: string) {
-    onClose();
-    navigate(`/employees/${empId}`);
-  }
+  const count = employees.length;
 
   return (
-    <GlassDialog
-      open={show} onClose={onClose} maxWidth="md" fullWidth
-      preset="workspace"
-      header={
-        <GlassHeader
-          title={`${branchName || 'Branch'} — Employees`}
-          subtitle={loading ? 'Loading…' : `${employees.length} employee${employees.length !== 1 ? 's' : ''} · click a row to open`}
-          icon={<IconBranch size={22} />}
-          onClose={onClose}
-        />
-      }
+    <FormDialog
+      open={show}
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title={`${branchName || 'Branch'} — Employees`}
+      description={loading ? 'Loading…' : `${count} employee${count !== 1 ? 's' : ''} · open one to see the profile`}
+      icon={<GitBranch aria-hidden />}
+      tone="cyan"
+      size="lg"
     >
-      <Box sx={{ bgcolor: 'background.default', p: { xs: 1.5, sm: 2.5 } }}>
-        {loading ? (
-          <Stack alignItems="center" sx={{ py: 5 }}><CircularProgress size={26} /></Stack>
-        ) : employees.length === 0 ? (
-          <WtEmptyState dense icon="people" title="No employees in this branch yet" hint="Assign people to this branch from Employees, then reopen this list." />
-        ) : (
-          <Stack spacing={1}>
-            {employees.map(emp => {
-              const name = `${emp.users?.firstName ?? ''} ${emp.users?.lastName ?? ''}`.trim() || 'Unnamed';
-              const avatarUrl = getAvatar(emp.avatar || '', emp.gender);
-              return (
-                <Stack
-                  key={emp.id}
-                  component="button"
-                  type="button"
-                  direction="row"
-                  spacing={1.5}
-                  alignItems="center"
-                  onClick={() => openEmployee(emp.id)}
-                  aria-label={`Open ${name}`}
-                  sx={{
-                    width: '100%', textAlign: 'left', font: 'inherit',
-                    bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
-                    borderRadius: '10px', px: 1.75, py: 1.25, cursor: 'pointer',
-                    transition: 'background-color .15s ease, border-color .15s ease, box-shadow .15s ease',
-                    '&:hover': {
-                      borderColor: 'primary.light',
-                      bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.12 : 0.06),
-                      boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.12)}`,
-                    },
-                    '&:focus-visible': { outline: 2, outlineColor: 'primary.main', outlineOffset: 2 },
-                  }}
-                >
-                  <SmartAvatar imageUrl={avatarUrl} name={name} id={emp.id} size={38} />
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-                      <Typography noWrap sx={{ fontWeight: 700, fontSize: 14, color: 'text.primary' }}>{name}</Typography>
-                      {emp.employeeCode && (
-                        <Typography sx={{ fontSize: 11, color: 'text.secondary', fontWeight: 600, flexShrink: 0 }}>
-                          {emp.employeeCode}
-                        </Typography>
-                      )}
-                      {emp.isActive === false && <ToneChip dense tone="danger" label="Inactive" />}
-                    </Stack>
-                    <Typography noWrap sx={{ fontSize: 12, color: 'text.secondary' }}>
-                      {emp.designations?.role || '—'}{emp.departments?.name ? ` · ${emp.departments.name}` : ''}
-                    </Typography>
-                  </Box>
-                  {(emp.companyEmailId || emp.users?.personalEmailId) && (
-                    <Typography
-                      noWrap
-                      sx={{ fontSize: 12, color: 'text.secondary', maxWidth: 220, display: { xs: 'none', md: 'block' } }}
-                    >
-                      {emp.companyEmailId || emp.users?.personalEmailId}
-                    </Typography>
-                  )}
-                  <Box sx={{ color: 'text.disabled', display: 'grid', placeItems: 'center', flexShrink: 0 }} aria-hidden>
-                    <IconChevron size={16} />
-                  </Box>
-                </Stack>
-              );
-            })}
-          </Stack>
-        )}
-      </Box>
-    </GlassDialog>
+      {loading ? (
+        <p className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+          <Spinner className="size-5" aria-label="Loading employees" /> Loading employees…
+        </p>
+      ) : count === 0 ? (
+        <EmptyState
+          size="sm"
+          icon={<Users aria-hidden />}
+          title="No employees in this branch yet"
+          description="Assign people to this branch from Employees, then reopen this list."
+        />
+      ) : (
+        <ItemGroup className="gap-2">
+          {employees.map((emp) => {
+            const name = `${emp.users?.firstName ?? ''} ${emp.users?.lastName ?? ''}`.trim() || 'Unnamed';
+            const role = [emp.designations?.role, emp.departments?.name].filter(Boolean).join(' · ');
+            const email = emp.companyEmailId || emp.users?.personalEmailId;
+            return (
+              <Item
+                key={emp.id}
+                variant="outline"
+                size="sm"
+                render={<Link to={`/employees/${emp.id}`} onClick={onClose} aria-label={`Open ${name}`} />}
+              >
+                <PersonCell
+                  name={name}
+                  code={emp.employeeCode}
+                  subtitle={role || undefined}
+                  avatarUrl={emp.avatar}
+                  inactive={emp.isActive === false}
+                  className="flex-1"
+                />
+                <ItemActions className="text-xs text-muted-foreground">
+                  {email && <span className="max-w-56 truncate max-md:hidden">{email}</span>}
+                  <ChevronRight className="size-4" aria-hidden />
+                </ItemActions>
+              </Item>
+            );
+          })}
+        </ItemGroup>
+      )}
+    </FormDialog>
   );
 }

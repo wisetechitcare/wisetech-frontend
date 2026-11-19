@@ -31,7 +31,7 @@ const Departments = lazy(() => import('@pages/company/Departments'))
 const DocumentsDirectory = lazy(() => import('@pages/employee/documents/DocumentsDirectory'))
 const EmployeeDocumentsPage = lazy(() => import('@pages/employee/documents/EmployeeDocumentsPage'))
 const MyDocumentsPage = lazy(() => import('@pages/employee/documents/MyDocumentsPage'))
-const Branding = lazy(() => import('@pages/company/organisation/Branding'))
+const Branding = lazy(() => import('@pages/company/organization/Branding'))
 const Designations = lazy(() => import('@pages/company/Designation'))
 const OnBoardingDocs = lazy(() => import('@pages/company/OnboardingDocs'))
 const PersonalAttendanceView = lazy(() => import('@pages/employee/PersonalAttendanceView'))
@@ -64,8 +64,8 @@ const AllCompaniesToggle = lazy(() => import('@pages/employee/companies/companie
 // /projects/:id URLs resolve to the owning lead via ProjectEntityRedirect.
 const EntityDetailPage = lazy(() => import('@pages/employee/entity/EntityDetailPage'))
 const ProjectEntityRedirect = lazy(() => import('@pages/employee/entity/ProjectEntityRedirect'))
-const OrganisationProfileMain = lazy(() => import('@pages/company/organisation/OrganisationProfileMain'))
-const OrganizationProfilePage = lazy(() => import('@pages/company/organisation/OrganizationProfilePage'))
+const OrganizationProfileMain = lazy(() => import('@pages/company/organization/OrganizationProfileMain'))
+const OrganizationProfilePage = lazy(() => import('@pages/company/organization/OrganizationProfilePage'))
 const ContactMainToggle = lazy(() => import('@pages/employee/companies/contacts/components/ContactMainToggle'))
 const TasksMain = lazy(() => import('@pages/employee/tasks/TasksMain'))
 const TasksSectionBar = lazy(() => import('@pages/employee/tasks/TasksSectionBar'))
@@ -80,6 +80,8 @@ const TasksMainCalenderPage = lazy(() => import('@pages/employee/tasks/calender/
 const EmployeeTeamLevelMain = lazy(() => import('@pages/employee/tasks/employeTeamLevel/EmployeeTeamLevelMain'))
 const ContactsNavbar = lazy(() => import('@pages/employee/companies/contacts/contactsNavbar'))
 const CourtesyDeskMain = lazy(() => import('@pages/employee/courtesy-desk/CourtesyDeskMain'))
+const CataloguesPage = lazy(() => import('@pages/employee/catalogues/CataloguesPage'))
+const CompanyProfilePage = lazy(() => import('@pages/employee/company-profile/CompanyProfilePage'))
 const CourtesyGroupEditorPage = lazy(() => import('@pages/employee/courtesy-desk/pages/GroupEditorPage'))
 const CourtesyDriveCreatePage = lazy(() => import('@pages/employee/courtesy-desk/pages/DriveCreatePage'))
 const CourtesyDriveDetailPage = lazy(() => import('@pages/employee/courtesy-desk/pages/DriveDetailPage'))
@@ -90,7 +92,7 @@ const CourtesyDeskLegacyRedirect: FC = () => {
   return <Navigate to={next} replace />
 }
 
-const OrganisationInfoProfileMain = lazy(() => import('@pages/company/organisationInfo/OrganisationInfoProfileMain'))
+const OrganizationInfoProfileMain = lazy(() => import('@pages/company/organizationInfo/OrganizationInfoProfileMain'))
 const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
 const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
 const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
@@ -469,32 +471,32 @@ const PrivateRoutes = () => {
             </SectionGuard>}
         />
         <Route
-          path='/company/organisation-profile'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <OrganisationProfileMain />
+          path='/company/organization-profile'
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organizationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
+              <OrganizationProfileMain />
             </SuspensedView>) : <NoAccessPage />}
         />
-        {TAB_PATHS.organisationProfile.map((slug) => (
+        {TAB_PATHS.organizationProfile.map((slug) => (
             <Route
-              key={`/company/organisation-profile/${slug}`}
-              path={`/company/organisation-profile/${slug}`}
-              element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (
+              key={`/company/organization-profile/${slug}`}
+              path={`/company/organization-profile/${slug}`}
+              element={(hasPermission(uiControlResourceNameMapWithCamelCase.organizationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (
                 <SuspensedView>
-                  <OrganisationProfileMain />
+                  <OrganizationProfileMain />
                 </SuspensedView>
                 ) : <NoAccessPage />}
             />
           ))}
         <Route
-          path='/company/organisation-profile/:orgId'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
+          path='/company/organization-profile/:orgId'
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organizationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
               <OrganizationProfilePage />
             </SuspensedView>) : <NoAccessPage />}
         />
         <Route
-          path='/company/organisation-info/*'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <OrganisationInfoProfileMain />
+          path='/company/organization-info/*'
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.organizationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
+              <OrganizationInfoProfileMain />
             </SuspensedView>) : <NoAccessPage />}
         />
         <Route
@@ -856,6 +858,28 @@ const PrivateRoutes = () => {
             <SectionGuard module='crm.contacts'>
               <SuspensedView>
                 <CourtesyDriveDetailPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        {/* CRM → Catalogue: every company's catalogues, on the Companies permission. */}
+        <Route
+          path='/catalogues'
+          element={
+            <SectionGuard module='crm.companies'>
+              <SuspensedView>
+                <CataloguesPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        {/* CRM → Company Profile: on the Companies permission until a dedicated crm.companyProfile exists. */}
+        <Route
+          path='/company-profile'
+          element={
+            <SectionGuard module='crm.companies'>
+              <SuspensedView>
+                <CompanyProfilePage />
               </SuspensedView>
             </SectionGuard>
           }

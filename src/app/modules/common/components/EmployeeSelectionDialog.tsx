@@ -9,6 +9,7 @@ import {
     TRIO,
     type ToneName,
 } from '@app/modules/common/components/ui/tw';
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 
 /**
  * EmployeeSelectionDialog — the shared, reusable employee-picker modal.
@@ -160,10 +161,13 @@ export const EmployeeSelectionDialog: React.FC<EmployeeSelectionDialogProps> = (
                                     )}
                                     style={isSel ? { backgroundColor: trio.bg, borderColor: trio.c } : undefined}
                                 >
-                                    <img
+                                    <SmartAvatar
+                                        name={emp.name}
                                         src={emp.avatar}
-                                        alt={emp.name}
-                                        className="w-9 h-9 rounded-full object-cover shrink-0 border border-white shadow-sm"
+                                        seed={emp.id}
+                                        size={36}
+                                        decorative
+                                        className="shrink-0"
                                     />
                                     <div className="min-w-0 flex-1">
                                         <p

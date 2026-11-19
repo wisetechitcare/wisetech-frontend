@@ -1368,7 +1368,6 @@ function CustomCalendar() {
                                 options={CALENDAR_VIEW_OPTIONS}
                                 onChange={handleViewChangeByValue}
                                 ariaLabel="calendar view selection"
-                                selectedColor="var(--mrd-primary)"
                             />
                             <span className="mrd-spacer" />
                             {/* PeriodNavigator goes width:100% on phones, so anything after it

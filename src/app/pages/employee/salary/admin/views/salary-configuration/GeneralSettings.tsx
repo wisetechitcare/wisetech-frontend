@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { EmployeeSelectionDialog } from '@app/modules/common/components/EmployeeSelectionDialog';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { TRIO } from '@app/modules/common/components/ui/tw';
-import { getAvatar } from '@utils/avatar';
 import { fetchConfiguration, updateConfigurationById, createNewConfiguration } from '@services/company';
 import { EXCLUDE_FROM_LATE_ATTENDANCE, PAYMENT_MODE } from '@constants/configurations-key';
 import { successConfirmation } from '@utils/modal';
@@ -51,7 +50,7 @@ const transformEmployeeData = (apiData: any): IEmployee[] => {
         ? `${emp.users.firstName || ''} ${emp.users.lastName || ''}`.trim()
         : 'Unknown',
       designation: emp.designations?.role || 'N/A',
-      avatar: getAvatar(emp.avatar || null, emp.gender ?? null),
+      avatar: emp.avatar || '',
       gender: emp.gender ?? null,
     }));
 };

@@ -1,7 +1,6 @@
 import { createMultipleEmployeeMembers, deleteEmployeeMember, fetchAllEmployees } from '@services/employee';
 import { deleteConfirmation, removeConfirmation } from '@utils/modal';
 import { Employee, Level } from '../types';
-import defaultAvatar from '@metronic/assets/defaultAvatar/defaultAvatar.png';
 
 export const handleAddEmployee = async (
     levelId: string,
@@ -167,11 +166,8 @@ export const fetchAvailableEmployees = async (
                 const userName = emp.users ? `${emp.users.firstName || ''} ${emp.users.lastName || ''}`.trim() : '';
                 const empName = emp.name || userName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown Employee';
 
-                const generateDiceBearAvatar = (emp: any, name: string) => {
-                    return defaultAvatar;
-                };
-
-                const avatar = emp.avatar || emp.profilePicture || emp.users?.avatar || generateDiceBearAvatar(emp, empName);
+                // The real photo or null — SmartAvatar draws initials itself; a placeholder here would hide them.
+                const avatar = emp.avatar || emp.profilePicture || emp.users?.avatar || null;
 
                 return {
                     id: emp._id || emp.id,

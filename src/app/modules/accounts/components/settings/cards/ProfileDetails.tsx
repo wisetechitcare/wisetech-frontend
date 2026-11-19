@@ -13,7 +13,6 @@ import SignatureInput from '@app/modules/common/inputs/SignatureInput';
 import dayjs from 'dayjs';
 import { uploadUserAsset } from '@services/uploader';
 import { successConfirmation } from '@utils/modal';
-import { getAvatar } from '@utils/avatar';
 import { MAX_FILE_SIZE } from '@constants/statistics';
 import { Button } from '@/ds/ui/button';
 
@@ -177,7 +176,8 @@ const ProfileDetails: React.FC = () => {
     async function fetchProfileData() {
       const { data: { employeeProfile } } = await fetchEmployeeProfileData(employeeId)
       setProfileData(employeeProfile)
-      setAvatar(getAvatar(employeeProfile.avatar, employeeProfile.gender));
+      // The real photo or nothing: no photo shows the person's initials, never a gender cartoon.
+      setAvatar(employeeProfile.avatar || '');
     }
 
     fetchProfileData();
@@ -227,6 +227,8 @@ const ProfileDetails: React.FC = () => {
                         documentId='userProfilePicture'
                         hidden={true}
                         path={avatar}
+                        avatarName={`${profile?.users?.firstName || ''} ${profile?.users?.lastName || ''}`.trim()}
+                        avatarSeed={employeeId}
                         setFile={addFileToState} />
                     </div>
                   </div>

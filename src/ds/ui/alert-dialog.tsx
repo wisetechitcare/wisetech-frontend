@@ -6,6 +6,8 @@ import { AlertDialog as AlertDialogPrimitive } from "@animate-ui/react/primitive
 import { cn } from "cn"
 
 import { Button } from "@/ds/ui/button"
+import { useSettledRef } from "@/ds/lib/motion"
+import { modalScrimClassName } from "@/ds/ui/dialog"
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
@@ -23,17 +25,20 @@ function AlertDialogPortal({ ...props }: AlertDialogPrimitive.Portal.Props) {
   )
 }
 
+/** `modal` (default) sits with every other modal; `alert` is above all of them — the imperative dialog
+ *  service, which can be called from inside any open modal and must never land behind it. */
+type AlertLayer = "modal" | "alert"
+const LAYER: Record<AlertLayer, string> = { modal: "z-(--z-modal)", alert: "z-(--z-alert)" }
+
 function AlertDialogOverlay({
   className,
+  layer = "modal",
   ...props
-}: AlertDialogPrimitive.Backdrop.Props) {
+}: AlertDialogPrimitive.Backdrop.Props & { layer?: AlertLayer }) {
   return (
     <AlertDialogPrimitive.Backdrop
       data-slot="alert-dialog-overlay"
-      className={cn(
-        "fixed inset-0 isolate z-50 bg-black/80 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
-        className
-      )}
+      className={cn(modalScrimClassName, LAYER[layer], className)}
       {...props}
     />
   )
@@ -42,18 +47,24 @@ function AlertDialogOverlay({
 function AlertDialogContent({
   className,
   size = "default",
+  layer = "modal",
   ...props
 }: AlertDialogPrimitive.Popup.Props & {
   size?: "default" | "sm"
+  layer?: AlertLayer
 }) {
+  // Crisp at rest + centred on whole pixels: see useSettledWhenOpen (src/ds/lib/motion.ts).
+  const settledRef = useSettledRef()
   return (
     <AlertDialogPortal>
-      <AlertDialogOverlay />
+      <AlertDialogOverlay layer={layer} />
       <AlertDialogPrimitive.Popup
+        ref={settledRef}
         data-slot="alert-dialog-content"
         data-size={size}
         className={cn(
-          "group/alert-dialog-content fixed inset-0 z-50 m-auto grid h-fit w-full gap-6 rounded-4xl bg-popover p-6 text-popover-foreground ring-1 ring-foreground/5 duration-100 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "group/alert-dialog-content fixed inset-0 m-auto grid h-fit w-full gap-6 rounded-4xl bg-popover p-6 text-popover-foreground ring-1 ring-foreground/5 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-md",
+          LAYER[layer],
           className
         )}
         {...props}

@@ -28,7 +28,8 @@ export {
   installCheckboxBounce,
 } from './checkbox';
 export type { WtCheckboxProps, WtCheckboxFieldProps, WtCheckboxSize } from './checkbox';
-export { ToneChip, toneAlpha } from './chips';
+export { ToneChip, toneAlpha, StatusPill } from './chips';
+export { ToneBadge } from './ToneBadge';
 // Collection entity card — Roles / Adverts / Candidates / Projects. Composes GlassCard + ToneChip.
 export { EntityCard } from './EntityCard';
 export type { EntityCardProps, EntityCardTag } from './EntityCard';
@@ -255,8 +256,6 @@ export { WtFormDialog, WtFormSection, WtFormSpan } from './WtFormDialog';
 export type { WtFormDialogProps, WtFormSectionProps, WtFormNavItem } from './WtFormDialog';
 export { WtImageField } from './WtImageField';
 export type { WtImageFieldProps } from './WtImageField';
-export { WtVideoField } from './WtVideoField';
-export type { WtVideoFieldProps } from './WtVideoField';
 export { WtPhoneField } from './WtPhoneField';
 export { WtPhoneFieldFormik, type WtPhoneFieldFormikProps } from './WtPhoneFieldFormik';
 export type { WtPhoneFieldProps } from './WtPhoneField';

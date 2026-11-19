@@ -1,8 +1,10 @@
-import { Box, CircularProgress, Stack, Typography } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
-import { GlassDialog, GlassHeader, WtButton, tonePair } from '@app/modules/common/components/ui';
+import { Alert, AlertDescription } from '@/ds/ui/alert';
+import { Button } from '@/ds/ui/button';
+import { Spinner } from '@/ds/ui/spinner';
+import { FormDialog } from '@/ds/patterns/form-dialog';
 import type { ResubmissionPreview } from '@services/reimbursementVersions';
-import { ChangeSummaryTable } from './VersionHistoryDialog';
+import { ChangeSummaryTable, Eyebrow } from './VersionHistoryDialog';
+import { RefreshCw, CircleCheck, Info } from 'lucide-react';
 
 /**
  * The confirmation the spec requires before an edit to a submitted claim is committed.
@@ -14,6 +16,10 @@ import { ChangeSummaryTable } from './VersionHistoryDialog';
  *
  * The diff is computed server-side (`resubmission-preview`), so what is shown here is exactly what
  * the write will do — not a client-side guess that could disagree with it.
+ *
+ * Built on FormDialog rather than the kit's ConfirmDialog: that one closes itself after `onConfirm`
+ * and is a title + sentence, whereas this stays open while the parent saves (`submitting`), shows a
+ * loading state and a diff table, and the parent alone decides when it goes away.
  */
 
 export interface ResubmitConfirmDialogProps {
@@ -33,80 +39,65 @@ export default function ResubmitConfirmDialog({
     const discarded = preview?.levelsAlreadyApproved ?? 0;
 
     return (
-        <GlassDialog
+        <FormDialog
             open={open}
-            onClose={onCancel}
-            maxWidth="sm"
-            fullWidth
-            header={
-                <GlassHeader
-                    title={willRestart ? 'Resubmit for approval' : 'Save changes'}
-                    subtitle={willRestart ? 'Review what is changing before this goes back for approval' : undefined}
-                    icon={<KTIcon iconName="arrows-circle" className="fs-1" />}
-                    onClose={onCancel}
-                />
-            }
+            onOpenChange={(next) => { if (!next) onCancel(); }}
+            title={willRestart ? 'Resubmit for approval' : 'Save changes'}
+            description={willRestart ? 'Review what is changing before this goes back for approval' : undefined}
+            icon={<RefreshCw />}
+            footer={() => (
+                <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <Button variant="outline" onClick={onCancel} disabled={submitting}>Cancel</Button>
+                    <Button onClick={onConfirm} disabled={submitting || loading}>
+                        {submitting ? 'Saving…' : willRestart ? 'Resubmit for approval' : 'Save'}
+                    </Button>
+                </div>
+            )}
         >
-            <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
+            <div className="flex min-w-0 flex-col gap-3">
                 {loading ? (
-                    <Stack alignItems="center" sx={{ py: 5 }}><CircularProgress size={26} /></Stack>
+                    <div className="flex justify-center py-10"><Spinner className="size-[26px] text-primary" /></div>
                 ) : !willRestart ? (
                     // Nothing material moved. Saying so plainly matters: this is the spec's CASE 1,
                     // and the employee should know their answer did NOT cost them their approvals.
-                    <Stack gap={1}>
-                        <Stack direction="row" gap={1} alignItems="flex-start"
-                            sx={{ p: 1.25, borderRadius: '8px', bgcolor: tonePair('success').soft }}>
-                            <KTIcon iconName="check-circle" className="fs-5" />
-                            <Typography sx={{ fontSize: 13, lineHeight: 1.5 }}>
-                                Nothing about the claim has changed, so approval will continue exactly where it is.
-                                Nothing restarts.
-                            </Typography>
-                        </Stack>
-                    </Stack>
+                    <Alert variant="success">
+                        <CircleCheck aria-hidden />
+                        <AlertDescription className="text-[13px] leading-normal">
+                            Nothing about the claim has changed, so approval will continue exactly where it is.
+                            Nothing restarts.
+                        </AlertDescription>
+                    </Alert>
                 ) : (
                     <>
-                        <Box>
-                            <Typography sx={{
-                                fontSize: 11, fontWeight: 800, textTransform: 'uppercase',
-                                letterSpacing: '0.05em', color: 'text.secondary', mb: 0.75,
-                            }}>
-                                What is changing
-                            </Typography>
+                        <div>
+                            <Eyebrow className="mb-1.5">What is changing</Eyebrow>
                             <ChangeSummaryTable changes={changes} />
-                        </Box>
+                        </div>
 
-                        <Stack direction="row" gap={1} alignItems="flex-start"
-                            sx={{ p: 1.25, borderRadius: '8px', bgcolor: tonePair('warning').soft }}>
-                            <KTIcon iconName="information" className="fs-5" />
-                            <Box sx={{ minWidth: 0 }}>
-                                <Typography sx={{ fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
+                        <Alert variant="warning">
+                            <Info aria-hidden />
+                            <AlertDescription className="min-w-0">
+                                <span className="block text-[13px] font-bold leading-normal text-foreground">
                                     Because reimbursement details were changed, approval will restart from Level 1.
-                                </Typography>
-                                <Typography sx={{ fontSize: 12.5, color: 'text.secondary', lineHeight: 1.5, mt: 0.4 }}>
+                                </span>
+                                <span className="mt-1 block text-[12.5px] leading-normal text-muted-foreground">
                                     {discarded > 0
                                         ? `${discarded} approval${discarded === 1 ? '' : 's'} already given on the current version will no longer apply — the approvers signed off different details. Their decisions stay in this expense's history.`
                                         : 'Your approvers will review the updated details from the start of the chain.'}
                                     {preview?.currentLevel && preview?.totalLevels
                                         ? ` This claim is currently at level ${preview.currentLevel} of ${preview.totalLevels}.`
                                         : ''}
-                                </Typography>
-                            </Box>
-                        </Stack>
+                                </span>
+                            </AlertDescription>
+                        </Alert>
 
-                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                        <p data-slot="resubmit-hint" className="m-0 text-xs text-muted-foreground">
                             If you only meant to answer a question, close this and reply in the conversation
                             instead — that keeps your approvals.
-                        </Typography>
+                        </p>
                     </>
                 )}
-
-                <Stack direction="row" gap={1} justifyContent="flex-end" sx={{ pt: 0.5 }}>
-                    <WtButton ghost onClick={onCancel} disabled={submitting}>Cancel</WtButton>
-                    <WtButton onClick={onConfirm} disabled={submitting || loading}>
-                        {submitting ? 'Saving…' : willRestart ? 'Resubmit for approval' : 'Save'}
-                    </WtButton>
-                </Stack>
-            </Box>
-        </GlassDialog>
+            </div>
+        </FormDialog>
     );
 }

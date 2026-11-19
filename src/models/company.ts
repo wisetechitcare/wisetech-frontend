@@ -58,6 +58,15 @@ export interface ICustomSection {
 // custom fields store their value inline.
 export type FormFieldType = 'text' | 'number' | 'date' | 'file';
 
+/**
+ * What a BUILT-IN field's bespoke widget actually takes — display only, for Manage fields.
+ * `FormFieldType` is the set a CUSTOM field can be (each has a renderer); built-ins render their
+ * own widget (phone input, dropdown, toggle…), and showing them all as "Text" misled admins.
+ */
+export type BuiltinInputKind =
+    | 'text' | 'longText' | 'number' | 'phone' | 'email' | 'url'
+    | 'select' | 'multiSelect' | 'toggle' | 'date' | 'file' | 'coordinate' | 'referenceList';
+
 export interface IFormField {
     id: string;          // system: the DB column / Formik name; custom: a uuid
     label: string;
@@ -74,6 +83,7 @@ export interface IFormField {
     fixedType?: boolean;     // rendered by its own widget (phone, dropdown…) — type can't change
     fixedSection?: boolean;  // part of a composite widget (the address picker) — can't move out
     essential?: boolean;     // always required and can't be hidden (e.g. company name)
+    inputKind?: BuiltinInputKind; // what the bespoke widget takes — shown in Manage fields
 }
 
 export interface IFormSection {

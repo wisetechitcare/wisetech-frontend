@@ -1,6 +1,6 @@
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
-import { canTab } from "./can";
+import { canSection, canTab, isTabTurnedOff } from "./can";
 
 /**
  * Tabs inside a section that can be turned off for a role or a person (Access → Advanced) — e.g. a
@@ -131,6 +131,17 @@ export const SECTION_TABS: Record<string, SectionTab[]> = {
 export const tabSlug = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 export const tabKey = (section: string, tab: string) => `${section}/${tab}`;
+
+/**
+ * Is a module tab hidden from this person? Turned off for them (Access → Advanced), or it is the
+ * Configure tab and they lack Write on the section. The ONE rule every module tab bar applies —
+ * the legacy `MaterialHeaderTab` and every kit `PageTabs` host (`hidden: isSectionTabHidden(…)`).
+ * Read at render time; hosts re-render on a live access change by selecting `authz` from the store.
+ */
+export const isSectionTabHidden = (section: string, title: string): boolean => {
+    const slug = tabSlug(title);
+    return isTabTurnedOff(section, slug) || (slug === "configure" && !canSection(section, "write"));
+};
 
 /**
  * Sections where something can be deleted or archived — everywhere else the Delete box is greyed

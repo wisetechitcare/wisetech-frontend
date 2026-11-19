@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { exemptKitFromUtility, isLegacyStylesheet, kitClassNames } from './postcss-kit-exemption';
+import { exemptArtworkFromElementRules, exemptKitFromUtility, isLegacyStylesheet, kitClassNames } from './postcss-kit-exemption';
 
 const decl = (prop: string, important = true) => ({ type: 'decl' as const, prop, important });
 const rule = (selectors: string[], nodes = [decl('padding-left'), decl('padding-right')], parent?: { type: string; name: string }) =>
@@ -59,5 +59,23 @@ describe('Bootstrap utilities the kit also uses skip kit elements', () => {
     expect(names.has('bg-white')).toBe(true);
     expect(names.has('w-100')).toBe(false);
     expect([...names].some((n) => n.includes(':'))).toBe(false);
+  });
+});
+
+describe('Bootstrap element rules skip artwork (data-artwork: the Company Profile slides)', () => {
+  test('bare element selectors step aside inside artwork; the rest of a grouped rule is untouched', () => {
+    const r = rule(['h3', '.h3'], [decl('font-size', false)]);
+    expect(exemptArtworkFromElementRules(r)).toBe(true);
+    expect(r.selectors).toEqual(['h3:not(:where([data-artwork] *))', '.h3']);
+  });
+
+  test.each([
+    ['classes', rule(['.border'])],
+    ['compound or descendant selectors', rule(['ul li', 'a:hover'])],
+    ['keyframe steps', rule(['from', 'to'], undefined, { type: 'atrule', name: 'keyframes' })],
+  ])('leaves %s alone', (_label, r) => {
+    const before = [...r.selectors];
+    expect(exemptArtworkFromElementRules(r)).toBe(false);
+    expect(r.selectors).toEqual(before);
   });
 });

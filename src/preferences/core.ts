@@ -2,7 +2,7 @@
  * Scoped preferences — one cascade, one resolver.
  *
  * A preference can hold an opinion at several scopes (the user, their branch, the
- * organisation). The most specific scope that HAS an opinion wins; the fallback is
+ * organization). The most specific scope that HAS an opinion wins; the fallback is
  * applied once, here, only after every scope has declined.
  *
  * Design: summary/architecture/PREFERENCE_CASCADE_ARCHITECTURE.md §3.1. Built when the
@@ -27,7 +27,7 @@ export interface PreferenceSpec<T> {
 
 export type ScopeValues = Partial<Record<Scope, unknown>>;
 
-/** The value, plus WHICH scope decided it — so a settings screen can say "Following your organisation". */
+/** The value, plus WHICH scope decided it — so a settings screen can say "Following your organization". */
 export function explain<T>(
   spec: PreferenceSpec<T>,
   layers: ScopeValues,

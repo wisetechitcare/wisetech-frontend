@@ -6,13 +6,13 @@ interface Company {
         name: string;
         fiscalYear?: string;
         /**
-         * The organisation's 12/24h time setting, as the '1'/'0' strings the
+         * The organization's 12/24h time setting, as the '1'/'0' strings the
          * company forms round-trip (a raw boolean from the API is accepted too).
          * `null` means NOT LOADED YET, which must stay distinct from '0' — see
          * the note on the initial state below.
          */
         showDateIn12HourFormat?: string | boolean | null;
-        /** Organisation Interface Style default. `null` = no opinion (or not loaded yet). */
+        /** Organization Interface Style default. `null` = no opinion (or not loaded yet). */
         interfaceStyle?: 'glass' | 'material' | null;
     },
     currentBranch: {

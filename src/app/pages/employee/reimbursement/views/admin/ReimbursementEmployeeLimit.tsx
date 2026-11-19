@@ -1,57 +1,173 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { useOrgFilters, OrgFilterToolbar } from "@app/modules/common/components/ui/OrgFilterToolbar";
-import { C, FONT, RADIUS, ConfigSectionCard } from "@app/modules/configuration";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { Check, Pencil, ShieldCheck, X } from "lucide-react";
+import { Button } from "@/ds/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/ds/ui/input-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip";
+import { DataTable, SortableHeader, type ColumnDef } from "@/ds/patterns/data-table";
+import { PersonCell } from "@/ds/patterns/person";
+import { SettingsSection } from "@/ds/patterns/settings-section";
+import { useOrgFilters, OrgFilterSheetButton } from "@app/modules/common/components/ui/OrgFilterToolbar";
 import { IReimbursementEmployeeLimit } from "@models/employee";
 import { fetchReimbursementEmployeeLimits } from "@services/options";
 import { updateEmployee, fetchAllEmployees } from "@services/employee";
 import { can } from "@utils/can";
-import { MRT_ColumnDef } from "material-react-table";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
-import { RootState } from "@redux/store";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
-import { Button } from '@/ds/ui/button';
+import { formatCurrency, getCurrencySymbol } from "@utils/currency";
 
-// ─── Small icon-only action button, matches the hover-tint pattern used by ──
-// the other configuration pages' chip edit/delete controls.
-const RowIconBtn: React.FC<{
-  icon: string;
-  title: string;
-  tone: "primary" | "success" | "danger";
-  onClick: () => void;
-  disabled?: boolean;
-}> = ({ icon, title, tone, onClick, disabled }) => {
-  const [hov, setHov] = useState(false);
-  const TONE = {
-    primary: { bg: "#eff6ff", color: "#4f82c4" },
-    success: { bg: C.successLight, color: "#16a34a" },
-    danger: { bg: C.dangerLight, color: C.danger },
-  }[tone];
-
-  return (
-    <Button variant="ghost" size="icon-sm"
-      type="button"
-      title={title}
-      disabled={disabled}
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-    >
-      <AppIcon name={icon} className="fs-6" />
-    </Button>
-  );
-};
-
-/** A limits row with the org facts joined on, so the shared toolbar can filter it. */
+/** A limits row with the org facts joined on, so the shared filters can narrow it. */
 type LimitRow = IReimbursementEmployeeLimit & {
   subOrganization: string;
   branch: string;
   team: string;
   isActive: boolean;
 };
+
+// ─── Inline edit ──────────────────────────────────────────────────────────────
+// The edit state reaches the cells through context, so the column definitions stay STABLE. The
+// table renders each cell as a component; columns rebuilt on every keystroke would remount the
+// input under the caret and drop focus after one character.
+
+interface EditState {
+  editingId: string | null;
+  editValue: string;
+  editError: string;
+  savingId: string | null;
+  setEditValue: (v: string) => void;
+  edit: (row: LimitRow) => void;
+  cancel: () => void;
+  save: (row: LimitRow) => void;
+}
+const EditContext = createContext<EditState | null>(null);
+const useEdit = () => useContext(EditContext)!;
+
+/** A row icon action with its tooltip (Button story "Tinted"). */
+function RowAction({ label, tint, disabled, loading, onClick, children }: {
+  label: string;
+  tint?: string;
+  disabled?: boolean;
+  loading?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="tinted"
+            size="icon-sm"
+            aria-label={label}
+            disabled={disabled}
+            loading={loading}
+            onClick={onClick}
+            style={tint ? ({ "--tint": tint } as CSSProperties) : undefined}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function LimitCell({ row }: { row: LimitRow }) {
+  const e = useEdit();
+  if (e.editingId === row.id) {
+    const errorId = `limit-error-${row.id}`;
+    return (
+      <div className="space-y-1">
+        <InputGroup className="h-9 w-44">
+          <InputGroupAddon>
+            <InputGroupText>{getCurrencySymbol()}</InputGroupText>
+          </InputGroupAddon>
+          <InputGroupInput
+            aria-label={`Limit per request for ${row.name}`}
+            aria-invalid={e.editError ? true : undefined}
+            aria-describedby={e.editError ? errorId : undefined}
+            inputMode="decimal"
+            value={e.editValue}
+            autoFocus
+            disabled={e.savingId === row.id}
+            onChange={(ev) => e.setEditValue(ev.target.value)}
+            // Enter saves, Esc cancels — the keyboard path to the two buttons beside it.
+            onKeyDown={(ev) => {
+              if (ev.key === "Enter") { ev.preventDefault(); e.save(row); }
+              if (ev.key === "Escape") { ev.preventDefault(); e.cancel(); }
+            }}
+          />
+        </InputGroup>
+        {e.editError && <p data-slot="limit-error" id={errorId} role="alert" className="m-0 text-xs text-destructive">{e.editError}</p>}
+      </div>
+    );
+  }
+  return row.reimbursementLimitPerRequest != null ? (
+    <span className="tabular font-semibold">{formatCurrency(Number(row.reimbursementLimitPerRequest))}</span>
+  ) : (
+    <span className="text-muted-foreground italic">No Limit Set</span>
+  );
+}
+
+function ActionsCell({ row }: { row: LimitRow }) {
+  const e = useEdit();
+  if (e.editingId === row.id) {
+    const saving = e.savingId === row.id;
+    return (
+      <div className="flex items-center gap-1.5">
+        <RowAction label="Save" tint="var(--cta-success)" loading={saving} onClick={() => e.save(row)}>
+          <Check aria-hidden />
+        </RowAction>
+        <RowAction label="Cancel" tint="var(--cta-danger)" disabled={saving} onClick={e.cancel}>
+          <X aria-hidden />
+        </RowAction>
+      </div>
+    );
+  }
+  return (
+    <RowAction label={`Edit limit for ${row.name}`} onClick={() => e.edit(row)}>
+      <Pencil aria-hidden />
+    </RowAction>
+  );
+}
+
+const COLUMNS: ColumnDef<LimitRow, any>[] = [
+  {
+    accessorKey: "name",
+    meta: { label: "Employee" },
+    enableHiding: false,
+    header: ({ column }) => <SortableHeader column={column} title="Employee" />,
+    cell: ({ row }) => <PersonCell showAvatar={false} name={row.original.name} inactive={!row.original.isActive} />,
+  },
+  {
+    accessorKey: "subOrganization",
+    meta: { label: "Sub Organization" },
+    header: ({ column }) => <SortableHeader column={column} title="Sub Organization" />,
+  },
+  {
+    accessorKey: "branch",
+    meta: { label: "Branch" },
+    header: ({ column }) => <SortableHeader column={column} title="Branch" />,
+  },
+  {
+    id: "limit",
+    accessorFn: (r) => (r.reimbursementLimitPerRequest == null ? -1 : Number(r.reimbursementLimitPerRequest)),
+    meta: {
+      label: "Amount Limit Per Request",
+      exportValue: (r: LimitRow) => (r.reimbursementLimitPerRequest == null ? "No limit set" : Number(r.reimbursementLimitPerRequest)),
+    },
+    header: ({ column }) => <SortableHeader column={column} title="Amount Limit Per Request" />,
+    cell: ({ row }) => <LimitCell row={row.original} />,
+  },
+  {
+    id: "actions",
+    enableHiding: false,
+    enableSorting: false,
+    meta: { label: "Actions", pin: "end", export: false },
+    header: "Actions",
+    cell: ({ row }) => <ActionsCell row={row.original} />,
+  },
+];
 
 function ReimbursementEmployeeLimit() {
   const [employeeLimits, setEmployeeLimits] = useState<LimitRow[]>([]);
@@ -61,13 +177,9 @@ function ReimbursementEmployeeLimit() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string>("");
 
-  const employeeId = useSelector(
-    (state: RootState) => state.employee.currentEmployee.id
-  );
-
   // The limits endpoint returns id, name and the limit — sub-org, branch and team are joined in
   // from the employee list, the same source the payroll and payment toolbars filter on. A failed
-  // join costs the dropdowns their options, never a row: an employee whose org data is missing
+  // join costs the filters their options, never a row: an employee whose org data is missing
   // still appears and is still editable.
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -168,167 +280,40 @@ function ReimbursementEmployeeLimit() {
     [employeeLimits, filters],
   );
 
-  const columns = useMemo<MRT_ColumnDef<IReimbursementEmployeeLimit>[]>(
-    () => [
-      {
-        accessorKey: "name",
-        header: "Employee",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => (
-          <span style={{ fontFamily: FONT.body, fontWeight: 500, fontSize: "13px", color: C.textPrimary }}>
-            {renderedCellValue}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "reimbursementLimitPerRequest",
-        header: "Amount Limit Per Request",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ row }: any) => {
-          const rowData = row.original as IReimbursementEmployeeLimit;
-          if (editingId === rowData.id) {
-            return (
-              <div>
-                <input
-                  className="rl-edit-input"
-                  style={{
-                    maxWidth: 180,
-                    height: 34,
-                    border: `1px solid ${editError ? C.danger : C.border}`,
-                    borderRadius: RADIUS.md,
-                    padding: "0 10px",
-                    fontSize: "13px",
-                    fontFamily: FONT.body,
-                    color: C.textPrimary,
-                    outline: "none",
-                    transition: "border-color 0.15s ease",
-                  }}
-                  value={editValue}
-                  min={0}
-                  step="any"
-                  onChange={(e) => {
-                    setEditValue(e.target.value);
-                    setEditError("");
-                  }}
-                  autoFocus
-                  disabled={savingId === rowData.id}
-                />
-                {editError && (
-                  <div style={{ fontFamily: FONT.body, fontSize: "11px", color: C.danger, marginTop: "4px" }}>
-                    {editError}
-                  </div>
-                )}
-              </div>
-            );
-          }
-          return (
-            <span
-              style={{
-                fontFamily: FONT.body,
-                fontWeight: 600,
-                fontSize: "13px",
-                color: rowData.reimbursementLimitPerRequest != null ? C.textPrimary : C.textMuted,
-                fontStyle: rowData.reimbursementLimitPerRequest != null ? "normal" : "italic",
-              }}
-            >
-              {rowData.reimbursementLimitPerRequest != null
-                ? `${currencyPrefix()}${Number(rowData.reimbursementLimitPerRequest).toLocaleString(getCurrencyLocale())}`
-                : "No limit set"}
-            </span>
-          );
-        },
-      },
-      {
-        id: "actions",
-        header: "Action",
-        enableSorting: false,
-        enableColumnActions: false,
-        size: 120,
-        Cell: ({ row }: any) => {
-          const rowData = row.original as IReimbursementEmployeeLimit;
-          const isEditing = editingId === rowData.id;
-          const isSaving = savingId === rowData.id;
-
-          if (isEditing) {
-            return (
-              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                {isSaving ? (
-                  <span
-                    className="spinner-border spinner-border-sm"
-                    style={{ color: C.primary, margin: "6px 8px" }}
-                    role="status"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <RowIconBtn
-                    icon="bi-check-lg"
-                    title="Save"
-                    tone="success"
-                    onClick={() => handleSave(rowData)}
-                    disabled={isSaving}
-                  />
-                )}
-                <RowIconBtn
-                  icon="bi-x-lg"
-                  title="Cancel"
-                  tone="danger"
-                  onClick={handleCancel}
-                  disabled={isSaving}
-                />
-              </div>
-            );
-          }
-
-          return (
-            <RowIconBtn
-              icon="bi-pencil"
-              title="Edit"
-              tone="primary"
-              onClick={() => handleEdit(rowData)}
-            />
-          );
-        },
-      },
-    ],
-    [editingId, editValue, editError, savingId, handleEdit, handleCancel, handleSave]
-  );
+  const edit = useMemo<EditState>(() => ({
+    editingId,
+    editValue,
+    editError,
+    savingId,
+    setEditValue: (v) => { setEditValue(v); setEditError(""); },
+    edit: handleEdit,
+    cancel: handleCancel,
+    save: handleSave,
+  }), [editingId, editValue, editError, savingId, handleEdit, handleCancel, handleSave]);
 
   return (
-    <>
-      <style>{`
-        .rl-edit-input:focus {
-          border-color: ${C.primary} !important;
-          box-shadow: 0 0 0 3px ${C.primaryLight} !important;
-        }
-      `}</style>
-
-      <ConfigSectionCard
-        title="Employee Limits"
-        description="Set custom per-request reimbursement limits for individual employees."
-        icon="bi-shield-check"
-        iconColor="blue"
-      >
-        <MaterialTable
-          columns={columns}
+    <SettingsSection
+      title="Employee Limits"
+      description="Set custom per-request reimbursement limits for individual employees."
+      icon={<ShieldCheck />}
+      tone="blue"
+      count={visibleLimits.length}
+      divided={false}
+    >
+      <EditContext.Provider value={edit}>
+        <DataTable
+          caption="Reimbursement employee limits"
+          stateKey="reimbursement.employee-limits"
+          columns={COLUMNS}
           data={visibleLimits}
-          hideExportCenter={true}
-          employeeId={employeeId}
-          isLoading={loading}
+          getRowId={(r) => r.id}
+          loading={loading}
           searchPlaceholder="Search employee…"
-          muiTableProps={{
-            sx: {
-              "& .MuiTableBody-root .MuiTableCell-root": {
-                borderBottom: "none",
-                paddingY: "5px",
-              },
-            },
-          }}
-          tableName="Reimbursement Employee Limits"
+          filters={<OrgFilterSheetButton filters={filters} />}
+          initialSorting={[{ id: "name", desc: false }]}
         />
-      </ConfigSectionCard>
-    </>
+      </EditContext.Provider>
+    </SettingsSection>
   );
 }
 

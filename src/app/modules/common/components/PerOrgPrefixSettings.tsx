@@ -519,9 +519,6 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
                 minWidth: { sm: 320 },
                 flex: { sm: '1 1 320px' },
                 maxWidth: { sm: 420 },
-                '& .MuiOutlinedInput-notchedOutline': yearDirty
-                  ? { borderColor: 'warning.main !important' }
-                  : undefined,
               }}
             >
               <FiscalYearRangeField
@@ -531,6 +528,7 @@ const PerOrgPrefixSettings: React.FC<PerOrgPrefixSettingsProps> = ({
                 startLabel="Start"
                 endLabel="End"
                 density="compact"
+                changed={yearDirty}
               />
             </Box>
           </Box>

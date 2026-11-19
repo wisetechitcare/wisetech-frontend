@@ -5,6 +5,7 @@ import {
   normalizeTimeFormatFlag,
   resolveTimeFormat,
   to12,
+  timeToMinutes12h,
   to24,
 } from './timeFormat';
 
@@ -105,5 +106,16 @@ describe('12-hour wheel conversion', () => {
       const { h12, meridiem } = to12(hh);
       expect(to24(h12, meridiem)).toBe(hh);
     }
+  });
+});
+
+describe('timeToMinutes12h', () => {
+  test.each([
+    ['12:00 AM', 0],
+    ['12:30 PM', 750],
+    ['01:15 PM', 795],
+    ['09:05 AM', 545],
+  ])('%s -> %i', (input, expected) => {
+    expect(timeToMinutes12h(input)).toBe(expected);
   });
 });

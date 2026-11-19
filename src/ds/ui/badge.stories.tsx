@@ -11,7 +11,7 @@ const meta = {
   argTypes: {
     variant: {
       control: 'select',
-      options: ['default', 'secondary', 'outline', 'ghost', 'destructive', 'link', 'success', 'warning', 'danger', 'info', 'brand', 'neutral', 'blue', 'green', 'amber', 'rose', 'purple', 'cyan', 'slate', 'custom'],
+      options: ['default', 'secondary', 'outline', 'ghost', 'destructive', 'link', 'success', 'warning', 'danger', 'info', 'brand', 'neutral', 'blue', 'green', 'amber', 'rose', 'purple', 'indigo', 'cyan', 'slate', 'custom'],
     },
     dot: { control: 'boolean' },
   },
@@ -41,6 +41,24 @@ export const StatusSet: Story = {
   ),
 }
 
+/** Solid / Count: a filled chip for a count or "needs action" marker that sits ON a same-tone soft panel. */
+export const SolidCount: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      <div className="flex items-center gap-2 rounded-xl bg-warning-soft p-3">
+        <span className="text-sm font-bold">Needs your attention</span>
+        <Badge variant="warning-solid">3</Badge>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl bg-destructive-soft p-3"><Badge variant="danger-solid">Overdue</Badge></div>
+      <div className="flex items-center gap-2 rounded-xl bg-success-soft p-3"><Badge variant="success-solid">Paid</Badge></div>
+      <div className="flex items-center gap-2 rounded-xl bg-info-soft p-3"><Badge variant="info-solid">New</Badge></div>
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('3')).toHaveAttribute('data-variant', 'warning-solid')
+  },
+}
+
 /** Neutral metadata: counts, categories, plan names. */
 export const Metadata: Story = {
   render: () => (
@@ -62,6 +80,7 @@ export const CategoryHues: Story = {
       <Badge variant="amber">Comp-off</Badge>
       <Badge variant="cyan">Work from home</Badge>
       <Badge variant="purple">Recruitment</Badge>
+      <Badge variant="indigo">Batch query</Badge>
       <Badge variant="green">Engineering</Badge>
       <Badge variant="slate">Unpaid leave</Badge>
     </div>

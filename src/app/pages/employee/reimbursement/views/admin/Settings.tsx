@@ -1,14 +1,22 @@
-import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
-import TextInput from "@app/modules/common/inputs/TextInput";
-import { KTIcon } from "@metronic/helpers";
-import { C, BTN, RADIUS, FONT, SP, ConfigSectionCard } from "@app/modules/configuration";
+import React, { useEffect, useState, type CSSProperties } from "react";
+import { Form, Formik, FormikValues } from "formik";
+import * as Yup from "yup";
+import { ChevronRight, Flag, LayoutGrid, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import { Button } from "@/ds/ui/button";
+import { DynamicIcon } from "@/ds/ui/dynamic-icon";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldTitle } from "@/ds/ui/field";
+import { Input } from "@/ds/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/ds/ui/input-group";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/ds/ui/item";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip";
+import { AutoGrid } from "@/ds/patterns/auto-grid";
+import { EmptyState } from "@/ds/patterns/empty-state";
+import { FormDialog } from "@/ds/patterns/form-dialog";
+import { SettingsSection } from "@/ds/patterns/settings-section";
 import {
   IReimbursementTypeCreate,
   IReimbursementTypeFetch,
 } from "@models/employee";
-
-import { useSelector } from "react-redux";
-import { RootState } from "@redux/store";
 import { deleteConfirmation, successConfirmation, errorConfirmation } from "@utils/modal";
 import { canDelete, canSection } from "@utils/can";
 import {
@@ -17,16 +25,10 @@ import {
   fetchAllReimbursementTypesFromDb,
   updateReimbursementTypeById,
 } from "@utils/statistics";
-import { Form, Formik, FormikValues } from "formik";
-import React, { useEffect, useState } from "react";
-
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
-import * as Yup from "yup";
+import { formatCurrency, getCurrencySymbol } from "@utils/currency";
 import IconPickerModal, { SelectedIcon } from "./IconPickerModal";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
-import { Button } from '@/ds/ui/button';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -49,89 +51,63 @@ const makeCategoryInitialState = (): { type: string; icon: string; amountLimit: 
   amountLimit: null,
 });
 
+const FORM_ID = "employee_reimbursement_form";
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const DEFAULT_ICON_URL =
   "https://wise-tech-asset-store.s3.ap-south-1.amazonaws.com/15658e56-ee9c-4ac3-abfa-ce8734f7978a/0aa9fbc3296053c60f12004b96021ab31ba20d3650";
 
 /**
- * Renders a round icon avatar for a category.
+ * A category's icon in a round brand tile.
  * Supports:
- *   - KT system icon names stored as  "kt:car"
+ *   - system icon names stored as  "kt:car"
  *   - Full URLs (http/https) stored directly
  *   - Empty / missing → default icon
  */
-function IconAvatar({ value, size = 34 }: { value?: string; size?: number }) {
-  const isKtIcon = value?.startsWith("kt:");
-  const isUrl = value?.startsWith("http");
-
-  if (isKtIcon) {
-    const iconName = value!.slice(3);
+function IconAvatar({ value, size = "default" }: { value?: string; size?: "default" | "lg" }) {
+  const box = size === "lg" ? "size-10" : "size-9";
+  if (value?.startsWith("kt:")) {
     return (
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: "50%",
-          background: C.primaryLight,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ color: C.primary, display: "flex" }}>
-          <KTIcon iconName={iconName} className="fs-4" />
-        </span>
-      </div>
+      <span className={`grid ${box} shrink-0 place-items-center rounded-full bg-accent text-primary`}>
+        <DynamicIcon name={value.slice(3)} className="size-[18px]" />
+      </span>
     );
   }
-
-  const src = isUrl ? value : DEFAULT_ICON_URL;
+  const src = value?.startsWith("http") ? value : DEFAULT_ICON_URL;
   return (
-    <img
-      style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-      alt="Icon"
-      src={src}
-    />
+    <span className={`grid ${box} shrink-0 place-items-center overflow-hidden rounded-full bg-accent`}>
+      {/* Online icons are drawn dark (#181C32); a light disc behind them keeps them visible in dark mode. */}
+      <img className="size-full object-cover" alt="" src={src} />
+    </span>
   );
 }
 
-/**
- * Small icon preview used inside the category modal.
- */
-function IconPreview({ icon }: { icon: string }) {
-  if (!icon) return null;
-  const isKtIcon = icon.startsWith("kt:");
+/** A row icon action with its tooltip (Button story "Tinted"). */
+function RowAction({ label, danger, onClick, children }: { label: string; danger?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "10px",
-        marginTop: "10px",
-        padding: "10px 14px",
-        background: C.primaryLight,
-        border: "1.5px solid rgba(30, 58, 138,0.18)",
-        borderRadius: RADIUS.md,
-      }}
-    >
-      <IconAvatar value={icon} size={40} />
-      <div>
-        <div style={{ fontSize: "11px", color: C.textMuted, fontFamily: FONT.body, marginBottom: 1 }}>
-          Icon Preview
-        </div>
-        <div style={{ fontSize: "12px", color: C.textSecondary, fontFamily: FONT.body, fontWeight: 500 }}>
-          {isKtIcon ? `System · ${icon.slice(3)}` : "Online Icon"}
-        </div>
-      </div>
-    </div>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="tinted"
+            size="icon-sm"
+            aria-label={label}
+            onClick={onClick}
+            style={danger ? ({ "--tint": "var(--cta-danger)" } as CSSProperties) : undefined}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
-// ─── Category chip ────────────────────────────────────────────────────────────
+// ─── Category tile ────────────────────────────────────────────────────────────
 
-interface CategoryChipProps {
+interface CategoryTileProps {
   category: IReimbursementTypeFetch;
   canManage: boolean;
   onEdit: () => void;
@@ -139,103 +115,35 @@ interface CategoryChipProps {
   onDelete?: () => void;
 }
 
-const CategoryChip: React.FC<CategoryChipProps> = ({ category, canManage, onEdit, onDelete }) => {
-  const [hov, setHov] = useState(false);
+/** One category: its icon, name and limit, with Edit / Delete (kit Item, outline). */
+function CategoryTile({ category, canManage, onEdit, onDelete }: CategoryTileProps) {
   const hasLimit = category.amountLimit != null;
-
   return (
-    <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: hov ? "#ffffff" : "#f7f8fa",
-        border: `1px solid ${hov ? "#d1d5e0" : "#eaecf0"}`,
-        borderRadius: RADIUS.lg,
-        padding: "8px 10px",
-        transition: "all 0.15s ease",
-        boxShadow: hov ? "0 4px 14px rgba(24,28,50,0.09)" : "0 1px 3px rgba(24,28,50,0.04)",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Left accent */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          bottom: 0,
-          left: 0,
-          width: "3px",
-          backgroundColor: C.primary,
-          opacity: 0.7,
-        }}
-      />
-
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: 0, paddingLeft: "4px" }}>
+    <Item size="sm" variant="outline" className="h-full bg-card hover:bg-muted/40">
+      <ItemMedia>
         <IconAvatar value={category.icon} />
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontFamily: FONT.body,
-              fontWeight: 600,
-              fontSize: "13px",
-              color: C.textPrimary,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {category.type}
-          </div>
-          <div
-            style={{
-              fontFamily: FONT.body,
-              fontWeight: 500,
-              fontSize: "11px",
-              color: hasLimit ? C.primary : C.textMuted,
-              marginTop: "1px",
-            }}
-          >
-            {hasLimit ? `Limit ${currencyPrefix()}${Number(category.amountLimit).toLocaleString(getCurrencyLocale())}` : "No limit set"}
-          </div>
-        </div>
-      </div>
-
+      </ItemMedia>
+      <ItemContent className="min-w-0">
+        <ItemTitle className="truncate">{category.type}</ItemTitle>
+        <ItemDescription className={hasLimit ? "tabular font-medium text-primary" : undefined}>
+          {hasLimit ? `Limit ${formatCurrency(Number(category.amountLimit))}` : "No Limit Set"}
+        </ItemDescription>
+      </ItemContent>
       {canManage && (
-        <div style={{ display: "flex", gap: "4px", flexShrink: 0, opacity: hov ? 1 : 0.35, transition: "opacity 0.15s ease" }}>
-          <Button variant="ghost" size="icon-xs" type="submit" aria-label="Edit"
-            onClick={onEdit}
-          >
-            <AppIcon name="bi-pencil" className="fs-8" />
-          </Button>
+        <ItemActions>
+          <RowAction label={`Edit ${category.type}`} onClick={onEdit}>
+            <Pencil aria-hidden />
+          </RowAction>
           {onDelete && (
-          <Button variant="tinted" size="icon-xs" type="submit" aria-label="Delete" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
-            onClick={onDelete}
-          >
-            <AppIcon name="bi-trash" className="fs-8" />
-          </Button>
+            <RowAction label={`Delete ${category.type}`} danger onClick={onDelete}>
+              <Trash2 aria-hidden />
+            </RowAction>
           )}
-        </div>
+        </ItemActions>
       )}
-    </div>
+    </Item>
   );
-};
-
-const ChipGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: SP.sm }}>
-    {children}
-  </div>
-);
-
-const EmptyState: React.FC = () => (
-  <div style={{ textAlign: "center", padding: "28px 16px", color: C.textMuted, fontFamily: FONT.body, fontSize: "13px" }}>
-    <AppIcon name="bi-inbox" className="fs-2qx" style={{ display: "block", marginBottom: "8px", opacity: 0.4 }} />
-    No reimbursement categories configured yet
-  </div>
-);
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -301,7 +209,7 @@ function Settings() {
     }
   };
 
-  const handleSubmit = async (values: any, actions: FormikValues) => {
+  const handleSubmit = async (values: any, _actions: FormikValues) => {
     setLoading(true);
     try {
       const payload: IReimbursementTypeCreate = {
@@ -362,208 +270,146 @@ function Settings() {
 
   return (
     <>
-      <style>{`
-        .rc-form-control:focus {
-          border-color: ${C.primary} !important;
-          box-shadow: 0 0 0 3px ${C.primaryLight} !important;
-        }
-        .rc-modal .modal-content {
-          border-radius: ${RADIUS.xl} !important;
-          border: none !important;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.12) !important;
-        }
-      `}</style>
-
-      <ConfigSectionCard
+      <SettingsSection
         title="Reimbursement Categories"
         description="Define the expense categories employees can submit reimbursement requests for."
-        icon="bi-tag"
-        iconColor="primary"
-        primaryAction={canWrite ? { label: "Add New Category", icon: "bi-plus-lg", onClick: handleNew, variant: "primary" } : undefined}
+        icon={<Flag />}
+        count={reimbursementTypeData.length}
+        divided={false}
+        action={canWrite ? (
+          <Button onClick={handleNew}>
+            <Plus data-icon="inline-start" aria-hidden /> Add New Category
+          </Button>
+        ) : undefined}
       >
         {reimbursementTypeData.length === 0 ? (
-          <EmptyState />
+          <EmptyState
+            size="sm"
+            icon={<Receipt />}
+            title="No Reimbursement Categories Yet"
+            description="Add the first category employees can claim against."
+          />
         ) : (
-          <ChipGrid>
-            {reimbursementTypeData.map((category) => (
-              <CategoryChip
-                key={category.id}
-                category={category}
-                canManage={canWrite}
-                onEdit={() => handleEdit(category)}
-                onDelete={canDelete("finance.reimbursements") ? () => handleDelete(category) : undefined}
-              />
-            ))}
-          </ChipGrid>
+          <AutoGrid min={240} max={420} stretch>
+              {reimbursementTypeData.map((category) => (
+                <CategoryTile
+                  key={category.id}
+                  category={category}
+                  canManage={canWrite}
+                  onEdit={() => handleEdit(category)}
+                  onDelete={canDelete("finance.reimbursements") ? () => handleDelete(category) : undefined}
+                />
+              ))}
+          </AutoGrid>
         )}
-      </ConfigSectionCard>
+      </SettingsSection>
 
-      {/* ── Category Form Modal ──────────────────────────────────────── */}
-      <Modal show={show} onHide={handleClose} centered className="rc-modal">
-        <Modal.Header closeButton style={{ borderBottom: "none", paddingBottom: "8px" }}>
-          <Modal.Title style={{ fontFamily: FONT.heading, fontWeight: 700, fontSize: "18px", color: C.textPrimary }}>
-            {editMode ? "Edit Reimbursement Category" : "New Reimbursement Category"}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body style={{ paddingTop: "8px" }}>
-          <Formik
-            initialValues={
-              editMode && selectedReimbursement ? selectedReimbursement : makeCategoryInitialState()
-            }
-            onSubmit={handleSubmit}
-            validationSchema={reimbursementTypeSchema}
-            enableReinitialize={true}
-          >
-            {(formikProps) => {
-              // Expose setFieldValue to the icon picker handler
-              formikSetFieldRef.current = formikProps.setFieldValue;
+      {/* ── Category Form ──────────────────────────────────────────────
+          Formik outside the dialog, so the dialog knows when the form is dirty and asks before
+          discarding (what UnsavedChangesModal did). */}
+      <Formik
+        initialValues={
+          editMode && selectedReimbursement ? selectedReimbursement : makeCategoryInitialState()
+        }
+        onSubmit={handleSubmit}
+        validationSchema={reimbursementTypeSchema}
+        enableReinitialize={true}
+      >
+        {(formikProps) => {
+          // Expose setFieldValue to the icon picker handler
+          formikSetFieldRef.current = formikProps.setFieldValue;
+          const { values, touched, errors } = formikProps;
+          const nameError = touched.type && errors.type ? String(errors.type) : undefined;
+          const limitError = touched.amountLimit && errors.amountLimit ? String(errors.amountLimit) : undefined;
+          const iconToPreview: string = previewIconValue || values.icon || "";
 
-              return (
-                <Form
-                  className="d-flex flex-column"
-                  noValidate
-                  id="employee_reimbursement_form"
-                >
-                  <div className="row">
-                    {/* Name field */}
-                    <div className="col-lg-6">
-                      <TextInput
-                        isRequired={true}
-                        label="Enter Name"
-                        margin="mb-3"
-                        formikField="type"
+          return (
+            <FormDialog
+              open={show}
+              onOpenChange={(open) => { if (!open) handleClose(); }}
+              title={editMode ? "Edit Reimbursement Category" : "New Reimbursement Category"}
+              icon={<Flag />}
+              formId={FORM_ID}
+              submitLabel={editMode ? "Save Changes" : "Create Category"}
+              submitting={loading}
+              submitDisabled={!formikProps.isValid}
+              dirty={formikProps.dirty}
+            >
+              <Form id={FORM_ID} noValidate>
+                <FieldGroup className="gap-6 pt-2">
+                  <Field data-invalid={nameError ? true : undefined}>
+                    <FieldLabel htmlFor="category-name">Name</FieldLabel>
+                    <Input
+                      id="category-name"
+                      name="type"
+                      required
+                      value={values.type ?? ""}
+                      onChange={formikProps.handleChange}
+                      onBlur={formikProps.handleBlur}
+                      aria-invalid={nameError ? true : undefined}
+                    />
+                    {nameError && <FieldError>{nameError}</FieldError>}
+                  </Field>
+
+                  <Field data-invalid={limitError ? true : undefined}>
+                    <FieldLabel htmlFor="category-limit">Amount Limit</FieldLabel>
+                    <InputGroup>
+                      <InputGroupAddon>
+                        <InputGroupText>{getCurrencySymbol()}</InputGroupText>
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        id="category-limit"
+                        name="amountLimit"
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        placeholder="e.g. 5000"
+                        value={values.amountLimit ?? ""}
+                        onChange={(e) =>
+                          formikProps.setFieldValue(
+                            "amountLimit",
+                            e.target.value === "" ? null : Number(e.target.value)
+                          )
+                        }
+                        onBlur={formikProps.handleBlur}
+                        aria-invalid={limitError ? true : undefined}
                       />
-                      {/* Amount Limit field */}
-                      <div className="d-flex flex-column fv-row mb-3">
-                        <label
-                          className="d-flex align-items-center mb-2"
-                          style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: "13.5px", color: C.textPrimary }}
-                        >
-                          <span>Amount Limit</span>
-                        </label>
-                        <input
-                          min={0}
-                          name="amountLimit"
-                          placeholder="e.g. 5000"
-                          value={formikProps.values.amountLimit ?? ""}
-                          onChange={(e) =>
-                            formikProps.setFieldValue(
-                              "amountLimit",
-                              e.target.value === "" ? null : Number(e.target.value)
-                            )
-                          }
-                          onBlur={formikProps.handleBlur}
-                          className="rc-form-control"
-                          style={{
-                            height: 44,
-                            border: `1px solid ${formikProps.touched.amountLimit && formikProps.errors.amountLimit ? C.danger : C.border}`,
-                            borderRadius: RADIUS.md,
-                            padding: "0 14px",
-                            fontSize: "13.5px",
-                            fontFamily: FONT.body,
-                            color: C.textPrimary,
-                            backgroundColor: C.bgSection,
-                            outline: "none",
-                            transition: "border-color 0.15s ease",
-                          }}
-                        />
-                        {formikProps.touched.amountLimit && formikProps.errors.amountLimit && (
-                          <div style={{ fontFamily: FONT.body, fontSize: "12px", color: C.danger, marginTop: "6px" }}>
-                            {formikProps.errors.amountLimit as string}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    </InputGroup>
+                    {limitError ? (
+                      <FieldError>{limitError}</FieldError>
+                    ) : (
+                      <FieldDescription>Per request. Leave empty for no limit.</FieldDescription>
+                    )}
+                  </Field>
 
-                    {/* Icon picker field */}
-                    <div className="col-lg-6">
-                      <label
-                        style={{
-                          fontFamily: FONT.body,
-                          fontWeight: 600,
-                          fontSize: "13.5px",
-                          color: C.textPrimary,
-                          display: "block",
-                          marginBottom: SP.sm,
-                        }}
-                      >
-                        Choose Icon
-                      </label>
-
-                      {/* Trigger button */}
-                      <button data-wt-control="select"
-                        type="button"
-                        onClick={() => setShowIconPicker(true)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          width: "100%",
-                          padding: "10px 14px",
-                          border: `1.5px solid ${C.border}`,
-                          borderRadius: RADIUS.md,
-                          background: C.bgSection,
-                          cursor: "pointer",
-                          fontSize: "13px",
-                          fontFamily: FONT.body,
-                          color: formikProps.values.icon ? C.textPrimary : C.textMuted,
-                          fontWeight: formikProps.values.icon ? 600 : 400,
-                          transition: "border-color 0.15s",
-                        }}
-                        onMouseEnter={(e) =>
-                          ((e.currentTarget as HTMLElement).style.borderColor = C.primary)
-                        }
-                        onMouseLeave={(e) =>
-                          ((e.currentTarget as HTMLElement).style.borderColor = C.border)
-                        }
-                      >
-                        <span style={{ color: C.primary, display: "flex" }}>
-                          <KTIcon iconName="category" className="fs-4" />
-                        </span>
-                        {formikProps.values.icon
-                          ? "Change Icon"
-                          : "Pick an Icon…"}
-                        <span style={{ color: C.textMuted, display: "flex", marginLeft: "auto" }}>
-                          <KTIcon iconName="arrow-right" className="fs-5" />
-                        </span>
-                      </button>
-
-                      {/* Inline preview */}
-                      {(() => {
-                        const iconToPreview: string = previewIconValue || formikProps.values.icon || "";
-                        return iconToPreview ? <IconPreview icon={iconToPreview} /> : null;
-                      })()}
-
-                      {formikProps.touched.icon && formikProps.errors.icon && (
-                        <div style={{ fontFamily: FONT.body, fontSize: "12px", color: C.danger, marginTop: "6px" }}>
-                          {formikProps.errors.icon}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="d-flex justify-content-start mt-2">
+                  <Field>
+                    <FieldTitle>Icon</FieldTitle>
+                    {/* The picker opens over this dialog; what it returns shows right here. */}
                     <Button
-                      type="submit"
-                      disabled={loading || !formikProps.isValid}
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => setShowIconPicker(true)}
                     >
-                      {!loading && "Submit"}
-                      {loading && (
-                        <span className="indicator-progress" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          Please wait…
-                          <span className="spinner-border spinner-border-sm align-middle" />
-                        </span>
-                      )}
+                      {iconToPreview ? <IconAvatar value={iconToPreview} /> : <LayoutGrid data-icon="inline-start" aria-hidden />}
+                      <span className="min-w-0 flex-1 truncate text-left">
+                        {iconToPreview
+                          ? iconToPreview.startsWith("kt:") ? `System · ${iconToPreview.slice(3)}` : "Online Icon"
+                          : "Pick an Icon…"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{values.icon ? "Change" : ""}</span>
+                      <ChevronRight data-icon="inline-end" aria-hidden />
                     </Button>
-                  </div>
-                </Form>
-              );
-            }}
-          </Formik>
-        </Modal.Body>
-      </Modal>
+                    {touched.icon && errors.icon && <FieldError>{String(errors.icon)}</FieldError>}
+                  </Field>
+                </FieldGroup>
+              </Form>
+            </FormDialog>
+          );
+        }}
+      </Formik>
 
-      {/* ── Hybrid Icon Picker Modal ─────────────────────────────────── */}
+      {/* ── Hybrid Icon Picker ─────────────────────────────────────────── */}
       <IconPickerModal
         show={showIconPicker}
         onHide={() => setShowIconPicker(false)}

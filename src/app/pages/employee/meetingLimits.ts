@@ -10,7 +10,9 @@
  * The caps exist for the opposite reason — not to make somebody fill a field in, but to stop
  * one field swallowing a screen or a database column.
  */
-export const TITLE_MAX_CHARS = 20;
+// Matches the meeting-purpose name cap (120, backend `createCompanyPurpose`) so every configured
+// purpose can be picked as a title; the DB column itself is VARCHAR(300).
+export const TITLE_MAX_CHARS = 120;
 export const AGENDA_MAX_WORDS = 200;
 
 /** Words as a person counts them: runs of non-space, however much space is between them. */

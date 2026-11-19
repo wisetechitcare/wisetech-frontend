@@ -27,6 +27,14 @@ describe('geofencing constrains arriving, never leaving', () => {
         expect(at({ dayState: 'not-in', fence: 'outside' })).toBe(true);
     });
 
+    it('refuses an Office check-in when the fence is misconfigured (radius set, but data incomplete)', () => {
+        expect(at({ dayState: 'not-in', fence: 'misconfigured' })).toBe(true);
+    });
+
+    it('lets a checked-in employee check out even when misconfigured', () => {
+        expect(at({ dayState: 'in', fence: 'misconfigured' })).toBe(false);
+    });
+
     it('allows an Office check-in inside the fence', () => {
         expect(at({ dayState: 'not-in', fence: 'inside' })).toBe(false);
     });
@@ -48,6 +56,20 @@ describe('an unknown fence is not a fence of zero', () => {
     });
 });
 
+describe('misconfigured fence blocks check-in', () => {
+    it('blocks a check-in when the fence is misconfigured (radius set, branch center missing)', () => {
+        expect(at({ dayState: 'not-in', fence: 'misconfigured' })).toBe(true);
+    });
+
+    it('still allows checkout even when misconfigured', () => {
+        expect(at({ dayState: 'in', fence: 'misconfigured' })).toBe(false);
+    });
+
+    it('does not block a non-Office method even when misconfigured', () => {
+        expect(at({ dayState: 'not-in', isOfficeMethod: false, fence: 'misconfigured' })).toBe(false);
+    });
+});
+
 describe('the day state decides first', () => {
     /**
      * A failed status fetch leaves the day unknown. That must keep the button usable unless the
@@ -58,7 +80,7 @@ describe('the day state decides first', () => {
     });
 
     it('never blocks a checkout, whatever the method or fence', () => {
-        const fences: GeofenceVerdict[] = ['inside', 'outside', 'unconfigured'];
+        const fences: GeofenceVerdict[] = ['inside', 'outside', 'unconfigured', 'misconfigured'];
         for (const isOfficeMethod of [true, false]) {
             for (const fence of fences) {
                 expect(at({ dayState: 'in', isOfficeMethod, fence })).toBe(false);

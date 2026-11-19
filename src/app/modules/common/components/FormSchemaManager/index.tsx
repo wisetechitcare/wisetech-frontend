@@ -1,36 +1,26 @@
-import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
-import { useState, useEffect, type CSSProperties } from 'react';
-
+import { useEffect, useMemo, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { IFormField, IFormSection, FormFieldType } from '@models/company';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
+import { ArrowDown, ArrowUp, EyeOff, FolderInput, ListPlus, Plus, Settings2, Trash2 } from 'lucide-react';
+import { IFormField, IFormSection, FormFieldType, BuiltinInputKind } from '@models/company';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuGroup, DropdownMenuTrigger,
+} from '@/ds/ui/dropdown-menu';
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/ds/ui/field';
+import { Input } from '@/ds/ui/input';
 import { Item } from '@/ds/ui/item';
+import { Label } from '@/ds/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select';
+import { Switch } from '@/ds/ui/switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
+import { cn } from '@/ds/lib/utils';
+import { AutoGrid } from '@/ds/patterns/auto-grid';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import { RowAction } from '@/ds/patterns/row-action';
 
 export type { IFormField as SchemaField, IFormSection as SchemaSection, FormFieldType as FieldType };
-
-// ─── Design tokens ────────────────────────────────────────────────────────────
-
-const C = {
-  brand: '#1E3A8A',
-  brandSoft: '#FBEEEE',
-  brandBorder: '#E8C9C9',
-  ink: '#1F2430',
-  inkSoft: '#5A6172',
-  inkFaint: '#9AA1B1',
-  line: '#E7E9EF',
-  surface: '#FFFFFF',
-  panel: '#F6F7F9',
-  panelAlt: '#FAFBFC',
-};
-
-const TYPE_META: Record<FormFieldType, { label: string; color: string; bg: string; icon: string }> = {
-  text:   { label: 'Text',     color: '#2563EB', bg: '#EAF1FE', icon: 'Aa' },
-  number: { label: 'Number',   color: '#0E9F6E', bg: '#E6F6EF', icon: '#' },
-  date:   { label: 'Date',     color: '#7C3AED', bg: '#F1ECFE', icon: '📅' },
-  file:   { label: 'Document', color: '#C2710C', bg: '#FBF0E2', icon: '📎' },
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,41 +33,43 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
   return r;
 }
 
-// ─── Atoms ────────────────────────────────────────────────────────────────────
+/** The types a CUSTOM field can take. */
+const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
+  { value: 'text', label: 'Character (Text)' },
+  { value: 'number', label: 'Number' },
+  { value: 'date', label: 'Date' },
+  { value: 'file', label: 'Document / File' },
+];
 
-// A switch, so a native button with switch semantics (not a kit Button): same look, now also
-// reachable and operable from the keyboard.
-function Toggle({ value, onChange, disabled, label }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; label?: string }) {
+/** How a built-in's bespoke widget reads in the (locked) Input type box. */
+const INPUT_KIND_LABEL: Record<BuiltinInputKind, string> = {
+  text: 'Character (Text)',
+  longText: 'Long text',
+  number: 'Number',
+  phone: 'Phone number',
+  email: 'Email',
+  url: 'Link (URL)',
+  select: 'Dropdown (single)',
+  multiSelect: 'Dropdown (multiple)',
+  toggle: 'Yes / No',
+  date: 'Date',
+  file: 'Document / File',
+  coordinate: 'Coordinate',
+  referenceList: 'Reference list',
+};
+
+/** A labelled on/off setting: kit Switch with its label and the state in words beside it. */
+function SettingSwitch({ id, label, checked, onChange, disabled, onText, offText }: {
+  id: string; label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; onText: string; offText: string;
+}) {
   return (
-    <button type="button" role="switch" aria-checked={value} aria-label={label} disabled={disabled}
-      onClick={() => onChange(!value)}
-      style={{ width: 38, height: 21, borderRadius: 999, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, background: value ? C.brand : '#CDD2DC', position: 'relative', transition: 'background .2s', flexShrink: 0 }}>
-      <span style={{ position: 'absolute', top: 3, left: value ? 20 : 3, width: 15, height: 15, borderRadius: '50%', background: '#fff', transition: 'left .2s', boxShadow: '0 1px 2px rgba(0,0,0,.2)' }} />
-    </button>
-  );
-}
-
-const DANGER_TINT = { '--tint': 'var(--cta-danger)' } as CSSProperties;
-
-function IconBtn({ children, onClick, disabled, title, danger }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; title?: string; danger?: boolean }) {
-  return (
-    <Button variant={danger ? 'tinted' : 'outline'} size="icon-xs" title={title} aria-label={title}
-      disabled={disabled} onClick={onClick} style={danger ? DANGER_TINT : undefined}>
-      {children}
-    </Button>
-  );
-}
-
-function TypeSelect({ value, onChange, disabled }: { value: FormFieldType; onChange: (v: FormFieldType) => void; disabled?: boolean }) {
-  return (
-    <select value={value} disabled={disabled} title={disabled ? 'This built-in field uses its own input' : undefined}
-      onChange={e => onChange(e.target.value as FormFieldType)}
-      style={{ padding: '8px 10px', borderRadius: 8, fontSize: 13, border: `1px solid ${C.line}`, background: disabled ? C.panel : '#fff', color: disabled ? C.inkSoft : C.ink, cursor: disabled ? 'not-allowed' : 'pointer', outline: 'none', minWidth: 130 }}>
-      <option value="text">Character (Text)</option>
-      <option value="number">Number</option>
-      <option value="date">Date</option>
-      <option value="file">Document / File</option>
-    </select>
+    <div className="flex min-h-10 flex-col justify-center gap-1.5">
+      <Label htmlFor={id} className="heading-case text-xs text-muted-foreground">{label}</Label>
+      <div className="flex items-center gap-2">
+        <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={(v) => onChange(!!v)} />
+        <span className={cn('text-sm font-medium', checked ? 'text-foreground' : 'text-muted-foreground')}>{checked ? onText : offText}</span>
+      </div>
+    </div>
   );
 }
 
@@ -97,66 +89,98 @@ interface FieldCardProps {
 
 function FieldCard({ field, idx, total, onChange, onDelete, onMove, onMoveToSection, otherSections, error }: FieldCardProps) {
   const sys = field.isSystem;
-  const required = field.essential || field.required;
+  const required = !!(field.essential || field.required);
+  const labelId = `schema-field-${field.id}-label`;
+  const typeId = `schema-field-${field.id}-type`;
+  const name = field.label || `Field ${idx + 1}`;
   return (
-    <div style={{
-      background: sys ? C.panelAlt : '#fff', border: `1px solid ${error ? '#F3B4B4' : C.line}`,
-      borderRadius: 10, padding: '12px 14px', marginBottom: 10, boxShadow: '0 1px 2px rgba(20,25,40,.03)',
-    }}>
-      {/* top row: index + badges + actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: C.inkFaint, letterSpacing: '.5px' }}>#{idx + 1}</span>
-        {sys && (
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.4px', color: C.brand, background: C.brandSoft, border: `1px solid ${C.brandBorder}`, borderRadius: 999, padding: '2px 8px' }}>BUILT-IN</span>
-        )}
-        <div style={{ flex: 1 }} />
-        {/* Move this field to another section */}
-        {otherSections.length > 0 && !field.fixedSection && (
-          <select
-            value=""
-            title="Move field to another section"
-            onChange={e => { if (e.target.value) onMoveToSection(e.target.value); }}
-            style={{ height: 26, borderRadius: 6, fontSize: 11.5, border: `1px solid ${C.line}`, background: '#fff', color: C.inkSoft, cursor: 'pointer', outline: 'none', maxWidth: 150 }}
-          >
-            <option value="">Move to…</option>
-            {otherSections.map(s => <option key={s.id} value={s.id}>{s.title || 'Untitled'}</option>)}
-          </select>
-        )}
-        <IconBtn title="Move up" disabled={idx === 0} onClick={() => onMove(-1)}>▲</IconBtn>
-        <IconBtn title="Move down" disabled={idx === total - 1} onClick={() => onMove(1)}>▼</IconBtn>
-        <IconBtn title={field.essential ? 'This field is always on the form' : sys ? 'Hide field (its data is kept)' : 'Delete field'} danger disabled={field.essential} onClick={onDelete}>✕</IconBtn>
+    <Item variant="outline" className={cn('flex-col items-stretch gap-3', sys && 'bg-muted/30', error && 'border-destructive')}>
+      {/* Top row: position, kind, and the field's actions (rows: icons left of text, actions right). */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="tabular text-xs font-semibold text-muted-foreground">#{idx + 1}</span>
+        {sys && <Badge variant="brand">Built-in</Badge>}
+        <div className="ml-auto flex items-center gap-1.5">
+          {otherSections.length > 0 && !field.fixedSection && (
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger
+                  render={<DropdownMenuTrigger render={<Button variant="outline" size="icon-sm" aria-label={`Move ${name} to another section`} />} />}
+                >
+                  <FolderInput aria-hidden />
+                </TooltipTrigger>
+                <TooltipContent>Move to another section</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Move to</DropdownMenuLabel>
+                  {otherSections.map(s => (
+                    <DropdownMenuItem key={s.id} onClick={() => onMoveToSection(s.id)}>{s.title || 'Untitled'}</DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <RowAction size="icon-sm" label={`Move ${name} up`} disabled={idx === 0} onClick={() => onMove(-1)}><ArrowUp aria-hidden /></RowAction>
+          <RowAction size="icon-sm" label={`Move ${name} down`} disabled={idx === total - 1} onClick={() => onMove(1)}><ArrowDown aria-hidden /></RowAction>
+          {/* Built-in fields can be renamed, required, reordered and moved — never removed.
+              Only custom fields carry a delete. */}
+          {!sys && <RowAction size="icon-sm" tint="danger" label={`Delete ${name}`} onClick={onDelete}><Trash2 aria-hidden /></RowAction>}
+        </div>
       </div>
 
-      {/* control row */}
-      <div className="schema-field-controls" style={{ display: 'grid', gridTemplateColumns: '1fr 150px 92px 110px', gap: 12, alignItems: 'end' }}>
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 5, letterSpacing: '.3px' }}>FIELD LABEL{!sys && <span style={{ color: C.brand }}> *</span>}</label>
-          <input type="text" value={field.label} placeholder="e.g. Emergency Contact"
+      {/* Controls: four across while there is room, fewer as it narrows. */}
+      <AutoGrid min={170} stretch>
+        <Field data-invalid={error ? true : undefined}>
+          <FieldLabel htmlFor={labelId}>Field label</FieldLabel>
+          <Input
+            id={labelId}
+            value={field.label}
+            required={!sys}
+            placeholder="e.g. Emergency contact"
             onChange={e => onChange({ label: e.target.value })}
-            style={{ width: '100%', padding: '9px 11px', borderRadius: 8, fontSize: 13.5, fontWeight: 500, color: C.ink, border: `1px solid ${error ? '#F3B4B4' : C.line}`, background: sys ? '#fff' : C.panelAlt, outline: 'none' }} />
-          {error && <div style={{ fontSize: 11, color: '#D14343', marginTop: 4 }}>{error}</div>}
-        </div>
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 5, letterSpacing: '.3px' }}>INPUT TYPE</label>
-          <TypeSelect value={field.type} disabled={field.fixedType} onChange={type => onChange({ type })} />
-        </div>
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 7, letterSpacing: '.3px' }}>REQUIRED</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Toggle value={required} disabled={field.essential} onChange={required => onChange({ required })} label="Required" />
-            <span style={{ fontSize: 12, fontWeight: 600, color: required ? C.brand : C.inkFaint }}>{field.essential ? 'Always' : required ? 'Yes' : 'No'}</span>
-          </div>
-        </div>
-        <div>
-          {/* Whether this field shows on the read-only Organization Info page (undefined = shown). */}
-          <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 7, letterSpacing: '.3px' }}>ON INFO PAGE</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Toggle value={field.showOnInfoPage !== false} onChange={v => onChange({ showOnInfoPage: v })} label="Show on info page" />
-            <span style={{ fontSize: 12, fontWeight: 600, color: field.showOnInfoPage !== false ? C.brand : C.inkFaint }}>{field.showOnInfoPage !== false ? 'Show' : 'Hide'}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${labelId}-error` : undefined}
+          />
+          {error && <FieldError id={`${labelId}-error`}>{error}</FieldError>}
+        </Field>
+        <Field>
+          <FieldLabel id={typeId}>Input type</FieldLabel>
+          {field.fixedType && field.inputKind ? (
+            // A built-in with its own widget: what that widget takes, read-only. The custom-field types would
+            // mislabel it (a phone input is not "Character (Text)").
+            <Select items={[{ value: field.inputKind, label: INPUT_KIND_LABEL[field.inputKind] }]} value={field.inputKind} disabled>
+              <SelectTrigger className="w-full" aria-labelledby={typeId}><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value={field.inputKind}>{INPUT_KIND_LABEL[field.inputKind]}</SelectItem></SelectContent>
+            </Select>
+          ) : (
+            <Select items={FIELD_TYPES} value={field.type} disabled={field.fixedType} onValueChange={v => v && onChange({ type: v as FormFieldType })}>
+              <SelectTrigger className="w-full" aria-labelledby={typeId}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {FIELD_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+        </Field>
+        <SettingSwitch
+          id={`schema-field-${field.id}-required`}
+          label="Required"
+          checked={required}
+          disabled={field.essential}
+          onChange={v => onChange({ required: v })}
+          onText={field.essential ? 'Always' : 'Yes'}
+          offText="No"
+        />
+        {/* Whether this field shows on the read-only info page (undefined = shown). */}
+        <SettingSwitch
+          id={`schema-field-${field.id}-info`}
+          label="On info page"
+          checked={field.showOnInfoPage !== false}
+          onChange={v => onChange({ showOnInfoPage: v })}
+          onText="Show"
+          offText="Hide"
+        />
+      </AutoGrid>
+    </Item>
   );
 }
 
@@ -171,21 +195,34 @@ interface Props {
   infoPageLabel?: string;
 }
 
+const FORM_ID = 'form-schema-manager';
+
+/**
+ * Manage a form's sections and fields (the organization profile and the client company / sub-company / branch
+ * forms). A kit Form Dialog: section list on the left, the chosen section's fields on the right, Apply in the
+ * footer; closing with changes asks first. Changes reach the form only when the caller saves it.
+ */
 export default function FormSchemaManager({ show, sections, onSave, onClose, infoPageLabel = 'Organization' }: Props) {
   const [local, setLocal] = useState<IFormSection[]>([]);
+  const [opened, setOpened] = useState('');
   const [activeId, setActiveId] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [titleError, setTitleError] = useState('');
 
   useEffect(() => {
     if (show && sections.length) {
-      setLocal(sections.map(s => ({ ...s, fields: s.fields.map(f => ({ ...f })) })));
+      const copy = sections.map(s => ({ ...s, fields: s.fields.map(f => ({ ...f })) }));
+      setLocal(copy);
+      setOpened(JSON.stringify(copy));
       setActiveId(sections[0].id);
       setFieldErrors({});
       setTitleError('');
     }
+    // Reset only when the dialog opens: the caller's sections are the starting point, not a live source.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
+  const dirty = useMemo(() => !!opened && JSON.stringify(local) !== opened, [local, opened]);
   const active = local.find(s => s.id === activeId);
 
   const patchSection = (patch: Partial<IFormSection>) =>
@@ -199,13 +236,14 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
 
   const addField = () => active && patchSection({ fields: [...active.fields, emptyField()] });
 
-  // Built-in fields map to real DB columns, so "deleting" one only hides it from the
-  // form (reversible, no data loss). Custom fields have no column → removed outright.
+  // Only CUSTOM fields can be removed. Built-ins map to real columns and stay on the form —
+  // they can be edited, reordered and moved, not deleted (no button is offered; this guard
+  // keeps it that way for any other caller). Built-ins hidden by older configs can still be
+  // restored from the "Hidden fields" list below.
   const removeField = (fid: string) => {
     if (!active) return;
-    const target = active.fields.find(f => f.id === fid);
-    if (target?.isSystem) patchSection({ fields: active.fields.map(f => f.id === fid ? { ...f, hidden: true } : f) });
-    else patchSection({ fields: active.fields.filter(f => f.id !== fid) });
+    if (active.fields.find(f => f.id === fid)?.isSystem) return;
+    patchSection({ fields: active.fields.filter(f => f.id !== fid) });
   };
   const restoreField = (fid: string) =>
     active && patchSection({ fields: active.fields.map(f => f.id === fid ? { ...f, hidden: false } : f) });
@@ -239,8 +277,15 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
     setActiveId(id);
     setTitleError('');
   };
+  // A custom section may hold built-in fields an admin moved there. Deleting the section
+  // removes its custom fields only; the built-ins go back to the first built-in section.
   const deleteSection = (id: string) => {
-    const rest = local.filter(s => s.id !== id);
+    const builtIns = local.find(s => s.id === id)?.fields.filter(f => f.isSystem) ?? [];
+    let rest = local.filter(s => s.id !== id);
+    if (builtIns.length) {
+      const home = rest.find(s => s.isSystem) ?? rest[0];
+      if (home) rest = rest.map(s => (s.id === home.id ? { ...s, fields: [...s.fields, ...builtIns] } : s));
+    }
     setLocal(rest);
     if (activeId === id) setActiveId(rest[rest.length - 1]?.id ?? '');
   };
@@ -261,222 +306,155 @@ export default function FormSchemaManager({ show, sections, onSave, onClose, inf
 
   const handleSave = () => { if (validate()) onSave(local); };
 
+  const builtinCount = local.filter(s => s.isSystem).length;
   const customCount = local.filter(s => !s.isSystem).length;
   const totalCustomFields = local.reduce((n, s) => n + s.fields.filter(f => !f.isSystem).length, 0);
 
+  const visibleFields = active ? active.fields.filter(f => !f.hidden) : [];
+  const hiddenFields = active ? active.fields.filter(f => f.hidden) : [];
+  const otherSections = active ? local.filter(s => s.id !== active.id).map(s => ({ id: s.id, title: s.title })) : [];
+
   return (
-    <>
-      {/* Stacking + floating-card styling. Because this modal opens on top of the
-          Edit-Profile modal, its backdrop must sit above the parent so the form
-          behind is properly dimmed. */}
-      <style>{`
-        /* Above MUI dialogs (theme.zIndex.modal = 1300): this opens FROM inside one (the org profile editor). */
-        .schema-mgr-backdrop.modal-backdrop { z-index: 1390; background: #0E1016; }
-        .schema-mgr-backdrop.modal-backdrop.show { opacity: 0.55; }
-        .schema-mgr-modal { z-index: 1400; }
-        .schema-mgr-dialog { max-width: 1120px; }
-        .schema-mgr-content {
-          border: none;
-          border-radius: 16px;
-          overflow: hidden;
-          box-shadow: 0 30px 80px rgba(8, 10, 18, 0.45), 0 4px 14px rgba(8, 10, 18, 0.25);
-        }
-
-        /* Below the desktop width, keep the dialog within the viewport with a small gutter. */
-        @media (max-width: 1180px) {
-          .schema-mgr-dialog { max-width: calc(100% - 1rem); margin-left: auto; margin-right: auto; }
-        }
-
-        /* ── Tablet / phone: stack the two panels so the editor never gets clipped ── */
-        @media (max-width: 768px) {
-          .schema-mgr-body {
-            flex-direction: column !important;
-            height: auto !important;
-            max-height: 80vh !important;
-            overflow-y: auto !important;
-          }
-          .schema-mgr-rail {
-            width: 100% !important;
-            flex-shrink: 1 !important;
-            border-right: none !important;
-            border-bottom: 1px solid ${C.line} !important;
-            max-height: 34vh;
-          }
-          .schema-mgr-editor { padding: 16px 16px 20px !important; }
-          /* Field controls wrap instead of overflowing the narrow editor */
-          .schema-field-controls {
-            grid-template-columns: 1fr 1fr !important;
-          }
-        }
-        @media (max-width: 460px) {
-          .schema-field-controls { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
-      <Modal
-        show={show}
-        onHide={onClose}
-        centered
-        backdrop
-        backdropClassName="schema-mgr-backdrop"
-        dialogClassName="schema-mgr-dialog"
-        contentClassName="schema-mgr-content"
-        className="schema-mgr-modal"
-        style={{ zIndex: 1400 }}
-      >
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 26px', borderBottom: `1px solid ${C.line}`, background: C.surface }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 10, background: C.brandSoft, border: `1px solid ${C.brandBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.brand }}><AppIcon name="bi-gear-fill" className="fs-3" style={{ lineHeight: 1 }} /></div>
-          <div>
-            <div style={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 17, color: C.ink }}>Manage Form Fields</div>
-            <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 1 }}>
-              {local.filter(s => s.isSystem).length} built-in · {customCount} custom section{customCount !== 1 ? 's' : ''} · {totalCustomFields} custom field{totalCustomFields !== 1 ? 's' : ''}
-            </div>
-          </div>
-        </div>
-        <WtCloseButton data-unsaved-changes-close onClick={onClose} size={32} />
-      </div>
-
-      {/* Body */}
-      <div className="schema-mgr-body" style={{ display: 'flex', height: '70vh', overflow: 'hidden', background: C.panel }}>
-
-        {/* Left rail */}
-        <div className="schema-mgr-rail" style={{ width: 248, flexShrink: 0, borderRight: `1px solid ${C.line}`, background: C.surface, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '14px 16px 8px', fontSize: 11, fontWeight: 700, color: C.inkFaint, letterSpacing: '.8px' }}>SECTIONS</div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 10px' }}>
+    <FormDialog
+      open={show}
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title="Manage form fields"
+      description={`${builtinCount} built-in · ${customCount} custom section${customCount !== 1 ? 's' : ''} · ${totalCustomFields} custom field${totalCustomFields !== 1 ? 's' : ''}`}
+      icon={<Settings2 aria-hidden />}
+      tone="blue"
+      size="2xl"
+      formId={FORM_ID}
+      submitLabel="Apply changes"
+      dirty={dirty}
+      footerStart={<span className="text-xs text-muted-foreground">Changes apply after you save the form.</span>}
+    >
+      <form id={FORM_ID} noValidate onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+        className="grid gap-6 md:grid-cols-[minmax(14rem,16rem)_minmax(0,1fr)]">
+        {/* Sections: the list to choose from, with its own move / delete beside each row. */}
+        <nav aria-label="Sections" className="flex flex-col gap-2 md:sticky md:top-0 md:self-start">
+          <p className="heading-case text-xs font-semibold text-muted-foreground">Sections</p>
+          <ul className="flex flex-col gap-1">
             {local.map((s, i) => {
               const on = s.id === activeId;
-              const cf = s.fields.filter(f => !f.isSystem).length;
+              const custom = s.fields.filter(f => !f.isSystem).length;
+              const builtIn = s.fields.filter(f => f.isSystem).length;
+              const title = s.title || 'Untitled';
               return (
-                // The row is the selector (a kit Item rendered as a button); its move / delete
-                // buttons sit beside it in the same row, never inside a button.
-                <div key={s.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: on || !s.isSystem ? 11 : 0, borderRadius: 9, marginBottom: 4, background: on ? C.brandSoft : 'transparent', border: `1px solid ${on ? C.brandBorder : 'transparent'}`, transition: 'all .12s' }}>
-                  <Item render={<button type="button" />} onClick={() => setActiveId(s.id)} aria-current={on || undefined}
-                    className="flex-nowrap text-left"
-                    style={{ flex: 1, minWidth: 0, padding: on || !s.isSystem ? '10px 0 10px 11px' : '10px 11px', border: 'none', borderRadius: 9, cursor: 'pointer' }}>
-                    <span style={{ display: 'block', flex: 1, minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 12.5, fontWeight: on ? 700 : 600, color: on ? C.brand : C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title || 'Untitled'}</span>
-                      <span style={{ display: 'block', fontSize: 11, color: C.inkFaint, marginTop: 1 }}>
-                        {s.fields.filter(f => f.isSystem).length} built-in{cf > 0 ? ` · +${cf} custom` : ''}
-                      </span>
+                <li key={s.id} className={cn('flex items-center gap-1 rounded-xl pr-1', on && 'bg-accent')}>
+                  <Item
+                    size="xs"
+                    render={<button type="button" />}
+                    onClick={() => setActiveId(s.id)}
+                    aria-current={on || undefined}
+                    className="min-w-0 flex-1 flex-nowrap text-left"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className={cn('block truncate text-sm', on ? 'font-semibold text-accent-foreground' : 'font-medium')}>{title}</span>
+                      <span className="block text-xs text-muted-foreground">{builtIn} built-in{custom > 0 ? ` · +${custom} custom` : ''}</span>
                     </span>
                   </Item>
                   {on && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      <Button variant="tinted" size="icon-xs" aria-label="Move section up" disabled={i === 0} onClick={e => { e.stopPropagation(); moveSection(i, -1); }} style={{ height: 16 }}>▲</Button>
-                      <Button variant="tinted" size="icon-xs" aria-label="Move section down" disabled={i === local.length - 1} onClick={e => { e.stopPropagation(); moveSection(i, 1); }} style={{ height: 16 }}>▼</Button>
-                    </div>
+                    <>
+                      <RowAction size="icon-sm" label={`Move ${title} up`} disabled={i === 0} onClick={() => moveSection(i, -1)}><ArrowUp aria-hidden /></RowAction>
+                      <RowAction size="icon-sm" label={`Move ${title} down`} disabled={i === local.length - 1} onClick={() => moveSection(i, 1)}><ArrowDown aria-hidden /></RowAction>
+                    </>
                   )}
                   {!s.isSystem && (
-                    <Button variant="tinted" size="icon-xs" title="Delete section" aria-label="Delete section" onClick={e => { e.stopPropagation(); deleteSection(s.id); }}
-                      style={DANGER_TINT}>✕</Button>
+                    <RowAction size="icon-sm" tint="danger" label={`Delete ${title}`} onClick={() => deleteSection(s.id)}><Trash2 aria-hidden /></RowAction>
                   )}
-                </div>
+                </li>
               );
             })}
-          </div>
-          <div style={{ padding: 12, borderTop: `1px solid ${C.line}` }}>
-            <Button variant="tinted" className="w-full" onClick={addSection}>
-              + Add New Section
-            </Button>
-          </div>
-        </div>
+          </ul>
+          <Button type="button" variant="outline" size="sm" className="w-full" onClick={addSection}>
+            <ListPlus data-icon="inline-start" aria-hidden /> Add section
+          </Button>
+        </nav>
 
-        {/* Right editor */}
-        <div className="schema-mgr-editor" style={{ flex: 1, overflowY: 'auto', padding: '24px 30px', background: C.panel }}>
+        {/* The chosen section: its name, whether it shows on the info page, then its fields. */}
+        <div className="min-w-0 space-y-6">
           {active ? (
             <>
-              {/* Section title (editable for all sections) */}
-              <div style={{ marginBottom: 22 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, display: 'block', marginBottom: 6, letterSpacing: '.4px' }}>
-                  SECTION NAME <span style={{ color: C.brand }}>*</span>
-                </label>
-                <input type="text" value={active.title} placeholder="e.g. BASIC INFORMATION"
-                  onChange={e => { patchSection({ title: e.target.value.toUpperCase() }); setTitleError(''); }}
-                  style={{ width: '100%', padding: '12px 16px', borderRadius: 10, fontSize: 16, fontWeight: 700, letterSpacing: '.5px', color: C.brand, border: `1.5px solid ${titleError ? '#F3B4B4' : C.line}`, background: '#fff', outline: 'none' }} />
-                {titleError && <div style={{ fontSize: 12, color: '#D14343', marginTop: 5 }}>{titleError}</div>}
-                <div style={{ fontSize: 11.5, color: C.inkFaint, marginTop: 6 }}>
-                  {active.isSystem ? 'Built-in section — rename freely, fields below can be reordered and customised.' : 'Custom section — fully editable.'}
-                </div>
+              <div className="space-y-3">
+                <Field data-invalid={titleError ? true : undefined}>
+                  <FieldLabel htmlFor="schema-section-title">Section name</FieldLabel>
+                  <Input
+                    id="schema-section-title"
+                    required
+                    value={active.title}
+                    placeholder="e.g. BASIC INFORMATION"
+                    // Section titles are stored in capitals (they render as the form's headings).
+                    onChange={e => { patchSection({ title: e.target.value.toUpperCase() }); setTitleError(''); }}
+                    aria-invalid={titleError ? true : undefined}
+                    aria-describedby={titleError ? 'schema-section-title-error' : undefined}
+                  />
+                  {titleError
+                    ? <FieldError id="schema-section-title-error">{titleError}</FieldError>
+                    : <FieldDescription>{active.isSystem ? 'Built-in section — rename freely. Built-in fields can be reordered, moved and customised, but not deleted.' : 'Custom section — fully editable.'}</FieldDescription>}
+                </Field>
 
-                {/* Whether this whole section appears on the read-only Organization Info page. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '10px 14px', border: `1px solid ${C.line}`, borderRadius: 10, background: '#fff' }}>
-                  <Toggle value={active.showOnInfoPage !== false} onChange={v => patchSection({ showOnInfoPage: v })} label="Show section on info page" />
-                  <div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: active.showOnInfoPage !== false ? C.brand : C.inkFaint }}>
+                {/* Whether this whole section appears on the read-only info page. */}
+                <Item variant="outline" size="sm">
+                  <Switch id="schema-section-info" checked={active.showOnInfoPage !== false} onCheckedChange={(v) => patchSection({ showOnInfoPage: !!v })} />
+                  <Label htmlFor="schema-section-info" className="flex min-w-0 flex-1 flex-col items-start gap-0.5 font-normal">
+                    <span className="font-medium">
                       {active.showOnInfoPage !== false ? `Shown on ${infoPageLabel} Info page` : `Hidden from ${infoPageLabel} Info page`}
-                    </div>
-                    <div style={{ fontSize: 11, color: C.inkFaint }}>Controls the whole section on the read-only info view (fields can be toggled individually below).</div>
-                  </div>
+                    </span>
+                    <span className="text-xs text-muted-foreground">Controls the whole section on the read-only info view (fields can be toggled individually below).</span>
+                  </Label>
+                </Item>
+              </div>
+
+              <section aria-labelledby="schema-fields-heading" className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <h3 id="schema-fields-heading" className="heading-case text-xs font-semibold text-muted-foreground">Fields</h3>
+                  <div aria-hidden className="h-px flex-1 bg-border" />
+                  <Button type="button" size="sm" onClick={addField}>
+                    <Plus data-icon="inline-start" aria-hidden /> Add field
+                  </Button>
                 </div>
-              </div>
 
-              {/* Fields header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: C.inkSoft, letterSpacing: '.4px' }}>FIELDS</span>
-                <div style={{ flex: 1, height: 1, background: C.line }} />
-                <Button size="sm" onClick={addField}>
-                  + Add Field
-                </Button>
-              </div>
+                {visibleFields.length === 0 ? (
+                  <EmptyState
+                    size="sm"
+                    icon={<ListPlus aria-hidden />}
+                    title="No fields yet"
+                    description="Use Add field to start building this section."
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {visibleFields.map((f, i) => (
+                      <FieldCard key={f.id} field={f} idx={i} total={visibleFields.length}
+                        onChange={patch => patchField(f.id, patch)} onDelete={() => removeField(f.id)}
+                        onMove={dir => moveField(f.id, dir)} onMoveToSection={target => moveFieldToSection(f.id, target)}
+                        otherSections={otherSections} error={fieldErrors[f.id]} />
+                    ))}
+                  </div>
+                )}
 
-              {(() => {
-                const visibleFields = active.fields.filter(f => !f.hidden);
-                const hiddenFields = active.fields.filter(f => f.hidden);
-                const otherSections = local.filter(s => s.id !== active.id).map(s => ({ id: s.id, title: s.title }));
-                return (
-                  <>
-                    {visibleFields.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '48px 20px', border: `2px dashed ${C.line}`, borderRadius: 12, color: C.inkFaint, background: '#fff' }}>
-                        <div style={{ fontSize: 30, marginBottom: 8 }}>＋</div>
-                        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: C.inkSoft }}>No fields yet</div>
-                        <div style={{ fontSize: 13 }}>Click “+ Add Field” to start building this section</div>
-                      </div>
-                    ) : (
-                      visibleFields.map((f, i) => (
-                        <FieldCard key={f.id} field={f} idx={i} total={visibleFields.length}
-                          onChange={patch => patchField(f.id, patch)} onDelete={() => removeField(f.id)}
-                          onMove={dir => moveField(f.id, dir)} onMoveToSection={target => moveFieldToSection(f.id, target)}
-                          otherSections={otherSections} error={fieldErrors[f.id]} />
-                      ))
-                    )}
-
-                    {/* Hidden built-in fields — kept in the DB, removed from the form. Restore anytime. */}
-                    {hiddenFields.length > 0 && (
-                      <div style={{ marginTop: 18, padding: '12px 14px', border: `1px dashed ${C.line}`, borderRadius: 10, background: C.panelAlt }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.inkSoft, letterSpacing: '.4px', marginBottom: 10 }}>HIDDEN FIELDS · {hiddenFields.length}</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                          {hiddenFields.map(f => (
-                            <div key={f.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 999, padding: '5px 6px 5px 12px' }}>
-                              <span style={{ fontSize: 12.5, fontWeight: 600, color: C.inkSoft }}>{f.label}</span>
-                              <Button variant="tinted" size="xs" onClick={() => restoreField(f.id)} title="Restore field to the form">
-                                Restore
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+                {/* Hidden built-in fields — kept in the DB, removed from the form. Restore anytime. */}
+                {hiddenFields.length > 0 && (
+                  <Item variant="muted" className="flex-col items-stretch gap-2.5">
+                    <p className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                      <EyeOff className="size-3.5" aria-hidden /> <span className="heading-case">Hidden fields · {hiddenFields.length}</span>
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {hiddenFields.map(f => (
+                        <span key={f.id} className="inline-flex items-center gap-2 rounded-full border border-border bg-background py-1 pr-1 pl-3 text-sm">
+                          {f.label}
+                          <Button type="button" variant="tinted" size="xs" onClick={() => restoreField(f.id)}>Restore</Button>
+                        </span>
+                      ))}
+                    </div>
+                  </Item>
+                )}
+              </section>
             </>
           ) : (
-            <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: C.inkFaint, fontSize: 14 }}>Select a section</div>
+            <EmptyState size="sm" title="Select a section" />
           )}
         </div>
-      </div>
-
-      {/* Footer */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', padding: '14px 26px', borderTop: `1px solid ${C.line}`, background: C.surface }}>
-        <span style={{ fontSize: 12, color: C.inkFaint }}>Changes apply after you click <b style={{ color: C.inkSoft }}>Update</b> on the form.</span>
-        <div style={{ display: 'flex', gap: 10, flexGrow: 1, justifyContent: 'flex-end' }}>
-          <Button variant="outline" data-unsaved-changes-close onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>Apply Changes</Button>
-        </div>
-      </div>
-      </Modal>
-    </>
+      </form>
+    </FormDialog>
   );
 }

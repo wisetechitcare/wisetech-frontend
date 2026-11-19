@@ -249,7 +249,7 @@ function AssigneeFieldSelect({
         <Box component="li" {...props} key={option.id}>
           <Stack direction="row" spacing={1.25} alignItems="center">
             <PersonAvatar
-              person={{ fullName: option.name, avatarUrl: option.avatarUrl }}
+              person={{ fullName: option.name, avatarUrl: option.avatarUrl, personId: option.id }}
               size={28}
             />
             <Typography variant="body2" noWrap>
@@ -274,6 +274,7 @@ function AssigneeFieldSelect({
                     person={{
                       fullName: valueOpt.name,
                       avatarUrl: valueOpt.avatarUrl,
+                      personId: valueOpt.id,
                     }}
                     size={24}
                   />
@@ -802,7 +803,7 @@ export default function DriveDetail() {
               sx={{ minWidth: 0, opacity: inactive ? 0.72 : 1 }}
             >
               <PersonAvatar
-                person={{ fullName: r.fullName, avatarUrl }}
+                person={{ fullName: r.fullName, avatarUrl, personId: r.personId }}
                 size={34}
               />
               <Box sx={{ minWidth: 0 }}>

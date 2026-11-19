@@ -1,4 +1,4 @@
-import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
+import { UnsavedChangesModal as Modal, toast } from '@app/modules/common/components/ui';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   MapContainer,
@@ -27,8 +27,10 @@ import {
   PushPin as PinIcon,
   Navigation as NavigationIcon,
   ReportProblemOutlined as ReportIcon,
-  LayersOutlined as LayersIcon
+  LayersOutlined as LayersIcon,
+  IosShare as ShareIcon
 } from "@mui/icons-material";
+import { shareLink, mapsPlaceUrl } from "@utils/webShare";
 import { flagLocationError } from "@services/companies";
 import { Form } from "react-bootstrap";
 import { successConfirmation } from "@utils/modal";
@@ -36,6 +38,8 @@ import { mapStyles } from "./mapTheme";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { Button } from '@/ds/ui/button';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
+import { cssUrl, escapeHtml } from '@app/modules/common/components/ui/safeHtml';
+import { isHexColor } from '@app/modules/common/components/ui/WtColorPicker';
 
 // Leaflet icon fix for React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -300,8 +304,14 @@ const PopupAvatar: React.FC<{
 
 const createCustomIcon = (initials: string, color: string, imageUrl?: string, entityType?: string, isRelated: boolean = false, isDimmed: boolean = false, isAnimating: boolean = false, zoom: number = 4, alwaysShowInitials: boolean = false) => {
   try {
-    // If we have no initials and no image, fallback to theme-colored circle
-    const finalColor = color || "#3498db";
+    // If we have no initials and no image, fallback to theme-colored circle.
+    // This builds a raw HTML string for Leaflet (React's escaping does not apply), so every
+    // value is made safe for where it lands: colour must be a hex, initials are escaped text,
+    // and the image URL becomes a CSS url() via cssUrl (a company logo / contact photo is
+    // typed by users — it used to break out of the style attribute: stored XSS).
+    const finalColor = isHexColor(color) ? color : "#3498db";
+    const safeInitials = escapeHtml(initials || "??");
+    const backgroundImage = cssUrl(imageUrl);
 
     // Dynamic sizing based on zoom level to prevent clutter when zoomed out
     let baseSize = 28;
@@ -362,13 +372,13 @@ const createCustomIcon = (initials: string, color: string, imageUrl?: string, en
           overflow: hidden;
           z-index: 1;
         ">
-          ${showDetails ? `<span style="color: ${finalColor}; font-weight: 800; font-size: ${fontSize}px; line-height: 1; z-index: 1; letter-spacing: 0;">${initials || "??"}</span>` : ''}
-          ${showDetails && imageUrl ?
+          ${showDetails ? `<span style="color: ${finalColor}; font-weight: 800; font-size: ${fontSize}px; line-height: 1; z-index: 1; letter-spacing: 0;">${safeInitials}</span>` : ''}
+          ${showDetails && backgroundImage ?
         `<div style="
               position: absolute;
               top: 0; left: 0;
               width: 100%; height: 100%;
-              background-image: url('${imageUrl}');
+              background-image: ${escapeHtml(backgroundImage)};
               background-size: cover;
               background-position: center;
               z-index: 2;
@@ -564,10 +574,34 @@ const LocationMarker = React.memo(({
   }
 
   const handleNavigation = () => {
-    if (!entityId) return;
-    if (isProject) navigate(`/projects/${entityId}`);
+    // Sub-company/branch markers are also isCompany; they have no overview of their own,
+    // so they open their parent company's overview on the matching tab.
+    const childTab = loc.entityType === 'branch' ? 'branches'
+      : (loc.entityType === 'sub-company' || loc.entityType === 'subCompany') ? 'subcompanies' : null;
+    if (childTab) {
+      const parentId = item.mainCompanyId || item.companyId || parent?.id;
+      if (parentId) navigate(`/companies/${parentId}/${childTab}`);
+    } else if (!entityId) {
+      return;
+    } else if (isProject) navigate(`/projects/${entityId}`);
     else if (isCompany) navigate(`/companies/${entityId}`);
     else if (isContact) navigate(`/contacts/${entityId}`);
+  };
+
+  /** Copies a Google Maps link to this point; on phones also opens the share sheet. */
+  const handleShare = async () => {
+    const name = isCompany
+      ? (loc.item?.companyName || loc.item?.name || loc.item?.subCompanyName || loc.item?.branchName)
+      : isContact ? (loc.item?.fullName || loc.item?.name) : loc.item?.title;
+    const { copied, outcome } = await shareLink({
+      url: mapsPlaceUrl(loc.lat, loc.lng),
+      title: name || 'Location',
+      text: [name, popupAddress].filter(Boolean).join(' — '),
+    });
+    if (outcome === 'shared' || outcome === 'dismissed') return; // the sheet was the answer
+    toast(copied
+      ? { icon: 'success', title: 'Location link copied' }
+      : { icon: 'error', title: 'Could not copy the link', text: mapsPlaceUrl(loc.lat, loc.lng) });
   };
 
   // 6. Relationship Data (Sub-company / Branch connections)
@@ -789,6 +823,10 @@ const LocationMarker = React.memo(({
                 <NavigationIcon style={{ fontSize: "18px" }} />
                 <span>Go to Location</span>
               </Button>
+              <Button size="sm" variant="inverted" type="button" onClick={handleShare} aria-label="Share location">
+                <ShareIcon style={{ fontSize: "18px" }} />
+                <span>Share</span>
+              </Button>
             </div>
           </div>
         ) : (
@@ -889,6 +927,10 @@ const LocationMarker = React.memo(({
               <Button size="sm" type="submit" onClick={() => handleGoToLocation(loc.item)}>
                 <NavigationIcon style={{ fontSize: "18px" }} />
                 <span>Go to Location</span>
+              </Button>
+              <Button size="sm" variant="inverted" type="button" onClick={handleShare} aria-label="Share location">
+                <ShareIcon style={{ fontSize: "18px" }} />
+                <span>Share</span>
               </Button>
             </div>
           </div>
@@ -2615,6 +2657,9 @@ export default function Maps({
 
         .popup-actions {
           padding: 12px 16px 16px 16px;
+          display: flex;
+          justify-content: center;
+          gap: 8px;
         }
 
         .primary-go-btn {

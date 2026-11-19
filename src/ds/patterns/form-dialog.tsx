@@ -22,6 +22,9 @@ const formDialogVariants = cva("flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-
       default: "sm:max-w-xl",
       lg: "sm:max-w-3xl",
       xl: "sm:max-w-5xl",
+      // Long forms with a section rail on wide screens: fields sit two or three across (AutoGrid) instead of
+      // one long column. Full width on a phone, like every size.
+      "2xl": "sm:max-w-7xl",
     },
   },
   defaultVariants: { size: "default" },
@@ -50,6 +53,7 @@ export function FormDialog({
   children,
   formId,
   submitLabel = "Save",
+  submitVariant = "default",
   cancelLabel = "Cancel",
   submitting = false,
   submitDisabled = false,
@@ -69,6 +73,8 @@ export function FormDialog({
   /** id of the <form> inside the body; the Save button submits it. Omit for a read-only dialog (no Save). */
   formId?: string
   submitLabel?: string
+  /** `destructive` when saving ends something (Reject, Delete): the Button story's red CTA. */
+  submitVariant?: "default" | "destructive"
   cancelLabel?: string
   submitting?: boolean
   submitDisabled?: boolean
@@ -80,7 +86,13 @@ export function FormDialog({
    * Long forms: a nav rail (wide screens) that jumps to each part. Give each part an element with the
    * matching `id`. Replaces the live `WtFormDialog` section nav.
    */
-  sections?: Array<{ id: string; label: string; icon?: React.ReactNode }>
+  sections?: Array<{
+    id: string
+    label: string
+    icon?: React.ReactNode
+    /** The part has validation errors: flagged in the nav so an off-screen error is not missed. */
+    invalid?: boolean
+  }>
   /** Under the title — a wizard's Stepper. */
   subheader?: React.ReactNode
   /**
@@ -101,8 +113,6 @@ export function FormDialog({
     <>
       <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
         <DialogContent className={cn(formDialogVariants({ size }))}>
-          {/* Every border names `border-border`: a bare `border-b` falls back to currentColor under Metronic's CSS and
-              drew a black rule under the header and above the footer. */}
           <DialogHeader className="flex-row items-center gap-3 border-b border-border px-6 py-4 pr-14 text-left">
             {icon && <IconBox icon={icon} tone={tone} />}
             <div className="min-w-0 space-y-0.5">
@@ -119,10 +129,18 @@ export function FormDialog({
                     <li key={sec.id}>
                       <a
                         href={`#${sec.id}`}
-                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 [&>svg]:size-4"
+                        data-invalid={sec.invalid || undefined}
+                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 data-invalid:text-destructive [&>svg]:size-4"
                       >
                         {sec.icon}
                         {titleCase(sec.label)}
+                        {/* A part with errors: a dot, red ink AND words — never colour alone. */}
+                        {sec.invalid && (
+                          <>
+                            <span aria-hidden className="ml-auto size-2 shrink-0 rounded-full bg-destructive" />
+                            <span className="sr-only"> (has errors)</span>
+                          </>
+                        )}
                       </a>
                     </li>
                   ))}
@@ -143,7 +161,7 @@ export function FormDialog({
                     {formId ? cancelLabel : "Close"}
                   </Button>
                   {formId && (
-                    <Button type="submit" form={formId} loading={submitting} disabled={submitDisabled}>
+                    <Button type="submit" form={formId} variant={submitVariant} loading={submitting} disabled={submitDisabled}>
                       {submitLabel}
                     </Button>
                   )}

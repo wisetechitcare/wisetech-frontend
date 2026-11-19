@@ -11,7 +11,7 @@ import HistoryRounded from "@mui/icons-material/HistoryRounded";
 import { T, WtTooltip } from "@app/modules/common/components/ui";
 import { AREA_LABELS } from "@utils/accessAreas";
 import { SECTION_TABS } from "@utils/sectionTabs";
-import { getAvatar } from "@utils/avatar";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
 
 /**
@@ -105,7 +105,7 @@ const AccessActivity: React.FC<{ logs: any[] }> = ({ logs }) => (
                 </Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.4, fontSize: 11.5, color: "text.secondary", minWidth: 0 }}>
                   {actor !== "System" && (
-                    <img src={getAvatar(log.actorAvatar, log.actorGender)} alt="" style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover" }} />
+                    <SmartAvatar src={log.actorAvatar} name={actor} seed={log.actorId ?? actor} size={16} decorative />
                   )}
                   <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{actor}</Box>
                   <span>·</span>

@@ -3,11 +3,11 @@ import type * as React from "react"
 /** Status tones carry meaning (good, needs attention, bad, informational). */
 export type StatusTone = "brand" | "success" | "warning" | "info" | "danger" | "neutral"
 /** Category hues carry identity only (leave type, department, module) — never a status. */
-export type HueTone = "blue" | "green" | "amber" | "rose" | "purple" | "cyan" | "slate"
+export type HueTone = "blue" | "green" | "amber" | "rose" | "purple" | "indigo" | "cyan" | "slate"
 export type Tone = StatusTone | HueTone
 
 export const STATUS_TONES: StatusTone[] = ["brand", "success", "warning", "info", "danger", "neutral"]
-export const HUE_TONES: HueTone[] = ["blue", "green", "amber", "rose", "purple", "cyan", "slate"]
+export const HUE_TONES: HueTone[] = ["blue", "green", "amber", "rose", "purple", "indigo", "cyan", "slate"]
 
 const STATUS_VARS: Record<StatusTone, [solid: string, ink: string]> = {
   brand: ["var(--primary)", "var(--accent-foreground)"],

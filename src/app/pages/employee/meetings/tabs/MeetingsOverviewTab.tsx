@@ -5,12 +5,14 @@ import { useSelector } from 'react-redux';
 import {
   Alert,
   Box,
-  CircularProgress,
   Stack,
   Typography,
 } from '@mui/material';
 import { Button } from '@/ds/ui/button';
-import { WtButton } from '@app/modules/common/components/ui';
+import { Badge } from '@/ds/ui/badge';
+import { Skeleton } from '@/ds/ui/skeleton';
+import { StatCard } from '@/ds/patterns/stat-card';
+import { StatusPill } from '@app/modules/common/components/ui';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import AccessTimeRounded from '@mui/icons-material/AccessTimeRounded';
@@ -53,9 +55,7 @@ const C = {
   purple: '#7C3AED',
   purpleWash: '#EDE9FE',
   green: '#159A5A',
-  greenWash: '#DCFCE7',
   rose: '#E11D48',
-  roseWash: '#FFE4E6',
   amber: '#D97706',
   amberWash: '#FFEDD5',
 };
@@ -133,9 +133,11 @@ export default function MeetingsOverviewTab() {
 
   if (loading) {
     return (
-      <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress size={28} />
-      </Box>
+      <Stack spacing={1.5} sx={{ p: 4 }}>
+        <Skeleton className="h-20 w-full rounded-xl" />
+        <Skeleton className="h-20 w-full rounded-xl" />
+        <Skeleton className="h-20 w-full rounded-xl" />
+      </Stack>
     );
   }
 
@@ -188,18 +190,16 @@ export default function MeetingsOverviewTab() {
           value={c.minutes ?? 0}
           title="Minutes of Meeting"
           subtitle="Meetings with minutes recorded."
-          wash={C.blueWash}
-          accent={C.blue}
-          icon={<DescriptionOutlined sx={{ fontSize: 22, color: C.blue }} />}
+          tone="info"
+          icon={<DescriptionOutlined fontSize="small" />}
           onClick={() => navigate('/employees/meetings/agenda')}
         />
         <SummaryCard
           value={c.thisMonth ?? c.upcoming ?? 0}
           title="Meetings this month"
           subtitle="Upcoming and scheduled."
-          wash={C.greenWash}
-          accent={C.green}
-          icon={<ScheduleOutlined sx={{ fontSize: 22, color: C.green }} />}
+          tone="success"
+          icon={<ScheduleOutlined fontSize="small" />}
           onClick={() => navigate('/employees/meetings/all-meetings')}
         />
       </Box>
@@ -304,12 +304,12 @@ export default function MeetingsOverviewTab() {
                   </Typography>
                 )}
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <WtButton size="small" onClick={() => joinMeeting(nextUp)}>
+                  <Button size="sm" type="button" onClick={() => joinMeeting(nextUp)}>
                     Join Meeting
-                  </WtButton>
-                  <WtButton size="small" ghost onClick={() => openDetail(nextUp.id)}>
+                  </Button>
+                  <Button size="sm" variant="outline" type="button" onClick={() => openDetail(nextUp.id)}>
                     Open
-                  </WtButton>
+                  </Button>
                 </Stack>
               </Box>
             </Box>
@@ -371,11 +371,9 @@ export default function MeetingsOverviewTab() {
                           {placeOf(m)}
                         </Typography>
                       </Box>
-                      <Pill
-                        label={ready ? 'Agenda ready' : 'No agenda'}
-                        bg={ready ? C.greenWash : C.roseWash}
-                        fg={ready ? C.green : C.rose}
-                      />
+                      <Badge variant={ready ? 'success' : 'danger'} className="shrink-0">
+                        {ready ? 'Agenda ready' : 'No agenda'}
+                      </Badge>
                     </Box>
                   </Row>
                 );
@@ -409,7 +407,7 @@ export default function MeetingsOverviewTab() {
                         {dayjs(m.endDate).format('HH:mm')}
                       </Typography>
                     </Box>
-                    <Pill label="Pending" bg={pendingWash} fg={pendingColor} />
+                    <StatusPill label="Pending" color={pendingColor} />
                   </Box>
                 </Row>
               ))}
@@ -443,7 +441,7 @@ export default function MeetingsOverviewTab() {
                         {dayjs(m.endDate || m.startDate).format('HH:mm')}
                       </Typography>
                     </Box>
-                    <Pill label="No agenda" bg={C.amberWash} fg={C.amber} />
+                    <Badge variant="warning" className="shrink-0">No agenda</Badge>
                   </Box>
                 </Row>
               ))}
@@ -469,67 +467,35 @@ function SummaryCard({
   value,
   title,
   subtitle,
-  wash,
-  accent,
+  tone,
   icon,
   onClick,
 }: {
   value: number;
   title: string;
   subtitle: string;
-  wash: string;
-  accent: string;
+  tone: 'info' | 'success';
   icon: ReactNode;
   onClick: () => void;
 }) {
   return (
-    <Box
-      component="button"
-      type="button"
+    <StatCard
+      role="button"
+      tabIndex={0}
+      label={title}
+      value={value}
+      hint={subtitle}
+      tone={tone}
+      icon={icon}
       onClick={onClick}
-      sx={{
-        all: 'unset',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        p: 1.75,
-        borderRadius: 3,
-        bgcolor: wash,
-        boxSizing: 'border-box',
-        width: '100%',
-        transition: 'transform 140ms ease, filter 140ms ease',
-        '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
-        '&:hover': { filter: 'brightness(0.98)', transform: 'translateY(-1px)' },
-        '&:focus-visible': { outline: `2px solid ${accent}`, outlineOffset: 2 },
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
       }}
-    >
-      <Box
-        sx={{
-          width: 42,
-          height: 42,
-          borderRadius: 2,
-          bgcolor: C.paper,
-          display: 'grid',
-          placeItems: 'center',
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: 20, lineHeight: 1.1, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
-          {value}{' '}
-          <Box component="span" sx={{ fontWeight: 700, fontSize: 14 }}>
-            {title}
-          </Box>
-        </Typography>
-        <Typography sx={{ fontSize: 12, color: C.mute, mt: 0.35 }} noWrap>
-          {subtitle}
-        </Typography>
-      </Box>
-      <ChevronRightRounded sx={{ color: accent, flexShrink: 0 }} />
-    </Box>
+      className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    />
   );
 }
 
@@ -690,28 +656,6 @@ function Row({
     >
       {leading}
       {children}
-    </Box>
-  );
-}
-
-function Pill({ label, bg, fg }: { label: string; bg: string; fg: string }) {
-  return (
-    <Box
-      component="span"
-      sx={{
-        flexShrink: 0,
-        px: 1,
-        py: 0.35,
-        borderRadius: 999,
-        bgcolor: bg,
-        color: fg,
-        fontSize: 11,
-        fontWeight: 700,
-        lineHeight: 1.2,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
     </Box>
   );
 }

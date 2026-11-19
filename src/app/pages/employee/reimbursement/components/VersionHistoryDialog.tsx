@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Box, Chip, CircularProgress, Divider, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography, useTheme } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
-import { GlassDialog, GlassHeader, ToneChip, tonePair } from '@app/modules/common/components/ui';
-import type { SemanticTone } from '@app/theme/tokens';
+import { Badge } from '@/ds/ui/badge';
+import { Separator } from '@/ds/ui/separator';
+import { Spinner } from '@/ds/ui/spinner';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ds/ui/table';
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import { cn } from '@/ds/lib/utils';
 import { formatDateTime } from '@utils/dateFormats';
 import {
     fetchVersionHistory, VERSION_REASON_LABEL,
@@ -10,6 +12,7 @@ import {
 } from '@services/reimbursementVersions';
 import { queryCategoryLabel } from '@services/reimbursementQueries';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { Info, Clock } from 'lucide-react';
 
 /**
  * The audit story of one expense claim, version by version.
@@ -22,45 +25,57 @@ import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
  * as they were: v1's approvals against v1's numbers, v2's against v2's.
  */
 
-const STEP_TONE = (status: string, isCurrent: boolean): SemanticTone => {
+type StepTone = 'success' | 'danger' | 'warning' | 'neutral';
+
+const STEP_TONE = (status: string, isCurrent: boolean): StepTone => {
     if (status === 'approved') return 'success';
     if (status === 'rejected') return 'danger';
     if (status === 'cancelled') return 'neutral';
     return isCurrent ? 'warning' : 'neutral';
 };
 
+/** The small uppercase label above each block of a card or dialog. */
+export function Eyebrow({ children, className }: { children: React.ReactNode; className?: string }) {
+    return (
+        <p
+            data-slot="reimbursement-eyebrow"
+            className={cn('m-0 mb-1 text-[11px] font-extrabold uppercase tracking-[0.05em] text-muted-foreground', className)}
+        >
+            {children}
+        </p>
+    );
+}
+
 /** The Field | Previous | New table the spec asks for, used here and in the resubmit confirmation. */
 export function ChangeSummaryTable({ changes, dense = false }: { changes: FieldChange[]; dense?: boolean }) {
-    const theme = useTheme();
     if (!changes.length) return null;
+    const head = cn('text-[11.5px] font-extrabold', dense ? 'h-7' : 'h-9');
+    const cell = cn('whitespace-normal break-words text-[12.5px]', dense ? 'py-1' : 'py-2');
     return (
-        <Box sx={{ overflowX: 'auto', borderRadius: '8px', border: `1px solid ${theme.palette.divider}` }}>
-            <Table size="small" sx={{ minWidth: 380 }}>
-                <TableHead>
-                    <TableRow sx={{ bgcolor: 'action.hover' }}>
-                        <TableCell sx={{ fontWeight: 800, fontSize: 11.5, py: dense ? 0.5 : 1 }}>Field</TableCell>
-                        <TableCell sx={{ fontWeight: 800, fontSize: 11.5, py: dense ? 0.5 : 1 }}>Previous</TableCell>
-                        <TableCell sx={{ fontWeight: 800, fontSize: 11.5, py: dense ? 0.5 : 1 }}>New</TableCell>
+        <div className="min-w-0 overflow-hidden rounded-lg border border-border">
+            <Table className="min-w-[380px]">
+                <TableHeader>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableHead className={head}>Field</TableHead>
+                        <TableHead className={head}>Previous</TableHead>
+                        <TableHead className={head}>New</TableHead>
                     </TableRow>
-                </TableHead>
+                </TableHeader>
                 <TableBody>
                     {changes.map((c) => (
                         <TableRow key={c.field}>
-                            <TableCell sx={{ fontSize: 12.5, fontWeight: 600, py: dense ? 0.5 : 1 }}>{c.label}</TableCell>
-                            <TableCell sx={{
-                                fontSize: 12.5, py: dense ? 0.5 : 1, color: 'text.secondary',
-                                textDecoration: 'line-through',
-                            }}>
+                            <TableCell className={cn(cell, 'font-semibold')}>{c.label}</TableCell>
+                            <TableCell className={cn(cell, 'text-muted-foreground line-through')}>
                                 {c.previous ?? '—'}
                             </TableCell>
-                            <TableCell sx={{ fontSize: 12.5, py: dense ? 0.5 : 1, fontWeight: 700, color: tonePair('success').fg }}>
+                            <TableCell className={cn(cell, 'font-bold text-success-foreground')}>
                                 {c.next ?? '—'}
                             </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
             </Table>
-        </Box>
+        </div>
     );
 }
 
@@ -72,128 +87,117 @@ export function ChangeSummaryTable({ changes, dense = false }: { changes: FieldC
  */
 export function RestartNotice({ versionNumber, compact = false }: { versionNumber?: number; compact?: boolean }) {
     return (
-        <Stack direction="row" gap={1} alignItems="flex-start"
-            sx={{ p: compact ? 1 : 1.25, borderRadius: '8px', bgcolor: tonePair('indigo').soft, minWidth: 0 }}>
-            <KTIcon iconName="information" className="fs-5" />
-            <Typography sx={{ fontSize: 12.5, lineHeight: 1.5, color: 'text.primary' }}>
+        <div className={cn('flex min-w-0 items-start gap-2 rounded-lg bg-tone-indigo-soft', compact ? 'p-2' : 'p-2.5')}>
+            <Info className="mt-0.5 size-[17px] shrink-0 text-tone-indigo-foreground" aria-hidden />
+            <p data-slot="restart-notice" className="m-0 text-[12.5px] leading-normal text-foreground">
                 Approval restarted from Level 1 because reimbursement details were modified
                 {versionNumber ? ` (version ${versionNumber})` : ''}. Earlier approvals were given on the
                 previous version and are kept in its history.
-            </Typography>
-        </Stack>
+            </p>
+        </div>
     );
 }
 
 function VersionCard({ version, previous }: { version: ReimbursementVersion; previous?: ReimbursementVersion }) {
-    const theme = useTheme();
     const changes = version.changeSummary ?? [];
     const restarted = version.versionNumber > 1 && changes.length > 0;
 
     return (
-        <Box sx={{
-            borderRadius: '12px', border: `1px solid ${theme.palette.divider}`,
-            borderLeft: `4px solid ${version.isCurrent ? tonePair('brand').fg : theme.palette.divider}`,
-            p: 1.5, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.25,
-        }}>
-            <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-                <ToneChip
-                    tone={version.isCurrent ? 'brand' : 'neutral'}
-                    label={`Version ${version.versionNumber}`}
-                    solid={version.isCurrent}
-                    size="small"
-                />
-                {version.isCurrent && <ToneChip tone="success" label="Current" size="small" />}
-                <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+        <div className={cn(
+            'flex min-w-0 flex-col gap-2.5 rounded-xl border border-l-4 border-border p-3',
+            version.isCurrent ? 'border-l-primary' : 'border-l-border',
+        )}>
+            <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={version.isCurrent ? 'default' : 'neutral'}>{`Version ${version.versionNumber}`}</Badge>
+                {version.isCurrent && <Badge variant="success">Current</Badge>}
+                <span className="text-xs text-muted-foreground">
                     {VERSION_REASON_LABEL[version.reason ?? ''] ?? 'Edited'} · {formatDateTime(version.createdAt)}
-                </Typography>
-                <Box sx={{ flex: 1 }} />
-                <Typography sx={{ fontSize: 13, fontWeight: 800 }}>
+                </span>
+                <span className="flex-1" />
+                <span className="text-[13px] font-extrabold">
                     {currencyPrefix()}{Number(version.amount).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 2 })}
-                </Typography>
-            </Stack>
+                </span>
+            </div>
 
             {restarted && <RestartNotice compact />}
 
             {changes.length > 0 ? (
-                <Box>
-                    <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 0.5 }}>
-                        What changed from version {version.versionNumber - 1}
-                    </Typography>
+                <div>
+                    <Eyebrow>What changed from version {version.versionNumber - 1}</Eyebrow>
                     <ChangeSummaryTable changes={changes} dense />
-                </Box>
+                </div>
             ) : (
-                <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
+                <p data-slot="version-note" className="m-0 text-[12.5px] text-muted-foreground">
                     {version.versionNumber === 1
                         ? 'The claim as originally submitted.'
                         : 'No field-level record of this change.'}
-                </Typography>
+                </p>
             )}
 
             {/* This version's OWN approval trail — the thing the old in-place reset destroyed. */}
             {version.approval && (
-                <Box>
-                    <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 0.5 }}>
+                <div>
+                    <Eyebrow>
                         Approval on this version
                         {version.approval.status === 'cancelled' && ' — superseded'}
-                    </Typography>
-                    <Stack gap={0.5}>
+                    </Eyebrow>
+                    <div className="flex flex-col gap-1">
                         {version.approval.steps.map((step) => (
-                            <Stack key={step.level} direction="row" gap={1} alignItems="baseline" flexWrap="wrap">
-                                <ToneChip
-                                    tone={STEP_TONE(step.status, step.level === version.approval!.currentLevel)}
-                                    label={`L${step.level} ${step.status}`}
-                                    size="small" dense
-                                />
-                                <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                            <div key={step.level} className="flex flex-wrap items-baseline gap-2">
+                                <Badge
+                                    variant={STEP_TONE(step.status, step.level === version.approval!.currentLevel)}
+                                    className="h-4 px-1.5 text-[10px]"
+                                >
+                                    {`L${step.level} ${step.status}`}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
                                     {step.approverName ?? 'Approver'}
                                     {step.actedAt ? ` · ${formatDateTime(step.actedAt)}` : ''}
-                                </Typography>
+                                </span>
                                 {step.comments && (
-                                    <Typography sx={{ fontSize: 12, color: 'text.primary', flexBasis: '100%' }}>
+                                    <span className="basis-full text-xs text-foreground">
                                         “{step.comments}”
-                                    </Typography>
+                                    </span>
                                 )}
-                            </Stack>
+                            </div>
                         ))}
-                    </Stack>
-                </Box>
+                    </div>
+                </div>
             )}
 
             {/* And its own questions — a query about v1 stays attached to v1. */}
             {version.queries.length > 0 && (
-                <Box>
-                    <Typography sx={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary', mb: 0.5 }}>
-                        Questions on this version
-                    </Typography>
-                    <Stack gap={0.75}>
+                <div>
+                    <Eyebrow>Questions on this version</Eyebrow>
+                    <div className="flex flex-col gap-1.5">
                         {version.queries.map((q) => (
-                            <Box key={q.id} sx={{ borderRadius: '8px', p: 1, bgcolor: tonePair('cyan').soft }}>
-                                <Stack direction="row" gap={0.75} alignItems="center" flexWrap="wrap">
-                                    <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>
+                            <div key={q.id} className="rounded-lg bg-tone-cyan-soft p-2">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="text-[11.5px] font-bold">
                                         {queryCategoryLabel(q.category)}
-                                    </Typography>
-                                    <Chip size="small" variant="outlined" label={q.status.toLowerCase()} sx={{ height: 18, fontSize: 10 }} />
+                                    </span>
+                                    <Badge variant="outline" className="h-[18px] text-[10px]">{q.status.toLowerCase()}</Badge>
                                     {q.level != null && (
-                                        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>level {q.level}</Typography>
+                                        <span className="text-[11px] text-muted-foreground">level {q.level}</span>
                                     )}
-                                </Stack>
+                                </div>
                                 {q.messages.map((m) => (
-                                    <Typography key={m.id} sx={{ fontSize: 12, mt: 0.4, lineHeight: 1.45 }}>
+                                    <p key={m.id} data-slot="version-message" className="m-0 mt-1 text-xs leading-[1.45]">
                                         <b>{m.authorRole === 'APPROVER' ? 'Approver' : 'Employee'}:</b> {m.body}
-                                    </Typography>
+                                    </p>
                                 ))}
-                            </Box>
+                            </div>
                         ))}
-                    </Stack>
-                </Box>
+                    </div>
+                </div>
             )}
 
             {previous && (
-                <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>
+                <span className="text-[11px] text-muted-foreground/70">
                     Superseded {version.supersededAt ? formatDateTime(version.supersededAt) : ''}
-                </Typography>
+                </span>
             )}
-        </Box>
+        </div>
     );
 }
 
@@ -222,41 +226,34 @@ export default function VersionHistoryDialog({ reimbursementId, requestLabel, on
     useEffect(() => { load(); }, [load]);
 
     return (
-        <GlassDialog
+        <FormDialog
             open={!!reimbursementId}
-            onClose={onClose}
-            maxWidth="sm"
-            fullWidth
-            header={
-                <GlassHeader
-                    title="Version history"
-                    subtitle={requestLabel ?? undefined}
-                    icon={<KTIcon iconName="time" className="fs-1" />}
-                    onClose={onClose}
-                />
-            }
+            onOpenChange={(next) => { if (!next) onClose(); }}
+            title="Version history"
+            description={requestLabel ?? undefined}
+            icon={<Clock />}
         >
-            <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
+            <div className="flex min-w-0 flex-col gap-3">
                 {loading ? (
-                    <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={26} /></Stack>
+                    <div className="flex justify-center py-12"><Spinner className="size-[26px] text-primary" /></div>
                 ) : versions.length === 0 ? (
-                    <Typography sx={{ py: 5, textAlign: 'center', color: 'text.secondary', fontSize: 13 }}>
+                    <p data-slot="version-empty" className="m-0 py-10 text-center text-[13px] text-muted-foreground">
                         No version history for this expense.
-                    </Typography>
+                    </p>
                 ) : (
                     <>
-                        <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
+                        <p data-slot="version-count" className="m-0 text-[12.5px] text-muted-foreground">
                             {versions.length === 1
                                 ? 'This expense has not been edited since it was submitted.'
                                 : `${versions.length} versions. Newest first.`}
-                        </Typography>
-                        <Divider />
+                        </p>
+                        <Separator />
                         {versions.map((v, i) => (
                             <VersionCard key={v.id} version={v} previous={versions[i + 1]} />
                         ))}
                     </>
                 )}
-            </Box>
-        </GlassDialog>
+            </div>
+        </FormDialog>
     );
 }

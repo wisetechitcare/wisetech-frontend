@@ -47,7 +47,8 @@ function Toolbar() {
       <ToggleGroup
         aria-label="Status"
         variant="outline"
-        size="sm"
+        // lg = 40px: every control in a filter row shares the Select / search height.
+        size="lg"
         spacing={0}
         value={[status]}
         onValueChange={(v: string[]) => v[0] && setStatus(v[0])}

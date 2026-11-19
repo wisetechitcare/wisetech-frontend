@@ -5,7 +5,7 @@ import { KTIcon } from '../../../_metronic/helpers'
 import { fetchEmployeeProfileData } from '@services/employee'
 import { RootState } from '@redux/store'
 import { fetchCountryName, fetchStateName } from '@services/options'
-import { getAvatar } from '@utils/avatar'
+import { SmartAvatar } from '@/ds/ui/smart-avatar'
 
 const AccountHeader: React.FC = () => {
   const location = useLocation()
@@ -69,9 +69,14 @@ const AccountHeader: React.FC = () => {
           ) : profile ? (
             <div className='d-flex flex-wrap flex-sm-nowrap mb-3'>
               <div className='me-7 mb-4'>
-                <div className='symbol symbol-100px symbol-lg-160px symbol-fixed position-relative'>
-                  <img className='rounded-circle object-fit-contain' src={getAvatar(profile.avatar, profile.gender)} alt='User Profile Picture' />
-                </div>
+                <SmartAvatar
+                  name={`${profile?.users?.firstName || ''} ${profile?.users?.lastName || ''}`.trim() || 'Employee'}
+                  src={profile.avatar}
+                  seed={profile.id ?? employeeId}
+                  size={100}
+                  className='lg:size-40'
+                  preview
+                />
               </div>
 
               <div className='flex-grow-1'>

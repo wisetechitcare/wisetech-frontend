@@ -1,18 +1,13 @@
 import * as React from "react"
 import { ArrowLeft } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
-import { Avatar, AvatarFallback, AvatarImage } from "@/ds/ui/avatar"
+import { SmartAvatar, avatarInitials } from "@/ds/ui/smart-avatar"
 import { Badge } from "@/ds/ui/badge"
 import { Button } from "@/ds/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip"
 
-export function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join("")
-}
+/** The kit's one initials rule (see SmartAvatar). */
+export const initials = avatarInitials
 
 /**
  * A person in a table cell or list: avatar, name, code or role. Replaces the live `EmployeeIdentityCell`.
@@ -25,6 +20,7 @@ export function PersonCell({
   avatarUrl,
   inactive = false,
   size = "default",
+  showAvatar = true,
   className,
 }: {
   name: string
@@ -33,21 +29,29 @@ export function PersonCell({
   avatarUrl?: string | null
   inactive?: boolean
   size?: "default" | "sm"
+  /** `false` for text-first tables (money, payments) where the face adds width but no information. */
+  showAvatar?: boolean
   className?: string
 }) {
   const secondary = [code, subtitle].filter(Boolean).join(" · ")
   return (
     <div data-slot="person-cell" className={cn("flex min-w-0 items-center gap-2.5", className)}>
-      <Avatar className={cn(size === "sm" && "size-7", inactive && "grayscale")}>
-        {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
-        <AvatarFallback className="bg-accent text-accent-foreground">{initials(name)}</AvatarFallback>
-      </Avatar>
+      {showAvatar && (
+        <SmartAvatar
+          name={name}
+          seed={code || name}
+          src={avatarUrl}
+          size={size === "sm" ? 28 : "default"}
+          decorative
+          className={cn(inactive && "grayscale")}
+        />
+      )}
       <div className="min-w-0">
-        <p className="flex items-center gap-1.5 truncate font-medium">
+        <p data-slot="person-name" className="flex items-center gap-1.5 truncate font-medium">
           <span className="truncate">{name}</span>
           {inactive && <Badge variant="neutral">Inactive</Badge>}
         </p>
-        {secondary && size !== "sm" && <p className="truncate text-xs text-muted-foreground">{secondary}</p>}
+        {secondary && size !== "sm" && <p data-slot="person-secondary" className="truncate text-xs text-muted-foreground">{secondary}</p>}
       </div>
     </div>
   )
@@ -66,15 +70,19 @@ export function PersonHeader({
   actions,
   onBack,
   backLabel = "Back",
+  avatarFit = "cover",
   className,
 }: {
   name: string
   avatarUrl?: string | null
+  /** `contain` for a logo (an organization, a client): the whole mark, never cropped. */
+  avatarFit?: "cover" | "contain"
   /** Short facts, joined with dots: designation, department, location, code. */
   meta?: React.ReactNode[]
   badges?: React.ReactNode
-  /** Contact links (mail, phone) — real links so they work with the keyboard and on phones. */
-  links?: Array<{ href: string; label: string; icon?: React.ReactNode }>
+  /** Contact links (mail, phone) — real links so they work with the keyboard and on phones.
+   *  `external` (a website) opens in a new tab, safely (noopener). */
+  links?: Array<{ href: string; label: string; icon?: React.ReactNode; external?: boolean }>
   actions?: React.ReactNode
   onBack?: () => void
   backLabel?: string
@@ -84,21 +92,22 @@ export function PersonHeader({
     <header data-slot="person-header" className={cn("flex flex-col gap-4 sm:flex-row sm:items-center", className)}>
       <div className="flex min-w-0 flex-1 items-center gap-4">
         {onBack && (
-          <Button variant="ghost" size="icon" aria-label={backLabel} onClick={onBack}>
-            <ArrowLeft aria-hidden />
-          </Button>
+          // Icon-only, so it carries the kit Tooltip as well as its accessible name.
+          <Tooltip>
+            <TooltipTrigger render={<Button variant="ghost" size="icon" aria-label={backLabel} onClick={onBack} />}>
+              <ArrowLeft aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent>{backLabel}</TooltipContent>
+          </Tooltip>
         )}
-        <Avatar className="size-14 text-lg">
-          {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
-          <AvatarFallback className="bg-accent text-accent-foreground">{initials(name)}</AvatarFallback>
-        </Avatar>
+        <SmartAvatar name={name} src={avatarUrl} size="lg" shape="rounded" fit={avatarFit} preview decorative />
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-2xl font-semibold tracking-tight">{name}</h1>
             {badges}
           </div>
           {meta.length > 0 && (
-            <p className="flex flex-wrap gap-x-2 text-sm text-muted-foreground">
+            <p data-slot="person-meta" className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
               {meta.map((m, i) => (
                 <React.Fragment key={i}>
                   {i > 0 && <span aria-hidden>·</span>}
@@ -108,9 +117,13 @@ export function PersonHeader({
             </p>
           )}
           {links && links.length > 0 && (
-            <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <p data-slot="person-meta" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               {links.map((l) => (
-                <a key={l.href} href={l.href} className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline [&>svg]:size-3.5">
+                <a
+                  key={l.href}
+                  href={l.href}
+                  {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                  className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline [&>svg]:size-3.5">
                   {l.icon}
                   {l.label}
                 </a>
@@ -119,7 +132,7 @@ export function PersonHeader({
           )}
         </div>
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </header>
   )
 }

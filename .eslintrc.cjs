@@ -16,7 +16,7 @@ module.exports = {
     sourceType: 'module',
     ecmaFeatures: { jsx: true },
   },
-  plugins: ['@typescript-eslint', 'react-hooks', 'react-refresh'],
+  plugins: ['@typescript-eslint', 'react-hooks', 'react-refresh', 'wisetech'],
   extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'plugin:react-hooks/recommended', 'plugin:storybook/recommended'],
   ignorePatterns: [
     'dist',
@@ -29,6 +29,10 @@ module.exports = {
   rules: {
     /* --- Real-bug rules: keep as ERROR (these are the point of linting here) --- */
     'react-hooks/rules-of-hooks': 'error',
+    /* Legacy icon systems (KTIcon, AppIcon, bi-/fa-/la-/ki- classes, MUI icons). Own rule + own baseline. */
+    'wisetech/no-legacy-icons': 'error',
+    /* MUI / emotion / react-bootstrap / material-react-table imports and Bootstrap-only classes. Own rule + own baseline. */
+    'wisetech/no-legacy-ui': 'error',
     'no-unsafe-optional-chaining': 'error',
     '@typescript-eslint/no-non-null-asserted-optional-chain': 'error',
     'no-debugger': 'error',
@@ -139,10 +143,9 @@ module.exports = {
         selector: "Property[key.name='html'] > ConditionalExpression > TemplateLiteral[expressions.length>0]",
         message: 'Interpolating into `html` renders user data as markup. Use safeHtml`…` from @app/modules/common/components/ui on BOTH arms of the ternary.',
       },
-      {
-        selector: "JSXOpeningElement[name.name='Switch']",
-        message: 'Use WtSwitch / WtSwitchField from @app/modules/common/components/ui — not a raw MUI Switch. See CLAUDE.md → UI standard.',
-      },
+      /* No JSX rule for <Switch>: it matched the tag NAME, so it also fired on the kit Switch (@/ds/ui/switch), the
+       * standard one. A raw MUI Switch is caught by its import (no-restricted-imports above, and
+       * wisetech/no-legacy-ui for any @mui runtime import). */
       /* Hardcoded background colours. A literal #fff paints the same pixel in both themes, so
        * the surface stays white on a dark page — the single most common way dark mode breaks
        * here, and it was shipping in 67 files when this rule was added. Covers gradients too,
@@ -365,7 +368,7 @@ module.exports = {
         'src/app/modules/projectPoints/ProjectPointsConfigModal.tsx',
         'src/app/modules/projectPoints/ProjectPointsConfigSection.tsx',
         'src/app/pages/company/Branches.tsx',
-        'src/app/pages/company/organisation/OrganizationsPage.tsx',
+        'src/app/pages/company/organization/OrganizationsPage.tsx',
         'src/app/pages/dashboard/DashboardTasks.tsx',
         'src/app/pages/dashboard/Todo.tsx',
         'src/app/pages/employee/MeetingAttendeesDialog.tsx',
@@ -404,10 +407,42 @@ module.exports = {
        * active currency. The two files are duplicates of each other and worth collapsing,
        * but that is a separate job. */
       files: [
-        'src/app/pages/company/organisationInfo/rule/mockData.ts',
+        'src/app/pages/company/organizationInfo/rule/mockData.ts',
         'src/app/pages/employee/personal-rules/components/SalarySection.tsx',
       ],
       rules: { 'no-restricted-syntax': 'off' },
+    },
+    {
+      /* ICON RATCHET (see .eslint-icon-baseline.cjs; its own list so it never touches the UI baseline).
+       * Existing offenders warn; every other file errors. The list can only shrink.
+       * ORDER MATTERS: the baseline warn comes first and the 'off' exemptions after it, because the
+       * last matching override wins. */
+      files: require('./.eslint-icon-baseline.cjs'),
+      rules: { 'wisetech/no-legacy-icons': 'warn' },
+    },
+    {
+      /* The icon system itself, the deprecated shims that wrap it, and fixtures that pin legacy
+       * names on purpose. */
+      files: [
+        'src/ds/lib/icons/**',
+        'src/ds/ui/dynamic-icon.tsx',
+        'src/app/modules/common/components/ui/iconRegistry.ts',
+        'src/app/modules/common/components/ui/iconMap.ts',
+        'src/app/modules/common/components/ui/brandIcons.tsx',
+        'src/app/modules/common/components/ui/AppIcon.tsx',
+        '**/*.test.ts',
+        '**/*.test.tsx',
+        '**/*.stories.tsx',
+      ],
+      rules: { 'wisetech/no-legacy-icons': 'off' },
+    },
+    {
+      /* LEGACY-UI RATCHET (see .eslint-legacy-ui-baseline.cjs; own list, regenerate with `pnpm run lint:legacy-ui:baseline`).
+       * Existing MUI / react-bootstrap / Bootstrap-class files warn; every other file errors. The list can only
+       * shrink and NO directory gets a permanent exemption: the legacy kit warns through the baseline like the rest.
+       * Placed after the UI ratchet and the icon overrides: the last matching override wins. */
+      files: require('./.eslint-legacy-ui-baseline.cjs'),
+      rules: { 'wisetech/no-legacy-ui': 'warn' },
     },
   ],
 }

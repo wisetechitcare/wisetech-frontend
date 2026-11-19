@@ -1,6 +1,7 @@
 import React from "react";
 import { Paper, Box, Stack, Typography } from "@mui/material";
 import { PodiumEntry } from "./types";
+import { SmartAvatar } from "@/ds/ui/smart-avatar";
 
 /**
  * Tone map (accent + tint) keyed by module label — ported in spirit from the
@@ -128,7 +129,7 @@ export const ModuleChampionCard: React.FC<ModuleChampionCardProps> = ({ item, em
                   flexShrink: 0,
                 }}
               >
-                <img src={emp.avatar} alt={emp.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                <SmartAvatar src={emp.photo} name={emp.name} seed={emp.id} size={36} decorative />
               </Box>
               <Box sx={{ minWidth: 0, textAlign: "right" }}>
                 <Typography

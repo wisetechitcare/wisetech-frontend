@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react'
 import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui'
 import { Button } from '@/ds/ui/button'
 import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton'
+import { SmartAvatar } from '@/ds/ui/smart-avatar'
 
 // Types
 interface TeamMember {
@@ -14,6 +15,7 @@ interface TeamMember {
     employee?: {
         id?: number | string
         _id?: number | string
+        avatar?: string | null
         users?: {
             firstName: string
             lastName: string
@@ -623,25 +625,13 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                             }}
                                                         >
                                                             <div className="d-flex align-items-center gap-3">
-                                                                <div
-                                                                    className="rounded-circle d-flex align-items-center justify-content-center"
-                                                                    style={{
-                                                                        width: '32px',
-                                                                        height: '32px',
-                                                                        backgroundColor: member.avatar ? 'transparent' : '#1E3A8A',
-                                                                        color: 'white',
-                                                                        fontSize: '14px',
-                                                                        fontWeight: '600',
-                                                                        flexShrink: 0,
-                                                                        whiteSpace: "nowrap",
-                                                                        backgroundImage: member.avatar ? `url('${member.avatar}')` : 'none',
-                                                                        backgroundSize: 'cover',
-                                                                        backgroundPosition: 'center',
-                                                                        backgroundRepeat: 'no-repeat'
-                                                                    }}
-                                                                >
-                                                                    {!member.avatar && (member?.employee?.users?.firstName || 'U').charAt(0).toUpperCase()}
-                                                                </div>
+                                                                <SmartAvatar
+                                                                    name={`${member?.employee?.users?.firstName ?? ''} ${member?.employee?.users?.lastName ?? ''}`.trim()}
+                                                                    src={member.avatar || member?.employee?.avatar}
+                                                                    seed={member?.employee?.id ?? member.id}
+                                                                    size="sm"
+                                                                    decorative
+                                                                />
                                                                 <span
                                                                     style={{
                                                                         fontFamily: 'Inter',
@@ -1008,24 +998,13 @@ const TeamForm: React.FC<TeamFormProps> = ({ show, onHide, team, onSave, onDelet
                                                                     verticalAlign: 'middle'
                                                                 }}>
                                                                     <div className="d-flex align-items-center gap-3">
-                                                                        <div
-                                                                            className="rounded-circle d-flex align-items-center justify-content-center"
-                                                                            style={{
-                                                                                width: '32px',
-                                                                                height: '32px',
-                                                                                backgroundColor: employee.avatar ? 'transparent' : '#1E3A8A',
-                                                                                color: 'white',
-                                                                                fontSize: '14px',
-                                                                                fontWeight: '600',
-                                                                                flexShrink: 0,
-                                                                                backgroundImage: employee.avatar ? `url('${employee.avatar}')` : 'none',
-                                                                                backgroundSize: 'cover',
-                                                                                backgroundPosition: 'center',
-                                                                                backgroundRepeat: 'no-repeat'
-                                                                            }}
-                                                                        >
-                                                                            {!employee.avatar && (employee?.users?.firstName || 'U').charAt(0).toUpperCase()}
-                                                                        </div>
+                                                                        <SmartAvatar
+                                                                            name={`${employee?.users?.firstName ?? ''} ${employee?.users?.lastName ?? ''}`.trim()}
+                                                                            src={employee.avatar}
+                                                                            seed={employee.id}
+                                                                            size="sm"
+                                                                            decorative
+                                                                        />
                                                                         <span style={{
                                                                             fontFamily: 'Inter',
                                                                             fontSize: '14px',

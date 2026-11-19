@@ -2,6 +2,10 @@ import { ChangeEvent, useRef, useState } from "react";
 import ObFileUpload from "@pages/employee/wizard/components/ObFileUpload";
 import { DOCUMENT_ACCEPT, DOCUMENT_HINT, validateDocumentFile } from "@utils/fileValidation";
 import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
+// Direct file import, not the `ui` barrel — pulling the barrel in drags the whole kit into the
+// program and is a known tsc blow-up in this repo.
+import { pressableProps } from '@app/modules/common/components/ui/a11y';
 
 interface FileInputProps {
     placeholder: string;
@@ -17,6 +21,10 @@ interface FileInputProps {
     onDisabledClick?: () => void;
     /** Use onboarding wizard upload styling */
     onboardingStyle?: boolean;
+    /** `hidden` (avatar preview) mode: whose photo it is, for the initials fallback and its accessible name. */
+    avatarName?: string;
+    /** `hidden` mode: stable colour key for the initials tile (the employee id). */
+    avatarSeed?: string | number;
 }
 
 function FileInput({
@@ -31,6 +39,8 @@ function FileInput({
     disabled = false,
     onDisabledClick,
     onboardingStyle = false,
+    avatarName,
+    avatarSeed,
 }: FileInputProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     // Only used by the plain (non-onboarding) branch; ObFileUpload renders its own.
@@ -68,13 +78,22 @@ function FileInput({
     }
 
     if (hidden) {
+        // The avatar preview: the photo when there is one, else the person's initials.
+        //
+        // The avatar IS the file picker here, which makes it the same kind of control as the wizard's
+        // `dropzone` (ProfilePicture, ObFileUpload — the branch just below renders that one): a surface
+        // that opens a file dialog, not an ordinary action button. It was a bare `<span onClick>`, so it
+        // had no keyboard path at all; `pressableProps` is the shared helper that gives it the role,
+        // tab stop and Enter/Space the native element would have given for free.
         return (
-            <img
-                className='rounded-circle object-fit-contain image-input-wrapper w-125px h-125px position-relative'
-                src={path}
+            <span data-wt-control="dropzone"
+                {...pressableProps(handleFileClick, disabled)}
+                aria-label={`Change photo for ${avatarName || placeholder}`}
+                className={`inline-flex rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 onClick={handleFileClick}
-                alt={placeholder}
-            />
+            >
+                <SmartAvatar name={avatarName || placeholder} src={path} seed={avatarSeed} size={125} />
+            </span>
         );
     }
 

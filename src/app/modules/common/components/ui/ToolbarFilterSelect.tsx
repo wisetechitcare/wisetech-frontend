@@ -1,5 +1,6 @@
 import React from 'react';
 import { WtField } from './WtField';
+import type { IconSource } from '@/ds/ui/dynamic-icon';
 
 /**
  * ToolbarFilterSelect — the app's standard toolbar filter control.
@@ -47,11 +48,10 @@ export const FILTER_TONES = {
 export interface ToolbarFilterSelectProps {
     label: string;
     /**
-     * Icon name. A `bi-` prefix renders a Bootstrap icon, for the existing
-     * call sites; anything else is treated as a KTIcon (keenicons) name, which
-     * is what new code should pass.
+     * A Lucide component (what new code passes), or a stored name: a `bi-` prefix
+     * for the existing call sites, anything else a keenicon name.
      */
-    icon: string;
+    icon: IconSource;
     value: string;
     onChange: (value: string) => void;
     options: { value: string; label: string }[];

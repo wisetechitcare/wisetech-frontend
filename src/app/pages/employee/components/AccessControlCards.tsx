@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Box } from "@mui/material";
-import type { SvgIconComponent } from "@mui/icons-material";
 import TravelExploreOutlined from "@mui/icons-material/TravelExploreOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import RestartAltRounded from "@mui/icons-material/RestartAltRounded";
@@ -117,7 +116,7 @@ const AccessControlCards: React.FC<AccessControlProps> = ({ levels, customModule
 
   const card = (group: AccessLayoutGroup, node: AccessLayoutNode, icon: string, tabOf?: string) => {
     const accent = sectionAccent(group.id);
-    const Icon: SvgIconComponent = navIcon(icon);
+    const Icon = navIcon(icon);
     // Not a section: who has it is fixed (Roles & Permissions — Admin and above). Shown, never
     // ticked — but it still carries the PIN chip, same as Salary / Increment.
     if (node.fixed) {

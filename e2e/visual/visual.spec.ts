@@ -11,7 +11,7 @@ for (const screen of SCREENS) {
           await state.prepare(page)
           await settle(page)
         }
-        await snapshot(page, `${screen.id}--${state.id}.png`)
+        await snapshot(page, `${screen.id}--${state.id}.png`, { fullPage: screen.fullPage })
         await auditA11y(page, testInfo)
       })
     }

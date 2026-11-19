@@ -1,15 +1,18 @@
 import * as React from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { expect, fn, screen, userEvent, waitFor } from 'storybook/test'
+import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test'
 import { BarChart3, Briefcase, Building2, IdCard, Landmark, UserRound, UserPlus } from 'lucide-react'
 import { animationsSettled } from '@/ds/lib/motion'
 import { Button } from '@/ds/ui/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
 import { Textarea } from '@/ds/ui/textarea'
+import { AutoGrid } from './auto-grid'
 import { DescriptionList } from './description-list'
 import { FormDialog } from './form-dialog'
 import { Stepper } from './stepper'
+import { DateRangePicker } from '@/ds/ui/date-picker'
+import { parseDate } from '@internationalized/date'
 
 const onSave = fn()
 
@@ -176,6 +179,64 @@ export const LongFormWithSections: Story = {
   },
 }
 
+/**
+ * Wide form (`size="2xl"`): a long form on a wide screen uses the width. Each section's fields sit in an
+ * `AutoGrid stretch` — two or three across while there is room, one column on a phone — instead of one long column
+ * that scrolls. A field that needs the whole row (an address) takes `col-span-full`.
+ */
+export const WideForm: Story = {
+  render: () => (
+    <OpenButton label="New branch">
+      {(open, setOpen) => (
+        <FormDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="New branch"
+          icon={<Building2 />}
+          tone="cyan"
+          size="2xl"
+          formId="wide-branch"
+          sections={[{ id: 'wide-details', label: 'Branch details' }, { id: 'wide-location', label: 'Location' }]}
+        >
+          <form id="wide-branch" onSubmit={(e) => e.preventDefault()} className="space-y-8">
+            <section id="wide-details" aria-labelledby="wide-details-h" className="scroll-mt-4 space-y-4">
+              <h3 id="wide-details-h" className="text-base font-medium">Branch details</h3>
+              <AutoGrid min={220} stretch>
+                <Field><FieldLabel htmlFor="wide-name">Branch name</FieldLabel><Input id="wide-name" required /></Field>
+                <Field><FieldLabel htmlFor="wide-code">Branch code</FieldLabel><Input id="wide-code" /></Field>
+              </AutoGrid>
+            </section>
+            <section id="wide-location" aria-labelledby="wide-location-h" className="scroll-mt-4 space-y-4">
+              <h3 id="wide-location-h" className="text-base font-medium">Location</h3>
+              <AutoGrid min={220} stretch>
+                <Field><FieldLabel htmlFor="wide-city">City</FieldLabel><Input id="wide-city" required /></Field>
+                <Field><FieldLabel htmlFor="wide-state">State</FieldLabel><Input id="wide-state" required /></Field>
+                <Field><FieldLabel htmlFor="wide-postal">Postal code</FieldLabel><Input id="wide-postal" required /></Field>
+                <Field className="col-span-full"><FieldLabel htmlFor="wide-address">Address</FieldLabel><Textarea id="wide-address" /></Field>
+              </AutoGrid>
+            </section>
+          </form>
+        </FormDialog>
+      )}
+    </OpenButton>
+  ),
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'New Branch' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New Branch' })
+    await waitFor(() => expect(dialog).toBeVisible())
+    // On a wide screen the location fields share one row; the address takes a row of its own.
+    const top = (label: string) => screen.getByLabelText(label).getBoundingClientRect().top
+    if (window.innerWidth >= 1024) {
+      await expect(Math.round(top('City'))).toBe(Math.round(top('State')))
+      await expect(Math.round(top('State'))).toBe(Math.round(top('Postal Code')))
+      await expect(top('Address')).toBeGreaterThan(top('City'))
+    }
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await animationsSettled()
+  },
+}
+
 const WIZARD = [{ label: 'Candidate' }, { label: 'Offer' }, { label: 'Review' }]
 
 function OfferWizard() {
@@ -249,6 +310,75 @@ export const ReadOnlyDrillDown: Story = {
     await expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
     await userEvent.click(screen.getAllByRole('button', { name: 'Close' }).at(-1)!)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await animationsSettled()
+  },
+}
+
+/** A part with validation errors is flagged in the rail — dot, red ink and words — so an off-screen error is found. */
+export const SectionsFlagErrors: Story = {
+  render: () => (
+    <OpenButton label="Edit employee">
+      {(open, setOpen) => (
+        <FormDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="Edit employee"
+          icon={<UserRound />}
+          size="lg"
+          formId="edit-emp-errors"
+          sections={SECTIONS.map((s) => (s.id === 'sec-bank' ? { ...s, invalid: true } : s))}
+        >
+          <form id="edit-emp-errors" onSubmit={(e) => e.preventDefault()} className="space-y-8">
+            {SECTIONS.map((sec) => (
+              <section key={sec.id} id={sec.id} aria-labelledby={`${sec.id}-eh`} className="scroll-mt-4 space-y-4">
+                <h3 id={`${sec.id}-eh`} className="text-base font-medium">{sec.label}</h3>
+                <Field>
+                  <FieldLabel htmlFor={`${sec.id}-e`}>{sec.label} field</FieldLabel>
+                  <Input id={`${sec.id}-e`} />
+                </Field>
+              </section>
+            ))}
+          </form>
+        </FormDialog>
+      )}
+    </OpenButton>
+  ),
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Edit Employee' }))
+    await screen.findByRole('navigation', { name: 'Form sections' })
+    const bank = screen.getByRole('link', { name: 'Bank (has errors)' })
+    await expect(bank).toHaveAttribute('data-invalid')
+    await expect(screen.getByRole('link', { name: 'Job' })).not.toHaveAttribute('data-invalid')
+    await animationsSettled()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await animationsSettled()
+  },
+}
+
+/** Pickers inside the dialog: the date popover portals out, yet using it keeps the dialog open. */
+export const PickerInsideDialog: Story = {
+  render: () => (
+    <OpenButton label="Edit fiscal year">
+      {(open, setOpen) => (
+        <FormDialog open={open} onOpenChange={setOpen} title="Edit fiscal year" icon={<Building2 />} formId="fy" >
+          <form id="fy" onSubmit={(e) => e.preventDefault()}>
+            <DateRangePicker
+              label="Fiscal year"
+              presets={[{ label: 'Apr–Mar', value: { start: parseDate('2026-04-01'), end: parseDate('2027-03-31') } }]}
+            />
+          </form>
+        </FormDialog>
+      )}
+    </OpenButton>
+  ),
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Edit Fiscal Year' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit Fiscal Year' })
+    await userEvent.click(within(dialog).getByRole('button', { name: /calendar/i }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Apr–Mar' }))
+    await waitFor(() => expect(within(dialog).getByRole('group', { name: 'Fiscal Year' })).toHaveTextContent('2026.04.01–2027.03.31'))
+    await expect(screen.getByRole('dialog', { name: 'Edit Fiscal Year' })).toBeInTheDocument()
     await animationsSettled()
   },
 }

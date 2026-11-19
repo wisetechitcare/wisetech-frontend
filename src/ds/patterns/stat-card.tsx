@@ -50,11 +50,29 @@ function Sparkline({ values }: { values: number[] }) {
 }
 
 /**
+ * Three sizes, two layouts.
+ *
+ * `compact` (default) and `comfortable` are the same vertical tile at two densities: compact is a KPI
+ * strip — 16px padding, a 2xl value and a plain hint on the line directly under it (never a separate
+ * footer row), so four cards fit a phone two-up and a desktop row without dead space; comfortable is
+ * the roomy original (24px padding, 3xl value, hint on its own footer row) for a hero number.
+ *
+ * `sm` is the other layout: one horizontal row (label and value left, icon right) for a dense grid of
+ * small figures — the live kit's StatTile.
+ *
+ * `compact` and `sm` are both 16px-padding cards, so `data-size` on the Card cannot tell them apart;
+ * `data-stat-size` on the same element names the stat size itself.
+ */
+export type StatCardSize = "compact" | "comfortable" | "sm"
+
+/**
  * KPI tile on shadcn's Card: label, big tabular number, tinted icon, optional trend, hint and sparkline.
  * Status is never colour-only: the trend carries an arrow and text. `children` render between the
  * header and the footer (e.g. a thumbnail and actions).
- * Motion (all `motion-safe`, transform-only): the icon pops in and the value rises on mount; on hover
- * the card lifts, its glow brightens, the icon wiggles and a tone bar sweeps along the bottom edge.
+ *
+ * The glow, accent bar, hover lift and icon motion are NOT drawn here — they live in `Card`
+ * (`variant="tile"`), so every tile in the kit matches this one. All of it is `motion-safe` and
+ * transform-only.
  */
 export function StatCard({
   label,
@@ -64,7 +82,7 @@ export function StatCard({
   hint,
   sparkline,
   tone = "brand",
-  size = "default",
+  size = "compact",
   href,
   className,
   children,
@@ -80,23 +98,34 @@ export function StatCard({
   sparkline?: number[]
   /** A status, a category hue, or an admin-configured hex colour. */
   tone?: StatTone | (string & {})
-  /** `sm`: compact horizontal tile (icon, label, value) for dense rows — the live kit's StatTile. */
-  size?: "default" | "sm"
+  size?: StatCardSize
   /** The list behind the number (a KPI that filters the table below it). Makes the whole card a link. */
   href?: string
-  className?: string
 }) {
   const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp
-  const hasFooter = trend || hint || (sparkline && sparkline.length > 1)
+  const compact = size === "compact"
+  const hasSparkline = !!sparkline && sparkline.length > 1
+  // Compact puts a plain hint directly under the value; a footer row is only worth its height when it
+  // carries a trend badge or a sparkline.
+  const inlineHint = compact && hint && !trend && !hasSparkline
+  const hasFooter = trend || hasSparkline || (hint && !inlineHint)
+  const labelText = href ? <CardLink href={href}>{titleCaseChildren(label)}</CardLink> : titleCaseChildren(label)
 
-  // The compact tile is the benchmark at a smaller size, not a different design: same glow, accent
-  // bar, lift, 44px icon tile with pop and wiggle, same label style and number rise. Only what makes
-  // it compact changes — one row, tighter padding, a smaller number.
+  // The horizontal tile is the benchmark at a smaller size, not a different design: same glow, accent
+  // bar, lift, icon tile with pop and wiggle, same label style and number rise. Only what makes it
+  // compact changes — one row, tighter padding, a smaller number.
   if (size === "sm") {
     return (
-      <Card size="sm" tone={tone} interactive={!!href} className={cn("flex-row items-center gap-3 px-(--card-spacing)", className)}>
+      <Card
+        {...props}
+        size="sm"
+        tone={tone}
+        interactive={!!href}
+        data-stat-size={size}
+        className={cn("flex-row items-center gap-3 px-(--card-spacing)", className)}
+      >
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="heading-case truncate text-sm text-muted-foreground">{href ? <CardLink href={href}>{titleCaseChildren(label)}</CardLink> : titleCaseChildren(label)}</p>
+          <p className="heading-case truncate text-sm text-muted-foreground">{labelText}</p>
           <p className="tabular text-2xl leading-tight font-semibold motion-safe:animate-stat-rise">{value}</p>
         </div>
         {trend && (
@@ -111,17 +140,37 @@ export function StatCard({
   }
 
   return (
-    // The benchmark tile lives in Card (variant="tile"): glow, accent bar, lift and icon motion are
-    // drawn there once, so every tile in the kit matches this one.
-    <Card {...props} variant="tile" tone={tone} interactive={!!href} className={cn("gap-4", className)}>
-      <CardHeader>
-        <CardDescription className="heading-case">{href ? <CardLink href={href}>{titleCaseChildren(label)}</CardLink> : titleCaseChildren(label)}</CardDescription>
+    <Card
+      {...props}
+      variant="tile"
+      tone={tone}
+      interactive={!!href}
+      size={compact ? "sm" : "default"}
+      data-stat-size={size}
+      className={cn("@container/stat", compact ? "gap-2" : "gap-4", className)}
+    >
+      {/* `!` because Card's own `has-data-[slot=card-action]:grid-cols-[1fr_auto]` outranks a plain class. */}
+      <CardHeader className={cn(compact && "gap-1 @max-[210px]/stat:grid-cols-1!")}>
+        <CardDescription className={cn("heading-case", compact && "truncate text-xs")}>{labelText}</CardDescription>
         {/* min-w-0: lets a long text value truncate instead of widening the card. */}
-        <CardTitle className="tabular min-w-0 text-3xl font-semibold motion-safe:animate-stat-rise">{value}</CardTitle>
+        <CardTitle
+          className={cn(
+            "tabular min-w-0 font-semibold motion-safe:animate-stat-rise",
+            compact ? "flex flex-col gap-0.5 text-xl sm:text-2xl" : "text-3xl",
+          )}
+        >
+          {/* Clipped with an ellipsis like `truncate`, but `overflow: clip` rather than `hidden`: only
+              clip honours `overflow-clip-margin`, which lets a blurred (hidden) amount's soft edge fade
+              out 0.75rem past the box instead of being cut into a hard rectangle at the text's edge. */}
+          <span className="min-w-0 overflow-clip text-ellipsis whitespace-nowrap [overflow-clip-margin:0.75rem]">{value}</span>
+          {inlineHint && <span className="min-w-0 text-xs font-normal text-muted-foreground">{hint}</span>}
+        </CardTitle>
         {icon && (
-          <CardAction>
+          // A narrow compact card (two-up on a phone) gives the icon's width to the value: the icon is
+          // decoration, and a figure cut off with an ellipsis is a wrong figure.
+          <CardAction className={cn(compact && "@max-[210px]/stat:hidden")}>
             {/* Card's tile variant animates the icon (pop, hover scale, wiggle). */}
-            <IconBox icon={icon} tone={tone} size="lg" />
+            <IconBox icon={icon} tone={tone} size={compact ? "default" : "lg"} />
           </CardAction>
         )}
       </CardHeader>
@@ -135,7 +184,7 @@ export function StatCard({
                 {trend.value}
               </Badge>
             )}
-            {hint && <span className="text-muted-foreground">{hint}</span>}
+            {hint && !inlineHint && <span className="text-muted-foreground">{hint}</span>}
           </div>
           {sparkline && <Sparkline values={sparkline} />}
         </CardFooter>

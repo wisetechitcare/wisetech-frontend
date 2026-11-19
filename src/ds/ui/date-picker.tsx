@@ -7,19 +7,22 @@ import {
   Button,
   DatePicker as AriaDatePicker,
   DateRangePicker as AriaDateRangePicker,
+  DateRangePickerStateContext,
   Dialog,
   Group,
   Popover,
   composeRenderProps,
+  I18nProvider,
+  useLocale,
   type DatePickerProps,
   type DateRangePickerProps,
   type DateValue,
 } from "@animate-ui/react/primitives/react-aria"
 
 import { AriaInputGroup, FieldChrome, type FieldChromeProps } from "@/ds/ui/aria-field"
-import { buttonVariants } from "@/ds/ui/button"
+import { Button as KitButton, buttonVariants } from "@/ds/ui/button"
 import { Calendar, RangeCalendar } from "@/ds/ui/calendar"
-import { DateInput } from "@/ds/ui/date-field"
+import { DateInput, DisplayDateLocale, DISPLAY_DATE_SEPARATOR } from "@/ds/ui/date-field"
 import { fieldVariants } from "@/ds/ui/field"
 import { popoverSurfaceClassName } from "@/ds/ui/popover"
 
@@ -65,7 +68,9 @@ function DatePicker<T extends DateValue>({
   className,
   ...props
 }: DatePickerProps<T> & FieldChromeProps) {
+  const { locale } = useLocale()
   return (
+    <DisplayDateLocale>
     <AriaDatePicker
       data-slot="date-picker"
       className={composeRenderProps(className, (className) =>
@@ -80,15 +85,45 @@ function DatePicker<T extends DateValue>({
       >
         <AriaInputGroup>
           <Group data-slot="date-picker-group" className="flex h-full w-full min-w-0 items-center">
-            <DateInput className="flex-1" />
+            <DateInput className="flex-1" literal={DISPLAY_DATE_SEPARATOR} />
             <PickerTrigger />
           </Group>
         </AriaInputGroup>
       </FieldChrome>
       <PickerPopover>
-        <Calendar />
+        <I18nProvider locale={locale}><Calendar /></I18nProvider>
       </PickerPopover>
     </AriaDatePicker>
+    </DisplayDateLocale>
+  )
+}
+
+/** A one-click range under the calendar (e.g. "Apr–Mar" for a fiscal year, "This month"). */
+type DateRangePreset = { label: string; value: { start: DateValue; end: DateValue } }
+
+/**
+ * WiseTech: quick ranges in the popover, below the calendar. Picking one sets the whole range through the
+ * picker's own state (so validation, onChange and the typed fields all follow) and closes the popover.
+ */
+function RangePresets({ presets }: { presets?: DateRangePreset[] }) {
+  const state = React.useContext(DateRangePickerStateContext)
+  if (!presets?.length || !state) return null
+  return (
+    <div data-slot="date-range-presets" className="mt-2 flex flex-wrap gap-1.5 border-t border-border pt-2">
+      {presets.map((preset) => (
+        <KitButton
+          key={preset.label}
+          variant="outline"
+          size="xs"
+          onClick={() => {
+            state.setValue(preset.value as never)
+            state.close()
+          }}
+        >
+          {preset.label}
+        </KitButton>
+      ))}
+    </div>
   )
 }
 
@@ -97,9 +132,12 @@ function DateRangePicker<T extends DateValue>({
   description,
   errorMessage,
   className,
+  presets,
   ...props
-}: DateRangePickerProps<T> & FieldChromeProps) {
+}: DateRangePickerProps<T> & FieldChromeProps & { presets?: DateRangePreset[] }) {
+  const { locale } = useLocale()
   return (
+    <DisplayDateLocale>
     <AriaDateRangePicker
       data-slot="date-range-picker"
       className={composeRenderProps(className, (className) =>
@@ -117,20 +155,22 @@ function DateRangePicker<T extends DateValue>({
             data-slot="date-range-picker-group"
             className="flex h-full w-full min-w-0 items-center"
           >
-            <DateInput slot="start" className="pe-1" />
+            <DateInput slot="start" className="pe-1" literal={DISPLAY_DATE_SEPARATOR} />
             <span aria-hidden="true" className="text-muted-foreground">
               –
             </span>
-            <DateInput slot="end" className="flex-1 ps-1" />
+            <DateInput slot="end" className="flex-1 ps-1" literal={DISPLAY_DATE_SEPARATOR} />
             <PickerTrigger />
           </Group>
         </AriaInputGroup>
       </FieldChrome>
       <PickerPopover>
-        <RangeCalendar />
+        <I18nProvider locale={locale}><RangeCalendar /></I18nProvider>
+        <RangePresets presets={presets} />
       </PickerPopover>
     </AriaDateRangePicker>
+    </DisplayDateLocale>
   )
 }
 
-export { DatePicker, DateRangePicker }
+export { DatePicker, DateRangePicker, type DateRangePreset }

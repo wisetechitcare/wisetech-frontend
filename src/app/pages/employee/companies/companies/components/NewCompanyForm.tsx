@@ -35,7 +35,6 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { getRatingByCompanyId } from "@services/projects";
 import SubCompanyForm from "./SubCompanryForm";
 import { fetchAllEmployeesSelectedData } from "@services/employee";
-import { getAvatar } from "@utils/avatar";
 import MultiSelectWithInlineCreate, { Option } from "@app/modules/common/components/MultiSelectWithInlineCreate";
 import { transformToOptions, createNewCompanyService, createNewCompanyType, createNewServiceUnderType } from "@app/modules/common/components/InlineCreateHelpers";
 import { fetchSubCompanies } from "@services/company";
@@ -172,24 +171,9 @@ const schemaFor = (sections: IFormSection[]) =>
     )
   );
 
-/**
- * Required CUSTOM fields left empty, as { fieldId: message }.
- *
- * Custom fields only: a built-in (Company Name…) keeps its value in Formik, not on `f.value`,
- * so including it reported it empty every time and silently blocked EVERY save — fixed twice
- * already, the second time after a merge undid it (see NewCompanyForm.test). Built-ins are
- * enforced by `schemaFor`; hidden fields cannot be filled in, so they never block.
- */
-export const missingCustomFields = (sections: IFormSection[]): Record<string, string> => {
-  const errs: Record<string, string> = {};
-  sections.forEach((sec) =>
-    sec.fields.forEach((f) => {
-      if (f.isSystem || f.hidden) return;
-      if (f.required && !String(f.value ?? "").trim()) errs[f.id] = `${f.label} is required`;
-    })
-  );
-  return errs;
-};
+// Shared by every schema-driven form; re-exported for existing importers.
+export { missingCustomFields } from "@app/modules/common/components/FormSchemaManager/builtinSchema";
+import { missingCustomFields } from "@app/modules/common/components/FormSchemaManager/builtinSchema";
 
 const NewCompanyForm: React.FC<Props> = ({
   show,
@@ -277,7 +261,7 @@ const NewCompanyForm: React.FC<Props> = ({
   });
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [servicesLoaded, setServicesLoaded] = useState(false);
-  // Per-company admin-defined custom sections/fields (mirrors the Organisation edit form).
+  // Per-company admin-defined custom sections/fields (mirrors the Organization edit form).
   // Seeded with the built-in section anchors so they appear in the schema manager.
   const [formSections, setFormSections] = useState<IFormSection[]>(cloneCompanyDefaults());
   const liveSchema = useMemo(() => schemaFor(formSections), [formSections]);
@@ -324,7 +308,7 @@ const NewCompanyForm: React.FC<Props> = ({
         .map((e: any) => ({
           label: `${e.users?.firstName} ${e.users?.lastName}`,
           value: e.id,
-          avatar: getAvatar(e.avatar || "", e.gender ?? 0),
+          avatar: e.avatar || e.users?.avatar || "",
         })),
     [allEmployees],
   );
@@ -733,9 +717,16 @@ const NewCompanyForm: React.FC<Props> = ({
     }
   };
 
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    const input = document.getElementById("logo") as HTMLInputElement | null;
+    if (input) input.value = "";
+  };
+
   // ── Per-company custom sections/fields ────────────────────────────────────────
   // Custom field values live inline on the schema (field.value), exactly like the
-  // Organisation edit form. File fields upload immediately and store the returned URL.
+  // Organization edit form. File fields upload immediately and store the returned URL.
   const updateCustomValue = (sectionId: string, fieldId: string, value: string) => {
     setFormSections((prev) =>
       prev.map((sec) =>
@@ -1227,7 +1218,7 @@ const NewCompanyForm: React.FC<Props> = ({
                                                       {
                                                         label: `${saved.users?.firstName} ${saved.users?.lastName}`,
                                                         value: saved.id,
-                                                        avatar: getAvatar(saved.avatar || "", saved.gender ?? 0),
+                                                        avatar: saved.avatar || saved.users?.avatar || "",
                                                       },
                                                       ...employeeOptions,
                                                     ];
@@ -1562,12 +1553,19 @@ const NewCompanyForm: React.FC<Props> = ({
                             )}
                           </label>
                           <div className="crm-avatar-actions">
-                            <Button
-                              variant="outline"
-                              onClick={() => document.getElementById("logo")?.click()}
-                            >
-                              {logoPreview ? "Change logo" : "Upload logo"}
-                            </Button>
+                            <Box sx={{ display: "flex", gap: "0.5rem" }}>
+                              <Button
+                                variant="outline"
+                                onClick={() => document.getElementById("logo")?.click()}
+                              >
+                                {logoPreview ? "Change logo" : "Upload logo"}
+                              </Button>
+                              {logoPreview && (
+                                <Button variant="outline" onClick={handleRemoveLogo}>
+                                  Cancel
+                                </Button>
+                              )}
+                            </Box>
                             <span className="crm-avatar-hint">
                               {logoFile?.name || "PNG or JPG · shown on company lists"}
                             </span>

@@ -62,7 +62,7 @@ import {
 } from "./entityUtils";
 import { currencyPrefix } from "@utils/currency";
 import { canViewCommercial } from "@utils/can";
-import { ToneChip } from "@app/modules/common/components/ui";
+import { StatusPill, ToneChip } from "@app/modules/common/components/ui";
 
 // Money columns and the section whose commercial flag lets them show.
 const MONEY_COLUMN_SECTION: Record<string, "crm.leads" | "projects"> = {
@@ -1154,38 +1154,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
               accessorFn: (row: any) => row?.status?.name || "",
               Cell: ({ row }: any) => {
                 const st = row?.original?.status;
-                return st?.name ? (
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      backgroundColor: st.color || "#64748B",
-                      borderRadius: "6px",
-                      padding: "4px 10px 4px 8px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "8px",
-                        height: "8px",
-                        borderRadius: "50%",
-                        backgroundColor: "#fff",
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        color: "#fff",
-                      }}
-                    >
-                      {st.name}
-                    </span>
-                  </div>
-                ) : (
-                  "N/A"
-                );
+                // Kit's StatusPill — same badge as the MoM register's status.
+                return st?.name ? <StatusPill label={st.name} color={st.color} /> : "N/A";
               },
             },
           ]),

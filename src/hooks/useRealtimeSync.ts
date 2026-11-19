@@ -194,7 +194,7 @@ export function useRealtimeSync(
       }
     };
 
-    // The organisation's Interface Style default changed. Same rules as above: ignore
+    // The organization's Interface Style default changed. Same rules as above: ignore
     // another tenant's org, spread (the reducer replaces), and keep `null` as "no opinion".
     const onInterfaceStyleUpdated = (payload: { id?: string; interfaceStyle?: string | null }) => {
       const company = (store.getState() as any)?.company?.currentCompany;

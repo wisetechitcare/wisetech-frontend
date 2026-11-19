@@ -14,7 +14,7 @@
  *
  * ── Never assume April ───────────────────────────────────────────────────────
  *
- * Fiscal years are not all April-March. An organisation running October to
+ * Fiscal years are not all April-March. An organization running October to
  * September stores "2025-10-01 to 2026-09-30" and must read "25-26", so the
  * parser takes the FIRST and LAST four-digit years it finds and ignores months
  * entirely. Do not add a start-month constant to this file.

@@ -9,6 +9,8 @@ interface FileUploadProps {
   maxFiles?: number;
   maxSizeMB?: number;
   hint?: ReactNode;
+  /** What to drop — "images" by default. */
+  noun?: string;
   onFilesChange?: (files: File[]) => void;
 }
 
@@ -17,6 +19,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   maxFiles = 10,
   maxSizeMB = 5,
   hint,
+  noun = "images",
   onFilesChange,
 }) => {
   const [files, setFiles] = useState<File[]>([]);
@@ -73,7 +76,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         <input {...getInputProps()} />
         <Upload className="w-6 h-6 text-gray-900" />
         <p className="mt-3 text-base font-medium text-gray-900">
-          Drag and drop images, or{" "}
+          Drag and drop {noun}, or{" "}
           <span className="underline">browse files</span>
         </p>
         {hint ?? <p className="mt-2 text-sm text-gray-500">{defaultHint}</p>}

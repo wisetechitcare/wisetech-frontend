@@ -13,18 +13,17 @@ import axios from "axios";
 import SVG from "react-inlinesvg";
 import { getAllKpiFactors } from "@services/employee";
 import { fetchLeaderboard } from "@utils/statistics";
-import { getAvatar } from "@utils/avatar";
 import { EMPLOYEE } from "@constants/api-endpoint";
 import { sortKpiFactors } from "@utils/kpiSort";
 import { formatHours } from "./kpiUtils";
 import CommonCard from "@app/modules/common/components/CommonCard";
 import { ToneChip } from "@app/modules/common/components/ui";
-import { maleIcons } from "@metronic/assets/sidepanelicons";
 import { miscellaneousIcons } from "../../../../../_metronic/assets/miscellaneousicons";
 import { getKpiBehavior, KpiBehavior, normalizeScoreSign } from "@utils/kpiBehavior";
 import Skeleton from "@components/loaders/Skeleton";
 import { ModuleChampionCard } from "./leaderboard";
 import { Button } from '@/ds/ui/button';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 const PodiumHero = React.lazy(() => import("./leaderboard/PodiumHero"));
 
@@ -402,68 +401,48 @@ const ScoreDisplay = React.memo(
 
 // ==============================
 // SAFE AVATAR COMPONENT
-// Purpose: Ensures full face visibility by using 'contain' and a subtle background fill.
-// Prevents the aggressive forehead/chin cropping common with 'object-fit: cover'.
+// The app's ONE avatar (SmartAvatar): the employee's photo, else their initials. Podium ranks keep
+// their medal ring (gold / silver / bronze) around it, at the same outer size as before.
 // ==============================
 
 const SafeAvatar = React.memo(({
   src,
-  alt,
+  name,
+  seed,
   size,
-  border = "2px solid white",
-  shadow = "0 2px 6px rgba(0,0,0,0.12)",
-  style = {}
+  medal = null,
 }: {
-  src: string;
-  alt: string;
-  size: string;
-  border?: string;
-  shadow?: string;
-  style?: React.CSSProperties;
-}) => (
-  <div
-    style={{
-      width: size,
-      height: size,
-      borderRadius: "50%",
-      overflow: "hidden",
-      backgroundColor: "#F5F8FA", // Subtle background for transparent/contain images
-      border,
-      boxShadow: shadow,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      flexShrink: 0,
-      ...style,
-    }}
-  >
-    <img
-      src={src}
-      alt={alt}
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "contain", // Safer than 'cover' for headshots
-        objectPosition: "center",
-        display: "block",
-      }}
-    />
-  </div>
-));
+  src?: string | null;
+  name: string;
+  seed?: string | null;
+  size: number;
+  medal?: { border: string; glow: string } | null;
+}) => {
+  if (!medal) return <SmartAvatar src={src} name={name} seed={seed} size={size} decorative />;
+  return (
+    <span
+      className="inline-flex shrink-0 rounded-full"
+      style={{ border: `2.5px solid ${medal.border}`, boxShadow: `0 0 0 2px white, 0 2px 8px ${medal.glow}` }}
+    >
+      <SmartAvatar src={src} name={name} seed={seed} size={size - 5} decorative />
+    </span>
+  );
+});
 
 // ==============================
 // EMPLOYEE CARD â€” inline preview (page body, unchanged)
 // ==============================
 
 const EmployeeCard = React.memo(({ emp, rank, size = "md", scoreData }: any) => {
-  const imgSize = size === "sm" ? "40px" : "56px";
+  const imgSize = size === "sm" ? 40 : 56;
   const nameSize = size === "sm" ? "12px" : "15px";
   return (
     <div className="d-flex flex-row align-items-center gap-2">
       <div className="position-relative" style={{ flexShrink: 0 }}>
         <SafeAvatar
           src={emp.avatar}
-          alt={emp.name}
+          name={emp.name}
+          seed={emp.id}
           size={imgSize}
         />
         {rank && (
@@ -496,7 +475,10 @@ const EmployeeCard = React.memo(({ emp, rank, size = "md", scoreData }: any) => 
 interface RankingRowData {
   rank: number;
   name: string;
-  avatar: string;
+  /** The employee's own photo URL (no placeholder); SafeAvatar falls back to initials. */
+  photo?: string;
+  /** Employee id: the stable colour seed for the initials tile. */
+  id?: string;
   score: number;
   maxScore: number | null;
   value: number | null;
@@ -512,7 +494,8 @@ const RankingRow = React.memo(({ data }: { data: RankingRowData }) => {
   const {
     rank,
     name,
-    avatar,
+    photo,
+    id,
     score,
     maxScore,
     value,
@@ -592,13 +575,7 @@ const RankingRow = React.memo(({ data }: { data: RankingRowData }) => {
       </div>
 
       {/* â”€â”€ Avatar â”€â”€ */}
-      <SafeAvatar
-        src={avatar}
-        alt={name}
-        size="44px"
-        border={medal ? `2.5px solid ${medal.border}` : "2px solid white"}
-        shadow={medal ? `0 0 0 2px white, 0 2px 8px ${medal.glow}` : "0 2px 6px rgba(0,0,0,0.1)"}
-      />
+      <SafeAvatar src={photo} name={name} seed={id} size={44} medal={medal} />
 
       {/* â”€â”€ Name + Value row â”€â”€ */}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -752,15 +729,10 @@ const FactorLeaderboardCard = React.memo(
             rankings.slice(0, 5).map((item, i) => {
               const firstName = safeString(item?.employee?.firstName);
               const lastName = safeString(item?.employee?.lastName);
-              const avatarSrc =
-                getAvatar(
-                  safeString(item?.employee?.avatar),
-                  item?.employee?.gender
-                ) || maleIcons.maleIcon?.default;
               return (
                 <EmployeeCard
                   key={i}
-                  emp={{ name: `${firstName} ${lastName}`.trim() || "-", avatar: avatarSrc }}
+                  emp={{ name: `${firstName} ${lastName}`.trim() || "-", avatar: safeString(item?.employee?.avatar), id: item?.employee?.id }}
                   rank={i + 1}
                   scoreData={{
                     value: item?.value ?? null,
@@ -849,11 +821,6 @@ function LeaderBoardCore({
   const endDateStr = endDate?.format("YYYY-MM-DD") ?? "";
 
 
-  const getEmployeeAvatar = useCallback((avatar: string | undefined, gender: string | number | undefined) => {
-    const url = getAvatar(avatar || "", gender);
-    return url && url.trim() !== "" ? url : maleIcons.maleIcon?.default;
-  }, []);
-
   // â”€â”€ Dedicated normalizers â€” each API returns a different schema â”€â”€
   // maxTotal is NEVER used here; KPI denominator comes exclusively from maxScore.
 
@@ -865,8 +832,7 @@ function LeaderBoardCore({
       const lastName = safeString(
         emp?.employee?.users?.lastName || emp?.employee?.lastName || emp?.lastName || ""
       );
-      const avatar = safeString(emp?.employee?.avatar || emp?.avatar || "");
-      const gender = emp?.employee?.gender ?? emp?.gender ?? null;
+      const photo = safeString(emp?.employee?.avatar || emp?.avatar || "");
       const score = safeNumber(emp?.totalScore ?? emp?.score ?? 0);
       const maxScoreRaw = emp?.maxScore ?? null;
       const valueRaw = emp?.value ?? null;
@@ -884,14 +850,15 @@ function LeaderBoardCore({
         id,
         name: `${firstName} ${lastName}`.trim() || "-",
         designation,
-        avatar: getEmployeeAvatar(avatar, gender),
+        // The employee's own photo only (no placeholder): SmartAvatar falls back to initials.
+        photo,
         score,
         maxScore: maxScoreRaw !== null ? safeNumber(maxScoreRaw) : null,
         value: valueRaw !== null ? safeNumber(valueRaw) : null,
         maxValue: maxValueRaw !== null ? safeNumber(maxValueRaw) : null,
       };
     },
-    [getEmployeeAvatar]
+    []
   );
 
   // normalizeModuleEmployee removed â€” it was byte-for-byte identical to
@@ -901,12 +868,11 @@ function LeaderBoardCore({
   const normalizeFactorEmployee = useCallback(
     (item: any = {}) => {
       const emp = item?.employee || {};
-      const avatar =
-        getAvatar(safeString(emp.avatar), emp.gender) ||
-        maleIcons.maleIcon?.default;
+      const photo = safeString(emp.avatar);
       return {
+        id: safeString(emp.id ?? item?.employeeId ?? ""),
         name: `${safeString(emp.firstName)} ${safeString(emp.lastName)}`.trim() || "-",
-        avatar,
+        photo,
         score: safeNumber(item?.score),
         maxScore: item?.maxScore != null ? safeNumber(item.maxScore) : null,
         value: item?.value != null ? safeNumber(item.value) : null,
@@ -1091,7 +1057,8 @@ function LeaderBoardCore({
         return {
           rank: i + 1,
           name: n.name,
-          avatar: n.avatar,
+          photo: n.photo,
+          id: n.id,
           score: n.score,
           maxScore: n.maxScore,
           value: n.value,
@@ -1114,7 +1081,8 @@ function LeaderBoardCore({
           rank: emp?.rank ?? i + 1,
           name: n.name,
           designation: n.designation,
-          avatar: n.avatar,
+          photo: n.photo,
+          id: n.id,
           workingDays: emp?.workingDays ?? 0,
           expectedWorkingDays: emp?.expectedWorkingDays ?? 0,
           leaveDays: emp?.leaveDays ?? 0,
@@ -1136,7 +1104,8 @@ function LeaderBoardCore({
       return {
         rank: i + 1,
         name: n.name,
-        avatar: n.avatar,
+        photo: n.photo,
+        id: n.id,
         score: n.score,
         maxScore: n.maxScore,
         value: n.value,
@@ -1602,13 +1571,7 @@ function LeaderBoardCore({
                   </div>
 
                   {/* ── Avatar ── */}
-                  <SafeAvatar
-                    src={row.avatar}
-                    alt={row.name}
-                    size="44px"
-                    border={medal ? `2.5px solid ${medal.border}` : "2px solid white"}
-                    shadow={medal ? `0 0 0 2px white, 0 2px 8px ${medal.glow}` : "0 2px 6px rgba(0,0,0,0.1)"}
-                  />
+                  <SafeAvatar src={row.photo} name={row.name} seed={row.id} size={44} medal={medal} />
 
                   {/* ── Name ── */}
                   <div style={{ flex: 1, minWidth: 0 }}>

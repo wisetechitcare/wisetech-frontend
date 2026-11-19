@@ -4,6 +4,7 @@ import { KTIcon } from '@metronic/helpers';
 import { Button } from '@/ds/ui/button';
 import { C, FONT, T, SP, RADIUS, ICON_COLORS } from './ConfigDesignSystem';
 import { keeniconFor } from '@app/modules/common/components/ui/iconMap';
+import { IconSlot, type IconSource } from '@/ds/ui/dynamic-icon';
 // Imported from the module, NOT the ui barrel — pulling the barrel into a widely-imported
 // primitive is what makes tsc crawl.
 import { toTitleCase, HEADING_CASE_SX } from '@app/modules/common/components/ui/text';
@@ -17,12 +18,25 @@ import { toTitleCase, HEADING_CASE_SX } from '@app/modules/common/components/ui/
  * everywhere else. An unmapped name keeps rendering its Bootstrap glyph, so a missing
  * entry in `iconMap` looks off-family rather than turning into a blank square.
  *
+ * A Lucide component is also accepted (`icon={Tag}`) and drawn at `slotClass`, which must be the
+ * px size of `className` (`fs-2` = 23px, `fs-5` = 17px) so both kinds of icon render the same size.
+ * The string path is deliberately untouched: resolving a `bi-*` name straight through the
+ * registry can pick a different glyph than bi -> keenicon -> registry, and every existing
+ * consumer must keep rendering today's glyph.
+ *
  * `size` is a px value for the Bootstrap fallback; KTIcon sizes via its own `fs-*` class,
  * which is the icon font's sizing API and the one Bootstrap-ish class the lint rules keep.
  */
-function ConfigIcon({ name, size, className, color }: {
-  name: string; size: number; className: string; color?: string;
+function ConfigIcon({ name, size, className, slotClass, color }: {
+  name: IconSource; size: number; className: string; slotClass: string; color?: string;
 }) {
+  if (typeof name !== 'string') {
+    return (
+      <span style={{ color, display: 'inline-flex', alignItems: 'center' }}>
+        <IconSlot icon={name} className={slotClass} />
+      </span>
+    );
+  }
   const keenicon = keeniconFor(name);
   // KTIcon takes no style prop — the keenicon font paints with currentColor, so the tint
   // is applied by the wrapper and inherited.
@@ -37,7 +51,7 @@ function ConfigIcon({ name, size, className, color }: {
 
 export interface ConfigSectionCardAction {
   label: string;
-  icon?: string;
+  icon?: IconSource;
   onClick: () => void;
   variant?: 'primary' | 'secondary' | 'outline' | 'danger';
   disabled?: boolean;
@@ -46,7 +60,7 @@ export interface ConfigSectionCardAction {
 export interface ConfigSectionCardProps {
   title: string;
   description?: string;
-  icon?: string;
+  icon?: IconSource;
   iconColor?: 'primary' | 'blue' | 'green' | 'purple' | 'amber' | 'teal' | 'danger' | 'warning';
   primaryAction?: ConfigSectionCardAction;
   secondaryActions?: ConfigSectionCardAction[];
@@ -90,7 +104,7 @@ const ActionBtn: React.FC<{ action: ConfigSectionCardAction }> = ({ action }) =>
   >
     {action.icon && (
       <span data-icon="inline-start" className="inline-flex">
-        <ConfigIcon name={action.icon} size={13} className="fs-5" />
+        <ConfigIcon name={action.icon} size={13} className="fs-5" slotClass="size-[17px]" />
       </span>
     )}
     {action.label}
@@ -183,7 +197,7 @@ const ConfigSectionCard: React.FC<ConfigSectionCardProps> = ({
               flexShrink: 0,
               boxShadow: `0 2px 8px ${scheme.color}22`,
             }}>
-              <ConfigIcon name={icon} size={18} className="fs-2" color={scheme.color} />
+              <ConfigIcon name={icon} size={18} className="fs-2" slotClass="size-[23px]" color={scheme.color} />
             </div>
           )}
 

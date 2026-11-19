@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { EmployeeSelectProps } from './types';
-import LazyImage from '../LazyImage';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
   selectedEmployee,
@@ -64,22 +64,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
               <div className="d-flex align-items-center gap-2 flex-grow-1">
                 {selectedEmployees.length === 1 ? (
                   <>
-                    <div className="rounded-circle overflow-hidden" style={{ width: '32px', height: '32px', position: 'relative' }}>
-                      {selectedEmployees[0].avatar.includes('dicebear.com') ? (
-                        <img
-                          src={selectedEmployees[0].avatar}
-                          alt={`${selectedEmployees[0].name} avatar`}
-                          className="w-100 h-100"
-                          style={{ objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <LazyImage
-                          src={selectedEmployees[0].avatar}
-                          alt={`${selectedEmployees[0].name} avatar`}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                        />
-                      )}
-                    </div>
+                    <SmartAvatar name={selectedEmployees[0].name} src={selectedEmployees[0].avatar} seed={selectedEmployees[0].id} size="sm" decorative />
                     <span className="text-truncate">{selectedEmployees[0].name}</span>
                   </>
                 ) : (
@@ -97,20 +82,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
                             position: 'relative'
                           }}
                         >
-                          {emp.avatar.includes('dicebear.com') ? (
-                            <img
-                              src={emp.avatar}
-                              alt={`${emp.name} avatar`}
-                              className="w-100 h-100"
-                              style={{ objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <LazyImage
-                              src={emp.avatar}
-                              alt={`${emp.name} avatar`}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                            />
-                          )}
+                          <SmartAvatar name={emp.name} src={emp.avatar} seed={emp.id} size={20} />
                         </div>
                       ))}
                       {selectedEmployees.length > 3 && (
@@ -143,22 +115,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
         ) : (
           selectedEmployee ? (
             <div className="d-flex align-items-center gap-2">
-              <div className="rounded-circle overflow-hidden" style={{ width: '32px', height: '32px', position: 'relative' }}>
-                {selectedEmployee.avatar.includes('dicebear.com') ? (
-                  <img
-                    src={selectedEmployee.avatar}
-                    alt={`${selectedEmployee.name} avatar`}
-                    className="w-100 h-100"
-                    style={{ objectFit: 'cover' }}
-                  />
-                ) : (
-                  <LazyImage
-                    src={selectedEmployee.avatar}
-                    alt={`${selectedEmployee.name} avatar`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                  />
-                )}
-              </div>
+              <SmartAvatar name={selectedEmployee.name} src={selectedEmployee.avatar} seed={selectedEmployee.id} size="sm" decorative />
               <span>{selectedEmployee.name} </span>
             </div>
           ) : (
@@ -239,22 +196,7 @@ const EmployeeSelect: React.FC<EmployeeSelectProps> = React.memo(({
                       </div>
                     )}
 
-                    <div className="rounded-circle overflow-hidden" style={{ width: '32px', height: '32px', position: 'relative' }}>
-                      {employee.avatar.includes('dicebear.com') ? (
-                        <img
-                          src={employee.avatar}
-                          alt={`${employee.name} avatar`}
-                          className="w-100 h-100"
-                          style={{ objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <LazyImage
-                          src={employee.avatar}
-                          alt={`${employee.name} avatar`}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                        />
-                      )}
-                    </div>
+                    <SmartAvatar name={employee.name} src={employee.avatar} seed={employee.id} size="sm" decorative />
                     <div>
                       <div style={{ fontWeight: 500, fontSize: '14px' }}>{employee.name}</div>
                       <div style={{ fontSize: '12px', color: '#8998ab' }}>{employee.position}</div>

@@ -9,6 +9,11 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Backend
 
+- **The reimbursement form downloads whole lists on every open** — `GET .../projects/reimbursement-options`
+  (up to 10,000 leads, ~1.5s in the dev log) and `GET .../client-companies?pageSize=9999` (~1.6s), now
+  family-scoped but still full. (found 2026-11-09) — A typeahead search endpoint for each, plus a Redis cache
+  keyed by org family and cleared on lead/company writes.
+
 - **Dashboard chart endpoint returns HTTP 500** — `/dashboard` console: "Error fetching chart data"
   (seen 2026-10-27/28 on the local stack). — Find the endpoint from the network tab; fix the handler.
 - **Birthdays are computed in the browser from every user** — `BirthdayConfetti` fetches `GET api/users`
@@ -27,6 +32,10 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Frontend: bugs found in passing
 
+- **`.bg-slate-50 { … !important }` in `src/main.css`** — the `!important` beats every `dark:` override on an
+  element that also carries `bg-slate-50`, so it stays light in dark mode. (found 2026-11-09) — Drop the
+  `!important` (or the rule: it equals Tailwind's own slate-50) after checking its users.
+
 - **KPI page mounts the `KpiStatistics` table twice** sharing one preferences bucket, so they overwrite
   each other's columns and sorting (`[useTablePreferences]` console error on `/employee/report/kpis`).
 - **My Profile `Overview` list is missing `key`s** (React warning on `/employee/profile/overview`).
@@ -37,6 +46,45 @@ Format: **what** — evidence (file / screen) — suggested fix.
   explicit timeout, or mock the slow fetch they wait on.
 
 ## Design system (ADR-001)
+
+- **Column reorder has no keyboard path yet** — kit `DataTable` (`src/ds/patterns/data-table.tsx`): headers move
+  by pointer drag only, while rows move with ↑ / ↓ on a focused grip. Suggested: Move Left / Move Right in the
+  Columns panel (`data-table-columns.tsx`), announced like the row moves.
+
+- **Kit DataTable: sort, page size and search text are not remembered** — `stateKey` persists column
+  visibility, order, pin and width only; the legacy `MaterialTable` also kept sort, rows-per-page and the search box
+  between visits, so every kit table (Payment History, Payment Queue, Submissions) now opens on its defaults.
+  — Persist `sorting`, `pageSize` and `globalFilter` under the same `stateKey`. (found 2026-11-13)
+
+- **Kit DataTable: faceted filters and nested sub-rows are not built** — per-column TEXT filters exist (the
+  "Show column filters" tool adds a filter row; checked 2026-11-17), but shadcn's examples (ui.shadcn.com
+  data-table, shadcn.io "Data Table with Filters" / "Expandable Sub-Rows") also show a status/category dropdown per
+  column and nested sub-rows. — Add `facets` and `getSubRows` when the first screen needs them, not before.
+  (found 2026-11-09, narrowed 2026-11-17)
+
+- ~~**`ExportButton` (14 users) still draws an MUI menu and MUI icons**~~ **Already fixed (checked 2026-11-17):**
+  `ExportButton` renders the kit `DropdownMenu` + lucide icons and reaches no legacy UI
+  (`node scripts/legacy-ui-reach.mjs src/app/modules/common/components/table` lists nothing for it).
+- **Reimbursement: two colour maps left to fold into `STATUS_TONE`** — `PAYMENT_TONE` in
+  `utils/reimbursementFormat.ts` is a hex palette (light-only) used by `PaymentQueueTable`; `BatchWorkflowPanel`
+  keeps its own status map (Needs info = cyan "Query"). — Replace both with the tone tokens when the Payment
+  tables and the batch panel move to the kit. (found 2026-11-09)
+- **Reimbursement migration — what is still legacy** (tracking, 2026-11-09): the Submission detail modal
+  (MaterialTable + `UnsavedChangesModal`, a `<style>` block, hex backgrounds), the payment history table, the
+  Payment tab's queue/history tables, the admin tables (All Employee, By Project, limits), the module's
+  `MaterialHeaderTab` page tabs.
+
+- ~~**App content background stays light in dark mode**~~ **Fixed 2026-11-09 (`ae4e95ed`):** dark `.content` now uses the kit `--background` token (src/main.css). Original note — `#kt_content` (`.content`, `$content-background:
+  #F6F9FC` in `_metronic/.../layout/_content.scss`) has no dark override, so it shows through wherever a page
+  has no surface of its own (measured on Reimbursement → Payment and Company → Branches). Light-on-light text
+  is the symptom. — Give `.content` a `[data-bs-theme="dark"]` background from the `--gh-*` palette, then re-run
+  the whole visual suite: it changes every page's dark mode.
+- **Kit `Tabs` "line" variant draws no underline** — `src/ds/ui/tabs.tsx` positions the active underline with
+  `group-data-horizontal/tabs:*`, but the Base UI root sets `data-orientation="horizontal"`, not
+  `data-horizontal`, so the `::after` is zero-sized. Reimbursement → Payment uses the default (pill) variant
+  until this is fixed. — Key the variants on `data-[orientation=horizontal]`, with a story test.
+- **Shared table in dark mode** — `MaterialTableImpl`'s header row and search box stay light, and numeric
+  cells read dim on dark rows (visible in the reimbursement payment baselines). Due with the `DataTable` swap.
 
 - **One calendar for the whole app** — today: MUI X pickers (`WtDateField`, 20 files), `FiscalYearRangeField`,
   Apply Leave's `LeaveCalendar`, FullCalendar, flatpickr, plus the v2 kit Calendar. Decided 2026-10-28:
@@ -81,12 +129,63 @@ Format: **what** — evidence (file / screen) — suggested fix.
   own border, 8px corners, 11px text), `CsvUploadStep` / `MatchReviewTable` (danger text colour),
   `AddAnotherBtn` (dashed). They win over the kit by design, so they are not pills. — Replace each with a
   kit variant (`outline` / `destructive`, or a new tinted variant if approve/reject needs one) and drop the sx.
-- **Data Table must reach MaterialTable parity before the swap** — the v2 design (Storybook Patterns/Data Table,
-  2026-11-03) covers sort, search, column show/hide, selection bar, paging, density and the load/empty/error states.
-  The live `MaterialTableImpl` also has per-column filters (22 screens), column pinning (6), row virtualisation (5),
-  column drag (5), full screen (5), resizing (4), grouping (4), expandable rows (4), saved column preferences
-  (`useTablePreferences`, all screens) and export. — Build each into the kit Data Table before any screen moves,
-  so no screen silently loses one (Kit Map lists them).
+- **Data Table must reach MaterialTable parity before the swap** — status checked against the code 2026-11-17
+  (the Kit Map's gap table had gone stale and is corrected with it). BUILT in the kit Data Table: per-column text
+  filters, column pinning, column drag, full screen, resizing, expandable rows (`renderDetail`), saved column
+  preferences (`stateKey`: widths, hidden, order, pins, density) and export (`table/DataTableExport` in the
+  `toolbar` slot, as every Reimbursement table does) and grouping ("Group rows" tool, 2026-11-17). STILL MISSING: row virtualisation (5 screens) and remembering sort / page size / search (entry above). —
+  Build virtualisation before the first long-list screen moves.
+- **`DataTableExport` lives outside the kit** — `app/modules/common/components/table/DataTableExport.tsx` (9 users)
+  is the Data Table's export, but sits in the legacy `components/` tree, against the rule that shared UI lives in
+  `src/ds`. It depends on `ExportButton` (app toast + currency utils). — Move both into `src/ds/patterns` with a story,
+  injecting the currency/toast deps. (found 2026-11-17)
+- **Legacy `ui/ConfirmDialog.tsx` still draws its own GlassDialog** — used by `IdleLogoutGuard`,
+  `ConfirmDiscardDialog`, `useConfirmDialog` and `usePromptDialog`, while `DialogServiceHost` (every
+  `showDialog` / `errorConfirmation` call) already renders the kit Confirm Dialog. — Turn it into a thin adapter
+  over `@/ds/patterns/confirm-dialog` (old prop names only), then retire it with its last caller. (found 2026-11-17)
+- **Organization module → kit: what is still legacy** (tracking, 2026-11-17; phases 1–5a merged into
+  `feat/multi-tenancy`, `18e3dc8a`; phase 5b moved the Biometric Devices dialog onto the kit Data Table and the
+  profile page's Branches frame onto the kit Form Dialog). **2026-11-17: `FormSchemaManager` (Manage form fields)
+  moved to a kit Form Dialog, which cut the last legacy chain; `pages/company/organization` and
+  `FormSchemaManager` are locked in `MUI_FREE_ROOTS`.** Still legacy elsewhere:
+  - `MaterialHeaderTab` should become a thin adapter over the kit `PageTabs` (affects every screen using it).
+  - `PerOrgPrefixSettings` (inside the New Organization dialog) still renders MUI fields.
+  - `UnsavedChangesModal` (react-bootstrap `Modal` wrapper, ~47 screens) and the legacy `ui/ConfirmDialog` (MUI)
+    remain. Turning `UnsavedChangesModal` into a kit adapter re-skins all 47 at once, and several host MUI fields
+    whose popups a kit (Base UI) dialog would trap — do it screen by screen, or with an explicit go-ahead.
+  - `SmartLocationPicker` (Leaflet map + search) still renders MUI; its Nominatim calls now live in
+    `services/geocoding.ts`, so the picker only needs its UI moved.
+  - `organizationInfo/` (Rules, FAQs) still uses Metronic classes and `bi-*` icons.
+  - Branding tab: Save is a `console.log` stub (decision pending: build or remove).
+  - `DropdownInput` (17 users) should become an adapter over the kit `SearchSelect`.
+  - Biometric Devices: deleting a device no longer fades its row to 50% while the request runs (the kit Data Table
+    has no per-row opacity); the row's More button shows the spinner instead. — If the fade is wanted, add a
+    `rowBusy` predicate to the Data Table (with a story) rather than styling the row in the screen.
+  - ~~Organization profile edit form width~~ done 2026-11-17: `size="2xl"` + `AutoGrid stretch` field rows.
+- **Stale lint rule removed (2026-11-17)** — `no-restricted-syntax` matched any `<Switch>` by tag name, so it fired
+  on the kit Switch too (it predates the kit). A raw MUI Switch is still caught by its import
+  (`no-restricted-imports`, `wisetech/no-legacy-ui`).
+- **`officeGeofence.test.ts` fails on `feat/multi-tenancy`** — `058ac173` ("office geofence blocks when branch center
+  or GPS is missing") returns `misconfigured` where the test "no radius, a 0 radius, no branch pin, or no reading"
+  still expects `unconfigured`. (found 2026-11-17, not touched: another session's change) — Update the test to the
+  new rule, or narrow the rule, whichever the geofence owner intended.
+- **Two required markers became one (2026-11-17)** — the kit had two competing `*`s: `FieldLabel required` (added
+  2026-11-16) and the CSS rule in `styles/components.css` that reads the control's own `required` /
+  `aria-required` (2026-11-09). Together every required label showed `**`. The label prop is removed; the CSS rule
+  is the single marker (Field story `Required` asserts exactly one). — Any NEW required field must set `required`
+  (or `isRequired`) on the control itself; a label never claims it.
+- **Fixed 2026-11-17, found from the user's screenshots (laws of UI/UX pass):**
+  - `InputGroupButton size="sm"` was an empty variant, so the inner Button fell back to 40px and filled the 40px
+    field (Master List's "Add town" pill). It is now 32px; Master List nests it 3px inside on every side (story
+    `AddValue` measures it).
+  - Organization profile "At a glance": identifiers (GST, PAN, TAN, fiscal year) were Stat Cards — a KPI's headline
+    figure clipped the GST number under its icon and wrapped the fiscal year. Now a Description List
+    (`columns="auto"`, new, story `AutoColumns`) at reading size; "Founded" shows in the company date format.
+  - Branch form Preferences: Time format is a Select with the same floating label as Timezone (it was a
+    label-above ToggleGroup, so the two controls started at different heights).
+- **Stat Cards showing text instead of figures elsewhere** — the profile page used Stat Card for registration numbers;
+  other screens may do the same (a Stat Card is for a KPI: a number, a trend). — Grep `<StatCard` whose `value` is
+  an id, a code or a sentence and move those to a Description List. (found 2026-11-17)
 - **Self-host the phone flags** — v2 Phone Field (fixed 2026-11-03: emoji flags rendered as letters on Windows)
   now uses `react-international-phone`'s `FlagImage`, like the live `WtPhoneField`; both load Twemoji SVGs from
   cdnjs. — Serve the SVGs from our own origin (pass `src` to `FlagImage`) so the field needs no third-party
@@ -122,3 +221,77 @@ Format: **what** — evidence (file / screen) — suggested fix.
   type/size checks) from `ImageField`'s logic and use it in Apply Leave, documents and claims.
 - **Dates read through the tenant date format** — Apply Leave (Storybook) formats dates with a fixed
   `en-GB` `DateFormatter` (marked TODO). — Route it through the per-tenant date-format setting once it is built.
+- **`StatCard size="sm"` accepts `hint` and never renders it** — the one-row tile returns before the footer, so a
+  caller that passes `hint` loses it with no warning (no current caller does; found while merging the v2 stat card,
+  2026-11-09). — Either render it under the value in that branch or drop `hint` from the `sm` contract, so the prop
+  cannot be passed into a void.
+- **`MediaGallery` `UploadMedia` story asserts a photo limit that no longer exists** — it expects
+  `/over the 10 MB photo limit/` against a 12 MB fixture, but `IMAGE_MAX_MB` has been 100 since the merge base
+  (`38b13838` "Increased Uploading size of both Image & video"), so the warning never renders and the story has been
+  red on every branch since. — Derive both the regex and the fixture size from `IMAGE_MAX_MB` so raising the limit
+  cannot rot the test again.
+- **DataTable row reorder is client-paged only** — `rowReorder` reorders the rows the table holds; with
+  `server` paging it only sees the current page, so a keyboard move cannot cross a page boundary (2026-11-09). —
+  When a server-paged list needs ordering, pass a `position` offset or a move-relative callback
+  (`onMove(id, beforeId)`) so the server applies the move to the full list.
+- **"Send for Approval" is all-or-nothing only for the approver check** — the backend now resolves the approval
+  chain before writing (no more batch-with-no-approver), but each month's batch commits in its own transaction and
+  `createApprovalInstanceForApprovers` opens its own, so a database failure between months leaves earlier months
+  sent (2026-11-12). — Let the approval engine accept a Prisma transaction client, then wrap the whole send in one.
+
+## Icon migration (Lucide)
+
+- **Icon size normalisation, then a size lint** — converted icons keep the exact pixel size the old font class
+  produced (`fs-5` → `size-[17px]`), so the app now carries a long tail of odd sizes (13, 14, 16, 17, 18, 21, 23,
+  26, 29 px). — After Phase 2 converts every module, snap them onto a small scale (for example 12/14/16/20/24 px)
+  in one reviewed pass, then add the D10 lint so new code can only use the scale. Sizes must stay in px, because
+  the app's root font is 13px (`size-4` is 13px in the app and 16px in Storybook).
+- **5 Bootstrap names on configuration cards still use the Bootstrap font** — `ConfigSectionCard` keeps a
+  Bootstrap `<i>` fallback for `bi-123`, `bi-bullseye`, `bi-house-door`, `bi-table` and `bi-truck`, because the
+  registry has no mapping for them. — Map them (Phase 3), then delete the fallback branch.
+- **`ci-spin` is defined in one screen only** — the spinner class lives in an inline style block in
+  `entity/detail/sections/AuditSection.tsx`, so `ci-spin` on an icon anywhere else does nothing. — Use Lucide's
+  `animate-spin` (Tailwind) for icon spinners, and delete the local class once AuditSection is converted.
+- **`NeedsYourAttention` `STYLE[].icon` is dead data** — the reimbursement attention cards declare an icon per
+  style that nothing renders (found in the pilot). — Render it or delete the field.
+- **Dismissal belongs in the kit `Badge`** — `Badge` has no `onRemove`, so a chip that can be dismissed
+  hand-rolls the affordance (QueryConversation's attachment chips, 2026-11-13). The kit Button cannot be
+  used for it: the smallest icon size is `size-6`, which is the full height of an `h-6` badge, so each
+  site writes its own 16px button and marks it `data-wt-control="chip"`. — Add `onRemove` to the kit
+  `Badge` (with its own story), then delete the hand-rolled buttons and their markers.
+- **`pnpm run lint:ui:baseline` fails under pnpm on Windows** — the script uses a shell redirect, `rm -f` and an
+  unexpanded `"src/**/*.{ts,tsx}"` glob, so it reports "No files matching" (found regenerating the baselines,
+  2026-11-13). Run the same steps by hand with `eslint src --ext ts,tsx -f json`. — Port it to a Node script like
+  `gen-rule-baseline.cjs`.
+- **`.eslint-ui-baseline.cjs` was stale** — regenerating it dropped 121 files unrelated to Reimbursement (their
+  `no-restricted-syntax` Bootstrap-class reports moved to `wisetech/no-legacy-ui`) and added 3 that grew new
+  violations since the last run (`ProfileDetails`, `AppSettingsModal`, `KPISettings`). — Regenerate it in the PR
+  that touches each module, and migrate those 3.
+- **Pre-existing hard lint errors outside Reimbursement** — `CompanyLeadReferences.tsx` (hardcoded currency
+  symbol, line 100), `leads/overview/components/Custom.tsx` (`no-unused-expressions`, line 476) and
+  `constants/eventKeys.ts` (`{}` type, lines 93-97) fail `eslint --quiet src`. — Fix in their own modules.
+- **`rebootShield.test.ts` guards Reimbursement only** — the Reboot override on raw `h1-h6`, `p`, `label`, `ul`,
+  `ol`, `li`, `button` and `a` bites every module. Its scanner skips tags on a line that opens a template
+  literal (HTML strings). — Promote the scan to a repo-wide test (or an ESLint rule) as each module is converted.
+
+## Frontend: auth & app shell (found 2026-11-14, auth section moved to the kit)
+
+- **Header and aside menus still carry their own sign-out** — `_metronic/partials/layout/header-menus/HeaderUserMenu.tsx`
+  and `_metronic/layout/components/aside/AsideDefault.tsx` each repeat the logic now in
+  `app/modules/auth/core/signOut.ts` (used by `/logout` and the idle timeout). — When the app shell moves to the
+  kit (Sidebar / App shell), call `signOut(dispatch)` and delete both copies.
+- **Sign-in footer links** — the old Login showed "FAQs / Plans / Contact Us", all linking to `/` (dead), so they
+  were dropped. — If wanted, add them back pointing at real public pages (Auth Layout `footer` slot).
+- **Links read green in dark mode** — the app's dark palette maps `--primary` to green, so `link` buttons (e.g.
+  "Forgot password?") are green while the CTA stays brand blue. — Decide the dark `--primary` in the theme, not per
+  screen.
+- **Logout leaves some user data in the browser** — onboarding wizard drafts in `sessionStorage` (bank, CTC) and
+  search history not tied to a user (audit C-08). — Clear user-scoped keys in `signOut()` once they are listed.
+- **Sign-in shows "KAIZNOVA" initials, not a logo** (2026-11-19) — `AuthScreen.tsx` `PLATFORM_LOGO` is `null`
+  because no KAIZNOVA logo file exists yet; the old public `GET api/company/logo` (it served the oldest tenant's
+  logo to every tenant's sign-in) is removed. — Drop the KAIZNOVA lockup into `public/media/brand/` and point
+  `PLATFORM_LOGO` at it. Splash, favicon and PWA icons are still the WiseTech set (`media/brand/wisetech-logo.png`,
+  `icons/pwa-*`) — replace with the KAIZNOVA set in the same pass.
+- **Tenant-branded sign-in** — a tenant's own logo on its sign-in page needs a tenant hint first (subdomain, e.g.
+  `acme.app.kaiznova.com`) and a public endpoint that answers by that hint only (Wave 1 #407). — Build after the
+  domain move; never pick "a" tenant's brand without one.

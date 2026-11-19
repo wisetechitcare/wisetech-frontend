@@ -109,6 +109,10 @@ Sizes are relative (S < M < L < XL). Each phase has an exit gate; the next phase
 - ESLint: `@mui/*`, `react-bootstrap`, `@mui/icons-material` forbidden outside the kit — ratchet baseline,
   shrinking to zero.
 - **Exit:** zero `@mui` / `react-bootstrap` imports outside the kit.
+- **Status (2026-11-13):** the guard is live: `wisetech/no-legacy-ui` plus its ratchet baseline
+  (`.eslint-legacy-ui-baseline.cjs`, `pnpm run lint:legacy-ui:baseline`). Reimbursement is the first MUI-free
+  module, locked by `MUI_FREE_ROOTS` in `scripts/mui-free-modules.test.ts` (`legacy-ui-reach` reports 0 for it);
+  its raw Reboot-sensitive elements are held by `rebootShield.test.ts`.
 
 ### Phase 3 — Swap kit internals to Base UI + Tailwind (XL)
 Ordered by usage × risk, each behind an unchanged API and a screenshot diff:

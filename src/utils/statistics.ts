@@ -17,7 +17,7 @@ import { markWeekendOrHolidayDays } from "@utils/weekendHoliday";
 import { ABSENT, CHECK_OUT_MISSING, checkInTime, checkOutTime, EARLY_CHECKIN, EARLY_CHECKOUT, EXTRA_DAYS, HEATMAPLABELS, HOLIDAYS, LATE_CHECKIN, LATE_CHECKOUT, MISSING_CHECKOUT, monthDays, months, ON_LEAVE, onSiteAndHolidayWeekendSettingsOnOffName, PRESENT, TOTAL_ANNUAL_LEAVES, TOTAL_FLOATER_LEAVES, TOTAL_SICK_LEAVES, TOTAL_WORKING_DAYS, totalShiftTimeMins, week, weekDays, WEEKEND } from "@constants/statistics";
 import { ATTENDANCE_STATUS, LeaveStatus, LeaveTypes } from "@constants/attendance";
 import { IPublicHoliday } from "@models/company";
-import { FormattedDate } from "@pages/employee/attendance/personal/OverviewView";
+import type { FormattedDate } from "@pages/employee/attendance/personal/OverviewView";
 import { createNewReimbursementType, deleteReimbursementTypeById, fetchAllReimbursementTypes, updateCurrReimbursementTypeById } from "@services/options";
 import { fetchBranchById, fetchCompanyOverview, fetchConfiguration, fetchPublicHolidays } from "@services/company";
 import { DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from "@constants/configurations-key";

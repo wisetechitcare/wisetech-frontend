@@ -757,7 +757,7 @@ const LeadsConfigurationMain = () => {
                         onEdit={() => handlePoStatusEdit(s)}
                         onDelete={statusRowAction(s) === 'delete' ? () => handlePoStatusDelete(s.id!) : undefined}
                         onReset={statusRowAction(s) === 'reset' ? () => confirmAndResetStatus('po-status', s, () => {
-                          eventBus.emit(EVENT_KEYS.leadPoStatusUpdated, {});
+                          eventBus.emit(EVENT_KEYS.leadPoStatusUpdated, { id: s.id! });
                           fetchLeadPoStatuses();
                         }) : undefined}
                       />

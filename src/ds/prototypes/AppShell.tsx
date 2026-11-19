@@ -13,7 +13,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react"
-import { Avatar, AvatarFallback } from "@/ds/ui/avatar"
+import { SmartAvatar } from "@/ds/ui/smart-avatar"
 import { Badge } from "@/ds/ui/badge"
 import {
   Breadcrumb,
@@ -191,9 +191,7 @@ export function AppShell({
             </TooltipTrigger>
             <TooltipContent>Notifications</TooltipContent>
           </Tooltip>
-          <Avatar>
-            <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">ZA</AvatarFallback>
-          </Avatar>
+          <SmartAvatar name="ZA" size="sm" />
         </header>
         <div className="min-h-0 flex-1">{children}</div>
       </SidebarInset>
@@ -218,9 +216,7 @@ export function AppShell({
             <CommandGroup heading="People">
               {["Abhishek Phatak", "Sheetal Kulkarni", "Rohan Mehta"].map((p) => (
                 <CommandItem key={p} onSelect={() => { go("employee"); setPalette(false) }}>
-                  <Avatar size="sm">
-                    <AvatarFallback>{p.split(" ").map((x) => x[0]).join("")}</AvatarFallback>
-                  </Avatar>
+                  <SmartAvatar name={p} size="xs" decorative />
                   {p}
                 </CommandItem>
               ))}

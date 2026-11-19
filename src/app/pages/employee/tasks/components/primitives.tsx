@@ -9,12 +9,13 @@
  * **No hardcoded colours.** Everything resolves through the MUI theme or a stage's own
  * configured colour, so light and dark both work without a second stylesheet.
  */
-import { Box, Chip, LinearProgress, Stack, Tooltip, Typography, Avatar, AvatarGroup, alpha, useTheme, type Theme } from '@mui/material';
+import { Box, Chip, LinearProgress, Stack, Tooltip, Typography, alpha, useTheme, type Theme } from '@mui/material';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { KTIcon } from '@metronic/helpers';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
 import { EASE_200, IconBox, SHADOW_HOVER, SHADOW_REST, TRIO, toneSurface, type Trio } from '@app/modules/common/components/ui/patterns';
 import {
-    TaskScope, TaskStatusRef, employeeName, initialsOf, clampProgress, dueLabel, isTaskOverdue, isTaskFinal, finalColorOf,
+    TaskScope, TaskStatusRef, employeeName, clampProgress, dueLabel, isTaskOverdue, isTaskFinal, finalColorOf,
 } from '../taskDomain';
 
 /**
@@ -264,34 +265,26 @@ export const AssigneeAvatar = ({
 }: {
     // Nullable name parts, matching `employeeName()` and what the API actually sends — a
     // narrower type here forced every caller holding a real payload to cast.
-    employee?: { avatar?: string | null; users?: { firstName?: string | null; lastName?: string | null } | null } | null;
+    employee?: { id?: string | null; avatar?: string | null; users?: { firstName?: string | null; lastName?: string | null } | null } | null;
     size?: number;
     showName?: boolean;
 }) => {
-    const theme = useTheme();
     const name = employeeName(employee);
     const unassigned = name === 'Unassigned';
     return (
         <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
             <Tooltip title={name}>
-                <Avatar
-                    src={employee?.avatar || undefined}
-                    sx={{
-                        width: size,
-                        height: size,
-                        fontSize: size * 0.42,
-                        fontWeight: 700,
-                        // Same brand-blue circle as the employee ID card, so people read as
-                        // one visual system across the app.
-                        bgcolor: unassigned
-                            ? alpha(theme.palette.text.primary, 0.1)
-                            : alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.3 : 0.16),
-                        color: unassigned ? 'text.disabled' : theme.palette.primary.main,
-                        border: unassigned ? 'none' : `1.5px solid ${alpha(theme.palette.primary.main, 0.35)}`,
-                    }}
-                >
-                    {initialsOf(name)}
-                </Avatar>
+                {/* SmartAvatar takes no ref, so the tooltip anchors on this span. */}
+                <span className="inline-flex shrink-0">
+                    <SmartAvatar
+                        name={name}
+                        src={employee?.avatar}
+                        seed={employee?.id ?? name}
+                        size={size}
+                        decorative={showName}
+                        className={unassigned ? 'opacity-50 grayscale' : undefined}
+                    />
+                </span>
             </Tooltip>
             {showName && (
                 <Typography variant="caption" noWrap sx={{ color: 'text.secondary', minWidth: 0 }}>
@@ -341,35 +334,49 @@ export const TeamAvatars = ({
     const theme = useTheme();
     if (!members.length) return null;
 
+    // The same arithmetic MUI's AvatarGroup used, so the "+N" reads exactly as it did: when the
+    // team overflows `max`, the last slot becomes the surplus bubble.
+    const headcount = total ?? members.length;
+    let slots = Math.max(2, max);
+    if (headcount === slots) slots += 1;
+    slots = Math.min(headcount + 1, slots);
+    const shown = members.slice(0, Math.min(members.length, slots - 1));
+    const extra = Math.max(headcount - slots, headcount - shown.length, 0);
+
     const group = (
-        <AvatarGroup
-            max={max}
-            total={total ?? members.length}
-            sx={{
-                '& .MuiAvatar-root': {
-                    width: size, height: size, fontSize: size * 0.42, fontWeight: 700,
-                    borderColor: theme.palette.background.paper,
-                    bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.3 : 0.16),
-                    color: theme.palette.primary.main,
-                },
-            }}
-        >
-            {members.map((m) => {
+        <span className="inline-flex items-center -space-x-2">
+            {shown.map((m) => {
                 const name = employeeName(m);
+                const face = <SmartAvatar name={name} src={m.avatar} seed={m.id} size={size} className="ring-2 ring-background" />;
                 return (
                     // The per-face tooltip is dropped in the clickable form: a tooltip on each
                     // avatar and another on the button underneath fight each other, and the one
                     // that matters is the one naming what the click does.
                     onClick ? (
-                        <Avatar key={m.id} src={m.avatar || undefined} alt={name}>{initialsOf(name)}</Avatar>
+                        <span key={m.id} className="inline-flex">{face}</span>
                     ) : (
                         <Tooltip key={m.id} title={name}>
-                            <Avatar src={m.avatar || undefined} alt={name}>{initialsOf(name)}</Avatar>
+                            <span className="inline-flex">{face}</span>
                         </Tooltip>
                     )
                 );
             })}
-        </AvatarGroup>
+            {extra > 0 && (
+                <Box
+                    component="span"
+                    className="ring-2 ring-background"
+                    sx={{
+                        width: size, height: size, borderRadius: '50%', flexShrink: 0,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: size * 0.42, fontWeight: 700,
+                        bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.3 : 0.16),
+                        color: theme.palette.primary.main,
+                    }}
+                >
+                    +{extra}
+                </Box>
+            )}
+        </span>
     );
 
     if (!onClick) return group;

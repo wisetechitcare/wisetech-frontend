@@ -165,7 +165,7 @@ const MoneyField: React.FC<React.ComponentProps<typeof NumberField>> = ({ classN
         <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center text-sm text-muted-foreground">
             {getCurrencySymbol()}
         </span>
-        <NumberField {...props} hideSteppers inputClassName={cn("pl-7", inputClassName)} formatOptions={MONEY_FORMAT} />
+        <NumberField {...props} steppers={false} inputClassName={cn("pl-7", inputClassName)} formatOptions={MONEY_FORMAT} />
     </div>
 );
 
@@ -225,7 +225,7 @@ const StageLine: React.FC<{
                         <NumberField
                             aria-label={`${stage.stageName} share of the contract`}
                             className="w-24"
-                            hideSteppers
+                            steppers={false}
                             inputClassName="text-right font-semibold"
                             minValue={0}
                             maxValue={toPct(stage.left)}
@@ -382,7 +382,7 @@ export const RaiseBillDialog: React.FC<{
                                     <FieldLabel className="whitespace-nowrap">% of Contract</FieldLabel>
                                     <NumberField
                                         aria-label="Share of the contract to bill"
-                                        hideSteppers
+                                        steppers={false}
                                         inputClassName="text-right font-semibold"
                                         minValue={0}
                                         maxValue={toPct(maxTotal)}

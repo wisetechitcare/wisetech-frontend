@@ -1,14 +1,19 @@
-import { Box } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
-import YearlyKpiCard from '@pages/employee/salary/personal/views/my-salary/Toggle/components/salary/YearlyKpiCard';
-import { SkeletonKpiCard } from '@app/modules/common/components/Skeleton';
+import type { ReactNode } from 'react';
+import { CircleCheck, Clock, Inbox, Wallet } from 'lucide-react';
+import { StatCard } from '@/ds/patterns/stat-card';
+import { Skeleton } from '@/ds/ui/skeleton';
 import { formatMoney } from '../utils/reimbursementFormat';
 
 /**
- * The KPI row: four cards — Drafts → Pending approval → Approved → Paid out.
+ * The KPI row: four cards — Drafts → Pending approval → Approved → Paid out — on the design
+ * system's `StatCard` (src/ds).
  *
- * Pending approval uses a ratio layout (awaiting / submitted) so amount and count stay aligned
- * with the records table total.
+ * The headline is one amount; its context ("of ₹x", counts, what is still unpaid) is the hint. A
+ * "₹a / ₹b" headline wrapped onto two lines in a card this narrow, and a compact card would cut it
+ * off — a truncated amount is a wrong amount.
+ *
+ * Every amount, headline and hint alike, carries the sensitive-data class, so "Show amounts" off
+ * hides all of them. The old cards blurred the headline but left "₹0.00 still unpaid" readable.
  */
 
 export interface ReimbursementKpis {
@@ -29,66 +34,7 @@ interface ReimbursementKpiRowProps {
     showSensitiveData?: boolean;
 }
 
-const KPI_GRID = {
-    display: 'grid',
-    gap: 1.25,
-    gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', lg: 'repeat(4, minmax(0,1fr))' },
-} as const;
-
-/** Hero: awaiting ₹ / submitted ₹. Footer: awaiting count / submitted count. */
-function pendingApprovalDisplay(kpis: ReimbursementKpis): {
-    value: string;
-    footer: string;
-    footerValue?: string;
-} {
-    if (kpis.totalRequests === 0) {
-        return {
-            value: formatMoney(0),
-            footer: 'No submissions this period',
-        };
-    }
-
-    return {
-        value: `${formatMoney(kpis.pendingAmount)} / ${formatMoney(kpis.totalAmount)}`,
-        footer: `${kpis.pendingCount} / ${kpis.totalRequests} awaiting approval`,
-    };
-}
-
-function approvedDisplay(kpis: ReimbursementKpis): {
-    value: string;
-    footer: string;
-    footerValue?: string;
-} {
-    if (kpis.totalRequests === 0) {
-        return { value: formatMoney(0), footer: 'No submissions this period' };
-    }
-    if (kpis.approvedCount === 0) {
-        return { value: formatMoney(0), footer: 'None approved yet' };
-    }
-
-    return {
-        value: `${formatMoney(kpis.approvedAmount)} / ${formatMoney(kpis.totalAmount)}`,
-        footer: `${kpis.approvedCount} / ${kpis.totalRequests} approved`,
-    };
-}
-
-function paidDisplay(kpis: ReimbursementKpis): {
-    value: string;
-    footer: string;
-    footerValue?: string;
-} {
-    if (kpis.approvedAmount === 0) {
-        return { value: formatMoney(0), footer: 'No approved balance yet' };
-    }
-
-    const unpaid = Math.max(0, kpis.approvedAmount - kpis.paidAmount);
-    return {
-        value: `${formatMoney(kpis.paidAmount)} / ${formatMoney(kpis.approvedAmount)}`,
-        footer: kpis.paidAmount === 0
-            ? `Awaiting payout · ${formatMoney(unpaid)} unpaid`
-            : `${formatMoney(unpaid)} still unpaid`,
-    };
-}
+const KPI_GRID = 'grid grid-cols-2 gap-3 lg:grid-cols-4';
 
 export default function ReimbursementKpiRow({
     kpis,
@@ -97,75 +43,63 @@ export default function ReimbursementKpiRow({
 }: ReimbursementKpiRowProps) {
     if (loading) {
         return (
-            <Box sx={KPI_GRID}>
-                {[0, 1, 2, 3].map((i) => <SkeletonKpiCard key={i} />)}
-            </Box>
+            <div className={KPI_GRID} aria-busy="true">
+                {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
+            </div>
         );
     }
 
-    const pending = pendingApprovalDisplay(kpis);
-    const approved = approvedDisplay(kpis);
-    const paid = paidDisplay(kpis);
-
-    const draftsFooter =
-        kpis.inboxCount === 0
-            ? 'Nothing to submit'
-            : `${kpis.inboxCount} to submit`;
+    const cls = showSensitiveData ? 'sensitive-data-visible' : 'sensitive-data-hidden';
+    const money = (n: number): ReactNode => <span className={cls}>{formatMoney(n)}</span>;
+    // The headline in the card's own tone, as the old cards had it: hidden, it blurs to a coloured
+    // smudge that still says which card is which, rather than a grey box.
+    const headline = (n: number): ReactNode => (
+        // 1.6rem / 800 — the old KPI card's exact size and weight, so main's blur(5px) hides it the
+        // way it always did (at 24px the same blur let the digits read through).
+        <span className={`${cls} text-[1.6rem] font-extrabold tracking-tight text-(--tone-ink)`}>{formatMoney(n)}</span>
+    );
+    const none = kpis.totalRequests === 0;
+    const unpaid = Math.max(0, kpis.approvedAmount - kpis.paidAmount);
 
     return (
-        <Box sx={KPI_GRID}>
-            <YearlyKpiCard
-                label="Unsubmitted drafts"
-                value={formatMoney(kpis.inboxAmount)}
-                footer={draftsFooter}
+        <div className={KPI_GRID}>
+            <StatCard
+                // "Unsubmitted drafts" was cut to "UNSUBMITTED DRAF…" four cards across; the hint says "N to submit".
+                label="Drafts"
+                value={headline(kpis.inboxAmount)}
+                hint={kpis.inboxCount === 0 ? 'Nothing to Submit' : `${kpis.inboxCount} to Submit`}
                 tone="info"
-                icon={<KTIcon iconName="inbox" className="fs-4" />}
-                showSensitiveData={showSensitiveData}
-                sx={{
-                    '& > div > span.sensitive-data-visible, & > div > span.sensitive-data-hidden': {
-                        fontSize: { xs: '1.25rem', md: '1.45rem' },
-                    },
-                }}
+                icon={<Inbox aria-hidden />}
             />
-            <YearlyKpiCard
-                label="Pending approval"
-                value={pending.value}
-                footer={pending.footer}
-                tone="amber"
-                icon={<KTIcon iconName="time" className="fs-4" />}
-                showSensitiveData={showSensitiveData}
-                sx={{
-                    '& > div > span.sensitive-data-visible, & > div > span.sensitive-data-hidden': {
-                        fontSize: { xs: '1.1rem', md: '1.35rem' },
-                    },
-                }}
+            <StatCard
+                label="Pending Approval"
+                value={headline(none ? 0 : kpis.pendingAmount)}
+                hint={none
+                    ? 'No Submissions This Period'
+                    : <>of {money(kpis.totalAmount)} · {kpis.pendingCount} / {kpis.totalRequests} Awaiting</>}
+                tone="warning"
+                icon={<Clock aria-hidden />}
             />
-            <YearlyKpiCard
+            <StatCard
                 label="Approved"
-                value={approved.value}
-                footer={approved.footer}
-                tone="green"
-                icon={<KTIcon iconName="check-circle" className="fs-4" />}
-                showSensitiveData={showSensitiveData}
-                sx={{
-                    '& > div > span.sensitive-data-visible, & > div > span.sensitive-data-hidden': {
-                        fontSize: { xs: '1.1rem', md: '1.35rem' },
-                    },
-                }}
+                value={headline(none ? 0 : kpis.approvedAmount)}
+                hint={none
+                    ? 'No Submissions This Period'
+                    : kpis.approvedCount === 0
+                        ? 'None Approved Yet'
+                        : <>of {money(kpis.totalAmount)} · {kpis.approvedCount} / {kpis.totalRequests} Approved</>}
+                tone="success"
+                icon={<CircleCheck aria-hidden />}
             />
-            <YearlyKpiCard
-                label="Paid out"
-                value={paid.value}
-                footer={paid.footer}
-                tone="purple"
-                icon={<KTIcon iconName="wallet" className="fs-4" />}
-                showSensitiveData={showSensitiveData}
-                sx={{
-                    '& > div > span.sensitive-data-visible, & > div > span.sensitive-data-hidden': {
-                        fontSize: { xs: '1.1rem', md: '1.35rem' },
-                    },
-                }}
+            <StatCard
+                label="Paid Out"
+                value={headline(kpis.approvedAmount === 0 ? 0 : kpis.paidAmount)}
+                hint={kpis.approvedAmount === 0
+                    ? 'No Approved Balance Yet'
+                    : <>of {money(kpis.approvedAmount)} · {money(unpaid)} Unpaid</>}
+                tone="brand"
+                icon={<Wallet aria-hidden />}
             />
-        </Box>
+        </div>
     );
 }

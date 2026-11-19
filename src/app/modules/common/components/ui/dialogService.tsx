@@ -1,7 +1,7 @@
 import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Box } from "@mui/material";
-import { ConfirmDialog } from "./ConfirmDialog";
-import { WtField } from "./WtField";
+import { ConfirmDialog } from "@/ds/patterns/confirm-dialog";
+import { Field, FieldLabel } from "@/ds/ui/field";
+import { Input } from "@/ds/ui/input";
 import {
   dismissed,
   getSnapshot,
@@ -24,31 +24,28 @@ export {
   type DialogResult,
 } from "./dialogStore";
 
-/**
- * Above every modal layer already open underneath: MUI dialogs (1300), react-bootstrap modals
- * (1055) and the 1500-level legacy modals. A dialog opened from inside another dialog must never
- * land behind it, or the awaited promise never settles because its buttons are unreachable.
- */
-const DIALOG_Z_INDEX = 2000;
-
+/** A rich body: a node as given, or sanitised markup. Lists inside it keep their bullets and indent. */
 function bodyFor(opts: DialogOptions): ReactNode | undefined {
   if (opts.messageNode !== undefined) return opts.messageNode;
   if (opts.html === undefined) return undefined;
   return (
-    <Box
-      component="span"
-      sx={{ display: "block", "& ul, & ol": { textAlign: "left", pl: 2.5, my: 1 } }}
+    <div
+      className="text-sm text-muted-foreground [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:text-left [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:text-left"
       dangerouslySetInnerHTML={{ __html: sanitizeHtml(opts.html) ?? "" }}
     />
   );
 }
 
-/** Renders the head of the dialog queue. Mount ONCE, inside the theme (App.tsx). */
+/**
+ * Renders the head of the dialog queue with the design system's ConfirmDialog — the one dialog skin for every
+ * `showDialog` / `successConfirmation` / `errorConfirmation` / `deleteConfirmation`… call (160 files), on the
+ * kit's `alert` layer so a dialog opened from inside any modal is never behind it. Mount ONCE (App.tsx).
+ */
 export function DialogServiceHost() {
   const current = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const head = current[0] ?? null;
-  // Keep the last dialog rendered (closed) after the queue empties, so MUI can run the exit
-  // transition instead of the sheet vanishing mid-frame.
+  // Keep the last dialog rendered (closed) after the queue empties, so the exit animation can run
+  // instead of the dialog vanishing mid-frame.
   const lastRef = useRef<DialogEntry | null>(null);
   if (head) lastRef.current = head;
   const shown = head ?? lastRef.current;
@@ -59,6 +56,8 @@ export function DialogServiceHost() {
   const input = opts.input;
   const value = draft?.id === shown.id ? draft.value : input?.defaultValue ?? "";
   const blocked = Boolean(input?.required) && !value.trim();
+  const body = bodyFor(opts);
+  const inputId = `dialog-input-${shown.id}`;
 
   const confirm = () => {
     if (blocked) return;
@@ -72,53 +71,51 @@ export function DialogServiceHost() {
 
   return (
     <ConfirmDialog
-      // A new key per dialog: a chained dialog (confirm → success) mounts fresh, with its own
-      // focus and enter transition, instead of morphing the previous one's content.
+      // A new key per dialog: a chained dialog (confirm → success) mounts fresh, with its own focus and
+      // entrance, instead of morphing the previous one's content.
       key={shown.id}
+      layer="alert"
       open={head !== null}
-      zIndex={DIALOG_Z_INDEX}
+      // Settling is done by onConfirm / onDismiss / the deny action; closing itself needs nothing more.
+      onOpenChange={() => {}}
+      onDismiss={(reason) => settle(shown.id, dismissed(reason))}
       variant={opts.variant ?? "confirm"}
       title={opts.title}
-      message={opts.message ?? ""}
-      messageNode={bodyFor(opts)}
+      description={body === undefined && opts.message ? opts.message : undefined}
       confirmLabel={opts.confirmLabel}
       cancelLabel={opts.cancelLabel}
       showCancel={opts.showCancel ?? true}
-      confirmTone={opts.danger ? "danger" : undefined}
+      danger={opts.danger}
       confirmDisabled={blocked}
+      onConfirm={confirm}
       secondaryAction={
         opts.denyLabel
           ? {
               label: opts.denyLabel,
-              onClick: () =>
-                settle(shown.id, { isConfirmed: false, isDenied: true, isDismissed: false }),
+              onClick: () => settle(shown.id, { isConfirmed: false, isDenied: true, isDismissed: false }),
             }
           : undefined
       }
-      onConfirm={confirm}
-      onClose={() => settle(shown.id, dismissed("close"))}
-      onDismiss={(reason) => settle(shown.id, dismissed(reason))}
     >
+      {body}
       {input ? (
-        <Box
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              confirm();
-            }
-          }}
-        >
-          <WtField
+        <Field>
+          <FieldLabel htmlFor={inputId}>{input.label ?? opts.title}</FieldLabel>
+          <Input
+            id={inputId}
             autoFocus
-            fullWidth
-            label={input.label}
-            ariaLabel={input.label ? undefined : opts.title}
             placeholder={input.placeholder}
             required={input.required}
             value={value}
-            onChange={(next: string) => setDraft({ id: shown.id, value: next })}
+            onChange={(e) => setDraft({ id: shown.id, value: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                confirm();
+              }
+            }}
           />
-        </Box>
+        </Field>
       ) : null}
     </ConfirmDialog>
   );

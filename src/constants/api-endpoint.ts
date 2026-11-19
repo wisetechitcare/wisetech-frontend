@@ -153,7 +153,6 @@ export const COMPANY = {
     GET_ALL_HOLIDAYS: "api/company/holidays",
     CREATE_HOLIDAY: "api/company/holiday",
     GENERATE_HOLIDAYS_FOR_YEAR: "api/company/holidays/generate-year",
-    GET_LOGO: "api/company/logo",
     CREATE_OVERVIEW: "api/company/overview",
     GET_OVERVIEW: "api/company/overview",
     UPDATE_OVERVIEW: "api/company/overview",
@@ -294,6 +293,7 @@ export const EMPLOYEE = {
     GET_PENDING_DRAFTS: "api/employee/reimbursement/pending-drafts",
     UPDATE_PENDING_DRAFT: "api/employee/reimbursement/pending-draft",
     DELETE_PENDING_DRAFT: "api/employee/reimbursement/pending-draft",
+    DELETE_PENDING_DRAFTS: "api/employee/reimbursement/pending-drafts/delete",
     SUBMIT_REIMBURSEMENT_BATCH: "api/employee/reimbursement/submit-batch",
     GET_REIMBURSEMENT_BATCHES: "api/employee/reimbursement/batches",
     GET_REIMBURSEMENT_PAYMENT_QUEUE_COUNT: "api/employee/reimbursement/batches/payment-queue-count",
@@ -421,6 +421,7 @@ export const CALENDAR = {
 
 export const FILE = {
     UPLOAD: "api/files/upload",
+    PROJECT_MEDIA: "api/files/project-media",
     LEAD_PO: "api/files/lead-po"
 }
 

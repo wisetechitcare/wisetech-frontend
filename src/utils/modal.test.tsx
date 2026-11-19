@@ -62,7 +62,10 @@ describe('utils/modal on the dialog service', () => {
         render(<DialogServiceHost />);
         let res!: Promise<LeadUpdateMode>;
         act(() => { res = customConfirmation(); });
-        fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+        // `alertdialog`, not `dialog`: this confirm is the kit's AlertDialog, and that is the correct
+        // role for a modal interrupting for an answer. The role changed with the kit migration; the
+        // behaviour under test — Escape resolves 'cancelled', never 'update only' — did not.
+        fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
         await expect(res).resolves.toBe('cancelled');
     });
 

@@ -5,6 +5,7 @@ import { cn } from "cn"
 
 import { Button } from "@/ds/ui/button"
 import { XIcon } from "lucide-react"
+import { useSettledRef } from "@/ds/lib/motion"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -22,6 +23,14 @@ function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+/**
+ * The ONE modal scrim: Dialog, AlertDialog and Sheet all use it, so every modal dims the page the same way.
+ * Same values as the app's GlassDialog (theme tokens glass.scrim / scrimBlur), so v2 and legacy modals match.
+ * The fade is Animate UI's (Motion) — no CSS animate-in beside it.
+ */
+export const modalScrimClassName =
+  "fixed inset-0 isolate bg-[rgb(16_24_40/0.32)] dark:bg-black/55 supports-backdrop-filter:backdrop-blur-[4px]"
+
 function DialogOverlay({
   className,
   ...props
@@ -30,8 +39,8 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        // Same scrim as the app's GlassDialog (theme tokens glass.scrim / scrimBlur), so v2 and legacy modals match.
-        "fixed inset-0 isolate z-[1300] bg-[rgb(16_24_40/0.32)] dark:bg-black/55 supports-backdrop-filter:backdrop-blur-[4px]",
+        modalScrimClassName,
+        "z-(--z-modal)",
         className
       )}
       {...props}
@@ -47,17 +56,18 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  // Crisp text at rest: see useSettledWhenOpen (src/ds/lib/motion.ts).
+  const settledRef = useSettledRef()
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
+        ref={settledRef}
         data-slot="dialog-content"
         className={cn(
-          // Centred by inset + auto margins, not translate(-50%): an odd width or height puts a translate on a half
-          // pixel and the browser blurs every glyph in the dialog.
-          // `grid-cols-[minmax(0,1fr)]`: the implicit column is `auto`, which grows to the widest unbreakable child
-          // (a truncated label, a long number) and pushes the body past the dialog's edge. One column that may shrink.
-          "fixed inset-0 z-[1300] m-auto grid h-fit w-full grid-cols-[minmax(0,1fr)] max-w-[calc(100%-2rem)] gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 outline-none sm:max-w-md",
+          // Centred by layout (inset-0 + m-auto + h-fit), not translate(-50%): a -50% translate of an
+          // odd-sized box lands on a half pixel and blurs every line of text in it.
+          "fixed inset-0 z-(--z-modal) m-auto grid h-fit w-full grid-cols-[minmax(0,1fr)] max-w-[calc(100%-2rem)] gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 outline-none sm:max-w-md",
           className
         )}
         {...props}
@@ -67,9 +77,10 @@ function DialogContent({
           <DialogPrimitive.Close
             data-slot="dialog-close"
             render={
+              // The Button story's "Tinted" Close: the neutral tint, same family as the other row/card actions.
               <Button
-                variant="ghost"
-                className="absolute top-4 right-4"
+                variant="tinted"
+                className="absolute top-4 right-4 [--tint:var(--muted-foreground)]"
                 size="icon-sm"
               />
             }

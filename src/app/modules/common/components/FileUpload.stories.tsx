@@ -47,6 +47,20 @@ export const ImagesAndVideos: Story = {
   },
 }
 
+/** PDFs only, as the company Catalogue tab uses it. */
+export const Pdfs: Story = {
+  args: {
+    acceptTypes: { 'application/pdf': ['.pdf'] },
+    maxFiles: 5,
+    maxSizeMB: 25,
+    noun: 'PDFs',
+    hint: <p className="mt-2 text-sm text-gray-500">PDF only, up to 25 MB each, 5 at a time.</p>,
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText(/Drag and drop PDFs/)).toBeInTheDocument()
+  },
+}
+
 /** Over the count limit: the message says how many are allowed. */
 export const TooManyFiles: Story = {
   args: { maxFiles: 1 },

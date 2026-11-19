@@ -25,9 +25,10 @@ import {
 } from './field'
 
 /**
- * THE labelled control: label above, control, then hint or error — for every input type. Replaces
- * the live kit's `WtField` frame (and its floating-label notch). The label is always visible; the
- * error is linked to the control so screen readers announce it.
+ * THE labelled control: a floating label, the control, then a hint or an error — for every input type.
+ * The label rests inside the empty control and floats onto its border on focus or once there is a value,
+ * so it is never lost; the error is linked to the control so screen readers announce it. Replaces the live
+ * kit's `WtField` frame (and its measured floating-label notch).
  */
 const meta = {
   title: 'Components/Field',
@@ -134,7 +135,9 @@ const labelTop = (el: HTMLElement) => parseFloat(getComputedStyle(el.closest('[d
 /**
  * Floating labels (decided 2026-11-03, app-wide): the label rests inside an empty control and floats onto its
  * border on focus or once there is a value — for every control type, from one rule (styles/globals.css).
- * A control with a leading icon keeps its label up. Inside a Card the label masks the border with the card.
+ * A leading ICON doesn't change that: the label rests just after it, like a placeholder (user decision 2026-11-14);
+ * only a leading TEXT addon (a phone country code) keeps the label up. The floated label sits in a NOTCH cut into the border — it has
+ * no background, so it is right on any surface in both themes (lib/floating-notch + styles/components.css).
  */
 export const FloatingLabels: Story = {
   decorators: [(Story) => <div className="w-[min(48rem,calc(100vw-2rem))]"><Story /></div>],
@@ -202,23 +205,71 @@ export const FloatingLabels: Story = {
     await userEvent.type(name, 'Meera Joshi')
     await userEvent.tab()
     await waitFor(() => expect(labelTop(name)).toBe(0))
-    // A prefilled field and a field with a leading icon start floated.
+    // A prefilled field starts floated; a field with a leading icon rests inside, after the icon, until focused.
     await expect(labelTop(canvas.getByLabelText('Employee Code'))).toBe(0)
-    await expect(labelTop(canvas.getByLabelText('Reporting Manager'))).toBe(0)
+    const manager = canvas.getByLabelText('Reporting Manager')
+    await expect(labelTop(manager)).toBeGreaterThan(10)
+    const managerLabel = manager.closest('[data-slot="field"]')!.querySelector('[data-slot="field-label"]')!
+    const icon = manager.closest('[data-slot="input-group"]')!.querySelector('svg')!
+    await expect(managerLabel.getBoundingClientRect().left).toBeGreaterThan(icon.getBoundingClientRect().right)
+    await userEvent.click(manager)
+    await waitFor(() => expect(labelTop(manager)).toBe(0))
+    await userEvent.type(manager, 'Arjun') // stays floated with a value — and joins the corner check below
     // The label stays the field's accessible name.
     await expect(canvas.getByRole('textbox', { name: 'Remarks' })).toBeInTheDocument()
     // Floated labels never cover a rounded corner — check a pill and a textarea.
     await userEvent.click(canvas.getByRole('textbox', { name: 'Remarks' }))
     await expect(await expectCornersVisible(canvasElement)).toBeGreaterThanOrEqual(4)
+    // The notch: a floated label paints nothing, and its field publishes the label width the border gap uses.
+    const codeField = canvas.getByLabelText('Employee Code').closest('[data-slot="field"]') as HTMLElement
+    const codeLabel = codeField.querySelector('[data-slot="field-label"]') as HTMLElement
+    await expect(getComputedStyle(codeLabel).backgroundImage).toBe('none')
+    await expect(getComputedStyle(codeLabel).backgroundColor).toBe('rgba(0, 0, 0, 0)')
+    await expect(parseFloat(codeField.style.getPropertyValue('--label-w'))).toBeGreaterThan(20)
   },
 }
 
-/** Dark theme: the floated label masks the border with the dark card surface; contrast is checked by axe. */
+/** Dark theme: the floated label sits in the border's notch with no background; contrast is checked by axe. */
 export const FloatingLabelsDark: Story = {
   ...FloatingLabels,
   globals: { mode: 'dark' },
   play: async ({ canvas }) => {
     await expect(document.documentElement).toHaveClass('dark')
     await expect(labelTop(canvas.getByLabelText('Employee Code'))).toBe(0)
+  },
+}
+
+/**
+ * Required: the `*` comes from the CONTROL's own state (`required`, `aria-required`, React Aria's `isRequired`)
+ * through one CSS rule — never from the label — so every required field shows exactly one marker, and a field that
+ * is not required shows none. The marker is presentation only: the field is announced as required, not as "*".
+ */
+export const Required: Story = {
+  render: () => (
+    <div className="grid w-80 gap-6">
+      <Field>
+        <FieldLabel htmlFor="legal-name">Legal name</FieldLabel>
+        <Input id="legal-name" required />
+      </Field>
+      <DatePicker label="Date of joining" isRequired />
+      <NumberField label="Notice period (days)" isRequired />
+      <Field>
+        <FieldLabel htmlFor="nickname">Nickname</FieldLabel>
+        <Input id="nickname" />
+      </Field>
+    </div>
+  ),
+  play: async ({ canvasElement, canvas }) => {
+    await expect(canvas.getByRole('textbox', { name: 'Legal Name' })).toBeRequired()
+    const marker = (text: string) => {
+      const label = [...canvasElement.querySelectorAll('[data-slot="field-label"]')].find((l) => l.textContent?.toLowerCase().includes(text.toLowerCase()))!
+      return getComputedStyle(label, '::after').content
+    }
+    // One marker per required field, from the label's ::after (a second, typed `*` once doubled it).
+    for (const text of ['Legal Name', 'Date Of Joining', 'Notice Period']) {
+      await expect(marker(text)).toContain('*')
+    }
+    await expect(canvasElement.textContent).not.toContain('*')
+    await expect(marker('Nickname')).toBe('none')
   },
 }

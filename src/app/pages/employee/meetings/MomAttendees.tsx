@@ -1,7 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Avatar, Box, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded';
-import { AppIcon, WtButton, WtIconButton, WtSelect } from '@app/modules/common/components/ui';
+import { ActionIconButton, WtSelect } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
 import {
   fetchPage as searchContacts,
   projectContactOptions,
@@ -11,7 +12,7 @@ import { useEmployeeDirectory } from '@app/modules/common/components/EmployeePic
 import { getLeadById } from '@services/leadService';
 import { updateMeetingMinutesDraft } from '@services/meetingAgendaMom';
 import { apiErrorMessage } from '@utils/apiError';
-import { getAvatar } from '@utils/avatar';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { rosterFirst, sectioned, type PickOption } from './momAttendeeOptions';
 
 // Heavy (the full contact wizard) — only downloaded when someone clicks "Add to contacts".
@@ -29,13 +30,6 @@ export type MomAttendee = {
 
 type Side = MomAttendee['side'];
 
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join('');
 
 /** A typed request every ~4 letters is plenty; the server pages 25 at a time. */
 const SEARCH_DEBOUNCE_MS = 250;
@@ -63,6 +57,8 @@ export default function MomAttendees({
   editable,
   teamIds,
   onError,
+  onChange,
+  deferSave = false,
 }: {
   meetingId: string;
   projectId: string | null;
@@ -71,6 +67,10 @@ export default function MomAttendees({
   /** Project's internal team (employee ids), when the meeting has a project. */
   teamIds: Set<string> | null;
   onError: (m: string) => void;
+  /** The list as it now stands — so a sibling (the MoM assignee picker) sees an add without a reload. */
+  onChange?: (list: MomAttendee[]) => void;
+  /** Report changes through `onChange` only; the parent saves them (the MoM's Save button). */
+  deferSave?: boolean;
 }) {
   const [list, setList] = useState<MomAttendee[]>(attendees);
   const savedKey = JSON.stringify(attendees);
@@ -81,10 +81,13 @@ export default function MomAttendees({
   const save = async (next: MomAttendee[]) => {
     const prev = list;
     setList(next);
+    onChange?.(next);
+    if (deferSave) return;
     try {
       await updateMeetingMinutesDraft(meetingId, { attendees: next });
     } catch (e: any) {
       setList(prev);
+      onChange?.(prev);
       onError(apiErrorMessage(e, 'Could not save attendees'));
     }
   };
@@ -170,22 +173,13 @@ export default function MomAttendees({
                 <Typography sx={{ width: 18, fontSize: 12, color: C.mute, textAlign: 'right', flexShrink: 0 }}>
                   {n + 1}
                 </Typography>
-                <Avatar
-                  // Contacts without a photo get the same silhouette employees do.
-                  src={emp?.avatar || (a.contactId ? getAvatar(a.avatar || '', (a.gender ?? 0) as any) : undefined)}
-                  alt=""
-                  sx={{
-                    width: 30,
-                    height: 30,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    bgcolor: typed ? C.paper : C.slate,
-                    color: C.mute,
-                    border: typed ? `1px dashed ${C.mute}` : `1px solid ${C.line}`,
-                  }}
-                >
-                  {initials(a.name)}
-                </Avatar>
+                <SmartAvatar
+                  name={a.name}
+                  src={emp?.avatar || a.avatar}
+                  seed={a.employeeId || a.contactId || a.name}
+                  size={30}
+                  decorative
+                />
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>
                     {a.name}
@@ -195,19 +189,18 @@ export default function MomAttendees({
                   </Typography>
                 </Box>
                 {editable && typed && side === 'EXTERNAL' && (
-                  <WtButton size="small" inverted onClick={() => setContactFor(i)} sx={{ flexShrink: 0 }}>
+                  <Button size="sm" variant="inverted" type="button" onClick={() => setContactFor(i)} className="shrink-0">
                     + Add to contacts
-                  </WtButton>
+                  </Button>
                 )}
                 {editable && (
-                  <WtIconButton
+                  <ActionIconButton
+                    iconName="trash"
+                    tone="danger"
+                    size="sm"
                     title={`Remove ${a.name}`}
-                    color="#DC2626"
                     onClick={() => remove(i)}
-                    sx={{ width: 30, height: 30, borderRadius: '10px', flexShrink: 0 }}
-                  >
-                    <AppIcon name="bi-trash" fallbackSize={13} />
-                  </WtIconButton>
+                  />
                 )}
               </Stack>
             );

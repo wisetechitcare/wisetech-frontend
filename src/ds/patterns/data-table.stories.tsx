@@ -1,9 +1,11 @@
+import * as React from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test'
 import { Download, MoreHorizontal, UserPlus } from 'lucide-react'
 import { animationsSettled } from '@/ds/lib/motion'
 import { Badge } from '@/ds/ui/badge'
 import { Button } from '@/ds/ui/button'
+import { Card, CardContent } from '@/ds/ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ds/ui/dropdown-menu'
 import { DataTable, SortableHeader, type ColumnDef } from './data-table'
 import { EmptyState } from './empty-state'
@@ -70,7 +72,7 @@ const COLUMNS: ColumnDef<Employee, any>[] = [
   {
     id: 'actions',
     enableHiding: false,
-    header: () => <span className="sr-only">Actions</span>,
+    header: 'Actions',
     cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${row.original.name}`} />}>
@@ -117,7 +119,8 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const bodyRows = (table: HTMLElement) => within(table).getAllByRole('row').slice(1)
+// The BODY's rows — the header can hold two rows (column filters), so "all rows but the first" is wrong.
+const bodyRows = (table: HTMLElement) => within(table.querySelector('tbody')!).getAllByRole('row')
 
 /** Sorting: the header button toggles, and the column header reports `aria-sort`. */
 export const Sort: Story = {
@@ -160,21 +163,110 @@ export const BulkSelection: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Select row 1' }))
     await userEvent.click(canvas.getByRole('checkbox', { name: 'Select row 2' }))
-    await expect(canvas.getByRole('region', { name: 'Selection' })).toHaveTextContent('2 selected')
+    await expect(canvas.getByRole('region', { name: 'Selection in Employees' })).toHaveTextContent('2 selected')
     await userEvent.click(canvas.getByRole('button', { name: 'Send Payslips' }))
     await expect(onBulk).toHaveBeenCalledWith(['1', '2'])
-    await waitFor(() => expect(canvas.queryByRole('region', { name: 'Selection' })).not.toBeInTheDocument())
+    await waitFor(() => expect(canvas.queryByRole('region', { name: 'Selection in Employees' })).not.toBeInTheDocument())
   },
 }
 
-/** Columns menu hides and shows columns; Employee and actions can't be hidden. */
+/**
+ * The Columns panel: one switch per column (it applies at once and the panel stays open for the next), and Hide All /
+ * Show All underneath. Employee and the actions can't be hidden; Hide All keeps the first column; the last visible
+ * column's switch is locked, so the table can never end up with nothing to show.
+ */
 export const HideColumns: Story = {
   play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Columns' }))
-    await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Branch' }))
+    await userEvent.click(canvas.getByRole('button', { name: 'Show or hide columns' }))
+    const panel = await screen.findByRole('list', { name: 'Columns' })
+    await expect(within(panel).queryByRole('switch', { name: 'Employee' })).not.toBeInTheDocument()
+
+    await userEvent.click(within(panel).getByRole('switch', { name: /^Branch/ }))
+    await waitFor(() => expect(canvas.queryByRole('columnheader', { name: /^Branch/ })).not.toBeInTheDocument())
+    // Still open: switches are settings, not menu picks.
+    await expect(within(panel).getByRole('switch', { name: /^Branch/ })).not.toBeChecked()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hide All' }))
+    await waitFor(() => expect(canvas.queryByRole('columnheader', { name: /^Status/ })).not.toBeInTheDocument())
+    await expect(canvas.getByRole('columnheader', { name: /Department/ })).toBeInTheDocument()
+    await expect(within(panel).getByRole('switch', { name: 'Department' })).toBeChecked()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show All' }))
+    await waitFor(() => expect(canvas.getByRole('columnheader', { name: /^Branch/ })).toBeInTheDocument())
+    await expect(canvas.getByRole('columnheader', { name: /^Status/ })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(canvas.queryByRole('columnheader', { name: 'Branch' })).not.toBeInTheDocument())
     await animationsSettled()
+  },
+}
+
+/**
+ * Pin a column to the left or right edge (Columns panel): it stays in view while the rest scrolls sideways, with a
+ * soft shadow on the side content slides under. Each pin is a toggle with a tooltip; pinning again unpins.
+ */
+export const PinColumns: Story = {
+  decorators: [(Story) => <div className="w-[560px]"><Story /></div>],
+  play: async ({ canvas }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    await waitFor(() => expect(table).toHaveClass('table-fixed')) // widths known: pins can take their offsets
+    await userEvent.click(canvas.getByRole('button', { name: 'Show or hide columns' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Pin Status to the left' }))
+    // Pinned columns lead, in the start region.
+    const heads = () => within(table).getAllByRole('columnheader').map((h) => h.textContent?.trim())
+    await waitFor(() => expect(heads()[0]).toBe('Status'))
+    const status = within(table).getByRole('columnheader', { name: /^Status/ })
+    await expect(getComputedStyle(status).position).toBe('sticky')
+    await expect(screen.getByRole('button', { name: 'Unpin Status' })).toHaveAttribute('aria-pressed', 'true')
+
+    // Scrolled sideways, the pinned column stays put.
+    const frame = table.closest('[data-slot="card"]') as HTMLElement
+    const before = status.getBoundingClientRect().left
+    frame.scrollLeft = 200
+    await new Promise((r) => requestAnimationFrame(() => r(null)))
+    await expect(Math.round(status.getBoundingClientRect().left)).toBe(Math.round(before))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Unpin Status' }))
+    await waitFor(() => expect(heads()[0]).not.toBe('Status'))
+    await userEvent.keyboard('{Escape}')
+    // Focus comes back to the trigger only once the panel has finished closing, and that opens the trigger's
+    // tooltip; wait for it, or the a11y check can catch the tooltip half faded in.
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Show or hide columns' })).toHaveFocus())
+    await animationsSettled()
+  },
+}
+
+/**
+ * Drag a column header sideways to move the column, the old table's column drag on the same engine as row drag:
+ * the header and its cells lift together, the others glide aside. A press without a drag still sorts.
+ */
+export const ReorderColumns: Story = {
+  play: async ({ canvas }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    const heads = () => within(table).getAllByRole('columnheader').map((h) => h.textContent?.trim())
+    await waitFor(() => expect(table).toHaveClass('table-fixed'))
+    const branch = within(table).getByRole('columnheader', { name: /^Branch/ })
+    await expect(branch).toHaveAttribute('data-sortable-id', 'branch')
+    const startIndex = heads().indexOf('Branch')
+
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)))
+    const ptr = (type: string, x: number, y: number) =>
+      new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, isPrimary: true, button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: x, clientY: y })
+    const r = branch.getBoundingClientRect()
+    const target = within(table).getByRole('columnheader', { name: /^Status/ }).getBoundingClientRect()
+    const y = r.top + r.height / 2
+    branch.dispatchEvent(ptr('pointerdown', r.left + 12, y))
+    for (let i = 1; i <= 10; i++) {
+      window.dispatchEvent(ptr('pointermove', r.left + 12 + ((target.right - 6 - r.left - 12) * i) / 10, y))
+      await frame()
+    }
+    window.dispatchEvent(ptr('pointerup', target.right - 6, y))
+    await waitFor(() => expect(heads().indexOf('Branch')).toBe(startIndex + 1))
+    // The body moved with the header.
+    const cells = within(bodyRows(table)[0]).getAllByRole('cell')
+    await expect(cells[startIndex + 1]).toHaveTextContent(EMPLOYEES[0].branch)
+
+    // A plain click on a sortable header still sorts.
+    await userEvent.click(canvas.getByRole('button', { name: /^Department/ }))
+    await expect(within(table).getByRole('columnheader', { name: /Department/ })).toHaveAttribute('aria-sort', 'ascending')
   },
 }
 
@@ -227,5 +319,407 @@ export const LoadFailed: Story = {
   args: { data: [], error: 'The server did not respond. Your filters are kept.', onRetry: fn() },
   play: async ({ canvas }) => {
     await expect(canvas.getByRole('alert')).toHaveTextContent("Couldn't Load This Table")
+  },
+}
+
+const onOpen = fn()
+
+/** `initialSorting` opens newest first; `onRowClick` opens a record from anywhere on the row (or Enter). */
+export const ClickableRowsSorted: Story = {
+  args: {
+    initialSorting: [{ id: 'joined', desc: true }],
+    onRowClick: (r: Employee) => onOpen(r.id),
+    rowLabel: (r: Employee) => `Open ${r.name}`,
+  },
+  beforeEach: () => onOpen.mockReset(),
+  play: async ({ canvas }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    await expect(canvas.getByRole('columnheader', { name: /Joined/ })).toHaveAttribute('aria-sort', 'descending')
+    const first = bodyRows(table)[0]
+    await userEvent.click(within(first).getAllByRole('cell')[1])
+    await expect(onOpen).toHaveBeenCalledTimes(1)
+    // A control inside the row keeps its own click.
+    await userEvent.click(within(first).getByRole('button', { name: /Actions for/ }))
+    await expect(onOpen).toHaveBeenCalledTimes(1)
+    await userEvent.keyboard('{Escape}')
+    first.focus()
+    await userEvent.keyboard('{Enter}')
+    await expect(onOpen).toHaveBeenCalledTimes(2)
+    await animationsSettled()
+  },
+}
+
+/** `rowTone` tints a row by its state — here people on probation (warning) and on leave (info). */
+export const TonedRows: Story = {
+  args: {
+    rowTone: (r: Employee) => (r.status === 'Probation' ? 'warning' : r.status === 'On leave' ? 'info' : undefined),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement.querySelectorAll('tbody tr[data-tone]').length).toBeGreaterThan(0)
+  },
+}
+
+/** `renderDetail`: a chevron per row opens a panel under it (the live `renderDetailPanel`). */
+export const ExpandableRows: Story = {
+  args: {
+    renderDetail: (r: Employee) => (
+      <p className="text-sm">
+        {r.name} joined on {r.joined} as {r.designation}, {r.branch}.
+      </p>
+    ),
+  },
+  play: async ({ canvas }) => {
+    const toggle = canvas.getAllByRole('button', { name: 'Show details' })[0]
+    await userEvent.click(toggle)
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await expect(canvas.getByText(/joined on/)).toBeInTheDocument()
+    await userEvent.click(toggle)
+    await expect(canvas.queryByText(/joined on/)).toBeNull()
+  },
+}
+
+type Claim = { id: string; employee: string; category: string; amount: number }
+const CLAIMS: Claim[] = [
+  { id: 'c1', employee: 'Meera Joshi', category: 'Cab', amount: 420 },
+  { id: 'c2', employee: 'Arjun Rao', category: 'Meal', amount: 280.5 },
+  { id: 'c3', employee: 'Tara Menon', category: 'Hotel', amount: 3600 },
+]
+const inr = (n: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(n)
+
+/** A totals row: give a column a `footer` and the table renders a footer row (the live `showColumnFooter`). */
+export const FooterTotals: StoryObj<typeof DataTable<Claim>> = {
+  render: () => (
+    <DataTable<Claim>
+      caption="Claims"
+      data={CLAIMS}
+      getRowId={(r) => r.id}
+      columns={[
+        { accessorKey: 'employee', header: 'Employee', footer: 'Total' },
+        { accessorKey: 'category', header: 'Category' },
+        {
+          accessorKey: 'amount',
+          header: () => <span className="block text-right">Amount</span>,
+          cell: ({ getValue }) => <span className="block text-right tabular">{inr(getValue() as number)}</span>,
+          footer: ({ table }) => (
+            <span className="block text-right tabular">
+              {inr(table.getFilteredRowModel().rows.reduce((s, r) => s + r.original.amount, 0))}
+            </span>
+          ),
+        },
+      ]}
+    />
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText('Total')).toBeInTheDocument()
+    await expect(canvas.getByText(inr(4300.5))).toBeInTheDocument()
+  },
+}
+
+/** `renderCard`: below 640px of table width the rows become cards; search and paging stay. */
+export const PhoneCards: Story = {
+  decorators: [(Story) => <div className="w-[360px]"><Story /></div>],
+  args: {
+    renderCard: (r: Employee) => (
+      <Card size="sm" variant="panel">
+        <CardContent className="text-sm">
+          <div className="font-semibold">{r.name}</div>
+          <div className="text-muted-foreground">{r.designation} · {r.department}</div>
+        </CardContent>
+      </Card>
+    ),
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.getByRole('list', { name: 'Employees' })).toBeVisible()
+    await expect(canvasElement.querySelector('[data-slot="card"] table')?.closest('[data-slot="card"]')).not.toBeVisible()
+    await expect(canvas.getByText('1–10 of 34')).toBeInTheDocument()
+  },
+}
+
+/** `toolbar` as a function gets the live table — rows after search, the selection, visible columns — so an
+ *  Export acts on exactly what is on screen. */
+export const ToolbarWithTableState: Story = {
+  args: {
+    selectable: true,
+    toolbar: ({ rows, selected, visibleColumnIds }) => (
+      <Button variant="outline" data-columns={visibleColumnIds.length}>
+        <Download data-icon="inline-start" aria-hidden /> Export {selected.length ? `${selected.length} selected` : `${rows.length} rows`}
+      </Button>
+    ),
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('button', { name: 'Export 34 Rows' })).toBeInTheDocument()
+    // Search narrows what an export would take…
+    await userEvent.type(canvas.getByRole('textbox', { name: 'Search employees' }), 'Pune')
+    const narrowed = await canvas.findByRole('button', { name: /^Export \d+ Rows$/ })
+    await expect(Number(narrowed.textContent?.match(/\d+/)?.[0])).toBeLessThan(34)
+    // …and a selection wins over the search result.
+    await userEvent.click(canvas.getAllByRole('checkbox', { name: /Select row/ })[0])
+    await expect(await canvas.findByRole('button', { name: 'Export 1 Selected' })).toBeInTheDocument()
+  },
+}
+
+/** `resizableColumns`: drag a column's edge — or focus it and use ← / → (Shift for bigger steps); Enter or a
+ *  double-click resets it. The handle is a separator that announces its width. */
+export const ResizableColumns: Story = {
+  args: { resizableColumns: true },
+  play: async ({ canvas }) => {
+    const handle = canvas.getByRole('separator', { name: 'Resize Department' })
+    const before = Number(handle.getAttribute('aria-valuenow'))
+    handle.focus()
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}')
+    await expect(Number(handle.getAttribute('aria-valuenow'))).toBe(before + 20)
+    await userEvent.keyboard('{Shift>}{ArrowLeft}{/Shift}')
+    await expect(Number(handle.getAttribute('aria-valuenow'))).toBe(before - 20)
+    await userEvent.keyboard('{Enter}')
+    await expect(Number(handle.getAttribute('aria-valuenow'))).toBe(before)
+  },
+}
+
+/** Numbered pages beside Previous / Next: first, last and the current page's neighbours (1 … 4 5 6 … 20). */
+export const NumberedPages: Story = {
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('button', { name: 'Page 1' })).toHaveAttribute('aria-current', 'page')
+    await userEvent.click(canvas.getByRole('button', { name: 'Page 3' }))
+    await expect(canvas.getByText('21–30 of 34')).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Page 3' })).toHaveAttribute('aria-current', 'page')
+  },
+}
+
+/** `stateKey` remembers this viewer's widths, hidden columns and density: resize, remount, still resized. */
+function RemountableTable(props: React.ComponentProps<typeof DataTable<Employee>>) {
+  const [mounted, setMounted] = React.useState(true)
+  return (
+    <div className="space-y-3">
+      <Button variant="outline" size="sm" onClick={() => { setMounted(false); setTimeout(() => setMounted(true), 0) }}>Remount table</Button>
+      {mounted && <DataTable<Employee> {...props} stateKey="story.remembers-widths" />}
+    </div>
+  )
+}
+
+export const RemembersWidths: Story = {
+  render: (args) => <RemountableTable {...args} />,
+  beforeEach: () => { try { localStorage.removeItem('wt-table:story.remembers-widths') } catch { /* noop */ } },
+  play: async ({ canvas }) => {
+    const handle = await canvas.findByRole('separator', { name: 'Resize Branch' })
+    const before = Number(handle.getAttribute('aria-valuenow'))
+    handle.focus()
+    await userEvent.keyboard('{Shift>}{ArrowRight}{ArrowRight}{/Shift}')
+    await new Promise((r) => setTimeout(r, 400)) // the save is debounced
+    await userEvent.click(canvas.getByRole('button', { name: 'Remount Table' }))
+    const again = await canvas.findByRole('separator', { name: 'Resize Branch' })
+    await expect(Number(again.getAttribute('aria-valuenow'))).toBe(before + 80)
+  },
+}
+
+function ReorderableTable(props: React.ComponentProps<typeof DataTable<Employee>>) {
+  const [rows, setRows] = React.useState(props.data)
+  const byId = React.useMemo(() => new Map(props.data.map((r) => [r.id, r])), [props.data])
+  return (
+    <DataTable
+      {...props}
+      data={rows}
+      rowReorder={{ onReorder: (ids) => setRows(ids.map((id) => byId.get(id)!)) }}
+    />
+  )
+}
+
+/**
+ * Draggable rows: drag a row by its grip (mouse or touch), or focus the grip and press ↑ / ↓ — each move is
+ * announced. `onReorder` gets the full id order to persist. Reordering pauses while the table is sorted or
+ * searched, since the order on screen is then not the stored order. The same drag engine as the Task board.
+ */
+export const ReorderableRows: Story = {
+  render: (args) => <ReorderableTable {...args} />,
+  play: async ({ canvas }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    const first = EMPLOYEES[0].name
+    const second = EMPLOYEES[1].name
+    await expect(bodyRows(table)[0]).toHaveTextContent(first)
+    // Every row is wired to the drag engine, with drag starting only on its grip.
+    await expect(bodyRows(table)[0]).toHaveAttribute('data-sortable-id', EMPLOYEES[0].id)
+
+    // Keyboard: the focused grip moves its row and keeps focus as it goes.
+    const grip = canvas.getByRole('button', { name: 'Move row 1 of 34' })
+    grip.focus()
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => expect(bodyRows(table)[0]).toHaveTextContent(second))
+    await expect(bodyRows(table)[1]).toHaveTextContent(first)
+    await expect(canvas.getByText('Moved to position 2 of 34.')).toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).toHaveAccessibleName('Move row 2 of 34'))
+    await userEvent.keyboard('{ArrowUp}')
+    await waitFor(() => expect(bodyRows(table)[0]).toHaveTextContent(first))
+
+    // Pointer: press the first grip, drag it below the third row, release — the row lands third.
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)))
+    const at = (el: Element) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }
+    const ptr = (type: string, x: number, y: number) =>
+      new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, isPrimary: true, button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: x, clientY: y })
+    const from = at(canvas.getByRole('button', { name: 'Move row 1 of 34' }))
+    const target = bodyRows(table)[2].getBoundingClientRect()
+    canvas.getByRole('button', { name: 'Move row 1 of 34' }).dispatchEvent(ptr('pointerdown', from.x, from.y))
+    for (let i = 1; i <= 8; i++) {
+      window.dispatchEvent(ptr('pointermove', from.x, from.y + ((target.bottom - 4 - from.y) * i) / 8))
+      await frame()
+    }
+    window.dispatchEvent(ptr('pointerup', from.x, target.bottom - 4))
+    await waitFor(() => expect(bodyRows(table)[2]).toHaveTextContent(first))
+    await expect(bodyRows(table)[0]).toHaveTextContent(second)
+    await expect(canvas.getByText('Moved to position 3 of 34.')).toBeInTheDocument()
+
+    // Sorted: the grips pause.
+    await userEvent.click(canvas.getByRole('button', { name: /^Joined/ }))
+    for (const g of canvas.getAllByRole('button', { name: /^Move row/ })) await expect(g).toBeDisabled()
+  },
+}
+
+function LateDataTable(props: React.ComponentProps<typeof DataTable<Employee>>) {
+  // Starts empty and NOT loading — how a screen looks before its first fetch resolves.
+  const [rows, setRows] = React.useState<Employee[]>([])
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setRows(props.data), 150)
+    return () => window.clearTimeout(t)
+  }, [props.data])
+  return <DataTable {...props} data={rows} />
+}
+
+/**
+ * Rows that arrive after the first render get the same column widths as rows that were there from the start:
+ * natural widths are measured from real rows, never from the header-only empty state (which clipped a Batch ID
+ * badge in the app when a screen rendered empty and not-yet-loading before its first fetch).
+ */
+export const DataArrivesLater: Story = {
+  render: (args) => (
+    <div className="grid gap-6">
+      <DataTable {...args} caption="From the start" />
+      <LateDataTable {...args} caption="Arrives later" />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    const late = canvas.getByRole('table', { name: 'Arrives later' })
+    await waitFor(() => expect(bodyRows(late).length).toBe(10))
+    await new Promise((r) => setTimeout(r, 100))
+    const widths = (name: string) =>
+      within(canvas.getByRole('table', { name })).getAllByRole('columnheader').map((h) => Math.round(h.getBoundingClientRect().width))
+    await expect(widths('Arrives later')).toEqual(widths('From the start'))
+  },
+}
+
+/**
+ * Only some rows can be selected (e.g. only batches with money still owed join a payment run): the others show a
+ * disabled checkbox, and "select all" skips them.
+ */
+export const SomeRowsSelectable: Story = {
+  args: {
+    selectable: true,
+    canSelectRow: (r: Employee) => r.status === 'Active',
+    selectionActions: (rows) => <Button size="sm">Notify {rows.length}</Button>,
+  },
+  play: async ({ canvas }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    const rows = bodyRows(table)
+    const activeOnPage = rows.filter((r) => within(r).queryByText('Active')).length
+    await userEvent.click(canvas.getByRole('checkbox', { name: 'Select all rows on this page' }))
+    await expect(canvas.getByRole('region', { name: 'Selection in Employees' })).toHaveTextContent(`${activeOnPage} selected`)
+    const notSelectable = rows.find((r) => !within(r).queryByText('Active'))!
+    // Base UI's checkbox is role="checkbox" with aria-disabled (the native input is hidden) — as the Checkbox story.
+    await expect(within(notSelectable).getByRole('checkbox')).toHaveAttribute('aria-disabled', 'true')
+  },
+}
+
+/**
+ * The table's tools (one joined group, tinted while ON): column filters — each matches the text the column SHOWS —
+ * density, columns, reset layout, and full screen (Esc leaves it).
+ */
+export const TableTools: Story = {
+  play: async ({ canvas, canvasElement }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    await expect(canvas.getByRole('group', { name: 'Table tools' })).toBeInTheDocument()
+    // Every tool explains itself on hover — the columns menu too.
+    await userEvent.hover(canvas.getByRole('button', { name: 'Show or hide columns' }))
+    await expect(await screen.findByText('Show or hide columns', { selector: '[data-slot="tooltip-content"], [data-slot="tooltip-content"] *' })).toBeInTheDocument()
+    await userEvent.unhover(canvas.getByRole('button', { name: 'Show or hide columns' }))
+
+    // Column filters: a row of inputs under the headers; typing narrows the rows.
+    await userEvent.click(canvas.getByRole('button', { name: 'Show column filters' }))
+    await userEvent.type(canvas.getByRole('textbox', { name: 'Filter Department' }), 'Finance')
+    await waitFor(() => expect(bodyRows(table).every((r) => within(r).queryByText('Finance'))).toBe(true))
+
+    // Reset layout clears the filter (and widths, density, sorting).
+    await userEvent.click(canvas.getByRole('button', { name: 'Reset layout' }))
+    await waitFor(() => expect(canvas.getByText('1–10 of 34')).toBeInTheDocument())
+
+    // Full screen covers the viewport; Esc leaves it.
+    await userEvent.click(canvas.getByRole('button', { name: 'Full screen' }))
+    const root = canvasElement.querySelector('[data-slot="data-table"]') as HTMLElement
+    await expect(getComputedStyle(root).position).toBe('fixed')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(getComputedStyle(root).position).not.toBe('fixed'))
+  },
+}
+
+/**
+ * Group rows (the live table's Group by): the "Group rows" tool lists the columns rows can be grouped by. Rows fold
+ * into groups that name the column, show the value as the column draws it and count their records; a second column
+ * nests inside the first. In a grouped column the value is not repeated on every row. Reset layout clears it.
+ */
+export const GroupRows: Story = {
+  play: async ({ canvas }) => {
+    const table = canvas.getByRole('table', { name: 'Employees' })
+    await userEvent.click(canvas.getByRole('button', { name: 'Group rows' }))
+    const panel = within(await screen.findByRole('list', { name: 'Group by' }))
+    // A column with no value to group by (row actions) is not offered.
+    await expect(panel.queryByRole('switch', { name: 'actions' })).not.toBeInTheDocument()
+    await userEvent.click(panel.getByRole('switch', { name: 'Status' }))
+    await userEvent.keyboard('{Escape}')
+
+    // 34 employees in three statuses: three group rows, each with its count; the range says how many records.
+    await waitFor(() => expect(bodyRows(table)).toHaveLength(3))
+    await expect(canvas.getByRole('button', { name: 'Expand Status: Active, 21 records' })).toBeInTheDocument()
+    await expect(canvas.getByText('1–3 of 3 · 34 records')).toBeInTheDocument()
+    await expect(canvas.getByRole('button', { name: 'Group rows 1 applied' })).toBeInTheDocument()
+
+    // Open one group: its rows follow it, and their Status cell is empty (the heading already says Active).
+    await userEvent.click(canvas.getByRole('button', { name: 'Expand Status: Active, 21 records' }))
+    await waitFor(() => expect(canvas.getByText('1–10 of 24 · 34 records')).toBeInTheDocument())
+    const firstMember = bodyRows(table)[1]
+    await expect(within(firstMember).queryByText('Active')).not.toBeInTheDocument()
+
+    // A second column nests inside the first, and the panel numbers the levels.
+    await userEvent.click(canvas.getByRole('button', { name: 'Group rows 1 applied' }))
+    const again = within(await screen.findByRole('list', { name: 'Group by' }))
+    await userEvent.click(again.getByRole('switch', { name: 'Branch' }))
+    await expect(again.getByText('Level 2')).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await expect(canvas.getByRole('button', { name: 'Group rows 2 applied' })).toBeInTheDocument()
+
+    // Reset layout puts the table back as designed.
+    await userEvent.click(canvas.getByRole('button', { name: 'Reset layout' }))
+    await waitFor(() => expect(canvas.getByText('1–10 of 34')).toBeInTheDocument())
+    await animationsSettled()
+  },
+}
+
+/** Grouped on a phone: the group headings sit between the cards and fold them the same way. */
+export const GroupRowsOnPhone: Story = {
+  decorators: [(Story) => <div className="w-[360px]"><Story /></div>],
+  args: {
+    renderCard: (r: Employee) => (
+      <Card size="sm" variant="panel">
+        <CardContent className="text-sm">
+          <div className="font-semibold">{r.name}</div>
+          <div className="text-muted-foreground">{r.status} · {r.department}</div>
+        </CardContent>
+      </Card>
+    ),
+  },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Group rows' }))
+    await userEvent.click(within(await screen.findByRole('list', { name: 'Group by' })).getByRole('switch', { name: 'Status' }))
+    await userEvent.keyboard('{Escape}')
+    const cards = within(canvas.getByRole('list', { name: 'Employees' }))
+    await waitFor(() => expect(cards.getAllByRole('listitem')).toHaveLength(3))
+    await userEvent.click(cards.getByRole('button', { name: 'Expand Status: Probation, 6 records' }))
+    await waitFor(() => expect(cards.getAllByRole('listitem').length).toBeGreaterThan(3))
+    await animationsSettled()
   },
 }

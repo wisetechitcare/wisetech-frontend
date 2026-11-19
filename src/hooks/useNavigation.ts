@@ -118,7 +118,7 @@ export function useNavigation() {
 
   useEffect(refreshPendingApprovalsCount, [capabilities]);
   // Subscribed to the APPROVAL key, not the leave one the socket also carries: this badge
-  // must not refetch on every leave edit in the organisation.
+  // must not refetch on every leave edit in the organization.
   useEventBus(EVENT_KEYS.approvalUpdated, refreshPendingApprovalsCount);
 
   const menu = useMemo(() => {
@@ -375,6 +375,23 @@ export function useNavigation() {
         // PSA pack + Contacts section until a dedicated crm.courtesyDesk permission exists.
         visible: isPackEnabled('psa') && !isSectionBlocked('crm.contacts'),
       },
+      {
+        type: 'item',
+        id: 'crm-catalogues',
+        to: '/catalogues',
+        title: 'Catalogue',
+        fontIcon: 'lucide-book-open-text',
+        visible: isPackEnabled('psa') && !isSectionBlocked('crm.companies'),
+      },
+      {
+        type: 'item',
+        id: 'crm-company-profile',
+        to: '/company-profile',
+        title: 'Company Showcase',
+        fontIcon: 'lucide-gallery-vertical-end',
+        // PSA pack + Companies section until a dedicated crm.companyProfile permission exists.
+        visible: isPackEnabled('psa') && !isSectionBlocked('crm.companies'),
+      },
 
       // ── Project Department ────────────────────────────────────────────────
       // Organization USED to sit under this header (it preceded the next section
@@ -533,7 +550,7 @@ export function useNavigation() {
         type: 'section',
         id: 'organization-section',
         title: 'Organization',
-        visible: !isSectionBlocked('settings') && (anyChildGranted('settings') || hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+        visible: !isSectionBlocked('settings') && (anyChildGranted('settings') || hasPermission(uiControlResourceNameMapWithCamelCase.organizationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
       },
       // As `sub` children these rows carried no icon and inherited the group's
       // glyph (ModuleGrid does that fallback for cluster children only). Top-level
@@ -542,10 +559,10 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'org-profile',
-        to: '/company/organisation-profile',
+        to: '/company/organization-profile',
         title: 'Organization Profile',
         fontIcon: 'bi-house-fill',
-        visible: isSubsectionVisible('settings.profile', hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+        visible: isSubsectionVisible('settings.profile', hasPermission(uiControlResourceNameMapWithCamelCase.organizationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
       },
       {
         type: 'item',

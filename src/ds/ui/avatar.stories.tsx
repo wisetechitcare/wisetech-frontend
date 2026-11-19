@@ -2,7 +2,10 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect } from 'storybook/test'
 import { Avatar, AvatarFallback } from './avatar'
 
-/** Person avatar. Falls back to initials when there is no photo. */
+/**
+ * The low-level Base UI avatar parts, for composing inside other kit components. To show a person, contact or
+ * company, use **Smart Avatar** (`@/ds/ui/smart-avatar`): photo first, initials on a stable gradient otherwise.
+ */
 const meta = {
   title: 'Components/Avatar',
   component: Avatar,

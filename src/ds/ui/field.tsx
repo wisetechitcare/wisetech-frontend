@@ -1,5 +1,6 @@
 "use client"
 import { titleCaseChildren } from "@/ds/lib/text"
+import { useFloatingNotchRef } from "@/ds/lib/floating-notch"
 
 import { useMemo } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -100,12 +101,22 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * A field's label. Required fields get their `*` from the CONTROL's own state (`required` / `aria-required` /
+ * React Aria's `isRequired`) through one CSS rule in styles/components.css — never from a prop here, so a label
+ * cannot claim "required" for a control that is not, and the marker cannot appear twice.
+ */
 function FieldLabel({
   className,
+  ref,
+  children,
   ...props
 }: React.ComponentProps<typeof Label>) {
+  // Publishes the label's width for the border notch (no label background — lib/floating-notch).
+  const notchRef = useFloatingNotchRef(ref)
   return (
     <Label
+      ref={notchRef}
       data-slot="field-label"
       className={cn(
         "group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[>[data-slot=field]]:rounded-xl has-[>[data-slot=field]]:border has-[>[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-input/40 has-[>[data-slot=field]]:has-[:focus-visible]:border-ring has-[>[data-slot=field]]:has-[:focus-visible]:ring-[3px] has-[>[data-slot=field]]:has-[:focus-visible]:ring-ring/50 *:data-[slot=field]:p-4 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10",
@@ -113,7 +124,9 @@ function FieldLabel({
         className
       )}
       {...props}
-    />
+    >
+      {children}
+    </Label>
   )
 }
 

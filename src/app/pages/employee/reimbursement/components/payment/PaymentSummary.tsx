@@ -1,90 +1,62 @@
-import { Box, ButtonBase, alpha } from '@mui/material';
-import { StatTile } from '@app/modules/common/components/ui/patterns';
-import { SkeletonKpiCard } from '@app/modules/common/components/Skeleton';
-import { formatMoney, PAYMENT_TONE } from '../../utils/reimbursementFormat';
+import { SegmentedFilter, type SegmentOption, type SegmentTone } from '@/ds/patterns/segmented-filter';
+import { CircleCheck, FileText, Users, Wallet } from 'lucide-react';
+import { StatCard } from '@/ds/patterns/stat-card';
+import { Skeleton } from '@/ds/ui/skeleton';
+import { formatMoney } from '../../utils/reimbursementFormat';
 import { PaymentKpis, PaymentState, PAYMENT_STATE_LABEL } from './paymentData';
 
 /**
  * The four numbers, then the status rail.
  *
- * The cards are the salary module's `YearlyKpiCard` unchanged — the same component the employee
- * reimbursement screen uses — so a value and its context share one box instead of the eight
- * oversized tiles this page used to open with. This file chooses which four numbers matter and
- * what they are called, and nothing else.
+ * The cards are the design system's `StatCard` (src/ds) — the Storybook benchmark every card
+ * follows. This file chooses which four numbers matter and what they are called, and nothing else.
  */
 
-const KPI_GRID = {
-    display: 'grid',
-    gap: 1.25,
-    gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', lg: 'repeat(4, minmax(0,1fr))' },
-} as const;
-
-/**
- * Four numbers on one strip, ~64px tall.
- *
- * These were four full-height cards with a value, a footer band and two chips each — a third of
- * the screen spent on four figures, and the queue they exist to introduce pushed below the fold.
- * `StatTile` is the kit's compact version of the same idea; the context that earned its place
- * rides in the value line, and the rest was noise.
- */
-function Tile({ label, value, context, tone, icon }: {
-    label: string; value: string; context?: string; tone: string; icon: string;
-}) {
-    return (
-        <StatTile
-            label={label}
-            trio={{ c: tone, bg: tone + '14', bd: tone + '3D' }}
-            icon={icon}
-            value={
-                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
-                    <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>{value}</Box>
-                    {context && (
-                        <Box component="span" sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                            {context}
-                        </Box>
-                    )}
-                </Box>
-            }
-        />
-    );
-}
+const KPI_GRID = 'grid grid-cols-2 gap-3 xl:grid-cols-4';
 
 export function PaymentKpiCards({ kpis, loading }: { kpis: PaymentKpis; loading?: boolean }) {
     if (loading) {
-        return <Box sx={KPI_GRID}>{[0, 1, 2, 3].map((i) => <SkeletonKpiCard key={i} />)}</Box>;
+        return (
+            <div className={KPI_GRID} aria-busy="true">
+                {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
+            </div>
+        );
     }
 
     return (
-        <Box sx={KPI_GRID}>
-            <Tile
-                label="Pending payment"
+        <div className={KPI_GRID}>
+            <StatCard
+                label="Pending Payment"
                 value={formatMoney(kpis.pendingAmount)}
-                context={kpis.pendingBatches > 0 ? `${kpis.pendingBatches} batch${kpis.pendingBatches === 1 ? '' : 'es'}` : undefined}
-                tone="#d97706"
-                icon="wallet"
+                hint={kpis.pendingBatches > 0
+                    ? `${kpis.pendingBatches} Batch${kpis.pendingBatches === 1 ? '' : 'es'}`
+                    : 'Nothing Owed'}
+                tone="warning"
+                icon={<Wallet aria-hidden />}
             />
-            <Tile
-                label="Total paid"
+            <StatCard
+                label="Total Paid"
                 value={formatMoney(kpis.paidAmount)}
-                context={`${kpis.settledPct}% settled`}
-                tone="#16a34a"
-                icon="check-circle"
+                hint={`${kpis.settledPct}% Settled`}
+                tone="success"
+                icon={<CircleCheck aria-hidden />}
             />
-            <Tile
-                label="Pending requests"
-                value={String(kpis.pendingRequests)}
-                context="awaiting payment"
-                tone="#2563eb"
-                icon="document"
+            <StatCard
+                // Not "Pending requests" beside "Pending Payment" — two "pending"s counting different things.
+                label="Requests Awaiting Payment"
+                value={kpis.pendingRequests}
+                hint="Approved, Not Yet Paid"
+                tone="info"
+                icon={<FileText aria-hidden />}
             />
-            <Tile
-                label="Employees awaiting"
-                value={String(kpis.employeesAwaiting)}
-                context={kpis.employeesAwaiting === 0 ? 'none' : 'to be paid'}
-                tone="#7c3aed"
-                icon="profile-user"
+            <StatCard
+                label="Employees Awaiting"
+                value={kpis.employeesAwaiting}
+                hint={kpis.employeesAwaiting === 0 ? 'None' : 'To Be Paid'}
+                tone="brand"
+                icon={<Users aria-hidden />}
             />
-        </Box>
+        </div>
     );
 }
 
@@ -96,6 +68,12 @@ export function PaymentKpiCards({ kpis, loading }: { kpis: PaymentKpis; loading?
  * the three states the backend actually writes appear; there is no "failed" payment in this data
  * model, and inventing one would put a filter on screen that can never match a row.
  */
+const STATE_TONE: Record<PaymentState, SegmentTone> = {
+    UNPAID: 'danger',
+    PARTIAL: 'warning',
+    PAID: 'success',
+};
+
 export function PaymentStatusRail({
     breakdown,
     value,
@@ -107,118 +85,32 @@ export function PaymentStatusRail({
 }) {
     const order: PaymentState[] = ['UNPAID', 'PARTIAL', 'PAID'];
     const total = order.reduce((s, k) => s + breakdown[k].count, 0);
-    const allSelected = value === null;
 
-    const segment = (
-        key: string,
-        label: string,
-        count: number,
-        amount: number,
-        selected: boolean,
-        color: string,
-        share: number,
-        onClick: () => void,
-    ) => (
-        <ButtonBase
-            key={key}
-            onClick={onClick}
-            aria-pressed={selected}
-            title={`${count} ${count === 1 ? 'batch' : 'batches'} · ${formatMoney(amount)}`}
-            aria-label={`${label}, ${count} ${count === 1 ? 'batch' : 'batches'}, ${formatMoney(amount)}`}
-            sx={(theme) => {
-                const dark = theme.palette.mode === 'dark';
-                return {
-                    position: 'relative',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.75,
-                    flex: '0 0 auto',
-                    px: 1.5,
-                    height: '100%',
-                    whiteSpace: 'nowrap',
-                    fontSize: 12,
-                    lineHeight: 1,
-                    color: selected ? color : 'text.secondary',
-                    bgcolor: selected ? alpha(color, dark ? 0.2 : 0.1) : 'transparent',
-                    borderLeft: '1px solid',
-                    borderColor: 'divider',
-                    '&:first-of-type': { borderLeft: 0 },
-                    transition: 'background-color 150ms ease, color 150ms ease',
-                    '&:hover': { bgcolor: selected ? alpha(color, dark ? 0.26 : 0.14) : 'action.hover' },
-                    '&.Mui-focusVisible': { outline: `2px solid ${color}`, outlineOffset: '-2px' },
-                    '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
-                };
-            }}
-        >
-            <Box aria-hidden sx={{
-                width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                bgcolor: color, opacity: count === 0 && !selected ? 0.35 : 1,
-            }} />
-            <Box component="span" sx={{ fontWeight: selected ? 700 : 600 }}>{label}</Box>
-            {/* Count, not amount. The amounts are already the headline above; repeating them here
-                made every segment three numbers wide and the rail unreadable at a glance. The
-                amount stays in the tooltip and the aria-label for anyone who needs it. */}
-            <Box component="span" sx={{
-                fontVariantNumeric: 'tabular-nums', fontWeight: 700,
-                color: selected ? 'inherit' : 'text.primary',
-                opacity: count === 0 && !selected ? 0.4 : 1,
-            }}>
-                {count}
-            </Box>
-
-            <Box aria-hidden sx={{
-                position: 'absolute', left: 0, right: 0, bottom: 0, height: 3,
-                bgcolor: alpha(color, 0.14),
-            }}>
-                <Box sx={{
-                    height: '100%', width: `${Math.round(share * 100)}%`, bgcolor: color,
-                    opacity: selected ? 1 : 0.6,
-                    transition: 'width 250ms ease, opacity 150ms ease',
-                    '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
-                }} />
-            </Box>
-        </ButtonBase>
-    );
+    // Count, not amount, on the segment: the amounts are the headline above, and three numbers per
+    // segment made the rail unreadable at a glance. The amount stays in the tooltip and accessible name.
+    const options: SegmentOption[] = [
+        {
+            value: 'all', label: 'All', count: total, tone: 'neutral', share: 1,
+            detail: formatMoney(order.reduce((s, k) => s + breakdown[k].amount, 0)),
+        },
+        ...order.map((state) => ({
+            value: state,
+            label: PAYMENT_STATE_LABEL[state],
+            count: breakdown[state].count,
+            tone: STATE_TONE[state],
+            share: total > 0 ? breakdown[state].count / total : 0,
+            detail: formatMoney(breakdown[state].amount),
+        })),
+    ];
 
     return (
-        <Box
-            role="group"
+        <SegmentedFilter
             aria-label="Filter the payment queue by status"
-            sx={{
-                display: 'flex',
-                alignItems: 'stretch',
-                height: 32,
-                maxWidth: '100%',
-                width: 'fit-content',
-                borderRadius: '8px',
-                border: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-                overflowX: 'auto',
-                overflowY: 'hidden',
-                scrollbarWidth: 'none',
-                '&::-webkit-scrollbar': { display: 'none' },
-            }}
-        >
-            {segment(
-                'all', 'All',
-                total,
-                order.reduce((s, k) => s + breakdown[k].amount, 0),
-                allSelected, '#475569', 1,
-                () => onChange(null),
-            )}
-            {order.map((state) =>
-                segment(
-                    state,
-                    PAYMENT_STATE_LABEL[state],
-                    breakdown[state].count,
-                    breakdown[state].amount,
-                    value === state,
-                    PAYMENT_TONE[state]?.color ?? '#475569',
-                    total > 0 ? breakdown[state].count / total : 0,
-                    () => onChange(value === state ? null : state),
-                ),
-            )}
-        </Box>
+            options={options}
+            value={value ?? 'all'}
+            // It sits in the table's filter row beside 40px controls (search, Filters): one height.
+            size="lg"
+            onValueChange={(v) => onChange(v === 'all' || v === value ? null : (v as PaymentState))}
+        />
     );
 }

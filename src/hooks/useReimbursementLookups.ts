@@ -1,96 +1,27 @@
-import { useEffect, useState, useCallback } from "react";
-import { getAllCompanyTypes, getAllClientCompanies } from "@services/companies";
-import { getProjectsByCompanyId } from "@services/projects";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getAllCompanyTypes } from "@services/companies";
+import { getReimbursementProjectOptions } from "@services/projects";
 
 /**
- * Resolved name maps for reimbursement table display.
+ * Resolved names for reimbursement table display.
  *
  * Usage:
- *   const { resolveClientType, resolveClientCompany, resolveProject } = useReimbursementLookups();
+ *   const { resolveClientType, resolveClientCompany, resolveProject } = useReimbursementLookups(rows);
  *
- * Each resolver returns the human-readable name for a given UUID, or "—" if not
- * found (e.g. the record predates the entity or the ID is null/undefined).
+ * Each resolver returns the human-readable name for an id, or "N/A".
  *
- * The hook fetches:
- *   • Company types   — via getAllCompanyTypes()
- *   • Client companies — via getAllClientCompanies()
- *   • Projects        — lazily, per unique clientCompanyId found in `rows`
+ * WHERE THE NAMES COME FROM, cheapest first:
+ *   1. The rows themselves. Drafts and submitted lines arrive with `clientCompany: { companyName }` and
+ *      `lead: { title }` attached by the server — no request at all.
+ *   2. Company types — `getAllCompanyTypes()` (small, non-sensitive, cached and shared by the service), only
+ *      when some row carries a type id.
+ *   3. Anything the server did not name — the slim, family-scoped reimbursement options
+ *      (`getReimbursementProjectOptions()`: projects + their File Location companies, cached and shared).
  *
- * Pass `rows` (the current table data) so the hook can batch-prefetch all
- * projects that appear in the visible data in a single pass.
+ * This hook used to download the ENTIRE client-company master on mount (every column — contacts, address,
+ * GST, PAN; 1.6 MB, ~5 s) plus one project list per company in the rows, to print a few names. It also ran
+ * inside closed dialogs, so every page load paid for it. With no rows it now fetches nothing.
  */
-
-
-/**
- * Module-level caches, shared by every instance of this hook.
- *
- * The hook is instantiated three times across the reimbursement screens, and each copy fetched
- * company types, client companies and per-company projects independently on mount — the same
- * responses, three times, on every page load. Nothing here changes during a session.
- *
- * The in-flight promises are cached too, not just the results: without that, three components
- * mounting in the same tick all miss the empty cache and fire the request anyway.
- */
-let baseCache: { types: Record<string, string>; companies: Record<string, string> } | null = null;
-let baseInFlight: Promise<{ types: Record<string, string>; companies: Record<string, string> }> | null = null;
-
-/** Projects keyed by the company they belong to; each company is fetched at most once. */
-const projectCache: Record<string, string> = {};
-const projectInFlight = new Map<string, Promise<void>>();
-
-const loadBaseLookups = () => {
-    if (baseCache) return Promise.resolve(baseCache);
-    if (baseInFlight) return baseInFlight;
-
-    baseInFlight = (async () => {
-        const [typesRes, companiesRes] = await Promise.all([
-            getAllCompanyTypes(),
-            getAllClientCompanies(),
-        ]);
-
-        const types: Record<string, string> = {};
-        for (const ct of (typesRes?.companyTypes ?? []) as any[]) {
-            if (ct?.id) types[ct.id] = ct.name ?? ct.id;
-        }
-
-        const rawCompanies: any[] =
-            companiesRes?.data?.companies ||
-            companiesRes?.clientCompanies ||
-            companiesRes?.data?.clientCompanies ||
-            companiesRes?.companies ||
-            [];
-        const companies: Record<string, string> = {};
-        for (const c of rawCompanies) {
-            if (c?.id) companies[c.id] = c.companyName ?? c.id;
-        }
-
-        baseCache = { types, companies };
-        return baseCache;
-    })().catch((err) => {
-        // Clear the in-flight promise so a later mount can retry rather than inheriting a
-        // permanently rejected one.
-        baseInFlight = null;
-        throw err;
-    });
-
-    return baseInFlight;
-};
-
-const loadProjectsForCompany = (companyId: string): Promise<void> => {
-    const existing = projectInFlight.get(companyId);
-    if (existing) return existing;
-
-    const p = getProjectsByCompanyId(companyId)
-        .then((res: any) => {
-            for (const proj of (res?.projects || res?.data?.projects || []) as any[]) {
-                if (proj?.id) projectCache[proj.id] = proj.title ?? proj.id;
-            }
-        })
-        .catch(() => { projectInFlight.delete(companyId); });
-
-    projectInFlight.set(companyId, p);
-    return p;
-};
 
 interface LookupMaps {
   resolveClientType: (id: string | null | undefined) => string;
@@ -100,89 +31,95 @@ interface LookupMaps {
   loading: boolean;
 }
 
+const NA = "N/A";
+
+const projectIdOf = (r: any): string | null => r?.leadId || r?.projectId || null;
+
 export function useReimbursementLookups(rows: any[] = []): LookupMaps {
+  // ── 1. Names the rows already carry ───────────────────────────────────────
+  const embedded = useMemo(() => {
+    const companies: Record<string, string> = {};
+    const projects: Record<string, string> = {};
+    for (const r of rows || []) {
+      if (r?.clientCompanyId && r?.clientCompany?.companyName) companies[r.clientCompanyId] = r.clientCompany.companyName;
+      const pid = projectIdOf(r);
+      if (pid && r?.lead?.title) projects[pid] = r.lead.title;
+    }
+    return { companies, projects };
+  }, [rows]);
+
+  // What still needs a request — computed as stable strings so the effects below re-run only when the
+  // SET of missing ids changes, not on every new rows array.
+  const needsTypes = useMemo(() => (rows || []).some((r: any) => !!r?.clientTypeId), [rows]);
+  const missingKey = useMemo(() => {
+    const missing = new Set<string>();
+    for (const r of rows || []) {
+      if (r?.clientCompanyId && !embedded.companies[r.clientCompanyId]) missing.add(`c:${r.clientCompanyId}`);
+      const pid = projectIdOf(r);
+      if (pid && !embedded.projects[pid]) missing.add(`p:${pid}`);
+    }
+    return [...missing].sort().join(",");
+  }, [rows, embedded]);
+
   const [companyTypeMap, setCompanyTypeMap] = useState<Record<string, string>>({});
-  const [clientCompanyMap, setClientCompanyMap] = useState<Record<string, string>>({});
-  const [projectMap, setProjectMap] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [fallback, setFallback] = useState<{ companies: Record<string, string>; projects: Record<string, string> }>({
+    companies: {},
+    projects: {},
+  });
+  const [typesLoading, setTypesLoading] = useState(false);
+  const [fallbackLoading, setFallbackLoading] = useState(false);
 
-  // ── Load company types + client companies once on mount ───────────────────
+  // ── 2. Company types, only when a row has one ─────────────────────────────
   useEffect(() => {
+    if (!needsTypes) return;
     let cancelled = false;
-
-    const load = async () => {
-      try {
-        const { types, companies } = await loadBaseLookups();
+    setTypesLoading(true);
+    getAllCompanyTypes()
+      .then((res) => {
         if (cancelled) return;
-        setCompanyTypeMap(types);
-        setClientCompanyMap(companies);
-      } catch (err) {
-        console.error("[useReimbursementLookups] Failed to load base lookup data", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    load();
+        const map: Record<string, string> = {};
+        for (const ct of (res?.companyTypes ?? []) as any[]) if (ct?.id) map[ct.id] = ct.name ?? ct.id;
+        setCompanyTypeMap(map);
+      })
+      .catch((err) => console.error("[useReimbursementLookups] company types failed to load", err))
+      .finally(() => { if (!cancelled) setTypesLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [needsTypes]);
 
-  // ── Lazily fetch projects for every unique clientCompanyId in current rows ─
+  // ── 3. Anything the server did not name ───────────────────────────────────
   useEffect(() => {
-    if (!rows || rows.length === 0) return;
-
-    // Collect unique, non-null clientCompanyIds that we don't have projects for yet
-    const uniqueCompanyIds = [
-      ...new Set(
-        rows
-          .map((r: any) => r?.clientCompanyId)
-          .filter((id: any) => id && typeof id === "string")
-      ),
-    ] as string[];
-
-    if (uniqueCompanyIds.length === 0) return;
-
+    if (!missingKey) return;
     let cancelled = false;
-
-    const fetchProjects = async () => {
-      await Promise.allSettled(uniqueCompanyIds.map(loadProjectsForCompany));
-      if (cancelled) return;
-      // The cache is shared, so publish the whole thing rather than a delta — another instance
-      // may have filled entries this one never asked for.
-      setProjectMap({ ...projectCache });
-    };
-
-    fetchProjects();
+    setFallbackLoading(true);
+    getReimbursementProjectOptions()
+      .then((res) => {
+        if (cancelled) return;
+        const companies: Record<string, string> = {};
+        for (const c of res?.data?.companies ?? []) if (c?.id) companies[c.id] = c.companyName;
+        const projects: Record<string, string> = {};
+        for (const p of res?.data?.projects ?? []) if (p?.id) projects[p.id] = p.title ?? p.id;
+        setFallback({ companies, projects });
+      })
+      .catch((err) => console.error("[useReimbursementLookups] project options failed to load", err))
+      .finally(() => { if (!cancelled) setFallbackLoading(false); });
     return () => { cancelled = true; };
-  // Re-run whenever the set of rows changes (new data loaded, filter toggled, etc.)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows.map((r: any) => r?.clientCompanyId).join(",")]);
+  }, [missingKey]);
 
   // ── Resolvers ─────────────────────────────────────────────────────────────
-
   const resolveClientType = useCallback(
-    (id: string | null | undefined): string => {
-      if (!id) return "N/A";
-      return companyTypeMap[id] ?? "N/A";
-    },
-    [companyTypeMap]
+    (id: string | null | undefined): string => (id ? companyTypeMap[id] ?? NA : NA),
+    [companyTypeMap],
   );
 
   const resolveClientCompany = useCallback(
-    (id: string | null | undefined): string => {
-      if (!id) return "N/A";
-      return clientCompanyMap[id] ?? "N/A";
-    },
-    [clientCompanyMap]
+    (id: string | null | undefined): string => (id ? embedded.companies[id] ?? fallback.companies[id] ?? NA : NA),
+    [embedded, fallback],
   );
 
   const resolveProject = useCallback(
-    (id: string | null | undefined): string => {
-      if (!id) return "N/A";
-      return projectMap[id] ?? "N/A";
-    },
-    [projectMap]
+    (id: string | null | undefined): string => (id ? embedded.projects[id] ?? fallback.projects[id] ?? NA : NA),
+    [embedded, fallback],
   );
 
-  return { resolveClientType, resolveClientCompany, resolveProject, loading };
+  return { resolveClientType, resolveClientCompany, resolveProject, loading: typesLoading || fallbackLoading };
 }

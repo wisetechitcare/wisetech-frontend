@@ -1,6 +1,7 @@
-import { Box } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
-import { WtButton } from '@app/modules/common/components/ui/buttons';
+import type { ReactNode } from 'react';
+import { CircleCheck } from 'lucide-react';
+import { EmptyState } from '@/ds/patterns/empty-state';
+import { Button } from '@/ds/ui/button';
 
 /**
  * What the page says when there is nothing to do.
@@ -8,46 +9,29 @@ import { WtButton } from '@app/modules/common/components/ui/buttons';
  * An empty ten-row table is the worst answer to "is there anything waiting on me?" — it looks
  * like a loading failure and reads as an unanswered question. A caught-up queue is good news and
  * should say so; a filtered-empty view is a different situation and gets a way out instead.
+ * Rendered with the design system's `EmptyState` (src/ds).
  */
 export default function PaymentEmptyState({
-    icon = 'check-circle',
-    tone = '#16a34a',
+    icon = <CircleCheck aria-hidden />,
     title,
     body,
     actionLabel,
     onAction,
 }: {
-    icon?: string;
-    tone?: string;
+    icon?: ReactNode;
     title: string;
     body: string;
     actionLabel?: string;
     onAction?: () => void;
 }) {
     return (
-        <Box sx={{
-            display: 'flex', alignItems: 'center', gap: 1.75, flexWrap: 'wrap',
-            px: 2.5, py: 2,
-            borderRadius: '12px',
-            border: '1px dashed', borderColor: 'divider',
-            bgcolor: 'action.hover',
-        }}>
-            <Box aria-hidden sx={{
-                width: 34, height: 34, borderRadius: '10px', display: 'grid', placeItems: 'center',
-                flexShrink: 0, color: tone, bgcolor: 'background.paper',
-                border: '1px solid', borderColor: 'divider',
-            }}>
-                <KTIcon iconName={icon} className="fs-4" />
-            </Box>
-
-            <Box sx={{ minWidth: 0, flex: '1 1 auto' }}>
-                <Box sx={{ fontSize: '0.9rem', fontWeight: 700, color: 'text.primary' }}>{title}</Box>
-                <Box sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.5 }}>{body}</Box>
-            </Box>
-
-            {actionLabel && onAction && (
-                <WtButton ghost size="small" onClick={onAction}>{actionLabel}</WtButton>
-            )}
-        </Box>
+        <EmptyState
+            icon={icon}
+            title={title}
+            description={body}
+            action={actionLabel && onAction
+                ? <Button variant="outline" size="sm" onClick={onAction}>{actionLabel}</Button>
+                : undefined}
+        />
     );
 }

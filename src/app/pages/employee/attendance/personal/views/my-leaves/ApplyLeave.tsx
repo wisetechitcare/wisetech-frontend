@@ -36,6 +36,7 @@ import { useLeavePalette, type LeavePalette } from './apply-leave/theme';
 import type { CSSProperties } from 'react';
 import { Button } from '@/ds/ui/button';
 import { Item } from '@/ds/ui/item';
+import { SmartAvatar } from '@/ds/ui/smart-avatar';
 import { WtCloseButton } from '@app/modules/common/components/ui/tw/WtCloseButton';
 
 /** Remove-row actions: the kit's tinted icon button in the danger tone. */
@@ -60,8 +61,6 @@ const HALF_RESET: Partial<ApplyLeaveState> = { isHalfDay: false, halfDaySession:
 // ── Pure helpers ──────────────────────────────────────────────────────────────
 const fmt       = (iso?: string | null) => iso ? new Date(String(iso).slice(0, 10) + 'T00:00:00').toLocaleString('en-US', { month: 'short', day: 'numeric' }) : '—';
 const daysLabel = (n: number) => n === 1 ? '1 day' : `${n} days`;
-const initialsOf = (name: string) =>
-    (name || '').split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).slice(0, 2).join('');
 
 // Calendar colour system — the SINGLE source of truth lives in utils/leaveTypeColors.
 // rgba / tintOf / borderOf are imported; colorOf (below) delegates to resolveLeaveTypeColor.
@@ -903,13 +902,17 @@ export default function ApplyLeave({ onClose, mode = 'apply', existing, onEdit, 
                 ) : (
                     displayChain.map((c, i) => {
                         const first = i === 0, last = i === displayChain.length - 1;
-                        const initials = initialsOf(c.approverName);
                         return (
                             <div key={c.level ?? i} style={{ display: 'flex', gap: 11 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                                    <div style={{ width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, background: first ? ACCENT : P.track, color: first ? '#fff' : P.inkFaint, boxShadow: first ? `0 0 0 3px ${rgba(ACCENT, 0.14)}` : 'none' }}>
-                                        {initials || c.level}
-                                    </div>
+                                    <SmartAvatar
+                                        name={c.approverName || `Level ${c.level ?? i + 1}`}
+                                        src={c.approverAvatar}
+                                        seed={c.approverId || c.level}
+                                        size={26}
+                                        decorative
+                                        className={first ? 'ring-[3px] ring-primary/15' : undefined}
+                                    />
                                     {!last && <div style={{ width: 2, flexGrow: 1, minHeight: 14, background: '#e6e8ec', margin: '3px 0' }} />}
                                 </div>
                                 <div style={{ paddingBottom: last ? 0 : 13, minWidth: 0, flex: 1 }}>

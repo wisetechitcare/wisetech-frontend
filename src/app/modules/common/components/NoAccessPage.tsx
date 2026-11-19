@@ -40,7 +40,7 @@ const NoAccessPage: React.FC<Props> = ({ section, kind = "section", pack, title,
       ? "You don't have access to this record"
       : `You don't have access to ${name ?? "this page"}`);
   const body = message ?? (kind === "entitlement"
-    ? `${packLabel ?? "This product area"} isn't included for your organisation. Ask an administrator to enable it under App Settings → Tenant modules, or contact your account team.`
+    ? `${packLabel ?? "This product area"} isn't included for your organization. Ask an administrator to enable it under App Settings → Tenant modules, or contact your account team.`
     : kind === "record"
       ? "It isn't assigned to you and you're not on its team, or it no longer exists. Ask an admin if you need it."
       : `Your role doesn't include ${name ?? "this page"}, or an admin has just changed your access. Ask an admin if you need it.`);

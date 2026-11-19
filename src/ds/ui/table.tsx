@@ -58,6 +58,8 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
       data-slot="table-row"
       className={cn(
         "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        // The same tints as a variable, for opaque cells (a frozen column) that would otherwise hide them.
+        "hover:[--row-hover:color-mix(in_oklab,var(--muted)_50%,transparent)] has-aria-expanded:[--row-hover:color-mix(in_oklab,var(--muted)_50%,transparent)] data-[state=selected]:[--row-hover:var(--muted)]",
         className
       )}
       {...props}

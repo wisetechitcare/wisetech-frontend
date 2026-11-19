@@ -712,7 +712,7 @@ const EmployeeConfigure = () => {
       {canWrite && item.isBuiltin && (
         // Office / On-site / Hybrid: attendance and biometric rules match them by name.
         <span title="Built in — attendance rules recognise this name, so it can't be renamed or deleted" style={{ color: C.textMuted, flexShrink: 0 }}>
-          <AppIcon name="bi-lock" />
+          <AppIcon name="lock" />
         </span>
       )}
       {canWrite && !item.isBuiltin && <div style={{ display: 'flex', gap: SP.sm, alignItems: 'center', flexShrink: 0 }}>

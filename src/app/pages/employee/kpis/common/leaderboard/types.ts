@@ -6,7 +6,8 @@ export interface PodiumEntry {
   id: string;
   name: string;
   designation?: string;
-  avatar: string;
+  /** The employee's own photo URL only (no placeholder); SmartAvatar falls back to initials. */
+  photo?: string;
   score: number;
   maxScore: number | null;
   value: number | null;

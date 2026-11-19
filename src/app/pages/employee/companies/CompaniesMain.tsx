@@ -72,6 +72,7 @@ const CompaniesMain = () => {
                 ...sub, 
                 type: 'sub-company',
                 mainCompany: {
+                  id: company.id,
                   companyName: company.companyName,
                   latitude: company.latitude,
                   longitude: company.longitude
@@ -99,6 +100,7 @@ const CompaniesMain = () => {
                 ...branch, 
                 type: 'branch',
                 company: {
+                  id: company.id,
                   companyName: company.companyName,
                   latitude: company.latitude,
                   longitude: company.longitude

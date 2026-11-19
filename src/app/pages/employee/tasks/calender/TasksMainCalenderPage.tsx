@@ -10,6 +10,7 @@ import { get, set } from 'lodash'
 import { useStoredState } from '@app/hooks/useStoredState';
 import { canSection } from '@utils/can'
 import { ToneChip } from '@app/modules/common/components/ui'
+import { SmartAvatar } from '@/ds/ui/smart-avatar'
 
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
@@ -30,6 +31,8 @@ interface TeamMember {
     employee?: {
         id?: string
         teamId?: string | null
+        /** Profile photo. Not selected by GET /teams/members yet, so this is initials until it is. */
+        avatar?: string | null
         companyId?: string
         branchId?: string
         departmentId?: string
@@ -188,22 +191,13 @@ const TeamCard: React.FC<{
                                             }}
                                         >
                                             <div className="d-flex align-items-center" style={{ gap: '12px' }}>
-                                                <div
-                                                    className="rounded-circle d-flex align-items-center justify-content-center"
-                                                    style={{
-                                                        width: '32px',
-                                                        height: '32px',
-                                                        backgroundColor: '#1E3A8A',
-                                                        color: 'white',
-                                                        fontSize: '14px',
-                                                        fontWeight: '600',
-                                                        flexShrink: 0,
-                                                    }}
-                                                >
-                                                    {(member?.employee?.users?.firstName || 'U')
-                                                        .charAt(0)
-                                                        .toUpperCase()}
-                                                </div>
+                                                <SmartAvatar
+                                                    name={`${member?.employee?.users?.firstName ?? ''} ${member?.employee?.users?.lastName ?? ''}`.trim()}
+                                                    src={member?.employee?.avatar}
+                                                    seed={member?.employeeId ?? member.id}
+                                                    size="sm"
+                                                    decorative
+                                                />
                                                 <span
                                                     className="text-truncate"
                                                     style={{

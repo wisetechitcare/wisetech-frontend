@@ -24,13 +24,8 @@ let initialState = {
     value: "",
 };
 
-export const timeToMinutes = (timeStr: string): number => {
-    const [time, period] = timeStr.split(' ');
-    let [hours, minutes] = time.split(':').map(Number);
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-    return hours * 60 + minutes;
-};
+export { timeToMinutes12h as timeToMinutes } from '@utils/timeFormat';
+import { timeToMinutes12h as timeToMinutes } from '@utils/timeFormat';
 
 const Rules = ({ fromAdmin = false, title , hideGeneralSettings, scope, readOnly = false}: { fromAdmin?: boolean, title?: string, hideGeneralSettings?: boolean, scope?: { companyId?: string; branchId?: string }, readOnly?: boolean }) => {
     const [configuration, setConfiguration] = useState({});
