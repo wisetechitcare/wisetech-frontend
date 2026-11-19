@@ -287,3 +287,11 @@ Format: **what** — evidence (file / screen) — suggested fix.
   screen.
 - **Logout leaves some user data in the browser** — onboarding wizard drafts in `sessionStorage` (bank, CTC) and
   search history not tied to a user (audit C-08). — Clear user-scoped keys in `signOut()` once they are listed.
+- **Sign-in shows "KAIZNOVA" initials, not a logo** (2026-11-19) — `AuthScreen.tsx` `PLATFORM_LOGO` is `null`
+  because no KAIZNOVA logo file exists yet; the old public `GET api/company/logo` (it served the oldest tenant's
+  logo to every tenant's sign-in) is removed. — Drop the KAIZNOVA lockup into `public/media/brand/` and point
+  `PLATFORM_LOGO` at it. Splash, favicon and PWA icons are still the WiseTech set (`media/brand/wisetech-logo.png`,
+  `icons/pwa-*`) — replace with the KAIZNOVA set in the same pass.
+- **Tenant-branded sign-in** — a tenant's own logo on its sign-in page needs a tenant hint first (subdomain, e.g.
+  `acme.app.kaiznova.com`) and a public endpoint that answers by that hint only (Wave 1 #407). — Build after the
+  domain move; never pick "a" tenant's brand without one.

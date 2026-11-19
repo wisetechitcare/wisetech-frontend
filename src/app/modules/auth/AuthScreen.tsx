@@ -1,16 +1,15 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { AuthLayout } from '@/ds/patterns/auth-layout'
 import type { TitleTone } from '@/ds/patterns/auth-layout'
 import { ThemeToggle } from '@/ds/patterns/theme-toggle'
 import { useColorMode } from '@app/theme/ColorMode'
-import { fetchCompanyLogo } from '@services/company'
-import { DEFAULT_BRAND, SIGN_IN_HEADLINE, SIGN_IN_TAGLINE } from './signInCopy'
+import { PLATFORM_BRAND, SIGN_IN_HEADLINE, SIGN_IN_TAGLINE } from './signInCopy'
 
 /**
- * The WiseTech lockup (served by this app), shown until the organization's own logo arrives from the public
- * endpoint — and if that fails. Local on purpose: no S3 round-trip, and one of the old S3 logos has gone 404.
+ * The KAIZNOVA logo file, once supplied (drop it in public/media/brand/ and point this at it). Until then the
+ * Auth Layout shows the brand's initials — its designed no-logo state (Auth Layout story "Broken Logo").
  */
-const DEFAULT_LOGO = `${import.meta.env.BASE_URL}media/brand/wisetech-logo.png`
+const PLATFORM_LOGO: string | null = null
 
 /**
  * The sign-in illustration (the original page's): a 27 KB still paints first; the 3.6 MB GIF loads in the
@@ -24,25 +23,9 @@ const ILLUSTRATION = {
   crop: { width: 800, height: 800, x: 71, y: 186, w: 658, h: 517 },
 }
 
-/** The organization's name and logo for the sign-in pages (public endpoint); defaults until it answers or if it fails. */
-function useAuthBrand() {
-  const [brand, setBrand] = useState({ name: DEFAULT_BRAND, logo: DEFAULT_LOGO })
-  useEffect(() => {
-    let cancelled = false
-    fetchCompanyLogo()
-      .then((res: { data?: { name?: string; logo?: string } }) => {
-        if (cancelled) return
-        setBrand((prev) => ({ name: res?.data?.name || prev.name, logo: res?.data?.logo || prev.logo }))
-      })
-      .catch(() => { /* keep the defaults */ })
-    return () => { cancelled = true }
-  }, [])
-  return brand
-}
-
 /**
  * Every sign-in page (Sign In, Forgot / Reset Password, Account Inactive) in one frame: the kit's Auth Layout with
- * the organization's brand, the product headline and the light/dark switch. Pages pass only their title and form.
+ * the platform brand, the product headline and the light/dark switch. Pages pass only their title and form.
  */
 export function AuthScreen({
   title,
@@ -58,12 +41,11 @@ export function AuthScreen({
   children: ReactNode
   footer?: ReactNode
 }) {
-  const brand = useAuthBrand()
   const { mode, toggle } = useColorMode()
   return (
     <AuthLayout
-      brandName={brand.name}
-      logoSrc={brand.logo}
+      brandName={PLATFORM_BRAND}
+      logoSrc={PLATFORM_LOGO}
       headline={SIGN_IN_HEADLINE}
       tagline={SIGN_IN_TAGLINE}
       title={title}

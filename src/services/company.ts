@@ -149,17 +149,6 @@ export const fetchHolidays = async (companyId: string) => {
     }
 }
 
-export const fetchCompanyLogo = async () => {
-    try {
-        const endpoint = `${API_BASE_URL}/${COMPANY.GET_LOGO}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
-}
-
 export const createCompanyOverview = async (overview: ICompanyOverview) => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.CREATE_OVERVIEW}`;
