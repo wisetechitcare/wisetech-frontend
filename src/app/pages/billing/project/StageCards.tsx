@@ -77,16 +77,14 @@ export const StageCard: React.FC<StageViewProps & { narrow: boolean }> = ({
 }) => {
     const figures = figuresOf(row);
     const actions = (
-        <div
-            className={cn("flex shrink-0 cursor-default items-center justify-end", narrow && STRETCH_ACTIONS)}
-            onClick={(e) => e.stopPropagation()}
-        >
+        <div className={cn("flex shrink-0 cursor-default items-center justify-end", narrow && STRETCH_ACTIONS)}>
             {actionsFor(row)}
         </div>
     );
+    // The card expands from its chevron only: the header is not a click target, so the actions need no stopPropagation.
     return (
         <Card size="sm" role="region" aria-label={row.stageName} className="gap-0 py-0">
-            <div onClick={onToggle} className="cursor-pointer px-3 py-2.5 hover:bg-muted/50">
+            <div className="px-3 py-2.5">
                 <div className="flex min-w-0 items-center gap-2">
                     <Chevron open={open} label={row.stageName} onClick={onToggle} />
                     <StageName name={row.stageName} large covers={row.covers} />

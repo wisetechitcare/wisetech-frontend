@@ -51,6 +51,11 @@ export const GrandTotalRow: React.FC<{ totals: ReturnType<typeof totalsOf> }> = 
     </TableRow>
 );
 
+/** A row expands on click, except from its action buttons (marked `data-row-actions`). */
+const toggleFromRow = (onToggle: () => void) => (e: React.MouseEvent) => {
+    if (!(e.target as Element).closest("[data-row-actions]")) onToggle();
+};
+
 /** The parent of a stage billed in parts: one line summing its parts, which nest beneath it. */
 export const PartsRow: React.FC<{ rows: ProjectBillingRow[]; open: boolean; onToggle: () => void }> = ({
     rows, open, onToggle,
@@ -63,7 +68,7 @@ export const PartsRow: React.FC<{ rows: ProjectBillingRow[]; open: boolean; onTo
         return values.length ? roundMoney(values.reduce((a, b) => a + b, 0)) : null;
     };
     return (
-        <TableRow onClick={onToggle} className={cn("cursor-pointer", open && "border-b-0")}>
+        <TableRow onClick={toggleFromRow(onToggle)} className={cn("cursor-pointer", open && "border-b-0")}>
             <TableCell className={cn(CELL, STAGE_PAD, "whitespace-normal")}>
                 <div className="flex min-w-0 items-center gap-2">
                     <Chevron open={open} label={stageName} onClick={onToggle} />
@@ -98,7 +103,7 @@ export const StageRow: React.FC<StageViewProps & { nested?: boolean; isLastChild
 }) => {
     return (
         <>
-            <TableRow onClick={onToggle} className={cn("cursor-pointer", open && "border-b-0", nested && "bg-muted/15 hover:bg-muted/30")}>
+            <TableRow onClick={toggleFromRow(onToggle)} className={cn("cursor-pointer", open && "border-b-0", nested && "bg-muted/15 hover:bg-muted/30")}>
                 <TableCell className={cn(CELL, "whitespace-normal relative", nested ? "pl-12" : STAGE_PAD)}>
                     {/* Tree connector lines */}
                     {nested && (
@@ -143,7 +148,7 @@ export const StageRow: React.FC<StageViewProps & { nested?: boolean; isLastChild
                     </TableCell>
                 ))}
                 <TableCell className={CELL}>
-                    <div className="flex cursor-default items-center justify-end" onClick={(e) => e.stopPropagation()}>
+                    <div data-row-actions className="flex cursor-default items-center justify-end">
                         {actionsFor(row)}
                     </div>
                 </TableCell>
