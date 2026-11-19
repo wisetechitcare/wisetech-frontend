@@ -168,41 +168,6 @@ export const fetchAllCities = async (ciso: string, siso: string) => {
     }
 }
 
-export const fetchAllTowns = async () => {
-    try {
-        const endpoint = `${API_BASE_URL}/${OPTIONS.TOWNS}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
-}
-export const createNewTowns = async (payload: { companyId: string, towns: string[] }) => {
-  try {
-    const endpoint = `${API_BASE_URL}/${OPTIONS.CREATE_TOWN}`;
-    // Extract the town name from the towns array and send only the name
-    const name = payload.towns[0];
-    const { data } = await axios.post(endpoint, { name });
-    return data;
-  } catch (err: any) {
-    console.error("Error creating town:", err.response?.data || err.message);
-    throw err;
-  }
-};
-
-export const updateTownById = async (id: string, payload: { name: string }) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${OPTIONS.UPDATE_TOWN_BY_ID}?id=${id}`;
-        const { data } = await axios.put(endpoint, payload);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
-}
-
-
 export const fetchDepartments = async () => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.GET_ALL_DEPARTMENTS}`;

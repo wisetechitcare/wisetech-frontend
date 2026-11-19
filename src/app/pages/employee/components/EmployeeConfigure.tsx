@@ -49,8 +49,7 @@ import {
  *
  * Shifts, Departments and Job Profiles moved here from Organization → Configure:
  * all three fill onboarding dropdowns, so editing them from a different module meant
- * hunting across two screens both labelled "Configure". Towns stayed behind — it feeds
- * a BRANCH, and onboarding only picks the finished branch.
+ * hunting across two screens both labelled "Configure".
  */
 const CONFIG_TABS = [
   { id: "job-profiles" },

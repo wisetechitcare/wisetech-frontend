@@ -5,12 +5,10 @@ import * as Yup from 'yup'
 import { KTIcon } from '@metronic/helpers'
 import { PageLink, PageTitle } from '@metronic/layout/core'
 import {
-  createNewTowns,
   fetchAllCities,
   fetchAllCountries,
   fetchAllCurrencies,
   fetchAllStates,
-  fetchAllTowns,
   fetchCountryName,
   fetchStateName,
 } from '@services/options'
@@ -70,9 +68,9 @@ const branchSchema = Yup.object({
   name: Yup.string().required().label('Branch Name'),
   address: Yup.string().required().label('Branch Address'),
   cityId: Yup.string().required().label('City'),
-  countryId: Yup.string().required().label('Town'),
+  countryId: Yup.string().required().label('Country'),
   stateId: Yup.string().required().label('State'),
-  townId: Yup.string().required().label('Town'),
+  locality: Yup.string().optional().label('Locality'),
   postalCode: Yup.string().required().label('Postal Code'),
   latitude: Yup.string().required().label('Latitude'),
   longitude: Yup.string().required().label('Longitude'),
@@ -141,7 +139,7 @@ let initialState = {
   countryId: '',
   cityId: '',
   stateId: '',
-  townId: '',
+  locality: '',
   postalCode: '',
   latitude: '',
   longitude: '',
@@ -224,9 +222,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
 
   const [citiesOption, setCitiesOptions] = useState([])
   const [selectedCity, setSelectedCity] = useState<Option | null>(null)
-
-  const [townsOption, setTownsOptions] = useState([])
-  const [selectedTown, setSelectedTown] = useState<Option | null>(null)
 
   const [currenciesOption, setCurrenciesOptions] = useState([])
   // const [dateFormatOptions] = useState([
@@ -361,7 +356,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     setSelectedCountry(null)
     setSelectedState(null)
     setSelectedCity(null)
-    setSelectedTown(null)
     setTimezoneManuallyEdited(false)
     setCountryTimezoneOptions(null)
 
@@ -371,7 +365,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       countryId: '',
       cityId: '',
       stateId: '',
-      townId: '',
+      locality: '',
       postalCode: '',
       latitude: '',
       longitude: '',
@@ -405,14 +399,13 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       name,
       stateId,
       countryId,
-      townId,
+      locality,
       latitude,
       longitude,
       currency,
       dateFormat,
       isActive,
       companyId,
-      town,
       timezone,
     } = branch
 
@@ -426,7 +419,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     setSelectedCountry(countryId ? { value: countryId, label: countryLabel } : null)
     setSelectedState(stateId ? { value: stateId, label: stateLabel } : null)
     setSelectedCity(cityId ? { value: cityId, label: cityId } : null)
-    setSelectedTown(town ? { value: town.id, label: town.name } : null)
     // Scope the Timezone dropdown to this branch's existing country's zones —
     // WITHOUT touching the branch's own already-saved `timezone` value below.
     setCountryTimezoneOptions(resolveCountryTimezones(countryId).options)
@@ -434,7 +426,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     initialState = {
       address,
       cityId,
-      townId,
+      locality: locality || '',
       countryId,
       name,
       stateId,
@@ -628,7 +620,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
       setListReady(true)
     }
 
-    fetchTowns()
     fetchData()
   }, [loading, companyId])
 
@@ -726,15 +717,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     }
   }
   
-  const fetchTowns = async () => {
-    const townsResponse = await fetchAllTowns()
-    const townsOptions = townsResponse.data.towns.map((town: any) => ({
-      value: town.id,
-      label: town.name,
-    }))
-    setTownsOptions(townsOptions)
-  }
-
   const fetchCurrencies = async () => {
     try {
       const currenciesResponse = await fetchAllCurrencies()
@@ -752,10 +734,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
     }
   }
   
-  const handleTownsRefresh = () => {
-    setLoading(prev => !prev) // Toggle loading to trigger re-fetch
-  }
-
   const handleDetectLocation = (formikProps: any) => {
     getLocation(formikProps)
   }
@@ -768,9 +746,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
   }, [selectedCountry])
   // Cities are entered as free text (no offline city dataset / CSC key), so we
   // no longer fetch them from the geo API.
-  useEffect(() => {
-    fetchTowns()
-  }, [selectedCity])
   useEffect(() => {
     fetchCurrencies()
   }, [])
@@ -884,7 +859,7 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
   ) : null}
 </Box>
         {/* disableEnforceFocus/RestoreFocus: let the portaled react-select menus
-            (Country/State/Town/Org) receive focus & clicks inside the dialog. */}
+            (Country/State/Org) receive focus & clicks inside the dialog. */}
         <GlassDialog
           open={show} onClose={handleClose} maxWidth="md" fullWidth
           preset="form"
@@ -970,9 +945,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
 
                           setSelectedCity(null)
                           formikProps.setFieldValue('cityId', '')
-
-                          setSelectedTown(null)
-                          formikProps.setFieldValue('townId', '')
 
                           setStatesOptions([])
                           setCitiesOptions([])
@@ -1077,9 +1049,6 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                           setSelectedCity(null)
                           formikProps.setFieldValue('cityId', '')
 
-                          setSelectedTown(null)
-                          formikProps.setFieldValue('townId', '')
-
                           setCitiesOptions([])
                         }}
                         formikField='stateId'
@@ -1099,15 +1068,12 @@ const defaultFilterOption = (input: string, option?: { label: string; value: str
                     </div>
 
                     <div className='col-lg-6 mb-sm-7 mb-md-7 mb-7'>
-                      <DropDownInput
-                        isRequired={true}
-                        formikField='townId'
-                        inputLabel='Town'
-                        options={townsOption}
-                        showAddBtn={true}
-                        functionToCallOnModalSubmit={createNewTowns}
-                        fieldName="towns"
-                        functionToSetFieldOptions={handleTownsRefresh}
+                      {/* Locality = the area within the city (e.g. Jogeshwari). It replaces the old Town
+                          picker, which needed a separate masters list. Optional free text. */}
+                      <TextInput
+                        isRequired={false}
+                        label='Locality'
+                        formikField='locality'
                       />
                     </div>
 

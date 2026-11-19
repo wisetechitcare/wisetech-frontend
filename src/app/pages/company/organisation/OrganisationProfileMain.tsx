@@ -6,7 +6,6 @@ import React from 'react'
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import OrganizationsPage from './OrganizationsPage';
-import Masters from '../masters/Masters';
 import { IOrgNode } from '@models/company';
 import { useTabRoute } from '@app/hooks/useTabRoute';
 
@@ -26,14 +25,9 @@ function OrganisationProfileMain() {
             component: <OrganizationsPage onOpenOrg={handleOpenOrg} />,
             icon: 'bi-building',
         },
-        {
-            title: "Configure",
-            component: <Masters />,
-            icon: 'bi-gear',
-        }
     ];
 
-    // The tab is the URL (/company/organisation-profile/configure), so it survives a refresh,
+    // The tab is the URL (/company/organisation-profile), so it survives a refresh,
     // a shared link, and the remount the header does at the mobile breakpoint. The base is
     // explicit: this route has no splat of its own (it shares its base with /:orgId), so an
     // omitted base picked up the app-wide `/*` splat and redirected to /organizations → 404.
