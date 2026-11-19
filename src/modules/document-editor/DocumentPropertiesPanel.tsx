@@ -8,7 +8,7 @@ import { Input } from "@/ds/ui/input";
 import { Textarea } from "@/ds/ui/textarea";
 import { IconBox } from "@/ds/patterns/icon-box";
 import { cn } from "@/ds/lib/utils";
-import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
+import { DynamicIcon } from "@/ds/ui/dynamic-icon";
 import type { FieldPolicy } from "@services/documents";
 import {
   ADDRESS_SOURCE_LABELS,
@@ -34,7 +34,10 @@ import { MiniSelect, Segmented } from "./controls";
 
 /** A small tinted tile for a section's icon. */
 const SectionIcon: React.FC<{ name: string; tone?: "brand" | "slate" }> = ({ name, tone = "brand" }) => (
-  <IconBox size="sm" tone={tone} className="size-6 rounded-md [&>svg]:size-3.5" icon={<AppIcon name={name} className="fs-8" />} />
+  // The name is data (a section's configured icon), which is exactly what DynamicIcon is for — and it
+  // resolves through the same `iconFor` registry AppIcon used, so stored keenicon/bootstrap names still
+  // land. No `fs-8`: IconBox already sizes the glyph with `[&>svg]:size-3.5`.
+  <IconBox size="sm" tone={tone} className="size-6 rounded-md [&>svg]:size-3.5" icon={<DynamicIcon name={name} />} />
 );
 
 /**
