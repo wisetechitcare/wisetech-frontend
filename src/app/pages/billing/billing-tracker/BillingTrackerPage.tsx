@@ -2,8 +2,8 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useBillingOrgId } from "../BillingLayout";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Box, Stack, Tooltip, Typography } from "@mui/material";
-import { KTIcon } from "@metronic/helpers";
+import { Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { Progress } from "@/ds/ui/progress";
 import { toneAlpha, isHexColor, type SemanticTone } from "@app/modules/common/components/ui";
@@ -47,11 +47,12 @@ const EXPECTED_HINT =
 
 /** Column header with a tooltip. `Header` overrides the plain string in MaterialTable. */
 const HintHeader: React.FC<{ title: string; hint: string }> = ({ title, hint }) => (
-  <Tooltip title={hint} placement="top">
-    <Stack direction="row" alignItems="center" spacing={0.5} sx={{ cursor: "help" }}>
+  <Tooltip>
+    <TooltipTrigger render={<span className="inline-flex cursor-help items-center gap-1" />}>
       <span>{title}</span>
-      <KTIcon iconName="information-2" className="fs-8 text-muted" />
-    </Stack>
+      <Info aria-hidden className="size-3 text-muted-foreground" />
+    </TooltipTrigger>
+    <TooltipContent side="top">{hint}</TooltipContent>
   </Tooltip>
 );
 
@@ -155,11 +156,7 @@ const BillingTrackerPage: React.FC = () => {
         Cell: ({ row }: any) => {
           const project: BillingTrackerRow = row.original;
           return (
-            <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: "inherit", fontWeight: 700 }}>
-                {project.projectNumber ?? DASH}
-              </Typography>
-            </Box>
+            <span className="block min-w-0 font-bold">{project.projectNumber ?? DASH}</span>
           );
         },
       },
@@ -202,13 +199,13 @@ const BillingTrackerPage: React.FC = () => {
           const project: BillingTrackerRow = row.original;
           if (project.workDonePercent == null) return DASH;
           return (
-            <Box sx={{ minWidth: 150 }}>
-              <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.4 }}>
+            <div className="min-w-[150px]">
+              <div className="mb-1 flex justify-between">
                 {project.workDoneAmount != null ? <Money value={project.workDoneAmount} bold muted={!project.workDoneAmount} /> : <span />}
-                <Typography component="span" sx={{ fontSize: 11, color: "text.secondary" }}>{project.workDonePercent}%</Typography>
-              </Stack>
+                <span className="text-[11px] text-muted-foreground">{project.workDonePercent}%</span>
+              </div>
               <Progress value={project.workDonePercent} aria-label="Work done on the project" />
-            </Box>
+            </div>
           );
         },
       },
@@ -397,7 +394,11 @@ const BillingTrackerPage: React.FC = () => {
             return {
               // The PROJECT view (/project/:id), not the lead view — every row here is a
               // project, and the lead path opens the same record with the lead tab set.
-              onClick: () => navigate(`/project/${project.leadId}?tab=billing`),
+              // A click inside the Action column (note, tasks) belongs to that control, not to the row.
+              onClick: (e: React.MouseEvent) => {
+                if ((e.target as Element).closest("[data-row-actions]")) return;
+                navigate(`/project/${project.leadId}?tab=billing`);
+              },
               sx: {
                 cursor: "pointer",
                 // Tokens where there is no status colour: this table has to survive

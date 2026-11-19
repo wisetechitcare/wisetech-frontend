@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, CircularProgress, Popover, Stack, TextField, Tooltip, Typography, alpha } from "@mui/material";
-import { KTIcon } from "@metronic/helpers";
-import { GlassDialog, GlassHeader, WtButton, toast } from "@app/modules/common/components/ui";
+import { NotebookPen, Pencil, SquareCheckBig } from "lucide-react";
+import { Button, buttonVariants } from "@/ds/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ds/ui/popover";
+import { Spinner } from "@/ds/ui/spinner";
+import { Textarea } from "@/ds/ui/textarea";
+import { FormDialog } from "@/ds/patterns/form-dialog";
+import { cn } from "@/ds/lib/utils";
+import { toast } from "@app/modules/common/components/ui";
 import ActionIconButton from "@app/modules/common/components/ui/ActionIconButton";
 import { SolidChip } from "@app/modules/common/components/ui/SolidChip";
 import { TaskFormDialog } from "@app/pages/employee/tasks/components/TaskFormDialog";
@@ -21,7 +26,7 @@ import {
  * notifications), then linked to the row so the row can count and list it.
  *
  * The dialogs live once on the page (`useTrackerActions`), not once per row — a 25-row page would otherwise mount 25
- * task forms.
+ * task forms. The task LIST is a popover per row that has tasks; its body (and its query) only exists while open.
  */
 
 export const ACTION_COLUMN_WIDTH = 300;
@@ -35,89 +40,56 @@ const subtitleOf = (row: Row) => [row.projectNumber, row.projectName].filter(Boo
 interface ActionsCellProps {
   row: Row;
   onNote: (row: Row) => void;
-  onTasks: (row: Row, anchor: HTMLElement | null) => void;
+  /** Open the "add a task" dialog for this row. */
+  onTasks: (row: Row) => void;
 }
 
 export const TrackerActionsCell: React.FC<ActionsCellProps> = ({ row, onNote, onTasks }) => {
   const note = row.billingNote || "";
   const count = row.taskCount || 0;
   return (
-    // The row navigates to the project on click; nothing in this cell should.
+    // The row navigates to the project on click; the page's row handler skips clicks inside `data-row-actions`.
     // One control per job: an empty row shows two quiet icons and no placeholder text (it repeated on
     // every row); a set note IS its own edit button, and a task count IS the way into the list.
-    <Stack
-      direction="row"
-      alignItems="center"
-      spacing={0.75}
-      onClick={(e) => e.stopPropagation()}
-      sx={{ width: ACTION_COLUMN_WIDTH - 20, minWidth: 0 }}
-    >
+    // 280 = ACTION_COLUMN_WIDTH (300) less the cell's padding.
+    <div data-row-actions className="flex w-[280px] min-w-0 items-center gap-1.5">
       {count ? (
-        <Tooltip title="View tasks or add another" placement="top">
-          <Box
-            component="button"
-            type="button"
-            onClick={(e: React.MouseEvent<HTMLElement>) => onTasks(row, e.currentTarget)}
-            aria-label={`${count} task${count > 1 ? "s" : ""}. View or add`}
-            sx={(t) => ({
-              ...PILL, flexShrink: 0, gap: 0.5, color: "success.main", fontWeight: 700,
-              bgcolor: alpha(t.palette.success.main, 0.1), borderColor: alpha(t.palette.success.main, 0.3),
-              "&:hover": { bgcolor: alpha(t.palette.success.main, 0.18) },
-            })}
-          >
-            <KTIcon iconName="check-square" className="fs-6" />
-            {count} task{count > 1 ? "s" : ""}
-          </Box>
-        </Tooltip>
+        <TaskListPopover row={row} count={count} onAdd={onTasks} />
       ) : (
-        <ActionIconButton size="sm" tone="success" iconName="check-square" title="Assign a task" onClick={() => onTasks(row, null)} />
+        <ActionIconButton size="sm" tone="success" iconName="check-square" title="Assign a task" onClick={() => onTasks(row)} />
       )}
 
       {note ? (
-        <Tooltip title={note} placement="top-start" enterDelay={300}>
-          <Box
-            component="button"
-            type="button"
-            onClick={() => onNote(row)}
-            aria-label={`Note: ${note}. Edit note`}
-            sx={(t) => ({
-              ...PILL, flex: 1, minWidth: 0, gap: 0.75, justifyContent: "space-between", textAlign: "left",
-              color: "text.primary", fontWeight: 500,
-              bgcolor: alpha(t.palette.warning.main, 0.1), borderColor: alpha(t.palette.warning.main, 0.35),
-              "&:hover": { bgcolor: alpha(t.palette.warning.main, 0.18) },
-              "& .note-edit": { opacity: 0.55 }, "&:hover .note-edit": { opacity: 1 },
-            })}
-          >
-            {/* Two lines at most, so a long note never sets the row's height; the whole text is on the tooltip. */}
-            <Box component="span" sx={{
-              minWidth: 0, whiteSpace: "normal", lineHeight: 1.35,
-              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-            }}>
-              {note}
-            </Box>
-            <KTIcon iconName="pencil" className="fs-7 note-edit" />
-          </Box>
-        </Tooltip>
+        <Button
+          type="button"
+          variant="tinted"
+          size="sm"
+          onClick={() => onNote(row)}
+          title={note}
+          aria-label={`Note: ${note}. Edit note`}
+          className="h-auto min-h-8 min-w-0 flex-1 justify-between gap-1.5 py-1 text-left font-medium whitespace-normal [--tint:var(--warning)]"
+        >
+          {/* Two lines at most, so a long note never sets the row's height; the whole text is the tooltip.
+              In an element, not bare text: the note is the user's own words, not a label to Title Case. */}
+          <span className="line-clamp-2 min-w-0 flex-1 leading-snug">{note}</span>
+          <Pencil data-icon="inline-end" aria-hidden className="opacity-60" />
+        </Button>
       ) : (
         <ActionIconButton size="sm" iconName="notepad-edit" title="Add note" onClick={() => onNote(row)} />
       )}
-    </Stack>
+    </div>
   );
 };
 
-/** The shared shape of the task chip and the note pill — same height as the kit's small action button. */
-const PILL = {
-  display: "inline-flex", alignItems: "center", minHeight: 30, px: 1.25, py: 0.5,
-  border: "1px solid", borderRadius: "8px", cursor: "pointer", fontSize: 12.5, fontFamily: "inherit",
-  transition: "background-color 0.15s ease",
-} as const;
-
 // ─── Note dialog ─────────────────────────────────────────────────────────────
+
+const NOTE_FORM_ID = "billing-tracker-note-form";
 
 const NoteDialog: React.FC<{ row: Row | null; onClose: () => void; onSaved: () => void }> = ({ row, onClose, onSaved }) => {
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => setText(row?.billingNote || ""), [row]);
+  const unchanged = text.trim() === (row?.billingNote || "");
 
   const save = async (value: string) => {
     if (!row) return;
@@ -135,120 +107,106 @@ const NoteDialog: React.FC<{ row: Row | null; onClose: () => void; onSaved: () =
   };
 
   return (
-    <GlassDialog
+    <FormDialog
       open={!!row}
-      onClose={saving ? undefined : onClose}
-      maxWidth="sm"
-      fullWidth
-      header={
-        <GlassHeader
-          title="Note"
-          subtitle={row ? subtitleOf(row) : ""}
-          icon={<KTIcon iconName="notepad-edit" className="fs-1" />}
-          onClose={saving ? undefined : onClose}
-        />
-      }
+      onOpenChange={(open) => { if (!open && !saving) onClose(); }}
+      title="Note"
+      description={row ? subtitleOf(row) : undefined}
+      icon={<NotebookPen aria-hidden />}
+      size="sm"
+      formId={NOTE_FORM_ID}
+      submitLabel={saving ? "Saving…" : "Save note"}
+      submitting={saving}
+      submitDisabled={unchanged}
+      dirty={!unchanged}
+      footerStart={row?.billingNote ? (
+        <Button type="button" variant="tinted" className="[--tint:var(--cta-danger)]" disabled={saving} onClick={() => void save("")}>
+          Clear note
+        </Button>
+      ) : undefined}
     >
-      <Box sx={{ p: { xs: 2, sm: 2.75 } }}>
-        <TextField
-          fullWidth
-          multiline
-          minRows={3}
+      <form id={NOTE_FORM_ID} noValidate onSubmit={(e) => { e.preventDefault(); void save(text); }} className="space-y-1.5 p-6">
+        <Textarea
           autoFocus
+          rows={4}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="e.g. Client asked to resend the invoice to their accounts team"
-          inputProps={{ "aria-label": "Note", maxLength: BILLING_NOTE_MAX }}
+          aria-label="Note"
+          maxLength={BILLING_NOTE_MAX}
         />
-        <Typography sx={{ mt: 0.75, fontSize: 12, color: "text.secondary", textAlign: "right" }}>
-          {text.length} / {BILLING_NOTE_MAX}
-        </Typography>
-      </Box>
-      <Stack
-        direction={{ xs: "column-reverse", sm: "row" }}
-        spacing={1}
-        justifyContent="flex-end"
-        sx={{ px: 2.5, py: 1.75, borderTop: "1px solid", borderColor: "divider" }}
-      >
-        {row?.billingNote ? (
-          <WtButton tone="danger" ghost onClick={() => save("")} disabled={saving} sx={{ mr: { sm: "auto" } }}>
-            clear note
-          </WtButton>
-        ) : null}
-        <WtButton ghost onClick={onClose} disabled={saving}>cancel</WtButton>
-        <WtButton
-          onClick={() => save(text)}
-          disabled={saving || text.trim() === (row?.billingNote || "")}
-          startIcon={saving ? <CircularProgress size={14} color="inherit" /> : undefined}
-          sx={{ minWidth: 120 }}
-        >
-          {saving ? "saving…" : "save note"}
-        </WtButton>
-      </Stack>
-    </GlassDialog>
+        <p className="text-right text-xs text-muted-foreground">{text.length} / {BILLING_NOTE_MAX}</p>
+      </form>
+    </FormDialog>
   );
 };
 
 // ─── Task list popover ───────────────────────────────────────────────────────
 
-const TasksPopover: React.FC<{
-  row: Row | null; anchor: HTMLElement | null; onClose: () => void; onAdd: (row: Row) => void;
-}> = ({ row, anchor, onClose, onAdd }) => {
+const TaskListPopover: React.FC<{ row: Row; count: number; onAdd: (row: Row) => void }> = ({ row, count, onAdd }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        aria-label={`${count} task${count > 1 ? "s" : ""}. View or add`}
+        title="View tasks or add another"
+        className={cn(buttonVariants({ variant: "tinted", size: "sm" }), "shrink-0 font-bold [--tint:var(--cta-success)]")}
+      >
+        <SquareCheckBig data-icon="inline-start" aria-hidden />
+        <span>{count} task{count > 1 ? "s" : ""}</span>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[360px] max-w-[calc(100vw-2rem)] gap-0 p-0">
+        <TaskList row={row} onAdd={() => { setOpen(false); onAdd(row); }} />
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+/** Mounted only while the popover is open, so the query runs on demand — never once per row. */
+const TaskList: React.FC<{ row: Row; onAdd: () => void }> = ({ row, onAdd }) => {
   const navigate = useNavigate();
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["billing-tracker-tasks", row?.leadId],
-    queryFn: () => listTrackerTasks(row!.leadId),
-    enabled: !!row && !!anchor,
+    queryKey: ["billing-tracker-tasks", row.leadId],
+    queryFn: () => listTrackerTasks(row.leadId),
   });
 
   return (
-    <Popover
-      open={!!row && !!anchor}
-      anchorEl={anchor}
-      onClose={onClose}
-      onClick={(e) => e.stopPropagation()}
-      anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-      slotProps={{ paper: { sx: { width: 360, maxWidth: "calc(100vw - 32px)", borderRadius: 2 } } }}
-    >
-      <Stack direction="row" alignItems="center" justifyContent="space-between"
-        sx={{ px: 2, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>Tasks</Typography>
-          <Typography noWrap sx={{ fontSize: 11.5, color: "text.secondary" }}>{row ? subtitleOf(row) : ""}</Typography>
-        </Box>
-        <WtButton onClick={() => { if (row) onAdd(row); onClose(); }}>+ add task</WtButton>
-      </Stack>
-      <Box sx={{ maxHeight: 320, overflowY: "auto", py: 0.5 }}>
+    <>
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-sm font-bold">Tasks</p>
+          <p className="truncate text-xs text-muted-foreground">{subtitleOf(row)}</p>
+        </div>
+        <Button type="button" size="sm" onClick={onAdd}>+ Add task</Button>
+      </div>
+      <div className="max-h-80 overflow-y-auto py-1">
         {isLoading ? (
-          <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={20} /></Stack>
+          <div className="flex justify-center py-6"><Spinner className="size-5" aria-label="Loading tasks" /></div>
         ) : tasks.length === 0 ? (
-          <Typography sx={{ px: 2, py: 2, fontSize: 13, color: "text.secondary" }}>No open tasks.</Typography>
+          <p className="px-4 py-4 text-sm text-muted-foreground">No open tasks.</p>
         ) : (
           tasks.map((t) => (
-            <Box
+            <Button
               key={t.id}
-              component="button"
               type="button"
+              variant="ghost"
               onClick={() => navigate(`/tasks/${t.id}`)}
-              sx={{
-                display: "block", width: "100%", textAlign: "left", border: 0, background: "none",
-                px: 2, py: 1, cursor: "pointer", "&:hover": { bgcolor: "action.hover" },
-              }}
+              className="h-auto w-full flex-col items-stretch gap-0.5 rounded-none px-4 py-2 text-left font-normal"
             >
-              <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
-                <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: "text.primary" }}>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
                   {t.taskNo ? `#${t.taskNo} ` : ""}{t.taskName}
-                </Typography>
+                </span>
                 {t.status?.name ? <SolidChip label={t.status.name} color={t.status.color} /> : null}
-              </Stack>
-              <Typography noWrap sx={{ fontSize: 11.5, color: "text.secondary", mt: 0.25 }}>
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
                 {[t.assigneeName, t.dueDate ? `Due ${formatDate(t.dueDate)}` : null].filter(Boolean).join(" · ") || "Unassigned"}
-              </Typography>
-            </Box>
+              </span>
+            </Button>
           ))
         )}
-      </Box>
-    </Popover>
+      </div>
+    </>
   );
 };
 
@@ -258,7 +216,6 @@ const TasksPopover: React.FC<{
 export const useTrackerActions = () => {
   const queryClient = useQueryClient();
   const [noteRow, setNoteRow] = useState<Row | null>(null);
-  const [listRow, setListRow] = useState<{ row: Row; anchor: HTMLElement } | null>(null);
   const [taskRow, setTaskRow] = useState<Row | null>(null);
 
   const refresh = (leadId?: string) => {
@@ -267,7 +224,7 @@ export const useTrackerActions = () => {
   };
 
   const onNote = (row: Row) => setNoteRow(row);
-  const onTasks = (row: Row, anchor: HTMLElement | null) => (anchor ? setListRow({ row, anchor }) : setTaskRow(row));
+  const onTasks = (row: Row) => setTaskRow(row);
 
   const onTaskSaved = async (saved?: { id: string } | null) => {
     const row = taskRow;
@@ -284,12 +241,6 @@ export const useTrackerActions = () => {
   const dialogs = (
     <>
       <NoteDialog row={noteRow} onClose={() => setNoteRow(null)} onSaved={() => refresh()} />
-      <TasksPopover
-        row={listRow?.row ?? null}
-        anchor={listRow?.anchor ?? null}
-        onClose={() => setListRow(null)}
-        onAdd={(row) => setTaskRow(row)}
-      />
       <TaskFormDialog
         open={!!taskRow}
         onClose={() => setTaskRow(null)}
