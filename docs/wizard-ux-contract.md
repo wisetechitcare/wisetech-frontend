@@ -280,7 +280,7 @@ Target **WCAG 2.2 AA** as an acceptance goal, verified with automation **and man
 
 ### 15.5 Surface, blur and motion
 
-1. **Chrome follows `data-surface`** (`glass` | `material`). The value comes from **Interface Style**, resolved user preference → organisation default → `material` fallback (`src/preferences/core.ts`).
+1. **Chrome follows `data-surface`** (`glass` | `material`). The value comes from **Interface Style**, resolved user preference → organization default → `material` fallback (`src/preferences/core.ts`).
 2. The **form canvas, fields, Review step and tables are always opaque**, whatever the surface. Glass applies to chrome only (header, rail, footer, dialogs).
 3. **No raw `backdrop-filter` outside the kit.** Use `glassSx` / `GlassSurface` / `GlassDialog`, which follow Interface Style. Enforced by ESLint for TSX and `scripts/hooks/guard.mjs` for CSS.
 4. **Step transitions** are 150–200 ms, ease-out. Spring easing only for small affordances (chips, checkmarks, toggles). `prefers-reduced-motion: reduce` disables non-essential motion.

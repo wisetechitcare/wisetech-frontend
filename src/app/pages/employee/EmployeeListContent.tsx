@@ -622,7 +622,7 @@ const EmployeeListContent = () => {
     [facets, rootOrgNames],
   );
 
-  // A branch the (new) sub-organisation does not contain is cleared — the shared cascade rule.
+  // A branch the (new) sub-organization does not contain is cleared — the shared cascade rule.
   useEffect(() => {
     if (branchFilter !== 'All' && facets.branches.length > 0 && !branchOptions.includes(branchFilter)) setBranchFilter('All');
   }, [branchFilter, branchOptions, facets.branches.length]);

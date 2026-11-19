@@ -2,18 +2,6 @@ import axios from 'axios';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
-
-export const getLeadDocuments = async (leadId: string) => {
-  const response = await axios.get(`${API_BASE_URL}/api/leads/export/documents/${leadId}`);
-  return response.data;
-};
-
-export const getAllDocuments = async () => {
-  const response = await axios.get(`${API_BASE_URL}/api/leads/export/documents`);
-  return response.data;
-};
-
 export const downloadDocument = async (url: string, fileName: string) => {
   try {
     // Presigned S3 URL — credentials must stay off: S3 CORS can't answer
@@ -67,24 +55,6 @@ export const previewDocument = async (url: string, fileName: string) => {
     console.error('Preview failed:', error);
     window.open(url, '_blank');
   }
-};
-
-export const renameDocument = async (documentId: string, newName: string) => {
-  const response = await axios.patch(`${API_BASE_URL}/api/leads/export/documents/rename/${documentId}`, { newName });
-  return response.data;
-};
-
-export const deleteDocument = async (documentId: string) => {
-  const response = await axios.delete(`${API_BASE_URL}/api/leads/export/documents/${documentId}`);
-  return response.data;
-};
-
-export const deleteDocuments = async (documentIds: string[]) => {
-  // If backend supports bulk delete, use it. Otherwise, use Promise.all
-  // For now, we'll use Promise.all to ensure persistence for each file.
-  const deletions = documentIds.map(id => axios.delete(`${API_BASE_URL}/api/leads/export/documents/${id}`));
-  const results = await Promise.all(deletions);
-  return results.map(r => r.data);
 };
 
 export const downloadDocumentsAsZip = async (files: { url: string; name: string }[], zipName: string = 'documents.zip') => {

@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Stack, Typography } from "@mui/material";
+import { Box, Stack } from "@mui/material";
 import { ConfigSectionCard } from "@app/modules/configuration";
 import {
   GlassDialog, GlassHeader, WtButton, WtCheckboxField, WtField, ConfigColorChip,
 } from "@app/modules/common/components/ui";
-import { confirmDialog, toast } from "@app/modules/common/components/ui/feedback";
+import { alertDialog, confirmDialog, toast } from "@app/modules/common/components/ui/feedback";
 import { canDelete } from "@utils/can";
 import {
   getBillingTaxRates, saveGstSlab, deleteGstSlab, saveTdsSection, deleteTdsSection,
@@ -43,6 +43,8 @@ interface Draft {
   section: string;
   isDefault: boolean;
   isActive: boolean;
+  /** Saved as the default: it stays default (and available) until another rate takes it over. */
+  locked?: boolean;
 }
 
 const emptyDraft = (kind: Kind): Draft => ({
@@ -57,6 +59,7 @@ const toDraft = (kind: Kind, row: TaxRateRow): Draft => ({
   section: row.section ?? "",
   isDefault: row.isDefault,
   isActive: row.isActive,
+  locked: row.isDefault,
 });
 
 /**
@@ -171,6 +174,16 @@ const TaxRateSections: React.FC = () => {
    * through to a server error.
    */
   const confirmDelete = async (kind: Kind, row: TaxRateRow) => {
+    // The default only moves by choosing another one — the server refuses this too.
+    if (row.isDefault) {
+      const noun = kind === "GST" ? "slab" : "section";
+      await alertDialog({
+        icon: "info",
+        title: `"${row.name}" is the default`,
+        text: `New bills start on it, so it can't be deleted or retired. Open another ${noun}, tick "Set as Default", then come back to this one.`,
+      });
+      return;
+    }
     if (row.billCount > 0) {
       const retire = await confirmDialog({
         icon: "warning",
@@ -237,14 +250,22 @@ const TaxRateSections: React.FC = () => {
             badge={row.isDefault ? "Default" : row.isActive ? undefined : "Retired"}
             disabled={busy}
             onEdit={() => setDraft(toDraft(kind, row))}
-            action={canDelete("billing.configure") ? {
+            action={!canDelete("billing.configure") ? undefined : !row.isActive ? {
+              // Retired: the way back, not a bin.
+              icon: "bi-arrow-counterclockwise",
+              title: `Restore ${row.name} to the bill form`,
+              tone: "revert",
+              onClick: () => save.mutate({ ...toDraft(kind, row), isActive: true }),
+            } : {
               icon: "bi-trash",
-              title: row.billCount > 0
-                ? `${row.billCount} bill(s) use this — retire it instead`
-                : `Delete ${row.name}`,
+              title: row.isDefault
+                ? "The default — make another one the default first"
+                : row.billCount > 0
+                  ? `${row.billCount} bill(s) use this — retire it instead`
+                  : `Delete ${row.name}`,
               danger: true,
               onClick: () => confirmDelete(kind, row),
-            } : undefined}
+            }}
           />
         ))}
       </RateGrid>
@@ -347,16 +368,18 @@ const TaxRateSections: React.FC = () => {
               <WtCheckboxField
                 size="sm"
                 checked={draft.isDefault}
-                disabled={busy || !draft.isActive}
+                disabled={busy || !draft.isActive || draft.locked}
                 onChange={(e) => patch({ isDefault: e.target.checked })}
                 label={draft.kind === "GST" ? "Set as Default Slab" : "Set as Default Section"}
-                description="What a new bill starts on. Only one can hold it — turning it on takes it off whichever has it now. A retired rate cannot be the default."
+                description={draft.locked
+                  ? "This is the default. To change it, open another one and set that as the default instead."
+                  : "What a new bill starts on. Only one can hold it — turning it on takes it off whichever has it now. A retired rate cannot be the default."}
               />
 
               <WtCheckboxField
                 size="sm"
                 checked={draft.isActive}
-                disabled={busy}
+                disabled={busy || draft.locked}
                 onChange={(e) =>
                   patch({ isActive: e.target.checked, isDefault: e.target.checked && draft.isDefault })
                 }

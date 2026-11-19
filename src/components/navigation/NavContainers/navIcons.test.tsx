@@ -34,6 +34,7 @@ describe('navIcon', () => {
       'bi-house-fill',
       'bi-gear',
       'lucide-gallery-vertical-end',
+      'lucide-book-open-text',
     ];
 
     for (const name of sectionIcons) {

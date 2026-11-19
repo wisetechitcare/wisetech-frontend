@@ -324,6 +324,8 @@ const RecruitmentConfigurationMain = () => (
                 deleteFn={deleteApplicantSource}
                 flags={[{ key: "isReferral", label: "Referral", tone: "brand" }]}
                 auditEntityType="APPLICANT_SOURCE"
+                // "Careers Page": public applications are filed under it (renameable, not deletable).
+                isBuiltIn={(row) => !!(row as { code?: string | null }).code}
             />
 
             <ScoringAutomationSection />

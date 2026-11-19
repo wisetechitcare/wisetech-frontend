@@ -96,6 +96,11 @@ A second, separate ratchet bans the old UI stack in new code. It reports (1) run
 3. **The component's `*.stories.tsx`** (or `docs-show` via the MCP) — use the variant/recipe the catalogue shows for
    that job (e.g. row icon actions = Button `tinted`). Never choose a variant, size or style yourself.
 
+**STRICT: `src/ds` IS the globally shared component library (2026-11-16).** It replaces the legacy shared
+components from now on. A new shared component is created only in `src/ds`, with stories, never under
+`components/`. If the kit lacks something, update Storybook itself (extend or add it in `src/ds`), never compose
+a one-off look in a screen.
+
 **Legacy components are thin adapters over the kit.** `@app/modules/common/components/ui` (and `ui/tw/`) keep their
 old prop names for existing call sites and forward to `src/ds` — no own look, palette or MUI. New code imports the
 kit directly. Never build new UI outside `src/ds`. If the kit lacks something: extend an existing component or
@@ -154,44 +159,28 @@ Docs live in **[`../docs/leads/`](../docs/leads/00_START_HERE.md)** — start at
 - `EntityTablePage.tsx` (~2.4k lines) downloads the entire table and evaluates ~30 filter predicates client-side. **Don't add a 31st** — the target is server-side query params + `manualPagination` + row virtualization, all of which the table kit already supports.
 - The Activity/Timeline component is **written and not mounted**, and no backend write path fills it yet. Mounting is ~10 lines once `connections` has writers — don't build a second timeline in the meantime.
 
-## Billing module (partly built)
-Plan: [../BILLING/INDEX.md](../BILLING/INDEX.md). The project Billing tab already exists as a placeholder — `pages/employee/entity/detail/sections/BillingSection.tsx`, registered in `detail/facets.ts` and rendered from `EntityDetailPage.tsx`. It predates the UI standard (raw divs, hardcoded hex), so **replace it wholesale rather than extending it**.
+## Billing module
+Pages under `pages/billing/`; the project's Billing tab is `pages/billing/project/` (mounted by `EntityDetailPage`).
+Clients: `services/bills.ts` (bills, payments, the project tab), `services/billingTrackers.ts` (Billing / Proforma /
+Tax Invoice trackers + dashboard), `services/billingDocuments.ts` (a document's repository record), `services/documents.ts`
+(the document engine), `services/billingConfig.ts` (Configure).
 
-## Billing Operations (built)
-Design doc: [../docs/billing/BILLING_OPERATIONS.md](../docs/billing/BILLING_OPERATIONS.md). Pages under `pages/billing/operations/`, client in `services/billingOperations.ts`.
+- **A bill covers one or more stages, in full or in part** — each slice is a bill line; what is billed on a stage is the
+  sum of its live lines, never more than its value. A bill over several stages has one row per stage on the Billing tab,
+  and each row carries its own `slice` of the bill's money: **columns and totals read `row.slice`, never the whole bill**,
+  or a multi-stage bill is counted twice. The allocation rules (and their test) are in `project/projectBillingRules.ts`.
+- Payments are recorded per bill; `SplitPaymentDialog` shares one transfer across several bills (all or none).
+- Documents: one route pair for Proforma and Tax Invoice alike — `/billing/documents/:id` (repository record) and
+  `/billing/documents/:id/edit` (editor). Old `/billing/proformas/:id` links redirect.
+- **The document editor is a shared module**, `src/modules/document-editor/` (`DocumentEditor` + a per-kind
+  `DocumentProfile`). Billing's profile is `pages/billing/documents/billDocumentProfile.tsx`. A new document kind
+  (MOM, offer letter) is a backend registry entry + resolver + template and a frontend profile — never a copied editor.
+  `DocumentSheet` injects the server's HTML and patches `[data-field]` spans with `textContent`; never re-implement the
+  template in React.
+- Status chips: `BillingStatusBadge`; new tones go in `BILLING_STATUS_TONES`. Labels come from Billing → Configure.
+- ⚠️ `capabilities` from the server is **advisory** — bill writes only require a login (a deliberate decision). It drives
+  disabled states only; a hidden button is not security.
 
-- **Monitoring, not editing.** Project/client/deliverable/amount data is read-only on these screens. The only write is the status transition, and its dropdown is populated from the server's `allowedTransitions` — never hardcode the status list in the UI.
-- **Server-side filter/sort/pagination.** Don't switch the list to client-side paging: the totals have to be right across pages, that's the whole point of the screen.
-- Each KPI tile is a saved query — clicking filters the table beneath it. Statistics share the list's scoping so the two can't disagree.
-- Reuses `BillingTable`, `BillingTimeline`, `BillingStatsCard`, `BillingStatusBadge`, `BillingPageHeader`. New status tones go in `BILLING_STATUS_TONES`, not in the page.
-
-## Payment Collection (built)
-Design doc: [../docs/billing/PAYMENT_COLLECTION.md](../docs/billing/PAYMENT_COLLECTION.md). Pages under `pages/billing/payments/`, client in `services/payments.ts`.
-
-- **A "payment" row in the list IS a Billing Operation** — there's no separate payment-collection entity to fetch. Don't build a second data model for it.
-- **Every payment is its own transaction.** `RecordPaymentDialog` records ONE receipt and closes; recording payment 2 of 3 is opening it again. Never build a multi-line batch form here.
-- The overpayment checkbox only appears once amount actually exceeds outstanding (compared in paise, not floats) — don't show it unconditionally.
-- `readyForInvoice` and `invoiceNumber: null` are already on every payload — the Tax Invoice phase filters on the former and fills the latter. No shape change needed there.
-
-## Proforma Management (built)
-Design doc: [../docs/billing/PROFORMA_MANAGEMENT.md](../docs/billing/PROFORMA_MANAGEMENT.md). Pages under `pages/billing/proformas/`, client in `services/proformas.ts`.
-
-- **Two URLs, two jobs:** `/billing/proformas/:id` is the read-only repository record (revision chain, compare, activity); `/billing/proformas/:id/edit` is the document editor. Don't merge them.
-- The tree groups revisions under their parent and **pages by document, not version** — one proforma with six revisions must not eat a page.
-- Status buttons come from the server's `allowedStatuses` per version. Never hardcode the lifecycle in the UI.
-- "Archived" is a switch, not a status option — the list is a deliberate either/or so the count is trustworthy.
-- The Document tab renders the version's **stored HTML** via `DocumentSheet`. Never re-render a version for display.
-
-## Billing Document Engine (built — Proforma + Tax Invoice live)
-Design doc: [../docs/billing/BILLING_DOCUMENT_ENGINE.md](../docs/billing/BILLING_DOCUMENT_ENGINE.md) (this phase); [../docs/billing/DOCUMENT_ENGINE.md](../docs/billing/DOCUMENT_ENGINE.md) (original). Editor pages under `pages/billing/documents/`, client in `services/documents.ts`; repository pages under `pages/billing/proformas/`, client in `services/proformas.ts` (also serves the generic `/billing/documents` mount).
-
-- **`DocumentSheet` injects server-rendered HTML and patches it — it does not re-implement the template.** The same HTML string is what the PDF and Word export print, so a React version of the layout would immediately drift. Never build one.
-- Live editing writes `textContent` on `[data-field]` spans the server emitted. `textContent`, never `innerHTML` — typed text must never be parsed as markup.
-- The left panel (`DocumentPropertiesPanel`) is **built from the template's `fieldPolicy`**, not hardcoded. A template that adds a field gets an input for free; `fieldMeta.ts` only supplies the label/grouping (with a title-case fallback).
-- The A4 sheet is a fixed 210mm scaled by transform. Don't make it responsive — it is page geometry, not a layout.
-- Proforma is a `kind`, not a route. The list and editor work unchanged for Tax Invoice and the rest — **generating a Tax Invoice reuses `openDocument({ kind: "TAX_INVOICE", subjectId })`, the exact call Proforma uses**; see the button on `PaymentDetailPage.tsx`'s Invoice panel, gated on `readyForInvoice`. Don't build a second generation flow for a new kind.
-- **`NON_REVISABLE_KINDS` in `DocumentEditorPage.tsx` mirrors the backend's `revisable: false` registry entries** — UI-only hint (hides the Revise button), the server is the actual enforcement. Keep the two lists in sync when a new non-revisable kind goes live.
-- `downloadWord()` (`services/proformas.ts`) streams a binary blob (`responseType: "blob"`), unlike `accessProforma`'s PDF path which returns a JSON presigned URL — don't conflate the two response shapes.
 ## Dependencies & CI
 - **Security floors** for transitive packages live in `pnpm-workspace.yaml` → `overrides` (9 entries, each pinned to the lowest patched version from its advisory). After any dependency change run `pnpm audit --audit-level high` — CI blocks on high/critical, and reports moderate/low without blocking.
 - **The webpack toolchain was removed** (2026-08-10): `webpack`, `webpack-cli`, `css-loader`, `mini-css-extract-plugin`, `sass-loader`, `@types/sass-loader`, the two RTL plugins, `remove-files-webpack-plugin`, `del`. No config file, script, or import referenced any of them — leftover Metronic scaffolding, and the only path to a high-severity `svgo` advisory. Builds are Vite-only. **`sass` stays** (Vite compiles the Metronic `.scss`). Don't reintroduce them.
@@ -207,14 +196,3 @@ Installed by `pnpm install` (`prepare: husky` → `core.hooksPath=.husky/_`). By
 
 ## Before saying a change is done
 Run `pnpm exec tsc --noEmit` (or a full `pnpm run build`) — it must pass clean. Run `pnpm exec eslint --quiet` on files you touched (warnings are informational; don't introduce new errors). There is no background typecheck hook; these commands are the gate.
-
-## Project Financial Workspace (built)
-Project → Billing. Pages under `pages/employee/entity/detail/sections/billing/`, client in `services/projectBilling.ts`. `sections/BillingSection.tsx` is now a 3-line adapter that passes `lead.id` in.
-
-- **A CONSUMER of Billing, never a copy.** One call to `/billing/projects/:id/workspace` returns every number pre-computed; documents are served by Billing's own access endpoint; **every write navigates INTO Billing**. Don't add a mutation here.
-- **The Billing tab is URL-addressable (`?tab=billing`)** — `EntityDetailPage` syncs `activeTab` to a search param (written with `replace`, so flipping tabs doesn't stack history). This is load-bearing: it's the return address handed to Billing. Don't revert it to plain `useState`.
-- **Return context** (`hooks/useReturnContext.ts`): the ORIGIN states where Back goes via `withReturnContext()`; the destination resolves it with `useReturnContext(fallback)`, falling back to its own parent. Wired into the Proforma/Payment/Request/Operation detail pages — arriving from a Billing list behaves exactly as before. Carried in `history.state`, not the URL: it's navigation bookkeeping, and a `?returnTo=` would make every detail link unshareable.
-- **Sections 3 (Timeline) and 10 (Activity Feed) are ONE dataset** — `ActivityFeed` renders both via a `variant`. Two components would be two places for the same list to go stale.
-- Proformas reuse `ProformaTreeRow` verbatim for revision grouping; the other three tables are `BillingTable` + a column set. Financial Summary is `BillingSummaryCard`. Nothing here re-implements a Billing primitive.
-- **Drill-down**: `ProformasPage`/`PaymentCollectionPage`/`InvoicesPage` now read `?projectId=` and show `ProjectFilterBanner` when filtered — a silent filter is the fastest way to make people distrust a list.
-- ⚠️ `capabilities` from the server is **advisory** (backend has no action-level write gates yet). It drives disabled states only — don't treat a hidden button as security.

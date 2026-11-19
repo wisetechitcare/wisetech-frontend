@@ -18,6 +18,7 @@ import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
+import { GST_VALIDATION, EMPTY_GST_VALUES, gstValuesOf, GstStatutoryFields } from "./GstStatutory";
 import {
   createClientBranch,
   updateClientBranch,
@@ -54,6 +55,7 @@ const defaultValues = {
   longitude: "",
   gmbLink: "",
   googleMapLink: "",
+  ...EMPTY_GST_VALUES,
 };
 
 // Validation schema
@@ -63,6 +65,7 @@ const validationSchema = Yup.object().shape({
   // Everything else is optional. Plain Yup.string() rules on those rejected the nulls a saved
   // branch comes back with ("address cannot be null"), blocking every edit of an old branch.
   email: Yup.string().nullable().email("Invalid email format"),
+  ...GST_VALIDATION,
 });
 
 // Built-ins an admin marked required in Manage Fields: keep the field's own rule, add presence.
@@ -361,6 +364,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
           const updatedValues = {
             ...defaultValues,
             ...branchData,
+            ...gstValuesOf(branchData),
             country: selectedCountry ? selectedCountry.id : "",
             state: finalStateValue,
             city: finalCityValue,
@@ -495,6 +499,14 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
                   />
                 );
               }
+              // GST, PAN and their documents are one step with their own grouped layout.
+              if (section.id === "gst") {
+                return (
+                  <CrmSection title={section.title}>
+                    <GstStatutoryFields />
+                  </CrmSection>
+                );
+              }
               const visible = section.fields.filter((f) => !f.hidden);
               if (!visible.length) return null;
               return (
@@ -517,6 +529,7 @@ const CompaniesBranchForm: React.FC<CompaniesBranchFormProps> = ({
               details: { label: "Branch", title: "Branch Details", subtitle: "Company, branch name, type and contact person", icon: "bi-diagram-3" },
               contact: { label: "Contact", title: "Contact Details", subtitle: "Phone numbers and email", icon: "bi-telephone" },
               address: { label: "Address", title: "Address", subtitle: "Where the branch is, and its map pin", icon: "bi-geo-alt" },
+              gst: { label: "GST & Statutory", title: "GST & Statutory", subtitle: "GST, PAN and their documents", icon: "bi-file-earmark-text" },
             };
             const steps = formSections
               .filter((sec) => sec.id === "address" || sec.id === "details" || sec.fields.some((f) => !f.hidden))

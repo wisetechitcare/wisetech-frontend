@@ -143,10 +143,9 @@ module.exports = {
         selector: "Property[key.name='html'] > ConditionalExpression > TemplateLiteral[expressions.length>0]",
         message: 'Interpolating into `html` renders user data as markup. Use safeHtml`…` from @app/modules/common/components/ui on BOTH arms of the ternary.',
       },
-      {
-        selector: "JSXOpeningElement[name.name='Switch']",
-        message: 'Use WtSwitch / WtSwitchField from @app/modules/common/components/ui — not a raw MUI Switch. See CLAUDE.md → UI standard.',
-      },
+      /* No JSX rule for <Switch>: it matched the tag NAME, so it also fired on the kit Switch (@/ds/ui/switch), the
+       * standard one. A raw MUI Switch is caught by its import (no-restricted-imports above, and
+       * wisetech/no-legacy-ui for any @mui runtime import). */
       /* Hardcoded background colours. A literal #fff paints the same pixel in both themes, so
        * the surface stays white on a dark page — the single most common way dark mode breaks
        * here, and it was shipping in 67 files when this rule was added. Covers gradients too,
@@ -274,7 +273,6 @@ module.exports = {
       files: [
         'src/app/modules/common/components/ui/**',
         'src/app/modules/common/inputs/**',
-        'src/app/modules/common/components/TimeWheelField.tsx',
         'src/app/modules/common/components/MultiSelectWithInlineCreate.tsx',
         'src/app/modules/common/utils/DropdownAdd.tsx',
       ],
@@ -326,10 +324,7 @@ module.exports = {
        * input). Downgraded to warn so the build stays green while they're converted.
        * Do NOT add files here; delete entries as they're fixed. Tracked in CLAUDE.md. */
       files: [
-        'src/app/pages/employee/EditMeetingModal.tsx',
-        'src/app/pages/employee/attendance/personal/views/my-leaves/MeetingsForm.tsx',
         'src/app/pages/employee/attendance/personal/views/overview/KPITestPanel.tsx',
-        'src/app/pages/employee/attendance/personal/views/overview/AttendanceCalendar.tsx',
         'src/app/pages/employee/salary/admin/views/salary-configuration/DeductionMaster.tsx',
         'src/app/modules/common/components/Graphs.tsx',
         'src/app/modules/common/components/EmployeeSelectionDialog.tsx',
@@ -373,11 +368,10 @@ module.exports = {
         'src/app/modules/projectPoints/ProjectPointsConfigModal.tsx',
         'src/app/modules/projectPoints/ProjectPointsConfigSection.tsx',
         'src/app/pages/company/Branches.tsx',
-        'src/app/pages/company/organisation/OrganizationsPage.tsx',
+        'src/app/pages/company/organization/OrganizationsPage.tsx',
         'src/app/pages/dashboard/DashboardTasks.tsx',
         'src/app/pages/dashboard/Todo.tsx',
         'src/app/pages/employee/MeetingAttendeesDialog.tsx',
-        'src/app/pages/employee/billing/NewBillingRequestDialog.tsx',
         'src/app/pages/employee/calendar/views/Meetings.tsx',
         'src/app/pages/employee/entity/detail/sections/ProjectMeetings.tsx',
         'src/app/pages/employee/entity/detail/sections/TeamsSection.tsx',
@@ -413,7 +407,7 @@ module.exports = {
        * active currency. The two files are duplicates of each other and worth collapsing,
        * but that is a separate job. */
       files: [
-        'src/app/pages/company/organisationInfo/rule/mockData.ts',
+        'src/app/pages/company/organizationInfo/rule/mockData.ts',
         'src/app/pages/employee/personal-rules/components/SalarySection.tsx',
       ],
       rules: { 'no-restricted-syntax': 'off' },

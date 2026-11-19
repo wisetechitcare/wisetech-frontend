@@ -1,7 +1,10 @@
 import React from "react";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import type { ProjectPointValue } from "@services/projectPoints";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { Button } from '@/ds/ui/button';
+import { Badge } from "@/ds/ui/badge";
+import { Button } from "@/ds/ui/button";
+import { Input } from "@/ds/ui/input";
+import { Textarea } from "@/ds/ui/textarea";
 
 interface ProjectPointRowProps {
     row: ProjectPointValue;
@@ -14,87 +17,59 @@ interface ProjectPointRowProps {
     disabled?: boolean;
 }
 
-const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "8px 12px",
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
-    fontSize: 13,
-    fontFamily: "Inter, sans-serif",
-    color: "#1e293b",
-    outline: "none",
-    background: "#fff",
-};
-
 /**
- * A single editable Project Point row (heading + description) with reorder/remove controls.
- * Custom (non-master) rows are tagged so users can tell them apart from template rows.
+ * One Project Point: order badge, heading + description, and move / remove actions. Custom
+ * (non-master) points carry a badge so they read differently from template points.
  */
 const ProjectPointRow: React.FC<ProjectPointRowProps> = ({
     row, index, total, onChange, onRemove, onMoveUp, onMoveDown, disabled,
 }) => {
     const isCustom = !row.pointMasterId;
+    const n = index + 1;
     return (
-        <div
-            style={{
-                display: "grid",
-                gridTemplateColumns: "28px 1fr 1.4fr 64px",
-                gap: 10,
-                alignItems: "start",
-                padding: "10px 0",
-                borderBottom: "1px dashed #eef1f5",
-            }}
-        >
-            {/* Order / drag affordance */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 2 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8" }}>{index + 1}</span>
-                <AppIcon name="bi-grip-vertical" className="fs-6" color="#cbd5e1" />
-            </div>
+        <li data-slot="project-point" className="flex items-start gap-3 rounded-2xl bg-card p-3 ring-1 ring-border">
+            <span aria-hidden className="mt-1.5 grid size-7 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground tabular-nums">
+                {n}
+            </span>
 
-            {/* Heading */}
-            <div>
-                <input
-                    style={inputStyle}
-                    placeholder="Heading"
-                    value={row.heading ?? ""}
-                    disabled={disabled}
-                    onChange={(e) => onChange({ heading: e.target.value })}
-                />
-                {isCustom && (
-                    <span style={{ fontSize: 10.5, color: "#a855f7", fontWeight: 600, marginLeft: 2 }}>
-                        Custom point
-                    </span>
-                )}
-            </div>
-
-            {/* Description */}
-            <div>
-                <input
-                    style={inputStyle}
+            <div className="grid min-w-0 flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+                <div className="flex min-w-0 flex-col gap-1.5">
+                    <Input
+                        aria-label={`Point ${n} heading`}
+                        placeholder="Heading"
+                        value={row.heading ?? ""}
+                        disabled={disabled}
+                        onChange={(e) => onChange({ heading: e.target.value })}
+                        className="rounded-xl"
+                    />
+                    {isCustom && <Badge variant="brand" className="w-fit">Custom point</Badge>}
+                </div>
+                <Textarea
+                    aria-label={`Point ${n} description`}
                     placeholder="Description"
                     value={row.description ?? ""}
                     disabled={disabled}
                     onChange={(e) => onChange({ description: e.target.value })}
+                    className="min-h-10 py-2"
                 />
             </div>
 
-            {/* Controls */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 2, paddingTop: 4 }}>
-                <Button type="button" variant="ghost" size="icon-sm" title="Move up" aria-label="Move up"
+            <div className="flex shrink-0 items-center gap-0.5 pt-1">
+                <Button type="button" variant="ghost" size="icon-sm" title="Move up" aria-label={`Move point ${n} up`}
                     disabled={disabled || index === 0} onClick={onMoveUp}>
-                    <AppIcon name="bi-arrow-up" />
+                    <ArrowUp />
                 </Button>
-                <Button type="button" variant="ghost" size="icon-sm" title="Move down" aria-label="Move down"
+                <Button type="button" variant="ghost" size="icon-sm" title="Move down" aria-label={`Move point ${n} down`}
                     disabled={disabled || index === total - 1} onClick={onMoveDown}>
-                    <AppIcon name="bi-arrow-down" />
+                    <ArrowDown />
                 </Button>
-                <Button type="button" variant="tinted" size="icon-sm" title="Remove" aria-label="Remove"
-                    style={{ '--tint': 'var(--cta-danger)' } as React.CSSProperties}
+                <Button type="button" variant="tinted" size="icon-sm" title="Remove" aria-label={`Remove point ${n}`}
+                    style={{ "--tint": "var(--cta-danger)" } as React.CSSProperties}
                     disabled={disabled} onClick={onRemove}>
-                    <AppIcon name="bi-trash" />
+                    <Trash2 />
                 </Button>
             </div>
-        </div>
+        </li>
     );
 };
 

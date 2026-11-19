@@ -60,7 +60,7 @@ export const useTimeTokens = () => TIME_TOKENS[useTimeFormat()];
 /**
  * Read + write, for the settings panel.
  *
- * `resolved` is included so the screen can show what `Organisation default`
+ * `resolved` is included so the screen can show what `Organization default`
  * currently resolves TO, which is the one thing that choice doesn't say by itself.
  */
 export const useTimeFormatSetting = () => {

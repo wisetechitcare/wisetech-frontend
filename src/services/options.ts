@@ -507,7 +507,7 @@ export const updateCompanySettings = async (payload: any, id: string) => {
     }
 }
 
-/** Office check-in radius at one scope. No scope = the signed-in user's organisation. */
+/** Office check-in radius at one scope. No scope = the signed-in user's organization. */
 export interface CheckInRadiusScope { companyId?: string; branchId?: string }
 export interface ScopedCheckInRadius {
     /** Stored at exactly this scope. Null = this scope inherits. */

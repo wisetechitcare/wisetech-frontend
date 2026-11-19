@@ -177,14 +177,14 @@ describe('shared grouped wizard', () => {
     expect(screen.getByTestId('form-section').getAttribute('data-tone')).toBe('tone-custom');
   });
 
-  it('has one filled primary in the footer; the secondary save is outlined', () => {
+  it('has one filled primary in the footer; the secondary save is the inverted (outlined) variant', () => {
     render(<Formik initialValues={{ name: '', email: '', notes: '' }} onSubmit={() => {}}>
       <GroupedWizard {...baseProps} isEditMode groups={twoLeafGroups()} onFinalSave={() => {}} />
     </Formik>);
     const footer = document.querySelector('footer') as HTMLElement;
-    expect(Array.from(footer.querySelectorAll('[data-look="filled"]')).map((b) => b.textContent)).toEqual(['Save & Continue']);
-    expect(within(footer).getByRole('button', { name: 'Save Changes' }).getAttribute('data-look')).toBe('outlined');
-    expect(within(footer).getByRole('button', { name: 'Back' }).getAttribute('data-look')).toBe('ghost');
+    expect(Array.from(footer.querySelectorAll('[data-variant="default"]')).map((b) => b.textContent)).toEqual(['Save & Continue']);
+    expect(within(footer).getByRole('button', { name: 'Save Changes' }).getAttribute('data-variant')).toBe('inverted');
+    expect(within(footer).getByRole('button', { name: 'Back' }).getAttribute('data-variant')).toBe('outline');
   });
 
   it('summary lists label/value rows, shows a dash for empty values and collapses', () => {

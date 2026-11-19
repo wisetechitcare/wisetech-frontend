@@ -101,9 +101,15 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * A field's label. Required fields get their `*` from the CONTROL's own state (`required` / `aria-required` /
+ * React Aria's `isRequired`) through one CSS rule in styles/components.css — never from a prop here, so a label
+ * cannot claim "required" for a control that is not, and the marker cannot appear twice.
+ */
 function FieldLabel({
   className,
   ref,
+  children,
   ...props
 }: React.ComponentProps<typeof Label>) {
   // Publishes the label's width for the border notch (no label background — lib/floating-notch).
@@ -118,7 +124,9 @@ function FieldLabel({
         className
       )}
       {...props}
-    />
+    >
+      {children}
+    </Label>
   )
 }
 

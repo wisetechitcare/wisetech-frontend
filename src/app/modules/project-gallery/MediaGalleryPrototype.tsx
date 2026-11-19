@@ -21,7 +21,7 @@ import { Button } from "@/ds/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/ds/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ds/ui/table"
 import { Tabs, TabsTrigger } from "@/ds/ui/tabs"
-import { TOGGLE_TAB, ToggleList } from "./GalleryDialogs"
+import { ToggleList, TOGGLE_TAB } from "@/ds/ui/tabs";
 import { ProjectAvatar } from "./ProjectAvatar"
 import { MediaGalleryScreen, type GalleryLayout } from "./MediaGalleryScreen"
 import { DEFAULT_ALBUMS, NOW, PROJECT, demoMedia, scene } from "./fixtures"

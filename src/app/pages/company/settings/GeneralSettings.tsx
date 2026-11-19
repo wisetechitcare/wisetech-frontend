@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react'
 import { useFormik, Field, FormikProvider, Formik, Form, ErrorMessage, useFormikContext } from "formik";
 import { Container, Row } from 'react-bootstrap';
 import { KTCard, KTCardBody } from '@metronic/helpers';
-// The radius is per organisation / branch now (the global app_settings value is retired). This
-// screen is not mounted anywhere today; it edits the signed-in user's organisation if it returns.
+// The radius is per organization / branch now (the global app_settings value is retired). This
+// screen is not mounted anywhere today; it edits the signed-in user's organization if it returns.
 import { fetchCheckInRadius, updateCheckInRadius } from '@services/options';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { fetchLeaveOptions, updateLeaveOptionsById } from '@services/company';
@@ -120,7 +120,7 @@ function GeneralSettings() {
             onSubmit={ async (values) => {
                 setLoading(true);
                 try {
-                    // 1. The organisation's office check-in radius. 0/blank clears it (no limit).
+                    // 1. The organization's office check-in radius. 0/blank clears it (no limit).
                     const typedRadius = Number(values.allowedDistanceFromOffice);
                     await updateCheckInRadius(undefined, typedRadius > 0 ? typedRadius : null);
 

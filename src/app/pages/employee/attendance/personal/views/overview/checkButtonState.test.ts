@@ -56,6 +56,20 @@ describe('an unknown fence is not a fence of zero', () => {
     });
 });
 
+describe('misconfigured fence blocks check-in', () => {
+    it('blocks a check-in when the fence is misconfigured (radius set, branch center missing)', () => {
+        expect(at({ dayState: 'not-in', fence: 'misconfigured' })).toBe(true);
+    });
+
+    it('still allows checkout even when misconfigured', () => {
+        expect(at({ dayState: 'in', fence: 'misconfigured' })).toBe(false);
+    });
+
+    it('does not block a non-Office method even when misconfigured', () => {
+        expect(at({ dayState: 'not-in', isOfficeMethod: false, fence: 'misconfigured' })).toBe(false);
+    });
+});
+
 describe('the day state decides first', () => {
     /**
      * A failed status fetch leaves the day unknown. That must keep the button usable unless the

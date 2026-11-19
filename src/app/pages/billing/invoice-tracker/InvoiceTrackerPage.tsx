@@ -1,0 +1,532 @@
+import React, { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Box, Stack, Typography } from "@mui/material";
+import { ExternalLink, FileDown, FileText, FolderOpen, MoreHorizontal, Pencil, Share2 } from "lucide-react";
+import { Button } from "@/ds/ui/button";
+import { Progress } from "@/ds/ui/progress";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/ds/ui/dropdown-menu";
+import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { TRIO, toast } from "@app/modules/common/components/ui";
+import { formatCurrencyDecimal } from "@utils/currency";
+import { formatDate } from "@utils/dateFormats";
+import {
+  getInvoiceTracker, type InvoiceState, type InvoiceTrackerProject, type InvoiceTrackerRow, type UninvoicedBill,
+} from "@services/billingTrackers";
+import { accessDocument, downloadDocumentWord } from "@services/billingDocuments";
+import { useBillingOrgId } from "../BillingLayout";
+import { BillingStatusBadge, ProjectFilterBanner } from "../components";
+import {
+  DASH, DueCell, Money, NumberDate, StateCounts, StatusChips, TRACKER_TABLE, TotalLabel, TrackerToolbar,
+  sumOf, trackerRowSx, usePoChip, useTrackerParams, type TrackerTile,
+} from "../components/trackerKit";
+
+/**
+ * The Tax Invoice Tracker — the Proforma Tracker's sibling, built from the same parts.
+ *
+ *   PROJECTS   — every project: billed, invoiced (with a % bar), bills still to invoice, where each invoice stands,
+ *                received, outstanding, TDS not yet deposited.
+ *   INVOICES   — one row per tax invoice: the money, the document, the due date, the TDS.
+ *   TO INVOICE — the queue: bills the client has been sent (a proforma, usually) that have no tax invoice yet. A paid
+ *                one is "invoice due" — the GST return needs it now.
+ *
+ * A tax invoice is the SAME bill's second document, raised from the project's Billing tab (independently of payment),
+ * so every figure here is read off the bill and agrees with that tab by construction.
+ */
+
+type Focus = "ALL" | "TO_INVOICE" | "INVOICE_DUE" | InvoiceState | "OVERDUE";
+
+const inProject = <T extends { leadId: string }>(rows: T[] | undefined, projectId: string | null | undefined) =>
+  (rows ?? []).filter((r) => !projectId || r.leadId === projectId);
+
+const TILES: TrackerTile<Focus>[] = [
+  { key: "ALL", label: "All", icon: "receipt-square", trio: TRIO.blue },
+  { key: "TO_INVOICE", label: "Not invoiced yet", icon: "add-files", trio: TRIO.slate },
+  { key: "INVOICE_DUE", label: "Invoice due · paid", icon: "notification-status", trio: TRIO.amber },
+  { key: "DRAFT", label: "Draft", icon: "pencil", trio: TRIO.purple },
+  { key: "AWAITING", label: "Awaiting payment", icon: "time", trio: TRIO.cyan },
+  { key: "PARTIAL", label: "Partially paid", icon: "chart-pie-simple", trio: TRIO.amber },
+  { key: "OVERDUE", label: "Overdue", icon: "information-5", trio: TRIO.rose },
+  { key: "SETTLED", label: "Settled", icon: "check-circle", trio: TRIO.green },
+];
+const FOCUS_KEYS = TILES.map((t) => t.key);
+/** The tiles that are invoice stages — the ones a project's counts are broken down by. */
+const STAGE_TILES = TILES.filter((t) => ["DRAFT", "AWAITING", "PARTIAL", "SETTLED"].includes(t.key));
+/** Tiles about bills with no invoice yet: they belong to the To-invoice view. */
+const QUEUE_FOCUS: Focus[] = ["TO_INVOICE", "INVOICE_DUE"];
+
+const projectMatches = (p: InvoiceTrackerProject, focus: Focus) =>
+  focus === "ALL" ? true
+    : focus === "TO_INVOICE" ? (p.notInvoicedCount ?? 0) > 0
+      : focus === "INVOICE_DUE" ? (p.invoiceDueCount ?? 0) > 0
+        : focus === "OVERDUE" ? (p.counts?.overdue ?? 0) > 0
+          : (p.counts?.[focus] ?? 0) > 0;
+
+const invoiceMatches = (r: InvoiceTrackerRow, focus: Focus) =>
+  focus === "ALL" || QUEUE_FOCUS.includes(focus) ? true
+    : focus === "OVERDUE" ? r.overdueDays > 0
+      : r.state === focus;
+
+const queueMatches = (b: UninvoicedBill, focus: Focus) => (focus === "INVOICE_DUE" ? b.paid : true);
+
+/**
+ * Which statuses filter which view: Projects takes them all; Tax Invoices the invoice stages; the To-invoice queue
+ * only "invoice due" (every queued bill is "not invoiced yet", so that chip would equal All there).
+ */
+const viewHas = (view: string, key: Focus) =>
+  view === "projects" ? true
+    : view === "queue" ? key === "INVOICE_DUE"
+      : !QUEUE_FOCUS.includes(key);
+
+/** The editor while it is a draft, the record (with its revisions) once issued. */
+const invoicePath = (r: { documentId: string; state: InvoiceState }) =>
+  `/billing/documents/${r.documentId}${r.state === "DRAFT" ? "/edit" : ""}`;
+
+const InvoiceTrackerPage: React.FC = () => {
+  const navigate = useNavigate();
+  const organizationId = useBillingOrgId();
+  const poChip = usePoChip();
+  const { view, focus, projectId, setParam } = useTrackerParams<Focus>(["invoices", "queue"], FOCUS_KEYS, "ALL");
+  const pickStatus = (key: Focus) => setParam({ focus: key === "ALL" ? null : key });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["invoice-tracker", organizationId],
+    queryFn: () => getInvoiceTracker({ organizationId }),
+  });
+
+  const allProjects = useMemo(() => inProject(data?.projects, projectId), [data?.projects, projectId]);
+  const allInvoices = useMemo(() => inProject(data?.invoices, projectId), [data?.invoices, projectId]);
+  const allQueue = useMemo(() => inProject(data?.uninvoiced, projectId), [data?.uninvoiced, projectId]);
+
+  // Each chip counts exactly the rows it leaves in the open view, so the number always matches the table.
+  const statusOptions = useMemo(
+    () => TILES
+      .filter((t) => t.key === "ALL" || viewHas(view, t.key))
+      .map((t) => ({
+        key: t.key,
+        label: t.label,
+        trio: t.key === "ALL" ? undefined : t.trio,
+        count: view === "projects" ? allProjects.filter((p) => projectMatches(p, t.key)).length
+          : view === "invoices" ? allInvoices.filter((r) => invoiceMatches(r, t.key)).length
+            : allQueue.filter((b) => queueMatches(b, t.key)).length,
+      })),
+    [view, allProjects, allInvoices, allQueue],
+  );
+
+  // Projects with invoice work first (an invoice due, then bills to invoice, then the newest invoice).
+  const projects = useMemo(
+    () => allProjects
+      .filter((p) => projectMatches(p, focus))
+      .sort((a, b) =>
+        (b.invoiceDueCount ?? 0) - (a.invoiceDueCount ?? 0)
+        || (b.notInvoicedCount ?? 0) - (a.notInvoicedCount ?? 0)
+        || (b.lastInvoice?.date ?? "").localeCompare(a.lastInvoice?.date ?? "")
+        || (b.billedAmount ?? 0) - (a.billedAmount ?? 0)),
+    [allProjects, focus],
+  );
+  const invoices = useMemo(() => allInvoices.filter((r) => invoiceMatches(r, focus)), [allInvoices, focus]);
+  const queue = useMemo(
+    () => allQueue.filter((b) => queueMatches(b, focus)).sort((a, b) => Number(b.paid) - Number(a.paid)),
+    [allQueue, focus],
+  );
+
+  const errorText = (error: any) => error?.response?.data?.detail ?? error?.response?.data?.message;
+  const access = useMutation({
+    mutationFn: ({ id, intent }: { id: string; intent: "DOWNLOAD" | "SHARE" }) => accessDocument(id, intent),
+    onSuccess: async (result, variables) => {
+      if (variables.intent === "SHARE") {
+        try {
+          await navigator.clipboard.writeText(result.url);
+          toast({ icon: "success", title: "Share link copied — valid for 7 days" });
+          return;
+        } catch { /* fall through and open it */ }
+      }
+      window.open(result.url, "_blank", "noopener");
+    },
+    onError: (error: any) => toast({ icon: "error", title: errorText(error) ?? "Could not open the invoice" }),
+  });
+  const word = useMutation({
+    mutationFn: (id: string) => downloadDocumentWord(id),
+    onError: (error: any) => toast({ icon: "error", title: errorText(error) ?? "Could not download the Word file" }),
+  });
+
+  const projectBilling = (leadId: string) => navigate(`/project/${leadId}?tab=billing`);
+
+  // ── Projects view ─────────────────────────────────────────────────────────
+  const projectColumns = useMemo(() => [
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.projectNumber ?? "", id: "projectNumber", header: "Project No", size: 170,
+      Footer: TotalLabel,
+      Cell: ({ row }: any) => <Typography sx={{ fontSize: "inherit", fontWeight: 700 }}>{row.original.projectNumber ?? DASH}</Typography>,
+    },
+    { accessorFn: (p: InvoiceTrackerProject) => p.projectName ?? DASH, id: "projectName", header: "Project Name", size: 240 },
+    { accessorFn: (p: InvoiceTrackerProject) => p.clientName ?? DASH, id: "clientName", header: "Client Company", size: 180 },
+    { accessorFn: (p: InvoiceTrackerProject) => p.managerName ?? DASH, id: "managerName", header: "Project Manager", size: 160 },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.poStatus ?? "", id: "poStatus", header: "PO", size: 140,
+      Cell: ({ row }: any) => poChip(row.original.poStatus),
+    },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.billedAmount ?? 0, id: "billedAmount", header: "Billed", size: 150,
+      Cell: ({ row }: any) => <Money value={row.original.billedAmount} bold muted={!row.original.billedAmount} />,
+      Footer: () => <Money value={sumOf(projects, (p) => p.billedAmount)} bold />,
+    },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.invoicedAmount ?? 0, id: "invoicedAmount", header: "Invoiced", size: 190,
+      Cell: ({ row }: any) => {
+        const p: InvoiceTrackerProject = row.original;
+        return (
+          <Box sx={{ minWidth: 150 }}>
+            <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.4 }}>
+              <Money value={p.invoicedAmount} bold muted={!p.invoicedAmount} />
+              {p.invoicedPercent != null && (
+                <Typography component="span" sx={{ fontSize: 11, color: "text.secondary" }}>{p.invoicedPercent}%</Typography>
+              )}
+            </Stack>
+            {p.invoicedPercent != null && <Progress value={p.invoicedPercent} aria-label="Share of the billed value invoiced" />}
+          </Box>
+        );
+      },
+      Footer: () => <Money value={sumOf(projects, (p) => p.invoicedAmount)} bold />,
+    },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.notInvoicedAmount ?? 0, id: "notInvoicedAmount", header: "To Invoice", size: 170,
+      Cell: ({ row }: any) => {
+        const p: InvoiceTrackerProject = row.original;
+        if (!p.notInvoicedCount) return <Money value={0} muted />;
+        return (
+          <Box>
+            <Money value={p.notInvoicedAmount} bold tone={TRIO.slate.c} />
+            <Typography sx={{ fontSize: 11, color: p.invoiceDueCount ? TRIO.amber.c : "text.secondary", fontWeight: p.invoiceDueCount ? 700 : 400 }}>
+              {p.notInvoicedCount} bill{p.notInvoicedCount === 1 ? "" : "s"}
+              {p.invoiceDueCount ? ` · ${p.invoiceDueCount} paid, invoice due` : ""}
+            </Typography>
+          </Box>
+        );
+      },
+      Footer: () => <Money value={sumOf(projects, (p) => p.notInvoicedAmount)} bold />,
+    },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.counts?.total ?? 0, id: "invoices", header: "Tax Invoices", size: 260,
+      Cell: ({ row }: any) => (row.original.counts ? <StateCounts counts={row.original.counts} tiles={STAGE_TILES} /> : null),
+    },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
+      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success.main" muted={!row.original.receivedAmount} />,
+      Footer: () => <Money value={sumOf(projects, (p) => p.receivedAmount)} bold tone="success.main" />,
+    },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 160,
+      Cell: ({ row }: any) => {
+        const p: InvoiceTrackerProject = row.original;
+        return (
+          <Box>
+            <Money value={p.outstandingAmount} bold tone={p.outstandingAmount > 0 ? "error.main" : undefined} muted={!p.outstandingAmount} />
+            {p.overdueAmount > 0 && (
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: "error.main" }}>
+                {formatCurrencyDecimal(p.overdueAmount)} overdue
+              </Typography>
+            )}
+          </Box>
+        );
+      },
+      Footer: () => <Money value={sumOf(projects, (p) => p.outstandingAmount)} bold tone="error.main" />,
+    },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.tdsPendingAmount ?? 0, id: "tdsPendingAmount", header: "TDS Not Deposited", size: 160,
+      Cell: ({ row }: any) => <Money value={row.original.tdsPendingAmount} tone={row.original.tdsPendingAmount > 0 ? TRIO.amber.c : undefined} muted={!row.original.tdsPendingAmount} />,
+      Footer: () => <Money value={sumOf(projects, (p) => p.tdsPendingAmount)} bold />,
+    },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.nextDueDate ?? "", id: "nextDueDate", header: "Next Due", size: 130,
+      Cell: ({ row }: any) => (row.original.nextDueDate ? formatDate(row.original.nextDueDate) : DASH),
+    },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.lastInvoice?.date ?? "", id: "lastInvoice", header: "Latest Invoice", size: 190,
+      Cell: ({ row }: any) => {
+        const last = (row.original as InvoiceTrackerProject).lastInvoice;
+        return last ? <NumberDate number={last.number} date={last.date} /> : DASH;
+      },
+    },
+    {
+      accessorFn: (p: InvoiceTrackerProject) => p.contractValue ?? -1, id: "contractValue", header: "Contract Value", size: 150,
+      Cell: ({ row }: any) => <Money value={row.original.contractValue} />,
+      // Totals count projects in billing only — see `inBilling`.
+      Footer: () => <Money value={sumOf(projects, (p) => (p.inBilling ? p.contractValue : 0))} bold />,
+    },
+    { accessorFn: (p: InvoiceTrackerProject) => p.followUpManagerName ?? DASH, id: "followUpManagerName", header: "Follow-up Manager", size: 170 },
+    { accessorFn: (p: InvoiceTrackerProject) => p.organizationName ?? DASH, id: "organizationName", header: "Organization", size: 220 },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [projects, poChip]);
+
+  // ── Invoices view ─────────────────────────────────────────────────────────
+  const invoiceColumns = useMemo(() => [
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.invoiceNumber ?? "", id: "invoiceNumber", header: "Invoice No", size: 200,
+      Footer: TotalLabel,
+      Cell: ({ row }: any) => {
+        const r: InvoiceTrackerRow = row.original;
+        return (
+          <Box>
+            <Typography sx={{ fontSize: "inherit", fontWeight: 700 }}>{r.invoiceNumber ?? DASH}</Typography>
+            <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+              {r.revisions > 1 ? `Revised · v${r.revisions}` : r.proformaNumber ? `from ${r.proformaNumber}` : r.billNumber}
+            </Typography>
+          </Box>
+        );
+      },
+    },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.invoiceDate ?? "", id: "invoiceDate", header: "Date", size: 120,
+      Cell: ({ row }: any) => (row.original.invoiceDate ? formatDate(row.original.invoiceDate) : DASH),
+    },
+    { accessorFn: (r: InvoiceTrackerRow) => r.projectNumber ?? DASH, id: "projectNumber", header: "Project No", size: 170 },
+    { accessorFn: (r: InvoiceTrackerRow) => r.projectName ?? DASH, id: "projectName", header: "Project Name", size: 220 },
+    { accessorFn: (r: InvoiceTrackerRow) => r.clientName ?? DASH, id: "clientName", header: "Client Company", size: 170 },
+    { accessorFn: (r: InvoiceTrackerRow) => r.stageName ?? DASH, id: "stageName", header: "Stage", size: 160 },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.state ?? "", id: "state", header: "Status", size: 150,
+      muiTableHeadCellProps: { align: "center" as const }, muiTableBodyCellProps: { align: "center" as const },
+      Cell: ({ row }: any) => {
+        const tile = TILES.find((t) => t.key === row.original.state);
+        return tile ? <StateCounts counts={{ total: 1, [tile.key]: 1 }} tiles={[tile]} /> : null;
+      },
+    },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.amount ?? 0, id: "amount", header: "Taxable", size: 140,
+      Cell: ({ row }: any) => <Money value={row.original.amount} />,
+      Footer: () => <Money value={sumOf(invoices, (r) => r.amount)} bold />,
+    },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.gstAmount ?? 0, id: "gstAmount", header: "GST", size: 130,
+      Cell: ({ row }: any) => (
+        <Box>
+          <Money value={row.original.gstAmount} />
+          {row.original.gstRate > 0 && <Typography sx={{ fontSize: 11, color: "text.secondary" }}>{row.original.gstRate}%</Typography>}
+        </Box>
+      ),
+      Footer: () => <Money value={sumOf(invoices, (r) => r.gstAmount)} bold />,
+    },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.totalAmount ?? 0, id: "totalAmount", header: "Invoice Value", size: 150,
+      Cell: ({ row }: any) => <Money value={row.original.totalAmount} bold />,
+      Footer: () => <Money value={sumOf(invoices, (r) => r.totalAmount)} bold />,
+    },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.tdsAmount ?? 0, id: "tdsAmount", header: "TDS", size: 140,
+      Cell: ({ row }: any) => {
+        const r: InvoiceTrackerRow = row.original;
+        return (
+          <Box>
+            <Money value={r.tdsAmount} muted={!r.tdsAmount} />
+            {r.tdsPending && <Typography sx={{ fontSize: 11, fontWeight: 700, color: TRIO.amber.c }}>Not deposited</Typography>}
+          </Box>
+        );
+      },
+      Footer: () => <Money value={sumOf(invoices, (r) => r.tdsAmount)} bold />,
+    },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
+      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success.main" muted={!row.original.receivedAmount} />,
+      Footer: () => <Money value={sumOf(invoices, (r) => r.receivedAmount)} bold tone="success.main" />,
+    },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 140,
+      Cell: ({ row }: any) => (
+        <Money value={row.original.outstandingAmount} bold tone={row.original.outstandingAmount > 0 ? "error.main" : undefined} muted={!row.original.outstandingAmount} />
+      ),
+      Footer: () => <Money value={sumOf(invoices, (r) => r.outstandingAmount)} bold tone="error.main" />,
+    },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.dueDate ?? "", id: "dueDate", header: "Due Date", size: 140,
+      Cell: ({ row }: any) => <DueCell date={row.original.state === "DRAFT" ? null : row.original.dueDate} overdueDays={row.original.overdueDays ?? 0} />,
+    },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.lastPaymentAt ?? "", id: "lastPaymentAt", header: "Last Payment", size: 130,
+      Cell: ({ row }: any) => (row.original.lastPaymentAt ? formatDate(row.original.lastPaymentAt) : DASH),
+    },
+    {
+      accessorFn: (r: InvoiceTrackerRow) => r.stageCode ?? r.documentStatus ?? "", id: "documentStatus", header: "Document", size: 130,
+      muiTableHeadCellProps: { align: "center" as const }, muiTableBodyCellProps: { align: "center" as const },
+      Cell: ({ row }: any) => <BillingStatusBadge status={row.original.stageCode ?? row.original.documentStatus} />,
+    },
+    {
+      accessorKey: "billId", header: "", size: 64, enableSorting: false, enableColumnFilter: false,
+      Cell: ({ row }: any) => {
+        const r: InvoiceTrackerRow = row.original;
+        if (!r.billId) return null;
+        return (
+          <Box onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${r.invoiceNumber ?? r.billNumber}`} />}>
+                <MoreHorizontal />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-52">
+                <DropdownMenuItem onClick={() => navigate(invoicePath(r))}>
+                  {r.state === "DRAFT" ? <><Pencil /> Edit draft</> : <><FolderOpen /> Open invoice</>}
+                </DropdownMenuItem>
+                {r.state !== "DRAFT" && (
+                  <>
+                    <DropdownMenuItem onClick={() => access.mutate({ id: r.documentId, intent: "DOWNLOAD" })}>
+                      <FileDown /> Download PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => word.mutate(r.documentId)}>
+                      <FileText /> Download Word
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => access.mutate({ id: r.documentId, intent: "SHARE" })}>
+                      <Share2 /> Copy share link
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => projectBilling(r.leadId)}>
+                  <ExternalLink /> Open project billing
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </Box>
+        );
+      },
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [invoices]);
+
+  // ── To-invoice view: the queue ────────────────────────────────────────────
+  const queueColumns = useMemo(() => [
+    {
+      accessorFn: (b: UninvoicedBill) => b.proformaNumber ?? "", id: "proformaNumber", header: "Billed On", size: 200,
+      Footer: TotalLabel,
+      Cell: ({ row }: any) => (
+        <Box>
+          <Typography sx={{ fontSize: "inherit", fontWeight: 700 }}>{row.original.proformaNumber ?? DASH}</Typography>
+          <Typography sx={{ fontSize: 11, color: "text.secondary" }}>Proforma</Typography>
+        </Box>
+      ),
+    },
+    { accessorFn: (b: UninvoicedBill) => b.projectNumber ?? DASH, id: "projectNumber", header: "Project No", size: 170 },
+    { accessorFn: (b: UninvoicedBill) => b.projectName ?? DASH, id: "projectName", header: "Project Name", size: 240 },
+    { accessorFn: (b: UninvoicedBill) => b.clientName ?? DASH, id: "clientName", header: "Client Company", size: 180 },
+    { accessorFn: (b: UninvoicedBill) => b.stageName ?? DASH, id: "stageName", header: "Stage", size: 180 },
+    {
+      accessorFn: (b: UninvoicedBill) => (b.paid ? 1 : 0), id: "paid", header: "Invoice", size: 170,
+      Cell: ({ row }: any) => {
+        if (row.original.billId === undefined) return null;
+        const tile = TILES.find((t) => t.key === (row.original.paid ? "INVOICE_DUE" : "TO_INVOICE"))!;
+        return (
+          <Typography sx={{ fontSize: 12, fontWeight: 700, color: tile.trio.c }}>
+            {row.original.paid ? "Due now — fully paid" : "When paid, or on request"}
+          </Typography>
+        );
+      },
+    },
+    {
+      accessorFn: (b: UninvoicedBill) => b.totalAmount ?? 0, id: "totalAmount", header: "Bill Value", size: 150,
+      Cell: ({ row }: any) => <Money value={row.original.totalAmount} bold />,
+      Footer: () => <Money value={sumOf(queue, (b) => b.totalAmount)} bold />,
+    },
+    {
+      accessorFn: (b: UninvoicedBill) => b.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 150,
+      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success.main" muted={!row.original.receivedAmount} />,
+      Footer: () => <Money value={sumOf(queue, (b) => b.receivedAmount)} bold tone="success.main" />,
+    },
+  ], [queue]);
+
+  const shown = view === "projects" ? projects.length : view === "invoices" ? invoices.length : queue.length;
+  const shownNoun = view === "projects" ? "projects" : view === "invoices" ? "invoices" : "bills";
+
+  return (
+    <Box sx={{ pb: 4 }}>
+      {projectId && (
+        <ProjectFilterBanner
+          projectName={allProjects[0]?.projectName ?? undefined}
+          onClear={() => setParam({ projectId: null })}
+          onBackToProject={() => navigate(`/project/${projectId}?tab=billing`)}
+        />
+      )}
+
+      <TrackerToolbar
+        view={view}
+        views={[
+          { value: "projects", label: `Projects · ${allProjects.length}` },
+          { value: "invoices", label: `Tax Invoices · ${allInvoices.length}` },
+          { value: "queue", label: `To Invoice · ${allQueue.length}` },
+        ]}
+        // A status that doesn't apply to the new view is dropped rather than left hidden.
+        onView={(next) => setParam({ view: next === "projects" ? null : next, ...(viewHas(next, focus) ? {} : { focus: null }) })}
+        shown={shown}
+        shownNoun={shownNoun}
+        onClear={() => setParam({ focus: null })}
+      >
+        <StatusChips options={statusOptions} value={focus} onChange={pickStatus} />
+      </TrackerToolbar>
+
+      {view === "projects" && (
+        <MaterialTable
+          key="projects"
+          {...TRACKER_TABLE}
+          data={projects}
+          columns={projectColumns}
+          tableName="InvoiceTrackerProjects"
+          isLoading={isLoading}
+          searchPlaceholder="Search project, client or manager…"
+          muiTableProps={{
+            sx: { minWidth: "2600px" },
+            muiTableBodyRowProps: ({ row }: any) => {
+              const p: InvoiceTrackerProject = row.original;
+              const accent = p.counts?.overdue ? TRIO.rose.c
+                : p.invoiceDueCount ? TRIO.amber.c
+                  : p.counts?.total ? TRIO.purple.c : null;
+              return { onClick: () => p.leadId && projectBilling(p.leadId), sx: trackerRowSx(accent) };
+            },
+          }}
+        />
+      )}
+      {view === "invoices" && (
+        <MaterialTable
+          key="invoices"
+          {...TRACKER_TABLE}
+          data={invoices}
+          columns={invoiceColumns}
+          tableName="InvoiceTrackerInvoices"
+          isLoading={isLoading}
+          searchPlaceholder="Search invoice, project, client or stage…"
+          muiTableProps={{
+            sx: { minWidth: "2500px" },
+            muiTableBodyRowProps: ({ row }: any) => {
+              const r: InvoiceTrackerRow = row.original;
+              if (!r.billId) return { sx: trackerRowSx(null) };
+              const tile = TILES.find((t) => t.key === (r.overdueDays > 0 ? "OVERDUE" : r.state));
+              return { onClick: () => navigate(invoicePath(r)), sx: trackerRowSx(tile?.trio.c ?? null) };
+            },
+          }}
+        />
+      )}
+      {view === "queue" && (
+        <MaterialTable
+          key="queue"
+          {...TRACKER_TABLE}
+          data={queue}
+          columns={queueColumns}
+          tableName="InvoiceTrackerQueue"
+          isLoading={isLoading}
+          searchPlaceholder="Search proforma, project, client or stage…"
+          muiTableProps={{
+            sx: { minWidth: "1400px" },
+            muiTableBodyRowProps: ({ row }: any) => {
+              const b: UninvoicedBill = row.original;
+              // The invoice is raised from the project's Billing tab, so that is where the row goes.
+              return {
+                onClick: () => b.leadId && projectBilling(b.leadId),
+                sx: trackerRowSx(b.paid ? TRIO.amber.c : TRIO.slate.c),
+              };
+            },
+          }}
+        />
+      )}
+    </Box>
+  );
+};
+
+export default InvoiceTrackerPage;

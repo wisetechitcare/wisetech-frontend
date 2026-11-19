@@ -8,6 +8,7 @@ import {
   type ColumnSizingState,
   type ColumnVisibilityState,
   type ColumnOrderState,
+  type GroupingState,
   type RowData,
 } from "@tanstack/react-table"
 // TanStack Table v9: the features, row models and column types live in one place (shadcn's data-table guide).
@@ -15,10 +16,12 @@ import { dataTableFeatures, type Column, type ColumnDef, type Header, type Row }
 import { useLocale } from "react-aria-components"
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, GripVertical, ListFilter, Maximize2, Minimize2, RotateCcw, Rows3, Search } from "lucide-react"
 import { ColumnsPanel, type ColumnPin } from "./data-table-columns"
+import { GroupingPanel } from "./data-table-grouping"
 // The app's one drag engine (also the Task board and the live table's column drag) — never a second one.
 import { mergeVisibleOrder, SortableProvider, type SortableProps } from "@/ds/lib/sortable"
 import { cn } from "@/ds/lib/utils"
 import { toneStyle, type Tone } from "@/ds/lib/tone"
+import { Badge } from "@/ds/ui/badge"
 import { Button } from "@/ds/ui/button"
 import { ButtonGroup } from "@/ds/ui/button-group"
 import { Input } from "@/ds/ui/input"
@@ -225,6 +228,8 @@ type SavedTableState = {
   order?: ColumnOrderState
   /** Columns the viewer pinned (data columns only). */
   pinning?: PinState
+  /** Columns the viewer grouped rows by, outermost first (the live table remembered this too). */
+  grouping?: GroupingState
 }
 const storageKey = (key: string) => `wt-table:${key}`
 function readTableState(key?: string): SavedTableState {
@@ -327,6 +332,7 @@ export function DataTable<T extends RowData>({
   filters,
   reorderableColumns = true,
   pinnableColumns = true,
+  groupableColumns = true,
 }: {
   /** Names the table for assistive tech (rendered visually hidden). */
   caption: string
@@ -405,6 +411,14 @@ export function DataTable<T extends RowData>({
    * sideways. On by default, like the old table. `meta.pin` sets a column's default.
    */
   pinnableColumns?: boolean
+  /**
+   * The viewer can group rows by a column's value from the "Group rows" tool (the live table's Group by): rows fold
+   * into collapsible groups with a count, and several columns nest. On by default, like the old table; remembered
+   * with `stateKey`. A column opts out with `enableGrouping: false` (a timestamp, an amount); columns without an
+   * accessor never group. Off on a server-paged table and with `rowReorder` (grouping one page, or a hand-ordered
+   * list, would mislead).
+   */
+  groupableColumns?: boolean
 }) {
   // The kit's locale (KitProvider) — the same grouping as every other number in v2.
   const { locale } = useLocale()
@@ -435,6 +449,12 @@ export function DataTable<T extends RowData>({
   const [density, setDensity] = React.useState<"comfortable" | "compact">(saved.density ?? "comfortable")
   const [showFilters, setShowFilters] = React.useState(false)
   const [fullscreen, setFullscreen] = React.useState(false)
+  const canGroupColumns = groupableColumns && rowCount === undefined && !rowReorder
+  // Remembered grouping, minus any column that no longer exists (a screen dropped or renamed it).
+  const [grouping, setGrouping] = React.useState<GroupingState>(() => {
+    const ids = new Set(columns.map((c) => c.id ?? String((c as { accessorKey?: unknown }).accessorKey)))
+    return (saved.grouping ?? []).filter((id) => ids.has(id))
+  })
   const headRefs = React.useRef(new Map<string, HTMLTableCellElement>())
   /** Each column's natural width, as first measured — what "reset" returns to. */
   const naturalWidths = React.useRef(new Map<string, number>())
@@ -476,13 +496,17 @@ export function DataTable<T extends RowData>({
     data,
     columns: allColumns,
     getRowId,
-    state: { sorting, globalFilter, columnVisibility, rowSelection, pagination, columnOrder: effectiveOrder, columnPinning: effectivePinning },
+    state: { sorting, globalFilter, columnVisibility, rowSelection, pagination, columnOrder: effectiveOrder, columnPinning: effectivePinning, grouping: canGroupColumns ? grouping : [] },
     // Column sizing is OWNED by the table (v9): with an onColumnSizingChange the table stops writing its own
     // sizing and reads ours back a render late, so widths lagged behind the drag/keys. Start from what the
     // viewer saved; read the live value from table.state.
     initialState: { columnSizing: saved.sizing ?? {} },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onGroupingChange: setGrouping,
+    enableGrouping: canGroupColumns,
+    // The viewer's column layout stays as it is; a group row names its column, so nothing needs to move.
+    groupedColumnMode: false,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onPaginationChange: (updater) => {
@@ -495,7 +519,8 @@ export function DataTable<T extends RowData>({
     rowCount,
     enableColumnResizing: resizableColumns,
     columnResizeMode: "onChange",
-    getRowCanExpand: renderDetail ? () => true : () => false,
+    // Group rows always fold; leaf rows only when they have a detail panel.
+    getRowCanExpand: (row) => row.getIsGrouped() || !!renderDetail,
   })
 
   const rows = table.getRowModel().rows
@@ -519,6 +544,7 @@ export function DataTable<T extends RowData>({
     setColumnOrder([])
     setUserPinning(null)
     setSorting(initialSorting ?? [])
+    setGrouping([])
     table.resetColumnFilters()
     if (stateKey) {
       try { window.localStorage.removeItem(`wt-table:${stateKey}`) } catch { /* storage unavailable */ }
@@ -537,7 +563,11 @@ export function DataTable<T extends RowData>({
       document.body.style.overflow = previous
     }
   }, [fullscreen])
-  const total = server ? rowCount! : table.getFilteredRowModel().rows.length
+  const grouped = canGroupColumns && grouping.length > 0
+  // Records after search and filters. Grouped, the pages count the group rows too, so the range reads the lines on
+  // screen and says how many records they hold.
+  const records = table.getFilteredRowModel().rows.length
+  const total = server ? rowCount! : grouped ? table.getPrePaginatedRowModel().rows.length : records
   const from = total === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1
   const to = Math.min(total, (pagination.pageIndex + 1) * pagination.pageSize)
   const visibleColumns = table.getVisibleLeafColumns().length
@@ -570,9 +600,10 @@ export function DataTable<T extends RowData>({
       density,
       order: columnOrder.length ? columnOrder : undefined,
       pinning: userPinning ?? undefined,
+      grouping: grouping.length ? grouping : undefined,
     }), 300)
     return () => window.clearTimeout(t)
-  }, [stateKey, columnSizing, columnVisibility, density, columnOrder, userPinning])
+  }, [stateKey, columnSizing, columnVisibility, density, columnOrder, userPinning, grouping])
   // Fixed layout (drag to resize) once every visible column has a width — measured or remembered. Until then
   // the table lays out naturally, which is exactly what gets measured.
   const fixedLayout = resizableColumns && visibleIds.every((id) => columnSizing[id] !== undefined)
@@ -669,6 +700,46 @@ export function DataTable<T extends RowData>({
     setColumnOrder(mergeVisibleOrder(full, order))
   }
 
+  // ── Grouping ───────────────────────────────────────────────────────────────
+  const groupItems = canGroupColumns
+    ? table.getAllLeafColumns()
+        .filter((c) => c.getCanGroup() && !utilityIds.includes(c.id) && !(c.columnDef.meta as { exportOnly?: boolean } | undefined)?.exportOnly)
+        .map((c) => ({ id: c.id, label: columnLabel(c), level: grouping.includes(c.id) ? grouping.indexOf(c.id) + 1 : null }))
+    : []
+  const groupRows = grouped ? table.getGroupedRowModel().flatRows.filter((r) => r.getIsGrouped()) : []
+  const allGroupsExpanded = groupRows.length > 0 && groupRows.every((r) => r.getIsExpanded())
+  /** Records under a group row, however deep it nests (the render model also holds group and expanded rows). */
+  const leafCount = (r: Row<T>): number => (r.subRows.length ? r.subRows.reduce((n, s) => n + leafCount(s), 0) : 1)
+  /** A group row's heading: fold toggle, the column, its value drawn by the column's own cell, and the count. */
+  const groupHeading = (row: Row<T>) => {
+    const column = row.groupingColumnId ? table.getColumn(row.groupingColumnId) : undefined
+    const cell = row.getAllCells().find((c) => c.column.id === row.groupingColumnId)
+    const label = column ? columnLabel(column) : ""
+    const blank = row.groupingValue === undefined || row.groupingValue === null || row.groupingValue === ""
+    const valueText = blank ? "Blank" : String(row.groupingValue)
+    const n = leafCount(row)
+    const open = row.getIsExpanded()
+    return (
+      // Nested groups step in; a depth is page geometry, so it is a computed inset rather than a class.
+      <div className="flex min-w-0 flex-wrap items-center gap-2" style={row.depth ? { paddingInlineStart: `${row.depth * 1.5}rem` } : undefined}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-expanded={open}
+          aria-label={`${open ? "Collapse" : "Expand"} ${label}: ${valueText}, ${n} ${n === 1 ? "record" : "records"}`}
+          onClick={() => row.toggleExpanded()}
+        >
+          <ChevronRight aria-hidden className={cn("transition-transform duration-(--duration-control) ease-move", open && "rotate-90")} />
+        </Button>
+        <span className="heading-case text-xs font-medium text-muted-foreground">{label}</span>
+        <span className="min-w-0 font-medium">
+          {blank || !cell ? <span className="text-muted-foreground">Blank</span> : flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </span>
+        <Badge variant="neutral" className="tabular">{n} {n === 1 ? "record" : "records"}</Badge>
+      </div>
+    )
+  }
+
   let body: React.ReactNode
   let rowsBody: ((sp?: SortableProps) => React.ReactNode) | null = null
   if (loading) {
@@ -715,6 +786,13 @@ export function DataTable<T extends RowData>({
     )
   } else {
     rowsBody = (sp) => rows.map((row) => {
+      if (row.getIsGrouped()) {
+        return (
+          <TableRow key={row.id} data-slot="data-table-group" className="bg-muted/40 hover:bg-muted/60">
+            <TableCell colSpan={visibleColumns} className={cn(cellPad, "px-2")}>{groupHeading(row)}</TableCell>
+          </TableRow>
+        )
+      }
       const tone = rowTone?.(row.original)
       // The engine's wiring for this row: drag starts only on the grip, so text stays selectable and
       // controls keep their clicks. Its touch-action style merges with the tone style.
@@ -749,7 +827,8 @@ export function DataTable<T extends RowData>({
                 // rows shown, so later, longer data ("office → station") used to be cut off: hidden content.
                 className={cn(cellPad, narrowCol(cell.column.id), pinClass(cell.column), fixedLayout && "whitespace-normal break-words")}
               >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                {/* In a grouped column the value is in the group's heading; repeating it on every row is noise. */}
+                {cell.getIsPlaceholder() ? null : flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
             ))}
           </TableRow>
@@ -955,6 +1034,21 @@ export function DataTable<T extends RowData>({
                     <ListFilter aria-hidden />
                   </ToolButton>
                 )}
+                {groupItems.length > 0 && (
+                  <GroupingPanel
+                    items={groupItems}
+                    onToggle={(id, on) => {
+                      setGrouping((g) => (on ? [...g.filter((x) => x !== id), id] : g.filter((x) => x !== id)))
+                      table.setPageIndex(0)
+                    }}
+                    onClear={() => setGrouping([])}
+                    allExpanded={allGroupsExpanded}
+                    // Groups only: a leaf row's detail panel is its own choice, not part of folding the groups.
+                    onExpandAll={(open) =>
+                      table.setExpanded(open ? Object.fromEntries(groupRows.map((r) => [r.id, true])) : {})
+                    }
+                  />
+                )}
                 <ToolButton
                   label={density === "compact" ? "Comfortable rows" : "Compact rows"}
                   active={density === "compact"}
@@ -998,9 +1092,15 @@ export function DataTable<T extends RowData>({
 
       {renderCard && !loading && !error && rows.length > 0 && (
         <ul data-slot="data-table-cards" aria-label={caption} className="hidden gap-3 @max-[640px]/data-table:grid">
-          {rows.map((row) => (
-            <li key={row.id} data-slot="data-table-card-item">{renderCard(row.original)}</li>
-          ))}
+          {rows.map((row) =>
+            row.getIsGrouped() ? (
+              <li key={row.id} data-slot="data-table-card-group" className="rounded-xl bg-muted/40 px-2 py-1.5">
+                {groupHeading(row)}
+              </li>
+            ) : (
+              <li key={row.id} data-slot="data-table-card-item">{renderCard(row.original)}</li>
+            ),
+          )}
         </ul>
       )}
 
@@ -1025,7 +1125,9 @@ export function DataTable<T extends RowData>({
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <p data-slot="data-table-range" aria-live="polite" className="tabular">
-          {total === 0 ? "No rows" : `${from}–${to} of ${new Intl.NumberFormat(locale).format(total)}`}
+          {total === 0
+            ? "No rows"
+            : `${from}–${to} of ${new Intl.NumberFormat(locale).format(total)}${grouped ? ` · ${new Intl.NumberFormat(locale).format(records)} ${records === 1 ? "record" : "records"}` : ""}`}
         </p>
         <div className="flex items-center gap-2">
           <span id={rowsPerPageId}>Rows per page</span>

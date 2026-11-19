@@ -1,6 +1,6 @@
 import { useSelector } from "react-redux";
 import type { RootState } from "@redux/store";
-import { canTab } from "./can";
+import { canSection, canTab, isTabTurnedOff } from "./can";
 
 /**
  * Tabs inside a section that can be turned off for a role or a person (Access → Advanced) — e.g. a
@@ -133,6 +133,17 @@ export const tabSlug = (title: string) => title.toLowerCase().replace(/[^a-z0-9]
 export const tabKey = (section: string, tab: string) => `${section}/${tab}`;
 
 /**
+ * Is a module tab hidden from this person? Turned off for them (Access → Advanced), or it is the
+ * Configure tab and they lack Write on the section. The ONE rule every module tab bar applies —
+ * the legacy `MaterialHeaderTab` and every kit `PageTabs` host (`hidden: isSectionTabHidden(…)`).
+ * Read at render time; hosts re-render on a live access change by selecting `authz` from the store.
+ */
+export const isSectionTabHidden = (section: string, title: string): boolean => {
+    const slug = tabSlug(title);
+    return isTabTurnedOff(section, slug) || (slug === "configure" && !canSection(section, "write"));
+};
+
+/**
  * Sections where something can be deleted or archived — everywhere else the Delete box is greyed
  * out (and the server refuses it). Mirrors DELETABLE_SECTIONS in the backend's
  * constants/permissions.ts — keep the two in sync.
@@ -141,7 +152,7 @@ export const DELETABLE_SECTIONS: ReadonlySet<string> = new Set([
   'users', 'attendance.employees', 'timesheets.employees', 'meetings', 'calendar',
   'crm.leads', 'crm.companies', 'crm.contacts', 'projects', 'tasks', 'recruitment', 'gift-management',
   'finance.loans', 'finance.reimbursements', 'finance.salary', 'finance.increment',
-  'billing.configure', 'billing.requests', 'billing.proformas', 'billing.invoices', 'billing.payments',
+  'billing.configure', 'billing.proformas', 'billing.invoices',
   'settings.profile', 'settings.announcements', 'settings.teams', 'settings.employeeLevel',
 ]);
 export const NOTHING_TO_DELETE = "There's nothing to delete in this section, so Delete doesn't apply here.";

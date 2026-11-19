@@ -41,7 +41,7 @@ export function useRealtimeSync(
   // Local saves and socket syncs both emit these events, so one subscription covers both.
   useEffect(() => {
     const refreshBilling = () =>
-      ['billing-project-overview', 'billing-operations', 'project-billing', 'taxInvoices', 'proformas']
+      ['billing-tracker', 'proforma-tracker', 'invoice-tracker', 'billing-dashboard', 'project-billing', 'billing-document']
         .forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
     eventBus.on(EVENT_KEYS.leadUpdated, refreshBilling);
     eventBus.on(EVENT_KEYS.projectUpdated, refreshBilling);
@@ -194,7 +194,7 @@ export function useRealtimeSync(
       }
     };
 
-    // The organisation's Interface Style default changed. Same rules as above: ignore
+    // The organization's Interface Style default changed. Same rules as above: ignore
     // another tenant's org, spread (the reducer replaces), and keep `null` as "no opinion".
     const onInterfaceStyleUpdated = (payload: { id?: string; interfaceStyle?: string | null }) => {
       const company = (store.getState() as any)?.company?.currentCompany;

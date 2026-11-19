@@ -21,6 +21,15 @@ export interface BillingTimelineStep {
   /** ISO timestamp; rendered in the company date format when present. */
   at?: string | null;
   detail?: string | null;
+  /** What happened while this step was current (downloads, shares, status moves) — drawn as a sub-list under it. */
+  events?: BillingTimelineEvent[];
+}
+
+export interface BillingTimelineEvent {
+  key: string;
+  message: string;
+  actor?: string | null;
+  at: string;
 }
 
 const STATE_STYLE: Record<BillingTimelineState, { color: string; icon: string }> = {
@@ -73,6 +82,19 @@ const BillingTimeline: React.FC<{ steps: BillingTimelineStep[]; dense?: boolean 
                 {step.at && step.detail ? " · " : ""}
                 {step.detail ?? ""}
               </Typography>
+            )}
+            {!!step.events?.length && (
+              <Stack component="ol" spacing={0.75} sx={{ listStyle: "none", m: 0, mt: 1, p: 0, pl: 1.5, borderLeft: 2, borderColor: "divider" }}>
+                {step.events.map((event) => (
+                  <Box component="li" key={event.key} sx={{ position: "relative" }}>
+                    <Box sx={{ position: "absolute", left: -17, top: 6, width: 8, height: 8, borderRadius: "50%", bgcolor: "background.paper", border: 2, borderColor: "text.disabled" }} />
+                    <Typography sx={{ fontSize: 12.5, lineHeight: 1.4, wordBreak: "break-word" }}>{event.message}</Typography>
+                    <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+                      {event.actor ?? "System"} · {formatDateTime(event.at)}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
             )}
           </Box>
         </Stack>

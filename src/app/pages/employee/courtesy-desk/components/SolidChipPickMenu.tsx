@@ -1,6 +1,6 @@
 import { useState, type SyntheticEvent } from 'react';
 import { Box, Menu, MenuItem, Typography } from '@mui/material';
-import { SolidChip } from '@app/pages/billing/operations/TrackerCells';
+import { SolidChip } from '@app/modules/common/components/ui/SolidChip';
 import type { ConfigOption } from '../types';
 
 export default function SolidChipPickMenu({

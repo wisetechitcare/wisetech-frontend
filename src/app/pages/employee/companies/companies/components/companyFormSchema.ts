@@ -45,6 +45,7 @@ export const COMPANY_BUILTIN_SECTIONS: BuiltinSection[] = [
     { id: "gstDocument", input: "file", label: "GST Document", type: "file" },
     { id: "panDocument", input: "file", label: "PAN Document", type: "file" },
     { id: "gstAddress", input: "text", label: "GST Address" },
+    { id: "gstState", input: "select", label: "GST State" },
   ]},
   { id: "others", title: "Status & Notes", fields: [
     { id: "status", input: "select", label: "Status" },

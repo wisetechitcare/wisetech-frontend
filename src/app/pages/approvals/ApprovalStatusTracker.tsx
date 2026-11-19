@@ -86,7 +86,6 @@ const WORKFLOW_LABELS: Record<string, string> = {
   leave: 'Leave',
   attendance: 'Attendance',
   reimbursement: 'Reimbursement',
-  billing_request: 'Billing Request',
 };
 
 const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

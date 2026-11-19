@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event"
 import { DEMO_DATA } from "@app/modules/company-profile/fixtures"
 import CompanyProfilePage from "./CompanyProfilePage"
 
-// CRM → Company Profile on sample data. The organisation's logo is the one thing read from the app, so it is
+// CRM → Company Profile on sample data. The organization's logo is the one thing read from the app, so it is
 // the one thing mocked here; toasts are captured to check the slide-limit message.
 const toast = vi.hoisted(() => vi.fn())
 const confirmDialog = vi.hoisted(() => vi.fn(async () => true))
@@ -47,7 +47,7 @@ const DECK = [
 ]
 
 describe("Company Profile page", () => {
-  test("generates the Storybook deck (categories, client wall, repeat clients, both maps, contact) and opens on the cover with the organisation's logo", () => {
+  test("generates the Storybook deck (categories, client wall, repeat clients, both maps, contact) and opens on the cover with the organization's logo", () => {
     render(<CompanyProfilePage />)
     expect(filmstrip()).toEqual(DECK)
     expect(counter().textContent).toContain("1 / 20")

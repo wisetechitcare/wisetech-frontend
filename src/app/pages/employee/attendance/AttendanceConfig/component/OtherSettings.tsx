@@ -149,8 +149,8 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
   }, [scoped, scope?.companyId, scope?.branchId]);
 
   const validationSchema = Yup.object().shape({
-    // Blank is allowed: it clears this scope's own value (a branch inherits the organisation's;
-    // an organisation with nothing above it has no limit). Bounds mirror the server.
+    // Blank is allowed: it clears this scope's own value (a branch inherits the organization's;
+    // an organization with nothing above it has no limit). Bounds mirror the server.
     allowedDistance: Yup.number()
       .transform((value, original) => (String(original ?? '').trim() === '' ? undefined : value))
       .typeError('Enter the distance as a number of metres.')
@@ -394,7 +394,7 @@ const OtherSettings: React.FC<OtherSettingsProps> = ({ scope }) => {
                 icon="geolocation" trio={TRIO.cyan}
                 title="Allowed check-in distance from office (meters)"
                 desc={radius?.inheritedRadiusMeters
-                  ? `Office check-in must be within this distance of the branch's map pin. Blank uses ${scope?.branchId ? "the organisation's" : "the parent organisation's"} ${radius.inheritedRadiusMeters} m.`
+                  ? `Office check-in must be within this distance of the branch's map pin. Blank uses ${scope?.branchId ? "the organization's" : "the parent organization's"} ${radius.inheritedRadiusMeters} m.`
                   : "Office check-in must be within this distance of the branch's map pin. Blank means no limit."}
                 control={<Box sx={{ width: { xs: '100%', sm: 160 } }}><TextInput formikField="allowedDistance" isRequired={false} placeholder={radius?.inheritedRadiusMeters ? String(radius.inheritedRadiusMeters) : 'No limit'} inputValidation="numbers" /></Box>}
               />

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Tabs as TabsPrimitive } from "@animate-ui/react/primitives/base-ui/tabs";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/ds/ui/button";
 import {
@@ -18,31 +17,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/ds/ui/tabs";
 import { cn } from "@/ds/lib/utils";
 import { CoverBadge } from "./MediaCard";
 import { mediaLabel, viewLabel, type GalleryView, type MediaItem } from "./media";
-/**
- * Every toggle in the gallery (Project/Site View, Upload to, media type, Grid/List): the same pill bar
- * as the project page's tabs (UnderlineTabs) — outlined capsule track, active tab a filled brand pill.
- * Use `ToggleList` for the list and TOGGLE_TAB on each TabsTrigger.
- * The hover tint is limited to unselected tabs (`aria-selected`: the kit's `data-active:` is too
- * low-specificity to override it). The outline is a ring, not `border`: the app's Bootstrap `.border`
- * utility is !important and repaints a Tailwind `border` dark navy.
- */
-const TOGGLE_LIST =
-  "h-auto gap-1 rounded-full bg-muted p-1 ring-1 ring-border shadow-[inset_0_1px_2px_rgb(15_23_42/0.06)]";
-
-export function ToggleList({ className, children, ...props }: React.ComponentProps<typeof TabsList>) {
-  return (
-    <TabsList className={cn(TOGGLE_LIST, className)} {...props}>
-      {/* A custom (hidden) indicator switches off animate-ui's sliding one. That slid the blue pill
-          in after the label had already turned white, so the label vanished for a moment on click;
-          without it each tab paints its own pill and switches instantly. */}
-      <TabsPrimitive.Indicator className="hidden" />
-      {children}
-    </TabsList>
-  );
-}
-export const TOGGLE_TAB =
-  "rounded-full border-0 px-4 py-1.5 text-muted-foreground not-aria-selected:hover:bg-primary/10 not-aria-selected:hover:text-primary data-active:bg-primary data-active:font-bold data-active:text-primary-foreground data-active:shadow-sm aria-selected:transition-none dark:data-active:bg-primary dark:data-active:text-primary-foreground data-active:[&>span]:bg-primary-foreground data-active:[&>span]:text-primary";
-
 /** "No value" for optional pickers, so "Not set" is a real option rather than an empty string. */
 export const NONE = "__none__";
 

@@ -1,5 +1,5 @@
 import React from "react";
-import ProjectBillingWorkspace from "./billing/ProjectBillingWorkspace";
+import ProjectBillingWorkspace from "@pages/billing/project/ProjectBillingWorkspace";
 
 /**
  * Project → Billing.

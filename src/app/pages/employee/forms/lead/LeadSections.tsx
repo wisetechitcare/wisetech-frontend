@@ -17,7 +17,7 @@ import PrefixInlineEdit from "@app/modules/common/components/PrefixInlineEdit";
 import { CommercialsGrid } from "../shared/CommercialsGrid";
 import { PaymentStageSelector } from "./PaymentStageSelector";
 import { MeetingScheduleSelector } from "./MeetingScheduleSelector";
-import { SectionWrapper } from "./SectionWrapper";
+import { CrmSection } from "../../companies/forms/CrmSection";
 import { WtSwitch, TRIO, AppIcon } from "@app/modules/common/components/ui";
 import SmartLocationPicker, { GeoPick } from "@app/modules/common/components/SmartLocationPicker";
 import { usePoStatusOptions } from "@hooks/usePoStatusOptions";
@@ -185,15 +185,10 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
   const subcategoryOptions = useScopedSubcategoryOptions(props.subcategories);
 
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
+    <CrmSection>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
-          <Typography sx={{ mb: 0.8, fontSize: "14px", fontWeight: 500, color: "black" }}>
-            Inquiry No. <span className="text-danger">*</span>
-          </Typography>
-          <Box sx={{ border: "1px solid #D0D5DD", borderRadius: "8px", px: 2, py: 1.6, height: "45px", display: "flex", alignItems: "center" }}>
-            <PrefixInlineEdit value={props.prefix} label="" onChange={props.setPrefix} disabled={false} />
-          </Box>
+          <PrefixInlineEdit label="Inquiry No." required value={props.prefix} onChange={props.setPrefix} />
         </Grid>
         <Grid item xs={12} md={6}>
           <DateInput formikField="leadInquiryDate" inputLabel="Lead Inquiry Date" formikProps={props.formikProps} placeHolder="Select Date" isRequired={false} />
@@ -336,21 +331,18 @@ export const LeadDetailsSection: React.FC<LeadSectionsProps> = (props) => {
                     </div>
                   );
                 })}
-                {/* Single Address To — hidden once one client connection exists. */}
-                {(values.leadTeams || []).length === 0 && (
-                  <Button variant="inverted" size="sm"
-                    onClick={() => push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })}
-                    className="align-self-start mt-2"
-                  >
-                    + Add Client Company Connection
-                  </Button>
-                )}
+                <Button variant="inverted" size="sm"
+                  onClick={() => push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })}
+                  className="align-self-start mt-2"
+                >
+                  + Add Contact Person
+                </Button>
               </div>
             )}
           </FieldArray>
         </Grid>
       </Grid>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -360,7 +352,7 @@ export const ProjectDetailsSection: React.FC = () => {
 
   return (
     <>
-      <div className="card shadow-sm border p-6 bg-white mb-6">
+      <CrmSection>
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <TextInput formikField="plotArea" label="Plot Area" type="number" isRequired={false} />
@@ -385,16 +377,16 @@ export const ProjectDetailsSection: React.FC = () => {
             <TextAreaInput formikField="buildingDetail" label="Building Detail / Spec" rows={3} isRequired={false} />
           </Grid>
         </Grid>
-      </div>
+      </CrmSection>
 
       {/* Project Points Section */}
-      <div className="card shadow-sm border p-6 bg-white mb-6">
+      <CrmSection>
         <ProjectPointsSection
           value={values.projectPoints || []}
           onChange={(newPoints) => setFieldValue('projectPoints', newPoints)}
           title="Project Points"
         />
-      </div>
+      </CrmSection>
     </>
   );
 };
@@ -406,13 +398,13 @@ export const TeamDetailsSection: React.FC<LeadSectionsProps> = (props) => {
     .sort((a, b) => (a.employeeName || "").localeCompare(b.employeeName || ""))
     .map(x => ({ value: x.employeeId, label: x.employeeName, avatar: x.avatar || null }));
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
+    <CrmSection>
       <Grid container spacing={3}>
         <Grid item xs={12} md={12}>
           <DropDownInput formikField="leadAssignedTo" inputLabel="Assigned to " options={employeeOptions} isRequired={false} showColor />
         </Grid>
       </Grid>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -456,10 +448,7 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
   })();
 
   return (
-    <div className="wt-section-card">
-      <div className="wt-section-heading">
-        File Location In Computer Folder
-      </div>
+    <CrmSection title="File Location In Computer Folder">
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <DropDownInput
@@ -501,7 +490,7 @@ export const FileLocationSection: React.FC<LeadSectionsProps> = (props) => {
           />
         </Grid>
       </Grid>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -514,13 +503,13 @@ export const LeadSourceTypeSection: React.FC<LeadSectionsProps> = (props) => {
   ];
 
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
+    <CrmSection>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <DropDownInput formikField="leadSourceType" inputLabel="Lead Source Type" options={sourceTypes} isRequired={false} />
         </Grid>
       </Grid>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -529,10 +518,7 @@ export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
   const directSources = props.leadDirectSources || [];
   const hasOptions = directSources.length > 0;
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
-      <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-        Direct Source
-      </Typography>
+    <CrmSection title="Direct Source">
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <DropDownInput
@@ -560,7 +546,7 @@ export const DirectSourceSection: React.FC<LeadSectionsProps> = (props) => {
           )}
         </Grid>
       </Grid>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -623,10 +609,7 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
   }, [props.isEditMode, internalType, externalType, values.referrals, setFieldValue]);
 
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
-      <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-        Referral Details
-      </Typography>
+    <CrmSection title="Referral Details">
       <FieldArray name="referrals">
         {({ push, remove }) => (
           <div className="d-flex flex-column gap-3">
@@ -773,7 +756,7 @@ export const ReferralDetailsSection: React.FC<LeadSectionsProps> = (props) => {
           </div>
         )}
       </FieldArray>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -791,25 +774,19 @@ export const ReferralSection: React.FC<LeadSectionsProps> = (props) => {
 export const CommercialsSection: React.FC = () => {
   return (
     <>
-      <div className="card shadow-sm border p-6 bg-white mb-6">
+      <CrmSection>
         <CommercialsGrid type="lead" />
-      </div>
+      </CrmSection>
 
       {/* Payment Stage subsection */}
-      <div className="card shadow-sm border p-6 bg-white mb-6">
-        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-          Payment Stage
-        </Typography>
+      <CrmSection title="Payment Stage">
         <PaymentStageSelector />
-      </div>
+      </CrmSection>
 
       {/* Meeting Schedule subsection */}
-      <div className="card shadow-sm border p-6 bg-white mb-6">
-        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-          Meeting Schedule
-        </Typography>
+      <CrmSection title="Meeting Schedule">
         <MeetingScheduleSelector />
-      </div>
+      </CrmSection>
 
     </>
   );
@@ -819,10 +796,7 @@ export const CommercialsSection: React.FC = () => {
 export const RemarksAndDocumentsSection: React.FC<LeadSectionsProps> = (props) => {
   return (
     <>
-      <div className="card shadow-sm border p-6 bg-white mb-6">
-        <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-          Detailed Description
-        </Typography>
+      <CrmSection title="Detailed Description">
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <TextAreaInput
@@ -833,7 +807,7 @@ export const RemarksAndDocumentsSection: React.FC<LeadSectionsProps> = (props) =
             />
           </Grid>
         </Grid>
-      </div>
+      </CrmSection>
     </>
   );
 };
@@ -912,7 +886,7 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
   const countryOptions = (props.countries || []).map(x => ({ value: x.id, label: x.name }));
 
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
+    <CrmSection>
       <FieldArray name="addresses">
         {({ push, remove }) => (
           <div className="d-flex flex-column gap-4">
@@ -1063,20 +1037,20 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
           )}
         </Grid>
       </div>
-    </div>
+    </CrmSection>
   );
 };
 
 // 8. Additional Details Section
 export const AdditionalDetailsSection: React.FC = () => {
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
+    <CrmSection>
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <TextAreaInput formikField="description" label="Detailed Description" rows={3} isRequired={false} />
         </Grid>
       </Grid>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -1095,13 +1069,13 @@ const PO_FILE_ACCEPT = ".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp";
 
 // The stored name is `<random hex>-<original name>` (the S3 key carries the name
 // so it can be shown — there's no column for it). Strip the prefix for display.
-const poDisplayName = (url: string) => {
+export const poDisplayName = (url: string) => {
   if (!url) return "";
   const last = decodeURIComponent(url.split("/").pop()?.split("?")[0] || "");
   return last.replace(/^[0-9a-f]{32}-/, "") || "PO document";
 };
 
-const poFileIcon = (name: string) => {
+export const poFileIcon = (name: string) => {
   const ext = name.split(".").pop()?.toLowerCase() || "";
   if (ext === "pdf") return { icon: "bi-file-earmark-pdf-fill", color: "#d13438" };
   if (ext === "doc" || ext === "docx") return { icon: "bi-file-earmark-word-fill", color: "#2b579a" };
@@ -1268,10 +1242,10 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
   const cancellationReasons = props.cancellationReasons || [];
   const selectedStatus = leadStatuses.find((x: any) => x.id === values.statusId);
   const isClosure = isClosureStatus(selectedStatus);
-  const isNotReceived = selectedStatus?.name === "Not Received";
+  const isNotReceived = selectedStatus?.code === "NOT_RECEIVED";
 
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
+    <CrmSection>
       <Grid container spacing={3}>
         {/* Lead Status — the only editable field in this step. Shares its row with the
             receipt fields once the lead is Received, so the whole step sits on one grid. */}
@@ -1426,7 +1400,7 @@ export const StatusSection: React.FC<LeadSectionsProps> = (props) => {
           </>
         )}
       </Grid>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -1438,14 +1412,13 @@ export const CancellationReasonSection: React.FC<LeadSectionsProps> = (props) =>
   if (!isCanceled) return null;
 
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6 border-danger">
-      <Typography className="fs-6 fw-bold text-danger mb-3">Cancellation Details</Typography>
+    <CrmSection title="Cancellation Details" tone="danger">
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <TextInput formikField="cancellationRemarks" label="Cancellation Remarks" isRequired={true} />
         </Grid>
       </Grid>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -1455,14 +1428,13 @@ export const PODetailsSection: React.FC<LeadSectionsProps> = (props) => {
   // Called before the early return below — this component bails out for non-Received
   // leads, and a hook behind that branch would be a conditional hook call.
   const poStatusOptions = usePoStatusOptions();
-  const statusLabel = (props.leadStatuses || []).find(x => x.id === values.statusId)?.name;
-  const showPO = statusLabel === "Received";
+  // The project-trigger status (built-in "Received", renameable) — by flag, not name.
+  const showPO = !!(props.leadStatuses || []).find(x => x.id === values.statusId)?.isProjectTrigger;
 
   if (!showPO) return null;
 
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6 border-primary">
-      <Typography className="fs-6 fw-bold text-primary mb-3">Purchase Order (PO) Details</Typography>
+    <CrmSection title="Purchase Order (PO) Details" tone="brand">
       <Grid container spacing={3}>
         <Grid item xs={12} md={4}>
           <DropDownInput
@@ -1479,15 +1451,14 @@ export const PODetailsSection: React.FC<LeadSectionsProps> = (props) => {
           <DateInput formikField="poDate" inputLabel="PO Date" formikProps={props.formikProps} placeHolder="Select PO Date" isRequired={false} />
         </Grid>
       </Grid>
-    </div>
+    </CrmSection>
   );
 };
 
 // 12. Handle By Section
 export const HandleBySection: React.FC<LeadSectionsProps> = (props) => {
   const { values } = useFormikContext<any>();
-  const statusLabel = (props.leadStatuses || []).find(x => x.id === values.statusId)?.name;
-  const showHandleBy = statusLabel === "Received";
+  const showHandleBy = !!(props.leadStatuses || []).find(x => x.id === values.statusId)?.isProjectTrigger;
   const employeeOptions = (props.employees || [])
     .filter(x => x.isActive !== false)
     .sort((a, b) => (a.employeeName || "").localeCompare(b.employeeName || ""))
@@ -1496,10 +1467,7 @@ export const HandleBySection: React.FC<LeadSectionsProps> = (props) => {
   if (!showHandleBy) return null;
 
   return (
-    <div className="card shadow-sm border p-6 bg-white mb-6">
-      <Typography className="fs-6 fw-bold text-gray-800 mb-3 border-bottom pb-2">
-        Work Handled By Allocation
-      </Typography>
+    <CrmSection title="Work Handled By Allocation">
       <FieldArray name="handledByEntries">
         {({ push, remove }) => (
           <div className="d-flex flex-column gap-3">
@@ -1535,7 +1503,7 @@ export const HandleBySection: React.FC<LeadSectionsProps> = (props) => {
           </div>
         )}
       </FieldArray>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -1556,10 +1524,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
   const subcategoryOptions = useScopedSubcategoryOptions(props.subcategories);
 
   return (
-    <div className="wt-section-card">
-      <div className="wt-section-heading">
-        Lead Information
-      </div>
+    <CrmSection title="Lead Information">
       <Grid container spacing={3}>
         {/* Organization — sits directly above the inquiry number because it is
             what decides the number's prefix and series. */}
@@ -1579,36 +1544,16 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
 
         {/* Inquiry No + Date */}
         <Grid item xs={12} md={4}>
-          <Typography sx={{ mb: 0.8, fontSize: "13px", fontWeight: 500, color: "#374151" }}>
-            Inquiry No. <span className="text-danger">*</span>
-          </Typography>
-          <Box
-            sx={{
-              border: "1px solid #D0D5DD",
-              borderRadius: "8px",
-              px: 2,
-              py: 1.6,
-              height: "45px",
-              display: "flex",
-              alignItems: "center",
-              background: "#fff",
+          <PrefixInlineEdit
+            label="Inquiry No."
+            required
+            value={props.prefix}
+            error={props.prefixError}
+            onChange={(next: string) => {
+              props.setPrefix(next);
+              props.onPrefixManualEdit?.();
             }}
-          >
-            <PrefixInlineEdit
-              value={props.prefix}
-              label=""
-              onChange={(next: string) => {
-                props.setPrefix(next);
-                props.onPrefixManualEdit?.();
-              }}
-              disabled={false}
-            />
-          </Box>
-          {props.prefixError && (
-            <Typography sx={{ mt: 0.6, fontSize: "12px", color: "#B42318" }}>
-              {props.prefixError}
-            </Typography>
-          )}
+          />
         </Grid>
         {/* Revision No. is shown as a chip in the step header (LeadWorkspace). */}
         <Grid item xs={12} md={4}>
@@ -1655,7 +1600,7 @@ export const LeadBasicInfoSection: React.FC<LeadSectionsProps> = (props) => {
           />
         </Grid>
       </Grid>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -1668,10 +1613,7 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
   const { values, setFieldValue } = useFormikContext<any>();
 
   return (
-    <div className="wt-section-card">
-      <div className="wt-section-heading">
-        Address To 
-      </div>
+    <CrmSection title="Contact Person">
       <FieldArray name="leadTeams">
         {({ push, remove }) => (
           <div className="d-flex flex-column gap-3">
@@ -1699,16 +1641,19 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
               }));
 
               return (
-                <div key={index} className="wt-entry-card">
-                  <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
-                    type="button"
-                    onClick={() => remove(index)}
-                    aria-label="Remove company"
-                  >
-                    <Close fontSize="small" />
-                  </Button>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={3}>
+                <Box
+                  key={index}
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr)) auto" },
+                    gap: 2,
+                    alignItems: "end",
+                    pt: index ? 2 : 0,
+                    borderTop: index ? 1 : 0,
+                    borderColor: "divider",
+                  }}
+                >
+                    <Box sx={{ minWidth: 0 }}>
                       <DropDownInput
                         formikField={`leadTeams.${index}.companyTypeId`}
                         inputLabel="Company Type"
@@ -1718,8 +1663,8 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                         }
                         isRequired={false}
                       />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
                       <DropDownInput
                         formikField={`leadTeams.${index}.companyId`}
                         inputLabel="Company"
@@ -1734,8 +1679,8 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                         isRequired={false}
                         showColor
                       />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
                       <DropDownInput
                         formikField={`leadTeams.${index}.subCompanyId`}
                         inputLabel="Sub Company"
@@ -1753,8 +1698,8 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                         }
                         isRequired={false}
                       />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
                       <DropDownInput
                         formikField={`leadTeams.${index}.contactId`}
                         inputLabel="Contact Person"
@@ -1765,31 +1710,36 @@ export const ClientCompaniesSection: React.FC<LeadSectionsProps> = (props) => {
                         isRequired={false}
                         showColor
                       />
-                    </Grid>
-                  </Grid>
-                </div>
+                    </Box>
+                    {/* Inline remove, bottom-aligned with the inputs; spans the row below lg. */}
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", minHeight: 40, gridColumn: { xs: "1 / -1", lg: "auto" } }}>
+                      <Button variant="tinted" size="icon-sm" style={{ '--tint': 'var(--cta-danger)' } as import('react').CSSProperties}
+                        type="button"
+                        onClick={() => remove(index)}
+                        aria-label={`Remove contact person ${index + 1}`}
+                      >
+                        <Close fontSize="small" />
+                      </Button>
+                    </Box>
+                </Box>
               );
             })}
 
-            {/* Address To is a SINGLE client connection — the "+ Add" button is
-                hidden once one row exists. This single Address To is mirrored
-                one-way into the project's External Team; additional stakeholders
-                are managed there, not here. */}
-            {(values.leadTeams || []).length === 0 && (
-              <Button variant="inverted" size="sm"
-                type="button"
-                onClick={() =>
-                  push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })
-                }
-                className="align-self-start mt-1"
-              >
-                + Add Client Company Connection
-              </Button>
-            )}
+            {/* Any number of contact persons; every row is mirrored one-way into
+                the project's External Team. The first row is the billed client. */}
+            <Button variant="inverted" size="sm"
+              type="button"
+              onClick={() =>
+                push({ companyTypeId: "", companyId: "", subCompanyId: "", contactId: "" })
+              }
+              className="align-self-start mt-1"
+            >
+              + Add Contact Person
+            </Button>
           </div>
         )}
       </FieldArray>
-    </div>
+    </CrmSection>
   );
 };
 
@@ -1941,10 +1891,3 @@ export const LeadReviewStep: React.FC<LeadSectionsProps> = (props) => {
   );
 };
 
-
-
-/**
- * 19. Proposal Configuration Section
- * Used in Wizard Step 5 — Proposal Configuration.
- * Displays Template dropdown, Percentage table and Meeting count table.
- */

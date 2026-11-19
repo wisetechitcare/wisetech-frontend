@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
-  BookOpen,
+  BookOpenText,
   CalendarDays,
   Download,
   FileText,
@@ -36,7 +37,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsTrigger } from "@/ds/ui/tabs";
 import { EmptyState } from "@/ds/patterns/empty-state";
 import { toast } from "@app/modules/common/components/ui/feedback";
-import { GallerySelect, ToggleList, TOGGLE_TAB } from "@app/modules/project-gallery/GalleryDialogs";
+import { GallerySelect } from "@app/modules/project-gallery/GalleryDialogs";
+import { ToggleList, TOGGLE_TAB } from "@/ds/ui/tabs";
 import { formatDateTime, formatSize } from "@app/modules/project-gallery/media";
 import { ItemActionsMenu, shareLink } from "@app/modules/project-gallery/MediaCard";
 import { UploadJobsPanel } from "@app/modules/project-gallery/UploadPanel";
@@ -203,7 +205,7 @@ function CatalogueCover({ catalogue: c, onOpen }: { catalogue: Catalogue; onOpen
 
 /* ---------- Actions (same menu as a gallery item) ---------- */
 
-interface CatalogueActions {
+export interface CatalogueActions {
   preview: (c: Catalogue) => void;
   /** Absent without edit access to the company. */
   rename?: (c: Catalogue) => void;
@@ -216,7 +218,7 @@ const downloadCatalogue = (c: Catalogue) => window.open(c.downloadUrl, "_blank",
 const shareCatalogue = (c: Catalogue) => void shareLink(c.name, c.url, "The link works for 12 hours.");
 
 /** The gallery's own ⋯ menu (ItemActionsMenu), so both screens offer the same actions in the same order. */
-function CatalogueActionsMenu({ catalogue: c, actions }: { catalogue: Catalogue; actions: CatalogueActions }) {
+export function CatalogueActionsMenu({ catalogue: c, actions }: { catalogue: Catalogue; actions: CatalogueActions }) {
   return (
     <ItemActionsMenu
       label={c.name}
@@ -333,7 +335,7 @@ function CatalogueTable({ items, newIds, actions }: { items: Catalogue[]; newIds
 
 /* ---------- Dialogs (the gallery's Create album / Delete dialogs, for a catalogue) ---------- */
 
-function RenameDialog({ catalogue, onClose, onSave }: { catalogue: Catalogue | null; onClose: () => void; onSave: (name: string) => Promise<void> }) {
+export function RenameDialog({ catalogue, onClose, onSave }: { catalogue: Catalogue | null; onClose: () => void; onSave: (name: string) => Promise<void> }) {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -383,7 +385,7 @@ function RenameDialog({ catalogue, onClose, onSave }: { catalogue: Catalogue | n
   );
 }
 
-function DeleteDialog({ catalogue, onClose, onConfirm }: { catalogue: Catalogue | null; onClose: () => void; onConfirm: () => Promise<void> }) {
+export function DeleteDialog({ catalogue, onClose, onConfirm }: { catalogue: Catalogue | null; onClose: () => void; onConfirm: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   return (
     <Dialog open={!!catalogue} onOpenChange={(o) => !o && !busy && onClose()}>
@@ -473,7 +475,9 @@ const CompanyCatalogue = ({ companyId, canWrite, addRequested, onAddHandled }: P
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   // By id, so the open preview survives a rename or re-sort; ← → step through the list as shown.
-  const [viewingId, setViewingId] = useState<string | null>(null);
+  // ?open=<id> (from CRM -> Catalogue) opens that catalogue in the viewer on arrival.
+  const [searchParams] = useSearchParams();
+  const [viewingId, setViewingId] = useState<string | null>(() => searchParams.get("open"));
   const [renaming, setRenaming] = useState<Catalogue | null>(null);
   const [deleting, setDeleting] = useState<Catalogue | null>(null);
   const [q, setQ] = useState("");
@@ -571,7 +575,7 @@ const CompanyCatalogue = ({ companyId, canWrite, addRequested, onAddHandled }: P
       <div className="flex flex-wrap items-start gap-4 border-b px-5 pt-5 pb-4">
         <div className="flex min-w-0 flex-[1_1_320px] items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground">
-            <BookOpen className="size-5" aria-hidden />
+            <BookOpenText className="size-5" aria-hidden />
           </span>
           <div className="min-w-0">
             <h2 className="text-lg font-semibold">Catalogues</h2>
@@ -651,7 +655,7 @@ const CompanyCatalogue = ({ companyId, canWrite, addRequested, onAddHandled }: P
         {!items.length ? (
           !uploading && (
             <EmptyState
-              icon={<BookOpen aria-hidden />}
+              icon={<BookOpenText aria-hidden />}
               title="No catalogues yet"
               description="Upload the product catalogues this company shares, as PDFs or images, so anyone on the account can open the latest one."
               action={

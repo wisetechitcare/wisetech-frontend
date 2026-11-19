@@ -5,7 +5,7 @@ import { PageLink, PageTitle } from "@metronic/layout/core";
 import { useSelector } from "react-redux";
 import { PageTabs, type PageTabItem } from "@/ds/patterns/page-tabs";
 import type { IconSource } from "@/ds/ui/dynamic-icon";
-import { tabSlug } from "@utils/sectionTabs";
+import { isSectionTabHidden } from "@utils/sectionTabs";
 import type { RootState } from "@redux/store";
 import Reimbursement from "./Reimbursement";
 import AllEmployee from "./views/admin/AllEmployee";
@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 import ReimbursementConfiguration from "./views/admin/ReimbursementConfiguration";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { hasPermission } from "@utils/authAbac";
-import { canSection, isTabTurnedOff } from "@utils/can";
+import { canSection } from "@utils/can";
 import { fetchReimbursementPaymentQueueCount } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -73,10 +73,7 @@ function AdminAndEmployeeReimbursementViewer() {
   // Subscribed so a live access change re-renders the bar.
   useSelector((s: RootState) => (s as any).authz?.deniedTabs);
   useSelector((s: RootState) => (s as any).authz?.access);
-  const tabHidden = (title: string) => {
-    const slug = tabSlug(title);
-    return isTabTurnedOff(ACCESS_SECTION, slug) || (slug === "configure" && !canSection(ACCESS_SECTION, "write"));
-  };
+  const tabHidden = (title: string) => isSectionTabHidden(ACCESS_SECTION, title);
 
   const tabItems: Tab[] = [
     ...(hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.readOwn) ? [{

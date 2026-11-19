@@ -11,7 +11,7 @@
  * Layout follows the Billing entity pattern: a “now” summary strip of glass
  * cards, then accent-topped {@link SettingsSection}s for each axis.
  */
-import { useCallback, useState, type ChangeEvent } from 'react';
+import { useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
@@ -21,7 +21,9 @@ import {
   SegmentedControl,
   SettingsSection,
   WtButton,
+  WtColorPicker,
   toast,
+  type ColorSwatch,
 } from '@app/modules/common/components/ui';
 import { usePermission } from '@hooks/usePermission';
 import { saveCurrentCompanyInfo } from '@redux/slices/company';
@@ -56,8 +58,8 @@ const ORG_SURFACE_OPTIONS = [
 const SURFACE_OPTIONS = [{ value: 'inherit' as const, label: 'Org default' }, ...ORG_SURFACE_OPTIONS];
 
 /**
- * The organisation's Interface Style default — what everyone on "Org default" sees.
- * Same save path and permission as the organisation time format (DateTimePanel).
+ * The organization's Interface Style default — what everyone on "Org default" sees.
+ * Same save path and permission as the organization time format (DateTimePanel).
  */
 function OrgSurfaceDefault() {
   const dispatch = useDispatch();
@@ -70,7 +72,7 @@ function OrgSurfaceDefault() {
 
   const save = useCallback(async (next: SurfaceStyle) => {
     if (!companyId) {
-      toast({ icon: 'error', title: 'Could not load your organisation', text: 'Reload the page and try again.' });
+      toast({ icon: 'error', title: 'Could not load your organization', text: 'Reload the page and try again.' });
       return;
     }
     setSaving(true);
@@ -78,9 +80,9 @@ function OrgSurfaceDefault() {
       const res = await updateCompanyOverview(companyId, { interfaceStyle: next } as any);
       if (!res || res.hasError) throw new Error('Update rejected');
       dispatch(saveCurrentCompanyInfo({ ...currentCompany, interfaceStyle: next }) as any);
-      toast({ icon: 'success', title: `Organisation default is now ${next === 'glass' ? 'Glass' : 'Material'}` });
+      toast({ icon: 'success', title: `Organization default is now ${next === 'glass' ? 'Glass' : 'Material'}` });
     } catch {
-      toast({ icon: 'error', title: 'Could not save the organisation interface style' });
+      toast({ icon: 'error', title: 'Could not save the organization interface style' });
     } finally {
       setSaving(false);
     }
@@ -97,7 +99,7 @@ function OrgSurfaceDefault() {
       sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}
     >
       <Box sx={{ minWidth: 0 }}>
-        <Typography variant="body2" sx={{ fontWeight: 700 }}>Organisation default</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>Organization default</Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {orgSurface ? 'Applies to everyone on “Org default”.' : 'Not set — everyone on “Org default” sees Material.'}
         </Typography>
@@ -106,11 +108,11 @@ function OrgSurfaceDefault() {
         options={ORG_SURFACE_OPTIONS.map((o) => ({
           ...o,
           disabled: saving || !companyId,
-          disabledReason: saving ? 'Saving…' : 'Organisation not loaded yet',
+          disabledReason: saving ? 'Saving…' : 'Organization not loaded yet',
         }))}
         value={orgSurface ?? 'material'}
         onChange={save}
-        ariaLabel="Organisation interface style"
+        ariaLabel="Organization interface style"
       />
     </Stack>
   );
@@ -123,6 +125,9 @@ const BRAND_ROLES: ReadonlyArray<{ key: keyof BrandPalette; label: string; hint:
   { key: 'accent', label: 'Accent', hint: 'Highlights that must catch the eye' },
   { key: 'ink', label: 'Ink', hint: 'Headings and high-emphasis text' },
 ];
+
+/** Brand roles are free colours, not kit tones — the picker shows only the custom swatch + hex. */
+const NO_PALETTE: readonly ColorSwatch[] = [];
 
 /** Header action for App Settings — sits next to “All Settings”, matching the entity toolbar. */
 export function AppearanceHeaderActions() {
@@ -180,7 +185,7 @@ export function AppearancePanel() {
           trio={TRIO.cyan}
           label="Surface"
           value={surface === 'glass' ? 'Glass' : 'Material'}
-          hint={surfacePreference === 'inherit' ? 'Organisation default' : surface === 'glass' ? 'Frost + blur' : 'Opaque elevation'}
+          hint={surfacePreference === 'inherit' ? 'Organization default' : surface === 'glass' ? 'Frost + blur' : 'Opaque elevation'}
         />
       </Box>
 
@@ -297,7 +302,7 @@ export function AppearancePanel() {
           }
         >
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {surfacePreference === 'inherit' && `Following your organisation: ${surface === 'glass' ? 'Glass' : 'Material'}. `}
+            {surfacePreference === 'inherit' && `Following your organization: ${surface === 'glass' ? 'Glass' : 'Material'}. `}
             {surface === 'glass'
               ? 'Glass: surfaces are translucent and blur what is behind them, the way macOS and iOS panels do.'
               : 'Material: surfaces are opaque and separated by elevation instead of blur — steadier on low-powered devices and easier to read over busy backgrounds.'}
@@ -404,48 +409,13 @@ export function AppearancePanel() {
                     {hint}
                   </Typography>
                 </Box>
-                <Box
-                  component="input"
-                  type="color"
-                  aria-label={`${label} colour`}
+                {/* Brand roles need a 6-digit hex; the kit's hex field also accepts 3. */}
+                <WtColorPicker
+                  label={`${label} colour`}
+                  palette={NO_PALETTE}
+                  size={34}
                   value={brand[key]}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    setBrand({ ...brand, [key]: e.target.value })
-                  }
-                  sx={{
-                    width: 44,
-                    height: 34,
-                    p: 0.5,
-                    cursor: 'pointer',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1.5,
-                    bgcolor: 'background.paper',
-                  }}
-                />
-                <Box
-                  component="input"
-                  type="text"
-                  aria-label={`${label} hex`}
-                  value={brand[key]}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                      const v = e.target.value;
-                      if (isHex6(v)) setBrand({ ...brand, [key]: v });
-                  }}
-                  sx={{
-                    width: 96,
-                    height: 34,
-                    px: 1,
-                    borderRadius: 1.5,
-                    fontSize: 13,
-                    fontFamily: 'ui-monospace, monospace',
-                    textTransform: 'uppercase',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper',
-                    color: 'text.primary',
-                    '&:focus': { outline: 'none', borderColor: 'primary.main' },
-                  }}
+                  onChange={(v) => { if (isHex6(v)) setBrand({ ...brand, [key]: v }); }}
                 />
               </Stack>
             ))}
