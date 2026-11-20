@@ -47,6 +47,16 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Design system (ADR-001)
 
+- **`<style>{KEYFRAMES}</style>` is pasted into the DOM by 17 files** (2026-11-20) — the configuration
+  animations (`cfgFadeIn`, `cfgSlideIn`, `cfgPulse`) and the `.cfg-tab-btn` focus rules ride along in a
+  `<style>` block injected by every Configure page, by `ConfigPageLayout` and by `ErrorBoundary`. They are
+  load-order dependent by accident: `Departments.tsx` deleted its own copy on the grounds that the layout
+  already injects one, so that page's fade now depends on which component mounted first. A `<style>` block is
+  banned by the UI rules, and this is 17 copies of one. — Replace `.cfg-fade-in` / `.cfg-slide-in` with a
+  Tailwind animation (or `src/ds/effects`) and the focus rules with the kit's own `focus-visible`, then delete
+  all 17 injections. `cfgPulse` goes last: `ConfigSettingsRow` and `ConfigStatsCards` still draw their
+  skeletons with it, and both should move to the kit `Skeleton` as `ConfigSectionCard` has.
+
 - **Billing's own files are kit-only; its dependency GRAPH is not** (2026-11-20) — every `.tsx` under
   `src/app/pages/billing` is now free of MUI, KTIcon and Metronic imports, but
   `node scripts/legacy-ui-reach.mjs src/app/pages/billing` still reports 45 files, every chain ending in a legacy
@@ -270,9 +280,6 @@ Format: **what** — evidence (file / screen) — suggested fix.
   26, 29 px). — After Phase 2 converts every module, snap them onto a small scale (for example 12/14/16/20/24 px)
   in one reviewed pass, then add the D10 lint so new code can only use the scale. Sizes must stay in px, because
   the app's root font is 13px (`size-4` is 13px in the app and 16px in Storybook).
-- **5 Bootstrap names on configuration cards still use the Bootstrap font** — `ConfigSectionCard` keeps a
-  Bootstrap `<i>` fallback for `bi-123`, `bi-bullseye`, `bi-house-door`, `bi-table` and `bi-truck`, because the
-  registry has no mapping for them. — Map them (Phase 3), then delete the fallback branch.
 - **`ci-spin` is defined in one screen only** — the spinner class lives in an inline style block in
   `entity/detail/sections/AuditSection.tsx`, so `ci-spin` on an icon anywhere else does nothing. — Use Lucide's
   `animate-spin` (Tailwind) for icon spinners, and delete the local class once AuditSection is converted.
