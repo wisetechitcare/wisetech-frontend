@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ListOrdered, RefreshCw, Tag } from "lucide-react";
+import { Flag, ListOrdered, RefreshCw } from "lucide-react";
 import { canDelete } from "@utils/can";
 import { withDeleteSection } from "@app/modules/common/components/ui/DeleteSection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -199,7 +199,7 @@ const BillingConfigurePage: React.FC = () => {
             key={group.key}
             title={group.title}
             description={group.description}
-            icon={Tag}
+            icon={Flag}
             iconColor="blue"
             loading={isLoading}
             badge={{ label: `${group.entries.length}` }}

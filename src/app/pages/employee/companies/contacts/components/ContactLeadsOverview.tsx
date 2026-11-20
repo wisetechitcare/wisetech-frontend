@@ -191,9 +191,7 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
         description={`${leadCount} lead${leadCount !== 1 ? 's' : ''} associated with this contact`}
         icon="bi-graph-up"
         iconColor="primary"
-        badge={{ label: `${leadCount}`, bg: C.primaryLight, color: C.primary }}
-        variant="default"
-        compact={false}
+        badge={{ label: `${leadCount}` }}
       >
         <div style={{ marginTop: SP.md }}>
           <MaterialTable

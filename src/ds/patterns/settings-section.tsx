@@ -42,7 +42,7 @@ export function SettingsSection({
   tone?: Tone | (string & {})
   /** How many items the section holds (rules, types…). */
   count?: number | string
-  /** A state pill beside the title. Never colour alone — each one carries its word. */
+  /** A state pill beside the title. Never colour alone — each one carries its word. Hidden while loading. */
   status?: SettingsSectionStatus
   action?: React.ReactNode
   /** First paint only — see the note on `showSkeleton` below. */
@@ -96,8 +96,13 @@ export function SettingsSection({
             </span>
           }
           description={loading && description ? <Skeleton className="h-3 w-56 rounded-md" /> : description}
-          /* An action is a write; it stays hidden until the section's real state is on screen. */
-          action={loading ? undefined : action}
+          /*
+           * Rendered through every state, loading included. Whether a control may be used before
+           * the data arrives is the CALLER's policy, not this frame's: a view control (a period
+           * toggle, a tab bar) belongs on screen while the body loads, while a write ("New Slab")
+           * does not. Deciding here would have hidden the toggle on every loading chart section.
+           */
+          action={action}
         />
       </CardHeader>
       {children && (

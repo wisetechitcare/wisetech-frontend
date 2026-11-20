@@ -66,9 +66,11 @@ export const Loading: Story = {
   args: { loading: true },
   play: async ({ canvas }) => {
     await expect(canvas.getByLabelText('Loading section')).toBeInTheDocument()
-    // A write stays hidden until the real state is on screen, and so do the count and status.
-    await expect(canvas.queryByRole('button', { name: 'Reset to defaults' })).not.toBeInTheDocument()
+    // The count describes content that has not arrived, so the frame holds it back...
     await expect(canvas.queryByText('3')).not.toBeInTheDocument()
+    // ...but the action stays: a view control belongs on screen while the body loads, and
+    // whether a control may be used this early is the caller's policy, not the frame's.
+    await expect(canvas.getByRole('button', { name: 'Reset to Defaults' })).toBeInTheDocument()
   },
 }
 
