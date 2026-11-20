@@ -45,7 +45,38 @@ Format: **what** — evidence (file / screen) — suggested fix.
   full parallel run on a busy machine: both wait with the default 1s `waitFor` / `findBy*`. — Give those waits an
   explicit timeout, or mock the slow fetch they wait on.
 
+- **`ConfigColorChip` gates a delete permission on the icon NAME** (found 2026-11-20) — the chip renders its
+  action only when `canDeleteHere || !action.icon.includes('trash')`, so whether the permission check applies at all
+  is decided by the string someone put in `icon`. The type already carries `danger` and `tone` flags that state the
+  same thing properly. Two consequences: renaming the icon silently drops the gate, and `icon` cannot widen to
+  `IconSource` (a Lucide component has no `.includes`), which is exactly what blocks the last three `bi-*` names in
+  Billing → Configure. 13 call sites across 9 modules. — Gate on an explicit flag, not the icon string, and do it
+  as part of moving these screens onto Patterns/Master List (KitMap already maps `ConfigColorChip` there) rather than
+  as a patch to a component that is already slated for replacement.
+
 ## Design system (ADR-001)
+
+- **Billing's own files are kit-only; its dependency GRAPH is not** (2026-11-20) — every `.tsx` under
+  `src/app/pages/billing` is now free of MUI, KTIcon and Metronic imports, but
+  `node scripts/legacy-ui-reach.mjs src/app/pages/billing` still reports 45 files, every chain ending in a legacy
+  adapter: `MaterialHeaderTab`, `ModuleOrgFilter`, `PerOrgPrefixSettings`, `ui/buttons`, `ui/checkbox`, `ui/chips`,
+  `ConfigColorChip`, `DetailCard`, `EntityPageHeader`, `ui/glass`, `ui/patterns`, `SegmentedControl`,
+  `WtColorPicker`, `WtField`, `ConfigPageLayout`, `ConfigSectionCard`, `MaterialTableImpl`, `ui/dates`,
+  `FloatingLabel` — plus one cross-module screen, `tasks/TaskFormDialog`. Billing therefore cannot join
+  `MUI_FREE_ROOTS` yet. — Convert the adapters (each is a KitMap row), then add `src/app/pages/billing` to
+  `MUI_FREE_ROOTS` so the gain is locked the way Reimbursement and Organization are.
+
+- **`BillingLayout` still uses Metronic `PageTitle` and `MaterialHeaderTab`** (2026-11-20) — neither lint rule
+  flags it, because `PageTitle` is the app-wide breadcrumb *context* rather than a styled component, and
+  `MaterialHeaderTab` is a shared component (Approvals and Attendance use the same bar). KitMap maps the bar to
+  Components/Tabs (`line`). — Both belong to the app-shell wave, not to a per-module pass.
+
+- **Tax-rate "retired" rail changed shade** (2026-11-20) — `TaxRateSections` painted its retired-row rail
+  `#cbd5e1` (Tailwind slate-300), which has no token equivalent; it now takes the SSOT's `inkFaint` (`#97A1AF`),
+  slightly darker. Live rails are untouched: `vivid.blue` / `vivid.amber` are character-for-character the hexes that
+  had been inlined. All three stay hex STRINGS because `ConfigColorChip` feeds the value through `toneAlpha()`,
+  which parses six hex digits and returns its input untouched on failure — a `var(--token)` would paint a
+  fully-opaque fill instead of a 16% hover tint. — The indirection dies with the Master List move.
 
 - **Column reorder has no keyboard path yet** — kit `DataTable` (`src/ds/patterns/data-table.tsx`): headers move
   by pointer drag only, while rows move with ↑ / ↓ on a focused grip. Suggested: Move Left / Move Right in the
@@ -240,6 +271,13 @@ Format: **what** — evidence (file / screen) — suggested fix.
   sent (2026-11-12). — Let the approval engine accept a Prisma transaction client, then wrap the whole send in one.
 
 ## Icon migration (Lucide)
+
+- **Three `bi-*` names left in Billing → Configure** (2026-11-20) — `bi-arrow-counterclockwise` (×2) and
+  `bi-trash`, all on `ConfigColorChip`'s `action.icon`, which is typed `string` and whose VALUE is read by a
+  permission check (see "gates a delete permission on the icon NAME" under bugs found in passing). Everything else
+  in Billing is Lucide now, including two names lint could not see — `bi-percent` and `bi-scissors` passed through a
+  local helper's `icon: string` parameter, so the JSX-attribute rule never matched them; widening that parameter to
+  `IconSource` surfaced and fixed both. — Convert the remaining three with the Master List move.
 
 - **Icon size normalisation, then a size lint** — converted icons keep the exact pixel size the old font class
   produced (`fs-5` → `size-[17px]`), so the app now carries a long tail of odd sizes (13, 14, 16, 17, 18, 21, 23,

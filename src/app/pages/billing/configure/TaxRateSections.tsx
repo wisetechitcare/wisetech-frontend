@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Stack } from "@mui/material";
+import { Percent, Plus, Scissors } from "lucide-react";
 import { ConfigSectionCard } from "@app/modules/configuration";
+import type { IconSource } from "@/ds/ui/dynamic-icon";
+import { AutoGrid } from "@/ds/patterns/auto-grid";
+import { LEGACY_UIKIT } from "@app/theme/tokens";
 import {
   GlassDialog, GlassHeader, WtButton, WtCheckboxField, WtField, ConfigColorChip,
 } from "@app/modules/common/components/ui";
@@ -93,26 +96,25 @@ const rateCaption = (kind: Kind, row: TaxRateRow): string => {
  * rows, each a single glance tall.
  */
 const RateGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Box
-    sx={{
-      display: "grid",
-      gridTemplateColumns: {
-        xs: "1fr",
-        sm: "repeat(auto-fill, minmax(260px, 1fr))",
-        lg: "repeat(auto-fill, minmax(300px, 1fr))",
-      },
-      gap: 1.25,
-      mt: 2,
-    }}
-  >
-    {children}
-  </Box>
+  <AutoGrid min={280} stretch className="mt-4 gap-2.5">{children}</AutoGrid>
 );
 
-/** A retired rate reads as muted; a live one carries its section's colour. */
-const GST_COLOUR = "#2563eb";
-const TDS_COLOUR = "#d97706";
-const RETIRED_COLOUR = "#cbd5e1";
+/**
+ * A retired rate reads as muted; a live one carries its section's colour.
+ *
+ * Token references, not literals: these three were `#2563eb` / `#d97706` / `#cbd5e1`
+ * written out by hand, and the first two are character-for-character the SSOT's
+ * `vivid.blue` and `vivid.amber` — copied out of the token module rather than imported.
+ *
+ * They stay HEX STRINGS rather than becoming `var(--token)` because `ConfigColorChip`
+ * feeds its colour through `toneAlpha()`, which parses the six hex digits to build the
+ * chip's soft hover tint and returns its input untouched on failure. A CSS variable
+ * would therefore paint a fully-opaque fill instead of a 16% one. The indirection dies
+ * with that adapter, not before.
+ */
+const GST_COLOUR = LEGACY_UIKIT.color.vivid.blue;
+const TDS_COLOUR = LEGACY_UIKIT.color.vivid.amber;
+const RETIRED_COLOUR = LEGACY_UIKIT.color.inkFaint;
 
 const TaxRateSections: React.FC = () => {
   const queryClient = useQueryClient();
@@ -212,7 +214,7 @@ const TaxRateSections: React.FC = () => {
     description: string,
     rows: TaxRateRow[],
     colour: string,
-    icon: string,
+    icon: IconSource,
     iconColor: "blue" | "amber",
   ) => (
     <ConfigSectionCard
@@ -224,7 +226,7 @@ const TaxRateSections: React.FC = () => {
       badge={{ label: `${rows.length}` }}
       primaryAction={{
         label: kind === "GST" ? "New Slab" : "New Section",
-        icon: "bi-plus-lg",
+        icon: Plus,
         onClick: () => setDraft(emptyDraft(kind)),
         disabled: busy,
       }}
@@ -286,13 +288,13 @@ const TaxRateSections: React.FC = () => {
       {section(
         "GST", "GST Slabs",
         "The rate charged on top of a bill and paid over to the government. A bill picks one; the default is what a new bill starts on.",
-        data?.gstSlabs ?? [], GST_COLOUR, "bi-percent", "blue",
+        data?.gstSlabs ?? [], GST_COLOUR, Percent, "blue",
       )}
 
       {section(
         "TDS", "TDS Sections",
         "Tax the client withholds from your bill under the Income Tax Act. It lowers what actually reaches the bank, and each bill tracks whether the client deposited it.",
-        data?.tdsSections ?? [], TDS_COLOUR, "bi-scissors", "amber",
+        data?.tdsSections ?? [], TDS_COLOUR, Scissors, "amber",
       )}
 
       <GlassDialog
@@ -322,7 +324,7 @@ const TaxRateSections: React.FC = () => {
         }
       >
         {draft && (
-          <Stack spacing={3} sx={{ px: 3, pt: 1, pb: 3 }}>
+          <div className="flex flex-col gap-6 px-6 pt-2 pb-6">
             <WtField
               label="Name"
               required
@@ -364,7 +366,7 @@ const TaxRateSections: React.FC = () => {
               }
             />
 
-            <Stack spacing={1.5}>
+            <div className="flex flex-col gap-3">
               <WtCheckboxField
                 size="sm"
                 checked={draft.isDefault}
@@ -386,9 +388,9 @@ const TaxRateSections: React.FC = () => {
                 label="Available on the bill form"
                 description="Turn this off to retire a rate. Bills already raised on it keep their figures — nothing here is retroactive."
               />
-            </Stack>
+            </div>
 
-            <Stack direction="row" justifyContent="flex-end">
+            <div className="flex flex-row justify-end">
               <WtButton
                 disabled={!canSave}
                 onClick={() => save.mutate(draft)}
@@ -396,8 +398,8 @@ const TaxRateSections: React.FC = () => {
               >
                 {save.isPending ? "Saving…" : draft.id ? "Update" : "Create"}
               </WtButton>
-            </Stack>
-          </Stack>
+            </div>
+          </div>
         )}
       </GlassDialog>
     </>
