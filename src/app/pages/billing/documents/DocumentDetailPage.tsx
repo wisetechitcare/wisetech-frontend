@@ -4,11 +4,7 @@ import { useReturnContext } from "@hooks/useReturnContext";
 import { useFillViewport } from "@app/hooks/useFillViewport";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Box, Divider, FormControlLabel, LinearProgress, MenuItem, Stack, Tab, Tabs, TextField, Typography,
-} from "@mui/material";
-import { KTIcon } from "@metronic/helpers";
-import {
-  GlassCard, KeyValueRow, SectionDivider, WtButton, WtIconButton, WtSwitch, ToneChip, TRIO, toast, confirmDialog,
+  GlassCard, KeyValueRow, SectionDivider, ToneChip, TRIO, toast, confirmDialog,
 } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate, formatDateTime } from "@utils/dateFormats";
@@ -24,9 +20,20 @@ import {
 import {
   DocumentEditorHeader, DocumentEmailForm, DocumentEmailLog, DocumentSheet, MiniSelect, ZOOMS,
 } from "@modules/document-editor";
-import { Archive, ArchiveRestore, ChevronDown, CircleCheck, CircleX, Eye, FileDown, Link2 } from "lucide-react";
+import {
+  Archive, ArchiveRestore, ArrowLeftRight, ChevronDown, CircleCheck, CircleX, Eye, FileDown, Link2, Printer,
+} from "lucide-react";
+import { cn } from "@/ds/lib/utils";
 import { Button } from "@/ds/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ds/ui/dropdown-menu";
+import { DynamicIcon } from "@/ds/ui/dynamic-icon";
+import { Field, FieldDescription, FieldLabel } from "@/ds/ui/field";
+import { Label } from "@/ds/ui/label";
+import { Progress } from "@/ds/ui/progress";
+import { Separator } from "@/ds/ui/separator";
+import { Switch } from "@/ds/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ds/ui/tabs";
+import { Textarea } from "@/ds/ui/textarea";
 import VersionCompare from "./VersionCompare";
 import { billDocumentProfile } from "./billDocumentProfile";
 
@@ -40,26 +47,22 @@ const Figure: React.FC<{
   strong?: boolean;
   tone?: "default" | "danger" | "success";
 }> = ({ label, value, hint, strong, tone = "default" }) => (
-  <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ gap: 2, minWidth: 0 }}>
-    <Box sx={{ flexShrink: 0 }}>
-      <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{label}</Typography>
-      {hint && <Typography sx={{ fontSize: 10.5, color: "text.disabled" }}>{hint}</Typography>}
-    </Box>
+  <div className="flex min-w-0 flex-row items-baseline justify-between gap-4">
+    <div className="shrink-0">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      {hint && <p className="text-[10.5px] text-muted-foreground">{hint}</p>}
+    </div>
     {/* A long value (a bill over several stages) wraps inside the card instead of running out of it. */}
-    <Typography
-      sx={{
-        fontSize: strong ? 14.5 : 13,
-        fontWeight: strong ? 700 : 600,
-        minWidth: 0,
-        textAlign: "right",
-        overflowWrap: "anywhere",
-        color:
-          tone === "danger" ? "error.main" : tone === "success" ? "success.main" : "text.primary",
-      }}
+    <p
+      className={cn(
+        "min-w-0 text-right [overflow-wrap:anywhere]",
+        strong ? "text-[14.5px] font-bold" : "text-[13px] font-semibold",
+        tone === "danger" ? "text-destructive" : tone === "success" ? "text-success" : "text-foreground",
+      )}
     >
       {value}
-    </Typography>
-  </Stack>
+    </p>
+  </div>
 );
 
 /**
@@ -68,16 +71,12 @@ const Figure: React.FC<{
  * document and vice versa, and the last thing in each column is always reachable. `overscrollBehavior` stops a pane
  * at its end from handing the scroll to the page. Stacked on smaller screens, the page scrolls as one.
  */
-const PANE_SX = {
-  height: { lg: "100%" },
-  minHeight: 0,
-  overflowY: { lg: "auto" },
-  overscrollBehavior: { lg: "contain" },
-  // Room under the last card so its shadow and bottom edge are not clipped by the scroll box.
-  pb: { lg: 1 },
-  // A height-capped flex column SQUEEZES its children to fit instead of scrolling: every card keeps its own height.
-  "& > *": { flexShrink: 0 },
-} as const;
+const PANE =
+  "flex min-h-0 flex-col gap-4 lg:h-full lg:overflow-y-auto lg:overscroll-contain lg:pb-2 "
+  // Room under the last card (lg:pb-2) so its shadow and bottom edge are not clipped by the scroll box.
+  // A height-capped flex column SQUEEZES its children to fit instead of scrolling, so every card keeps
+  // its own height.
+  + "[&>*]:shrink-0";
 
 type Detail = Awaited<ReturnType<typeof getBillingDocument>>;
 
@@ -99,78 +98,66 @@ const SummarySections: React.FC<Pick<Detail, "document" | "project" | "client" |
   const billedPct = contract ? Math.min(100, Math.round((billed / contract) * 100)) : 0;
 
   return (
-    <Box>
+    <div>
       <SectionDivider tone={TRIO.blue} icon="profile-user" label="Billed to" />
-      <Box sx={{ mb: 2 }}>
+      <div className="mb-4">
         <KeyValueRow label="Client" value={client?.companyName} />
         <KeyValueRow label="GSTIN" value={client?.gstNumber} emptyText="Not on file" />
         <KeyValueRow label="Project" value={project?.name} last />
-      </Box>
+      </div>
 
       <SectionDivider tone={TRIO.purple} icon="bill" label="This bill" />
-      <Box sx={{ mb: 2 }}>
+      <div className="mb-4">
         <KeyValueRow label="Bill no." value={document.billNumber} />
         <KeyValueRow
           label={stages.length > 1 ? "Stages" : "Stage"}
           value={stages.length ? (
-            <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
+            <div className="flex flex-row flex-wrap justify-end gap-1">
               {stages.map((s) => <ToneChip key={s} tone="brand" dense label={s} title={document.stageName ?? s} />)}
-            </Stack>
+            </div>
           ) : null}
         />
         <KeyValueRow label="Issued" value={formatDate(document.issueDate)} />
         <KeyValueRow label="Amount" value={formatCurrencyDecimal(financial.subtotal)} />
         <KeyValueRow label="GST" value={formatCurrencyDecimal(financial.taxTotal)} />
         {/* The figure the client pays — set apart so it reads first. */}
-        <Box
-          sx={{
-            mt: 1, px: 1.5, py: 1.25, borderRadius: "10px", bgcolor: "action.hover",
-            display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 2,
-          }}
-        >
-          <Typography sx={{ fontSize: 13, fontWeight: 600, color: "text.secondary" }}>Total incl. GST</Typography>
-          <Typography sx={{ fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
-            {formatCurrencyDecimal(financial.grandTotal)}
-          </Typography>
-        </Box>
-      </Box>
+        <div className="mt-2 flex items-baseline justify-between gap-4 rounded-[10px] bg-accent px-3 py-2.5">
+          <p className="text-[13px] font-semibold text-muted-foreground">Total incl. GST</p>
+          <p className="tabular text-[18px] font-extrabold">{formatCurrencyDecimal(financial.grandTotal)}</p>
+        </div>
+      </div>
 
       {contract !== null && (
         <>
           <SectionDivider tone={TRIO.green} icon="chart-simple" label="Contract" />
-          <Stack spacing={1}>
-            <Stack direction="row" justifyContent="space-between" alignItems="baseline" gap={2}>
-              <Typography sx={{ fontSize: 13, color: "text.secondary" }}>
-                {billedPct}% billed <Box component="span" sx={{ color: "text.disabled" }}>· before GST</Box>
-              </Typography>
-              <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                of {formatCurrencyDecimal(contract)}
-              </Typography>
-            </Stack>
-            <LinearProgress
-              variant="determinate"
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-row items-baseline justify-between gap-4">
+              <p className="text-[13px] text-muted-foreground">
+                {billedPct}% billed <span className="text-muted-foreground">· before GST</span>
+              </p>
+              <p className="tabular text-[13px] font-semibold">of {formatCurrencyDecimal(contract)}</p>
+            </div>
+            {/* The bar stays green because the section is: `success` is the token, and the indicator is
+                addressed through its own data-slot rather than a hardcoded colour. */}
+            <Progress
               value={billedPct}
               aria-label={`${billedPct}% of the contract billed`}
-              sx={{ height: 8, borderRadius: 4, bgcolor: "action.hover", "& .MuiLinearProgress-bar": { borderRadius: 4, bgcolor: TRIO.green.c } }}
+              className="[&_[data-slot=progress-indicator]]:bg-success"
             />
-            <Stack direction="row" justifyContent="space-between" gap={2}>
-              <Box>
-                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>Billed so far</Typography>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                  {formatCurrencyDecimal(billed)}
-                </Typography>
-              </Box>
-              <Box sx={{ textAlign: "right" }}>
-                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>Left to bill</Typography>
-                <Typography sx={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                  {formatCurrencyDecimal(left)}
-                </Typography>
-              </Box>
-            </Stack>
-          </Stack>
+            <div className="flex flex-row justify-between gap-4">
+              <div>
+                <p className="text-[11.5px] text-muted-foreground">Billed so far</p>
+                <p className="tabular text-sm font-bold">{formatCurrencyDecimal(billed)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[11.5px] text-muted-foreground">Left to bill</p>
+                <p className="tabular text-sm font-bold">{formatCurrencyDecimal(left)}</p>
+              </div>
+            </div>
+          </div>
         </>
       )}
-    </Box>
+    </div>
   );
 };
 
@@ -178,11 +165,12 @@ const SummarySections: React.FC<Pick<Detail, "document" | "project" | "client" |
 const PanelTitle: React.FC<{ icon: string; title: string; action?: React.ReactNode }> = ({
   icon, title, action,
 }) => (
-  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-    <KTIcon iconName={icon} className="fs-5" />
-    <Typography sx={{ fontWeight: 700, fontSize: 13.5, flex: 1, minWidth: 0 }}>{title}</Typography>
+  <div className="mb-3 flex flex-row items-center gap-2">
+    {/* The icon name is a prop (data), so DynamicIcon resolves it through the kit's registry. */}
+    <DynamicIcon name={icon} className="size-4" />
+    <p className="min-w-0 flex-1 text-[13.5px] font-bold">{title}</p>
     {action}
-  </Stack>
+  </div>
 );
 
 /**
@@ -218,7 +206,7 @@ const DocumentDetailPage: React.FC<DocumentDetailPageProps> = ({ documentId, onB
   const fillRef = useFillViewport<HTMLDivElement>({ bottomGap: 16, minHeight: 360 });
   const [zoom, setZoom] = useState(0);
 
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState("document");
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [compareFrom, setCompareFrom] = useState<string>("");
   const [compareTo, setCompareTo] = useState<string>("");
@@ -242,13 +230,13 @@ const DocumentDetailPage: React.FC<DocumentDetailPageProps> = ({ documentId, onB
   useEffect(() => {
     const version = searchParams.get("version");
     const compare = searchParams.get("compare");
-    if (version) { setSelectedVersionId(version); setTab(0); }
+    if (version) { setSelectedVersionId(version); setTab("document"); }
     if (compare && data) {
       const versions = data.document.versions;
       const index = versions.findIndex((v) => v.id === compare);
       setCompareTo(compare);
       setCompareFrom(versions[index + 1]?.id ?? "");
-      setTab(2);
+      setTab("compare");
     }
   }, [searchParams, data]);
 
@@ -356,7 +344,7 @@ const DocumentDetailPage: React.FC<DocumentDetailPageProps> = ({ documentId, onB
   });
 
   if (isLoading || !data) {
-    return <Box sx={{ maxWidth: 1800, mx: "auto", pb: 4 }}><BillingLoadingState rows={4} /></Box>;
+    return <div className="mx-auto max-w-[1800px] pb-8"><BillingLoadingState rows={4} /></div>;
   }
 
   const { document, project, client, financial, activity, emails, recipients, emailDefaults } = data;
@@ -405,7 +393,7 @@ const DocumentDetailPage: React.FC<DocumentDetailPageProps> = ({ documentId, onB
   };
 
   return (
-    <Box sx={{ maxWidth: 1800, mx: "auto", pb: { xs: 4, lg: 0 } }}>
+    <div className="mx-auto max-w-[1800px] pb-8 lg:pb-0">
       <DocumentEditorHeader
         documentNumber={document.documentNumber}
         status={
@@ -472,22 +460,16 @@ const DocumentDetailPage: React.FC<DocumentDetailPageProps> = ({ documentId, onB
         }
       />
 
-      <Box
+      {/* `lg:grid-rows-[minmax(0,1fr)]`: one row exactly as tall as the grid. With the default auto row
+          it grows to fit the taller column, so neither pane ever overflows and neither scrolls.
+          `lg:h-(--wt-fill-h)` is what is left of the window below the header (useFillViewport sets it);
+          height is auto when stacked. */}
+      <div
         ref={fillRef}
-        sx={{
-          display: "grid",
-          gap: 2,
-          alignItems: { xs: "start", lg: "stretch" },
-          gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(320px, 400px) minmax(0, 1fr)" },
-          // One row exactly as tall as the grid. With the default auto row it grows to fit the taller column, so
-          // neither pane ever overflows and neither scrolls.
-          gridTemplateRows: { lg: "minmax(0, 1fr)" },
-          // What is left of the window below the header — see PANE_SX. "auto" when stacked.
-          height: { lg: "var(--wt-fill-h)" },
-        }}
+        className="grid grid-cols-1 items-start gap-4 lg:h-(--wt-fill-h) lg:grid-cols-[minmax(320px,400px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch"
       >
         {/* ── Left: summaries + versions + tabs ─────────────────────────────── */}
-        <Stack spacing={2} sx={PANE_SX}>
+        <div className={PANE}>
           <GlassCard sx={{ p: 2 }}>
             <PanelTitle icon="abstract-26" title="Summary" />
             <SummarySections document={document} project={project} client={client} financial={financial} />
@@ -495,84 +477,89 @@ const DocumentDetailPage: React.FC<DocumentDetailPageProps> = ({ documentId, onB
 
           <GlassCard sx={{ p: 2 }}>
             <PanelTitle icon="time" title="Version History" />
-            <Stack spacing={0.75}>
+            <div className="flex flex-col gap-1.5">
               {versions.map((version) => (
-                <Box
+                // Selecting a version is an action, so each row is a button: tab stop and Enter/Space free.
+                <button
                   key={version.id}
+                  type="button"
+                  aria-pressed={version.id === activeVersionId}
                   onClick={() => { setSelectedVersionId(version.id); setSearchParams({}); }}
-                  sx={{
-                    p: 1, borderRadius: "10px", cursor: "pointer",
-                    border: (t) => `1px solid ${version.id === activeVersionId ? t.palette.primary.main : t.palette.divider}`,
-                    bgcolor: version.isCurrent ? "action.selected" : "transparent",
-                  }}
+                  className={cn(
+                    "w-full cursor-pointer rounded-[10px] border p-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                    version.id === activeVersionId ? "border-primary" : "border-border",
+                    version.isCurrent ? "bg-accent" : "bg-transparent",
+                  )}
                 >
-                  <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
-                    <Typography sx={{ fontSize: 12.5, fontWeight: version.isCurrent ? 700 : 500 }}>
+                  <span className="flex flex-row flex-wrap items-center gap-1.5">
+                    <span className={cn("text-[12.5px]", version.isCurrent ? "font-bold" : "font-medium")}>
                       Version {version.versionNumber}
-                    </Typography>
+                    </span>
                     {version.isCurrent && <ToneChip tone="brand" label="Current" dense />}
                     {/* The Bill Stage this version means — Configure's wording and colour, same as the Billing Tracker. */}
                     <BillingStatusBadge status={version.stageCode ?? version.status} />
-                  </Stack>
-                  <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground">
                     {version.createdByName ?? "—"} · {formatDateTime(version.createdAt)}
-                  </Typography>
-                </Box>
+                  </span>
+                </button>
               ))}
-            </Stack>
+            </div>
 
             {!isArchived && (
-              <Stack spacing={1} sx={{ mt: 1.5 }}>
-                <Divider />
-                <TextField
-                  size="small" fullWidth multiline minRows={2}
-                  label="Reason for a new revision"
-                  value={revisionReason}
-                  onChange={(event) => setRevisionReason(event.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  helperText="The current version becomes Superseded — never edited, never removed."
-                />
-                <WtButton size="small"
+              <div className="mt-3 flex flex-col gap-2">
+                <Separator />
+                {/* Field carries the floating label the kit makes standard, so no shrink flag is needed. */}
+                <Field>
+                  <FieldLabel htmlFor="revision-reason">Reason for a New Revision</FieldLabel>
+                  <Textarea
+                    id="revision-reason"
+                    rows={2}
+                    value={revisionReason}
+                    onChange={(event) => setRevisionReason(event.target.value)}
+                  />
+                  <FieldDescription>
+                    The current version becomes Superseded — never edited, never removed.
+                  </FieldDescription>
+                </Field>
+                <Button
+                  size="sm"
                   disabled={revisionReason.trim().length < 3 || revise.isPending}
+                  loading={revise.isPending}
                   onClick={() => revise.mutate()}
-                  sx={{ minHeight: 34, borderRadius: "10px", fontSize: 12.5 }}
                 >
                   {revise.isPending ? "Opening…" : "Create Revision"}
-                </WtButton>
-              </Stack>
+                </Button>
+              </div>
             )}
           </GlassCard>
-        </Stack>
+        </div>
 
         {/* ── Right: preview / timeline / compare / activity ─────────────────── */}
         {/* On lg the card fills the column: the tabs stay put and only the tab's content scrolls. */}
         {/* Stacked (below lg) the document comes first: it is what the page is for, not the summary above it. */}
-        <Box sx={{ minWidth: 0, height: { lg: "100%" }, display: { lg: "flex" }, flexDirection: "column", order: { xs: -1, lg: 0 } }}>
+        <div className="order-first min-w-0 flex-col lg:order-none lg:flex lg:h-full">
           <GlassCard sx={{ p: 0, mb: { xs: 2, lg: 0 }, flex: { lg: 1 }, minHeight: 0, display: { lg: "flex" }, flexDirection: "column" }}>
-            <Tabs
-              value={tab}
-              onChange={(_event, next) => setTab(next)}
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{ flexShrink: 0, minHeight: 42, "& .MuiTab-root": { minHeight: 42, fontSize: 12.5, textTransform: "none" } }}
-            >
-              <Tab label="Document" />
-              <Tab label={`History (${activity.length})`} />
-              <Tab label="Compare" />
-              <Tab label={`Email (${emails.length})`} />
-            </Tabs>
-            <Divider />
+            {/* The kit Tabs key their panels by value, which is why `tab` is a string here rather than
+                MUI's numeric index. `line` is the KitMap's variant for underline tabs. */}
+            <Tabs value={tab} onValueChange={(next) => setTab(String(next))} className="flex min-h-0 flex-col lg:flex-1">
+              <TabsList variant="line" className="shrink-0 overflow-x-auto">
+                <TabsTrigger value="document">Document</TabsTrigger>
+                <TabsTrigger value="history">History ({activity.length})</TabsTrigger>
+                <TabsTrigger value="compare">Compare</TabsTrigger>
+                <TabsTrigger value="email">Email ({emails.length})</TabsTrigger>
+              </TabsList>
+              <Separator />
 
-            <Box sx={{ p: 2, flex: { lg: 1 }, minHeight: 0, overflowY: { lg: "auto" }, overscrollBehavior: { lg: "contain" } }}>
-              {tab === 0 && (
+              <TabsContent value="document" className="min-h-0 p-4 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
                 <>
-                  <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
-                    <Typography sx={{ fontSize: 12, color: "text.secondary", flex: 1, minWidth: 0 }}>
+                  <div className="mb-3 flex flex-row flex-wrap items-center gap-2">
+                    <p className="min-w-0 flex-1 text-xs text-muted-foreground">
                       Version {activeVersion?.versionNumber ?? "—"}
-                      <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                      <span className="hidden sm:inline">
                         {" "}as it was issued — the stored snapshot, never re-rendered.
-                      </Box>
-                    </Typography>
+                      </span>
+                    </p>
                     <MiniSelect
                       ariaLabel="Zoom"
                       className="w-23"
@@ -580,71 +567,66 @@ const DocumentDetailPage: React.FC<DocumentDetailPageProps> = ({ documentId, onB
                       options={ZOOMS.map((option) => ({ value: String(option.value), label: option.label }))}
                       onChange={(next) => setZoom(Number(next))}
                     />
-                    <WtButton
-                      ghost size="small" disabled={access.isPending}
-                      onClick={() => access.mutate("PRINT")}
-                      startIcon={<KTIcon iconName="printer" className="fs-6" />}
-                      sx={{ minHeight: 30, fontSize: 12 }}
-                    >
+                    <Button variant="ghost" size="sm" disabled={access.isPending} onClick={() => access.mutate("PRINT")}>
+                      <Printer data-icon="inline-start" aria-hidden />
                       Print
-                    </WtButton>
-                  </Stack>
+                    </Button>
+                  </div>
                   {html ? (
                     <DocumentSheet html={html} editable={{}} zoom={zoom || null} />
                   ) : (
-                    <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-                      This version has no stored preview.
-                    </Typography>
+                    <p className="text-xs text-muted-foreground">This version has no stored preview.</p>
                   )}
                 </>
-              )}
+              </TabsContent>
 
-              {tab === 1 && <BillingTimeline steps={history} />}
+              <TabsContent value="history" className="min-h-0 p-4 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+                <BillingTimeline steps={history} />
+              </TabsContent>
 
-              {tab === 2 && (
-                <Stack spacing={2}>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }} useFlexGap flexWrap="wrap">
-                    <TextField
-                      select size="small" label="From" value={compareFrom}
-                      onChange={(event) => setCompareFrom(event.target.value)}
-                      InputLabelProps={{ shrink: true }} sx={{ minWidth: 150 }}
-                    >
-                      {versions.map((version) => (
-                        <MenuItem key={version.id} value={version.id} sx={{ fontSize: 12.5 }}>
-                          Version {version.versionNumber}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                    <WtIconButton
-                      size="small" title="Swap versions"
+              <TabsContent value="compare" className="min-h-0 p-4 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col flex-wrap gap-2 sm:flex-row sm:items-center">
+                    {/* MiniSelect already wraps the kit Select for this module — reused rather than a
+                        second select built here. The labels sit above because these are two of a pair. */}
+                    <div className="flex min-w-[150px] flex-col gap-1">
+                      <Label htmlFor="compare-from">From</Label>
+                      <MiniSelect
+                        ariaLabel="Compare from version"
+                        className="w-full"
+                        value={compareFrom}
+                        options={versions.map((version) => ({ value: version.id, label: `Version ${version.versionNumber}` }))}
+                        onChange={setCompareFrom}
+                      />
+                    </div>
+                    <Button
+                      variant="ghost" size="icon-sm" className="self-center"
+                      aria-label="Swap versions"
                       disabled={!compareFrom || !compareTo}
                       onClick={() => { setCompareFrom(compareTo); setCompareTo(compareFrom); }}
-                      sx={{ alignSelf: "center" }}
                     >
-                      <KTIcon iconName="arrow-right-left" className="fs-4" />
-                    </WtIconButton>
-                    <TextField
-                      select size="small" label="To" value={compareTo}
-                      onChange={(event) => setCompareTo(event.target.value)}
-                      InputLabelProps={{ shrink: true }} sx={{ minWidth: 150 }}
-                    >
-                      {versions.map((version) => (
-                        <MenuItem key={version.id} value={version.id} sx={{ fontSize: 12.5 }}>
-                          Version {version.versionNumber}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                    <FormControlLabel
-                      label={<Typography sx={{ fontSize: 12.5 }}>Show unchanged</Typography>}
-                      control={
-                        <WtSwitch
-                          checked={showUnchanged}
-                          onChange={(_event, next) => setShowUnchanged(next)}
-                        />
-                      }
-                      sx={{ flexShrink: 0, ml: { sm: "auto" } }}
-                    />
-                  </Stack>
+                      <ArrowLeftRight aria-hidden />
+                    </Button>
+                    <div className="flex min-w-[150px] flex-col gap-1">
+                      <Label htmlFor="compare-to">To</Label>
+                      <MiniSelect
+                        ariaLabel="Compare to version"
+                        className="w-full"
+                        value={compareTo}
+                        options={versions.map((version) => ({ value: version.id, label: `Version ${version.versionNumber}` }))}
+                        onChange={setCompareTo}
+                      />
+                    </div>
+                    {/* Base UI's Switch reports through onCheckedChange, not MUI's (event, value). */}
+                    <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+                      <Switch
+                        id="show-unchanged"
+                        checked={showUnchanged}
+                        onCheckedChange={(next) => setShowUnchanged(next)}
+                      />
+                      <Label htmlFor="show-unchanged">Show unchanged</Label>
+                    </div>
+                  </div>
                   {comparison ? (
                     <VersionCompare
                       comparison={comparison}
@@ -653,24 +635,19 @@ const DocumentDetailPage: React.FC<DocumentDetailPageProps> = ({ documentId, onB
                       profile={billDocumentProfile}
                     />
                   ) : (
-                    <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                    <p className="text-xs text-muted-foreground">
                       {versions.length < 2
                         ? "There is only one version — nothing to compare yet."
                         : "Pick two versions to compare."}
-                    </Typography>
+                    </p>
                   )}
-                </Stack>
-              )}
+                </div>
+              </TabsContent>
 
-              {tab === 3 && (
-                // Compose beside its log on wide screens; stacked (compose first) below that.
-                <Box
-                  sx={{
-                    display: "grid", gap: 2, alignItems: "start",
-                    gridTemplateColumns: { xs: "minmax(0, 1fr)", xl: "minmax(0, 1.25fr) minmax(0, 1fr)" },
-                  }}
-                >
-                  <Box sx={{ p: 2, borderRadius: "12px", border: (t) => `1px solid ${t.palette.divider}` }}>
+              <TabsContent value="email" className="min-h-0 p-4 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+                {/* Compose beside its log on wide screens; stacked (compose first) below that. */}
+                <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+                  <div className="rounded-xl border border-border p-4">
                     <PanelTitle icon="sms" title="New email" />
                     <DocumentEmailForm
                       documentId={document.id}
@@ -684,18 +661,18 @@ const DocumentDetailPage: React.FC<DocumentDetailPageProps> = ({ documentId, onB
                       // Sending moves the version to Sent and the project's Bill Stage with it, so the trackers refresh too.
                       onSent={refresh}
                     />
-                  </Box>
-                  <Box sx={{ p: 2, borderRadius: "12px", border: (t) => `1px solid ${t.palette.divider}` }}>
+                  </div>
+                  <div className="rounded-xl border border-border p-4">
                     <PanelTitle icon="time" title={`Sent (${emails.length})`} />
                     <DocumentEmailLog entries={emails} renderStatus={(status) => <BillingStatusBadge status={status} />} />
-                  </Box>
-                </Box>
-              )}
-            </Box>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </GlassCard>
-        </Box>
-      </Box>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 };
 
