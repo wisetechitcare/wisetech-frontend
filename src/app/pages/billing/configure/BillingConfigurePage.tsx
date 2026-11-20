@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
+import { Flag, ListOrdered, RefreshCw } from "lucide-react";
 import { canDelete } from "@utils/can";
 import { withDeleteSection } from "@app/modules/common/components/ui/DeleteSection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack, Typography } from "@mui/material";
 import {
   ConfigPageLayout, ConfigSectionCard,
 } from "@app/modules/configuration";
@@ -160,7 +160,7 @@ const BillingConfigurePage: React.FC = () => {
 
   return (
     <ConfigPageLayout>
-      <Stack spacing={2}>
+      <div className="flex flex-col gap-4">
         {/* Document numbering.
             The same per-organization grid Leads Configure uses, pointed at the two
             billing series — so an organization's proformas and its tax invoices
@@ -175,7 +175,7 @@ const BillingConfigurePage: React.FC = () => {
         <ConfigSectionCard
           title="Document Numbering"
           description="The prefix each organization's proformas and tax invoices carry. The year and the running number are added automatically — WT/PI/26-27/0001 — and the count restarts at 1 each April. The two are separate series and never share a running number."
-          icon="bi-hash"
+          icon={ListOrdered}
           iconColor="blue"
           headerRight={
             <SegmentedControl
@@ -199,7 +199,7 @@ const BillingConfigurePage: React.FC = () => {
             key={group.key}
             title={group.title}
             description={group.description}
-            icon="bi-tag"
+            icon={Flag}
             iconColor="blue"
             loading={isLoading}
             badge={{ label: `${group.entries.length}` }}
@@ -207,9 +207,11 @@ const BillingConfigurePage: React.FC = () => {
             {sectionsOf(group.key, group.entries).map((section) => (
             <React.Fragment key={section.title || group.key}>
             {section.title && (
-              <Typography sx={{ mt: 1.5, fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: "text.secondary" }}>
-                {section.title.toUpperCase()}
-              </Typography>
+              /* An eyebrow, not a heading: `heading-case` uppercases in CSS so the
+                 accessible name stays real words. */
+              <p className="heading-case mt-3 text-xs font-semibold text-muted-foreground">
+                {section.title}
+              </p>
             )}
             <ConfigChipGrid>
               {section.entries.map((entry) => (
@@ -234,7 +236,7 @@ const BillingConfigurePage: React.FC = () => {
                    * recognise does.
                    */
                   action={canDelete("billing.configure") ? {
-                    icon: "bi-arrow-counterclockwise",
+                    icon: RefreshCw,
                     title: `Restore ${entry.code} to its default label and colour`,
                     tone: "revert",
                     onClick: () => confirmReset(entry),
@@ -252,7 +254,7 @@ const BillingConfigurePage: React.FC = () => {
             fiddle with — and unlike the codes above, these rows CAN be added and
             deleted, which their own copy explains. */}
         <TaxRateSections />
-      </Stack>
+      </div>
 
       <GlassDialog
         open={editing !== null}
@@ -280,7 +282,7 @@ const BillingConfigurePage: React.FC = () => {
           />
         }
       >
-        <Stack spacing={3} sx={{ px: 3, pt: 1, pb: 3 }}>
+        <div className="flex flex-col gap-6 px-6 pt-2 pb-6">
           <WtField
             label="Status Name"
             required
@@ -299,7 +301,7 @@ const BillingConfigurePage: React.FC = () => {
             onChange={setTone}
           />
 
-          <Stack direction="row" justifyContent="flex-end">
+          <div className="flex flex-row justify-end">
             <WtButton
               disabled={!canSave}
               onClick={() => save.mutate()}
@@ -307,8 +309,8 @@ const BillingConfigurePage: React.FC = () => {
             >
               {save.isPending ? "Updating…" : "Update"}
             </WtButton>
-          </Stack>
-        </Stack>
+          </div>
+        </div>
       </GlassDialog>
     </ConfigPageLayout>
   );

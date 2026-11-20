@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Tooltip } from "@mui/material";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip";
 import { SolidChip } from "@app/modules/common/components/ui/SolidChip";
 import type { BillingTrackerRow } from "@services/billingTrackers";
 import { BillingSolidChip } from "../components";
@@ -9,9 +9,13 @@ import { BillingSolidChip } from "../components";
  * (`syncBillStageFromDocument` on the server). Wording and colour come from Billing → Configure.
  */
 export const TrackerStatusCell: React.FC<{ row: BillingTrackerRow }> = ({ row }) => (
-  <Tooltip title="Follows this project's latest proforma / tax invoice." placement="top">
-    <Box sx={{ width: "fit-content", mx: "auto", lineHeight: 0 }}>
+  <Tooltip>
+    {/* `w-fit mx-auto` centres the chip in the cell and `leading-none` keeps the row's height to the
+        chip itself — what the MUI Box did. The kit Tooltip is render-composed, so the span IS the
+        trigger rather than a wrapper around one. `side="top"` is TooltipContent's default. */}
+    <TooltipTrigger render={<span className="mx-auto block w-fit leading-none" />}>
       {row.status ? <BillingSolidChip code={row.status} /> : <SolidChip label="Not billed" />}
-    </Box>
+    </TooltipTrigger>
+    <TooltipContent>Follows this project&apos;s latest proforma / tax invoice.</TooltipContent>
   </Tooltip>
 );

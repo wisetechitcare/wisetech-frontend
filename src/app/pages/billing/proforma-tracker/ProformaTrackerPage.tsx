@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Box, Stack, Typography } from "@mui/material";
 import { ExternalLink, FileDown, FolderOpen, MoreHorizontal, Pencil, Share2 } from "lucide-react";
+import { cn } from "@/ds/lib/utils";
 import { Button } from "@/ds/ui/button";
 import { Progress } from "@/ds/ui/progress";
 import {
@@ -134,7 +134,7 @@ const ProformaTrackerPage: React.FC = () => {
     {
       accessorFn: (p: ProformaTrackerProject) => p.projectNumber ?? "", id: "projectNumber", header: "Project No", size: 170,
       Footer: TotalLabel,
-      Cell: ({ row }: any) => <Typography sx={{ fontSize: "inherit", fontWeight: 700 }}>{row.original.projectNumber ?? DASH}</Typography>,
+      Cell: ({ row }: any) => <span className="text-[length:inherit] font-bold">{row.original.projectNumber ?? DASH}</span>,
     },
     { accessorFn: (p: ProformaTrackerProject) => p.projectName ?? DASH, id: "projectName", header: "Project Name", size: 240 },
     { accessorFn: (p: ProformaTrackerProject) => p.clientName ?? DASH, id: "clientName", header: "Client Company", size: 180 },
@@ -154,15 +154,15 @@ const ProformaTrackerPage: React.FC = () => {
       Cell: ({ row }: any) => {
         const p: ProformaTrackerProject = row.original;
         return (
-          <Box sx={{ minWidth: 150 }}>
-            <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.4 }}>
+          <div className="min-w-[150px]">
+            <div className="mb-[3px] flex flex-row justify-between">
               <Money value={p.raisedAmount} bold muted={!p.raisedAmount} />
               {p.raisedPercent != null && (
-                <Typography component="span" sx={{ fontSize: 11, color: "text.secondary" }}>{p.raisedPercent}%</Typography>
+                <span className="text-[11px] text-muted-foreground">{p.raisedPercent}%</span>
               )}
-            </Stack>
+            </div>
             {p.raisedPercent != null && <Progress value={p.raisedPercent} aria-label="Share of the contract on proformas" />}
-          </Box>
+          </div>
         );
       },
       Footer: () => <Money value={sumOf(projects, (p) => p.raisedAmount)} bold />,
@@ -189,25 +189,25 @@ const ProformaTrackerPage: React.FC = () => {
     },
     {
       accessorFn: (p: ProformaTrackerProject) => p.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
-      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success.main" muted={!row.original.receivedAmount} />,
-      Footer: () => <Money value={sumOf(projects, (p) => p.receivedAmount)} bold tone="success.main" />,
+      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
+      Footer: () => <Money value={sumOf(projects, (p) => p.receivedAmount)} bold tone="success" />,
     },
     {
       accessorFn: (p: ProformaTrackerProject) => p.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 160,
       Cell: ({ row }: any) => {
         const p: ProformaTrackerProject = row.original;
         return (
-          <Box>
-            <Money value={p.outstandingAmount} bold tone={p.outstandingAmount > 0 ? "error.main" : undefined} muted={!p.outstandingAmount} />
+          <div>
+            <Money value={p.outstandingAmount} bold tone={p.outstandingAmount > 0 ? "danger" : undefined} muted={!p.outstandingAmount} />
             {p.overdueAmount > 0 && (
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: "error.main" }}>
+              <p className="text-[11px] font-bold text-destructive">
                 {formatCurrencyDecimal(p.overdueAmount)} overdue
-              </Typography>
+              </p>
             )}
-          </Box>
+          </div>
         );
       },
-      Footer: () => <Money value={sumOf(projects, (p) => p.outstandingAmount)} bold tone="error.main" />,
+      Footer: () => <Money value={sumOf(projects, (p) => p.outstandingAmount)} bold tone="danger" />,
     },
     {
       accessorFn: (p: ProformaTrackerProject) => p.nextDueDate ?? "", id: "nextDueDate", header: "Next Due", size: 130,
@@ -233,12 +233,12 @@ const ProformaTrackerPage: React.FC = () => {
       Cell: ({ row }: any) => {
         const r: ProformaTrackerRow = row.original;
         return (
-          <Box>
-            <Typography sx={{ fontSize: "inherit", fontWeight: 700 }}>{r.proformaNumber ?? DASH}</Typography>
-            <Typography sx={{ fontSize: 11, color: r.revising ? "warning.main" : "text.secondary", fontWeight: r.revising ? 700 : 400 }}>
+          <div>
+            <p className="text-[length:inherit] font-bold">{r.proformaNumber ?? DASH}</p>
+            <p className={cn("text-[11px]", r.revising ? "font-bold text-warning-foreground" : "font-normal text-muted-foreground")}>
               {r.revising ? "Revision in progress" : r.revisions > 1 ? `Revised · v${r.revisions}` : r.billNumber}
-            </Typography>
-          </Box>
+            </p>
+          </div>
         );
       },
     },
@@ -263,10 +263,10 @@ const ProformaTrackerPage: React.FC = () => {
     {
       accessorFn: (r: ProformaTrackerRow) => r.gstAmount ?? 0, id: "gstAmount", header: "GST", size: 130,
       Cell: ({ row }: any) => (
-        <Box>
+        <div>
           <Money value={row.original.gstAmount} />
-          {row.original.gstRate > 0 && <Typography sx={{ fontSize: 11, color: "text.secondary" }}>{row.original.gstRate}%</Typography>}
-        </Box>
+          {row.original.gstRate > 0 && <p className="text-[11px] text-muted-foreground">{row.original.gstRate}%</p>}
+        </div>
       ),
       Footer: () => <Money value={sumOf(proformas, (r) => r.gstAmount)} bold />,
     },
@@ -282,15 +282,15 @@ const ProformaTrackerPage: React.FC = () => {
     },
     {
       accessorFn: (r: ProformaTrackerRow) => r.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
-      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success.main" muted={!row.original.receivedAmount} />,
-      Footer: () => <Money value={sumOf(proformas, (r) => r.receivedAmount)} bold tone="success.main" />,
+      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
+      Footer: () => <Money value={sumOf(proformas, (r) => r.receivedAmount)} bold tone="success" />,
     },
     {
       accessorFn: (r: ProformaTrackerRow) => r.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 140,
       Cell: ({ row }: any) => (
-        <Money value={row.original.outstandingAmount} bold tone={row.original.outstandingAmount > 0 ? "error.main" : undefined} muted={!row.original.outstandingAmount} />
+        <Money value={row.original.outstandingAmount} bold tone={row.original.outstandingAmount > 0 ? "danger" : undefined} muted={!row.original.outstandingAmount} />
       ),
-      Footer: () => <Money value={sumOf(proformas, (r) => r.outstandingAmount)} bold tone="error.main" />,
+      Footer: () => <Money value={sumOf(proformas, (r) => r.outstandingAmount)} bold tone="danger" />,
     },
     {
       accessorFn: (r: ProformaTrackerRow) => r.dueDate ?? "", id: "dueDate", header: "Due Date", size: 140,
@@ -313,7 +313,9 @@ const ProformaTrackerPage: React.FC = () => {
         if (!r.billId) return null;
         const path = proformaPath(r);
         return (
-          <Box onClick={(e) => e.stopPropagation()}>
+          /* Not a control: it exists only to keep the row's own click from firing when the
+             actions menu is used. Nothing here is tabbable — the menu trigger below is. */
+          <div data-wt-control="container" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${r.proformaNumber ?? r.billNumber}`} />}>
                 <MoreHorizontal />
@@ -340,7 +342,7 @@ const ProformaTrackerPage: React.FC = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </Box>
+          </div>
         );
       },
     },
@@ -348,7 +350,7 @@ const ProformaTrackerPage: React.FC = () => {
   ], [proformas]);
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <div className="pb-8">
       {projectId && (
         <ProjectFilterBanner
           projectName={allProjects[0]?.projectName ?? undefined}
@@ -414,7 +416,7 @@ const ProformaTrackerPage: React.FC = () => {
           }}
         />
       )}
-    </Box>
+    </div>
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Box } from "@mui/material";
+import { cn } from "@/ds/lib/utils";
 import { PAPER_SIZES, type PaperSize } from "@services/documents";
 import { EDIT_BLUE } from "./theme";
 import type { PreviewToggle } from "./types";
@@ -286,24 +286,19 @@ const DocumentSheet: React.FC<DocumentSheetProps> = ({
   }, [enabled, multilineFields]);
 
   return (
-    <Box
+    <div
       ref={frameRef}
       // The page can be wider than the screen: this is the area you pan across, by swipe, trackpad or arrow keys.
       tabIndex={0}
       role="region"
       aria-label="Document page — scroll sideways to see all of it"
-      sx={{
-        width: "100%",
-        overflowX: "auto",
-        // A sideways swipe at the edge pans the page, it does not trigger the browser's back gesture.
-        overscrollBehaviorX: "contain",
-        WebkitOverflowScrolling: "touch",
-        // A neutral desk the white page sits on, in both themes — the sheet itself
-        // is always white because that is what prints.
-        bgcolor: (theme) => (theme.palette.mode === "dark" ? "#1c2128" : "#e9edf2"),
-        borderRadius: 2,
-        p: { xs: 0.5, sm: 1.5, md: 2.5 },
-      }}
+      // `overscroll-x-contain`: a sideways swipe at the edge pans the page, it does not trigger the
+      // browser's back gesture.
+      // The desk colours stay literal rather than becoming tokens. They are not themed UI surface —
+      // they are the neutral desk a sheet of white PRINTED paper sits on, chosen per theme so the
+      // page's edge stays visible against it. A token would track the tenant's brand and could land
+      // on white, erasing that edge.
+      className="w-full overflow-x-auto overscroll-x-contain rounded-lg bg-[#e9edf2] p-1 [-webkit-overflow-scrolling:touch] sm:p-3 md:p-5 dark:bg-[#1c2128]"
     >
       {/*
         Centred, not pinned left. The scaled sheet is narrower than the desk at
@@ -312,62 +307,37 @@ const DocumentSheet: React.FC<DocumentSheetProps> = ({
         only claims space that is actually free, so at 125% on a narrow panel it
         resolves to zero and the sheet scrolls instead of being clipped.
       */}
-      <Box sx={{ height: height || undefined, width: pagePx * scale, mx: "auto" }}>
-        <Box
+      {/* Runtime geometry (the scaled page box) stays in `style`: these are computed pixel values,
+          not design decisions a utility class could carry. */}
+      <div className="mx-auto" style={{ height: height || undefined, width: pagePx * scale }}>
+        <div
           ref={sheetRef}
-          className={`paper-${paper}`}
-          // The document's HTML is written in by the layout effect above (the document's own stylesheet ships inside
-          // it and is scoped to `.sheet`, so it cannot reach the surrounding ERP chrome).
-          sx={{
-            width: pagePx,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-            boxShadow: "0 2px 8px rgba(15,23,42,0.14), 0 12px 32px rgba(15,23,42,0.12)",
-            "& .sheet": { margin: 0 },
-            // A document that runs to several pages shows them one under the other, with a gap like a stack of sheets.
-            "& .sheet + .sheet": { marginTop: "16px" },
-            // Editable regions get a faint tint so it is obvious which parts of the
-            // document this user is allowed to change. Print/PDF never sees it —
-            // that render happens server-side from the same HTML without this rule.
-            "& .ed": {
-              backgroundColor: "rgba(95,168,223,0.13)",
-              outline: "1px dashed rgba(95,168,223,0.55)",
-              outlineOffset: "1px",
-              maxWidth: "100%",
-              wordBreak: "break-word",
-              overflowWrap: "anywhere",
-            },
-            ...(enabled ? {
-              "& .ed": {
-                backgroundColor: "rgba(95,168,223,0.13)",
-                outline: "1px dashed rgba(95,168,223,0.55)",
-                outlineOffset: "1px",
-                cursor: "text",
-                borderRadius: "2px",
-                maxWidth: "100%",
-                wordBreak: "break-word",
-                overflowWrap: "anywhere",
-                transition: "background-color .12s ease, outline-color .12s ease",
-              },
-              "& .ed:hover": { backgroundColor: "rgba(95,168,223,0.24)" },
-              "& .ed:focus": {
-                // eslint-disable-next-line no-restricted-syntax -- the printed page is white paper in both themes
-                backgroundColor: "#fff",
-                outline: `2px solid ${EDIT_BLUE}`,
-              },
+          className={cn(
+            `paper-${paper}`,
+            "origin-top-left shadow-[0_2px_8px_rgba(15,23,42,0.14),0_12px_32px_rgba(15,23,42,0.12)]",
+            // These target the server-injected HTML (`.sheet`, `.ed`), so they are descendant rules.
+            "[&_.sheet]:m-0 [&_.sheet+.sheet]:mt-4",
+            "[&_.ed]:max-w-full [&_.ed]:bg-[rgba(95,168,223,0.13)] [&_.ed]:outline-1 [&_.ed]:outline-offset-1 [&_.ed]:outline-dashed [&_.ed]:outline-[rgba(95,168,223,0.55)] [&_.ed]:[overflow-wrap:anywhere] [&_.ed]:[word-break:break-word]",
+            enabled && [
+              "[&_.ed]:cursor-text [&_.ed]:rounded-[2px] [&_.ed]:transition-[background-color,outline-color] [&_.ed]:duration-[120ms]",
+              "[&_.ed:hover]:bg-[rgba(95,168,223,0.24)]",
+              // The printed page is white paper in both themes, so the focused field is literally white.
+              "[&_.ed:focus]:bg-white [&_.ed:focus]:outline-2 [&_.ed:focus]:outline-(--edit-blue)",
               // An empty field still needs something to click.
-              "& .ed:empty": { display: "inline-block", minWidth: "4em" },
-              "& .ed:empty::before": { content: '"Click to add"', color: "#9AA7B5", fontWeight: 400 },
-            } : {}),
-            "& .ed.ed-missing": {
-              backgroundColor: "rgba(229,62,62,0.10)",
-              outline: "1px dashed rgba(229,62,62,0.7)",
-            },
-            "& .ed.ed-missing:empty::before": { content: '"Required"', color: "#E53E3E" },
-          }}
+              "[&_.ed:empty]:inline-block [&_.ed:empty]:min-w-[4em]",
+              "[&_.ed:empty]:before:font-normal [&_.ed:empty]:before:text-[#9AA7B5] [&_.ed:empty]:before:content-['Click_to_add']",
+            ],
+            "[&_.ed.ed-missing]:bg-[rgba(229,62,62,0.10)] [&_.ed.ed-missing]:outline-1 [&_.ed.ed-missing]:outline-dashed [&_.ed.ed-missing]:outline-[rgba(229,62,62,0.7)]",
+            "[&_.ed.ed-missing:empty]:before:text-[#E53E3E] [&_.ed.ed-missing:empty]:before:content-['Required']",
+          )}
+          style={{ width: pagePx, transform: `scale(${scale})`, "--edit-blue": EDIT_BLUE } as React.CSSProperties}
+          // The document's HTML is written in by the layout effect above (the document's own stylesheet ships inside
+          // it and is scoped to `.sheet`, so it cannot reach the surrounding ERP chrome). The editable tint above
+          // marks which parts this user may change; print/PDF never sees it, because that render happens
+          // server-side from the same HTML without these rules.
         />
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };
 

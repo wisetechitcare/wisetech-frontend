@@ -30,6 +30,7 @@ import { BI_TO_KEENICON, own } from './biToKeenicon';
 import { FacebookIcon, TwitterIcon, WhatsAppIcon } from './brandIcons';
 import {
     List, User, Circle, Share2, Sheet, Images, Cake, Pin, Truck, UserX, Cpu, Frown, Smile,
+    Table, Target,
     Blend,
     Activity, AlarmClock, Archive, ArrowDownLeft, BadgeCheck, Database, Inbox, Link, ListTree, Printer, Receipt, ChartColumn, ChartNoAxesColumn, ChartPie,
     FileClock, IdCard, ShieldUser, StickyNote, X, ArrowDown, ArrowDownRight, ArrowLeft, ArrowLeftRight,
@@ -239,6 +240,15 @@ const BI_DIRECT: Record<string, AppIconComponent> = {
     // Written by a template literal that never interpolated (`bi-chevron-${dir}`), so the
     // literal string "bi-chevron-" reaches us. Kept so it draws something until fixed.
     'bi-chevron-': ChevronRight,
+    /*
+     * The last five names that had no mapping ANYWHERE — not here, not in the keenicon
+     * bridge — so `iconFor` returned null and `AppIcon` drew nothing. They stayed visible on
+     * configuration cards only because `ConfigSectionCard` kept a Bootstrap `<i>` fallback of
+     * its own; that card is now a thin adapter over the kit and the fallback is gone, so the
+     * names have to resolve here. Registering them is what FUTURE_ENHANCEMENTS asked for.
+     */
+    'bi-123': ListOrdered, 'bi-bullseye': Target, 'bi-house-door': House,
+    'bi-table': Table, 'bi-truck': Truck,
 };
 
 /**

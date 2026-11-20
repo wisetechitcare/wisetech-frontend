@@ -266,8 +266,8 @@ const BillingTrackerPage: React.FC = () => {
         accessorKey: "receivedAmount",
         header: "Total Received",
         size: 150,
-        Cell: ({ cell }: any) => <Money value={cell.getValue()} tone="success.main" />,
-        Footer: () => <Money value={totals?.receivedAmount} tone="success.main" />,
+        Cell: ({ cell }: any) => <Money value={cell.getValue()} tone="success" />,
+        Footer: () => <Money value={totals?.receivedAmount} tone="success" />,
       },
       {
         accessorKey: "pendingAmount",
@@ -277,7 +277,7 @@ const BillingTrackerPage: React.FC = () => {
           <Money
             value={totals?.pendingAmount}
             bold
-            tone={totals?.pendingAmount && totals.pendingAmount > 0 ? "error.main" : undefined}
+            tone={totals?.pendingAmount && totals.pendingAmount > 0 ? "danger" : undefined}
           />
         ),
         Cell: ({ row }: any) => {
@@ -287,7 +287,7 @@ const BillingTrackerPage: React.FC = () => {
             <Money
               value={project.pendingAmount}
               bold
-              tone={project.pendingAmount && project.pendingAmount > 0 ? "error.main" : undefined}
+              tone={project.pendingAmount && project.pendingAmount > 0 ? "danger" : undefined}
             />
           );
         },
@@ -302,7 +302,7 @@ const BillingTrackerPage: React.FC = () => {
         accessorKey: "lastPaymentAmount",
         header: "Last Payment Amount",
         size: 165,
-        Cell: ({ cell }: any) => <Money value={cell.getValue()} tone="success.main" />,
+        Cell: ({ cell }: any) => <Money value={cell.getValue()} tone="success" />,
       },
       {
         // The latest issued bill's face value — the old Bill Amount column, renamed.

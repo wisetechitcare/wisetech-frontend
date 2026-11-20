@@ -1,7 +1,7 @@
 import React from "react";
-import { Stack, Typography } from "@mui/material";
-import { KTIcon } from "@metronic/helpers";
-import { GlassCard, WtButton } from "@app/modules/common/components/ui";
+import { ArrowLeft, Funnel, X } from "lucide-react";
+import { Button } from "@/ds/ui/button";
+import { GlassCard } from "@app/modules/common/components/ui";
 
 /**
  * "You are looking at one project, not everything."
@@ -22,40 +22,26 @@ const ProjectFilterBanner: React.FC<{
     accentEdge="blue"
     sx={{ p: 1.25, mb: 1.5 }}
   >
-    <Stack
-      direction={{ xs: "column", sm: "row" }}
-      alignItems={{ sm: "center" }}
-      spacing={1}
-    >
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1, minWidth: 0 }}>
-        <KTIcon iconName="filter" className="fs-5" />
-        <Typography sx={{ fontSize: 12.5, minWidth: 0 }}>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex min-w-0 flex-1 flex-row items-center gap-2">
+        <Funnel aria-hidden className="size-4 shrink-0" />
+        <p className="min-w-0 text-[12.5px]">
           Filtered to <strong>{projectName || "one project"}</strong>
-        </Typography>
-      </Stack>
-      <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-row gap-1.5">
         {onBackToProject && (
-          <WtButton
-            ghost
-            size="small"
-            onClick={onBackToProject}
-            startIcon={<KTIcon iconName="arrow-left" className="fs-7" />}
-            sx={{ minHeight: 30 }}
-          >
+          <Button variant="ghost" size="sm" onClick={onBackToProject}>
+            <ArrowLeft data-icon="inline-start" aria-hidden />
             Back to project
-          </WtButton>
+          </Button>
         )}
-        <WtButton
-          ghost
-          size="small"
-          onClick={onClear}
-          startIcon={<KTIcon iconName="cross" className="fs-7" />}
-          sx={{ minHeight: 30, borderRadius: "8px", fontSize: 12 }}
-        >
+        <Button variant="ghost" size="sm" onClick={onClear}>
+          <X data-icon="inline-start" aria-hidden />
           Show all
-        </WtButton>
-      </Stack>
-    </Stack>
+        </Button>
+      </div>
+    </div>
   </GlassCard>
 );
 

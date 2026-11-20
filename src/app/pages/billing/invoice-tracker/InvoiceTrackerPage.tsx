@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Box, Stack, Typography } from "@mui/material";
 import { ExternalLink, FileDown, FileText, FolderOpen, MoreHorizontal, Pencil, Share2 } from "lucide-react";
+import { cn } from "@/ds/lib/utils";
 import { Button } from "@/ds/ui/button";
 import { Progress } from "@/ds/ui/progress";
 import {
@@ -159,7 +159,7 @@ const InvoiceTrackerPage: React.FC = () => {
     {
       accessorFn: (p: InvoiceTrackerProject) => p.projectNumber ?? "", id: "projectNumber", header: "Project No", size: 170,
       Footer: TotalLabel,
-      Cell: ({ row }: any) => <Typography sx={{ fontSize: "inherit", fontWeight: 700 }}>{row.original.projectNumber ?? DASH}</Typography>,
+      Cell: ({ row }: any) => <span className="text-[length:inherit] font-bold">{row.original.projectNumber ?? DASH}</span>,
     },
     { accessorFn: (p: InvoiceTrackerProject) => p.projectName ?? DASH, id: "projectName", header: "Project Name", size: 240 },
     { accessorFn: (p: InvoiceTrackerProject) => p.clientName ?? DASH, id: "clientName", header: "Client Company", size: 180 },
@@ -178,15 +178,15 @@ const InvoiceTrackerPage: React.FC = () => {
       Cell: ({ row }: any) => {
         const p: InvoiceTrackerProject = row.original;
         return (
-          <Box sx={{ minWidth: 150 }}>
-            <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.4 }}>
+          <div className="min-w-[150px]">
+            <div className="mb-[3px] flex flex-row justify-between">
               <Money value={p.invoicedAmount} bold muted={!p.invoicedAmount} />
               {p.invoicedPercent != null && (
-                <Typography component="span" sx={{ fontSize: 11, color: "text.secondary" }}>{p.invoicedPercent}%</Typography>
+                <span className="text-[11px] text-muted-foreground">{p.invoicedPercent}%</span>
               )}
-            </Stack>
+            </div>
             {p.invoicedPercent != null && <Progress value={p.invoicedPercent} aria-label="Share of the billed value invoiced" />}
-          </Box>
+          </div>
         );
       },
       Footer: () => <Money value={sumOf(projects, (p) => p.invoicedAmount)} bold />,
@@ -197,13 +197,17 @@ const InvoiceTrackerPage: React.FC = () => {
         const p: InvoiceTrackerProject = row.original;
         if (!p.notInvoicedCount) return <Money value={0} muted />;
         return (
-          <Box>
+          <div>
             <Money value={p.notInvoicedAmount} bold tone={TRIO.slate.c} />
-            <Typography sx={{ fontSize: 11, color: p.invoiceDueCount ? TRIO.amber.c : "text.secondary", fontWeight: p.invoiceDueCount ? 700 : 400 }}>
+            {/* Amber only when an invoice is actually due; the colour is a runtime trio value. */}
+            <p
+              className={cn("text-[11px]", p.invoiceDueCount ? "font-bold text-(--due-tone)" : "font-normal text-muted-foreground")}
+              style={p.invoiceDueCount ? ({ "--due-tone": TRIO.amber.c } as React.CSSProperties) : undefined}
+            >
               {p.notInvoicedCount} bill{p.notInvoicedCount === 1 ? "" : "s"}
               {p.invoiceDueCount ? ` · ${p.invoiceDueCount} paid, invoice due` : ""}
-            </Typography>
-          </Box>
+            </p>
+          </div>
         );
       },
       Footer: () => <Money value={sumOf(projects, (p) => p.notInvoicedAmount)} bold />,
@@ -214,25 +218,25 @@ const InvoiceTrackerPage: React.FC = () => {
     },
     {
       accessorFn: (p: InvoiceTrackerProject) => p.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
-      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success.main" muted={!row.original.receivedAmount} />,
-      Footer: () => <Money value={sumOf(projects, (p) => p.receivedAmount)} bold tone="success.main" />,
+      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
+      Footer: () => <Money value={sumOf(projects, (p) => p.receivedAmount)} bold tone="success" />,
     },
     {
       accessorFn: (p: InvoiceTrackerProject) => p.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 160,
       Cell: ({ row }: any) => {
         const p: InvoiceTrackerProject = row.original;
         return (
-          <Box>
-            <Money value={p.outstandingAmount} bold tone={p.outstandingAmount > 0 ? "error.main" : undefined} muted={!p.outstandingAmount} />
+          <div>
+            <Money value={p.outstandingAmount} bold tone={p.outstandingAmount > 0 ? "danger" : undefined} muted={!p.outstandingAmount} />
             {p.overdueAmount > 0 && (
-              <Typography sx={{ fontSize: 11, fontWeight: 700, color: "error.main" }}>
+              <p className="text-[11px] font-bold text-destructive">
                 {formatCurrencyDecimal(p.overdueAmount)} overdue
-              </Typography>
+              </p>
             )}
-          </Box>
+          </div>
         );
       },
-      Footer: () => <Money value={sumOf(projects, (p) => p.outstandingAmount)} bold tone="error.main" />,
+      Footer: () => <Money value={sumOf(projects, (p) => p.outstandingAmount)} bold tone="danger" />,
     },
     {
       accessorFn: (p: InvoiceTrackerProject) => p.tdsPendingAmount ?? 0, id: "tdsPendingAmount", header: "TDS Not Deposited", size: 160,
@@ -269,12 +273,12 @@ const InvoiceTrackerPage: React.FC = () => {
       Cell: ({ row }: any) => {
         const r: InvoiceTrackerRow = row.original;
         return (
-          <Box>
-            <Typography sx={{ fontSize: "inherit", fontWeight: 700 }}>{r.invoiceNumber ?? DASH}</Typography>
-            <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+          <div>
+            <p className="text-[length:inherit] font-bold">{r.invoiceNumber ?? DASH}</p>
+            <p className="text-[11px] text-muted-foreground">
               {r.revisions > 1 ? `Revised · v${r.revisions}` : r.proformaNumber ? `from ${r.proformaNumber}` : r.billNumber}
-            </Typography>
-          </Box>
+            </p>
+          </div>
         );
       },
     },
@@ -302,10 +306,10 @@ const InvoiceTrackerPage: React.FC = () => {
     {
       accessorFn: (r: InvoiceTrackerRow) => r.gstAmount ?? 0, id: "gstAmount", header: "GST", size: 130,
       Cell: ({ row }: any) => (
-        <Box>
+        <div>
           <Money value={row.original.gstAmount} />
-          {row.original.gstRate > 0 && <Typography sx={{ fontSize: 11, color: "text.secondary" }}>{row.original.gstRate}%</Typography>}
-        </Box>
+          {row.original.gstRate > 0 && <p className="text-[11px] text-muted-foreground">{row.original.gstRate}%</p>}
+        </div>
       ),
       Footer: () => <Money value={sumOf(invoices, (r) => r.gstAmount)} bold />,
     },
@@ -319,25 +323,29 @@ const InvoiceTrackerPage: React.FC = () => {
       Cell: ({ row }: any) => {
         const r: InvoiceTrackerRow = row.original;
         return (
-          <Box>
+          <div>
             <Money value={r.tdsAmount} muted={!r.tdsAmount} />
-            {r.tdsPending && <Typography sx={{ fontSize: 11, fontWeight: 700, color: TRIO.amber.c }}>Not deposited</Typography>}
-          </Box>
+            {r.tdsPending && (
+              <p className="text-[11px] font-bold text-(--tds-tone)" style={{ "--tds-tone": TRIO.amber.c } as React.CSSProperties}>
+                Not deposited
+              </p>
+            )}
+          </div>
         );
       },
       Footer: () => <Money value={sumOf(invoices, (r) => r.tdsAmount)} bold />,
     },
     {
       accessorFn: (r: InvoiceTrackerRow) => r.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
-      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success.main" muted={!row.original.receivedAmount} />,
-      Footer: () => <Money value={sumOf(invoices, (r) => r.receivedAmount)} bold tone="success.main" />,
+      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
+      Footer: () => <Money value={sumOf(invoices, (r) => r.receivedAmount)} bold tone="success" />,
     },
     {
       accessorFn: (r: InvoiceTrackerRow) => r.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 140,
       Cell: ({ row }: any) => (
-        <Money value={row.original.outstandingAmount} bold tone={row.original.outstandingAmount > 0 ? "error.main" : undefined} muted={!row.original.outstandingAmount} />
+        <Money value={row.original.outstandingAmount} bold tone={row.original.outstandingAmount > 0 ? "danger" : undefined} muted={!row.original.outstandingAmount} />
       ),
-      Footer: () => <Money value={sumOf(invoices, (r) => r.outstandingAmount)} bold tone="error.main" />,
+      Footer: () => <Money value={sumOf(invoices, (r) => r.outstandingAmount)} bold tone="danger" />,
     },
     {
       accessorFn: (r: InvoiceTrackerRow) => r.dueDate ?? "", id: "dueDate", header: "Due Date", size: 140,
@@ -358,7 +366,9 @@ const InvoiceTrackerPage: React.FC = () => {
         const r: InvoiceTrackerRow = row.original;
         if (!r.billId) return null;
         return (
-          <Box onClick={(e) => e.stopPropagation()}>
+          /* Not a control: it exists only to keep the row's own click from firing when the
+             actions menu is used. Nothing here is tabbable — the menu trigger below is. */
+          <div data-wt-control="container" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${r.invoiceNumber ?? r.billNumber}`} />}>
                 <MoreHorizontal />
@@ -386,7 +396,7 @@ const InvoiceTrackerPage: React.FC = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </Box>
+          </div>
         );
       },
     },
@@ -399,10 +409,10 @@ const InvoiceTrackerPage: React.FC = () => {
       accessorFn: (b: UninvoicedBill) => b.proformaNumber ?? "", id: "proformaNumber", header: "Billed On", size: 200,
       Footer: TotalLabel,
       Cell: ({ row }: any) => (
-        <Box>
-          <Typography sx={{ fontSize: "inherit", fontWeight: 700 }}>{row.original.proformaNumber ?? DASH}</Typography>
-          <Typography sx={{ fontSize: 11, color: "text.secondary" }}>Proforma</Typography>
-        </Box>
+        <div>
+          <p className="text-[length:inherit] font-bold">{row.original.proformaNumber ?? DASH}</p>
+          <p className="text-[11px] text-muted-foreground">Proforma</p>
+        </div>
       ),
     },
     { accessorFn: (b: UninvoicedBill) => b.projectNumber ?? DASH, id: "projectNumber", header: "Project No", size: 170 },
@@ -415,9 +425,9 @@ const InvoiceTrackerPage: React.FC = () => {
         if (row.original.billId === undefined) return null;
         const tile = TILES.find((t) => t.key === (row.original.paid ? "INVOICE_DUE" : "TO_INVOICE"))!;
         return (
-          <Typography sx={{ fontSize: 12, fontWeight: 700, color: tile.trio.c }}>
+          <p className="text-xs font-bold text-(--tile-tone)" style={{ "--tile-tone": tile.trio.c } as React.CSSProperties}>
             {row.original.paid ? "Due now — fully paid" : "When paid, or on request"}
-          </Typography>
+          </p>
         );
       },
     },
@@ -428,8 +438,8 @@ const InvoiceTrackerPage: React.FC = () => {
     },
     {
       accessorFn: (b: UninvoicedBill) => b.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 150,
-      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success.main" muted={!row.original.receivedAmount} />,
-      Footer: () => <Money value={sumOf(queue, (b) => b.receivedAmount)} bold tone="success.main" />,
+      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
+      Footer: () => <Money value={sumOf(queue, (b) => b.receivedAmount)} bold tone="success" />,
     },
   ], [queue]);
 
@@ -437,7 +447,7 @@ const InvoiceTrackerPage: React.FC = () => {
   const shownNoun = view === "projects" ? "projects" : view === "invoices" ? "invoices" : "bills";
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <div className="pb-8">
       {projectId && (
         <ProjectFilterBanner
           projectName={allProjects[0]?.projectName ?? undefined}
@@ -525,7 +535,7 @@ const InvoiceTrackerPage: React.FC = () => {
           }}
         />
       )}
-    </Box>
+    </div>
   );
 };
 

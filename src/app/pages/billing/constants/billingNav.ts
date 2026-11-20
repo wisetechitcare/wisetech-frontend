@@ -1,3 +1,5 @@
+import { LayoutGrid, Settings, Wallet } from "lucide-react";
+import type { IconSource } from "@/ds/ui/dynamic-icon";
 import { canSection } from "@utils/can";
 
 /**
@@ -14,8 +16,8 @@ export interface BillingTabDef {
     /** Route segment under /billing. */
     path: string;
     title: string;
-    /** Bootstrap icon class — same icon system as the sidebar and MaterialHeaderTab. */
-    icon: string;
+    /** A Lucide component, the icon system MaterialHeaderTab and the kit share. */
+    icon: IconSource;
     /** Access-area key checked before the tab is shown. */
     accessKey: string;
 }
@@ -27,17 +29,17 @@ export const BILLING_BASE = "/billing";
 // A tab is only shown to a user who holds its `accessKey`.
 export const BILLING_TABS: BillingTabDef[] = [
     // Hidden for now (2026-11-19) — uncomment to restore. Its route follows this list, so it goes too.
-    // { path: "dashboard", title: "Dashboard", icon: "bi-speedometer2", accessKey: "billing.dashboard" },
+    // { path: "dashboard", title: "Dashboard", icon: Gauge, accessKey: "billing.dashboard" },
     // One row per project: contract, billed, received, pending, and the hand-set Bill Stage.
-    { path: "tracker", title: "Bill Status", icon: "bi-diagram-3", accessKey: "billing.tracker" },
+    { path: "tracker", title: "Bill Status", icon: LayoutGrid, accessKey: "billing.tracker" },
     // Every project's proformas, end to end. Hidden for now (2026-11-13) — uncomment to restore.
-    // { path: "proformas", title: "Proformas", icon: "bi-file-earmark-text", accessKey: "billing.proformas" },
+    // { path: "proformas", title: "Proformas", icon: FileText, accessKey: "billing.proformas" },
     // Every issued bill: Bill Amount / GST / TDS and what has come in against each.
-    { path: "payments", title: "Payments", icon: "bi-cash-coin", accessKey: "billing.invoices" },
+    { path: "payments", title: "Payments", icon: Wallet, accessKey: "billing.invoices" },
     // Every project's tax invoices, end to end — the Proforma Tracker's sibling. Hidden for now (2026-11-13) — uncomment to restore.
-    // { path: "invoices", title: "Tax Invoices", icon: "bi-receipt-cutoff", accessKey: "billing.invoices" },
+    // { path: "invoices", title: "Tax Invoices", icon: Receipt, accessKey: "billing.invoices" },
     // Display configuration for the module's statuses and payment states, and the GST / TDS rates.
-    { path: "configure", title: "Configure", icon: "bi-gear", accessKey: "billing.configure" },
+    { path: "configure", title: "Configure", icon: Settings, accessKey: "billing.configure" },
 ];
 
 /** Landing route for the module — the first tab the user is allowed to see. */

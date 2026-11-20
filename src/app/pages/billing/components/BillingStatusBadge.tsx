@@ -1,13 +1,4 @@
 import React from "react";
-import { Box } from "@mui/material";
-/**
- * Screen-reader-only text. Spelled out rather than imported from `@mui/utils`: that package was never a declared
- * dependency here, only reachable through another package, and a reinstall made it unresolvable.
- */
-const visuallyHidden = {
-  border: 0, clip: "rect(0 0 0 0)", height: "1px", margin: "-1px", overflow: "hidden",
-  padding: 0, position: "absolute", whiteSpace: "nowrap", width: "1px",
-} as const;
 import { ToneChip, isHexColor, type SemanticTone } from "@app/modules/common/components/ui";
 import { SolidChip } from "@app/modules/common/components/ui/SolidChip";
 import { tonePair } from "@app/theme/tokens";
@@ -94,11 +85,19 @@ export const BillingStatusTint: React.FC<{ status: string; children: React.React
   const label = labels.label(status);
   return (
     <>
-      <Box aria-hidden sx={{ position: "absolute", inset: 0, pointerEvents: "none", bgcolor: `color-mix(in srgb, ${solid} 28%, transparent)` }} />
-      <Box title={label} sx={{ position: "relative" }}>
+      {/* The tint is a RUNTIME colour (Configure's tone or an admin's hex), so it travels as a CSS
+          variable and Tailwind does the mixing — the same mechanism the kit's Badge `custom` uses.
+          A static Tailwind class cannot express a value that only exists at render time. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[color-mix(in_srgb,var(--tint)_28%,transparent)]"
+        style={{ "--tint": solid } as React.CSSProperties}
+      />
+      <div title={label} className="relative">
         {children}
-        <Box component="span" sx={visuallyHidden}>{label}</Box>
-      </Box>
+        {/* `sr-only` IS the visually-hidden recipe this file used to spell out by hand. */}
+        <span className="sr-only">{label}</span>
+      </div>
     </>
   );
 };
