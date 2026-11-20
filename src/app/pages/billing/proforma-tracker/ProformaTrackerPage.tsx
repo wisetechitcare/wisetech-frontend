@@ -313,7 +313,9 @@ const ProformaTrackerPage: React.FC = () => {
         if (!r.billId) return null;
         const path = proformaPath(r);
         return (
-          <div onClick={(e) => e.stopPropagation()}>
+          /* Not a control: it exists only to keep the row's own click from firing when the
+             actions menu is used. Nothing here is tabbable — the menu trigger below is. */
+          <div data-wt-control="container" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${r.proformaNumber ?? r.billNumber}`} />}>
                 <MoreHorizontal />

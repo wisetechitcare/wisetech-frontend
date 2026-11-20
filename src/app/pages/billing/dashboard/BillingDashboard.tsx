@@ -100,6 +100,7 @@ const Line: React.FC<{
   // A whole row that acts is a button, not a clickable div: it gets the tab stop, Enter and Space free.
   <button
     type="button"
+    data-wt-control="row"
     onClick={onClick}
     className="flex w-full cursor-pointer flex-row items-center gap-2 rounded-[10px] border border-border px-2 py-1.5 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
   >
@@ -264,6 +265,7 @@ const BillingDashboard: React.FC = () => {
                     <button
                       key={p.state}
                       type="button"
+                      data-wt-control="tile"
                       onClick={go(tracker(`view=proformas&focus=${p.state}`))}
                       className="min-w-0 cursor-pointer rounded-xl border border-(--stage-bd) bg-(--stage-bg) p-2.5 text-left transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                       style={{ "--stage-bg": meta.trio.bg, "--stage-bd": meta.trio.bd, "--stage-fg": meta.trio.c } as React.CSSProperties}
@@ -367,6 +369,7 @@ const BillingDashboard: React.FC = () => {
                   <button
                     key={p.leadId}
                     type="button"
+                    data-wt-control="row"
                     onClick={go(`/project/${p.leadId}?tab=billing`)}
                     className="w-full cursor-pointer rounded-[10px] border border-border px-2 py-1.5 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   >
