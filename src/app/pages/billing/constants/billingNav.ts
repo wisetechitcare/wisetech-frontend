@@ -1,4 +1,4 @@
-import { Coins, Network, Settings } from "lucide-react";
+import { LayoutGrid, Settings, Wallet } from "lucide-react";
 import type { IconSource } from "@/ds/ui/dynamic-icon";
 import { canSection } from "@utils/can";
 
@@ -31,11 +31,11 @@ export const BILLING_TABS: BillingTabDef[] = [
     // Hidden for now (2026-11-19) — uncomment to restore. Its route follows this list, so it goes too.
     // { path: "dashboard", title: "Dashboard", icon: Gauge, accessKey: "billing.dashboard" },
     // One row per project: contract, billed, received, pending, and the hand-set Bill Stage.
-    { path: "tracker", title: "Bill Status", icon: Network, accessKey: "billing.tracker" },
+    { path: "tracker", title: "Bill Status", icon: LayoutGrid, accessKey: "billing.tracker" },
     // Every project's proformas, end to end. Hidden for now (2026-11-13) — uncomment to restore.
     // { path: "proformas", title: "Proformas", icon: FileText, accessKey: "billing.proformas" },
     // Every issued bill: Bill Amount / GST / TDS and what has come in against each.
-    { path: "payments", title: "Payments", icon: Coins, accessKey: "billing.invoices" },
+    { path: "payments", title: "Payments", icon: Wallet, accessKey: "billing.invoices" },
     // Every project's tax invoices, end to end — the Proforma Tracker's sibling. Hidden for now (2026-11-13) — uncomment to restore.
     // { path: "invoices", title: "Tax Invoices", icon: Receipt, accessKey: "billing.invoices" },
     // Display configuration for the module's statuses and payment states, and the GST / TDS rates.

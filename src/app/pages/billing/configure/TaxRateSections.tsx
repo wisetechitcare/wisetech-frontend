@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Percent, Plus, Scissors } from "lucide-react";
+import { Percent, Plus, RefreshCw, Scissors, Trash2 } from "lucide-react";
 import { ConfigSectionCard } from "@app/modules/configuration";
 import type { IconSource } from "@/ds/ui/dynamic-icon";
 import { AutoGrid } from "@/ds/patterns/auto-grid";
@@ -254,12 +254,12 @@ const TaxRateSections: React.FC = () => {
             onEdit={() => setDraft(toDraft(kind, row))}
             action={!canDelete("billing.configure") ? undefined : !row.isActive ? {
               // Retired: the way back, not a bin.
-              icon: "bi-arrow-counterclockwise",
+              icon: RefreshCw,
               title: `Restore ${row.name} to the bill form`,
               tone: "revert",
               onClick: () => save.mutate({ ...toDraft(kind, row), isActive: true }),
             } : {
-              icon: "bi-trash",
+              icon: Trash2,
               title: row.isDefault
                 ? "The default — make another one the default first"
                 : row.billCount > 0

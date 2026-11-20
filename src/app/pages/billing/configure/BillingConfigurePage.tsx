@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Hash, Tag } from "lucide-react";
+import { ListOrdered, RefreshCw, Tag } from "lucide-react";
 import { canDelete } from "@utils/can";
 import { withDeleteSection } from "@app/modules/common/components/ui/DeleteSection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -175,7 +175,7 @@ const BillingConfigurePage: React.FC = () => {
         <ConfigSectionCard
           title="Document Numbering"
           description="The prefix each organization's proformas and tax invoices carry. The year and the running number are added automatically — WT/PI/26-27/0001 — and the count restarts at 1 each April. The two are separate series and never share a running number."
-          icon={Hash}
+          icon={ListOrdered}
           iconColor="blue"
           headerRight={
             <SegmentedControl
@@ -236,7 +236,7 @@ const BillingConfigurePage: React.FC = () => {
                    * recognise does.
                    */
                   action={canDelete("billing.configure") ? {
-                    icon: "bi-arrow-counterclockwise",
+                    icon: RefreshCw,
                     title: `Restore ${entry.code} to its default label and colour`,
                     tone: "revert",
                     onClick: () => confirmReset(entry),
