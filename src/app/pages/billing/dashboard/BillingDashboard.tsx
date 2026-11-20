@@ -1,9 +1,12 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Box, Skeleton, Stack, Typography } from "@mui/material";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { KTIcon } from "@metronic/helpers";
+import { CircleCheck } from "lucide-react";
+import { cn } from "@/ds/lib/utils";
+import { Button } from "@/ds/ui/button";
+import { DynamicIcon } from "@/ds/ui/dynamic-icon";
+import { Skeleton } from "@/ds/ui/skeleton";
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/ds/ui/chart";
 import { Progress } from "@/ds/ui/progress";
 import { GlassCard, IconBox, TRIO } from "@app/modules/common/components/ui";
@@ -70,23 +73,17 @@ const Section: React.FC<{
   children: React.ReactNode;
 }> = ({ title, icon, trio, action, children }) => (
   <GlassCard preset="section" sx={{ p: { xs: 1.5, sm: 2 }, height: "100%", minWidth: 0 }}>
-    <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 1.5 }}>
+    <div className="mb-3 flex flex-row items-center gap-2.5">
       <IconBox icon={icon} trio={trio} size={32} fs="fs-5" />
-      <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14.5 }}>{title}</Typography>
+      <p className="min-w-0 flex-1 text-[14.5px] font-bold">{title}</p>
       {action && (
-        <Typography
-          component="button"
-          type="button"
-          onClick={action.onClick}
-          sx={{
-            border: 0, bgcolor: "transparent", cursor: "pointer", p: 0,
-            fontSize: 12.5, fontWeight: 700, color: "primary.main", "&:hover": { textDecoration: "underline" },
-          }}
-        >
+        // A real button: it acts on this page rather than navigating, so `link` is the right
+        // Button variant and the browser gets the correct element either way.
+        <Button variant="link" size="sm" onClick={action.onClick}>
           {action.label} →
-        </Typography>
+        </Button>
       )}
-    </Stack>
+    </div>
     {children}
   </GlassCard>
 );
@@ -100,37 +97,45 @@ const Line: React.FC<{
   noteTone?: string;
   onClick: () => void;
 }> = ({ title, sub, amount, note, noteTone, onClick }) => (
-  <Stack
-    direction="row"
-    alignItems="center"
-    spacing={1}
+  // A whole row that acts is a button, not a clickable div: it gets the tab stop, Enter and Space free.
+  <button
+    type="button"
     onClick={onClick}
-    sx={{
-      px: 1, py: 0.8, borderRadius: "10px", cursor: "pointer",
-      border: "1px solid", borderColor: "divider",
-      "&:hover": { bgcolor: "action.hover" },
-    }}
+    className="flex w-full cursor-pointer flex-row items-center gap-2 rounded-[10px] border border-border px-2 py-1.5 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
   >
-    <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Typography noWrap sx={{ fontSize: 13, fontWeight: 700 }}>{title}</Typography>
-      <Typography noWrap sx={{ fontSize: 11.5, color: "text.secondary" }}>{sub}</Typography>
-    </Box>
-    <Stack alignItems="flex-end" sx={{ flexShrink: 0 }}>
-      <Typography sx={{ fontSize: 13, fontWeight: 700 }}>{formatCurrencyDecimal(amount)}</Typography>
-      {note && <Typography sx={{ fontSize: 11, fontWeight: 700, color: noteTone ?? "text.disabled" }}>{note}</Typography>}
-    </Stack>
-  </Stack>
+    <div className="min-w-0 flex-1">
+      <p className="truncate text-[13px] font-bold">{title}</p>
+      <p className="truncate text-[11.5px] text-muted-foreground">{sub}</p>
+    </div>
+    <div className="flex shrink-0 flex-col items-end">
+      <p className="text-[13px] font-bold">{formatCurrencyDecimal(amount)}</p>
+      {note && (() => {
+        // `success` / `danger` are kit status tokens (so they follow light, dark and tenant brand);
+        // anything else is a literal colour, which is how a category hue still works. They used to be
+        // MUI theme paths ("success.main"), which only resolved inside an `sx`.
+        const colour = noteTone === "success" ? "var(--success)" : noteTone === "danger" ? "var(--destructive)" : noteTone;
+        return (
+          <p
+            className={cn("text-[11px] font-bold", colour ? "text-(--note-tone)" : "text-muted-foreground")}
+            style={colour ? ({ "--note-tone": colour } as React.CSSProperties) : undefined}
+          >
+            {note}
+          </p>
+        );
+      })()}
+    </div>
+  </button>
 );
 
 const AllClear: React.FC<{ text: string }> = ({ text }) => (
-  <Stack direction="row" alignItems="center" spacing={0.75} sx={{ py: 1.25, color: "success.main" }}>
-    <KTIcon iconName="check-circle" className="fs-5 text-success" />
-    <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>{text}</Typography>
-  </Stack>
+  <div className="flex flex-row items-center gap-1.5 py-2.5">
+    <CircleCheck aria-hidden className="text-success" />
+    <p className="text-[12.5px] text-muted-foreground">{text}</p>
+  </div>
 );
 
 const ListSkeleton: React.FC = () => (
-  <Stack spacing={0.75}>{[0, 1, 2].map((i) => <Skeleton key={i} variant="rounded" height={46} />)}</Stack>
+  <div className="flex flex-col gap-1.5">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-[46px] rounded-xl" />)}</div>
 );
 
 const BillingDashboard: React.FC = () => {
@@ -170,7 +175,7 @@ const BillingDashboard: React.FC = () => {
         action={list?.count ? { label: formatCurrencyDecimal(list.amount), onClick: go(tracker(query)) } : undefined}
       >
         {isLoading ? <ListSkeleton /> : !list?.items.length ? <AllClear text={clear} /> : (
-          <Stack spacing={0.75}>{list.items.map((item) => <React.Fragment key={item.billId}>{render(item)}</React.Fragment>)}</Stack>
+          <div className="flex flex-col gap-1.5">{list.items.map((item) => <React.Fragment key={item.billId}>{render(item)}</React.Fragment>)}</div>
         )}
       </Section>
     );
@@ -181,7 +186,7 @@ const BillingDashboard: React.FC = () => {
   const pipelineTotal = (data?.pipeline ?? []).reduce((s, p) => s + p.count, 0);
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <div className="pb-8">
       <BillingPageHeader
         icon="chart-simple"
         title="Billing Dashboard"
@@ -190,12 +195,7 @@ const BillingDashboard: React.FC = () => {
       />
 
       {/* 1 · The money, in one line, in the order it moves. */}
-      <Box
-        sx={{
-          display: "grid", gap: 1.25, mb: 2,
-          gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))", xl: "repeat(6, minmax(0, 1fr))" },
-        }}
-      >
+      <div className="mb-4 grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">
         <BillingStatsCard
           label="Contract value" icon="briefcase" trio={TRIO.blue} loading={isLoading}
           value={k ? formatCurrencyDecimal(k.contractValue) : "—"}
@@ -232,10 +232,10 @@ const BillingDashboard: React.FC = () => {
           hint={k ? (k.overdueCount ? `${k.overdueCount} proformas past due` : "Nothing past due") : undefined}
           onClick={go(tracker("view=proformas&focus=OVERDUE"))}
         />
-      </Box>
+      </div>
 
       {/* 2 · The pipeline   3 · The trend */}
-      <Box sx={{ display: "grid", gap: 1.25, mb: 2, gridTemplateColumns: { xs: "1fr", lg: "1.15fr 1fr" } }}>
+      <div className="mb-4 grid grid-cols-1 gap-2.5 lg:grid-cols-[1.15fr_1fr]">
         <Section
           title="Proforma pipeline"
           icon="abstract-26"
@@ -244,46 +244,51 @@ const BillingDashboard: React.FC = () => {
         >
           {isLoading ? <ListSkeleton /> : (
             <>
-              {/* The share of proformas at each stage, as one bar. */}
-              <Box sx={{ display: "flex", height: 10, borderRadius: 99, overflow: "hidden", bgcolor: "action.hover", mb: 1.75 }}>
+              {/* The share of proformas at each stage, as one bar. Each segment's width and colour are
+                  computed per stage, so both ride CSS variables. */}
+              <div className="mb-3.5 flex h-2.5 overflow-hidden rounded-full bg-accent">
                 {pipelineTotal > 0 && data?.pipeline.map((p) => p.count > 0 && (
-                  <Box key={p.state} title={`${PIPELINE[p.state].label}: ${p.count}`}
-                    sx={{ width: `${(p.count / pipelineTotal) * 100}%`, bgcolor: PIPELINE[p.state].trio.c }} />
+                  <div
+                    key={p.state}
+                    title={`${PIPELINE[p.state].label}: ${p.count}`}
+                    className="w-(--seg-w) bg-(--seg-bg)"
+                    style={{ "--seg-w": `${(p.count / pipelineTotal) * 100}%`, "--seg-bg": PIPELINE[p.state].trio.c } as React.CSSProperties}
+                  />
                 ))}
-              </Box>
-              <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(5, minmax(0, 1fr))" } }}>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                 {data?.pipeline.map((p) => {
                   const meta = PIPELINE[p.state];
                   return (
-                    <Box
+                    // A stage tile navigates, so it is a button rather than a clickable div.
+                    <button
                       key={p.state}
+                      type="button"
                       onClick={go(tracker(`view=proformas&focus=${p.state}`))}
-                      sx={{
-                        p: 1.25, borderRadius: "12px", cursor: "pointer", minWidth: 0,
-                        bgcolor: meta.trio.bg, border: `1px solid ${meta.trio.bd}`,
-                        transition: "transform .15s", "&:hover": { transform: "translateY(-2px)" },
-                      }}
+                      className="min-w-0 cursor-pointer rounded-xl border border-(--stage-bd) bg-(--stage-bg) p-2.5 text-left transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      style={{ "--stage-bg": meta.trio.bg, "--stage-bd": meta.trio.bd, "--stage-fg": meta.trio.c } as React.CSSProperties}
                     >
-                      <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mb: 0.5 }}>
-                        <KTIcon iconName={meta.icon} className="fs-6" />
-                        <Typography noWrap sx={{ fontSize: 11, fontWeight: 700, color: meta.trio.c, textTransform: "uppercase", letterSpacing: 0.3 }}>
+                      <span className="mb-1 flex flex-row items-center gap-1.5">
+                        {/* The stage's icon name is data from PIPELINE, so DynamicIcon resolves it. */}
+                        <DynamicIcon name={meta.icon} className="size-3.5" />
+                        <span className="heading-case truncate text-[11px] font-bold tracking-[0.3px] text-(--stage-fg)">
                           {meta.label}
-                        </Typography>
-                      </Stack>
-                      <Typography sx={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>{p.count}</Typography>
-                      <Typography noWrap sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                        </span>
+                      </span>
+                      <span className="block text-[22px] leading-tight font-extrabold">{p.count}</span>
+                      <span className="block truncate text-[11.5px] text-muted-foreground">
                         {formatCurrencyDecimal(p.amount)} {meta.hint}
-                      </Typography>
-                    </Box>
+                      </span>
+                    </button>
                   );
                 })}
-              </Box>
+              </div>
             </>
           )}
         </Section>
 
         <Section title="Billed vs received · last 6 months" icon="chart-simple" trio={TRIO.blue}>
-          {isLoading ? <Skeleton variant="rounded" height={210} /> : (
+          {isLoading ? <Skeleton className="h-[210px] rounded-xl" /> : (
             <ChartContainer config={trendConfig} className="h-[210px] w-full" role="img" aria-label="Billed and received by month, last six months">
               <BarChart data={(data?.trend ?? []).map((t) => ({ ...t, label: monthLabel(t.month) }))} margin={{ left: 4, right: 4 }}>
                 <CartesianGrid vertical={false} />
@@ -302,21 +307,16 @@ const BillingDashboard: React.FC = () => {
             </ChartContainer>
           )}
         </Section>
-      </Box>
+      </div>
 
-      {/* 4 · What needs someone today. */}
-      <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", color: "text.secondary", mb: 1 }}>
+      {/* 4 · What needs someone today. A structural heading, so `heading-case` carries the uppercase. */}
+      <p className="heading-case mb-2 text-xs font-extrabold tracking-[0.6px] text-muted-foreground">
         Needs attention
-      </Typography>
-      <Box
-        sx={{
-          display: "grid", gap: 1.25, mb: 2,
-          gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))", xl: "repeat(3, minmax(0, 1fr))" },
-        }}
-      >
+      </p>
+      <div className="mb-4 grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3">
         {attentionCard("overdue", "Overdue", "information-5", TRIO.rose, "view=proformas&focus=OVERDUE", "Nothing is past due.", (item) => (
           <Line title={item.proformaNumber ?? "—"} sub={subOf(item)} amount={item.outstandingAmount}
-            note={`${item.overdueDays} day${item.overdueDays === 1 ? "" : "s"} overdue`} noteTone="error.main" onClick={openItem(item)} />
+            note={`${item.overdueDays} day${item.overdueDays === 1 ? "" : "s"} overdue`} noteTone="danger" onClick={openItem(item)} />
         ))}
         {attentionCard("dueSoon", "Due in the next 14 days", "calendar", TRIO.amber, "view=proformas&focus=AWAITING", "Nothing falls due in the next two weeks.", (item) => (
           <Line title={item.proformaNumber ?? "—"} sub={subOf(item)} amount={item.outstandingAmount}
@@ -334,13 +334,13 @@ const BillingDashboard: React.FC = () => {
           <Line title={item.proformaNumber ?? "—"} sub={subOf(item)} amount={item.tdsAmount}
             note="certificate awaited" onClick={openItem(item, true)} />
         ))}
-      </Box>
+      </div>
 
       {/* 5 · The latest money in   ·   who owes the most */}
-      <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" } }}>
+      <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
         <Section title="Recent payments" icon="wallet" trio={TRIO.green}>
           {isLoading ? <ListSkeleton /> : !data?.recentPayments.length ? <AllClear text="No payments recorded yet." /> : (
-            <Stack spacing={0.75}>
+            <div className="flex flex-col gap-1.5">
               {data.recentPayments.map((p) => (
                 <Line
                   key={p.id}
@@ -348,55 +348,54 @@ const BillingDashboard: React.FC = () => {
                   sub={`${p.proformaNumber ?? "—"} · ${p.stageName}${p.component ? ` · ${PAYMENT_COMPONENT_LABEL[p.component as keyof typeof PAYMENT_COMPONENT_LABEL] ?? p.component}` : ""}`}
                   amount={p.amount}
                   note={`${formatDate(p.paymentDate)} · ${p.method}`}
-                  noteTone="success.main"
+                  noteTone="success"
                   onClick={go(`/project/${p.leadId}?tab=billing`)}
                 />
               ))}
-            </Stack>
+            </div>
           )}
         </Section>
 
         <Section title="Top outstanding projects" icon="chart-line-down" trio={TRIO.rose}
           action={{ label: "All projects", onClick: go(PROFORMA_TRACKER_PATH) }}>
           {isLoading ? <ListSkeleton /> : !data?.topOutstanding.length ? <AllClear text="No project owes anything right now." /> : (
-            <Stack spacing={0.75}>
+            <div className="flex flex-col gap-1.5">
               {data.topOutstanding.map((p) => {
                 const collected = p.issuedAmount > 0 ? Math.min(100, Math.round((p.receivedAmount / p.issuedAmount) * 100)) : 0;
                 return (
-                  <Box
+                  // Navigates, so it is a button — the tab stop and Enter/Space come free.
+                  <button
                     key={p.leadId}
+                    type="button"
                     onClick={go(`/project/${p.leadId}?tab=billing`)}
-                    sx={{
-                      px: 1, py: 0.8, borderRadius: "10px", cursor: "pointer",
-                      border: "1px solid", borderColor: "divider", "&:hover": { bgcolor: "action.hover" },
-                    }}
+                    className="w-full cursor-pointer rounded-[10px] border border-border px-2 py-1.5 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   >
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography noWrap sx={{ fontSize: 13, fontWeight: 700 }}>{p.projectName ?? p.projectNumber ?? "—"}</Typography>
-                        <Typography noWrap sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                    <span className="flex flex-row items-center gap-2">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-bold">{p.projectName ?? p.projectNumber ?? "—"}</span>
+                        <span className="block truncate text-[11.5px] text-muted-foreground">
                           {[p.projectNumber, p.clientName].filter(Boolean).join(" · ")}
-                        </Typography>
-                      </Box>
-                      <Stack alignItems="flex-end" sx={{ flexShrink: 0 }}>
-                        <Typography sx={{ fontSize: 13, fontWeight: 700, color: "error.main" }}>{formatCurrencyDecimal(p.outstandingAmount)}</Typography>
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 flex-col items-end">
+                        <span className="text-[13px] font-bold text-destructive">{formatCurrencyDecimal(p.outstandingAmount)}</span>
                         {p.overdueAmount > 0 && (
-                          <Typography sx={{ fontSize: 11, fontWeight: 700, color: "error.main" }}>{formatCurrencyDecimal(p.overdueAmount)} overdue</Typography>
+                          <span className="text-[11px] font-bold text-destructive">{formatCurrencyDecimal(p.overdueAmount)} overdue</span>
                         )}
-                      </Stack>
-                    </Stack>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.75 }}>
-                      <Box sx={{ flex: 1 }}><Progress value={collected} aria-label={`${collected}% of billed value collected`} /></Box>
-                      <Typography sx={{ fontSize: 11, color: "text.secondary", flexShrink: 0 }}>{collected}% collected</Typography>
-                    </Stack>
-                  </Box>
+                      </span>
+                    </span>
+                    <span className="mt-1.5 flex flex-row items-center gap-2">
+                      <span className="flex-1"><Progress value={collected} aria-label={`${collected}% of billed value collected`} /></span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">{collected}% collected</span>
+                    </span>
+                  </button>
                 );
               })}
-            </Stack>
+            </div>
           )}
         </Section>
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };
 

@@ -40,18 +40,30 @@ export interface TileFigure {
 export const sumOf = <T,>(rows: T[], pick: (row: T) => number | null | undefined) =>
   Math.round(rows.reduce((s, r) => s + (pick(r) ?? 0), 0) * 100) / 100;
 
+/**
+ * A figure's colour. `success` / `danger` are the kit's status tokens, so they follow light, dark and
+ * tenant brand; anything else is taken as a literal colour, which is how a category hue (`TRIO.slate.c`)
+ * still works. These used to be MUI theme paths ("success.main"), which only resolved inside an `sx`.
+ */
+const MONEY_TONE: Record<string, string> = {
+  success: "var(--success)",
+  danger: "var(--destructive)",
+};
+
 export const Money: React.FC<{ value: number | null | undefined; bold?: boolean; tone?: string; muted?: boolean }> = ({
   value, bold, tone, muted,
-}) => (
-  // `tone` is a runtime colour string from the caller, so it rides a CSS variable; without one the
-  // text keeps the cell's own colour.
-  <span
-    className={cn("text-[length:inherit]", bold ? "font-bold" : "font-medium", muted ? "text-muted-foreground" : tone && "text-(--money-tone)")}
-    style={tone && !muted ? ({ "--money-tone": tone } as React.CSSProperties) : undefined}
-  >
-    {value === null || value === undefined ? DASH : formatCurrencyDecimal(value)}
-  </span>
-);
+}) => {
+  const colour = tone ? MONEY_TONE[tone] ?? tone : undefined;
+  return (
+    // The resolved colour rides a CSS variable; without one the figure keeps the cell's own colour.
+    <span
+      className={cn("text-[length:inherit]", bold ? "font-bold" : "font-medium", muted ? "text-muted-foreground" : colour && "text-(--money-tone)")}
+      style={colour && !muted ? ({ "--money-tone": colour } as React.CSSProperties) : undefined}
+    >
+      {value === null || value === undefined ? DASH : formatCurrencyDecimal(value)}
+    </span>
+  );
+};
 
 // `text-primary` rather than the navy hex this used to carry: the brand colour is a token, and a
 // hardcoded #1E3A8A is exactly what breaks dark mode and per-tenant brand.

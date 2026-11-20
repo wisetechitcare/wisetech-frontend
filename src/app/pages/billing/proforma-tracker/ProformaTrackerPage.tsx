@@ -189,8 +189,8 @@ const ProformaTrackerPage: React.FC = () => {
     },
     {
       accessorFn: (p: ProformaTrackerProject) => p.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
-      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success.main" muted={!row.original.receivedAmount} />,
-      Footer: () => <Money value={sumOf(projects, (p) => p.receivedAmount)} bold tone="success.main" />,
+      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
+      Footer: () => <Money value={sumOf(projects, (p) => p.receivedAmount)} bold tone="success" />,
     },
     {
       accessorFn: (p: ProformaTrackerProject) => p.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 160,
@@ -198,7 +198,7 @@ const ProformaTrackerPage: React.FC = () => {
         const p: ProformaTrackerProject = row.original;
         return (
           <div>
-            <Money value={p.outstandingAmount} bold tone={p.outstandingAmount > 0 ? "error.main" : undefined} muted={!p.outstandingAmount} />
+            <Money value={p.outstandingAmount} bold tone={p.outstandingAmount > 0 ? "danger" : undefined} muted={!p.outstandingAmount} />
             {p.overdueAmount > 0 && (
               <p className="text-[11px] font-bold text-destructive">
                 {formatCurrencyDecimal(p.overdueAmount)} overdue
@@ -207,7 +207,7 @@ const ProformaTrackerPage: React.FC = () => {
           </div>
         );
       },
-      Footer: () => <Money value={sumOf(projects, (p) => p.outstandingAmount)} bold tone="error.main" />,
+      Footer: () => <Money value={sumOf(projects, (p) => p.outstandingAmount)} bold tone="danger" />,
     },
     {
       accessorFn: (p: ProformaTrackerProject) => p.nextDueDate ?? "", id: "nextDueDate", header: "Next Due", size: 130,
@@ -282,15 +282,15 @@ const ProformaTrackerPage: React.FC = () => {
     },
     {
       accessorFn: (r: ProformaTrackerRow) => r.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
-      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success.main" muted={!row.original.receivedAmount} />,
-      Footer: () => <Money value={sumOf(proformas, (r) => r.receivedAmount)} bold tone="success.main" />,
+      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
+      Footer: () => <Money value={sumOf(proformas, (r) => r.receivedAmount)} bold tone="success" />,
     },
     {
       accessorFn: (r: ProformaTrackerRow) => r.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 140,
       Cell: ({ row }: any) => (
-        <Money value={row.original.outstandingAmount} bold tone={row.original.outstandingAmount > 0 ? "error.main" : undefined} muted={!row.original.outstandingAmount} />
+        <Money value={row.original.outstandingAmount} bold tone={row.original.outstandingAmount > 0 ? "danger" : undefined} muted={!row.original.outstandingAmount} />
       ),
-      Footer: () => <Money value={sumOf(proformas, (r) => r.outstandingAmount)} bold tone="error.main" />,
+      Footer: () => <Money value={sumOf(proformas, (r) => r.outstandingAmount)} bold tone="danger" />,
     },
     {
       accessorFn: (r: ProformaTrackerRow) => r.dueDate ?? "", id: "dueDate", header: "Due Date", size: 140,

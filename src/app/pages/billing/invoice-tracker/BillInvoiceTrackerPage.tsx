@@ -91,15 +91,15 @@ const BillInvoiceTrackerPage: React.FC = () => {
     },
     {
       accessorFn: (r: ProformaTrackerRow) => r.settlement.received, id: "received", header: "Received", size: 140,
-      Cell: ({ row }: any) => <Money value={row.original.settlement.received} tone="success.main" muted={!row.original.settlement.received} />,
-      Footer: () => <Money value={sumOf(bills, (r) => r.settlement.received)} bold tone="success.main" />,
+      Cell: ({ row }: any) => <Money value={row.original.settlement.received} tone="success" muted={!row.original.settlement.received} />,
+      Footer: () => <Money value={sumOf(bills, (r) => r.settlement.received)} bold tone="success" />,
     },
     {
       accessorFn: (r: ProformaTrackerRow) => r.settlement.pending, id: "pending", header: "Pending", size: 140,
       Cell: ({ row }: any) => (
-        <Money value={row.original.settlement.pending} bold tone={row.original.settlement.pending > 0 ? "error.main" : undefined} muted={!row.original.settlement.pending} />
+        <Money value={row.original.settlement.pending} bold tone={row.original.settlement.pending > 0 ? "danger" : undefined} muted={!row.original.settlement.pending} />
       ),
-      Footer: () => <Money value={sumOf(bills, (r) => r.settlement.pending)} bold tone="error.main" />,
+      Footer: () => <Money value={sumOf(bills, (r) => r.settlement.pending)} bold tone="danger" />,
     },
     {
       accessorFn: (r: ProformaTrackerRow) => r.dueDate ?? "", id: "dueDate", header: "Due Date", size: 140,
