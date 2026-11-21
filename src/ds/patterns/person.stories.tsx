@@ -1,11 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor } from "storybook/test";
-import { Mail, Pencil, Phone } from "lucide-react";
+import { Globe, Mail, Pencil, Phone } from "lucide-react";
 
 import { Badge } from "@/ds/ui/badge";
 import { Button } from "@/ds/ui/button";
 import { PersonCell, PersonHeader } from "./person";
 
+import { animationsSettled } from "@/ds/lib/motion";
+import logo from "@/storybook/support/assets/logo.svg";
 import portrait from "@/storybook/support/assets/portrait.svg";
 
 /**
