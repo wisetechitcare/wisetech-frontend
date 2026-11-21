@@ -185,7 +185,6 @@ export const DocumentCard: React.FC<DocumentCardProps> = ({
   const handleRename = async () => {
     if (newName.trim() && newName !== file.name) {
       try {
-        await dmsService.renameDocument(file.id, newName.trim());
         dispatch({ type: 'UPDATE_FILE', payload: { id: file.id, name: newName.trim() } });
       } catch (err) {
         console.error('Rename failed:', err);

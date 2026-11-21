@@ -30,6 +30,7 @@ import { BI_TO_KEENICON, own } from './biToKeenicon';
 import { FacebookIcon, TwitterIcon, WhatsAppIcon } from './brandIcons';
 import {
     List, User, Circle, Share2, Sheet, Images, Cake, Pin, Truck, UserX, Cpu, Frown, Smile,
+    Table, Target,
     Blend,
     Activity, AlarmClock, Archive, ArrowDownLeft, BadgeCheck, Database, Inbox, Link, ListTree, Printer, Receipt, ChartColumn, ChartNoAxesColumn, ChartPie,
     FileClock, IdCard, ShieldUser, StickyNote, X, ArrowDown, ArrowDownRight, ArrowLeft, ArrowLeftRight,
@@ -89,7 +90,7 @@ const KEENICON: Record<string, AppIconComponent> = {
     // at all: the Tasks board's Table toggle was a blank button.
     'burger-menu-1': List, 'grid-2': LayoutGrid, 'grid': Grid2x2, 'element-equal': Grid2x2,
     'abstract-8': Component, 'auto-brightness': Sun, 'calendar-2': Calendar,
-    'circle': Circle, 'clock': Clock, 'delivery': Truck, 'download-1': Download,
+    'circle': Circle, 'clock': Clock, 'delivery': Truck, 'delivery-24': Truck, 'download-1': Download,
     'error': CircleX, 'file-added': FilePlus, 'file-pdf': FileText, 'file-sheet': Sheet,
     'file-text': FileText, 'gallery': Images, 'graph-3': ChartColumn, 'cake': Cake,
     'info': Info, 'information-4': Info, 'mail': Mail, 'map001': Map, 'pin': Pin,
@@ -114,7 +115,7 @@ const KEENICON: Record<string, AppIconComponent> = {
 
     'add-files': FilePlus, 'address-book': Contact, 'arrow-down': ArrowDown,
     'arrow-left': ArrowLeft, 'arrow-right': ArrowRight, 'arrow-up': ArrowUp,
-    'arrow-two-diagonals': ArrowLeftRight, 'arrow-up-down': ArrowUpDown,
+    'arrow-two-diagonals': ArrowLeftRight, 'arrow-right-left': ArrowLeftRight, 'arrow-up-down': ArrowUpDown,
     'arrow-up-right': ArrowUpRight, 'arrows-circle': RefreshCw, 'badge': IdCard,
     'bank': Landmark, 'basket': ShoppingBasket, 'black-left': ChevronLeft,
     'black-right': ChevronRight, 'briefcase': Briefcase, 'bucket': PaintBucket,
@@ -239,6 +240,15 @@ const BI_DIRECT: Record<string, AppIconComponent> = {
     // Written by a template literal that never interpolated (`bi-chevron-${dir}`), so the
     // literal string "bi-chevron-" reaches us. Kept so it draws something until fixed.
     'bi-chevron-': ChevronRight,
+    /*
+     * The last five names that had no mapping ANYWHERE — not here, not in the keenicon
+     * bridge — so `iconFor` returned null and `AppIcon` drew nothing. They stayed visible on
+     * configuration cards only because `ConfigSectionCard` kept a Bootstrap `<i>` fallback of
+     * its own; that card is now a thin adapter over the kit and the fallback is gone, so the
+     * names have to resolve here. Registering them is what FUTURE_ENHANCEMENTS asked for.
+     */
+    'bi-123': ListOrdered, 'bi-bullseye': Target, 'bi-house-door': House,
+    'bi-table': Table, 'bi-truck': Truck,
 };
 
 /**

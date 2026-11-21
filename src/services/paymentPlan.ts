@@ -18,12 +18,6 @@ export const getAllPaymentPlans = async () => {
     });
 };
 
-export const getPaymentPlanById = async (id: string) => {
-    const endpoint = `${API_BASE_URL}/${PAYMENT_PLAN.GET_PAYMENT_PLAN_BY_ID.replace(":id", id)}`;
-    const { data } = await axios.get(endpoint);
-    return data;
-};
-
 export const createPaymentPlan = async (payload: PaymentPlan) => {
     const endpoint = `${API_BASE_URL}/${PAYMENT_PLAN.CREATE_PAYMENT_PLAN}`;
     const { data } = await axios.post(endpoint, payload);

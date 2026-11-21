@@ -40,6 +40,9 @@ export interface ProjectItem {
   // everywhere the status list/picker is shown. Set via the reorder controls
   // in Project Configuration, not hand-typed.
   sortOrder?: number;
+  /** Project statuses only: set on built-ins the code depends on (renameable, never deletable). */
+  code?: string | null;
+  isDefault?: boolean;
 }
 
 

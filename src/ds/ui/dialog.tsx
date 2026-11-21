@@ -67,7 +67,7 @@ function DialogContent({
         className={cn(
           // Centred by layout (inset-0 + m-auto + h-fit), not translate(-50%): a -50% translate of an
           // odd-sized box lands on a half pixel and blurs every line of text in it.
-          "fixed inset-0 z-(--z-modal) m-auto grid h-fit w-full max-w-[calc(100%-2rem)] gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 outline-none sm:max-w-md",
+          "fixed inset-0 z-(--z-modal) m-auto grid h-fit w-full grid-cols-[minmax(0,1fr)] max-w-[calc(100%-2rem)] gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 outline-none sm:max-w-md",
           className
         )}
         {...props}

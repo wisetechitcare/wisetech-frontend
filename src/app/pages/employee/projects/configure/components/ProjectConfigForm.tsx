@@ -340,6 +340,9 @@ const ProjectConfigForm: React.FC<ConfigFormProps> = ({
                         name="isDefault"
                         className="form-check-input"
                         checked={(values as any).isDefault ?? false}
+                        // The default moves only by setting another status as default (the server refuses otherwise).
+                        disabled={Boolean((initialData as any)?.isDefault)}
+                        title={(initialData as any)?.isDefault ? "This is the default. To change it, set another one as the default instead." : undefined}
                         onChange={(e) => setFieldValue("isDefault", e.target.checked)}
                       />
                       <label

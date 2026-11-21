@@ -13,6 +13,7 @@ import { PrivateRoutes } from './PrivateRoutes'
 import { ErrorsPage } from '../modules/errors/ErrorsPage'
 import { Logout, AuthPage, getAuth } from '../modules/auth'
 import GoogleContactsCallback from '@pages/employee/companies/contacts/components/GoogleContactsCallback'
+import ShareRedirect from '@pages/share/ShareRedirect'
 import { App } from '../App'
 
 const { BASE_URL } = import.meta.env
@@ -58,6 +59,8 @@ const router = createBrowserRouter(
        * reads its own code/state, posts them to its opener, and closes.
        */}
       <Route path="google/contacts/callback" element={<GoogleContactsCallback />} />
+      {/* A shared document link — opened by clients with no session, so it sits outside the auth branch too. */}
+      <Route path="s/:code" element={<ShareRedirect />} />
       <Route index element={<RootRedirect />} />
       <Route path="auth/*" element={<AuthRoute />} />
       <Route path="/*" element={<ProtectedRoute />} />

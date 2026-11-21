@@ -60,6 +60,8 @@ const SERVICES: Record<ConfigFormProps["type"], {
 const LeadsConfigForm: React.FC<ConfigFormProps> = ({
   show, onClose, onSuccess, initialData, isEditing = false, type, title,
 }) => {
+  /** Editing the saved default: it stays default and active until another status takes it over. */
+  const lockedDefault = type === "status" && isEditing && Boolean(initialData?.isDefault);
   const [error, setError] = useState<string | null>(null);
 
   const validationSchema = Yup.object().shape({
@@ -193,8 +195,11 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({
               <WtCheckboxField
                 size="sm"
                 checked={Boolean(fk.values.isDefault)}
+                // The default moves only by setting another status as default (the server refuses otherwise).
+                disabled={lockedDefault}
                 onChange={(e) => fk.setFieldValue("isDefault", e.target.checked)}
                 label="Set as Default Status"
+                description={lockedDefault ? "This is the default. To change it, set another one as the default instead." : undefined}
               />
             )}
 
@@ -219,6 +224,7 @@ const LeadsConfigForm: React.FC<ConfigFormProps> = ({
             <WtCheckboxField
               size="sm"
               checked={Boolean(fk.values.isActive)}
+              disabled={lockedDefault}
               onChange={(e) => fk.setFieldValue("isActive", e.target.checked)}
               label="Active"
             />

@@ -1,4 +1,5 @@
 import { FC, lazy, ReactElement, Suspense, useEffect, useState } from 'react'
+import { holdSplash } from '@utils/splashGate'
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { TAB_PATHS } from './tabPaths'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
@@ -93,8 +94,6 @@ const CourtesyDeskLegacyRedirect: FC = () => {
 
 const OrganizationInfoProfileMain = lazy(() => import('@pages/company/organizationInfo/OrganizationInfoProfileMain'))
 const SearchResultsPage = lazy(() => import('@pages/employee/search/SearchResultsPage'))
-const ProposalConfigurationPage = lazy(() => import('@pages/employee/leads/lead/components/ProposalConfigurationPage'))
-const TemplateDocumentationBuilderPage = lazy(() => import('@pages/employee/leads/template-builder/TemplateDocumentationBuilderPage'))
 const MyTeamLayout = lazy(() => import('@pages/my-team/MyTeamLayout'))
 const MyTeamOverview = lazy(() => import('@pages/my-team/Overview'))
 const MyTeamApprovals = lazy(() => import('@pages/my-team/Approvals'))
@@ -138,6 +137,9 @@ const PrivateRoutes = () => {
     }
     fetchAndStore()
   }, [])
+  // No routes exist until access is known, so keep the startup splash up until then — otherwise it lifts onto an empty
+  // screen and the first page loads a second time under the top progress bar.
+  useEffect(() => (isStored ? undefined : holdSplash()), [isStored])
 
 
   return (
@@ -170,9 +172,7 @@ const PrivateRoutes = () => {
             old path stays as a one-line redirect rather than a 404. */}
         <Route path='/finance/bills' element={<Navigate to='/finance/reimbursements' replace />} />
         <Route path='/qc/leads' element={<Navigate to='/leads' replace />} />
-        <Route path='/qc/leads/configuration' element={<Navigate to='/leads/configuration' replace />} />
         <Route path='/qc/leads/wizard-beta' element={<Navigate to='/leads/wizard-beta' replace />} />
-        <Route path='/qc/leads/documentation-builder' element={<Navigate to='/leads/documentation-builder' replace />} />
         <Route path='/qc/projects' element={<Navigate to='/projects' replace />} />
         <Route path='/qc/contacts' element={<Navigate to='/contacts' replace />} />
         <Route path='/qc/companies' element={<Navigate to='/companies' replace />} />
@@ -218,13 +218,6 @@ const PrivateRoutes = () => {
         {!NEW_MY_TEAM_IA && <Route path='approvals/inbox' element={<MyTeamApprovals />} />}
         {!NEW_MY_TEAM_IA && <Route path='approvals/my-team' element={<MyTeamOverview />} />}
         {!NEW_MY_TEAM_IA && <Route path='approvals/delegations' element={<MyTeamDelegations />} />}
-        <Route
-          path='/leads/documentation-builder'
-          element={
-            <SuspensedView>
-              <TemplateDocumentationBuilderPage />
-            </SuspensedView>}
-        />
         {/* Lazy Modules */}
         {/* Legacy Metronic demo profile/account → real employee profile */}
         <Route
@@ -277,8 +270,6 @@ const PrivateRoutes = () => {
             </PackGuard>
           }
         />
-        {/* The Accounts queue used to live under Finance; keep the old link working. */}
-        <Route path='/finance/billing-queue' element={<Navigate to='/billing/accounts' replace />} />
         <Route
           path='/finance/reimbursements/*'
           element={(hasPermission(uiControlResourceNameMapWithCamelCase.reimbursementsUnderFinance, permissionConstToUseWithHasPermission.readOthers)) ? (
@@ -578,15 +569,6 @@ const PrivateRoutes = () => {
                 <PersonalKpiMain />
               </SuspensedView>
             </SectionGuard>}
-        />
-        <Route
-          path='/leads/configuration'
-          element={
-            <PackGuard pack="psa">
-              <SuspensedView>
-                <ProposalConfigurationPage />
-              </SuspensedView>
-            </PackGuard>}
         />
         {tabRoutes(
           '/leads',
@@ -998,6 +980,12 @@ const tabRoutes = (base: string, slugs: readonly string[], element: ReactElement
   ...slugs.map((slug) => <Route key={`${base}/${slug}`} path={`${base}/${slug}`} element={element} />),
 ]
 
+/** The route fallback: the top bar, and it keeps the startup splash up while a route chunk is still arriving. */
+const RouteLoading: FC = () => {
+  useEffect(() => holdSplash(), [])
+  return <TopBarProgress />
+}
+
 const SuspensedView: FC<WithChildren> = ({ children }) => {
   const baseColor = getCSSVariableValue('--bs-primary')
   TopBarProgress.config({
@@ -1007,7 +995,7 @@ const SuspensedView: FC<WithChildren> = ({ children }) => {
     barThickness: 5,
     shadowBlur: 5,
   })
-  return <Suspense fallback={<TopBarProgress />}>{children}</Suspense>
+  return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
 }
 
 export { PrivateRoutes }

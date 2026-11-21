@@ -1,235 +1,101 @@
 import * as React from "react";
 import { get } from "lodash";
-import HighlightErrors from "../../errors/components/HighlightErrors";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { DatePicker, MobileDatePicker } from "@mui/x-date-pickers";
 import dayjs, { Dayjs } from "dayjs";
-import { useMediaQuery } from "@mui/material";
+import { CalendarDate } from "@internationalized/date";
 import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
-import { useFloatingLabels } from "../components/ui/FloatingLabel";
+import { KitProvider } from "@/ds/provider";
+import { DatePicker } from "@/ds/ui/date-picker";
 
-// One source of truth for the date format so the input mask and the placeholder always match.
 const DATE_FORMAT = "DD/MM/YYYY";
 
-interface DateInputProps{
+interface DateInputProps {
     isRequired: boolean;
     inputLabel: string;
     formikProps?: any;
     formikField: string;
-    placeHolder?: string; // kept for API compat; the placeholder now always shows the date format
+    placeHolder?: string; // kept for API compat; the field always shows the date segments
     maxDate?: Dayjs | boolean;
     minDateField?: string; // Field name to compare against for minimum date validation
-    /** Earliest selectable date. Days before it are disabled and a typed value is rejected. */
+    /** Earliest selectable date. Days before it are disabled and a typed value is flagged. */
     minDate?: Dayjs;
 }
 
+const toCalendar = (d: Dayjs | null | undefined): CalendarDate | null =>
+    d && d.isValid() ? new CalendarDate(d.year(), d.month() + 1, d.date()) : null;
+
+/**
+ * Formik date field on the kit DatePicker (React Aria). The form stores 'YYYY-MM-DD'; a stored
+ * full timestamp keeps its time when the same day is re-confirmed (receivedDate is auto-filled with
+ * the real instant so same-day records can be ordered).
+ */
 function DateInput({ formikProps, formikField, inputLabel, isRequired, maxDate, minDateField, minDate }: DateInputProps) {
-  const { values, setFieldValue, setFieldTouched, setFieldError, errors, touched } = formikProps;
-  useUnsavedChangesRegistration(Boolean(formikProps?.dirty));
-  const [validationError, setValidationError] = React.useState<string>('');
-  const floating = useFloatingLabels();
+    const { values, setFieldValue, setFieldTouched, setFieldError, errors, touched } = formikProps;
+    useUnsavedChangesRegistration(Boolean(formikProps?.dirty));
 
-  // Checking if the screen is small (mobile)
-  const isMobile = useMediaQuery("(max-width:600px)");
+    const stored = get(values, formikField);
+    const storedDay = stored ? dayjs(stored) : null;
+    // `undefined` = follow Formik. A year typed digit by digit passes through 0002, 0020, 0202 on its
+    // way to 2025; holding those here keeps them out of the form (and out of its validation).
+    const [pending, setPending] = React.useState<CalendarDate | null | undefined>(undefined);
+    const value = pending !== undefined ? pending : toCalendar(storedDay);
 
-  // Convert stored value to dayjs object
-  const getCurrentValue = (): Dayjs | null => {
-    const storedValue = get(values, formikField);
-    if (!storedValue) return null;
-    
-    // Handle both ISO format (YYYY-MM-DD) and your custom format
-    const parsed = dayjs(storedValue);
-    return parsed.isValid() ? parsed : null;
-  };
+    const floor = minDate ?? (minDateField && get(values, minDateField) ? dayjs(get(values, minDateField)) : undefined);
+    const minValue = toCalendar(floor);
+    const maxValue = maxDate === true ? toCalendar(dayjs()) : maxDate ? toCalendar(maxDate as Dayjs) : null;
 
-  // Handle date change with proper formatting and validation
-  const handleDateChange = (newValue: Dayjs | null) => {
-    if (newValue && newValue.isValid()) {
-      // Store in ISO format (YYYY-MM-DD) to avoid timezone issues.
-      //
-      // Except when the DAY hasn't actually changed: this picker only ever chooses
-      // a day, so rewriting the value would flatten a stored time-of-day to
-      // midnight. Some fields (receivedDate) are auto-filled with the real instant
-      // precisely so same-day records can be ordered — merely reopening the form
-      // and re-confirming the date must not wipe that. A genuinely different day
-      // has no time to preserve, so it stays date-only.
-      const stored = get(values, formikField);
-      const previous = stored ? dayjs(stored) : null;
-      const isoDate =
-        previous?.isValid() && previous.isSame(newValue, 'day')
-          ? previous.toISOString()
-          : newValue.format('YYYY-MM-DD');
-
-      // The picker disables out-of-range days, but the field is still typeable.
-      if (minDate && newValue.isBefore(minDate, 'day')) {
-        setValidationError(`Date cannot be before ${minDate.format(DATE_FORMAT)}`);
-        setFieldValue(formikField, isoDate, false);
-        setFieldTouched(formikField, true, false);
-        return;
-      }
-
-      // Validate against minimum date if specified
-      if (minDateField && get(values, minDateField)) {
-        const minDate = dayjs(get(values, minDateField));
-        if (newValue.isBefore(minDate, 'day')) {
-          // Set error for this field
-          setValidationError('Date cannot be before start date');
-          setFieldValue(formikField, isoDate, false);
-          setFieldTouched(formikField, true, false);
-          return;
+    const commit = (next: CalendarDate | null) => {
+        setPending(undefined);
+        if (!next) {
+            setFieldValue(formikField, "", true);
+            return;
         }
-      }
+        const picked = dayjs(next.toString());
+        const iso = storedDay?.isValid() && storedDay.isSame(picked, "day") ? storedDay.toISOString() : next.toString();
+        setFieldValue(formikField, iso, true);
+        // The value is now stored, so a stale "required" error no longer applies; async validation
+        // re-sets a real one a tick later.
+        setFieldError(formikField, undefined);
+    };
 
-      // Clear validation error if date is valid
-      setValidationError('');
+    const rangeError =
+        value && minValue && value.compare(minValue) < 0
+            ? minDateField && !minDate
+                ? "Date cannot be before start date"
+                : `Date cannot be before ${floor!.format(DATE_FORMAT)}`
+            : value && maxValue && value.compare(maxValue) > 0
+                ? `Date cannot be after ${dayjs(maxValue.toString()).format(DATE_FORMAT)}`
+                : undefined;
+    const formError = get(touched, formikField) && get(errors, formikField) ? String(get(errors, formikField)) : undefined;
+    const message = rangeError ?? formError;
 
-      setFieldValue(formikField, isoDate, true);
-      // A valid date is now stored, so the "required" error can no longer apply. Clear it
-      // SYNCHRONOUSLY — `setFieldValue`'s own validation is async, so without this there's a
-      // window where the field still shows "required" even though it's filled. (This was the
-      // "date is filled but still shows required" bug.) If the new date genuinely violates a
-      // real rule, the async validation re-sets the correct error a tick later.
-      setFieldError(formikField, undefined);
-    } else {
-      setFieldValue(formikField, '', true);
-    }
-    setFieldTouched(formikField, false);
-  };
-
-
-  const currentValue = getCurrentValue();
-
-      const hasError = !!(get(touched, formikField) && get(errors, formikField)) || !!validationError;
-
-      // DOM-safe id derived from the Formik path so the <label> links to the date input.
-      const fieldId = `field-${formikField.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-      // Inside <FloatingLabels> the picker owns the label (MUI floats it natively); its
-      // size is left alone there — restyling `.MuiInputLabel-root` breaks the border notch.
-      const floatLabel = floating ? { label: inputLabel, required: isRequired } : {};
-      const labelSx = (fontSize: string): Record<string, object> =>
-        floating ? {} : { "& .MuiInputLabel-root": { fontSize } };
-
-      return (
-    <>
-      {!floating && <label htmlFor={fieldId} className={`fs-6 form-label ${isRequired ? "required" : ""}`}>{inputLabel}</label>}
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
-        {isMobile ? (
-          <MobileDatePicker
-            value={currentValue}
-            onChange={handleDateChange}
-            onOpen={() => {
-              setFieldTouched(formikField, true);
-            }}
-            onError={(error) => {
-              console.log('Date picker error:', error);
-            }}
-            reduceAnimations={true}
-            format={DATE_FORMAT}
-            maxDate={maxDate === true ? dayjs() : (maxDate instanceof dayjs ? maxDate : undefined)}
-            minDate={minDate}
-            // Which month an empty picker opens on. `defaultCalendarMonth` was the v5 name and was
-            // removed in v6 — passing it here type-errored and did nothing, so the picker kept
-            // opening on today rather than on the month being viewed.
-            referenceDate={minDate || undefined}
-            // Disable keyboard input parsing to prevent issues
-            disableOpenPicker={false}
-            slotProps={{
-              textField: {
-                id: fieldId,
-                fullWidth: true,
-                placeholder: DATE_FORMAT,
-                error: hasError,
-                ...floatLabel,
-                onBlur: (event) => {
-                  // Validate on blur
-                  const inputValue = event.target.value;
-                  if (inputValue && inputValue.length === 10) {
-                    const parsed = dayjs(inputValue, 'DD/MM/YYYY', true);
-                    if (parsed.isValid()) {
-                      handleDateChange(parsed);
-                    }
-                  }
-                  setFieldTouched(formikField, true);
-                },
-                sx: {
-                  "& .MuiInputBase-input": { fontSize: "1.2rem" },
-                  ...labelSx("1.5rem"),
-                  "& .MuiOutlinedInput-root": { height: "44px" },
+    return (
+        <KitProvider>
+            <DatePicker
+                label={
+                    <>
+                        {inputLabel}
+                        {isRequired && <span aria-hidden className="text-destructive">*</span>}
+                    </>
                 }
-              },
-              // Without this there is no visible way to empty a filled date.
-              actionBar: { actions: ['clear', 'cancel', 'accept'] },
-              mobilePaper:{
-                sx:{
-                   "& .MuiPickersCalendarHeader-label": { fontSize: "1.2rem" },
-                  "& .MuiDayCalendar-weekDayLabel": { fontSize: "1rem" },
-                  "& .MuiPickersDay-root": { fontSize: "1rem" },
-                }
-              }
-            }}
-          />
-        ) : (
-          <DatePicker
-            value={currentValue}
-            onChange={handleDateChange}
-            onOpen={() => {
-              setFieldTouched(formikField, true);
-            }}
-            onError={(error) => {
-              console.log('Date picker error:', error);
-            }}
-            reduceAnimations={true}
-            maxDate={maxDate === true ? dayjs() : (maxDate instanceof dayjs ? maxDate : undefined)}
-            minDate={minDate}
-            // See the mobile picker above: v5's `defaultCalendarMonth` is `referenceDate` in v7.
-            referenceDate={minDate || undefined}
-            format={DATE_FORMAT}
-            slotProps={{
-              textField: {
-                id: fieldId,
-                fullWidth: true,
-                placeholder: DATE_FORMAT,
-                error: hasError,
-                ...floatLabel,
-                onBlur: (event) => {
-                  // Validate on blur instead of during typing
-                  const inputValue = event.target.value;
-                  if (inputValue && inputValue.length === 10) {
-                    const parsed = dayjs(inputValue, 'DD/MM/YYYY', true);
-                    if (parsed.isValid()) {
-                      handleDateChange(parsed);
-                    }
-                  }
-                  setFieldTouched(formikField, true);
-                },
-                sx: {
-                  "& .MuiInputBase-input": { fontSize: "1.2rem" },
-                  ...labelSx("1rem"),
-                  "& .MuiOutlinedInput-root": { height: "44px" },
-                }
-              },
-              // Without this there is no visible way to empty a filled date.
-              field: { clearable: true },
-              desktopPaper: {
-                sx: {
-                  "& .MuiPickersCalendarHeader-label": { fontSize: "1.2rem" },
-                  "& .MuiDayCalendar-weekDayLabel": { fontSize: "1rem" },
-                  "& .MuiPickersDay-root": { fontSize: "1rem" },
-                }
-              }
-            }}
-          />
-        )}
-      </LocalizationProvider>
-      <HighlightErrors isRequired={isRequired} formikField={formikField} />
-      {validationError && (
-        <div className='text-danger mt-2'>
-          {validationError}
-        </div>
-      )}
-    </>
-  );
+                value={value}
+                // The calendar greys out days outside the range; a typed one is flagged below, not blocked.
+                minValue={minValue ?? undefined}
+                maxValue={maxValue ?? undefined}
+                onChange={(next: CalendarDate | null) => {
+                    if (next && next.year < 1000) setPending(next);
+                    else commit(next);
+                }}
+                onBlur={() => {
+                    setFieldTouched(formikField, true, false);
+                    if (pending !== undefined) setPending(undefined);
+                }}
+                isRequired={isRequired}
+                isInvalid={!!message}
+                errorMessage={message}
+                validationBehavior="aria"
+            />
+        </KitProvider>
+    );
 }
 
 export default DateInput;

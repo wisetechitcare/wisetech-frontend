@@ -220,6 +220,9 @@ const MeetingScheduleModal: React.FC<MeetingScheduleModalProps> = ({
               id="meetingScheduleIsDefault"
               label="Set as default"
               checked={isDefault}
+              // The default moves only by setting another schedule as default (the server refuses otherwise).
+              disabled={Boolean(isEditing && initialData?.isDefault)}
+              title={isEditing && initialData?.isDefault ? "This is the default. To change it, set another one as the default instead." : undefined}
               onChange={(e) => setIsDefault(e.target.checked)}
               className="fw-semibold text-gray-700"
             />

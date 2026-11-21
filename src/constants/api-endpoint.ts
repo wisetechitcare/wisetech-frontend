@@ -156,6 +156,8 @@ export const COMPANY = {
     CREATE_OVERVIEW: "api/company/overview",
     GET_OVERVIEW: "api/company/overview",
     UPDATE_OVERVIEW: "api/company/overview",
+    // Presigned PUT for an organization splash video (desktop / mobile).
+    SPLASH_VIDEO_UPLOAD_URL: "api/company/overview/:id/splash-video-url",
     GET_OVERVIEW_BY_ID: "api/company/overview/:id",
     PROMOTE_BRANCH_TO_SUBORG: "api/company/branches/:id/promote",
     GET_ORGANIZATION_TREE: "api/company/overview/tree",
@@ -402,7 +404,6 @@ export const EMPLOYEE = {
     UPDATE_EMPLOYEE_MEMBER: 'api/employee-levels/employee/members/:id',
     DELETE_EMPLOYEE_MEMBER: 'api/employee-levels/employee/members/:id',
 
-
     CREATE_LEAVE_MANAGEMENT: "api/employee/leave-management",
     GET_LEAVE_MANAGEMENT_BY_ID: "api/employee/leave-management",
     GET_ALL_LEAVE_MANAGEMENTS: "api/employee/leave-management/all",
@@ -510,7 +511,6 @@ export const DAY_WISE_SHIFT = {
     DELETE_DAY_WISE_SHIFT: "api/day-wise-shift/:id",
 }
 
-
 export const LEAD_PROJECT_COMPANY = {
     GET_OPENABLE_LEADS: "api/lead-project-companies/leads/openable",
     GET_ALL_LEADS_COUNT_INCLUDING_DELETED: "api/lead-project-companies/leads/count-including-deleted",
@@ -571,18 +571,21 @@ export const LEAD_PROJECT_COMPANY = {
     CREATE_LEAD_STATUS: "api/lead-project-companies/lead-statuses",
     UPDATE_LEAD_STATUS: "api/lead-project-companies/lead-statuses/:id",
     DELETE_LEAD_STATUS: "api/lead-project-companies/lead-statuses/:id",
+    RESET_LEAD_STATUS: "api/lead-project-companies/lead-statuses/:id/reset",
 
     GET_ALL_LEAD_PO_STATUSES: "api/lead-project-companies/lead-po-statuses",
     GET_LEAD_PO_STATUS_BY_ID: "api/lead-project-companies/lead-po-statuses/:id",
     CREATE_LEAD_PO_STATUS: "api/lead-project-companies/lead-po-statuses",
     UPDATE_LEAD_PO_STATUS: "api/lead-project-companies/lead-po-statuses/:id",
     DELETE_LEAD_PO_STATUS: "api/lead-project-companies/lead-po-statuses/:id",
+    RESET_LEAD_PO_STATUS: "api/lead-project-companies/lead-po-statuses/:id/reset",
 
     GET_ALL_LEAD_REFERRAL_TYPES: "api/lead-project-companies/lead-referral-types",
     GET_LEAD_REFERRAL_TYPE_BY_ID: "api/lead-project-companies/lead-referral-types/:id",
     CREATE_LEAD_REFERRAL_TYPE: "api/lead-project-companies/lead-referral-types",
     UPDATE_LEAD_REFERRAL_TYPE: "api/lead-project-companies/lead-referral-types/:id",
     DELETE_LEAD_REFERRAL_TYPE: "api/lead-project-companies/lead-referral-types/:id",
+    RESET_LEAD_REFERRAL_TYPE: "api/lead-project-companies/lead-referral-types/:id/reset",
 
     GET_ALL_LEAD_DIRECT_SOURCES: "api/lead-project-companies/lead-direct-sources",
     GET_LEAD_DIRECT_SOURCE_BY_ID: "api/lead-project-companies/lead-direct-sources/:id",
@@ -626,6 +629,7 @@ export const LEAD_PROJECT_COMPANY = {
     CREATE_PROJECT_STATUS: "api/lead-project-companies/project-statuses",
     UPDATE_PROJECT_STATUS: "api/lead-project-companies/project-statuses/:id",
     DELETE_PROJECT_STATUS: "api/lead-project-companies/project-statuses/:id",
+    RESET_PROJECT_STATUS: "api/lead-project-companies/project-statuses/:id/reset",
 
     GET_ALL_STAKEHOLDER_SERVICES: "api/lead-project-companies/stakeholder-services",
     GET_STAKEHOLDER_SERVICE_BY_ID: "api/lead-project-companies/stakeholder-services/:id",
@@ -738,39 +742,24 @@ export const PROJECT_EXECUTION = {
     DELETE_CUSTOM_DELIVERABLE: "api/projects/custom-deliverables/:id",
 }
 
-// Billing Request — the bridge from execution to finance. Approve/reject/send-back are
-// NOT here: they go through the existing approval endpoints and Approval Inbox.
-export const BILLING_REQUEST = {
-    CREATE: "api/billing/requests",
-    LIST: "api/billing/requests",
-    GET_BY_ID: "api/billing/requests/:id",
-    UPDATE: "api/billing/requests/:id",
-    DELETE: "api/billing/requests/:id",
-    SUBMIT: "api/billing/requests/:id/submit",
-    CANCEL: "api/billing/requests/:id/cancel",
-    DUPLICATE: "api/billing/requests/:id/duplicate",
-    HISTORY: "api/billing/requests/:id/history",
-    BILLABLE_DELIVERABLES: "api/billing/requests/billable-deliverables",
-    BILLABLE_PROJECTS: "api/billing/requests/billable-projects",
-}
-
-// Billing Operations — the Accounts workspace. One operation follows one approved
-// billing request through proforma → payment → invoice → closure.
-export const BILLING_OPERATION = {
-    LIST: "api/billing/operations",
-    // One row per PROJECT rather than per billing request — unbilled projects included.
-    PROJECTS: "api/billing/operations/projects",
-    // The Tracker's own status dropdown, for a project with no operation yet.
-    PROJECT_STATUS: "api/billing/operations/projects/:leadId/status",
-    GET_BY_ID: "api/billing/operations/:id",
-    UPDATE_STATUS: "api/billing/operations/:id/status",
-    ACTIVITY: "api/billing/operations/:id/activity",
-    ADD_NOTE: "api/billing/operations/:id/notes",
+// The billing trackers and the dashboard — views over bills and payments.
+export const BILLING_TRACKER = {
+    // The Billing Tracker: one row per project.
+    LIST: "api/billing/tracker",
+    // Its hand-set Bill Stage / Stage / Bill Payment columns for one project.
+    UPDATE: "api/billing/tracker/:leadId",
+    // Tasks raised from a project's row: GET lists them, POST { taskId } links one.
+    TASKS: "api/billing/tracker/:leadId/tasks",
+    // The Proforma Tracker: every project and every proforma.
+    PROFORMAS: "api/billing/proforma-tracker",
+    // The Tax Invoice Tracker: every project, every tax invoice, and the bills still waiting for one.
+    INVOICES: "api/billing/invoice-tracker",
+    // The Billing Dashboard.
+    DASHBOARD: "api/billing/dashboard",
 }
 
 // Billing → Configure. Display only: the wording and colour of the module's
-// statuses, stages and bill payment statuses. The codes themselves are fixed —
-// the status list is a state machine and payment status is derived from amounts.
+// statuses, stages and bill payment statuses. The codes themselves are fixed.
 export const BILLING_CONFIG = {
     STATUS_LABELS: "api/billing/config/status-labels",
     RESET_STATUS_LABEL: "api/billing/config/status-labels/:code",
@@ -783,61 +772,26 @@ export const BILLING_CONFIG = {
     TDS_SECTION: "api/billing/config/tds-sections/:id",
 }
 
-// Financial Reporting Center — every route is read-only.
-export const BILLING_REPORT = {
-    REVENUE: "api/billing/reports/revenue",
-    COLLECTIONS: "api/billing/reports/collections",
-    OUTSTANDING: "api/billing/reports/outstanding",
-    RECEIVABLES: "api/billing/reports/receivables",
-    MONTHLY: "api/billing/reports/monthly",
-    CLIENT: "api/billing/reports/client",
-    PROJECT: "api/billing/reports/project",
+// Billing documents (Proforma and Tax Invoice) by id — management only; a document is raised from a bill.
+export const BILLING_DOCUMENT = {
+    GET_BY_ID: "api/billing/documents/:id",
+    REVISION: "api/billing/documents/:id/revision",
+    TIMELINE: "api/billing/documents/:id/timeline",
+    COMPARE: "api/billing/documents/:id/compare/:versionId",
+    PREVIEW: "api/billing/documents/:id/versions/:versionId/preview",
+    VERSION_STATUS: "api/billing/documents/:id/versions/:versionId/status",
+    ACCESS: "api/billing/documents/:id/access",
+    DOWNLOAD_WORD: "api/billing/documents/:id/download-word",
+    ARCHIVE: "api/billing/documents/:id/archive",
+    RESTORE: "api/billing/documents/:id/restore",
 }
 
-// Payment Collection — NO INVOICE ROUTE HERE, by design. `readyForInvoice` is
-// exposed on every payload for the next phase to filter on.
-export const PAYMENT = {
-    LIST: "api/billing/payments",
-    GET_BY_ID: "api/billing/payments/:id",
-    HISTORY: "api/billing/payments/:id/history",
-    RECORD: "api/billing/payments/:id/record",
-    UPDATE_TRANSACTION: "api/billing/payments/:id/transactions/:transactionId",
-    VERIFY: "api/billing/payments/:id/verify",
-    ADD_ATTACHMENT: "api/billing/payments/:id/attachments",
-    GET_ATTACHMENT: "api/billing/payments/:id/attachments/:attachmentId",
-    DELETE_ATTACHMENT: "api/billing/payments/:id/attachments/:attachmentId",
-}
-
-// Proforma repository — MANAGEMENT ONLY. Generation lives on the Accounts Queue
-// path; there is deliberately no create route here.
-export const PROFORMA = {
-    LIST: "api/billing/proformas",
-    GET_BY_ID: "api/billing/proformas/:id",
-    VERSIONS: "api/billing/proformas/:id/versions",
-    REVISION: "api/billing/proformas/:id/revision",
-    TIMELINE: "api/billing/proformas/:id/timeline",
-    ACTIVITY: "api/billing/proformas/:id/activity",
-    COMPARE: "api/billing/proformas/:id/compare/:versionId",
-    PREVIEW: "api/billing/proformas/:id/versions/:versionId/preview",
-    VERSION_STATUS: "api/billing/proformas/:id/versions/:versionId/status",
-    DELETE_VERSION: "api/billing/proformas/:id/versions/:versionId",
-    ACCESS: "api/billing/proformas/:id/access",
-    DUPLICATE: "api/billing/proformas/:id/duplicate",
-    ARCHIVE: "api/billing/proformas/:id/archive",
-    RESTORE: "api/billing/proformas/:id/restore",
-    DOWNLOAD_WORD: "api/billing/proformas/:id/download-word",
-}
-
-// Project Financial Workspace (Project → Billing) — READ ONLY. Composes the
-// existing Billing services for one project; every write navigates into Billing.
+// A project's Billing tab, read side: totals plus one row per stage.
 export const PROJECT_BILLING = {
-    WORKSPACE: "api/billing/projects/:projectId/workspace",
-    /** The simplified tab: three totals plus one row per deliverable. */
     OVERVIEW: "api/billing/projects/:projectId/billing",
 }
 
-// Direct billing — one live bill per stage. Unlike PROJECT_BILLING these are
-// writes: a bill is raised, paid and closed here, not in another module.
+// Bills — raised, paid and closed per stage.
 export const BILLS = {
     RAISE: "api/billing/bills",
     GET_BY_ID: "api/billing/bills/:id",
@@ -845,15 +799,9 @@ export const BILLS = {
     INVOICE: "api/billing/bills/:id/invoice",
     CANCEL: "api/billing/bills/:id/cancel",
     PAYMENTS: "api/billing/bills/:id/payments",
+    /** One payment from the client shared across several of its bills. */
+    SPLIT_PAYMENT: "api/billing/bills/payments/split",
     TDS: "api/billing/bills/:id/tds",
-}
-
-// Tax Invoice repository — MANAGEMENT ONLY. Generation lives on the Payment
-// Collection path; there is deliberately no create route here.
-export const TAX_INVOICE = {
-    LIST: "api/billing/tax-invoices",
-    ACCESS: "api/billing/tax-invoices/:id/access",
-    DOWNLOAD_WORD: "api/billing/tax-invoices/:id/download-word",
 }
 
 // Document engine — kind-agnostic. Proforma, Tax Invoice, Quotation, PO, Credit
@@ -862,12 +810,12 @@ export const TAX_INVOICE = {
 export const DOCUMENT = {
     KINDS: "api/documents/kinds",
     OPEN: "api/documents/open",
-    LIST: "api/documents",
     GET_BY_ID: "api/documents/:id",
     SAVE_DRAFT: "api/documents/:id",
+    REFRESH: "api/documents/:id/refresh",
+    PREVIEW: "api/documents/:id/preview",
     PUBLISH: "api/documents/:id/publish",
     REVISE: "api/documents/:id/revise",
-    CANCEL: "api/documents/:id/cancel",
     PDF: "api/documents/:id/pdf",
     VERSIONS: "api/documents/:id/versions",
     EMAILS: "api/documents/:id/emails",

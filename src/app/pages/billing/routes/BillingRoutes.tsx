@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from "react";
-import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import TopBarProgress from "react-topbar-progress-indicator";
 import BillingLayout from "../BillingLayout";
 import { BILLING_TABS, billingDefaultPath, canOpenBillingTab } from "../constants/billingNav";
@@ -16,58 +16,34 @@ import { BILLING_TABS, billingDefaultPath, canOpenBillingTab } from "../constant
  */
 
 const BillingDashboard = lazy(() => import("../dashboard/BillingDashboard"));
-const BillingRequestsPage = lazy(() => import("../billing-requests/BillingRequestsPage"));
-const PaymentCollectionPage = lazy(() => import("../payments/PaymentCollectionPage"));
-const PaymentDetailPage = lazy(() => import("../payments/PaymentDetailPage"));
-const BillingOperationsPage = lazy(() => import("../operations/BillingOperationsPage"));
-const BillingOperationDetailPage = lazy(() => import("../operations/BillingOperationDetailPage"));
-const ProformasPage = lazy(() => import("../proformas/ProformasPage"));
-const InvoicesPage = lazy(() => import("../invoices/InvoicesPage"));
-const BillingReportsPage = lazy(() => import("../reports/BillingReportsPage"));
+const BillingTrackerPage = lazy(() => import("../billing-tracker/BillingTrackerPage"));
+const ProformaTrackerPage = lazy(() => import("../proforma-tracker/ProformaTrackerPage"));
+const BillInvoiceTrackerPage = lazy(() => import("../invoice-tracker/BillInvoiceTrackerPage"));
+const InvoiceTrackerPage = lazy(() => import("../invoice-tracker/InvoiceTrackerPage"));
 const BillingConfigurePage = lazy(() => import("../configure/BillingConfigurePage"));
-const BillingRequestDetailPage = lazy(() => import("../billing-requests/BillingRequestDetailPage"));
-const BillingRequestFormPage = lazy(() => import("../billing-requests/BillingRequestFormPage"));
 // The template-driven document editor. Lazy on its own chunk — it carries the A4
-// preview surface and is only reached from a proforma row.
-const DocumentEditorPage = lazy(() => import("../documents/DocumentEditorPage"));
-const ProformaDetailPage = lazy(() => import("../proformas/ProformaDetailPage"));
-// Financial Reporting Center — one dedicated page per report card on the
-// landing page above. Each is its own chunk; nobody pays for all seven at once.
-const RevenueReportPage = lazy(() => import("../reports/RevenueReportPage"));
-const CollectionReportPage = lazy(() => import("../reports/CollectionReportPage"));
-const OutstandingReportPage = lazy(() => import("../reports/OutstandingReportPage"));
-const ReceivableReportPage = lazy(() => import("../reports/ReceivableReportPage"));
-const MonthlyReportPage = lazy(() => import("../reports/MonthlyReportPage"));
-const ClientReportPage = lazy(() => import("../reports/ClientReportPage"));
-const ProjectReportPage = lazy(() => import("../reports/ProjectReportPage"));
+// preview surface and is only reached from a proforma or invoice row.
+const BillDocumentEditorPage = lazy(() => import("../documents/BillDocumentEditorPage"));
+const DocumentDetailPage = lazy(() => import("../documents/DocumentDetailPage"));
 
 const PAGES: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
     dashboard: BillingDashboard,
-    requests: BillingRequestsPage,
-    tracker: BillingOperationsPage,
-    proformas: ProformasPage,
-    payments: PaymentCollectionPage,
-    invoices: InvoicesPage,
-    reports: BillingReportsPage,
+    tracker: BillingTrackerPage,
+    proformas: ProformaTrackerPage,
+    payments: BillInvoiceTrackerPage,
+    invoices: InvoiceTrackerPage,
     configure: BillingConfigurePage,
+};
+
+/** Old document links (`/billing/proformas/:id[/edit]`) were bookmarked and emailed; send them to the new URL. */
+const LegacyDocumentRedirect: React.FC<{ edit?: boolean }> = ({ edit }) => {
+    const { id } = useParams();
+    return <Navigate to={`/billing/documents/${id}${edit ? "/edit" : ""}`} replace />;
 };
 
 const Suspensed: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <Suspense fallback={<TopBarProgress />}>{children}</Suspense>
 );
-
-/**
- * /billing/operations[/:id] → /billing/tracker[/:id], query string intact.
- *
- * The tab was "operations" until it was renamed to Billing Tracker. The query string has to
- * survive: the pre-filtered links people bookmark are `?status=READY_FOR_PROFORMA`, and a
- * redirect that dropped it would land them on an unfiltered sheet with no sign anything was lost.
- */
-const LegacyOperationsRedirect: React.FC = () => {
-    const { id } = useParams();
-    const { search } = useLocation();
-    return <Navigate to={`/billing/tracker${id ? `/${id}` : ""}${search}`} replace />;
-};
 
 const BillingRoutes: React.FC = () => {
     const allowed = canOpenBillingTab;
@@ -89,57 +65,16 @@ const BillingRoutes: React.FC = () => {
                     );
                 })}
 
-                {/* Billing-request sub-pages. Declared before the catch-all and with the
-                    literal "new" ahead of ":id" so it is never read as a request id.
-                    They keep the module's tab bar — Billing Requests stays highlighted. */}
-                {allowed("billing.requests") && (
+                {/* One billing document — a proforma or a tax invoice, both opened from their
+                    tracker. `/edit` is the document editor (drafts only); the bare id is the
+                    read-only record with its revision chain. Two URLs because they are two
+                    jobs — managing the chain and editing one version of it. */}
+                {(allowed("billing.proformas") || allowed("billing.invoices")) && (
                     <>
-                        <Route path="requests/new" element={<Suspensed><BillingRequestFormPage /></Suspensed>} />
-                        <Route path="requests/:id/edit" element={<Suspensed><BillingRequestFormPage /></Suspensed>} />
-                        <Route path="requests/:id" element={<Suspensed><BillingRequestDetailPage /></Suspensed>} />
-                    </>
-                )}
-
-                {/* One tracked project, end to end. Keeps the Billing Tracker tab highlighted. */}
-                {allowed("billing.operations") && (
-                    <>
-                        <Route path="tracker/:id" element={<Suspensed><BillingOperationDetailPage /></Suspensed>} />
-                        {/* The tab was /billing/operations until the rename. Bookmarks and any
-                            link already sent out still resolve, rather than hitting the catch-all. */}
-                        <Route path="operations" element={<LegacyOperationsRedirect />} />
-                        <Route path="operations/:id" element={<LegacyOperationsRedirect />} />
-                    </>
-                )}
-
-                {/* Proforma repository. `/edit` is the document editor (drafts only);
-                    the bare id is the read-only repository record with its revision
-                    chain. Two URLs because they are two jobs — managing the chain and
-                    editing one version of it. */}
-                {allowed("billing.proformas") && (
-                    <>
-                        <Route path="proformas/:id/edit" element={<Suspensed><DocumentEditorPage /></Suspensed>} />
-                        <Route path="proformas/:id" element={<Suspensed><ProformaDetailPage /></Suspensed>} />
-                    </>
-                )}
-
-                {/* One payment collection, end to end. Keeps the Payment Collection tab
-                    highlighted. */}
-                {allowed("billing.payments") && (
-                    <Route path="payments/:id" element={<Suspensed><PaymentDetailPage /></Suspensed>} />
-                )}
-
-                {/* Financial Reporting Center. Each card on the Reports landing page
-                    navigates to one of these; Client/Project are drill-down-only
-                    (entered via ?clientId=/?projectId=, no picker of their own). */}
-                {allowed("billing.reports") && (
-                    <>
-                        <Route path="reports/revenue" element={<Suspensed><RevenueReportPage /></Suspensed>} />
-                        <Route path="reports/collections" element={<Suspensed><CollectionReportPage /></Suspensed>} />
-                        <Route path="reports/outstanding" element={<Suspensed><OutstandingReportPage /></Suspensed>} />
-                        <Route path="reports/receivables" element={<Suspensed><ReceivableReportPage /></Suspensed>} />
-                        <Route path="reports/monthly" element={<Suspensed><MonthlyReportPage /></Suspensed>} />
-                        <Route path="reports/client" element={<Suspensed><ClientReportPage /></Suspensed>} />
-                        <Route path="reports/project" element={<Suspensed><ProjectReportPage /></Suspensed>} />
+                        <Route path="documents/:id/edit" element={<Suspensed><BillDocumentEditorPage /></Suspensed>} />
+                        <Route path="documents/:id" element={<Suspensed><DocumentDetailPage /></Suspensed>} />
+                        <Route path="proformas/:id/edit" element={<LegacyDocumentRedirect edit />} />
+                        <Route path="proformas/:id" element={<LegacyDocumentRedirect />} />
                     </>
                 )}
 

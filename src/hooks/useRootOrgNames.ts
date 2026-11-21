@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { fetchCompanyOverview } from "@services/company";
-import { resolveHomeRootOrg } from "@utils/activeOrg";
+import { resolveHomeRootOrg, resolveOrgBranding } from "@utils/activeOrg";
 import { RootState } from "@redux/store";
 
 /**
@@ -48,9 +48,13 @@ export type HomeRootOrg = {
     name: string;
     /** Uploaded logo URL when present. */
     logo: string | null;
+    /** Splash-screen video (Organization Profile → Splash Screen), when uploaded. */
+    splashVideoDesktop: string | null;
 };
 
-const EMPTY_HOME: HomeRootOrg = { id: null, name: '', logo: null };
+const EMPTY_HOME: HomeRootOrg = { id: null, name: '', logo: null, splashVideoDesktop: null };
+
+const textOrNull = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
 /**
  * The logged-in user's tenant root (name + logo) — never an arbitrary platform
@@ -72,14 +76,18 @@ export function useHomeRootOrg(): HomeRootOrg {
             try {
                 const res = await fetchCompanyOverview();
                 const rows = res?.data?.companyOverview ?? res?.companyOverview ?? res?.data ?? res ?? [];
-                const root = resolveHomeRootOrg(Array.isArray(rows) ? rows : [], homeCompanyId);
+                const list = Array.isArray(rows) ? rows : [];
+                const root = resolveHomeRootOrg(list, homeCompanyId);
                 if (!active) return;
                 const name = typeof root?.name === 'string' ? root.name.trim() : '';
-                const logoRaw = typeof root?.logo === 'string' ? root.logo.trim() : '';
+                // Name stays the tenant root's; branding is the user's OWN organization's, falling back up to the root
+                // (a sub-org's own logo / splash video wins, else it uses its parent's).
+                const brand = resolveOrgBranding(list, homeCompanyId ?? root?.id);
                 setHome({
                     id: typeof root?.id === 'string' ? root.id : null,
                     name,
-                    logo: logoRaw || null,
+                    logo: brand.logo ?? textOrNull(root?.logo),
+                    splashVideoDesktop: brand.splashVideoDesktop,
                 });
             } catch {
                 if (active) setHome(EMPTY_HOME);

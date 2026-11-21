@@ -20,7 +20,7 @@ import {
   uploadApplicantPhoto,
   uploadApplicantResume,
 } from "@services/recruitment";
-import { EnterpriseFormWizard } from '@/shared/form-engine';
+import { EnterpriseFormWizard, WizardHeaderBadge } from '@/shared/form-engine';
 import type { OnboardingSectionsProps } from "../forms/onboarding/OnboardingSections";
 import { WtWizardDialog } from '@app/modules/common/components/ui';
 import { buildCandidateWizardGroups } from "./buildCandidateWizardGroups";
@@ -422,14 +422,10 @@ export default function CandidateWizardHost() {
                   isEdit || applicantId ? (
                     <>
                       {formikProps.values.personalEmailId && (
-                        <span className="wizard-meta-chip">
-                          <AppIcon name="bi-envelope" /> {formikProps.values.personalEmailId}
-                        </span>
+                        <WizardHeaderBadge icon="bi-envelope">{formikProps.values.personalEmailId}</WizardHeaderBadge>
                       )}
                       {formikProps.values.personalPhoneNumber && (
-                        <span className="wizard-meta-chip">
-                          <AppIcon name="bi-telephone" /> {formikProps.values.personalPhoneNumber}
-                        </span>
+                        <WizardHeaderBadge icon="bi-telephone">{formikProps.values.personalPhoneNumber}</WizardHeaderBadge>
                       )}
                     </>
                   ) : (

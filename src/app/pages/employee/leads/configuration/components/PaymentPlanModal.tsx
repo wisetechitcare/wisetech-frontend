@@ -236,6 +236,9 @@ const PaymentPlanModal: React.FC<PaymentPlanModalProps> = ({
                   id="paymentPlanIsDefault"
                   label="Set as default plan"
                   checked={isDefault}
+                  // The default moves only by setting another plan as default (the server refuses otherwise).
+                  disabled={Boolean(isEditing && initialData?.isDefault)}
+                  title={isEditing && initialData?.isDefault ? "This is the default. To change it, set another one as the default instead." : undefined}
                   onChange={(e) => setIsDefault(e.target.checked)}
                   className="fw-semibold text-gray-700 mb-0"
                 />

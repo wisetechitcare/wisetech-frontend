@@ -12,11 +12,11 @@ import React, { useEffect, useState } from "react";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import eventBus from "@utils/EventBus";
-import { Link } from "react-router-dom";
 import LeadsConfigForm from "./components/LeadsConfigForm";
 import CategoryTreeExplorer from "./components/CategoryTreeExplorer";
 import { LeadDirectSource, LeadReferralType, LeadStatus, LeadCancellationReason, LeadPoStatus, MeetingScheduleType } from "@models/leads";
 import { ProjectItem } from "@models/clientProject";
+import { confirmAndResetStatus, statusRowAction } from "@app/modules/configuration/builtinStatus";
 import { useDeleteConfirmation } from "../../../../../hooks/useDeleteConfirmation";
 import { DropdownOption } from "../../../../../types/deleteConfirmation";
 import ProjectConfigForm from "../../projects/configure/components/ProjectConfigForm";
@@ -88,7 +88,9 @@ interface ColorChipProps {
   name: string;
   color: string;
   onEdit: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
+  /** Built-in rows restore their default instead of deleting (see builtinStatus.ts). */
+  onReset?: () => void;
 }
 
 /**
@@ -97,12 +99,16 @@ interface ColorChipProps {
  * Configure renders the identical row from the identical code. Kept as a named
  * wrapper only so the six call sites below keep their `onDelete` shape.
  */
-const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete }) => (
+const ColorChip: React.FC<ColorChipProps> = ({ name, color, onEdit, onDelete, onReset }) => (
   <ConfigColorChip
     name={name}
     color={color}
     onEdit={onEdit}
-    action={{ icon: 'bi-trash', title: `Delete ${name}`, danger: true, onClick: onDelete }}
+    action={onReset
+      ? { icon: 'bi-arrow-counterclockwise', title: `Built in — restore ${name} to its default name and colour`, tone: 'revert', onClick: onReset }
+      : onDelete
+        ? { icon: 'bi-trash', title: `Delete ${name}`, danger: true, onClick: onDelete }
+        : undefined}
   />
 );
 
@@ -184,7 +190,8 @@ const MeetingScheduleChip: React.FC<{
           >
             <AppIcon name="bi-pencil" className="fs-8" />
           </Button>
-          {canDeleteHere && (
+          {/* The default is never deletable — set another schedule as default first. */}
+          {canDeleteHere && !schedule.isDefault && (
           <Button
             variant="tinted"
             size="icon-xs"
@@ -214,7 +221,6 @@ const sortCancellationReasonsAlphabetically = (reasons: any[]) =>
 const TABS: ConfigTab[] = [
   { id: 'lead', label: 'Lead Settings', icon: 'bi-funnel' },
   { id: 'project', label: 'Project Settings', icon: 'bi-kanban' },
-  { id: 'templates', label: 'Templates', icon: 'bi-file-earmark-text' },
 ];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -619,7 +625,8 @@ const LeadsConfigurationMain = () => {
                         name={s.name}
                         color={s.color}
                         onEdit={() => handleEdit(s)}
-                        onDelete={() => handleDelete(s.id!)}
+                        onDelete={statusRowAction(s) === 'delete' ? () => handleDelete(s.id!) : undefined}
+                        onReset={statusRowAction(s) === 'reset' ? () => confirmAndResetStatus('lead-status', s, fetchLeadStatuses) : undefined}
                       />
                     ))}
                   </ChipGrid>
@@ -683,7 +690,8 @@ const LeadsConfigurationMain = () => {
                         name={r.name}
                         color={r.color}
                         onEdit={() => handleReferralTypeEdit(r)}
-                        onDelete={() => handleReferralTypeDelete(r.id!)}
+                        onDelete={statusRowAction(r) === 'delete' ? () => handleReferralTypeDelete(r.id!) : undefined}
+                        onReset={statusRowAction(r) === 'reset' ? () => confirmAndResetStatus('referral-type', r, fetchLeadReferralTypes) : undefined}
                       />
                     ))}
                   </ChipGrid>
@@ -747,7 +755,11 @@ const LeadsConfigurationMain = () => {
                         name={s.name}
                         color={s.color}
                         onEdit={() => handlePoStatusEdit(s)}
-                        onDelete={() => handlePoStatusDelete(s.id!)}
+                        onDelete={statusRowAction(s) === 'delete' ? () => handlePoStatusDelete(s.id!) : undefined}
+                        onReset={statusRowAction(s) === 'reset' ? () => confirmAndResetStatus('po-status', s, () => {
+                          eventBus.emit(EVENT_KEYS.leadPoStatusUpdated, { id: s.id! });
+                          fetchLeadPoStatuses();
+                        }) : undefined}
                       />
                     ))}
                   </ChipGrid>
@@ -866,100 +878,6 @@ const LeadsConfigurationMain = () => {
                 Configuration page itself rather than copied, so editing it here
                 and editing it there are the same thing. */}
             <ProjectConfiguration embedded />
-          </div>
-        )}
-
-        {/* ── Templates Tab ───────────────────────────────────────────────────── */}
-        {activeTab === 'templates' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: SP.lg }}>
-            <ConfigSectionCard
-              title="Proposal Template Export Builder"
-              description="Manage .docx templates, payment stages, and area-based rules for proposal generation."
-              icon="bi-file-earmark-text"
-              iconColor="purple"
-            >
-              <div style={{
-                background: 'linear-gradient(135deg, #fafbfd 0%, #f3f4f9 100%)',
-                borderRadius: RADIUS.lg,
-                padding: SP.lg,
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: SP.md,
-                flexWrap: 'wrap',
-              }}>
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: RADIUS.lg,
-                  background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}>
-                  <AppIcon name="bi-file-earmark-word" className="fs-1" color="#7c3aed" />
-                </div>
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                  <div style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '14px', color: C.textPrimary, marginBottom: '4px' }}>
-                    Template Builder
-                  </div>
-                  <div style={{ fontFamily: FONT.body, fontWeight: 400, fontSize: '12.5px', color: C.textMuted, lineHeight: 1.5 }}>
-                    Create and manage Word (.docx) proposal templates with dynamic fields, payment stages, and area-based pricing rules. Templates are used when exporting proposals from leads.
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: SP.sm, flexShrink: 0 }}>
-                  <Link
-                    to="/leads/documentation-builder"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 16px',
-                      borderRadius: RADIUS.md,
-                      border: `1px solid ${C.border}`,
-                      backgroundColor: '#fff',
-                      color: C.textPrimary,
-                      fontFamily: FONT.body,
-                      fontWeight: 500,
-                      fontSize: '13px',
-                      textDecoration: 'none',
-                      transition: 'all 0.15s ease',
-                      whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#d1d5e0'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(24,28,50,0.06)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = 'none'; }}
-                  >
-                    <AppIcon name="bi-book" className="fs-7" />
-                    Docs & Validation
-                  </Link>
-                  <Link
-                    to="/leads/configuration"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 16px',
-                      borderRadius: RADIUS.md,
-                      border: 'none',
-                      backgroundColor: C.primary,
-                      color: '#fff',
-                      fontFamily: FONT.body,
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      textDecoration: 'none',
-                      transition: 'all 0.15s ease',
-                      whiteSpace: 'nowrap',
-                      boxShadow: `0 4px 12px ${C.primaryShadow}`,
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 18px ${C.primaryShadowMd}`; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = `0 4px 12px ${C.primaryShadow}`; }}
-                  >
-                    <AppIcon name="bi-box-arrow-up-right" className="fs-7" />
-                    Open Builder
-                  </Link>
-                </div>
-              </div>
-            </ConfigSectionCard>
           </div>
         )}
       </ConfigPageLayout>
