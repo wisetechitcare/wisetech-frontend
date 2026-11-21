@@ -1,15 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Checkbox, FormControlLabel, Stack, Typography } from '@mui/material';
-import { KTIcon } from '@metronic/helpers';
+import { parseDate, type CalendarDate } from '@internationalized/date';
+import { Flag } from 'lucide-react';
 import { getAllProjectStatuses } from '@services/projects';
 import { updateLeadSection } from '@services/leadService';
 import { toDateInputValue } from '@app/modules/detail-page/EditableDetailCard';
-import PlainDatePicker from '@app/modules/common/inputs/PlainDatePicker';
-import { OptionPickerDialog, GlassSurface, IconBox, TRIO } from '@app/modules/common/components/ui';
+import { Checkbox } from '@/ds/ui/checkbox';
+import { DateField } from '@/ds/ui/date-field';
+import { OptionPickerDialog, OptionPickerTrigger } from '@/ds/patterns/option-picker-dialog';
 import { canSection } from '@utils/can';
 
-const isCompletedStatus = (s?: { name?: string } | null) =>
-  (s?.name || '').trim().toLowerCase() === 'completed';
+/** 'YYYY-MM-DD' (what the API and `toDateInputValue` use) → the kit date field's value; anything else is empty. */
+const asCalendarDate = (value: string): CalendarDate | null => {
+  try { return value ? parseDate(value) : null; } catch { return null; }
+};
+
+// The built-in COMPLETED status — by code, so renaming it in Project Configure is safe.
+const isCompletedStatus = (s?: { code?: string | null } | null) => s?.code === 'COMPLETED';
 
 /**
  * Inline Project Status control shown in the entity detail HEADER (top). Editing
@@ -24,7 +30,7 @@ const isCompletedStatus = (s?: { name?: string } | null) =>
 const ProjectStatusControl: React.FC<{
   leadId: string;
   projectStatusId?: string | null;
-  projectStatus?: { name?: string; color?: string } | null;
+  projectStatus?: { code?: string | null; name?: string; color?: string } | null;
   actualEndDate?: string | null;
   onChanged?: () => void;
   prefix?: string;
@@ -97,120 +103,54 @@ const ProjectStatusControl: React.FC<{
     }
   };
 
-  const [hover, setHover] = useState(false);
-
   const confirmDisabled =
     saving || !selectedId || !hasChanges(selectedId);
 
   return (
     <>
-      <button data-wt-control="select"
-        aria-haspopup="dialog"
-        disabled={saving || !canWrite}
-        onClick={handleOpen}
-        onMouseEnter={() => canWrite && setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        style={{
-          // minHeight is a thumb-sized target; maxWidth lets a long status name truncate in the
-          // label below instead of pushing the pencil off the edge of a phone.
-          display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 34, maxWidth: '100%', textAlign: 'left',
-          border: `1px solid ${color}3D`,
-          background: `linear-gradient(180deg, ${color}17, ${color}0A)`,
-          color,
-          borderRadius: 10,
-          padding: '4px 5px 4px 12px',
-          cursor: !canWrite ? 'default' : saving ? 'wait' : 'pointer',
-          fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 700,
-          letterSpacing: '-0.1px',
-          boxShadow: hover ? `0 2px 8px ${color}26` : 'none',
-          transition: 'box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease',
-        }}
-      >
-        <span
-          style={{
-            width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0,
-          }}
-        />
-        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{saving ? 'Saving…' : `${prefix}${name}`}</span>
-        {canWrite && <span
-          aria-hidden
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 24, height: 24, borderRadius: 7, flexShrink: 0,
-            background: hover ? `${color}26` : `${color}17`,
-            transition: 'background 0.15s ease',
-          }}
-        >
-          <KTIcon iconName="pencil" className="fs-8" />
-        </span>}
-      </button>
+      {/* "Project - " → caption "Project", so the status name stands on its own in its colour. */}
+      <OptionPickerTrigger
+        label={prefix.replace(/[\s\-–:]+$/, '') || undefined}
+        value={name}
+        color={color}
+        busy={saving}
+        onClick={canWrite ? handleOpen : undefined}
+      />
 
       <OptionPickerDialog
         open={showModal}
-        onClose={() => setShowModal(false)}
+        onOpenChange={setShowModal}
         title="Project Status"
-        subtitle="Choose how this project is progressing"
-        icon={<KTIcon iconName="flag" className="fs-1 text-white" />}
+        description="Choose how this project is progressing"
+        icon={<Flag />}
         options={statuses.map((s: any) => ({ id: s.id, name: s.name, color: s.color || '#64748B' }))}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
+        value={selectedId}
+        currentId={projectStatusId}
+        onValueChange={setSelectedId}
         onConfirm={() => { if (selectedId) select(selectedId); }}
         confirmDisabled={confirmDisabled}
         confirmLabel={saving ? 'Saving…' : 'Confirm'}
         loading={saving}
       >
         {showEndDate && (
-          <GlassSurface variant="thin" sx={{ p: 1.75, borderRadius: 2.5, borderTop: `3px solid ${TRIO.green.c}` }}>
-            <Stack direction="row" spacing={1.25} alignItems="center">
-              <IconBox icon="calendar-tick" trio={TRIO.green} size={32} fs="fs-4" />
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: TRIO.green.c }}>
-                  End Date
-                </Typography>
-                <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.25 }}>
-                  Auto-filled with today — adjust if needed
-                </Typography>
-              </Box>
-            </Stack>
-            <Box sx={{ mt: 1.25 }}>
-              <PlainDatePicker value={endDateDraft} onChange={setEndDateDraft} placeholder="Select date" />
-            </Box>
-            {/* Whole card is the click target (not just the tiny box), and it visibly
-                reacts to the checked state so the choice is obvious at a glance. */}
-            <FormControlLabel
-              sx={{
-                mt: 1.5, mx: 0, width: '100%', alignItems: 'flex-start', gap: 0.5,
-                p: 1.25, pl: 0.75, borderRadius: 2,
-                border: '1px solid',
-                borderColor: endTeams ? TRIO.green.c : 'divider',
-                bgcolor: endTeams ? `${TRIO.green.c}14` : 'transparent',
-                transition: 'border-color 0.15s ease, background-color 0.15s ease',
-                '&:hover': { borderColor: TRIO.green.c },
-                '& .MuiFormControlLabel-label': { flex: 1, minWidth: 0 },
-              }}
-              control={
-                <Checkbox
-                  checked={endTeams}
-                  onChange={(e) => setEndTeams(e.target.checked)}
-                  sx={{
-                    p: 0.5, mt: -0.25,
-                    '&.Mui-checked': { color: TRIO.green.c },
-                    '& .MuiSvgIcon-root': { fontSize: 22 },
-                  }}
-                />
-              }
-              label={
-                <Box>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35, color: 'text.primary' }}>
-                    Also end Internal &amp; External team members
-                  </Typography>
-                  <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: 'text.secondary', mt: 0.25 }}>
-                    Sets the same end date on the team rosters. Members who already have an earlier end date keep it.
-                  </Typography>
-                </Box>
-              }
+          <div className="grid gap-3 rounded-xl border border-border bg-muted/40 p-3.5">
+            <DateField
+              label="End date"
+              description="Filled with today — change it if needed."
+              value={asCalendarDate(endDateDraft)}
+              onChange={(d: CalendarDate | null) => setEndDateDraft(d ? d.toString() : '')}
             />
-          </GlassSurface>
+            {/* The whole row is the label, so the click target is the row, not the 22px box. */}
+            <label className="flex cursor-pointer items-start gap-3">
+              <Checkbox checked={endTeams} onCheckedChange={(c) => setEndTeams(!!c)} className="mt-0.5" />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">Also end the team members</span>
+                <span className="block text-xs text-muted-foreground">
+                  Gives the Internal and External team the same end date. Anyone with an earlier end date keeps it.
+                </span>
+              </span>
+            </label>
+          </div>
         )}
       </OptionPickerDialog>
     </>

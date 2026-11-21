@@ -14,13 +14,14 @@
 import React from 'react';
 import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { AppIcon } from './AppIcon';
+import { IconSlot, type IconSource } from '@/ds/ui/dynamic-icon';
 import { WtIconButton } from './buttons';
 import { toneAlpha } from './chips';
 import { useCanDeleteHere } from './DeleteSection';
 
 export interface ConfigChipAction {
-    /** Bootstrap icon class, e.g. "bi-trash". */
-    icon: string;
+    /** A Lucide component (preferred), or a legacy registry name such as "bi-trash". */
+    icon: IconSource;
     /** Tooltip + aria-label. */
     title: string;
     onClick: () => void;
@@ -216,7 +217,18 @@ export const ConfigColorChip: React.FC<ConfigColorChipProps> = ({
                         <AppIcon name="bi-pencil" />
                     </WtIconButton>
                 )}
-                {action && (canDeleteHere || !action.icon.includes('trash')) && (
+                {/*
+                  * Hide a DESTRUCTIVE action from someone who may not delete here.
+                  *
+                  * This read `!action.icon.includes('trash')` — the permission check applied
+                  * or not depending on the string in `icon`, so renaming an icon silently
+                  * removed the gate, and `icon` could never widen past `string` because a
+                  * Lucide component has no `.includes`. `danger` already means "destructive
+                  * action" and every current caller pairs it with the bin, so this is the same
+                  * behaviour stated properly — and it fails CLOSED: a new destructive action is
+                  * gated by default, where an opt-in flag would have defaulted to ungated.
+                  */}
+                {action && (canDeleteHere || !action.danger) && (
                     <WtIconButton
                         className="cfg-chip-action"
                         title={action.title}
@@ -225,7 +237,11 @@ export const ConfigColorChip: React.FC<ConfigColorChipProps> = ({
                         onClick={action.onClick}
                         sx={actionSx(actionTint)}
                     >
-                        <AppIcon name={action.icon} />
+                        {typeof action.icon === 'string'
+                            ? <AppIcon name={action.icon} />
+                            /* 18px explicitly: AppIcon's default is DEFAULT_ICON_PX (18), while a
+                               bare Lucide component would draw at its own 24px default. */
+                            : <IconSlot icon={action.icon} className="size-[18px]" />}
                     </WtIconButton>
                 )}
             </Stack>

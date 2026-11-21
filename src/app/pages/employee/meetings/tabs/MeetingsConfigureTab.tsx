@@ -24,6 +24,7 @@ import {
   createCompanyAgendaStatus,
   createCompanyMeetingPurpose,
   deleteCompanyAgendaStatus,
+  resetCompanyAgendaStatus,
   deleteCompanyMeetingPurpose,
   getCompanyAgendaStatuses,
   getCompanyMeetingPurposes,
@@ -44,11 +45,15 @@ const CHIP_COLORS = [
 ];
 
 type EditTarget =
-  | { kind: 'status'; id: string; name: string; color: string; isActive: boolean }
+  | { kind: 'status'; id: string; name: string; color: string; isActive: boolean; builtin?: boolean }
   | { kind: 'purpose'; id: string; name: string; isActive: boolean; requiresOther?: boolean }
   | null;
 
 type CreateKind = 'status' | 'purpose';
+
+/** Agenda writes fall back to these codes, so they rename / reset but never delete or switch off. */
+const BUILTIN_STATUS_CODES = ['OPEN', 'CLOSED', 'INFORMATION'];
+const isBuiltinStatus = (code?: string) => !!code && BUILTIN_STATUS_CODES.includes(code);
 
 function byNameAz<T extends { name: string }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
@@ -164,6 +169,19 @@ function MeetingsConfigureTab() {
     }
   };
 
+  const resetStatus = async (status: any) => {
+    if (!window.confirm(`Restore “${status.name}” to its default name and colour? The status stays — agenda items depend on it.`)) return;
+    setBusy(true);
+    try {
+      await resetCompanyAgendaStatus(status.id);
+      await load();
+    } catch (e: any) {
+      setError(apiErrorMessage(e, 'Could not restore the default'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const removePurpose = async (purpose: any) => {
     if (!window.confirm(`Delete purpose “${purpose.name}”?`)) return;
     setBusy(true);
@@ -244,14 +262,22 @@ function MeetingsConfigureTab() {
                         name: status.name,
                         color: status.color || '#64748B',
                         isActive: !!status.isActive,
+                        builtin: isBuiltinStatus(status.code),
                       })
                     }
-                    action={{
-                      icon: 'bi-trash',
-                      title: `Delete ${status.name}`,
-                      danger: true,
-                      onClick: () => removeStatus(status),
-                    }}
+                    action={isBuiltinStatus(status.code)
+                      ? {
+                        icon: 'bi-arrow-counterclockwise',
+                        title: `Built in — restore ${status.name} to its default name and colour`,
+                        tone: 'revert',
+                        onClick: () => resetStatus(status),
+                      }
+                      : {
+                        icon: 'bi-trash',
+                        title: `Delete ${status.name}`,
+                        danger: true,
+                        onClick: () => removeStatus(status),
+                      }}
                   />
                 ))}
               </ConfigChipGrid>
@@ -392,7 +418,7 @@ function MeetingsConfigureTab() {
               </Typography>
               <WtSwitch
                 checked={editActive}
-                disabled={busy}
+                disabled={busy || (edit?.kind === 'status' && !!edit.builtin)}
                 onChange={() => setEditActive((v) => !v)}
                 size="sm"
               />

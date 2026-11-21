@@ -29,7 +29,7 @@ interface FeedItem {
 
 /**
  * Activities tab — ONE unified timeline for the whole entity: lead + project
- * connections, lifecycle events (created/updated/cancelled), proposal events and
+ * connections, lifecycle events (created/updated/cancelled) and
  * the project-created event. There is no second activity widget anywhere.
  */
 const ActivitiesSection: React.FC<{ lead: any }> = ({ lead }) => {
@@ -49,9 +49,6 @@ const ActivitiesSection: React.FC<{ lead: any }> = ({ lead }) => {
   if (lead?.isCancelled && lead?.cancellationDate) {
     items.push({ ts: new Date(lead.cancellationDate).getTime(), icon: 'bi bi-x-octagon-fill', color: '#f1416c', title: 'Lead cancelled', body: lead?.reason?.name || lead?.cancellationNote || undefined });
   }
-  (lead?.generatedProposals || []).forEach((d: any) => {
-    items.push({ ts: new Date(d?.createdAt).getTime(), icon: 'bi bi-file-earmark-text-fill', color: '#7c3aed', title: 'Proposal generated', meta: d?.template?.templateName, body: d?.revisionNumber != null ? `Revision ${d.revisionNumber}` : undefined, who: employeeUserName(d?.creator) });
-  });
   conns.forEach(c => {
     const m = metaFor(c?.type);
     items.push({

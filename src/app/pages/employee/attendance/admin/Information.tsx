@@ -12,7 +12,7 @@ import { fetchConfiguration, fetchCompanyOverview, updateCompanyOverview, create
 import { setFeatureConfiguration } from "@redux/slices/featureConfiguration";
 import Loader from "@app/modules/common/utils/Loader";
 import { successConfirmation, errorConfirmation } from "@utils/modal";
-import FaqsMainPage from "@pages/company/organisationInfo/faqs/FaqsMainPage";
+import FaqsMainPage from "@pages/company/organizationInfo/faqs/FaqsMainPage";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";

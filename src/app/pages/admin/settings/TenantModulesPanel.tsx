@@ -119,7 +119,7 @@ export function TenantModulesPanel() {
           .sort((a, b) => a.name.localeCompare(b.name));
         setTenants(options);
       } else if (homeMetaId) {
-        setTenants([{ id: homeMetaId, name: 'Home organisation' }]);
+        setTenants([{ id: homeMetaId, name: 'Home organization' }]);
       }
     } finally {
       setLoading(false);
@@ -188,7 +188,7 @@ export function TenantModulesPanel() {
     return (
       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
         Subscription modules are managed by WiseTech (platform Super Admin) based on what the
-        organisation purchased. Ask your account contact to add or remove a module.
+        organization purchased. Ask your account contact to add or remove a module.
       </Typography>
     );
   }
@@ -244,7 +244,7 @@ export function TenantModulesPanel() {
         <Stack spacing={2}>
           {(rootOrgName || rootOrgId) && (
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              Applied on root organisation{' '}
+              Applied on root organization{' '}
               <Box component="span" sx={{ fontWeight: 600 }}>
                 {rootOrgName || rootOrgId}
               </Box>

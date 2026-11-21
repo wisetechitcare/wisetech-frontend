@@ -45,7 +45,8 @@ import { NotifyOnWhatsAppDialog, NotifiablePerson, notifiableFromTask } from './
 export interface TaskFormDialogProps {
     open: boolean;
     onClose: () => void;
-    onSaved?: () => void;
+    /** Receives the task as the server saved it (with its id); undefined after a meeting save. */
+    onSaved?: (saved?: { id: string } | null) => void;
     /** Present when editing. Scope and project are immutable server-side (DEC-019). */
     task?: {
         id: string; taskName: string; taskScope: TaskScope; taskType?: 'PRESETS' | 'CUSTOM';
@@ -506,7 +507,7 @@ export const TaskFormDialog = ({
                 ? notifiableFromTask(savedTask, currentEmployeeId)
                 : [];
 
-            onSaved?.();
+            onSaved?.(savedTask);
             onClose();
 
             // Offered, never automatic: the message goes from the assigner's own WhatsApp, so it

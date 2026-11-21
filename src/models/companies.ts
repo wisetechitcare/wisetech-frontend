@@ -124,6 +124,8 @@ export interface ContactChannelInput {
 export interface ContactFormValues {
   // Company Details
   companyId: string;
+  /** The company's sub company (branch-level entity) this person works for — what the lead form's Contact Person filters on. */
+  subCompanyId?: string;
   branchId: string;
   branch?: string;
   roleInCompany: string;

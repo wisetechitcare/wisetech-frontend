@@ -17,7 +17,7 @@ import { fetchRoles } from "@services/roles";
 import { cachedRequest } from "@services/_requestCache";
 import { resolveActiveOrgId } from "@utils/activeOrg";
 import { WORKFLOW_TYPES } from "@app/components/ApprovalSettings";
-import { EnterpriseFormWizard, type WizardGroup } from '@/shared/form-engine';
+import { EnterpriseFormWizard, WizardHeaderBadge, type WizardGroup } from '@/shared/form-engine';
 import * as S from "./OnboardingSections";
 import type { OnboardingSectionsProps } from "./OnboardingSections";
 import { formatBloodGroup } from "@utils/employeeFormat";
@@ -808,14 +808,10 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
         props.editMode ? (
           <>
             {values.companyEmailId && (
-              <span className="wizard-meta-chip">
-                <AppIcon name="bi-envelope" /> {values.companyEmailId}
-              </span>
+              <WizardHeaderBadge icon="bi-envelope">{values.companyEmailId}</WizardHeaderBadge>
             )}
             {values.dateOfJoining && (
-              <span className="wizard-meta-chip is-accent">
-                <AppIcon name="bi-calendar-check" /> Joined {fmtDate(values.dateOfJoining)}
-              </span>
+              <WizardHeaderBadge accent icon="bi-calendar-check">Joined {fmtDate(values.dateOfJoining)}</WizardHeaderBadge>
             )}
           </>
         ) : (

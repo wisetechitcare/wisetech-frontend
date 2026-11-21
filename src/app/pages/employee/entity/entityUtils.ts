@@ -55,6 +55,13 @@ export const getProjectPhase = (lead: any): ProjectPhase => {
   // Transformed table rows carry the phase precomputed from the raw lead.
   if (lead?.entityPhase) return lead.entityPhase as ProjectPhase;
   if (!isProjectEntity(lead)) return 'none';
+  // Built-in statuses carry a fixed code (renaming them in Project Configure is safe);
+  // the name patterns below only classify the admin's own statuses.
+  const status = lead?.execution?.projectStatus || lead?.project?.status || lead?.projectStatus;
+  const BY_CODE: Record<string, ProjectPhase> = {
+    COMPLETED: 'completed', PARTLY_COMPLETED: 'ongoing', ON_HOLD: 'onhold', ONGOING: 'ongoing',
+  };
+  if (status?.code && BY_CODE[status.code]) return BY_CODE[status.code];
   // Lead-as-master: the live project status lives on the 1:1 execution extension.
   // Keep the legacy `project.status` / `projectStatus` reads as transitional
   // fallbacks, but execution wins — otherwise the phase is always stuck "ongoing".

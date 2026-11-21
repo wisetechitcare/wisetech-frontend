@@ -1,12 +1,17 @@
 import React, { useCallback, useState } from "react";
-import { alpha, Box, Collapse, InputAdornment, MenuItem, Stack, TextField, Typography, useMediaQuery } from "@mui/material";
-import { KTIcon } from "@metronic/helpers";
+import { Box, Collapse, useMediaQuery } from "@mui/material";
+import { ChevronDown, Layers, Plus, Trash2, Wand2 } from "lucide-react";
 import ReorderableGroup, { DragHandle, type DragHandleProps } from "@app/modules/common/components/ReorderableGroup";
-import { WtButton, WtIconButton } from "@app/modules/common/components/ui";
 import StageDeliverableList from "./StageDeliverableList";
 import { autoFixPercentages, pct, stageTotal, toPlanStage, type PlanStage } from "./paymentPlanStages";
 import { useStageNumberingFormats } from "@hooks/useStageNumberingFormats";
 import { formatStageNo, resolveStageFormat } from "@utils/stageNumbering";
+import { Button } from "@/ds/ui/button";
+import { Input } from "@/ds/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/ds/ui/input-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ds/ui/select";
+import { EmptyState } from "@/ds/patterns/empty-state";
+import { cn } from "@/ds/lib/utils";
 
 interface Props {
   stages: PlanStage[];
@@ -30,6 +35,12 @@ interface Props {
 
 /** Indent of the deliverable branch — lines the rail up under the disclosure chevron. */
 const BRANCH_INDENT = { xs: 3.25, sm: 4.25 };
+
+/** Select has no empty value, so "follow the default format" is this sentinel. */
+const DEFAULT_FORMAT = "__default__";
+
+const PCT_W = "w-24 sm:w-28";
+const AMOUNT_W = "w-21 sm:w-30";
 
 const PaymentPlanStagesTree: React.FC<Props> = ({
   stages, onChange, showDeliverables = true,
@@ -91,18 +102,17 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
     const hasDeliverables = (count ?? 0) > 0;
 
     return (
-      <Box
-        sx={{
-          borderRadius: "14px", border: "1px solid", bgcolor: "background.paper",
-          borderColor: isOpen ? "primary.main" : "divider",
-          transition: reduceMotion ? "none" : "border-color .15s",
-        }}
-      >
-        <Stack direction="row" alignItems="center" spacing={{ xs: 0.5, sm: 0.75 }} sx={{ px: { xs: 0.75, sm: 1 }, py: 0.75 }}>
+      <div className={cn("rounded-2xl bg-card ring-1 transition-[box-shadow]", isOpen ? "ring-primary" : "ring-border")}>
+        <div className="flex items-center gap-1.5 p-2 sm:gap-2">
           <DragHandle handleProps={handleProps} disabled={stages.length < 2} onNudge={(dir) => nudge(index, dir)} />
 
           {showDeliverables && (
-            <WtIconButton
+            // THE indicator for the whole row: filled = this stage's work is broken down, plain =
+            // nothing yet. Which stages still need work is the read that matters here.
+            <Button
+              type="button"
+              variant={hasDeliverables ? "tinted" : "ghost"}
+              size="icon-xs"
               title={
                 count === undefined
                   ? "Save the plan to add deliverables"
@@ -117,102 +127,65 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
                   : `${isOpen ? "Hide" : "Show"} deliverables for stage ${index + 1} — ${count} configured`
               }
               onClick={() => toggle(stage)}
-              sx={{
-                width: 28, height: 28, borderRadius: "9px", flexShrink: 0,
-                // THE indicator for the whole row. Filled = this stage's work is broken
-                // down; hollow = nothing yet. Six identical grey chevrons said nothing about
-                // which stages were configured, and the count that used to sit by the
-                // delete button was both noise and wrong (it only existed after opening).
-                // Binary is the read that matters here: which stages still need work.
-                ...(hasDeliverables
-                  ? {
-                      bgcolor: (t: any) => alpha(t.palette.primary.main, 0.12),
-                      color: "primary.main",
-                      "&:hover": { bgcolor: (t: any) => alpha(t.palette.primary.main, 0.2) },
-                    }
-                  : { color: "text.disabled" }),
-              }}
+              className="shrink-0"
             >
               {/* The chevron IS the tree's open/closed state — rotate it rather than swap glyphs. */}
-              <Box
-                component="span"
-                sx={{
-                  display: "inline-flex",
-                  transform: isOpen ? "none" : "rotate(-90deg)",
-                  transition: reduceMotion ? "none" : "transform .18s ease",
-                }}
-              >
-                <KTIcon iconName="down" className="fs-7" />
-              </Box>
-            </WtIconButton>
+              <ChevronDown className={cn("transition-transform", !reduceMotion && "duration-200", !isOpen && "-rotate-90")} />
+            </Button>
           )}
 
-          {/* The Sr No. Read-only by design: it is the plan's format applied to the
-              position, so it cannot be set per stage and a plan is never half-numbered. */}
-          <Typography
-            sx={{
-              minWidth: 22, flexShrink: 0, textAlign: "center", px: 0.5,
-              fontSize: 12, fontWeight: 700, color: "text.primary", whiteSpace: "nowrap",
-            }}
-          >
+          {/* The Sr No. Read-only by design: it is the plan's format applied to the position, so it
+              cannot be set per stage and a plan is never half-numbered. */}
+          <span className="min-w-6 shrink-0 px-0.5 text-center text-xs font-bold whitespace-nowrap text-foreground">
             {formatStageNo(activeFormat, index)}
-          </Typography>
+          </span>
 
-          <TextField
-            size="small"
-            fullWidth
+          <Input
             value={stage.name}
-            error={!stage.name.trim()}
+            aria-invalid={!stage.name.trim() || undefined}
             onChange={(e) => patch(stage.uid, { name: e.target.value })}
             placeholder="e.g. Design Concept"
-            inputProps={{ "aria-label": `Stage ${index + 1} name` }}
-            sx={{ minWidth: 0, "& .MuiInputBase-input": { fontSize: 13.5, fontWeight: 600 } }}
+            aria-label={`Stage ${index + 1} name`}
+            className="h-9 min-w-0 flex-1 font-semibold"
           />
 
-          <TextField
-            size="small"
-            type="number"
-            value={stage.percentage}
-            error={pct(stage.percentage) < 0}
-            onChange={(e) => patch(stage.uid, { percentage: e.target.value })}
-            placeholder="0"
-            inputProps={{ "aria-label": `Stage ${index + 1} percentage`, min: 0 }}
-            InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
-            sx={{
-              width: { xs: 88, sm: 104 }, flexShrink: 0,
-              "& .MuiInputBase-input": { fontSize: 13.5, fontWeight: 700, textAlign: "right" },
-            }}
-          />
+          <InputGroup className={cn("h-9 shrink-0", PCT_W)}>
+            <InputGroupInput
+              type="number"
+              min={0}
+              value={stage.percentage}
+              aria-invalid={pct(stage.percentage) < 0 || undefined}
+              onChange={(e) => patch(stage.uid, { percentage: e.target.value })}
+              placeholder="0"
+              aria-label={`Stage ${index + 1} percentage`}
+              className="text-right font-bold"
+            />
+            <InputGroupAddon align="inline-end">%</InputGroupAddon>
+          </InputGroup>
 
           {amounts && (
-            <Typography
+            <span
               title="This stage's share of the total commercial cost"
-              sx={{
-                width: { xs: 84, sm: 120 }, flexShrink: 0, textAlign: "right", pr: 0.5,
-                fontSize: 13, fontWeight: 700, color: "text.primary", fontVariantNumeric: "tabular-nums",
-              }}
+              className={cn("shrink-0 pr-1 text-right text-[13px] font-bold text-foreground tabular-nums", AMOUNT_W)}
             >
               {amounts[index]}
-            </Typography>
+            </span>
           )}
 
-          {/* No count badge here on purpose. A number wedged between the percentage field
-              and the delete button competes with the percentage — the row's actual data —
-              to say something the chevron already says. And once a branch is open the list
-              itself is the count; a "3 deliverables" heading above three visible rows is
-              the same fact twice. The exact number stays available on hover and to screen
-              readers via the chevron's label. */}
-
-          <WtIconButton
+          <Button
+            type="button"
+            variant="tinted"
+            size="icon-sm"
             title="Remove stage"
-            color="#C0392B"
+            aria-label={`Remove stage ${index + 1}`}
+            style={{ "--tint": "var(--cta-danger)" } as React.CSSProperties}
             disabled={stages.length < 2}
             onClick={() => removeStage(stage.uid)}
-            sx={{ width: 32, height: 32, borderRadius: "9px", flexShrink: 0 }}
+            className="shrink-0"
           >
-            <KTIcon iconName="trash" className="fs-6" />
-          </WtIconButton>
-        </Stack>
+            <Trash2 />
+          </Button>
+        </div>
 
         {showDeliverables && (
           <Collapse in={isOpen} mountOnEnter timeout={reduceMotion ? 0 : "auto"}>
@@ -225,130 +198,118 @@ const PaymentPlanStagesTree: React.FC<Props> = ({
                   onCountChange={(n) => setCount(stage.id as string, n)}
                 />
               ) : (
-                <Typography sx={{ fontSize: 12.5, color: "text.secondary", py: 1 }}>
+                <p className="m-0 py-2 text-xs text-muted-foreground">
                   Save the plan first — deliverables attach to a saved stage.
-                </Typography>
+                </p>
               )}
             </Box>
           </Collapse>
         )}
-      </Box>
+      </div>
     );
   };
 
+  const total = stageTotal(stages);
+  const exact = total === 100;
+  const formatItems = [
+    {
+      value: DEFAULT_FORMAT,
+      label: `Default (${[0, 1].map((i) => formatStageNo(defaultFormat, i)).join(", ")}…)`,
+    },
+    ...formats.filter((f) => !f.isDefault).map((f) => ({
+      value: f.id,
+      label: [0, 1, 2].map((i) => formatStageNo(f, i)).join(", "),
+    })),
+  ];
+  const formatValue = formats.some((f) => f.id === stageNumberingFormatId) ? stageNumberingFormatId : DEFAULT_FORMAT;
+
   return (
-    <Box>
-      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1} sx={{ mb: 1.25 }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>Payment Stages</Typography>
-          <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
-            {showDeliverables
-              ? "Open a stage to configure its deliverables."
-              : "The stages a project is billed in."}
-          </Typography>
-        </Box>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ flexShrink: 0 }}>
+    // data-slot: gives the kit's px spacing scale even where no kit ancestor exists (the plan modal).
+    <div data-slot="payment-plan-stages" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="m-0 text-sm font-semibold text-foreground">Payment Stages</h3>
+          <p className="m-0 text-xs text-muted-foreground">
+            {showDeliverables ? "Open a stage to configure its deliverables." : "The stages a project is billed in."}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
           {headerAction}
-          {/* ONE choice for the whole plan. "" follows the default, so changing the default
-              on Configure re-numbers every plan that never picked. Hidden until there is
-              something to choose between. */}
+          {/* ONE choice for the whole plan. The default follows Configure, so changing it re-numbers
+              every plan that never picked. Hidden until there is something to choose between. */}
           {onStageNumberingFormatChange && formats.length > 1 && (
-            <TextField
-              select
-              size="small"
-              label="Numbering"
-              value={formats.some((f) => f.id === stageNumberingFormatId) ? stageNumberingFormatId : ""}
-              onChange={(e) => onStageNumberingFormatChange(e.target.value)}
-              SelectProps={{ displayEmpty: true }}
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: 170, "& .MuiInputBase-input": { fontSize: 12.5, fontWeight: 600 } }}
+            <Select
+              items={formatItems}
+              value={formatValue}
+              onValueChange={(v) => onStageNumberingFormatChange(v === DEFAULT_FORMAT ? "" : String(v))}
             >
-              <MenuItem value="" sx={{ fontSize: 12.5 }}>
-                Default
-                <Box component="span" sx={{ color: "text.disabled", ml: 0.75, fontSize: 11.5 }}>
-                  {[0, 1].map((i) => formatStageNo(defaultFormat, i)).join(", ")}…
-                </Box>
-              </MenuItem>
-              {formats.filter((f) => !f.isDefault).map((f) => (
-                <MenuItem key={f.id} value={f.id} sx={{ fontSize: 12.5 }}>
-                  {[0, 1, 2].map((i) => formatStageNo(f, i)).join(", ")}
-                </MenuItem>
-              ))}
-            </TextField>
+              <SelectTrigger className="h-9 min-w-44" aria-label="Numbering">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {formatItems.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
           )}
-        </Stack>
-      </Stack>
+        </div>
+      </div>
 
       {stages.length === 0 ? (
-        <Box
-          onClick={addStage}
-          sx={{
-            py: 2, px: 1.5, borderRadius: "14px", cursor: "pointer", textAlign: "center",
-            border: "1px dashed", borderColor: "divider",
-            "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
-          }}
-        >
-          <Typography sx={{ color: "text.secondary", fontSize: 13, fontWeight: 600 }}>No stages yet</Typography>
-          <Typography sx={{ color: "text.disabled", fontSize: 12, mt: 0.25 }}>Click to add the first one.</Typography>
-        </Box>
-      ) : (
-        <ReorderableGroup
-          items={stages}
-          getItemId={(s) => s.uid}
-          axis="y"
-          withHandle
-          disabled={stages.length < 2}
-          className="flex flex-col gap-2"
-          onReorder={onChange}
-          renderItem={renderStage}
+        <EmptyState
+          size="sm"
+          icon={<Layers />}
+          title="No stages yet"
+          description="Add the first stage of the payment split."
+          action={
+            <Button type="button" variant="outline" size="sm" onClick={addStage}>
+              <Plus data-icon="inline-start" />
+              Add Stage
+            </Button>
+          }
         />
-      )}
+      ) : (
+        <>
+          <ReorderableGroup
+            items={stages}
+            getItemId={(s) => s.uid}
+            axis="y"
+            withHandle
+            disabled={stages.length < 2}
+            className="flex flex-col gap-2"
+            onReorder={onChange}
+            renderItem={renderStage}
+          />
 
-      {stages.length > 0 && (() => {
-        const total = stageTotal(stages);
-        const exact = total === 100;
-        // Same padding, gaps and column widths as a stage row, so the total sits under the
-        // percentage boxes instead of floating at the edge.
-        return (
-          <Stack
-            direction="row" alignItems="center"
-            spacing={{ xs: 0.5, sm: 0.75 }} sx={{ mt: 1, px: { xs: 0.75, sm: 1 } }}
-          >
-            <Box sx={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
+          {/* Same padding, gaps and column widths as a stage row, so the total sits under the
+              percentage boxes instead of floating at the edge. */}
+          <div className="flex items-center gap-1.5 px-2 sm:gap-2">
+            <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
               {!exact && (
-                <WtButton
-                  tone="accent" size="small" ghost onClick={autoFix}
-                  startIcon={<KTIcon iconName="arrows-circle" className="fs-6" />}
-                  sx={{ minHeight: 30, fontSize: 12.5, borderRadius: "9px" }}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={autoFix}>
+                  <Wand2 data-icon="inline-start" />
                   Auto-fix to 100%
-                </WtButton>
+                </Button>
               )}
-              <Typography sx={{ fontSize: 12.5, color: "text.secondary", fontWeight: 600 }}>Total</Typography>
-            </Box>
-            <Typography
-              sx={{
-                width: { xs: 88, sm: 104 }, flexShrink: 0, textAlign: "right", pr: 1.75,
-                fontSize: 13.5, fontWeight: 800, fontVariantNumeric: "tabular-nums",
-                color: exact ? "success.main" : "error.main",
-              }}
+              <span className="text-xs font-semibold text-muted-foreground">Total</span>
+            </div>
+            <span
+              className={cn("shrink-0 pr-3.5 text-right text-[13.5px] font-extrabold tabular-nums", PCT_W, exact ? "text-success-foreground" : "text-destructive")}
             >
               {total}%
-            </Typography>
-            {amounts && <Box sx={{ width: { xs: 84, sm: 120 }, flexShrink: 0 }} />}
-            <Box sx={{ width: 32, flexShrink: 0 }} />
-          </Stack>
-        );
-      })()}
+            </span>
+            {amounts && <span aria-hidden className={cn("shrink-0", AMOUNT_W)} />}
+            <span aria-hidden className="size-8 shrink-0" />
+          </div>
 
-      <WtButton
-        tone="accent" size="small" ghost onClick={addStage}
-        startIcon={<KTIcon iconName="plus" className="fs-6" />}
-        sx={{ mt: 1.25, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
-      >
-        Add Stage
-      </WtButton>
-    </Box>
+          <div>
+            <Button type="button" variant="outline" size="sm" onClick={addStage}>
+              <Plus data-icon="inline-start" />
+              Add Stage
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 

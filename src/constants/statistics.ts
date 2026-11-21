@@ -161,7 +161,7 @@ export const resourceNameMapWithCamelCase = {
     dashboardOngoingLoans: "dashboardongoingloans",
     dashboardKpiSection: "dashboardkpisection",
     leaveCashTransfer: "leaveCashTransfer",
-    organisationProfile: "organisationprofile",
+    organizationProfile: "organizationprofile",
     approvals: "approvals",
 }
 
@@ -171,7 +171,7 @@ export const uiControlResourceNameMapWithCamelCase = {
     employeesUnderAttendanceAndLeaves: "attendanceAndLeaves->employees",
     employeesUnderPeople: "people->employees",
     documentsUnderPeople: "people->documents",
-    organisationProfileUnderCompany: "company->organisationProfile",
+    organizationProfileUnderCompany: "company->organizationProfile",
     announcementsUnderCompany: "company->announcements",
     branchesUnderCompany: "company->branches",
     departmentsUnderCompany: "company->departments",

@@ -1,14 +1,14 @@
 import React, { useMemo, useState } from "react";
+import { Flag, ListOrdered, RefreshCw } from "lucide-react";
 import { canDelete } from "@utils/can";
-import { withDeleteSection } from '@app/modules/common/components/ui/DeleteSection';
+import { withDeleteSection } from "@app/modules/common/components/ui/DeleteSection";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Stack } from "@mui/material";
 import {
   ConfigPageLayout, ConfigSectionCard,
 } from "@app/modules/configuration";
 import {
-  GlassDialog, GlassHeader, WtButton, WtCheckboxField, WtColorPicker, WtField, isHexColor,
-  ConfigColorChip, ConfigChipGrid,
+  GlassDialog, GlassHeader, WtButton, WtColorPicker, WtField, isHexColor,
+  ConfigColorChip, ConfigChipGrid, SegmentedControl,
   type ColorSwatch, type SemanticTone,
 } from "@app/modules/common/components/ui";
 import { confirmDialog, toast } from "@app/modules/common/components/ui/feedback";
@@ -18,6 +18,26 @@ import {
   type BillingLabelEntry, type BillingTone, type BillingStatusColour,
 } from "@services/billingConfig";
 import PerOrgPrefixSettings from "@app/modules/common/components/PerOrgPrefixSettings";
+
+/**
+ * Bill Stage is long enough to need sub-heads: the proforma's stages, the tax invoice's, and the rest. Read off the
+ * code, so a new PROFORMA_… / INVOICE_… code lands in the right place. Every other group is one untitled grid.
+ */
+const NUMBERING_SERIES = [
+  { value: "PROFORMA", label: "Proforma" },
+  { value: "INVOICE", label: "Tax Invoice" },
+] as const;
+
+const sectionsOf = (groupKey: string, entries: BillingLabelEntry[]) => {
+  if (groupKey !== "BILL_STAGE") return [{ title: "", entries }];
+  const isProforma = (c: string) => c.startsWith("PROFORMA_") || c === "READY_FOR_PROFORMA";
+  const isInvoice = (c: string) => c.startsWith("INVOICE_") || c === "READY_FOR_INVOICE";
+  return [
+    { title: "Proforma", entries: entries.filter((e) => isProforma(e.code)) },
+    { title: "Tax Invoice", entries: entries.filter((e) => isInvoice(e.code)) },
+    { title: "Core", entries: entries.filter((e) => !isProforma(e.code) && !isInvoice(e.code)) },
+  ].filter((s) => s.entries.length > 0);
+};
 import { BILLING_LABELS_KEY } from "../components/useBillingLabels";
 import TaxRateSections from "./TaxRateSections";
 
@@ -72,20 +92,17 @@ const BillingConfigurePage: React.FC = () => {
     staleTime: Infinity,
   });
 
+  const [series, setSeries] = useState<"PROFORMA" | "INVOICE">("PROFORMA");
+
   /** The entry being edited, plus its in-dialog draft. Null when closed. */
   const [editing, setEditing] = useState<BillingLabelEntry | null>(null);
   const [label, setLabel] = useState("");
   const [tone, setTone] = useState<BillingStatusColour>("neutral");
-  const [isDefault, setIsDefault] = useState(false);
-  /** The group the entry was opened from — the default is scoped to it. */
-  const [editingGroup, setEditingGroup] = useState("");
-
-  const openEditor = (entry: BillingLabelEntry, groupTitle: string) => {
+  // No "default" here: every Billing code is set by the system (documents, receipts), never picked by hand.
+  const openEditor = (entry: BillingLabelEntry) => {
     setEditing(entry);
     setLabel(entry.label);
     setTone(entry.tone);
-    setIsDefault(entry.isDefault);
-    setEditingGroup(groupTitle);
   };
 
   const onSaved = (message: string) => (fresh: Awaited<ReturnType<typeof getBillingStatusLabels>>) => {
@@ -95,7 +112,7 @@ const BillingConfigurePage: React.FC = () => {
   };
 
   const save = useMutation({
-    mutationFn: () => saveBillingStatusLabels([{ code: editing!.code, label, tone, isDefault }]),
+    mutationFn: () => saveBillingStatusLabels([{ code: editing!.code, label, tone }]),
     onSuccess: onSaved("Billing label updated"),
     onError: () => toast({ icon: "error", title: "Could not save the billing label" }),
   });
@@ -143,7 +160,7 @@ const BillingConfigurePage: React.FC = () => {
 
   return (
     <ConfigPageLayout>
-      <Stack spacing={2}>
+      <div className="flex flex-col gap-4">
         {/* Document numbering.
             The same per-organization grid Leads Configure uses, pointed at the two
             billing series — so an organization's proformas and its tax invoices
@@ -154,22 +171,27 @@ const BillingConfigurePage: React.FC = () => {
             document, so the series rolls over on 1 April by itself. Changing a
             prefix affects the next number only; everything already issued keeps
             the number it went out with. */}
+        {/* One card, two series: the tables are identical, so a switch halves the space. */}
         <ConfigSectionCard
-          title="Proforma Numbering"
-          description="The prefix each organization's proforma numbers carry. The year and the running number are added automatically — WT/PI/26-27/0001 — and the count restarts at 1 each April."
-          icon="bi-hash"
+          title="Document Numbering"
+          description="The prefix each organization's proformas and tax invoices carry. The year and the running number are added automatically — WT/PI/26-27/0001 — and the count restarts at 1 each April. The two are separate series and never share a running number."
+          icon={ListOrdered}
           iconColor="blue"
+          headerRight={
+            <SegmentedControl
+              ariaLabel="Numbering series"
+              options={NUMBERING_SERIES}
+              value={series}
+              onChange={setSeries}
+            />
+          }
         >
-          <PerOrgPrefixSettings typeLabel="Proforma" typeValue="PROFORMA" />
-        </ConfigSectionCard>
-
-        <ConfigSectionCard
-          title="Tax Invoice Numbering"
-          description="The same, for tax invoices. A separate series from proformas, so the two never share a running number."
-          icon="bi-hash"
-          iconColor="blue"
-        >
-          <PerOrgPrefixSettings typeLabel="Tax Invoice" typeValue="INVOICE" />
+          {/* `key` remounts on switch, so one series' unsaved edits never carry into the other. */}
+          <PerOrgPrefixSettings
+            key={series}
+            typeLabel={series === "PROFORMA" ? "Proforma" : "Tax Invoice"}
+            typeValue={series}
+          />
         </ConfigSectionCard>
 
         {(data?.groups ?? []).map((group) => (
@@ -177,13 +199,22 @@ const BillingConfigurePage: React.FC = () => {
             key={group.key}
             title={group.title}
             description={group.description}
-            icon="bi-tag"
+            icon={Flag}
             iconColor="blue"
             loading={isLoading}
             badge={{ label: `${group.entries.length}` }}
           >
+            {sectionsOf(group.key, group.entries).map((section) => (
+            <React.Fragment key={section.title || group.key}>
+            {section.title && (
+              /* An eyebrow, not a heading: `heading-case` uppercases in CSS so the
+                 accessible name stays real words. */
+              <p className="heading-case mt-3 text-xs font-semibold text-muted-foreground">
+                {section.title}
+              </p>
+            )}
             <ConfigChipGrid>
-              {group.entries.map((entry) => (
+              {section.entries.map((entry) => (
                 <ConfigColorChip
                   key={entry.code}
                   name={entry.label}
@@ -191,9 +222,8 @@ const BillingConfigurePage: React.FC = () => {
                   // The code is the tooltip, not a second line — a one-line chip is
                   // what Leads Configure shows, and the code is never edited here.
                   title={entry.code}
-                  badge={entry.isDefault ? "Default" : undefined}
                   disabled={busy}
-                  onEdit={() => openEditor(entry, group.title)}
+                  onEdit={() => openEditor(entry)}
                   /*
                    * A RESTORE, so it wears a restore icon.
                    *
@@ -206,7 +236,7 @@ const BillingConfigurePage: React.FC = () => {
                    * recognise does.
                    */
                   action={canDelete("billing.configure") ? {
-                    icon: "bi-arrow-counterclockwise",
+                    icon: RefreshCw,
                     title: `Restore ${entry.code} to its default label and colour`,
                     tone: "revert",
                     onClick: () => confirmReset(entry),
@@ -214,6 +244,8 @@ const BillingConfigurePage: React.FC = () => {
                 />
               ))}
             </ConfigChipGrid>
+            </React.Fragment>
+            ))}
           </ConfigSectionCard>
         ))}
 
@@ -222,7 +254,7 @@ const BillingConfigurePage: React.FC = () => {
             fiddle with — and unlike the codes above, these rows CAN be added and
             deleted, which their own copy explains. */}
         <TaxRateSections />
-      </Stack>
+      </div>
 
       <GlassDialog
         open={editing !== null}
@@ -250,7 +282,7 @@ const BillingConfigurePage: React.FC = () => {
           />
         }
       >
-        <Stack spacing={3} sx={{ px: 3, pt: 1, pb: 3 }}>
+        <div className="flex flex-col gap-6 px-6 pt-2 pb-6">
           <WtField
             label="Status Name"
             required
@@ -258,18 +290,6 @@ const BillingConfigurePage: React.FC = () => {
             value={label}
             placeholder="Enter status name"
             onChange={setLabel}
-          />
-
-          {/* A checkbox on the left, not a toggle on the right — the shape Leads
-              Configure uses for exactly this setting. Offered on every group: each
-              list nominates its own default independently. */}
-          <WtCheckboxField
-            size="sm"
-            checked={isDefault}
-            disabled={busy}
-            onChange={(e) => setIsDefault(e.target.checked)}
-            label="Set as Default Status"
-            description={`Work that reaches the end settles here. Only one entry in ${editingGroup || "this list"} can hold it — turning it on takes it off whichever has it now.`}
           />
 
           <WtColorPicker
@@ -281,7 +301,7 @@ const BillingConfigurePage: React.FC = () => {
             onChange={setTone}
           />
 
-          <Stack direction="row" justifyContent="flex-end">
+          <div className="flex flex-row justify-end">
             <WtButton
               disabled={!canSave}
               onClick={() => save.mutate()}
@@ -289,8 +309,8 @@ const BillingConfigurePage: React.FC = () => {
             >
               {save.isPending ? "Updating…" : "Update"}
             </WtButton>
-          </Stack>
-        </Stack>
+          </div>
+        </div>
       </GlassDialog>
     </ConfigPageLayout>
   );

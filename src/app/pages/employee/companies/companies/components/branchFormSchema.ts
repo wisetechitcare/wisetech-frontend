@@ -31,6 +31,14 @@ export const BRANCH_BUILTIN_SECTIONS: BuiltinSection[] = [
     { id: "googleMapLink", input: "url", label: "Google Map Link", ...ADDRESS },
     { id: "gmbLink", input: "url", label: "Google My Business Link", ...ADDRESS },
   ]},
+  { id: "gst", title: "GST & Statutory", fields: [
+    { id: "gstNumber", input: "text", label: "GST Number" },
+    { id: "panNumber", input: "text", label: "PAN Number" },
+    { id: "gstAddress", input: "text", label: "GST Address" },
+    { id: "gstState", input: "select", label: "GST State" },
+    { id: "gstDocument", input: "file", label: "GST Document", type: "file" },
+    { id: "panDocument", input: "file", label: "PAN Document", type: "file" },
+  ]},
 ];
 
 const branchSchema = createBuiltinSchema(BRANCH_BUILTIN_SECTIONS);

@@ -2,6 +2,7 @@ import axios from "axios";
 import { COMPANY, OPTIONS } from "@constants/api-endpoint";
 import { IAnnouncement, IAnnouncementCreate, ICompanyBranch, ICompanyBranchUpdate, ICompanyDepartment, ICompanyOverview, IConfiguration, IFaqs, IHoliday, IPublicHoliday } from "@models/company";
 import { store } from "@redux/store";
+import { putToS3 } from "@utils/directUpload";
 import dayjs, { Dayjs } from "dayjs";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 
@@ -149,17 +150,6 @@ export const fetchHolidays = async (companyId: string) => {
     }
 }
 
-export const fetchCompanyLogo = async () => {
-    try {
-        const endpoint = `${API_BASE_URL}/${COMPANY.GET_LOGO}`;
-        const { data } = await axios.get(endpoint);
-        return data;
-    }
-    catch (err) {
-        throw err;
-    }
-}
-
 export const createCompanyOverview = async (overview: ICompanyOverview) => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.CREATE_OVERVIEW}`;
@@ -170,6 +160,25 @@ export const createCompanyOverview = async (overview: ICompanyOverview) => {
         throw err;
     }
 }
+
+/** Mirrors the server's SPLASH_MAX_BYTES — the server is the one that enforces it. */
+export const SPLASH_VIDEO_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Upload one splash video for an organization and return its URL, to be saved with the profile (which verifies the
+ * stored file). The MP4 goes straight to S3 with a presigned URL — videos are too big for the API path.
+ */
+export const uploadSplashVideo = async (
+    orgId: string,
+    variant: "desktop",
+    file: File,
+    onProgress: (pct: number) => void,
+): Promise<string> => {
+    const endpoint = `${API_BASE_URL}/${COMPANY.SPLASH_VIDEO_UPLOAD_URL.replace(":id", encodeURIComponent(orgId))}`;
+    const { data } = await axios.post(endpoint, { variant, fileName: file.name, sizeBytes: file.size });
+    await putToS3(data.uploadUrl, file, data.contentType, onProgress);
+    return data.url as string;
+};
 
 export const updateCompanyOverview = async (companyId: string, overview: Partial<ICompanyOverview>) => {
     try {

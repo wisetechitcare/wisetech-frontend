@@ -1,7 +1,9 @@
 import { useField, useFormikContext, type FormikValues } from "formik";
-import { useState, type ChangeEvent } from "react";
+import { useId, useState, type ChangeEvent } from "react";
 import { employeeOnBardingFormRegexes } from "@constants/regex";
-import { WtField } from "../components/ui";
+import { Field, FieldError, FieldLabel } from "@/ds/ui/field";
+import { Input } from "@/ds/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/ds/ui/input-group";
 import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
 
 type SimpleInputType =
@@ -39,8 +41,6 @@ interface TextInputProps {
   readonly?: boolean;
   margin?: string;
   label?: string;
-  /** `above` puts the label on its own line, matching DropDownInput and DateInput in the same row. */
-  labelPlacement?: "floating" | "above";
   placeholder?: string;
   inputTypeNumber?: boolean;
   defaultValue?: unknown;
@@ -58,7 +58,6 @@ interface TextInputProps {
 function TextInput({
   isRequired,
   label,
-  labelPlacement,
   formikField,
   readonly,
   placeholder,
@@ -114,22 +113,41 @@ function TextInput({
     if (cleaned !== current) void helpers.setValue(parser ? parser(cleaned) : cleaned);
   };
 
+  const errorText = invalid ? String(meta.error) : validationError;
+  const id = useId();
+  const common = {
+    id,
+    name: field.name,
+    value: (displayValue ?? "") as string | number,
+    onChange: (e: ChangeEvent<HTMLInputElement>) => handleChange(e.target.value),
+    onBlur: handleBlur,
+    readOnly: readonly,
+    disabled: readonly,
+    placeholder,
+    type,
+    maxLength,
+    required: isRequired,
+    "aria-invalid": errorText ? true : undefined,
+  };
+
   return (
-    <WtField
-      name={field.name}
-      label={label}
-      labelPlacement={labelPlacement}
-      value={displayValue ?? ""}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      required={isRequired}
-      disabled={readonly}
-      placeholder={placeholder}
-      type={type}
-      prefix={prefix}
-      maxLength={maxLength}
-      error={invalid ? String(meta.error) : validationError}
-    />
+    <Field data-invalid={errorText ? true : undefined}>
+      {label && (
+        <FieldLabel htmlFor={id}>
+          {label}
+          {isRequired && <span aria-hidden className="text-destructive">*</span>}
+        </FieldLabel>
+      )}
+      {prefix ? (
+        <InputGroup>
+          <InputGroupAddon align="inline-start">{prefix}</InputGroupAddon>
+          <InputGroupInput {...common} />
+        </InputGroup>
+      ) : (
+        <Input {...common} />
+      )}
+      {errorText && <FieldError>{errorText}</FieldError>}
+    </Field>
   );
 }
 

@@ -39,10 +39,10 @@ const setAuth = (auth: any) => {
     // TEMPORARY REVERT (prod hotfix): persist the JWT in localStorage so it is
     // sent as an Authorization: Bearer header and survives page reloads. The
     // httpOnly-cookie approach cannot work while the frontend (amplifyapp.com)
-    // and API (wisetech-mep.com) are on different registrable domains — the
+    // and API (kaiznova.com) are on different registrable domains — the
     // cross-site cookie is blocked by browsers. Restore the cookie-only,
     // token-stripped version once FE + API share a domain (e.g.
-    // app.wisetech-mep.com + api.wisetech-mep.com). See [[auth-cookie-migration]].
+    // app.kaiznova.com + api.kaiznova.com). See [[auth-cookie-migration]].
     inMemoryToken = auth?.token
     const lsValue = JSON.stringify(auth)
     localStorage.setItem(AUTH_LOCAL_STORAGE_KEY, lsValue)
@@ -53,6 +53,8 @@ const setAuth = (auth: any) => {
 
 const removeAuth = () => {
   inMemoryToken = undefined
+  // The splash branding is deliberately KEPT: the login screen shows the organization's splash too, and re-syncs it to
+  // the company's public branding (/api/company/logo) as soon as it opens.
   if (!localStorage) {
     return
   }

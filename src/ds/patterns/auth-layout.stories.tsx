@@ -49,7 +49,7 @@ const meta = {
     brandName: 'WiseTech',
     logoSrc: LOCKUP,
     headline: PRODUCT_LINES,
-    tagline: 'All-in-one HR, CRM, Projects and Payroll for your whole organisation.',
+    tagline: 'All-in-one HR, CRM, Projects and Payroll for your whole organization.',
     title: 'Sign In',
     description: 'Welcome back. Use your work email.',
     children: <SignInForm />,
@@ -121,7 +121,7 @@ export const BackgroundAlwaysMoves: Story = {
   },
 }
 
-/** A logo that fails to load leaves the organisation's initials, never an empty or broken tile. */
+/** A logo that fails to load leaves the organization's initials, never an empty or broken tile. */
 export const BrokenLogo: Story = {
   tags: ['!autodocs'], // a test, not a demo
   // Same-origin 404: fails at once (an unresolvable host waits on DNS and made this test flaky).

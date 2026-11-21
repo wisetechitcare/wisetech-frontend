@@ -24,8 +24,11 @@ export function DescriptionList({
   className,
 }: {
   rows: ReadonlyArray<DescriptionRow>
-  /** 2 columns from `sm` up; always 1 on phones. */
-  columns?: 1 | 2
+  /**
+   * 2 columns from `sm` up; always 1 on phones. `"auto"`: as many columns as fit (each at least 13rem), one on a
+   * phone — for a strip of short facts (registration numbers, dates) across a wide page.
+   */
+  columns?: 1 | 2 | "auto"
   emptyText?: string
   className?: string
 }) {
@@ -33,12 +36,17 @@ export function DescriptionList({
   return (
     <dl
       data-slot="description-list"
-      className={cn("grid gap-x-8 gap-y-4 text-sm", columns === 2 && "sm:grid-cols-2", className)}
+      className={cn(
+        "grid gap-x-8 gap-y-4 text-sm",
+        columns === 2 && "sm:grid-cols-2",
+        columns === "auto" && "grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))]",
+        className,
+      )}
     >
       {rows.map((row, i) => {
         const empty = row.value === null || row.value === undefined || row.value === ""
         return (
-          <div key={i} className={cn("min-w-0 space-y-1", row.wide && "sm:col-span-2")}>
+          <div key={i} className={cn("min-w-0 space-y-1", row.wide && (columns === "auto" ? "col-span-full" : "sm:col-span-2"))}>
             <dt className="text-muted-foreground">{titleCaseChildren(row.label)}</dt>
             <dd
               className={cn(

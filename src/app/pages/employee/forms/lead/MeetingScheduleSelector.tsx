@@ -1,9 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useFormikContext } from "formik";
-import { Table } from "react-bootstrap";
 import { getAllMeetingSchedules } from "@services/meetingSchedule";
 import type { MeetingScheduleType, MeetingScheduleBracket } from "@models/leads";
-import { ToneChip } from "@app/modules/common/components/ui";
+import { Badge } from "@/ds/ui/badge";
+import { EmptyState } from "@/ds/patterns/empty-state";
+import { Field, FieldLabel } from "@/ds/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ds/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ds/ui/table";
+
+/** Select has no empty value, so "no schedule" is this sentinel. */
+const NONE = "__none__";
 
 /**
  * Lead meeting-schedule step.
@@ -95,7 +101,8 @@ export const MeetingScheduleSelector: React.FC = () => {
     return { date: d, years, months };
   }, [matchedBracket, inquiryDate]);
 
-  const handleSelect = (id: string) => {
+  const handleSelect = (picked: string) => {
+    const id = picked === NONE ? "" : picked;
     setFieldValue("meetingScheduleTypeId", id);
     const t = options.find((o) => o.id === id) || null;
     setFieldValue("meetingScheduleType", t);
@@ -103,100 +110,90 @@ export const MeetingScheduleSelector: React.FC = () => {
 
   const fmtArea = (n: number) => n.toLocaleString("en-IN");
 
+  const typeItems = [
+    { value: NONE, label: "— No meeting schedule —" },
+    ...options.map((t) => ({ value: t.id, label: `${t.name}${t.isDefault ? " (Default)" : ""}` })),
+  ];
+
   return (
-    <div>
-      <div className="row g-3 align-items-end mb-2">
-        <div className="col-md-7">
-          <label className="form-label fw-semibold text-gray-800 fs-7 mb-2">Meeting Type</label>
-          <select
-            className="form-select form-select-solid"
-            value={values.meetingScheduleTypeId || ""}
-            onChange={(e) => handleSelect(e.target.value)}
+    <div data-slot="meeting-schedule-selector" className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <Field className="min-w-60 flex-1 md:max-w-xl">
+          <FieldLabel>Meeting Type</FieldLabel>
+          <Select
+            items={typeItems}
+            value={values.meetingScheduleTypeId || NONE}
+            onValueChange={(v) => handleSelect(String(v))}
             disabled={loading && types.length === 0}
           >
-            <option value="">— No meeting schedule —</option>
-            {options.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-                {t.isDefault ? " (Default)" : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="col-md-5">
-          <div className="d-flex flex-column align-items-md-end">
-            <span className="text-gray-600 fs-8 fw-bold text-uppercase">Total Commercial Area</span>
-            <span className="text-primary fs-5 fw-bolder">{fmtArea(totalArea)} sqft</span>
-          </div>
-        </div>
+            <SelectTrigger className="w-full" aria-label="Meeting Type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {typeItems.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </Field>
+        <dl className="m-0 flex flex-col items-end">
+          <dt className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">Total Commercial Area</dt>
+          <dd className="m-0 text-lg font-bold text-primary tabular-nums">{fmtArea(totalArea)} sqft</dd>
+        </dl>
       </div>
 
       {types.length === 0 && !loading && (
-        <div className="text-muted fs-7 text-center py-4 border border-dashed rounded mt-3">
-          No meeting schedules configured yet. Create one under{" "}
-          <span className="fw-semibold">Lead Configuration → Meeting Schedules</span>.
-        </div>
+        <EmptyState
+          size="sm"
+          title="No meeting schedules yet"
+          description="Create one under Lead Configuration → Meeting Schedules."
+        />
       )}
 
       {selectedType && !matchedBracket && (
-        <div className="text-muted fs-7 text-center py-4 border border-dashed rounded mt-3">
-          This schedule has no area brackets configured.
-        </div>
+        <EmptyState size="sm" title="No area brackets" description="This schedule has no area brackets configured." />
       )}
 
       {selectedType && matchedBracket && (
         <>
-          <div className="d-flex flex-wrap gap-3 mt-3 mb-3">
-            <ToneChip
-              dense
-              tone="brand"
-              label={`Bracket: ${fmtArea(Number(matchedBracket.minArea) || 0)}–${fmtArea(Number(matchedBracket.maxArea) || 0)} sqft`}
-            />
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="brand">
+              Bracket: {fmtArea(Number(matchedBracket.minArea) || 0)}–{fmtArea(Number(matchedBracket.maxArea) || 0)} sqft
+            </Badge>
             {expected && (
-              <ToneChip
-                dense
-                tone="success"
-                label={`Expected Completion: ${expected.date.getFullYear()}${(expected.years || expected.months) ? ` (${expected.years ? `${expected.years}y` : ""}${expected.months ? ` ${expected.months}m` : ""} from inquiry)` : ""}`}
-              />
+              <Badge variant="success">
+                Expected Completion: {expected.date.getFullYear()}
+                {(expected.years || expected.months) ? ` (${expected.years ? `${expected.years}y` : ""}${expected.months ? ` ${expected.months}m` : ""} from inquiry)` : ""}
+              </Badge>
             )}
-            {!inquiryDate && (
-              <ToneChip
-                dense
-                tone="warning"
-                label="Set the inquiry date to compute expected completion"
-              />
-            )}
+            {!inquiryDate && <Badge variant="warning">Set the inquiry date to compute expected completion</Badge>}
           </div>
 
-          <div className="table-responsive">
-            <Table bordered size="sm" className="bg-white align-middle gs-0 gy-2 mb-0">
-              <thead className="bg-light">
-                <tr className="fw-bolder text-muted fs-8 text-uppercase border-bottom border-gray-200">
-                  <th className="ps-3 w-40px">Sr</th>
-                  <th className="min-w-150px">Meeting</th>
-                  <th className="w-120px text-center">Value</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="overflow-hidden rounded-2xl ring-1 ring-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-14">Sr</TableHead>
+                  <TableHead>Meeting</TableHead>
+                  <TableHead className="w-32 text-center">Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {(matchedBracket.items || []).map((it, idx) => (
-                  <tr key={idx}>
-                    <td className="ps-3 fw-bold text-gray-600">{idx + 1}</td>
-                    <td className="fw-semibold text-gray-800">{it.name}</td>
-                    <td className="text-center fw-bolder text-dark">
-                      {it.value === undefined || it.value === null || String(it.value).trim() === ""
-                        ? "—"
-                        : String(it.value)}
-                    </td>
-                  </tr>
+                  <TableRow key={idx}>
+                    <TableCell className="text-muted-foreground tabular-nums">{idx + 1}</TableCell>
+                    <TableCell className="font-medium">{it.name}</TableCell>
+                    <TableCell className="text-center font-semibold">
+                      {it.value === undefined || it.value === null || String(it.value).trim() === "" ? "—" : String(it.value)}
+                    </TableCell>
+                  </TableRow>
                 ))}
                 {(matchedBracket.items || []).length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="text-center text-muted fs-8 py-3">
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-4 text-center text-muted-foreground">
                       No meetings configured for this bracket.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
+              </TableBody>
             </Table>
           </div>
         </>

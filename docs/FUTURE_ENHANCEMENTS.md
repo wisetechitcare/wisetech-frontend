@@ -47,6 +47,40 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Design system (ADR-001)
 
+- **`<style>{KEYFRAMES}</style>` is pasted into the DOM by 17 files** (2026-11-20) — the configuration
+  animations (`cfgFadeIn`, `cfgSlideIn`, `cfgPulse`) and the `.cfg-tab-btn` focus rules ride along in a
+  `<style>` block injected by every Configure page, by `ConfigPageLayout` and by `ErrorBoundary`. They are
+  load-order dependent by accident: `Departments.tsx` deleted its own copy on the grounds that the layout
+  already injects one, so that page's fade now depends on which component mounted first. A `<style>` block is
+  banned by the UI rules, and this is 17 copies of one. — Replace `.cfg-fade-in` / `.cfg-slide-in` with a
+  Tailwind animation (or `src/ds/effects`) and the focus rules with the kit's own `focus-visible`, then delete
+  all 17 injections. `cfgPulse` goes last: `ConfigSettingsRow` and `ConfigStatsCards` still draw their
+  skeletons with it, and both should move to the kit `Skeleton` as `ConfigSectionCard` has.
+
+- **Billing's own files are kit-only; its dependency GRAPH is not** (2026-11-20) — every `.tsx` under
+  `src/app/pages/billing` is now free of MUI, KTIcon and Metronic imports, but
+  `node scripts/legacy-ui-reach.mjs src/app/pages/billing` still reports 45 files, every chain ending in a legacy
+  adapter: `MaterialHeaderTab`, `ModuleOrgFilter`, `PerOrgPrefixSettings`, `ui/buttons`, `ui/checkbox`, `ui/chips`,
+  `ConfigColorChip`, `DetailCard`, `EntityPageHeader`, `ui/glass`, `ui/patterns`, `SegmentedControl`,
+  `WtColorPicker`, `WtField`, `ConfigPageLayout`, `ConfigSectionCard`, `MaterialTableImpl`, `ui/dates`,
+  `FloatingLabel` — plus one cross-module screen, `tasks/TaskFormDialog`. Billing therefore cannot join
+  `MUI_FREE_ROOTS` yet, and the last step is not an adapter at all: five billing screens sit on `MaterialTable`,
+  whose swap KitMap gates until kit Data Table gains per-column filters, pinning, virtualisation, export and saved
+  column preferences. — Convert the adapters (each is a KitMap row); `src/app/pages/billing` can only join
+  `MUI_FREE_ROOTS` after the Data Table swap, which is last by design.
+
+- **`BillingLayout` still uses Metronic `PageTitle` and `MaterialHeaderTab`** (2026-11-20) — neither lint rule
+  flags it, because `PageTitle` is the app-wide breadcrumb *context* rather than a styled component, and
+  `MaterialHeaderTab` is a shared component (Approvals and Attendance use the same bar). KitMap maps the bar to
+  Components/Tabs (`line`). — Both belong to the app-shell wave, not to a per-module pass.
+
+- **Tax-rate "retired" rail changed shade** (2026-11-20) — `TaxRateSections` painted its retired-row rail
+  `#cbd5e1` (Tailwind slate-300), which has no token equivalent; it now takes the SSOT's `inkFaint` (`#97A1AF`),
+  slightly darker. Live rails are untouched: `vivid.blue` / `vivid.amber` are character-for-character the hexes that
+  had been inlined. All three stay hex STRINGS because `ConfigColorChip` feeds the value through `toneAlpha()`,
+  which parses six hex digits and returns its input untouched on failure — a `var(--token)` would paint a
+  fully-opaque fill instead of a 16% hover tint. — The indirection dies with the Master List move.
+
 - **Column reorder has no keyboard path yet** — kit `DataTable` (`src/ds/patterns/data-table.tsx`): headers move
   by pointer drag only, while rows move with ↑ / ↓ on a focused grip. Suggested: Move Left / Move Right in the
   Columns panel (`data-table-columns.tsx`), announced like the row moves.
@@ -56,15 +90,15 @@ Format: **what** — evidence (file / screen) — suggested fix.
   between visits, so every kit table (Payment History, Payment Queue, Submissions) now opens on its defaults.
   — Persist `sorting`, `pageSize` and `globalFilter` under the same `stateKey`. (found 2026-11-13)
 
-- **Kit DataTable: per-column / faceted filters and nested sub-rows are not built** — shadcn's examples
-  (ui.shadcn.com data-table, shadcn.io "Data Table with Filters" / "Expandable Sub-Rows", shadcnstudio blocks)
-  show both; the kit has a global search, `renderDetail` panels and the status rail (SegmentedFilter) instead,
-  which is all the reimbursement tables use. — Add `facets` (a status/category dropdown per column) and
-  `getSubRows` when the first screen needs them, not before. (found 2026-11-09)
+- **Kit DataTable: faceted filters and nested sub-rows are not built** — per-column TEXT filters exist (the
+  "Show column filters" tool adds a filter row; checked 2026-11-17), but shadcn's examples (ui.shadcn.com
+  data-table, shadcn.io "Data Table with Filters" / "Expandable Sub-Rows") also show a status/category dropdown per
+  column and nested sub-rows. — Add `facets` and `getSubRows` when the first screen needs them, not before.
+  (found 2026-11-09, narrowed 2026-11-17)
 
-- **`ExportButton` (14 users) still draws an MUI menu and MUI icons** — the kit DataTable now reaches it
-  through `table/DataTableExport`, so the engine is shared but the button looks legacy. — Rebuild its menu on
-  the kit `DropdownMenu` + lucide icons; keep the CSV/Excel engine as is. (found 2026-11-09)
+- ~~**`ExportButton` (14 users) still draws an MUI menu and MUI icons**~~ **Already fixed (checked 2026-11-17):**
+  `ExportButton` renders the kit `DropdownMenu` + lucide icons and reaches no legacy UI
+  (`node scripts/legacy-ui-reach.mjs src/app/modules/common/components/table` lists nothing for it).
 - **Reimbursement: two colour maps left to fold into `STATUS_TONE`** — `PAYMENT_TONE` in
   `utils/reimbursementFormat.ts` is a hex palette (light-only) used by `PaymentQueueTable`; `BatchWorkflowPanel`
   keeps its own status map (Needs info = cyan "Query"). — Replace both with the tone tokens when the Payment
@@ -129,12 +163,63 @@ Format: **what** — evidence (file / screen) — suggested fix.
   own border, 8px corners, 11px text), `CsvUploadStep` / `MatchReviewTable` (danger text colour),
   `AddAnotherBtn` (dashed). They win over the kit by design, so they are not pills. — Replace each with a
   kit variant (`outline` / `destructive`, or a new tinted variant if approve/reject needs one) and drop the sx.
-- **Data Table must reach MaterialTable parity before the swap** — the v2 design (Storybook Patterns/Data Table,
-  2026-11-03) covers sort, search, column show/hide, selection bar, paging, density and the load/empty/error states.
-  The live `MaterialTableImpl` also has per-column filters (22 screens), column pinning (6), row virtualisation (5),
-  column drag (5), full screen (5), resizing (4), grouping (4), expandable rows (4), saved column preferences
-  (`useTablePreferences`, all screens) and export. — Build each into the kit Data Table before any screen moves,
-  so no screen silently loses one (Kit Map lists them).
+- **Data Table must reach MaterialTable parity before the swap** — status checked against the code 2026-11-17
+  (the Kit Map's gap table had gone stale and is corrected with it). BUILT in the kit Data Table: per-column text
+  filters, column pinning, column drag, full screen, resizing, expandable rows (`renderDetail`), saved column
+  preferences (`stateKey`: widths, hidden, order, pins, density) and export (`table/DataTableExport` in the
+  `toolbar` slot, as every Reimbursement table does) and grouping ("Group rows" tool, 2026-11-17). STILL MISSING: row virtualisation (5 screens) and remembering sort / page size / search (entry above). —
+  Build virtualisation before the first long-list screen moves.
+- **`DataTableExport` lives outside the kit** — `app/modules/common/components/table/DataTableExport.tsx` (9 users)
+  is the Data Table's export, but sits in the legacy `components/` tree, against the rule that shared UI lives in
+  `src/ds`. It depends on `ExportButton` (app toast + currency utils). — Move both into `src/ds/patterns` with a story,
+  injecting the currency/toast deps. (found 2026-11-17)
+- **Legacy `ui/ConfirmDialog.tsx` still draws its own GlassDialog** — used by `IdleLogoutGuard`,
+  `ConfirmDiscardDialog`, `useConfirmDialog` and `usePromptDialog`, while `DialogServiceHost` (every
+  `showDialog` / `errorConfirmation` call) already renders the kit Confirm Dialog. — Turn it into a thin adapter
+  over `@/ds/patterns/confirm-dialog` (old prop names only), then retire it with its last caller. (found 2026-11-17)
+- **Organization module → kit: what is still legacy** (tracking, 2026-11-17; phases 1–5a merged into
+  `feat/multi-tenancy`, `18e3dc8a`; phase 5b moved the Biometric Devices dialog onto the kit Data Table and the
+  profile page's Branches frame onto the kit Form Dialog). **2026-11-17: `FormSchemaManager` (Manage form fields)
+  moved to a kit Form Dialog, which cut the last legacy chain; `pages/company/organization` and
+  `FormSchemaManager` are locked in `MUI_FREE_ROOTS`.** Still legacy elsewhere:
+  - `MaterialHeaderTab` should become a thin adapter over the kit `PageTabs` (affects every screen using it).
+  - `PerOrgPrefixSettings` (inside the New Organization dialog) still renders MUI fields.
+  - `UnsavedChangesModal` (react-bootstrap `Modal` wrapper, ~47 screens) and the legacy `ui/ConfirmDialog` (MUI)
+    remain. Turning `UnsavedChangesModal` into a kit adapter re-skins all 47 at once, and several host MUI fields
+    whose popups a kit (Base UI) dialog would trap — do it screen by screen, or with an explicit go-ahead.
+  - `SmartLocationPicker` (Leaflet map + search) still renders MUI; its Nominatim calls now live in
+    `services/geocoding.ts`, so the picker only needs its UI moved.
+  - `organizationInfo/` (Rules, FAQs) still uses Metronic classes and `bi-*` icons.
+  - Branding tab: Save is a `console.log` stub (decision pending: build or remove).
+  - `DropdownInput` (17 users) should become an adapter over the kit `SearchSelect`.
+  - Biometric Devices: deleting a device no longer fades its row to 50% while the request runs (the kit Data Table
+    has no per-row opacity); the row's More button shows the spinner instead. — If the fade is wanted, add a
+    `rowBusy` predicate to the Data Table (with a story) rather than styling the row in the screen.
+  - ~~Organization profile edit form width~~ done 2026-11-17: `size="2xl"` + `AutoGrid stretch` field rows.
+- **Stale lint rule removed (2026-11-17)** — `no-restricted-syntax` matched any `<Switch>` by tag name, so it fired
+  on the kit Switch too (it predates the kit). A raw MUI Switch is still caught by its import
+  (`no-restricted-imports`, `wisetech/no-legacy-ui`).
+- **`officeGeofence.test.ts` fails on `feat/multi-tenancy`** — `058ac173` ("office geofence blocks when branch center
+  or GPS is missing") returns `misconfigured` where the test "no radius, a 0 radius, no branch pin, or no reading"
+  still expects `unconfigured`. (found 2026-11-17, not touched: another session's change) — Update the test to the
+  new rule, or narrow the rule, whichever the geofence owner intended.
+- **Two required markers became one (2026-11-17)** — the kit had two competing `*`s: `FieldLabel required` (added
+  2026-11-16) and the CSS rule in `styles/components.css` that reads the control's own `required` /
+  `aria-required` (2026-11-09). Together every required label showed `**`. The label prop is removed; the CSS rule
+  is the single marker (Field story `Required` asserts exactly one). — Any NEW required field must set `required`
+  (or `isRequired`) on the control itself; a label never claims it.
+- **Fixed 2026-11-17, found from the user's screenshots (laws of UI/UX pass):**
+  - `InputGroupButton size="sm"` was an empty variant, so the inner Button fell back to 40px and filled the 40px
+    field (Master List's "Add town" pill). It is now 32px; Master List nests it 3px inside on every side (story
+    `AddValue` measures it).
+  - Organization profile "At a glance": identifiers (GST, PAN, TAN, fiscal year) were Stat Cards — a KPI's headline
+    figure clipped the GST number under its icon and wrapped the fiscal year. Now a Description List
+    (`columns="auto"`, new, story `AutoColumns`) at reading size; "Founded" shows in the company date format.
+  - Branch form Preferences: Time format is a Select with the same floating label as Timezone (it was a
+    label-above ToggleGroup, so the two controls started at different heights).
+- **Stat Cards showing text instead of figures elsewhere** — the profile page used Stat Card for registration numbers;
+  other screens may do the same (a Stat Card is for a KPI: a number, a trend). — Grep `<StatCard` whose `value` is
+  an id, a code or a sentence and move those to a Description List. (found 2026-11-17)
 - **Self-host the phone flags** — v2 Phone Field (fixed 2026-11-03: emoji flags rendered as letters on Windows)
   now uses `react-international-phone`'s `FlagImage`, like the live `WtPhoneField`; both load Twemoji SVGs from
   cdnjs. — Serve the SVGs from our own origin (pass `src` to `FlagImage`) so the field needs no third-party
@@ -195,9 +280,6 @@ Format: **what** — evidence (file / screen) — suggested fix.
   26, 29 px). — After Phase 2 converts every module, snap them onto a small scale (for example 12/14/16/20/24 px)
   in one reviewed pass, then add the D10 lint so new code can only use the scale. Sizes must stay in px, because
   the app's root font is 13px (`size-4` is 13px in the app and 16px in Storybook).
-- **5 Bootstrap names on configuration cards still use the Bootstrap font** — `ConfigSectionCard` keeps a
-  Bootstrap `<i>` fallback for `bi-123`, `bi-bullseye`, `bi-house-door`, `bi-table` and `bi-truck`, because the
-  registry has no mapping for them. — Map them (Phase 3), then delete the fallback branch.
 - **`ci-spin` is defined in one screen only** — the spinner class lives in an inline style block in
   `entity/detail/sections/AuditSection.tsx`, so `ci-spin` on an icon anywhere else does nothing. — Use Lucide's
   `animate-spin` (Tailwind) for icon spinners, and delete the local class once AuditSection is converted.
@@ -236,3 +318,11 @@ Format: **what** — evidence (file / screen) — suggested fix.
   screen.
 - **Logout leaves some user data in the browser** — onboarding wizard drafts in `sessionStorage` (bank, CTC) and
   search history not tied to a user (audit C-08). — Clear user-scoped keys in `signOut()` once they are listed.
+- **Sign-in shows "KAIZNOVA" initials, not a logo** (2026-11-19) — `AuthScreen.tsx` `PLATFORM_LOGO` is `null`
+  because no KAIZNOVA logo file exists yet; the old public `GET api/company/logo` (it served the oldest tenant's
+  logo to every tenant's sign-in) is removed. — Drop the KAIZNOVA lockup into `public/media/brand/` and point
+  `PLATFORM_LOGO` at it. Splash, favicon and PWA icons are still the WiseTech set (`media/brand/wisetech-logo.png`,
+  `icons/pwa-*`) — replace with the KAIZNOVA set in the same pass.
+- **Tenant-branded sign-in** — a tenant's own logo on its sign-in page needs a tenant hint first (subdomain, e.g.
+  `acme.app.kaiznova.com`) and a public endpoint that answers by that hint only (Wave 1 #407). — Build after the
+  domain move; never pick "a" tenant's brand without one.

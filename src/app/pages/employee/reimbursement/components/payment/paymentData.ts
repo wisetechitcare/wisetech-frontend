@@ -74,7 +74,7 @@ export interface PaymentRecord {
 /**
  * The org facts a finance filter needs, which the batch payload does not carry.
  *
- * `ReimbursementBatch.employee` selects id, code and name and nothing else, so sub-organisation,
+ * `ReimbursementBatch.employee` selects id, code and name and nothing else, so sub-organization,
  * branch and team are joined in from the employee list — the same source and the same shape the
  * payroll and reimbursement-details toolbars use, so the three pages offer identical options for
  * the same population.

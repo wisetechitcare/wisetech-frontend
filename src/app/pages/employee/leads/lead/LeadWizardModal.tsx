@@ -68,8 +68,6 @@ import {
   getAllLeads,
   getLeadById,
   updateLead,
-  exportLeadDocx,
-  exportLeadPdf,
 } from "@services/leads";
 import { uploadUserAsset } from "@services/uploader";
 import {
@@ -339,8 +337,6 @@ const LeadWizardModal = ({
   const [showDirectSourceModal, setShowDirectSourceModal] = useState(false);
   const [showReferralTypeModal, setShowReferralTypeModal] = useState(false);
   const [leadStatuses, setLeadStatuses] = useState<any[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showProposalModal, setShowProposalModal] = useState(false);
   const [existingLeads, setExistingLeads] = useState<any[]>([]);
 
   useEffect(() => {
@@ -349,147 +345,6 @@ const LeadWizardModal = ({
       .catch(() => { });
   }, []);
 
-  const handleExport = async (type: "docx" | "pdf", values: any) => {
-    if (!values.id) return;
-    setIsGenerating(true);
-    try {
-      // Resolve Company Names for File Location
-      const selectedCompanyType =
-        allCompanyTypes.find(
-          (t) => String(t.id) == String(values.fileLocationCompanyType),
-        )?.name || "";
-      const selectedCompany =
-        companies.find(
-          (c) => String(c.id) == String(values.fileLocationCompany),
-        )?.companyName || "";
-
-      // Resolve Address Names (picking from first row)
-      const firstAddr = values.addresses?.[0] || {};
-
-      // Use selections from Formik state first (if user interacted)
-      const stateSelection = values.addressStateSelections?.[0];
-      const citySelection = values.addressCitySelections?.[0];
-
-      const resolvedCountry =
-        countries.find((c) => String(c.id) == String(firstAddr.country))
-          ?.name ||
-        firstAddr.country ||
-        "";
-
-      // Try to resolve State and City from selection, then from the full list, then from the options array in Formik values
-      const stateOptions = values.addressStatesOptions?.[0] || [];
-      const cityOptions = values.addressCitiesOptions?.[0] || [];
-
-      const resolvedState =
-        stateSelection?.name ||
-        states.find((s) => String(s.id) == String(firstAddr.state))?.name ||
-        stateOptions.find((s: any) => String(s.id) == String(firstAddr.state))
-          ?.name ||
-        firstAddr.state ||
-        "";
-
-      const resolvedCity =
-        citySelection?.name ||
-        cities.find((c) => String(c.id) == String(firstAddr.city))?.name ||
-        cityOptions.find((c: any) => String(c.id) == String(firstAddr.city))
-          ?.name ||
-        firstAddr.city ||
-        "";
-
-      // Resolve Multiple Services and Categories
-      const resolvedServices = (values.serviceIds || []).map(
-        (id: string) =>
-          services.find((s) => String(s.id) == String(id))?.name || id,
-      );
-      const resolvedCategories = (values.categoryIds || []).map(
-        (id: string) =>
-          categories.find((c) => String(c.id) == String(id))?.name || id,
-      );
-
-      const exportData = {
-        ...values,
-        fileLocationCompanyType:
-          selectedCompanyType || values.fileLocationCompanyType,
-        fileLocationCompany: selectedCompany || values.fileLocationCompany,
-        // Override service/category lists with names
-        service_names: resolvedServices,
-        category_names: resolvedCategories,
-        // Override address fields with names
-        addresses: values.addresses?.map((addr: any, index: number) =>
-          index === 0
-            ? {
-              ...addr,
-              country: resolvedCountry,
-              state: resolvedState,
-              city: resolvedCity,
-            }
-            : addr,
-        ),
-        address:
-          values.addresses?.[0]?.projectAddress || values.projectAddress || "",
-        // Use selected template or default to placeholder.docx
-        templateName:
-          values.selected_template ||
-          values.exportTemplate ||
-          "placeholder.docx",
-      };
-
-      const data =
-        type === "docx"
-          ? await exportLeadDocx(values.id, exportData)
-          : await exportLeadPdf(values.id, exportData);
-
-      const blob = new Blob([data], {
-        type:
-          type === "docx"
-            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            : "application/pdf",
-      });
-
-      // PREMIUM: Use File System Access API if available (shows "Save As" dialog)
-      if ("showSaveFilePicker" in window) {
-        try {
-          const handle = await (window as any).showSaveFilePicker({
-            suggestedName: `Lead_${values.projectName || values.id}.${type}`,
-            types: [
-              {
-                description: type === "docx" ? "Word Document" : "PDF Document",
-                accept: { [blob.type]: [`.${type}`] },
-              },
-            ],
-          });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-          console.log("✅ File saved successfully via Save Picker");
-          return; // Exit if successful
-        } catch (err: any) {
-          if (err.name === "AbortError") return; // User cancelled
-          console.warn(
-            "Save Picker failed, falling back to standard download:",
-            err,
-          );
-        }
-      }
-
-      // FALLBACK: Standard download
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `Lead_${values.projectName || values.id}.${type}`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error(`Error exporting ${type}:`, error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
   const employeeId = useSelector(
     (state: RootState) => state.employee?.currentEmployee?.id,
   );
@@ -2774,7 +2629,7 @@ const LeadWizardModal = ({
     // preserved here — the legacy else-branch wiped it, so the reason never persisted
     // and never appeared in the audit trail.
     const isNotReceivedOutcome =
-      !!selectedStatusObj && selectedStatusObj.name === "Not Received";
+      !!selectedStatusObj && selectedStatusObj.code === "NOT_RECEIVED";
     if (isClosureOutcome) {
       finalData.isCancelled = true;
       finalData.cancellationDate =

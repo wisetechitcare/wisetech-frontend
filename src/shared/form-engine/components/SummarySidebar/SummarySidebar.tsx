@@ -1,80 +1,51 @@
 import React from "react";
-import { PictureAsPdf, Description, InfoOutlined } from "@mui/icons-material";
+import { Info } from "lucide-react";
+import { Separator } from "@/ds/ui/separator";
+import { cn } from "@/ds/lib/utils";
 import { SummaryRow } from "../../types/formEngine.types";
-import "@app/pages/employee/forms/shared/Workspace.css";
 
 interface SummarySidebarProps {
   title: string;
   rows: SummaryRow[];
-  isSubmitting?: boolean;
-  isEditMode?: boolean;
-  onCancel: () => void;
-  exportPdf?: () => void;
-  exportDocx?: () => void;
-  submitDisabled?: boolean;
-  submitText?: string;
   warningMessage?: string;
   /** Extra content under the rows. */
   extra?: React.ReactNode;
-  /** When true, hides the submit/cancel action buttons (used inside wizard footer instead) */
-  hideSubmitButton?: boolean;
 }
 
-export const SummarySidebar: React.FC<SummarySidebarProps> = ({
-  title,
-  rows,
-  isEditMode = false,
-  exportPdf,
-  exportDocx,
-  warningMessage,
-  extra,
-  hideSubmitButton = false,
-}) => {
-  return (
-    <div className="wt-summary-inner">
+export const SummarySidebar: React.FC<SummarySidebarProps> = ({ title, rows, warningMessage, extra }) => (
+  <div className="flex flex-col gap-3 px-4 pt-1 pb-5">
+    <h3 className="m-0 text-xs font-bold tracking-wider text-foreground uppercase">{title}</h3>
+    <Separator />
 
-      {/* ── Section Title ────────────────────────────────────────────── */}
-      <div className="wt-summary-title">{title}</div>
+    {rows.length > 0 ? (
+      <dl className="m-0 flex flex-col">
+        {rows.map((row, index) => (
+          <div
+            key={`${row.label}-${index}`}
+            className="flex items-start justify-between gap-3 border-b border-border/60 py-2.5 last:border-b-0"
+          >
+            <dt className="shrink-0 text-xs font-medium text-muted-foreground">{row.label}</dt>
+            <dd className={cn("m-0 min-w-0 text-right text-xs font-semibold break-words text-foreground", row.isStrong && "text-primary")}>
+              {row.value || <span className="font-normal text-muted-foreground italic">—</span>}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    ) : extra ? null : (
+      <div className="flex flex-col items-center gap-1.5 py-6 text-muted-foreground">
+        <Info className="size-5" />
+        <span className="text-xs font-medium">Fill in the form to see a summary</span>
+      </div>
+    )}
 
-      <div className="wt-summary-divider" />
+    {extra}
 
-      {/* ── Summary Rows ─────────────────────────────────────────────── */}
-      {rows.length > 0 ? (
-        <div className="wt-summary-rows">
-          {rows.map((row, index) => (
-            <div key={`${row.label}-${index}`} className="wt-summary-row">
-              <span className="wt-summary-row-label">{row.label}</span>
-              <span className={`wt-summary-row-value ${row.isStrong ? "wt-val-strong" : ""}`}>
-                {row.value || <span style={{ color: "var(--wt-gray-400)", fontStyle: "italic", fontWeight: 400 }}>—</span>}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : extra ? null : (
-        <div style={{ textAlign: "center", padding: "1.5rem 0", color: "var(--wt-gray-400)" }}>
-          <InfoOutlined style={{ fontSize: "1.5rem", marginBottom: "0.375rem", display: "block", margin: "0 auto 0.375rem" }} />
-          <span style={{ fontSize: "0.72rem", fontWeight: 500 }}>Fill in the form to see a summary</span>
-        </div>
-      )}
-
-      {extra}
-
-      {/* ── Warning Message ───────────────────────────────────────────── */}
-      {warningMessage && (
-        <div className="wt-summary-warning">
-          {warningMessage}
-        </div>
-      )}
-
-      {/* ── Preservation Note ─────────────────────────────────────────── */}
-      {!hideSubmitButton && (
-        <div className="wt-preserve-notice">
-          <InfoOutlined style={{ fontSize: "0.9rem", flexShrink: 0, marginTop: "1px" }} />
-          All data is saved securely and encrypted as per company policy.
-        </div>
-      )}
-    </div>
-  );
-};
+    {warningMessage && (
+      <div className="rounded-xl bg-warning-soft px-3 py-2.5 text-xs font-medium text-warning-foreground ring-1 ring-warning/30">
+        {warningMessage}
+      </div>
+    )}
+  </div>
+);
 
 export default SummarySidebar;

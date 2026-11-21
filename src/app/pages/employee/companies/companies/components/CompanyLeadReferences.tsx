@@ -1,6 +1,7 @@
 import React from "react";
 import MaterialTable from "@app/modules/common/components/MaterialTable";
 import dayjs from "dayjs";
+import { formatCurrencyDecimal } from "@utils/currency";
 import {
   LeadStatusPill,
   leadRowSx,
@@ -97,7 +98,10 @@ const CompanyLeadReferences: React.FC<{
       size: 130,
       accessorFn: (r: LeadReferral) =>
         (r.lead?.commercials || []).reduce((sum, c) => sum + (Number(c?.cost) || 0), 0),
-      Cell: ({ cell }: any) => `₹${Number(cell.getValue()).toLocaleString()}`,
+      // `formatCurrencyDecimal`, not a hardcoded glyph: the symbol follows the BRANCH, so a ₹ here
+      // shows the wrong currency to every tenant that is not on INR — and it also skips the lakh/crore
+      // grouping that `toLocaleString()` has no way to know about.
+      Cell: ({ cell }: any) => formatCurrencyDecimal(Number(cell.getValue())),
     }] : []),
     {
       id: "organization",

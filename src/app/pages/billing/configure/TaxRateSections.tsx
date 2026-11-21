@@ -1,11 +1,14 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Stack, Typography } from "@mui/material";
+import { Percent, Plus, RefreshCw, Scissors, Trash2 } from "lucide-react";
 import { ConfigSectionCard } from "@app/modules/configuration";
+import type { IconSource } from "@/ds/ui/dynamic-icon";
+import { AutoGrid } from "@/ds/patterns/auto-grid";
+import { LEGACY_UIKIT } from "@app/theme/tokens";
 import {
   GlassDialog, GlassHeader, WtButton, WtCheckboxField, WtField, ConfigColorChip,
 } from "@app/modules/common/components/ui";
-import { confirmDialog, toast } from "@app/modules/common/components/ui/feedback";
+import { alertDialog, confirmDialog, toast } from "@app/modules/common/components/ui/feedback";
 import { canDelete } from "@utils/can";
 import {
   getBillingTaxRates, saveGstSlab, deleteGstSlab, saveTdsSection, deleteTdsSection,
@@ -43,6 +46,8 @@ interface Draft {
   section: string;
   isDefault: boolean;
   isActive: boolean;
+  /** Saved as the default: it stays default (and available) until another rate takes it over. */
+  locked?: boolean;
 }
 
 const emptyDraft = (kind: Kind): Draft => ({
@@ -57,6 +62,7 @@ const toDraft = (kind: Kind, row: TaxRateRow): Draft => ({
   section: row.section ?? "",
   isDefault: row.isDefault,
   isActive: row.isActive,
+  locked: row.isDefault,
 });
 
 /**
@@ -90,26 +96,25 @@ const rateCaption = (kind: Kind, row: TaxRateRow): string => {
  * rows, each a single glance tall.
  */
 const RateGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Box
-    sx={{
-      display: "grid",
-      gridTemplateColumns: {
-        xs: "1fr",
-        sm: "repeat(auto-fill, minmax(260px, 1fr))",
-        lg: "repeat(auto-fill, minmax(300px, 1fr))",
-      },
-      gap: 1.25,
-      mt: 2,
-    }}
-  >
-    {children}
-  </Box>
+  <AutoGrid min={280} stretch className="mt-4 gap-2.5">{children}</AutoGrid>
 );
 
-/** A retired rate reads as muted; a live one carries its section's colour. */
-const GST_COLOUR = "#2563eb";
-const TDS_COLOUR = "#d97706";
-const RETIRED_COLOUR = "#cbd5e1";
+/**
+ * A retired rate reads as muted; a live one carries its section's colour.
+ *
+ * Token references, not literals: these three were `#2563eb` / `#d97706` / `#cbd5e1`
+ * written out by hand, and the first two are character-for-character the SSOT's
+ * `vivid.blue` and `vivid.amber` — copied out of the token module rather than imported.
+ *
+ * They stay HEX STRINGS rather than becoming `var(--token)` because `ConfigColorChip`
+ * feeds its colour through `toneAlpha()`, which parses the six hex digits to build the
+ * chip's soft hover tint and returns its input untouched on failure. A CSS variable
+ * would therefore paint a fully-opaque fill instead of a 16% one. The indirection dies
+ * with that adapter, not before.
+ */
+const GST_COLOUR = LEGACY_UIKIT.color.vivid.blue;
+const TDS_COLOUR = LEGACY_UIKIT.color.vivid.amber;
+const RETIRED_COLOUR = LEGACY_UIKIT.color.inkFaint;
 
 const TaxRateSections: React.FC = () => {
   const queryClient = useQueryClient();
@@ -171,6 +176,16 @@ const TaxRateSections: React.FC = () => {
    * through to a server error.
    */
   const confirmDelete = async (kind: Kind, row: TaxRateRow) => {
+    // The default only moves by choosing another one — the server refuses this too.
+    if (row.isDefault) {
+      const noun = kind === "GST" ? "slab" : "section";
+      await alertDialog({
+        icon: "info",
+        title: `"${row.name}" is the default`,
+        text: `New bills start on it, so it can't be deleted or retired. Open another ${noun}, tick "Set as Default", then come back to this one.`,
+      });
+      return;
+    }
     if (row.billCount > 0) {
       const retire = await confirmDialog({
         icon: "warning",
@@ -199,7 +214,7 @@ const TaxRateSections: React.FC = () => {
     description: string,
     rows: TaxRateRow[],
     colour: string,
-    icon: string,
+    icon: IconSource,
     iconColor: "blue" | "amber",
   ) => (
     <ConfigSectionCard
@@ -211,7 +226,7 @@ const TaxRateSections: React.FC = () => {
       badge={{ label: `${rows.length}` }}
       primaryAction={{
         label: kind === "GST" ? "New Slab" : "New Section",
-        icon: "bi-plus-lg",
+        icon: Plus,
         onClick: () => setDraft(emptyDraft(kind)),
         disabled: busy,
       }}
@@ -237,14 +252,22 @@ const TaxRateSections: React.FC = () => {
             badge={row.isDefault ? "Default" : row.isActive ? undefined : "Retired"}
             disabled={busy}
             onEdit={() => setDraft(toDraft(kind, row))}
-            action={canDelete("billing.configure") ? {
-              icon: "bi-trash",
-              title: row.billCount > 0
-                ? `${row.billCount} bill(s) use this — retire it instead`
-                : `Delete ${row.name}`,
+            action={!canDelete("billing.configure") ? undefined : !row.isActive ? {
+              // Retired: the way back, not a bin.
+              icon: RefreshCw,
+              title: `Restore ${row.name} to the bill form`,
+              tone: "revert",
+              onClick: () => save.mutate({ ...toDraft(kind, row), isActive: true }),
+            } : {
+              icon: Trash2,
+              title: row.isDefault
+                ? "The default — make another one the default first"
+                : row.billCount > 0
+                  ? `${row.billCount} bill(s) use this — retire it instead`
+                  : `Delete ${row.name}`,
               danger: true,
               onClick: () => confirmDelete(kind, row),
-            } : undefined}
+            }}
           />
         ))}
       </RateGrid>
@@ -265,13 +288,13 @@ const TaxRateSections: React.FC = () => {
       {section(
         "GST", "GST Slabs",
         "The rate charged on top of a bill and paid over to the government. A bill picks one; the default is what a new bill starts on.",
-        data?.gstSlabs ?? [], GST_COLOUR, "bi-percent", "blue",
+        data?.gstSlabs ?? [], GST_COLOUR, Percent, "blue",
       )}
 
       {section(
         "TDS", "TDS Sections",
         "Tax the client withholds from your bill under the Income Tax Act. It lowers what actually reaches the bank, and each bill tracks whether the client deposited it.",
-        data?.tdsSections ?? [], TDS_COLOUR, "bi-scissors", "amber",
+        data?.tdsSections ?? [], TDS_COLOUR, Scissors, "amber",
       )}
 
       <GlassDialog
@@ -301,7 +324,7 @@ const TaxRateSections: React.FC = () => {
         }
       >
         {draft && (
-          <Stack spacing={3} sx={{ px: 3, pt: 1, pb: 3 }}>
+          <div className="flex flex-col gap-6 px-6 pt-2 pb-6">
             <WtField
               label="Name"
               required
@@ -343,29 +366,31 @@ const TaxRateSections: React.FC = () => {
               }
             />
 
-            <Stack spacing={1.5}>
+            <div className="flex flex-col gap-3">
               <WtCheckboxField
                 size="sm"
                 checked={draft.isDefault}
-                disabled={busy || !draft.isActive}
+                disabled={busy || !draft.isActive || draft.locked}
                 onChange={(e) => patch({ isDefault: e.target.checked })}
                 label={draft.kind === "GST" ? "Set as Default Slab" : "Set as Default Section"}
-                description="What a new bill starts on. Only one can hold it — turning it on takes it off whichever has it now. A retired rate cannot be the default."
+                description={draft.locked
+                  ? "This is the default. To change it, open another one and set that as the default instead."
+                  : "What a new bill starts on. Only one can hold it — turning it on takes it off whichever has it now. A retired rate cannot be the default."}
               />
 
               <WtCheckboxField
                 size="sm"
                 checked={draft.isActive}
-                disabled={busy}
+                disabled={busy || draft.locked}
                 onChange={(e) =>
                   patch({ isActive: e.target.checked, isDefault: e.target.checked && draft.isDefault })
                 }
                 label="Available on the bill form"
                 description="Turn this off to retire a rate. Bills already raised on it keep their figures — nothing here is retroactive."
               />
-            </Stack>
+            </div>
 
-            <Stack direction="row" justifyContent="flex-end">
+            <div className="flex flex-row justify-end">
               <WtButton
                 disabled={!canSave}
                 onClick={() => save.mutate(draft)}
@@ -373,8 +398,8 @@ const TaxRateSections: React.FC = () => {
               >
                 {save.isPending ? "Saving…" : draft.id ? "Update" : "Create"}
               </WtButton>
-            </Stack>
-          </Stack>
+            </div>
+          </div>
         )}
       </GlassDialog>
     </>

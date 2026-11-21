@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useHomeRootOrg } from './useRootOrgNames';
+import { rememberSplashLogo, rememberSplashVideo } from '@utils/splashBrand';
 
 const DEFAULT_TITLE = 'Wisetech MEP Consultants Pvt Ltd';
 
@@ -11,7 +12,14 @@ const DEFAULT_TITLE = 'Wisetech MEP Consultants Pvt Ltd';
  * first paint; this takes over once the session home root resolves.
  */
 export function useHomeBrand(): void {
-  const { name, logo } = useHomeRootOrg();
+  const { id, name, logo, splashVideoDesktop } = useHomeRootOrg();
+
+  // The next load's splash plays this organization's video (or none) — only once the org is actually known, so a
+  // still-loading empty result never wipes them.
+  useEffect(() => {
+    if (!id) return;
+    rememberSplashVideo(splashVideoDesktop);
+  }, [id, splashVideoDesktop]);
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -23,6 +31,8 @@ export function useHomeBrand(): void {
 
   useEffect(() => {
     if (!logo) return;
+    // The next load's splash screen shows this organization's logo (see utils/splashBrand).
+    rememberSplashLogo(logo);
 
     const selector = 'link[rel="shortcut icon"], link[rel="icon"]';
     const existing = document.querySelectorAll<HTMLLinkElement>(selector);

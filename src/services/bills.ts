@@ -21,6 +21,33 @@ export type BillBlockReason = "ALREADY_BILLED" | "ZERO_AMOUNT";
 export type PaymentMethod =
   | "CASH" | "CHEQUE" | "NEFT" | "RTGS" | "IMPS" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "OTHER";
 
+/** Where one of a bill's three amounts stands, from the receipts recorded against it. */
+export type SettlementTone = "received" | "partial" | "pending";
+
+export interface SettlementLine {
+  /** What the line is worth: the Bill Amount after TDS, the GST, or the TDS itself. */
+  amount: number;
+  received: number;
+  pending: number;
+  tone: SettlementTone;
+  settledAt: string | null;
+}
+
+export interface BillSettlement {
+  basic: SettlementLine;
+  gst: SettlementLine;
+  /** Null on a bill with no TDS. */
+  tds: SettlementLine | null;
+  /** The lines added up — the Bill Value. */
+  total: number;
+  received: number;
+  pending: number;
+  overall: SettlementTone;
+}
+
+/** What a receipt was recorded against. Null = a lump from before components existed. */
+export type PaymentComponent = "BASIC" | "GST" | "TDS";
+
 export interface BillOnRow {
   id: string;
   billNumber: string;
@@ -49,6 +76,10 @@ export interface BillOnRow {
   gstPaid: boolean;
   gstPaidAt: string | null;
   paymentCount: number;
+  /** Bill Amount / GST / TDS: each one's value, what has come in against it, what is left. */
+  settlement: BillSettlement;
+  /** Documents of this bill that were archived — its history, newest first. Never the bill's live ones. */
+  archivedDocuments: ArchivedDocument[];
   /** The proforma — the request for money, raised first. */
   proformaDocumentId: string | null;
   proformaNumber: string | null;
@@ -64,6 +95,11 @@ export interface BillOnRow {
    */
   proformaStatus: DocumentStatus | null;
   invoiceStatus: DocumentStatus | null;
+  /** The proforma's current version, and where it stands with the client (see `proformaApprovalOf`). */
+  proformaVersionId: string | null;
+  proformaVersionStatus:
+    | "DRAFT" | "GENERATED" | "SENT" | "VIEWED" | "CLIENT_ACCEPTED" | "CLIENT_REJECTED" | "SUPERSEDED" | "ARCHIVED"
+    | null;
   /** More than one means the proforma has been revised. */
   proformaVersions: number;
   /**
@@ -94,14 +130,49 @@ export interface StageDeliverable {
 }
 
 /** One payment stage — the unit a bill is raised against. */
-export interface ProjectBillingRow {
-  stageId: string;
-  stageName: string;
-  stageSortOrder: number;
-  /** Share of the contract. */
-  percentage: number;
-  /** Taxable value of the stage. */
+/** A row's slice of its bill's money: the bill's own over one stage, its share when the bill covers several. */
+export interface BillSlice {
   amount: number;
+  gstAmount: number;
+  tdsAmount: number;
+  totalAmount: number;
+  expectedAmount: number;
+  receivedAmount: number;
+  outstandingAmount: number;
+}
+
+/** A proforma or tax invoice of a bill that was archived — kept for the bill's history, not part of its live path. */
+export interface ArchivedDocument {
+  id: string;
+  kind: "PROFORMA" | "TAX_INVOICE";
+  number: string;
+  date: string | null;
+  archivedAt: string;
+}
+
+export interface ProjectBillingRow {
+  /** On a stage with no live bill: the archived documents of its cancelled bills, newest first. */
+  previousDocuments: ArchivedDocument[];
+  /** Unique per row: the bill's id (`<billId>:<stageId>` when it covers several stages), or `<stageId>:open`. */
+  rowId: string;
+  stageId: string;
+  /** "Advance (Part 2)" when the stage is billed in parts. */
+  stageName: string;
+  /** 1-based part number, or null when the stage is a single row. */
+  partNo: number | null;
+  stageSortOrder: number;
+  /** The whole stage's taxable value — `amount` is this row's slice of it. */
+  stageAmount: number;
+  /** The whole stage's share of the contract, in percent (e.g. 34). */
+  stageShare: number;
+  /** Share of the contract (this row's slice, when billed in parts). */
+  percentage: number;
+  /** Taxable value of this row: its bill line, or what is left to bill. */
+  amount: number;
+  /** Set when billed: this row's slice of the bill's money. Columns and totals read this, never the whole bill. */
+  slice: BillSlice | null;
+  /** Every stage the row's bill covers — more than one when a bill spans stages. */
+  covers: string[];
   /** Work done across its deliverables, weighted by their shares. */
   work: { progress: number; completed: number; total: number };
   deliverables: StageDeliverable[];
@@ -149,17 +220,6 @@ export interface ProjectBillingPayload {
   capabilities: { canBill: boolean; canRecordPayment: boolean };
 }
 
-export interface BillPayment {
-  id: string;
-  amount: number;
-  paymentDate: string;
-  method: PaymentMethod;
-  reference: string | null;
-  bankName: string | null;
-  remarks: string | null;
-  createdAt: string;
-}
-
 const url = (path: string) => `${API_BASE_URL}/${path}`;
 const byId = (path: string, id: string) =>
   `${API_BASE_URL}/${path.replace(/:(id|paymentId|projectId)/, encodeURIComponent(id))}`;
@@ -177,8 +237,15 @@ export const getProjectBilling = async (projectId: string): Promise<ProjectBilli
   };
 };
 
-export interface RaiseBillInput {
+export interface RaiseBillLine {
   stageId: string;
+  /** Taxable value to bill on this stage; omitted = all that is left on it. */
+  amount?: number;
+}
+
+export interface RaiseBillInput {
+  /** The stages this bill covers, each in full or in part. */
+  lines: RaiseBillLine[];
   gstSlabId?: string | null;
   tdsSectionId?: string | null;
   billDate?: string | null;
@@ -233,7 +300,10 @@ export const cancelBill = async (billId: string, reason?: string | null) => {
 };
 
 export interface RecordPaymentInput {
-  amount: number;
+  /** A lump with no component — the older way. Prefer `components`. */
+  amount?: number;
+  /** What this receipt covers: any of the three, each part or full. */
+  components?: { basic?: number; gst?: number; tds?: number };
   paymentDate: string;
   method?: PaymentMethod;
   reference?: string | null;
@@ -244,6 +314,17 @@ export interface RecordPaymentInput {
 export const recordBillPayment = async (billId: string, input: RecordPaymentInput) => {
   const { data } = await axios.post(byId(BILLS.PAYMENTS, billId), input, { withCredentials: true });
   return data.bill;
+};
+
+export interface SplitPaymentInput extends Omit<RecordPaymentInput, "amount" | "components"> {
+  /** What each bill takes from this one payment, by component. */
+  allocations: Array<{ billId: string; components: { basic?: number; gst?: number; tds?: number } }>;
+}
+
+/** One payment from the client shared across several of its bills — all of them or none. */
+export const recordSplitPayment = async (input: SplitPaymentInput) => {
+  const { data } = await axios.post(url(BILLS.SPLIT_PAYMENT), input, { withCredentials: true });
+  return data.bills;
 };
 
 /**

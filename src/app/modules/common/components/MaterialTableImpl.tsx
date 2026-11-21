@@ -439,6 +439,11 @@ const pinnedCellSx = (mode: "light" | "dark") => ({
  * hardcoded light, so a dark-mode user watched a correct dark skeleton flip to a white
  * box before the table painted.
  */
+/** One of MRT's blank skeleton rows (an empty object), not a real record. */
+// MRT's skeleton rows are `{ [columnId]: null, ... }` — one null key per column, not `{}`.
+const isSkeletonRow = (row: unknown): boolean =>
+  !!row && typeof row === "object" && Object.values(row as object).every((v) => v === null);
+
 const skeletonPalette = (mode: "light" | "dark") =>
   mode === "light"
     ? { surface: "#fff", header: "#FAFBFC", border: "#EAECF0", rowBorder: "#F3F4F6", bar: "#E5E7EB", barSoft: "#F3F4F6" }
@@ -621,6 +626,11 @@ function MaterialTable({
             }
           : {}),
         ...col, // custom column values will override defaults
+        // While loading, MRT fills the table with blank `{}` rows for the skeleton — and still builds the filter
+        // dropdowns from them, so an accessor reading `r.settlement.basic` crashed the page. Blank rows have no value.
+        ...(typeof col.accessorFn === "function"
+          ? { accessorFn: (row: any, index: number) => (isSkeletonRow(row) ? undefined : col.accessorFn(row, index)) }
+          : {}),
         // The search query is read from context INSIDE HighlightedCell, not closed over
         // here — see SearchQueryContext. That is what keeps this memo independent of the
         // query and off the per-keystroke path.
@@ -1296,8 +1306,8 @@ function MaterialTable({
    * column stuck on top of the first and the scrolled columns slid under a gap — while tables
    * whose sizes are content-fitted (payroll) happened to line up. Measure the real header cells
    * and pin every cell of that column (head, body, footer — they share `data-index`) there.
-   * The same measured total drives the scroll-snap padding, so snapping lands a whole column
-   * beside the pinned block instead of half under it.
+   * The same measured total drives the scroll padding, so keyboard / focus scrolling brings a
+   * column to rest beside the pinned block instead of half under it.
    */
   const [pinnedLayout, setPinnedLayout] = useState<{ lefts: [string, number][]; width: number }>({ lefts: [], width: 0 });
   useEffect(() => {
@@ -2027,9 +2037,6 @@ function MaterialTable({
                 "&[data-pinned='true']": {
                   zIndex: 3,
                 },
-                "&:not([data-pinned='true'])": {
-                  scrollSnapAlign: "start",
-                },
 
 
                 ...muiTableHeadCellStyle,
@@ -2075,7 +2082,9 @@ function MaterialTable({
                 // and the virtualizer has no viewport to window against. A page's own
                 // maxHeight (customMuiTableContainerProps.sx, spread below) still wins.
                 ...(showColumnFooter || enableRowVirtualization ? { maxHeight: "70vh" } : {}),
-                scrollSnapType: "x proximity",
+                // No scroll-snap: it pulled a dragged scrollbar (and Shift+wheel) back to the nearest column edge, so the
+                // far end could never be reached cleanly. `scrollPaddingLeft` stays so keyboard/focus scrolling still
+                // clears the pinned columns.
                 scrollPaddingLeft: `${leftPinnedWidth}px`,
                 ...pinnedLeftSx,
 
@@ -2121,7 +2130,10 @@ function MaterialTable({
               };
 
               // Merge caller-supplied row props (onClick, cursor, etc.) ON TOP of the status styling.
-              const custom = muiTableProps?.muiTableBodyRowProps ? (muiTableProps.muiTableBodyRowProps(rowArgs) as any) : {};
+              // Skeleton rows carry no fields; caller row props would read e.g. `r.settlement.overall` off nothing.
+              const custom = muiTableProps?.muiTableBodyRowProps && !isSkeletonRow(row.original)
+                ? (muiTableProps.muiTableBodyRowProps(rowArgs) as any)
+                : {};
               const { sx: customSx, ...customRest } = custom || {};
               // 14 legacy pages force `nowrap + overflow:hidden + ellipsis` on every cell
               // through this same selector, which outranks muiTableBodyCellProps and clipped

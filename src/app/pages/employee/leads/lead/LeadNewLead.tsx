@@ -1172,7 +1172,7 @@ const LeadNewLead: React.FC = () => {
           },
           Cell: ({ row }: any) => {
             const poStatus = row?.original?.poStatus;
-            if (row?.original?.status?.name !== "Received" || !poStatus)
+            if (!row?.original?.status?.isProjectTrigger || !poStatus)
               return <span>N/A</span>;
             const color =
               poStatusColorMap.get(poStatus.toLowerCase()) ||

@@ -65,6 +65,7 @@ function FieldChrome({
   errorMessage,
   children,
 }: FieldChromeProps & { children: React.ReactNode }) {
+  // A required field's `*` comes from the control's aria-required (styles/components.css), as for every field.
   return (
     <>
       {label && <AriaFieldLabel>{label}</AriaFieldLabel>}
