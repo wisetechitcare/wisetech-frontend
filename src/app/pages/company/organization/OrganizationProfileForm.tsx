@@ -12,7 +12,7 @@ import { AutoGrid } from '@/ds/patterns/auto-grid';
 import { FormDialog } from '@/ds/patterns/form-dialog';
 import { ImageField } from '@/ds/patterns/image-field';
 import { VideoField } from '@/ds/patterns/video-field';
-import { createCompanyOverview, fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview, uploadSplashVideo, SPLASH_VIDEO_MAX_BYTES } from '@services/company';
+import { fetchCompanyOverview, fetchOrganizationById, updateCompanyOverview, uploadSplashVideo, SPLASH_VIDEO_MAX_BYTES } from '@services/company';
 import { uploadCompanyAsset } from '@services/uploader';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { ICompanyOverview, IFormSection, IFormField } from "@models/company";
@@ -36,7 +36,7 @@ import { canSection } from '@utils/can';
 // the standalone Admin Settings page; it now lives here as a built-in field. The main
 // organization already has it configured, so this default only kicks in if an org's
 // value is ever blank — keeping admin notifications/working from silently losing a recipient.
-export const DEFAULT_SUPER_ADMIN_EMAIL = 'wisetechandassociates@gmail.com';
+export const DEFAULT_SUPER_ADMIN_EMAIL = 'official@kaiznova.com';
 
 const initialValues: ICompanyOverview = {
     name: "",
@@ -182,10 +182,10 @@ const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
         const payload = { ...values, sectionConfig: formSchema, customSections: deriveCustomSections(formSchema) };
         try {
             if (isCreate) {
-                const res = await createCompanyOverview(payload as any);
-                if (!res || res.hasError) throw new Error('Failed to create organization profile');
-                successConfirmation('Successfully created organization profile');
-                setSchemaDirty(false);
+                // Root creation is PLATFORM_ONLY (new tenant). Sub-orgs are created from
+                // Organizations → New organization / Add sub-organization, with a parent id.
+                errorConfirmation('Create organizations from the Organizations list, under an existing parent.');
+                return;
             } else {
                 if (!companyId) throw new Error('Company ID is missing');
                 const res = await updateCompanyOverview(companyId, payload as any);

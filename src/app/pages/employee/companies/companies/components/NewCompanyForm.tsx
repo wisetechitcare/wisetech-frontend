@@ -809,6 +809,7 @@ const NewCompanyForm: React.FC<Props> = ({
   };
 
   useEffect(() => {
+    if (!editingCompanyId) return;
     fetchRatingFactors();
   }, [editingCompanyId]);
 

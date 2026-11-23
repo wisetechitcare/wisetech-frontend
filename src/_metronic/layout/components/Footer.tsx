@@ -19,7 +19,7 @@ const Footer: FC = () => {
             target='_blank'
             className='text-muted text-hover-primary me-2 fs-6'
           >
-            WISETECH MEP
+            KAIZNOVA
           </a>
         </div>
         {/*end::Copyright*/}

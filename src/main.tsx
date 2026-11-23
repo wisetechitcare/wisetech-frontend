@@ -40,6 +40,7 @@ import { ToastContainer, Slide } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import './app/theme/toast.css'
 import { getAuth, setupAxios } from './app/modules/auth'
+import { SUPPORT_VIEW_TOKEN_MARKER } from '@services/platformSupport'
 import { holdSplashDuringRequests } from '@utils/splashGate'
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { fetchCurrentUser } from '@services/users'
@@ -90,11 +91,13 @@ const container = document.getElementById('root')
 // bootstrap calls below. Only legacy (pre-cookie) sessions still persist a
 // readable token, so the client-side expiry check applies to them alone.
 const hasLegacyToken = Boolean(currentUser?.token);
+const isSupportViewMarker = currentUser?.token === SUPPORT_VIEW_TOKEN_MARKER;
 let isTokenExpired = false;
-if (hasLegacyToken) {
+if (hasLegacyToken && !isSupportViewMarker) {
   // A token that cannot be decoded (corrupted / tampered storage) is a dead session: treat it as expired, so the
   // gate below clears it and shows Sign In. It used to throw here — a permanent white screen on every load, with
   // no way back to Sign In (audit C-09).
+  // Support view-as uses a non-JWT marker + httpOnly support cookie — never treat it as expired JWT.
   try {
     const decodedToken = jwtDecode(currentUser.token);
     if (decodedToken.iat && decodedToken.exp) {

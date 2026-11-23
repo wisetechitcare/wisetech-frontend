@@ -26,12 +26,7 @@ function TextAreaInput({ isRequired, label, formikField, readonly, placeholder, 
 
     return (
         <Field data-invalid={errorText ? true : undefined}>
-            {label && (
-                <FieldLabel htmlFor={id}>
-                    {label}
-                    {isRequired && <span aria-hidden className="text-destructive">*</span>}
-                </FieldLabel>
-            )}
+            {label && <FieldLabel htmlFor={id}>{label}</FieldLabel>}
             <Textarea
                 {...field}
                 value={field.value ?? ""}

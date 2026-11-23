@@ -10,6 +10,7 @@ import { setUserId, loadTimerStateThunk } from '@redux/slices/timer'
 import GlobalTimerModal from '../components/GlobalTimerModal';
 import { IdleLogoutGuard } from './components/IdleLogoutGuard';
 import { SecurityPinHost } from '@app/modules/common/components/SecurityPin';
+import { PlatformSupportBanner } from '@app/modules/platform/PlatformSupportBanner'
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { ensureCurrentCompanyLoaded, fetchColorAndStoreInSlice } from '@utils/file';
 import { usePushSubscription } from '../hooks/usePushSubscription';
@@ -243,6 +244,8 @@ const App = () => {
                     {treeMounted.current ? <Outlet key={`${timeFormat}:${currency}`} /> : <LayoutSplashScreen />}
                   </UnsavedChangesProvider>
                   <MasterInit />
+                  {/* KAIZNOVA support view-as banner (cookie-driven; works without tenant JWT). */}
+                  <PlatformSupportBanner />
                   <Toaster richColors position="top-right" />
                   <PwaHost />
                   {/* The one imperative dialog (showDialog / confirmDialog / utils/modal helpers).
