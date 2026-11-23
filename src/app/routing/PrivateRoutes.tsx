@@ -20,6 +20,7 @@ import NoAccessPage from '@app/modules/common/components/NoAccessPage'
 import { RequirePermission } from '@app/modules/common/components/RequirePermission'
 import { can } from '@utils/can'
 
+const SupportApprovalsPage = lazy(() => import('@pages/support/SupportApprovalsPage'))
 const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
 const CustomCalendar = lazy(() => import('@pages/employee/CustomCalendar'))
 const Overview = lazy(() => import('@pages/company/Overview'))
@@ -164,6 +165,14 @@ const PrivateRoutes = () => {
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
         <Route path='dashboard' element={<DashboardWrapper />} />
+        <Route
+          path='support/approvals'
+          element={
+            <SuspensedView>
+              <SupportApprovalsPage />
+            </SuspensedView>
+          }
+        />
 
         {/* ── Legacy URL redirects ──────────────────────────────────────────────────
             These paths shipped, so they are in bookmarks, in already-sent emails, and

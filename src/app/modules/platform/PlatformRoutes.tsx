@@ -4,6 +4,7 @@ import { Spinner } from '@/ds/ui/spinner'
 import PlatformAcceptPage from './PlatformAcceptPage'
 import PlatformHomePage from './PlatformHomePage'
 import PlatformLoginPage from './PlatformLoginPage'
+import PlatformSupportPage from './PlatformSupportPage'
 import PlatformTenantCreatePage from './PlatformTenantCreatePage'
 import PlatformTenantDetailPage from './PlatformTenantDetailPage'
 import PlatformTenantsPage from './PlatformTenantsPage'
@@ -36,7 +37,7 @@ function PlatformLoginGate() {
 }
 
 /**
- * KAIZNOVA platform console — tenants + operators; accept is public.
+ * KAIZNOVA platform console — tenants, support, operators; accept is public.
  */
 export function PlatformRoutes() {
   return (
@@ -65,6 +66,14 @@ export function PlatformRoutes() {
           element={
             <PlatformGate>
               <PlatformTenantsPage />
+            </PlatformGate>
+          }
+        />
+        <Route
+          path="support"
+          element={
+            <PlatformGate>
+              <PlatformSupportPage />
             </PlatformGate>
           }
         />

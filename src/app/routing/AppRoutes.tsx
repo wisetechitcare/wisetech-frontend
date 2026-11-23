@@ -1,4 +1,4 @@
-import { FC } from 'react'
+import { FC, useEffect, useState } from 'react'
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -14,9 +14,12 @@ import { ErrorsPage } from '../modules/errors/ErrorsPage'
 import { Logout, AuthPage, getAuth } from '../modules/auth'
 import { PlatformRoutes } from '../modules/platform/PlatformRoutes'
 import { isPlatformConsoleEnabled } from '../modules/platform/platformConsoleFlag'
+import { SUPPORT_VIEW_TOKEN_MARKER } from '@services/platformSupport'
+import { bootstrapSupportViewIfNeeded } from '../modules/platform/bootstrapSupportView'
 import GoogleContactsCallback from '@pages/employee/companies/contacts/components/GoogleContactsCallback'
 import ShareRedirect from '@pages/share/ShareRedirect'
 import { App } from '../App'
+import { Spinner } from '@/ds/ui/spinner'
 
 const { BASE_URL } = import.meta.env
 
@@ -26,29 +29,74 @@ function useHasAuthenticatedSession() {
     || JSON.parse(localStorage.getItem('redirectToDashboard') || 'false')
 
   let isTokenExpired = false
-  if (currentUser?.token) {
-    const decodedToken = jwtDecode(currentUser.token)
-    if (decodedToken.iat && decodedToken.exp) {
-      isTokenExpired = Math.floor(Date.now() / 1000) > decodedToken.exp
+  if (currentUser?.token && currentUser.token !== SUPPORT_VIEW_TOKEN_MARKER) {
+    try {
+      const decodedToken = jwtDecode(currentUser.token)
+      if (decodedToken.iat && decodedToken.exp) {
+        isTokenExpired = Math.floor(Date.now() / 1000) > decodedToken.exp
+      }
+    } catch {
+      isTokenExpired = true
     }
   }
 
   return Boolean(currentUser && redirect && !isTokenExpired)
 }
 
+/** null = still probing support cookie; true/false = settled. */
+function useSupportViewBootstrap(hasSession: boolean): boolean | null {
+  const [ready, setReady] = useState<boolean | null>(hasSession ? true : null)
+  useEffect(() => {
+    if (hasSession) {
+      setReady(true)
+      return
+    }
+    let alive = true
+    void bootstrapSupportViewIfNeeded()
+      .then((session) => {
+        if (!alive) return
+        setReady(Boolean(session))
+      })
+      .catch(() => {
+        if (alive) setReady(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [hasSession])
+  return ready
+}
+
+function SupportProbeSpinner() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center" role="status">
+      <Spinner aria-label="Loading support session" />
+    </div>
+  )
+}
+
 const RootRedirect: FC = () => {
   const hasSession = useHasAuthenticatedSession()
-  return <Navigate to={hasSession ? '/dashboard' : '/auth'} replace />
+  const supportReady = useSupportViewBootstrap(hasSession)
+  if (hasSession || supportReady === true) return <Navigate to="/dashboard" replace />
+  if (supportReady === null) return <SupportProbeSpinner />
+  return <Navigate to="/auth" replace />
 }
 
 const AuthRoute: FC = () => {
   const hasSession = useHasAuthenticatedSession()
-  return hasSession ? <Navigate to="/dashboard" replace /> : <AuthPage />
+  const supportReady = useSupportViewBootstrap(hasSession)
+  if (hasSession || supportReady === true) return <Navigate to="/dashboard" replace />
+  if (supportReady === null) return <SupportProbeSpinner />
+  return <AuthPage />
 }
 
 const ProtectedRoute: FC = () => {
   const hasSession = useHasAuthenticatedSession()
-  return hasSession ? <PrivateRoutes /> : <Navigate to="/auth" replace />
+  const supportReady = useSupportViewBootstrap(hasSession)
+  if (hasSession || supportReady === true) return <PrivateRoutes />
+  if (supportReady === null) return <SupportProbeSpinner />
+  return <Navigate to="/auth" replace />
 }
 
 const router = createBrowserRouter(

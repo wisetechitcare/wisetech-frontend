@@ -107,7 +107,7 @@ export default function PlatformHomePage() {
 
   const acceptUrl = useMemo(() => {
     if (!inviteResult) return ''
-    return `${window.location.origin}${inviteResult.acceptPath}`
+    return inviteResult.acceptUrl || `${window.location.origin}${inviteResult.acceptPath}`
   }, [inviteResult])
 
   async function onInvite(e: FormEvent) {
@@ -245,7 +245,7 @@ export default function PlatformHomePage() {
   return (
     <PlatformShell
       title="Operators"
-      description="Invite KAIZNOVA staff with a one-time link — they set their own password and enrol MFA."
+      description="Invite KAIZNOVA staff by email — they set their own password and enrol MFA."
       actions={
         isAdmin ? (
           <Button
@@ -314,22 +314,33 @@ export default function PlatformHomePage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{inviteResult ? 'Invite Link Ready' : 'Invite Operator'}</DialogTitle>
+            <DialogTitle>{inviteResult ? 'Invite Sent' : 'Invite Operator'}</DialogTitle>
             <DialogDescription>
               {inviteResult
-                ? 'Copy this link once and share it out of band. It expires and cannot be shown again.'
-                : 'They will open the link, choose a password, then enrol an authenticator.'}
+                ? inviteResult.emailSent
+                  ? `Email sent to ${inviteResult.user.email}. You can still copy the link as a backup.`
+                  : 'Invite created, but email could not be sent. Copy the link and share it out of band.'
+                : 'They will open the email link, choose a password, then enrol an authenticator.'}
             </DialogDescription>
           </DialogHeader>
 
           {inviteResult ? (
             <div className="grid gap-4">
-              <Alert variant="warning">
-                <AlertTitle>Shown Once</AlertTitle>
-                <AlertDescription>If you close without copying, use Resend Invite on their row.</AlertDescription>
-              </Alert>
+              {inviteResult.emailSent ? (
+                <Alert variant="success">
+                  <AlertTitle>Email Queued</AlertTitle>
+                  <AlertDescription>
+                    If they do not see it, use Resend Invite or copy the backup link below.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert variant="warning">
+                  <AlertTitle>Email Not Sent</AlertTitle>
+                  <AlertDescription>Copy this link once. Resend Invite retries email delivery.</AlertDescription>
+                </Alert>
+              )}
               <Field>
-                <FieldLabel htmlFor="accept-url">Accept Link</FieldLabel>
+                <FieldLabel htmlFor="accept-url">Backup Accept Link</FieldLabel>
                 <div className="flex gap-2">
                   <Input id="accept-url" readOnly value={acceptUrl} className="font-mono text-xs" />
                   <Button

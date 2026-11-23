@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Building2, LogOut, Users } from 'lucide-react'
+import { Building2, Headset, LogOut, Users } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { ThemeToggle } from '@/ds/patterns/theme-toggle'
 import { useColorMode } from '@app/theme/ColorMode'
@@ -10,6 +10,7 @@ import { usePlatformSession } from './PlatformSessionContext'
 
 const NAV = [
   { to: '/platform/tenants', label: 'Tenants', icon: Building2, end: false },
+  { to: '/platform/support', label: 'Support', icon: Headset, end: false },
   { to: '/platform', label: 'Operators', icon: Users, end: true },
 ] as const
 

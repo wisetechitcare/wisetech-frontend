@@ -81,7 +81,9 @@ export type PlatformInviteResult = {
   user: PlatformOperator
   acceptToken: string
   acceptPath: string
+  acceptUrl: string | null
   expiresAt: string
+  emailSent: boolean
 }
 
 export async function listPlatformOperators(): Promise<PlatformOperator[]> {
