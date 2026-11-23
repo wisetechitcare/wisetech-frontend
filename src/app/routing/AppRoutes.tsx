@@ -12,6 +12,8 @@ import { RootState } from '@redux/store'
 import { PrivateRoutes } from './PrivateRoutes'
 import { ErrorsPage } from '../modules/errors/ErrorsPage'
 import { Logout, AuthPage, getAuth } from '../modules/auth'
+import { PlatformRoutes } from '../modules/platform/PlatformRoutes'
+import { isPlatformConsoleEnabled } from '../modules/platform/platformConsoleFlag'
 import GoogleContactsCallback from '@pages/employee/companies/contacts/components/GoogleContactsCallback'
 import ShareRedirect from '@pages/share/ShareRedirect'
 import { App } from '../App'
@@ -63,6 +65,12 @@ const router = createBrowserRouter(
       <Route path="s/:code" element={<ShareRedirect />} />
       <Route index element={<RootRedirect />} />
       <Route path="auth/*" element={<AuthRoute />} />
+      {/* Platform console — separate cookie/session; must sit before the tenant catch-all.
+          Kill switch: VITE_PLATFORM_CONSOLE_ENABLED=false (mirrors BE PLATFORM_CONSOLE_ENABLED). */}
+      <Route
+        path="platform/*"
+        element={isPlatformConsoleEnabled() ? <PlatformRoutes /> : <Navigate to="/auth" replace />}
+      />
       <Route path="/*" element={<ProtectedRoute />} />
     </Route>,
   ),
