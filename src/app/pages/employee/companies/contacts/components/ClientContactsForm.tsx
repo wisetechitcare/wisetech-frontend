@@ -2,17 +2,18 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Row, Col } from "react-bootstrap";
 import { Formik, Form as FormikForm, type FormikProps } from "formik";
 import * as Yup from "yup";
-import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
 import DropDownInput from "@app/modules/common/inputs/DropdownInput";
-import Select from "react-select";
-import { sortOptionsAlphabetically } from "@utils/sortUtils";
+import { Field, FieldLabel } from "@/ds/ui/field";
+import { Textarea } from "@/ds/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/ds/ui/toggle-group";
 import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
 import { ContactWorkspace } from "../../forms/ContactWorkspace";
 import { CrmSection } from "../../forms/CrmSection";
 import { ContactAddressSection } from "../../forms/ContactAddressSection";
 import {
   getAllClientCompanies,
+  getClientCompanyById,
   createClientContact,
   updateClientContact,
   getAllContactRoleTypes,
@@ -44,8 +45,7 @@ import CompaniesBranchForm from "../../companies/components/CompaniesBranchForm"
 import NewCompanyForm from "../../companies/components/NewCompanyForm";
 import { useEventBus } from "@hooks/useEventBus";
 import dayjs from "dayjs";
-import { FLOATING_MENU_BEHAVIOUR } from "@app/modules/common/inputs/selectMenuProps";
-import { AppIcon, useDiscardConfirm, FloatingLabels, FloatingLabelFrame, WtFieldFormik, WtSwitchField } from "@app/modules/common/components/ui";
+import { AppIcon, useDiscardConfirm, FloatingLabels, WtSwitchField } from "@app/modules/common/components/ui";
 import MultiSelectWithInlineCreate from "@app/modules/common/components/MultiSelectWithInlineCreate";
 import BirthdayField from "./BirthdayField";
 import { Box } from "@mui/material";
@@ -77,7 +77,6 @@ interface ClientContactsFormProps {
   onClose: () => void;
   contactId?: string | null;
   initialData?: Partial<ContactFormValues>
-  key?: string
   clearContactId?: () => void;
   selectedCompanyId?: string;
   /** Fires with the new contact after a successful create (not on edit). */
@@ -93,7 +92,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
   clearContactId,
   selectedCompanyId,
   onCreated,
-  key
 }) => {
   // X / Esc / footer Cancel ask before throwing away unsaved edits (the ONE kit prompt).
   const formikRef = useRef<FormikProps<ContactFormValues>>(null);
@@ -241,7 +239,9 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
 
   // Use initialData if provided, otherwise use empty values
   const initialValues: ContactFormValues = useMemo(() => {
-    const values = key === "add-new" ? { ...emptyInitialValues, companyId: selectedCompanyId || "" } : initialData ? {
+    // `key` is reserved by React and never arrives as a prop, so the old
+    // `key === "add-new"` branch never ran and a company opened from its page stayed blank.
+    const values: ContactFormValues = initialData ? {
       companyId: selectedCompanyId || initialData.companyId || "",
       subCompanyId: initialData.subCompanyId || "",
       branchId: (initialData.branchId) ?? (initialData.branch || ""),
@@ -273,7 +273,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
       isContactActive: initialData.isContactActive ?? true,
       gmbLink: initialData.gmbLink || "",
       googleMapLink: initialData.googleMapLink || "",
-    } : { ...emptyInitialValues };
+    } : { ...emptyInitialValues, companyId: selectedCompanyId || "" };
 
     // Default status to 'Active' for new contacts if available
     if (!contactId && contactStatuses.length > 0 && !values.statusId) {
@@ -284,7 +284,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     }
 
     return values;
-  }, [key, initialData, contactId, contactStatuses, selectedCompanyId, fetchedChannels]);
+  }, [initialData, contactId, contactStatuses, selectedCompanyId, fetchedChannels]);
 
   // Seed the photo preview with the contact's existing image when editing, so it
   // shows in the upload box instead of the empty placeholder. (The form field
@@ -294,8 +294,8 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     // an asset we already host, on a contact being edited. Either is worth showing in the box —
     // what the preview answers is "this is the picture this contact will have".
     const existing = (initialData as any)?.profilePhoto || (initialData as any)?.googlePhotoUrl;
-    setProfilePhotoPreview(key !== "add-new" && typeof existing === "string" && existing ? existing : null);
-  }, [key, contactId, (initialData as any)?.profilePhoto, (initialData as any)?.googlePhotoUrl]);
+    setProfilePhotoPreview(contactId && typeof existing === "string" && existing ? existing : null);
+  }, [contactId, (initialData as any)?.profilePhoto, (initialData as any)?.googlePhotoUrl]);
 
   useEffect(() => {
     loadInitialData();
@@ -497,6 +497,23 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     loadBranches();
   });
 
+  // The company page already knows the id. Fetch its name, branches and sub-companies
+  // now — the full company list can take a second, and used to be required first.
+  useEffect(() => {
+    if (!show || !selectedCompanyId) return;
+    let cancelled = false;
+    setSelectedCompany(selectedCompanyId);
+    loadBranches(selectedCompanyId, false);
+    getClientCompanyById(selectedCompanyId)
+      .then((res) => {
+        const company = res?.data?.company;
+        if (cancelled || !company?.id) return;
+        setCompanies((prev) => (prev.some((c) => c.id === company.id) ? prev : [company, ...prev]));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [show, selectedCompanyId]);
+
   const handleCountryChange = async (countryId: string) => {
     const country = countries.find((c) => c.id === countryId);
     if (country) {
@@ -680,14 +697,6 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
     }
   };
 
-  const visibilityOptions = [
-    { value: "ONLY_ME", label: "Only Me" },
-    { value: "EVERYONE", label: "Everyone" },
-    { value: "SUPER_ADMIN", label: "Super Admins" },
-    { value: "ADMIN", label: "Admins" },
-    { value: "TEMPORARY", label: "Temporary" },
-  ];
-
   const genderOptions = [
     { value: "MALE", label: "Male" },
     { value: "FEMALE", label: "Female" },
@@ -710,7 +719,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
           enableReinitialize={true}
         >
           {(formikProps) => {
-            const { values, setFieldValue, errors, touched, isSubmitting } = formikProps;
+            const { values, setFieldValue, isSubmitting } = formikProps;
 
             return (
               <FormikForm style={{ height: "100%" }}>
@@ -720,6 +729,7 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                   isEdit={!!contactId}
                   onCancel={discard.requestClose}
                   isSubmitting={loading || isSubmitting}
+                  companyName={companies.find((c) => c.id === values.companyId)?.companyName}
                   sections={[
                     {
                       id: "profile",
@@ -799,24 +809,23 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                                   <BirthdayField name="dob" />
                                 </Col>
                                 <Col md={6}>
-                                  {/* Pills in a box the date beside it's height, "Gender" in its border. */}
-                                  <FloatingLabelFrame label="Gender" filled controlHeight={44}>
-                                    <Box sx={{ display: "flex", alignItems: "center", minHeight: 44, px: 1, border: 1, borderColor: "divider", borderRadius: "8px", bgcolor: "background.paper", "& .crm-pill-group label": { padding: "4px 12px !important" } }}>
-                                      <div className="crm-pill-group" role="group" aria-label="Gender">
-                                        {genderOptions.map((option) => (
-                                          <label key={option.value}>
-                                            <input
-                                              type="radio"
-                                              name="gender"
-                                              checked={values.gender === option.value}
-                                              onChange={() => setFieldValue("gender", option.value)}
-                                            />
-                                            {option.label}
-                                          </label>
-                                        ))}
-                                      </div>
-                                    </Box>
-                                  </FloatingLabelFrame>
+                                  <Field>
+                                    <FieldLabel>Gender</FieldLabel>
+                                    <ToggleGroup
+                                      aria-label="Gender"
+                                      variant="outline"
+                                      size="sm"
+                                      spacing={0}
+                                      value={values.gender ? [values.gender] : []}
+                                      onValueChange={(next) => setFieldValue("gender", next[next.length - 1] ?? "")}
+                                    >
+                                      {genderOptions.map((option) => (
+                                        <ToggleGroupItem key={option.value} value={option.value}>
+                                          {option.label}
+                                        </ToggleGroupItem>
+                                      ))}
+                                    </ToggleGroup>
+                                  </Field>
                                 </Col>
                                 <Col md={6} className="crm-date-field">
                                   {/* Same control as the birthday: day + month, year optional. */}
@@ -1192,53 +1201,16 @@ const ClientContactsForm: React.FC<ClientContactsFormProps> = ({
                       icon: "bi-journal-text",
                       content: (
                         <CrmSection title="Notes">
-
-                          <Row>
-                            {/* <Col md={12}>
-                              <div className="form-group">
-                                <label className="form-label">Visibility</label>
-                                <div className="d-flex flex-column flex-md-row gap-2">
-                                  {visibilityOptions.map((option) => (
-                                    <div
-                                      key={option.value}
-                                      className="form-check form-check-inline"
-                                    >
-                                      <input
-                                        type="radio"
-                                        id={`visibility-${option.value}`}
-                                        name="visibility"
-                                        className="form-check-input"
-                                        checked={
-                                          values.visibility === option.value
-                                        }
-                                        onChange={() =>
-                                          setFieldValue(
-                                            "visibility",
-                                            option.value
-                                          )
-                                        }
-                                      />
-                                      <label
-                                        className="form-check-label"
-                                        htmlFor={`visibility-${option.value}`}
-                                      >
-                                        {option.label}
-                                      </label>
-                                    </div>
-                                  ))}
-                                </div>
-                                {errors.visibility && touched.visibility && (
-                                  <div className="text-danger">
-                                    {errors.visibility}
-                                  </div>
-                                )}
-                              </div>
-                            </Col> */}
-                            <div className="mb-3 mt-3">
-                              <WtFieldFormik name="note" label="Note" multiline minRows={3} placeholder="Enter note" />
-                            </div>
-                          </Row>
-                    
+                          <Field>
+                            <FieldLabel htmlFor="contact-note">Note</FieldLabel>
+                            <Textarea
+                              id="contact-note"
+                              rows={3}
+                              value={values.note}
+                              placeholder="Enter note"
+                              onChange={(e) => setFieldValue("note", e.target.value)}
+                            />
+                          </Field>
                         </CrmSection>
                       ),
                     }

@@ -387,6 +387,7 @@ const CompanyDetails = () => {
       <ClientContactsForm
         show={showNewContactModal}
         onClose={handleCloseNewContactModal}
+        selectedCompanyId={company.id}
       />
 
       {/* New Project Modal */}

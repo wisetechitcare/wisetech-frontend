@@ -132,12 +132,7 @@ function TextInput({
 
   return (
     <Field data-invalid={errorText ? true : undefined}>
-      {label && (
-        <FieldLabel htmlFor={id}>
-          {label}
-          {isRequired && <span aria-hidden className="text-destructive">*</span>}
-        </FieldLabel>
-      )}
+      {label && <FieldLabel htmlFor={id}>{label}</FieldLabel>}
       {prefix ? (
         <InputGroup>
           <InputGroupAddon align="inline-start">{prefix}</InputGroupAddon>

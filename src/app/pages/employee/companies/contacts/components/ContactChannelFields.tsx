@@ -1,12 +1,14 @@
 import React from "react";
 import { useFormikContext } from "formik";
-import { Box, ButtonBase, Typography } from "@mui/material";
+import { Box, ButtonBase } from "@mui/material";
 import { alpha, type Theme } from "@mui/material/styles";
 import { Star, StarBorder } from "@mui/icons-material";
-import { KTIcon } from "@metronic/helpers";
-import PhoneNumberInput from "@app/components/PhoneNumberInput";
-import TextInput from "@app/modules/common/inputs/TextInput";
-import { ActionIconButton, ToneChip, WtButton, WtFieldFormik } from "@app/modules/common/components/ui";
+import { PhoneField } from "@/ds/patterns/phone-field";
+import { SearchSelect } from "@/ds/patterns/search-select";
+import { Button } from "@/ds/ui/button";
+import { Field, FieldDescription, FieldLabel } from "@/ds/ui/field";
+import { Input } from "@/ds/ui/input";
+import { ActionIconButton, ToneChip } from "@app/modules/common/components/ui";
 import type { ContactChannel, ContactChannelInput, ContactFormValues } from "@models/companies";
 
 type Kind = "phones" | "emails";
@@ -37,6 +39,17 @@ export const toChannelRows = (kind: Kind, channels: ContactChannel[] | undefined
     ? fromApi.map((c) => newChannelRow(kind, c.value, c.label || "", c.isPrimary))
     : legacy.filter((v): v is string => !!v).map((v, i) => newChannelRow(kind, v, "", i === 0));
   return rows.length ? rows : [newChannelRow(kind, "", LABELS[kind][0], true)];
+};
+
+/** A stored national number (no +) is shown as India. Numbers already in E.164 pass through. */
+const toE164 = (value?: string) => {
+  const v = (value || "").trim();
+  if (!v) return "";
+  if (v.startsWith("+")) return `+${v.slice(1).replace(/\D/g, "")}`;
+  const d = v.replace(/\D/g, "");
+  if (!d) return "";
+  if (d.startsWith("91") && d.length > 10) return `+${d}`;
+  return `+91${d}`;
 };
 
 /** What the API takes: blank rows dropped, client-only `key` removed. */
@@ -114,24 +127,51 @@ export const ContactChannelFields: React.FC<{ kind: Kind; hint?: string }> = ({ 
           <Box key={row.key} sx={row.isPrimary ? [rowSx, primaryRowSx] : rowSx}>
             <Box sx={{ gridArea: "value", minWidth: 0 }}>
               {kind === "phones" ? (
-                <PhoneNumberInput
-                  label={fieldLabel}
-                  placeholder="Enter phone"
-                  formikField={`phones.${i}.value`}
-                  isRequired={false}
-                />
+                <Field data-filled="true">
+                  <FieldLabel htmlFor={`phone-${row.key}`}>{fieldLabel}</FieldLabel>
+                  <PhoneField
+                    id={`phone-${row.key}`}
+                    value={toE164(row.value)}
+                    onChange={(phone) => {
+                      const stored = !phone || phone === "+91" ? "" : phone;
+                      const current = row.value?.startsWith("+") ? row.value : toE164(row.value);
+                      if (stored === current) return;
+                      const next = rows.slice();
+                      next[i] = { ...row, value: stored };
+                      setFieldValue(kind, next);
+                    }}
+                  />
+                </Field>
               ) : (
-                <TextInput
-                  label={fieldLabel}
-                  placeholder="Enter email"
-                  formikField={`emails.${i}.value`}
-                  type="email"
-                  isRequired={false}
-                />
+                <Field>
+                  <FieldLabel htmlFor={`email-${row.key}`}>{fieldLabel}</FieldLabel>
+                  <Input
+                    id={`email-${row.key}`}
+                    type="email"
+                    autoComplete="email"
+                    value={row.value}
+                    onChange={(e) => {
+                      const next = rows.slice();
+                      next[i] = { ...row, value: e.target.value };
+                      setFieldValue(kind, next);
+                    }}
+                  />
+                </Field>
               )}
             </Box>
             <Box sx={{ gridArea: "type", minWidth: 0 }}>
-              <WtFieldFormik name={`${kind}.${i}.label`} label="Type" options={options} disableAlphabeticalSort />
+              <SearchSelect
+                id={`${kind}-type-${row.key}`}
+                label="Type"
+                options={options}
+                value={row.label || null}
+                clearable={false}
+                onValueChange={(v) => {
+                  const next = rows.slice();
+                  next[i] = { ...row, label: v || LABELS[kind][0] };
+                  setFieldValue(kind, next);
+                }}
+              />
             </Box>
             <Box sx={{ gridArea: "actions", display: "flex", alignItems: "center", justifyContent: { xs: "space-between", sm: "flex-end" }, gap: 1 }}>
               {/* Fixed slot so the badge and the pill line up across rows. */}
@@ -160,19 +200,16 @@ export const ContactChannelFields: React.FC<{ kind: Kind; hint?: string }> = ({ 
           </Box>
         );
       })}
-      <WtButton
-        ghost
-        sx={{ alignSelf: "flex-start", ml: 1 }}
-        startIcon={<KTIcon iconName="plus" className="fs-5" />}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="self-start"
         onClick={() => setFieldValue(kind, [...rows, newChannelRow(kind, "", LABELS[kind][0], rows.length === 0)])}
       >
         Add {kind === "phones" ? "phone" : "email"}
-      </WtButton>
-      {hint && (
-        <Typography variant="caption" color="text.secondary" sx={{ px: 1.5 }}>
-          {hint}
-        </Typography>
-      )}
+      </Button>
+      {hint && <FieldDescription>{hint}</FieldDescription>}
     </Box>
   );
 };
