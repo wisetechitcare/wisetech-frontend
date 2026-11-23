@@ -106,6 +106,11 @@ export async function deletePlatformPlan(
   return unwrap<{ id: string; deactivated: boolean; deleted: boolean }>(data)
 }
 
+export async function fetchPlatformPolicy(): Promise<PlatformSettingsPolicy> {
+  const { data } = await client.get('/api/platform/settings/policy')
+  return unwrap<{ policy: PlatformSettingsPolicy }>(data).policy
+}
+
 export async function updatePlatformPolicy(input: {
   supportNormalMaxMinutes?: number
   supportBreakGlassMaxMinutes?: number

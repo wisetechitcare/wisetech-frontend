@@ -32,13 +32,9 @@ import {
 import { PlatformShell } from './PlatformShell'
 import { usePlatformSession } from './PlatformSessionContext'
 import { platformApiError } from './platformApiError'
+import { PLATFORM_ROLE_ITEMS } from '@constants/platformRoles'
 
-const ROLE_ITEMS = [
-  { value: 'ADMIN', label: 'Admin' },
-  { value: 'DEVELOPER', label: 'Developer' },
-  { value: 'SUPPORT', label: 'Support' },
-  { value: 'BILLING', label: 'Billing' },
-]
+const ROLE_ITEMS = PLATFORM_ROLE_ITEMS.map((r) => ({ value: r.value, label: r.label }))
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
   ACTIVE: 'success',

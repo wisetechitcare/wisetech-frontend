@@ -457,6 +457,16 @@ export default function PlatformSettingsPage() {
               <DescriptionList
                 rows={[
                   {
+                    label: 'Platform roles',
+                    value: 'Fixed product set: Admin, Developer, Support, Billing (schema enum — not Settings-editable)',
+                    wide: true,
+                  },
+                  {
+                    label: 'Module packs',
+                    value: 'Fixed taxonomy: Core, Workforce, Pay, PSA, Talent — plans toggle these; pack keys are not dynamic',
+                    wide: true,
+                  },
+                  {
                     label: 'Billing / invoices',
                     value: 'External (not in-app) — connect Stripe/Chargebee when GTM needs it',
                     wide: true,

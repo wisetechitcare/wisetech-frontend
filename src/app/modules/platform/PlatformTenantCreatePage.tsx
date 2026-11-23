@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { parseDate, type DateValue } from '@internationalized/date'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
@@ -11,6 +12,7 @@ import { Spinner } from '@/ds/ui/spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select'
 import { DatePicker } from '@/ds/ui/date-picker'
 import { Label } from '@/ds/ui/label'
+import { Stepper } from '@/ds/patterns/stepper'
 import {
   createPlatformTenant,
   platformGeoCities,
@@ -30,6 +32,7 @@ import {
 import { optionalPacksFromFlags, type OptionalPacks } from '@constants/platformPlans'
 import { PlatformShell } from './PlatformShell'
 import { usePlatformSession } from './PlatformSessionContext'
+import { platformApiError } from './platformApiError'
 
 const FALLBACK_PACKS: OptionalPacks = {
   workforce: true,
@@ -40,17 +43,12 @@ const FALLBACK_PACKS: OptionalPacks = {
 
 type Step = 0 | 1 | 2 | 3
 
-function errMessage(err: unknown): string {
-  const ax = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
-  return (
-    ax.response?.data?.detail ||
-    (ax.response?.data?.message && ax.response.data.message !== 'Forbidden' ? ax.response.data.message : '') ||
-    ax.message ||
-    'Something went wrong'
-  )
-}
-
-const STEPS = ['Organization', 'Head Office', 'Owner', 'Review'] as const
+const WIZARD_STEPS = [
+  { label: 'Organization', description: 'Name, tax IDs, packs' },
+  { label: 'Head Office', description: 'Location and timezone' },
+  { label: 'Owner', description: 'First admin user' },
+  { label: 'Review', description: 'Confirm and create' },
+] as const
 
 export default function PlatformTenantCreatePage() {
   const navigate = useNavigate()
@@ -207,6 +205,12 @@ export default function PlatformTenantCreatePage() {
     return zones.map((z) => ({ value: z, label: z }))
   }, [countries, countryIso, timezone])
 
+  const completed = useMemo(() => {
+    const map: Record<number, boolean> = {}
+    for (let i = 0; i < step; i++) map[i] = true
+    return map
+  }, [step])
+
   if (!isAdmin) {
     return (
       <PlatformShell title="Create Tenant" description="Only platform admins can provision tenants.">
@@ -305,7 +309,8 @@ export default function PlatformTenantCreatePage() {
         state: { createdRootOrgId: result.rootOrgId, resumed: result.resumed },
       })
     } catch (err) {
-      setError(errMessage(err))
+      setError(platformApiError(err))
+      toast.error(platformApiError(err))
     } finally {
       setBusy(false)
     }
@@ -321,21 +326,14 @@ export default function PlatformTenantCreatePage() {
         </Button>
       }
     >
-      <ol className="flex flex-wrap gap-2" aria-label="Wizard steps">
-        {STEPS.map((label, i) => (
-          <li key={label}>
-            <span
-              className={
-                i === step
-                  ? 'rounded-full bg-muted px-3 py-1 text-sm font-medium text-foreground'
-                  : 'rounded-full px-3 py-1 text-sm text-muted-foreground'
-              }
-            >
-              {i + 1}. {label}
-            </span>
-          </li>
-        ))}
-      </ol>
+      <Stepper
+        steps={[...WIZARD_STEPS]}
+        activeStep={step}
+        completed={completed}
+        onStepClick={(i) => {
+          if (i <= step) setStep(i as Step)
+        }}
+      />
 
       {error ? (
         <Alert variant="danger">

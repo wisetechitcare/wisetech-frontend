@@ -6,23 +6,16 @@ import { Badge } from '@/ds/ui/badge'
 import { Input } from '@/ds/ui/input'
 import { Textarea } from '@/ds/ui/textarea'
 import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
+import { NumberField } from '@/ds/ui/number-field'
 import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
 import { Spinner } from '@/ds/ui/spinner'
 import { Checkbox } from '@/ds/ui/checkbox'
 import { Label } from '@/ds/ui/label'
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ds/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select'
 import { EmptyState } from '@/ds/patterns/empty-state'
 import { DataTable, type ColumnDef } from '@/ds/patterns/data-table'
 import { ConfirmDialog } from '@/ds/patterns/confirm-dialog'
+import { FormDialog } from '@/ds/patterns/form-dialog'
 import { listPlatformTenants, type PlatformTenant } from '@services/platformTenants'
 import {
   activatePlatformSupportSession,
@@ -34,18 +27,20 @@ import {
   type PlatformSupportSession,
   type SupportViewEmployee,
 } from '@services/platformSupport'
+import { fetchPlatformPolicy, type PlatformSettingsPolicy } from '@services/platformSettings'
 import { PlatformShell } from './PlatformShell'
 import { usePlatformSession } from './PlatformSessionContext'
 import { tenantAppHref } from './platformHost'
+import { platformApiError } from './platformApiError'
+import { bootstrapSupportViewIfNeeded } from './bootstrapSupportView'
 
-function errMessage(err: unknown): string {
-  const ax = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
-  return (
-    ax.response?.data?.detail ||
-    (ax.response?.data?.message && ax.response.data.message !== 'Forbidden' ? ax.response.data.message : '') ||
-    ax.message ||
-    'Something went wrong'
-  )
+const FALLBACK_POLICY: PlatformSettingsPolicy = {
+  operatorMfaRequired: true,
+  supportNormalMaxMinutes: 240,
+  supportBreakGlassMaxMinutes: 60,
+  supportMinMinutes: 15,
+  supportReasonMinLength: 10,
+  packWritesPlatformAdminOnly: true,
 }
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral' | 'info'> = {
@@ -73,6 +68,7 @@ export default function PlatformSupportPage() {
 
   const [rows, setRows] = useState<PlatformSupportSession[]>([])
   const [tenants, setTenants] = useState<PlatformTenant[]>([])
+  const [policy, setPolicy] = useState<PlatformSettingsPolicy>(FALLBACK_POLICY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -85,6 +81,10 @@ export default function PlatformSupportPage() {
   const [totpCode, setTotpCode] = useState('')
   const [createBusy, setCreateBusy] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+
+  const durationMax = breakGlass ? policy.supportBreakGlassMaxMinutes : policy.supportNormalMaxMinutes
+  const durationMin = policy.supportMinMinutes ?? 15
+  const reasonMin = policy.supportReasonMinLength ?? 10
 
   const [activateTarget, setActivateTarget] = useState<PlatformSupportSession | null>(null)
   const [activateCode, setActivateCode] = useState('')
@@ -116,14 +116,21 @@ export default function PlatformSupportPage() {
     setError(null)
     setLoading(true)
     try {
-      const [sessions, tenantRows] = await Promise.all([
+      const [sessions, tenantRows, policyRow] = await Promise.all([
         listPlatformSupportSessions(),
         listPlatformTenants(),
+        fetchPlatformPolicy().catch(() => FALLBACK_POLICY),
       ])
       setRows(sessions)
       setTenants(tenantRows)
+      setPolicy(policyRow)
+      setDurationMinutes((d) => {
+        const max = policyRow.supportNormalMaxMinutes
+        const min = policyRow.supportMinMinutes ?? 15
+        return Math.min(max, Math.max(min, d))
+      })
     } catch (err) {
-      setError(errMessage(err))
+      setError(platformApiError(err))
     } finally {
       setLoading(false)
     }
@@ -154,13 +161,14 @@ export default function PlatformSupportPage() {
       setReadWrite(false)
       await refresh()
     } catch (err) {
-      setCreateError(errMessage(err))
+      setCreateError(platformApiError(err))
     } finally {
       setCreateBusy(false)
     }
   }
 
-  async function onActivate() {
+  async function onActivate(e: FormEvent) {
+    e.preventDefault()
     if (!activateTarget) return
     setActivateBusy(true)
     try {
@@ -170,8 +178,7 @@ export default function PlatformSupportPage() {
       setActivateCode('')
       await refresh()
     } catch (err) {
-      toast.error(errMessage(err))
-      throw err
+      toast.error(platformApiError(err))
     } finally {
       setActivateBusy(false)
     }
@@ -184,27 +191,26 @@ export default function PlatformSupportPage() {
     try {
       setEmployees(await listSupportViewEmployees(session.id))
     } catch (err) {
-      toast.error(errMessage(err))
+      toast.error(platformApiError(err))
       setViewAsTarget(null)
     } finally {
       setViewAsBusy(false)
     }
   }
 
-  async function onViewAs() {
+  async function onViewAs(e: FormEvent) {
+    e.preventDefault()
     if (!viewAsTarget || !employeeId) return
     setViewAsBusy(true)
     try {
       const { enterPath } = await startSupportViewAs(viewAsTarget.id, employeeId)
-      const { bootstrapSupportViewIfNeeded } = await import('./bootstrapSupportView')
       await bootstrapSupportViewIfNeeded()
       toast.success('Opening tenant app as selected person')
-      // Absolute when VITE_TENANT_APP_ORIGIN is set (platform.kaiznova.com → app.kaiznova.com).
       const target =
         enterPath && /^https?:\/\//i.test(enterPath) ? enterPath : tenantAppHref(enterPath || '/dashboard')
       window.location.assign(target)
     } catch (err) {
-      toast.error(errMessage(err))
+      toast.error(platformApiError(err))
     } finally {
       setViewAsBusy(false)
     }
@@ -351,122 +357,117 @@ export default function PlatformSupportPage() {
         />
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>New Support Session</DialogTitle>
-            <DialogDescription>
-              Normal requests need tenant Admin approval (max 4h). Break-glass starts now (max 1h) and alerts Admins.
-            </DialogDescription>
-          </DialogHeader>
-          <form className="grid gap-4" onSubmit={onCreate} noValidate>
-            {createError ? (
-              <Alert variant="danger">
-                <AlertTitle>Could Not Create</AlertTitle>
-                <AlertDescription>{createError}</AlertDescription>
-              </Alert>
-            ) : null}
-            <FieldGroup className="gap-4">
-              <Field>
-                <FieldLabel id="support-tenant-label">Tenant</FieldLabel>
-                <Select
-                  items={tenantItems}
-                  value={rootOrganizationId}
-                  onValueChange={(v) => setRootOrganizationId(String(v ?? ''))}
-                >
-                  <SelectTrigger className="w-full" aria-labelledby="support-tenant-label">
-                    <SelectValue placeholder="Choose tenant" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tenantItems.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="support-reason">Reason</FieldLabel>
-                <Textarea
-                  id="support-reason"
-                  required
-                  minLength={10}
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="What are you investigating?"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="support-duration">Duration (minutes)</FieldLabel>
-                <Input
-                  id="support-duration"
-                  type="number"
-                  min={15}
-                  max={breakGlass ? 60 : 240}
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(Number(e.target.value) || 15)}
-                />
-              </Field>
+      <FormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="New Support Session"
+        description={`Normal requests need tenant Admin approval (max ${policy.supportNormalMaxMinutes} min). Break-glass starts now (max ${policy.supportBreakGlassMaxMinutes} min) and alerts Admins.`}
+        icon={<Headset aria-hidden />}
+        tone="brand"
+        formId="support-create-form"
+        submitLabel={breakGlass ? 'Start Break-Glass' : 'Request Access'}
+        submitVariant={breakGlass ? 'destructive' : 'default'}
+        submitting={createBusy}
+        submitDisabled={!rootOrganizationId || reason.trim().length < reasonMin}
+        dirty={Boolean(rootOrganizationId || reason || totpCode)}
+      >
+        <form id="support-create-form" className="grid gap-4 p-6" onSubmit={onCreate} noValidate>
+          {createError ? (
+            <Alert variant="danger">
+              <AlertTitle>Could Not Create</AlertTitle>
+              <AlertDescription>{createError}</AlertDescription>
+            </Alert>
+          ) : null}
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel id="support-tenant-label">Tenant</FieldLabel>
+              <Select
+                items={tenantItems}
+                value={rootOrganizationId}
+                onValueChange={(v) => setRootOrganizationId(String(v ?? ''))}
+              >
+                <SelectTrigger className="w-full" aria-labelledby="support-tenant-label">
+                  <SelectValue placeholder="Choose tenant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenantItems.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="support-reason">Reason</FieldLabel>
+              <Textarea
+                id="support-reason"
+                required
+                minLength={reasonMin}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder={`At least ${reasonMin} characters`}
+              />
+            </Field>
+            <NumberField
+              label="Duration (minutes)"
+              value={durationMinutes}
+              minValue={durationMin}
+              maxValue={durationMax}
+              onChange={(v) => setDurationMinutes(v ?? durationMin)}
+              description={`Between ${durationMin} and ${durationMax} (from Settings policy)`}
+            />
+            <Label className="flex items-start gap-3 font-normal">
+              <Checkbox
+                checked={breakGlass}
+                onCheckedChange={(v) => {
+                  const on = v === true
+                  setBreakGlass(on)
+                  const max = on ? policy.supportBreakGlassMaxMinutes : policy.supportNormalMaxMinutes
+                  if (durationMinutes > max) setDurationMinutes(max)
+                }}
+              />
+              <span>
+                <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                  <ShieldAlert className="size-4" aria-hidden /> Break-glass
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Starts immediately after MFA. Max {policy.supportBreakGlassMaxMinutes} minutes. Tenant Admins are
+                  alerted.
+                </span>
+              </span>
+            </Label>
+            {canRequestWrite ? (
               <Label className="flex items-start gap-3 font-normal">
-                <Checkbox
-                  checked={breakGlass}
-                  onCheckedChange={(v) => {
-                    const on = v === true
-                    setBreakGlass(on)
-                    if (on && durationMinutes > 60) setDurationMinutes(60)
-                  }}
-                />
+                <Checkbox checked={readWrite} onCheckedChange={(v) => setReadWrite(v === true)} />
                 <span>
-                  <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                    <ShieldAlert className="size-4" aria-hidden /> Break-glass
-                  </span>
+                  <span className="font-medium text-foreground">Read-write (S5)</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Starts immediately after MFA. Max 1 hour. Tenant Admins are alerted.
+                    Allows non-GET APIs. Passwords, MFA, roles, PIN areas, and approvals stay blocked.
                   </span>
                 </span>
               </Label>
-              {canRequestWrite ? (
-                <Label className="flex items-start gap-3 font-normal">
-                  <Checkbox checked={readWrite} onCheckedChange={(v) => setReadWrite(v === true)} />
-                  <span>
-                    <span className="font-medium text-foreground">Read-write (S5)</span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
-                      Allows non-GET APIs. Passwords, MFA, roles, PIN areas, and approvals stay blocked.
-                    </span>
-                  </span>
-                </Label>
-              ) : null}
-              {breakGlass ? (
-                <Field>
-                  <FieldLabel htmlFor="support-totp">Authenticator Code</FieldLabel>
-                  <Input
-                    id="support-totp"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    pattern="\d{6}"
-                    required
-                    maxLength={6}
-                    value={totpCode}
-                    onChange={(e) => setTotpCode(e.target.value)}
-                  />
-                </Field>
-              ) : null}
-            </FieldGroup>
-            <DialogFooter>
-              <DialogClose render={<Button type="button" variant="outline" disabled={createBusy} />}>
-                Cancel
-              </DialogClose>
-              <Button type="submit" disabled={createBusy || !rootOrganizationId}>
-                {createBusy ? <Spinner data-icon="inline-start" aria-hidden /> : null}
-                {breakGlass ? 'Start Break-Glass' : 'Request Access'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            ) : null}
+            {breakGlass ? (
+              <Field>
+                <FieldLabel htmlFor="support-totp">Authenticator Code</FieldLabel>
+                <Input
+                  id="support-totp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="\d{6}"
+                  required
+                  maxLength={6}
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value)}
+                />
+              </Field>
+            ) : null}
+          </FieldGroup>
+        </form>
+      </FormDialog>
 
-      <Dialog
+      <FormDialog
         open={Boolean(activateTarget)}
         onOpenChange={(open) => {
           if (!open) {
@@ -474,12 +475,16 @@ export default function PlatformSupportPage() {
             setActivateCode('')
           }
         }}
+        title="Activate Session"
+        description="Enter a fresh authenticator code to start the approved session."
+        icon={<Headset aria-hidden />}
+        formId="support-activate-form"
+        submitLabel="Activate"
+        submitting={activateBusy}
+        submitDisabled={activateCode.trim().length !== 6}
+        dirty={Boolean(activateCode)}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Activate Session</DialogTitle>
-            <DialogDescription>Enter a fresh authenticator code to start the approved session.</DialogDescription>
-          </DialogHeader>
+        <form id="support-activate-form" className="grid gap-4 p-6" onSubmit={onActivate} noValidate>
           <Field>
             <FieldLabel htmlFor="activate-totp">Authenticator Code</FieldLabel>
             <Input
@@ -491,35 +496,24 @@ export default function PlatformSupportPage() {
               onChange={(e) => setActivateCode(e.target.value)}
             />
           </Field>
-          <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" disabled={activateBusy} />}>
-              Cancel
-            </DialogClose>
-            <Button
-              type="button"
-              disabled={activateBusy || activateCode.trim().length !== 6}
-              onClick={() => void onActivate()}
-            >
-              {activateBusy ? <Spinner data-icon="inline-start" aria-hidden /> : null}
-              Activate
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </form>
+      </FormDialog>
 
-      <Dialog
+      <FormDialog
         open={Boolean(viewAsTarget)}
         onOpenChange={(open) => {
           if (!open) setViewAsTarget(null)
         }}
+        title="View As"
+        description="Opens the tenant app as the selected person. Access mode follows the session (READ or READ_WRITE)."
+        icon={<Headset aria-hidden />}
+        formId="support-view-as-form"
+        submitLabel="Enter Tenant App"
+        submitting={viewAsBusy}
+        submitDisabled={!employeeId || (viewAsBusy && employees.length === 0)}
+        dirty={Boolean(employeeId)}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>View As</DialogTitle>
-            <DialogDescription>
-              Opens the tenant app read-only as the selected person. Non-GET APIs are refused.
-            </DialogDescription>
-          </DialogHeader>
+        <form id="support-view-as-form" className="grid gap-4 p-6" onSubmit={onViewAs} noValidate>
           {viewAsBusy && employees.length === 0 ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Spinner className="size-4" aria-hidden /> Loading people…
@@ -541,17 +535,8 @@ export default function PlatformSupportPage() {
               </Select>
             </Field>
           )}
-          <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" disabled={viewAsBusy} />}>
-              Cancel
-            </DialogClose>
-            <Button type="button" disabled={viewAsBusy || !employeeId} onClick={() => void onViewAs()}>
-              {viewAsBusy ? <Spinner data-icon="inline-start" aria-hidden /> : null}
-              Enter Tenant App
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </form>
+      </FormDialog>
 
       <ConfirmDialog
         open={Boolean(endTarget)}
@@ -560,13 +545,17 @@ export default function PlatformSupportPage() {
         }}
         variant="warning"
         danger
-        title="End support session?"
-        description="View-as access stops immediately. You can request again later."
-        confirmLabel="End session"
+        title={endTarget?.status === 'PENDING' ? 'Cancel this request?' : 'End support session?'}
+        description={
+          endTarget?.status === 'PENDING'
+            ? 'The pending request is cancelled. You can create a new one later.'
+            : 'View-as access stops immediately. You can request again later.'
+        }
+        confirmLabel={endTarget?.status === 'PENDING' ? 'Cancel request' : 'End session'}
         onConfirm={async () => {
           if (!endTarget) return
           await endPlatformSupportSession(endTarget.id)
-          toast.success('Session ended')
+          toast.success(endTarget.status === 'PENDING' ? 'Request cancelled' : 'Session ended')
           setEndTarget(null)
           await refresh()
         }}
