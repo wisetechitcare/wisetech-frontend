@@ -90,7 +90,26 @@ const preview: Preview = {
       test: 'error',
     },
     options: {
-      storySort: { order: ['Introduction', 'Kit Map', 'Foundations', 'Components', 'Patterns', 'Effects', 'Screens'] },
+      storySort: {
+        order: [
+          'Introduction',
+          'Kit Map',
+          'Foundations',
+          'Components',
+          'Forms',
+          [
+            'Input', ['Input Field', 'Number Field', 'Phone Field', 'Text Area', 'Password Field', 'OTP Field'],
+            'Select', ['Combobox Field', 'Person Picker'],
+            'Date & Time', ['Date Picker', 'Date Field'],
+            'Choice', ['Checkbox', 'Radio Group', 'Switch', 'Choice Cards', 'Slider'],
+            'Pickers',
+            'Upload', ['Image Field', 'Video Field', 'File Upload'],
+          ],
+          'Patterns',
+          'Effects',
+          'Screens',
+        ],
+      },
     },
   },
 }

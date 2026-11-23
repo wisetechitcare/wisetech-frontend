@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent } from 'storybook/test'
+
 import FileUpload from './FileUpload'
 
 /**
@@ -7,7 +8,7 @@ import FileUpload from './FileUpload'
  * files and lets the user remove them. The Project Gallery upload uses it.
  */
 const meta = {
-  title: 'Components/File Upload',
+  title: 'Forms/Upload/File Upload',
   component: FileUpload,
   args: {
     acceptTypes: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },

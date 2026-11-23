@@ -46,7 +46,7 @@ the build on a hand-drawn card (`bg-card` with a border or radius).
 | `WtSheet`, `ShadcnDrawer` | Components/Sheet; Components/Drawer (phones) | ✅ |
 | `FilterSheet`, `FilterSheetButton` | Patterns/Filter Sheet (draft → Apply, count on the button) | ✅ |
 | `DrillDownDialog` | Patterns/Form Dialog — read-only, `size="xl"` | ✅ |
-| `OptionPickerDialog` | Components/Combobox — a single value is never a dialog | ✅ |
+| `OptionPickerDialog` | Forms/Select/Combobox — a single value is never a dialog | ✅ |
 | `WtStepper` | Patterns/Stepper | ✅ |
 | `WtWizardDialog` | Patterns/Form Dialog `subheader` (Stepper) + `footer` (Back / Next) | ✅ |
 
@@ -71,22 +71,23 @@ the build on a hand-drawn card (`bg-card` with a border or radius).
 
 | Live | v2 | |
 | --- | --- | --- |
-| `WtField`, `WtFieldFormik`, `FloatingLabels` | Components/Field + Input / Textarea / Select | ✅ |
-| `WtSelect` (engine), `DropdownInput`, `ToolbarFilterSelect`, `MultiSelectWithInlineCreate` | Components/Select (short lists), Components/Combobox (search, multi) | ✅ (inline "+ Add": Combobox → Inline Create) |
-| `WtMoneyField`, `CurrencySymbol` | Components/NumberField (currency) | ✅ |
-| `WtDateField`, `WtDateTimeField`, `TimePickerField`, `DateInput` | Components/DatePicker, DateField, TimeField | ✅ |
-| `FiscalYearRangeField` | Components/DatePicker — range | ✅ |
-| `WtSwitch`, `WtSwitchField` | Components/Switch (+ Field horizontal) | ✅ |
-| `WtCheckbox`, `WtCheckboxField`, `WtControlLabel` | Components/Checkbox (+ Field) | ✅ |
-| `WtChoice`, `WtChoiceField` | Patterns/Choice Cards (`cards`); Switch (`switch`); ToggleGroup (`segmented`) | ✅ |
+| `WtField`, `WtFieldFormik`, `FloatingLabels` | Forms/Field/Field + Forms/Input/Input, Textarea, Forms/Select/Select | ✅ |
+| `WtSelect` (engine), `DropdownInput`, `ToolbarFilterSelect`, `MultiSelectWithInlineCreate` | Forms/Select/Select (short lists), Forms/Select/Combobox (search, multi) | ✅ (inline "+ Add": Combobox → Inline Create) |
+| `WtMoneyField`, `CurrencySymbol` | Forms/Input/Number Field (currency) | ✅ |
+| `WtDateField`, `WtDateTimeField`, `TimePickerField`, `DateInput` | Forms/Date & Time/Date Picker, Date Field (TimeField: Date Field → Time Hour Cycle) | ✅ |
+| `FiscalYearRangeField` | Forms/Date & Time/Date Picker — range | ✅ |
+| `WtSwitch`, `WtSwitchField` | Forms/Choice/Switch (+ Field horizontal) | ✅ |
+| `WtCheckbox`, `WtCheckboxField`, `WtControlLabel` | Forms/Choice/Checkbox (+ Field) | ✅ |
+| `WtChoice`, `WtChoiceField` | Forms/Choice/Choice Cards (`cards`); Forms/Choice/Switch (`switch`); Components/ToggleGroup (`segmented`) | ✅ |
 | `SegmentedControl`, `ViewModeSwitch` (+ 6 presets), `PeriodTabs` | Components/ToggleGroup | ✅ |
-| `PinInput` | Components/InputOTP | ✅ |
-| `WeightSliderList` | Components/Slider | ✅ |
-| `FormSection`, `WtFormSection` | Components/Field — FieldSet + FieldLegend | ✅ |
-| `WtPhoneField`, `WtPhoneFieldFormik` | Patterns/Phone Field | ✅ |
-| `WtImageField` | Patterns/Image Field (upload) | ✅ |
-| `WtColorPicker`, `IconPicker`, `SwatchPicker` | Patterns/Pickers (`ColorPicker`, `IconPicker`) | ✅ |
-| `EmployeePickerField`, `AllEmployeesSearchDropdown`, `EmployeeSelectionDialog` | Patterns/Person Picker (single and multiple, by name or code) | ✅ |
+| `PinInput` | Forms/Input/Input OTP | ✅ |
+| `WeightSliderList` | Forms/Choice/Slider | ✅ |
+| `FormSection`, `WtFormSection` | Forms/Field/Field — FieldSet + FieldLegend | ✅ |
+| `WtPhoneField`, `WtPhoneFieldFormik` | Forms/Input/Phone Field | ✅ |
+| `WtImageField` | Forms/Upload/Image Field | ✅ |
+| `WtColorPicker` | Forms/Pickers/Color Picker — the live component itself | ✅ |
+| `IconPicker` (`SwatchPicker.tsx`) | No story yet | ⏳ |
+| `EmployeePickerField`, `AllEmployeesSearchDropdown`, `EmployeeSelectionDialog` | Forms/Select/Person Picker (single and multiple, by name or code) | ✅ |
 
 ## Layout and navigation
 
@@ -124,7 +125,7 @@ Status checked against the code 2026-11-17:
 
 1. **Floating labels**, app-wide: the label rests inside an empty field and floats onto the border on focus or
    once there is a value. (Today's app floats only where a screen opts in; v2 makes it the standard.) — Done:
-   every field built from `fieldVariants()` floats (Components/Field → Floating Labels).
+   every field built from `fieldVariants()` floats (Forms/Field/Field → Floating Labels).
 2. **Structural headings stay UPPERCASE** — dialog, page, section, settings card, column header, stat caption,
    eyebrow — via the `heading-case` utility (the twin of `HEADING_CASE_SX`). Buttons, input labels, content
    titles and sentences keep their case.

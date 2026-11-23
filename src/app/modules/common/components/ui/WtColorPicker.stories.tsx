@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { expect, fn, userEvent } from 'storybook/test'
+
 import { KIT_HEX_SWATCHES, KIT_SWATCHES, WtColorPicker } from './WtColorPicker'
 
 /**
@@ -8,7 +9,7 @@ import { KIT_HEX_SWATCHES, KIT_SWATCHES, WtColorPicker } from './WtColorPicker'
  * Used by Gift / Leads / Calendar / Billing config, board backgrounds and the Company Showcase deck.
  */
 const meta = {
-  title: 'Components/Color Picker',
+  title: 'Forms/Pickers/Color Picker',
   component: WtColorPicker,
   args: { label: 'Colour', value: KIT_SWATCHES[0].value, onChange: fn() },
   // Controlled, so a click shows as selected in the canvas as well as in the Actions panel.
