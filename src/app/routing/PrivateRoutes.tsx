@@ -20,6 +20,7 @@ import NoAccessPage from '@app/modules/common/components/NoAccessPage'
 import { RequirePermission } from '@app/modules/common/components/RequirePermission'
 import { can } from '@utils/can'
 
+const SupportApprovalsPage = lazy(() => import('@pages/support/SupportApprovalsPage'))
 const PublicHoliday = lazy(() => import('@pages/company/PublicHoliday'))
 const CustomCalendar = lazy(() => import('@pages/employee/CustomCalendar'))
 const Overview = lazy(() => import('@pages/company/Overview'))
@@ -164,6 +165,14 @@ const PrivateRoutes = () => {
         <Route path='auth/*' element={<Navigate to='/dashboard' />} />
         {/* Pages */}
         <Route path='dashboard' element={<DashboardWrapper />} />
+        <Route
+          path='support/approvals'
+          element={
+            <SuspensedView>
+              <SupportApprovalsPage />
+            </SuspensedView>
+          }
+        />
 
         {/* ── Legacy URL redirects ──────────────────────────────────────────────────
             These paths shipped, so they are in bookmarks, in already-sent emails, and
@@ -501,9 +510,13 @@ const PrivateRoutes = () => {
         />
         <Route
           path='/company/announcements'
-          element={(hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (<SuspensedView>
-              <Announcements />
-            </SuspensedView>) : <NoAccessPage />}
+          element={(hasPermission(uiControlResourceNameMapWithCamelCase.announcementsUnderCompany, permissionConstToUseWithHasPermission.readOthers)) ? (
+            <SectionGuard module='settings.announcements'>
+              <SuspensedView>
+                <Announcements />
+              </SuspensedView>
+            </SectionGuard>
+          ) : <NoAccessPage />}
         />
         <Route
           path='/company/branding'
@@ -748,6 +761,30 @@ const PrivateRoutes = () => {
             </PackGuard>
           }
         />
+        {/* Static slug. Must be registered with the other `/tasks/*` literals, ahead of
+            `/tasks/:taskId`, or "calendar" is a task id and the detail page renders.
+            Access slug is `settings.teams` (Organization → Teams, core). `tasks` would
+            pack-gate this screen behind PSA. */}
+        <Route
+          path='/tasks/calendar'
+          element={
+            <SectionGuard module='settings.teams'>
+              <SuspensedView>
+                <TasksMainCalenderPage />
+              </SuspensedView>
+            </SectionGuard>
+          }
+        />
+        <Route
+          path='/tasks/employee-timesheet'
+          element={
+            <PackGuard pack="psa">
+              <SuspensedView>
+                <EmployeeTimeSheetMain />
+              </SuspensedView>
+            </PackGuard>
+          }
+        />
         <Route
           path='/tasks/:taskId'
           element={
@@ -764,30 +801,13 @@ const PrivateRoutes = () => {
           }
         />
         <Route
-          path='/tasks/employee-timesheet'
-          element={
-            <PackGuard pack="psa">
-              <SuspensedView>
-                <EmployeeTimeSheetMain />
-              </SuspensedView>
-            </PackGuard>
-          }
-        />
-        <Route
-          // Org "Teams" calendar (settings.teams) — not PSA pack-gated; lives under /tasks path historically.
-          path='/tasks/calendar'
-          element={
-            <SuspensedView>
-              <TasksMainCalenderPage />
-            </SuspensedView>
-          }
-        />
-        <Route
           path='/company/employee-level-teams'
           element={
-            <SuspensedView>
-              <EmployeeTeamLevelMain />
-            </SuspensedView>
+            <SectionGuard module='settings.employeeLevel'>
+              <SuspensedView>
+                <EmployeeTeamLevelMain />
+              </SuspensedView>
+            </SectionGuard>
           }
         />
 

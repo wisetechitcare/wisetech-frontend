@@ -34,10 +34,10 @@ export function SectionHeader({
         <Heading data-slot="section-title" className="heading-case line-clamp-2 text-base leading-snug break-words sm:line-clamp-none sm:truncate">{titleCaseChildren(title)}</Heading>
         {description && <p data-slot="section-description" className="line-clamp-2 text-sm text-muted-foreground sm:line-clamp-1">{description}</p>}
       </div>
-      {/* Icon top-right — the card rule (cards right, rows left, dialogs left); it stays beside the title when the
-          action wraps below. */}
-      {icon && <IconBox icon={icon} tone={tone} size="lg" className="order-2 sm:order-3" />}
-      {action && <div className="order-3 max-w-full shrink-0 sm:order-2">{action}</div>}
+      {/* Action before icon so the icon tile stays furthest right — card rule (cards right, rows left,
+          dialogs left). Matches a header with no action (icon alone on the right edge). */}
+      {action ? <div className="max-w-full shrink-0">{action}</div> : null}
+      {icon ? <IconBox icon={icon} tone={tone} size="lg" /> : null}
     </div>
   )
 }
