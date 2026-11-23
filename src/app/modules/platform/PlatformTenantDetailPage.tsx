@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Building2, Package, PauseCircle, PlayCircle } from 'lucide-react'
+import { ArrowLeft, Building2, Package, PauseCircle, Pencil, PlayCircle } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { Badge } from '@/ds/ui/badge'
 import { Card, CardContent, CardHeader } from '@/ds/ui/card'
@@ -9,31 +9,44 @@ import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
 import { Spinner } from '@/ds/ui/spinner'
 import { Checkbox } from '@/ds/ui/checkbox'
 import { Label } from '@/ds/ui/label'
+import { Input } from '@/ds/ui/input'
+import { Textarea } from '@/ds/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select'
+import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { SectionHeader } from '@/ds/patterns/section-header'
 import { DescriptionList } from '@/ds/patterns/description-list'
 import { EmptyState } from '@/ds/patterns/empty-state'
 import { ConfirmDialog } from '@/ds/patterns/confirm-dialog'
+import { FormDialog } from '@/ds/patterns/form-dialog'
 import {
   getPlatformTenant,
   reactivatePlatformTenant,
   suspendPlatformTenant,
   updatePlatformTenantPacks,
+  updatePlatformTenantProfile,
   type PlatformTenantDetail,
   type PlatformTenantPacks,
 } from '@services/platformTenants'
+import {
+  fetchPlatformPlans,
+  type PlatformCommercialPlan,
+} from '@services/platformSettings'
 import { normalizePackFlags, TENANT_PACK_META } from '@constants/entitlements'
+import {
+  matchPlanIdByPacks,
+  optionalPacksFromFlags,
+  type OptionalPacks,
+} from '@constants/platformPlans'
 import { formatDate } from '@utils/dateFormats'
 import { PlatformShell } from './PlatformShell'
 import { usePlatformSession } from './PlatformSessionContext'
+import { platformApiError } from './platformApiError'
 
-function errMessage(err: unknown): string {
-  const ax = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
-  return (
-    ax.response?.data?.detail ||
-    (ax.response?.data?.message && ax.response.data.message !== 'Forbidden' ? ax.response.data.message : '') ||
-    ax.message ||
-    'Something went wrong'
-  )
+const FALLBACK_PACKS: OptionalPacks = {
+  workforce: true,
+  pay: false,
+  psa: false,
+  talent: false,
 }
 
 const OPTIONAL_PACKS = ['workforce', 'pay', 'psa', 'talent'] as const
@@ -63,27 +76,53 @@ export default function PlatformTenantDetailPage() {
   const [tenant, setTenant] = useState<PlatformTenantDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [draftPacks, setDraftPacks] = useState<PlatformTenantPacks>({
-    workforce: true,
-    pay: true,
-    psa: true,
-    talent: true,
-  })
+  const [commercialPlans, setCommercialPlans] = useState<PlatformCommercialPlan[]>([])
+  const [draftPacks, setDraftPacks] = useState<PlatformTenantPacks>(() => ({ ...FALLBACK_PACKS }))
+  const [planId, setPlanId] = useState<string>('custom')
   const [savingPacks, setSavingPacks] = useState(false)
+
+  const planItems = useMemo(
+    () => [
+      ...commercialPlans.map((p) => ({
+        value: p.id,
+        label: p.isDefault ? `${p.name} (default)` : p.name,
+      })),
+      { value: 'custom', label: 'Custom packs' },
+    ],
+    [commercialPlans],
+  )
   const [suspendOpen, setSuspendOpen] = useState(false)
   const [reactivateOpen, setReactivateOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [profileBusy, setProfileBusy] = useState(false)
+  const [profileError, setProfileError] = useState<string | null>(null)
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    address: '',
+    gstNumber: '',
+    panNo: '',
+  })
+
+  const resolvePlanId = useCallback(
+    (packs: PlatformTenantPacks) => matchPlanIdByPacks(commercialPlans, packs) ?? 'custom',
+    [commercialPlans],
+  )
 
   const load = useCallback(async () => {
     if (!id) return
     setError(null)
     setLoading(true)
     try {
-      const next = await getPlatformTenant(id)
+      const [next, plansRes] = await Promise.all([getPlatformTenant(id), fetchPlatformPlans()])
+      const activePlans = plansRes.plans.filter((p) => p.isActive)
+      setCommercialPlans(activePlans)
       setTenant(next)
-      setDraftPacks(packsFromTenant(next.packs))
+      const nextPacks = packsFromTenant(next.packs)
+      setDraftPacks(nextPacks)
+      setPlanId(matchPlanIdByPacks(activePlans, nextPacks) ?? 'custom')
     } catch (err) {
       setTenant(null)
-      setError(errMessage(err))
+      setError(platformApiError(err))
     } finally {
       setLoading(false)
     }
@@ -103,13 +142,49 @@ export default function PlatformTenantDetailPage() {
     try {
       const result = await updatePlatformTenantPacks(id, draftPacks)
       setTenant((prev) => (prev ? { ...prev, packs: result.packs } : prev))
-      setDraftPacks(packsFromTenant(result.packs))
+      const nextPacks = packsFromTenant(result.packs)
+      setDraftPacks(nextPacks)
+      setPlanId(resolvePlanId(nextPacks))
       toast.success('Packs updated')
     } catch (err) {
-      toast.error(errMessage(err))
+      toast.error(platformApiError(err))
       throw err
     } finally {
       setSavingPacks(false)
+    }
+  }
+
+  function openProfile() {
+    if (!tenant) return
+    setProfileForm({
+      name: tenant.name,
+      address: tenant.address ?? '',
+      gstNumber: tenant.gstNumber ?? '',
+      panNo: tenant.panNo ?? '',
+    })
+    setProfileError(null)
+    setProfileOpen(true)
+  }
+
+  async function onSaveProfile(e: FormEvent) {
+    e.preventDefault()
+    if (!id || !tenant) return
+    setProfileBusy(true)
+    setProfileError(null)
+    try {
+      const next = await updatePlatformTenantProfile(id, {
+        name: profileForm.name.trim(),
+        address: profileForm.address.trim() || null,
+        gstNumber: profileForm.gstNumber.trim() || null,
+        panNo: profileForm.panNo.trim() || null,
+      })
+      setTenant(next)
+      toast.success('Organization updated')
+      setProfileOpen(false)
+    } catch (err) {
+      setProfileError(platformApiError(err))
+    } finally {
+      setProfileBusy(false)
     }
   }
 
@@ -117,7 +192,9 @@ export default function PlatformTenantDetailPage() {
     if (!id) return
     const next = await suspendPlatformTenant(id)
     setTenant(next)
-    setDraftPacks(packsFromTenant(next.packs))
+    const nextPacks = packsFromTenant(next.packs)
+    setDraftPacks(nextPacks)
+    setPlanId(resolvePlanId(nextPacks))
     toast.success('Tenant suspended')
   }
 
@@ -125,7 +202,9 @@ export default function PlatformTenantDetailPage() {
     if (!id) return
     const next = await reactivatePlatformTenant(id)
     setTenant(next)
-    setDraftPacks(packsFromTenant(next.packs))
+    const nextPacks = packsFromTenant(next.packs)
+    setDraftPacks(nextPacks)
+    setPlanId(resolvePlanId(nextPacks))
     toast.success('Tenant reactivated')
   }
 
@@ -192,7 +271,18 @@ export default function PlatformTenantDetailPage() {
 
           <Card tone="blue">
             <CardHeader>
-              <SectionHeader icon={<Building2 />} tone="blue" title="Organization" />
+              <SectionHeader
+                icon={<Building2 />}
+                tone="blue"
+                title="Organization"
+                action={
+                  isAdmin ? (
+                    <Button type="button" size="sm" variant="outline" onClick={openProfile}>
+                      <Pencil aria-hidden /> Edit
+                    </Button>
+                  ) : null
+                }
+              />
             </CardHeader>
             <CardContent>
               <DescriptionList
@@ -238,6 +328,31 @@ export default function PlatformTenantDetailPage() {
             <CardContent>
               {isAdmin ? (
                 <div className="space-y-4">
+                  <Field>
+                    <FieldLabel id="tenant-plan-label">Commercial Plan</FieldLabel>
+                    <Select
+                      items={planItems}
+                      value={planId}
+                      onValueChange={(v) => {
+                        const next = String(v ?? 'custom')
+                        setPlanId(next)
+                        if (next === 'custom') return
+                        const plan = commercialPlans.find((p) => p.id === next)
+                        if (plan) setDraftPacks(optionalPacksFromFlags(plan.packs))
+                      }}
+                    >
+                      <SelectTrigger className="w-full max-w-md" aria-labelledby="tenant-plan-label">
+                        <SelectValue placeholder="Select plan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {planItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
                   <fieldset className="grid gap-3">
                     <legend className="sr-only">Module packs</legend>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -251,9 +366,10 @@ export default function PlatformTenantDetailPage() {
                       <Label key={key} className="flex items-start gap-3 font-normal">
                         <Checkbox
                           checked={draftPacks[key]}
-                          onCheckedChange={(v) =>
+                          onCheckedChange={(v) => {
+                            setPlanId('custom')
                             setDraftPacks((p) => ({ ...p, [key]: v === true }))
-                          }
+                          }}
                         />
                         <span>
                           <span className="font-medium text-foreground">{TENANT_PACK_META[key].title}</span>
@@ -299,7 +415,12 @@ export default function PlatformTenantDetailPage() {
             </CardHeader>
             <CardContent>
               {tenant.childOrganizations.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No sub-organizations under this root.</p>
+                <EmptyState
+                  size="sm"
+                  icon={<Building2 aria-hidden />}
+                  title="No Sub-Organizations"
+                  description="Children of this root are managed inside the tenant app."
+                />
               ) : (
                 <ul className="divide-y divide-border">
                   {tenant.childOrganizations.map((child) => (
@@ -314,6 +435,71 @@ export default function PlatformTenantDetailPage() {
           </Card>
         </div>
       ) : null}
+
+      <FormDialog
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        title="Edit Organization"
+        description="Root tenant profile fields. Packs and lifecycle stay on this page."
+        icon={<Building2 aria-hidden />}
+        formId="tenant-profile-form"
+        submitLabel="Save Changes"
+        submitting={profileBusy}
+        dirty={Boolean(
+          tenant &&
+            (profileForm.name !== tenant.name ||
+              profileForm.address !== (tenant.address ?? '') ||
+              profileForm.gstNumber !== (tenant.gstNumber ?? '') ||
+              profileForm.panNo !== (tenant.panNo ?? '')),
+        )}
+      >
+        <form id="tenant-profile-form" className="grid gap-4 p-6" onSubmit={onSaveProfile} noValidate>
+          {profileError ? (
+            <Alert variant="danger">
+              <AlertTitle>Could Not Save</AlertTitle>
+              <AlertDescription>{profileError}</AlertDescription>
+            </Alert>
+          ) : null}
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel htmlFor="tenant-name">Name</FieldLabel>
+              <Input
+                id="tenant-name"
+                required
+                value={profileForm.name}
+                onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="tenant-address">Address</FieldLabel>
+              <Textarea
+                id="tenant-address"
+                rows={3}
+                value={profileForm.address}
+                onChange={(e) => setProfileForm((f) => ({ ...f, address: e.target.value }))}
+              />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="tenant-gst">GST</FieldLabel>
+                <Input
+                  id="tenant-gst"
+                  value={profileForm.gstNumber}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, gstNumber: e.target.value }))}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="tenant-pan">PAN</FieldLabel>
+                <Input
+                  id="tenant-pan"
+                  value={profileForm.panNo}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, panNo: e.target.value }))}
+                />
+              </Field>
+            </div>
+          </FieldGroup>
+        </form>
+      </FormDialog>
 
       <ConfirmDialog
         open={suspendOpen}

@@ -36,6 +36,7 @@ import {
 } from '@services/platformSupport'
 import { PlatformShell } from './PlatformShell'
 import { usePlatformSession } from './PlatformSessionContext'
+import { tenantAppHref } from './platformHost'
 
 function errMessage(err: unknown): string {
   const ax = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
@@ -198,7 +199,10 @@ export default function PlatformSupportPage() {
       const { bootstrapSupportViewIfNeeded } = await import('./bootstrapSupportView')
       await bootstrapSupportViewIfNeeded()
       toast.success('Opening tenant app as selected person')
-      window.location.assign(enterPath || '/dashboard')
+      // Absolute when VITE_TENANT_APP_ORIGIN is set (platform.kaiznova.com → app.kaiznova.com).
+      const target =
+        enterPath && /^https?:\/\//i.test(enterPath) ? enterPath : tenantAppHref(enterPath || '/dashboard')
+      window.location.assign(target)
     } catch (err) {
       toast.error(errMessage(err))
     } finally {

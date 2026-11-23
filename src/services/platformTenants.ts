@@ -97,6 +97,19 @@ export async function createPlatformTenant(payload: ProvisionTenantPayload): Pro
   return unwrap<{ result: ProvisionTenantResult }>(data).result
 }
 
+export async function updatePlatformTenantProfile(
+  id: string,
+  input: {
+    name?: string
+    address?: string | null
+    gstNumber?: string | null
+    panNo?: string | null
+  },
+): Promise<PlatformTenantDetail> {
+  const { data } = await client.patch(`/api/platform/tenants/${encodeURIComponent(id)}`, input)
+  return unwrap<{ tenant: PlatformTenantDetail }>(data).tenant
+}
+
 export async function updatePlatformTenantPacks(
   id: string,
   packs: PlatformTenantPacks,

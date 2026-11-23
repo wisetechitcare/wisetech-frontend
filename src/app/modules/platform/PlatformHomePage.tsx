@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
-import { Copy, MoreHorizontal, UserPlus } from 'lucide-react'
+import { toast } from 'sonner'
+import { Copy, MoreHorizontal, Pencil, UserPlus } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { Badge } from '@/ds/ui/badge'
 import { Input } from '@/ds/ui/input'
@@ -7,33 +8,30 @@ import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
 import { Spinner } from '@/ds/ui/spinner'
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/ds/ui/dialog'
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/ds/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip'
 import { EmptyState } from '@/ds/patterns/empty-state'
 import { DataTable, type ColumnDef } from '@/ds/patterns/data-table'
+import { FormDialog } from '@/ds/patterns/form-dialog'
+import { ConfirmDialog } from '@/ds/patterns/confirm-dialog'
 import {
   disablePlatformOperator,
+  enablePlatformOperator,
   invitePlatformOperator,
   listPlatformOperators,
   resendPlatformInvite,
+  updatePlatformOperator,
   type PlatformInviteResult,
   type PlatformOperator,
 } from '@services/platformAuth'
 import { PlatformShell } from './PlatformShell'
 import { usePlatformSession } from './PlatformSessionContext'
+import { platformApiError } from './platformApiError'
 
 const ROLE_ITEMS = [
   { value: 'ADMIN', label: 'Admin' },
@@ -48,16 +46,6 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral
   DISABLED: 'danger',
 }
 
-function errMessage(err: unknown): string {
-  const ax = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
-  return (
-    ax.response?.data?.detail ||
-    (ax.response?.data?.message && ax.response.data.message !== 'Forbidden' ? ax.response.data.message : '') ||
-    ax.message ||
-    'Something went wrong'
-  )
-}
-
 function formatWhen(iso: string | null): string {
   if (!iso) return '—'
   try {
@@ -67,7 +55,7 @@ function formatWhen(iso: string | null): string {
   }
 }
 
-/** Platform operators — invite links, resend, disable. */
+/** Platform operators — invite, edit role/name, resend, disable / re-enable. */
 export default function PlatformHomePage() {
   const { user } = usePlatformSession()
   const isAdmin = user?.platformRole === 'ADMIN'
@@ -85,9 +73,13 @@ export default function PlatformHomePage() {
   const [inviteResult, setInviteResult] = useState<PlatformInviteResult | null>(null)
   const [copied, setCopied] = useState(false)
 
+  const [editTarget, setEditTarget] = useState<PlatformOperator | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editRole, setEditRole] = useState('DEVELOPER')
+  const [editBusy, setEditBusy] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
   const [disableTarget, setDisableTarget] = useState<PlatformOperator | null>(null)
-  const [disableBusy, setDisableBusy] = useState(false)
-  const [actionError, setActionError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     setListError(null)
@@ -95,7 +87,7 @@ export default function PlatformHomePage() {
     try {
       setRows(await listPlatformOperators())
     } catch (err) {
-      setListError(errMessage(err))
+      setListError(platformApiError(err))
     } finally {
       setLoading(false)
     }
@@ -110,6 +102,16 @@ export default function PlatformHomePage() {
     return inviteResult.acceptUrl || `${window.location.origin}${inviteResult.acceptPath}`
   }, [inviteResult])
 
+  function openInvite() {
+    setInviteOpen(true)
+    setInviteResult(null)
+    setInviteError(null)
+    setEmail('')
+    setDisplayName('')
+    setRole('DEVELOPER')
+    setCopied(false)
+  }
+
   async function onInvite(e: FormEvent) {
     e.preventDefault()
     setInviteError(null)
@@ -122,9 +124,10 @@ export default function PlatformHomePage() {
       })
       setInviteResult(result)
       setCopied(false)
+      toast.success(result.emailSent ? 'Invite sent' : 'Invite created')
       await refresh()
     } catch (err) {
-      setInviteError(errMessage(err))
+      setInviteError(platformApiError(err))
     } finally {
       setInviteBusy(false)
     }
@@ -132,32 +135,67 @@ export default function PlatformHomePage() {
 
   const onResend = useCallback(
     async (op: PlatformOperator) => {
-      setActionError(null)
       try {
         const result = await resendPlatformInvite(op.id)
         setInviteResult(result)
         setInviteOpen(true)
         setCopied(false)
+        toast.success(result.emailSent ? 'Invite resent' : 'Invite refreshed')
         await refresh()
       } catch (err) {
-        setActionError(errMessage(err))
+        toast.error(platformApiError(err))
       }
     },
     [refresh],
   )
 
+  function openEdit(op: PlatformOperator) {
+    setEditTarget(op)
+    setEditName(op.displayName)
+    setEditRole(op.platformRole)
+    setEditError(null)
+  }
+
+  async function onEdit(e: FormEvent) {
+    e.preventDefault()
+    if (!editTarget) return
+    setEditBusy(true)
+    setEditError(null)
+    try {
+      await updatePlatformOperator(editTarget.id, {
+        displayName: editName.trim(),
+        role: editRole,
+      })
+      toast.success('Operator updated')
+      setEditTarget(null)
+      await refresh()
+    } catch (err) {
+      setEditError(platformApiError(err))
+    } finally {
+      setEditBusy(false)
+    }
+  }
+
   async function onConfirmDisable() {
     if (!disableTarget) return
-    setDisableBusy(true)
-    setActionError(null)
     try {
       await disablePlatformOperator(disableTarget.id)
+      toast.success('Operator disabled')
       setDisableTarget(null)
       await refresh()
     } catch (err) {
-      setActionError(errMessage(err))
-    } finally {
-      setDisableBusy(false)
+      toast.error(platformApiError(err))
+      throw err
+    }
+  }
+
+  async function onEnable(op: PlatformOperator) {
+    try {
+      await enablePlatformOperator(op.id)
+      toast.success('Operator re-enabled')
+      await refresh()
+    } catch (err) {
+      toast.error(platformApiError(err))
     }
   }
 
@@ -217,16 +255,32 @@ export default function PlatformHomePage() {
           const op = row.original
           if (!isAdmin) return null
           const isSelf = op.id === user?.id
+          const label = `Actions for ${op.displayName}`
           return (
             <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${op.displayName}`} />}
-              >
-                <MoreHorizontal aria-hidden />
-              </DropdownMenuTrigger>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <DropdownMenuTrigger
+                      render={<Button variant="ghost" size="icon-sm" aria-label={label} />}
+                    />
+                  }
+                >
+                  <MoreHorizontal aria-hidden />
+                </TooltipTrigger>
+                <TooltipContent>{label}</TooltipContent>
+              </Tooltip>
               <DropdownMenuContent align="end">
+                {op.status !== 'DISABLED' ? (
+                  <DropdownMenuItem onClick={() => openEdit(op)}>
+                    <Pencil aria-hidden /> Edit
+                  </DropdownMenuItem>
+                ) : null}
                 {op.status === 'INVITED' ? (
                   <DropdownMenuItem onClick={() => void onResend(op)}>Resend Invite</DropdownMenuItem>
+                ) : null}
+                {op.status === 'DISABLED' && !isSelf ? (
+                  <DropdownMenuItem onClick={() => void onEnable(op)}>Re-enable</DropdownMenuItem>
                 ) : null}
                 {!isSelf && op.status !== 'DISABLED' ? (
                   <DropdownMenuItem variant="destructive" onClick={() => setDisableTarget(op)}>
@@ -248,50 +302,41 @@ export default function PlatformHomePage() {
       description="Invite KAIZNOVA staff by email — they set their own password and enrol MFA."
       actions={
         isAdmin ? (
-          <Button
-            type="button"
-            onClick={() => {
-              setInviteOpen(true)
-              setInviteResult(null)
-              setInviteError(null)
-              setEmail('')
-              setDisplayName('')
-              setRole('DEVELOPER')
-              setCopied(false)
-            }}
-          >
+          <Button type="button" onClick={openInvite}>
             <UserPlus aria-hidden /> Invite Operator
           </Button>
         ) : null
       }
     >
       {listError ? (
-        <Alert variant="danger">
-          <AlertTitle>Could Not Load Operators</AlertTitle>
-          <AlertDescription>{listError}</AlertDescription>
-        </Alert>
-      ) : null}
-      {actionError ? (
-        <Alert variant="danger">
-          <AlertTitle>Action Failed</AlertTitle>
-          <AlertDescription>{actionError}</AlertDescription>
-        </Alert>
+        <EmptyState
+          variant="error"
+          title="Could Not Load Operators"
+          description={listError}
+          action={
+            <Button size="sm" onClick={() => void refresh()}>
+              Retry
+            </Button>
+          }
+        />
       ) : null}
 
-      {!loading && rows.length === 0 ? (
+      {!listError && !loading && rows.length === 0 ? (
         <EmptyState
           icon={<UserPlus aria-hidden />}
           title="No Operators Yet"
           description="Create the first platform ADMIN with the CLI break-glass script, enrol MFA, then invite the rest from here."
           action={
             isAdmin ? (
-              <Button size="sm" onClick={() => setInviteOpen(true)}>
+              <Button size="sm" onClick={openInvite}>
                 <UserPlus aria-hidden /> Invite Operator
               </Button>
             ) : undefined
           }
         />
-      ) : (
+      ) : null}
+
+      {!listError && (loading || rows.length > 0) ? (
         <DataTable
           caption="Platform Operators"
           columns={columns}
@@ -300,9 +345,9 @@ export default function PlatformHomePage() {
           loading={loading}
           searchPlaceholder="Search operators"
         />
-      )}
+      ) : null}
 
-      <Dialog
+      <FormDialog
         open={inviteOpen}
         onOpenChange={(open) => {
           setInviteOpen(open)
@@ -311,21 +356,23 @@ export default function PlatformHomePage() {
             setInviteError(null)
           }
         }}
+        title={inviteResult ? 'Invite Sent' : 'Invite Operator'}
+        description={
+          inviteResult
+            ? inviteResult.emailSent
+              ? `Email sent to ${inviteResult.user.email}. You can still copy the link as a backup.`
+              : 'Invite created, but email could not be sent. Copy the link and share it out of band.'
+            : 'They will open the email link, choose a password, then enrol an authenticator.'
+        }
+        icon={<UserPlus aria-hidden />}
+        formId={inviteResult ? undefined : 'invite-operator-form'}
+        submitLabel="Create Invite"
+        submitting={inviteBusy}
+        dirty={!inviteResult && Boolean(email || displayName)}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{inviteResult ? 'Invite Sent' : 'Invite Operator'}</DialogTitle>
-            <DialogDescription>
-              {inviteResult
-                ? inviteResult.emailSent
-                  ? `Email sent to ${inviteResult.user.email}. You can still copy the link as a backup.`
-                  : 'Invite created, but email could not be sent. Copy the link and share it out of band.'
-                : 'They will open the email link, choose a password, then enrol an authenticator.'}
-            </DialogDescription>
-          </DialogHeader>
-
+        <div className="grid gap-4 p-6">
           {inviteResult ? (
-            <div className="grid gap-4">
+            <>
               {inviteResult.emailSent ? (
                 <Alert variant="success">
                   <AlertTitle>Email Queued</AlertTitle>
@@ -348,7 +395,10 @@ export default function PlatformHomePage() {
                     variant="outline"
                     aria-label="Copy accept link"
                     onClick={() => {
-                      void navigator.clipboard.writeText(acceptUrl).then(() => setCopied(true))
+                      void navigator.clipboard.writeText(acceptUrl).then(() => {
+                        setCopied(true)
+                        toast.success('Link copied')
+                      })
                     }}
                   >
                     <Copy aria-hidden /> {copied ? 'Copied' : 'Copy'}
@@ -356,12 +406,9 @@ export default function PlatformHomePage() {
                 </div>
               </Field>
               <p className="text-sm text-muted-foreground">Expires {formatWhen(inviteResult.expiresAt)}</p>
-              <DialogFooter>
-                <DialogClose render={<Button variant="outline" />}>Done</DialogClose>
-              </DialogFooter>
-            </div>
+            </>
           ) : (
-            <form className="grid gap-4" onSubmit={onInvite} noValidate>
+            <form id="invite-operator-form" className="grid gap-4" onSubmit={onInvite} noValidate>
               {inviteError ? (
                 <Alert variant="danger">
                   <AlertTitle>Could Not Invite</AlertTitle>
@@ -405,41 +452,78 @@ export default function PlatformHomePage() {
                   </Select>
                 </Field>
               </FieldGroup>
-              <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" disabled={inviteBusy} />}>
-                  Cancel
-                </DialogClose>
-                <Button type="submit" disabled={inviteBusy}>
-                  {inviteBusy ? <Spinner data-icon="inline-start" aria-hidden /> : null}
-                  Create Invite
-                </Button>
-              </DialogFooter>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
+        </div>
+      </FormDialog>
 
-      <Dialog open={Boolean(disableTarget)} onOpenChange={(open) => !open && setDisableTarget(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Disable Operator?</DialogTitle>
-            <DialogDescription>
-              {disableTarget
-                ? `${disableTarget.displayName} (${disableTarget.email}) will lose platform access immediately.`
-                : null}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" disabled={disableBusy} />}>
-              Keep Active
-            </DialogClose>
-            <Button type="button" variant="destructive" disabled={disableBusy} onClick={() => void onConfirmDisable()}>
-              {disableBusy ? <Spinner data-icon="inline-start" aria-hidden /> : null}
-              Disable
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FormDialog
+        open={Boolean(editTarget)}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null)
+        }}
+        title="Edit Operator"
+        description={editTarget?.email}
+        icon={<Pencil aria-hidden />}
+        formId="edit-operator-form"
+        submitLabel="Save Changes"
+        submitting={editBusy}
+        dirty={Boolean(
+          editTarget && (editName !== editTarget.displayName || editRole !== editTarget.platformRole),
+        )}
+      >
+        <form id="edit-operator-form" className="grid gap-4 p-6" onSubmit={onEdit} noValidate>
+          {editError ? (
+            <Alert variant="danger">
+              <AlertTitle>Could Not Save</AlertTitle>
+              <AlertDescription>{editError}</AlertDescription>
+            </Alert>
+          ) : null}
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel htmlFor="edit-name">Display Name</FieldLabel>
+              <Input
+                id="edit-name"
+                required
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel id="edit-role-label">Role</FieldLabel>
+              <Select items={ROLE_ITEMS} value={editRole} onValueChange={(v) => setEditRole(String(v ?? 'DEVELOPER'))}>
+                <SelectTrigger className="w-full" aria-labelledby="edit-role-label">
+                  <SelectValue placeholder="Choose a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_ITEMS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </FieldGroup>
+        </form>
+      </FormDialog>
+
+      <ConfirmDialog
+        open={Boolean(disableTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDisableTarget(null)
+        }}
+        variant="warning"
+        danger
+        title="Disable this operator?"
+        description={
+          disableTarget
+            ? `${disableTarget.displayName} (${disableTarget.email}) will lose platform access immediately.`
+            : undefined
+        }
+        confirmLabel="Disable"
+        onConfirm={() => onConfirmDisable()}
+      />
     </PlatformShell>
   )
 }

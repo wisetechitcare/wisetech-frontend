@@ -8,6 +8,7 @@ import PlatformSupportPage from './PlatformSupportPage'
 import PlatformTenantCreatePage from './PlatformTenantCreatePage'
 import PlatformTenantDetailPage from './PlatformTenantDetailPage'
 import PlatformTenantsPage from './PlatformTenantsPage'
+import PlatformSettingsPage from './PlatformSettingsPage'
 import { PlatformSessionProvider, usePlatformSession } from './PlatformSessionContext'
 
 function PlatformGate({ children }: { children: ReactNode }) {
@@ -74,6 +75,14 @@ export function PlatformRoutes() {
           element={
             <PlatformGate>
               <PlatformSupportPage />
+            </PlatformGate>
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <PlatformGate>
+              <PlatformSettingsPage />
             </PlatformGate>
           }
         />

@@ -23,8 +23,20 @@ import {
   type GeoTown,
   type ProvisionTenantPayload,
 } from '@services/platformTenants'
+import {
+  fetchPlatformPlans,
+  type PlatformCommercialPlan,
+} from '@services/platformSettings'
+import { optionalPacksFromFlags, type OptionalPacks } from '@constants/platformPlans'
 import { PlatformShell } from './PlatformShell'
 import { usePlatformSession } from './PlatformSessionContext'
+
+const FALLBACK_PACKS: OptionalPacks = {
+  workforce: true,
+  pay: false,
+  psa: false,
+  talent: false,
+}
 
 type Step = 0 | 1 | 2 | 3
 
@@ -53,8 +65,25 @@ export default function PlatformTenantCreatePage() {
   const [orgAddress, setOrgAddress] = useState('')
   const [gstNumber, setGstNumber] = useState('')
   const [panNo, setPanNo] = useState('')
-  const [packs, setPacks] = useState({ workforce: true, pay: true, psa: true, talent: true })
+  const [commercialPlans, setCommercialPlans] = useState<PlatformCommercialPlan[]>([])
+  const [defaultPlanId, setDefaultPlanId] = useState<string | null>(null)
+  const [plansLoading, setPlansLoading] = useState(true)
+  const [planId, setPlanId] = useState<string>('custom')
+  const [packs, setPacks] = useState<OptionalPacks>(() => ({ ...FALLBACK_PACKS }))
   const [sendMail, setSendMail] = useState(true)
+
+  const planItems = useMemo(
+    () => [
+      ...commercialPlans.map((p) => ({ value: p.id, label: p.isDefault ? `${p.name} (default)` : p.name })),
+      { value: 'custom', label: 'Custom packs' },
+    ],
+    [commercialPlans],
+  )
+
+  const selectedPlanName = useMemo(() => {
+    if (planId === 'custom') return 'Custom'
+    return commercialPlans.find((p) => p.id === planId)?.name ?? planId
+  }, [commercialPlans, planId])
 
   const [hoName, setHoName] = useState('Head Office')
   const [hoAddress, setHoAddress] = useState('')
@@ -91,6 +120,37 @@ export default function PlatformTenantCreatePage() {
     void platformTowns()
       .then(setTowns)
       .catch(() => setTowns([]))
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setPlansLoading(true)
+    void fetchPlatformPlans()
+      .then((data) => {
+        if (cancelled) return
+        setCommercialPlans(data.plans.filter((p) => p.isActive))
+        setDefaultPlanId(data.defaultNewTenantPlanId)
+        const def =
+          data.plans.find((p) => p.id === data.defaultNewTenantPlanId && p.isActive) ??
+          data.plans.find((p) => p.isActive)
+        if (def) {
+          setPlanId(def.id)
+          setPacks(optionalPacksFromFlags(def.packs))
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        setCommercialPlans([])
+        setDefaultPlanId(null)
+        setPlanId('custom')
+        setPacks({ ...FALLBACK_PACKS })
+      })
+      .finally(() => {
+        if (!cancelled) setPlansLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -313,6 +373,38 @@ export default function PlatformTenantCreatePage() {
                 <Input id="org-pan" value={panNo} onChange={(e) => setPanNo(e.target.value)} />
               </Field>
             </div>
+            <Field>
+              <FieldLabel id="plan-label">Commercial Plan</FieldLabel>
+              <Select
+                items={planItems}
+                value={planId}
+                onValueChange={(v) => {
+                  const next = String(v ?? defaultPlanId ?? 'custom')
+                  setPlanId(next)
+                  if (next === 'custom') return
+                  const plan = commercialPlans.find((p) => p.id === next)
+                  if (plan) setPacks(optionalPacksFromFlags(plan.packs))
+                }}
+              >
+                <SelectTrigger
+                  className="w-full"
+                  aria-labelledby="plan-label"
+                  disabled={plansLoading}
+                >
+                  <SelectValue placeholder={plansLoading ? 'Loading plans…' : 'Select plan'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {planItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Defaults from Platform Settings. Choose Custom to toggle packs individually.
+              </p>
+            </Field>
             <fieldset className="grid gap-3">
               <legend className="text-sm font-medium text-foreground">Module Packs</legend>
               <p className="text-sm text-muted-foreground">Core is always on. Toggle the rest for this tenant.</p>
@@ -325,7 +417,11 @@ export default function PlatformTenantCreatePage() {
                 <Label key={key} className="flex items-center gap-3 font-normal">
                   <Checkbox
                     checked={packs[key]}
-                    onCheckedChange={(v) => setPacks((p) => ({ ...p, [key]: v === true }))}
+                    disabled={planId !== 'custom'}
+                    onCheckedChange={(v) => {
+                      setPlanId('custom')
+                      setPacks((p) => ({ ...p, [key]: v === true }))
+                    }}
                   />
                   {label}
                 </Label>
@@ -520,8 +616,10 @@ export default function PlatformTenantCreatePage() {
               <span className="font-medium">{orgName}</span>
             </p>
             <p>
-              <span className="text-muted-foreground">Packs</span>
+              <span className="text-muted-foreground">Plan</span>
               <br />
+              {selectedPlanName}
+              {' — '}
               Core
               {packs.workforce ? ' + Workforce' : ''}
               {packs.pay ? ' + Pay' : ''}

@@ -110,6 +110,19 @@ export async function disablePlatformOperator(id: string): Promise<PlatformOpera
   return unwrap<{ operator: PlatformOperator }>(data).operator
 }
 
+export async function enablePlatformOperator(id: string): Promise<PlatformOperator> {
+  const { data } = await client.post(`/api/platform/operators/${encodeURIComponent(id)}/enable`, {})
+  return unwrap<{ operator: PlatformOperator }>(data).operator
+}
+
+export async function updatePlatformOperator(
+  id: string,
+  input: { displayName?: string; role?: string },
+): Promise<PlatformOperator> {
+  const { data } = await client.patch(`/api/platform/operators/${encodeURIComponent(id)}`, input)
+  return unwrap<{ operator: PlatformOperator }>(data).operator
+}
+
 /** Public — sets password from invite token; sets MFA enroll bridge cookie. */
 export async function acceptPlatformInvite(token: string, password: string): Promise<{ step: 'enroll' }> {
   const { data } = await client.post('/api/platform/operators/accept', { token, password })

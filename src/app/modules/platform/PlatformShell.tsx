@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Building2, Headset, LogOut, Users } from 'lucide-react'
+import { Building2, Headset, LogOut, Settings, Users } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { ThemeToggle } from '@/ds/patterns/theme-toggle'
+import { PageHeader } from '@/ds/patterns/page-header'
 import { useColorMode } from '@app/theme/ColorMode'
 import { cn } from '@/ds/lib/utils'
 import { PLATFORM_CONSOLE_BRAND } from './platformCopy'
@@ -11,10 +12,11 @@ import { usePlatformSession } from './PlatformSessionContext'
 const NAV = [
   { to: '/platform/tenants', label: 'Tenants', icon: Building2, end: false },
   { to: '/platform/support', label: 'Support', icon: Headset, end: false },
+  { to: '/platform/settings', label: 'Settings', icon: Settings, end: false },
   { to: '/platform', label: 'Operators', icon: Users, end: true },
 ] as const
 
-/** Shared chrome for authenticated platform console pages. */
+/** Shared chrome for authenticated platform console pages — kit PageHeader + thin nav. */
 export function PlatformShell({
   title,
   description,
@@ -59,12 +61,9 @@ export function PlatformShell({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {user ? (
-              <span className="hidden text-sm text-muted-foreground sm:inline">
-                {user.displayName}
-              </span>
+              <span className="hidden text-sm text-muted-foreground sm:inline">{user.displayName}</span>
             ) : null}
             <ThemeToggle mode={mode} onToggle={toggle} />
-            {actions}
             <Button
               type="button"
               variant="outline"
@@ -78,10 +77,7 @@ export function PlatformShell({
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="space-y-1">
-          <h1 className="heading-case text-2xl text-foreground">{title}</h1>
-          {description ? <p className="max-w-2xl text-sm text-muted-foreground">{description}</p> : null}
-        </div>
+        <PageHeader title={title} description={description} actions={actions} />
         {children}
       </main>
     </div>

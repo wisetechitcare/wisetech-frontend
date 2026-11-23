@@ -7,6 +7,7 @@ import {
   type ActiveSupportSession,
 } from '@services/platformSupport'
 import { PLATFORM_CONSOLE_BRAND } from './platformCopy'
+import { platformConsoleHref } from './platformHost'
 
 /**
  * Fixed banner while a KAIZNOVA operator is viewing the tenant app as an employee.
@@ -78,7 +79,7 @@ export function PlatformSupportBanner() {
             .then(() => {
               setSession(null)
               toast.success('Support session ended')
-              window.location.assign('/platform/support')
+              window.location.assign(platformConsoleHref('/platform/support'))
             })
             .catch((err: unknown) => {
               toast.error(err instanceof Error ? err.message : 'Could not end session')

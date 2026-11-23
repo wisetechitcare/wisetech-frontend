@@ -14,6 +14,7 @@ import { ErrorsPage } from '../modules/errors/ErrorsPage'
 import { Logout, AuthPage, getAuth } from '../modules/auth'
 import { PlatformRoutes } from '../modules/platform/PlatformRoutes'
 import { isPlatformConsoleEnabled } from '../modules/platform/platformConsoleFlag'
+import { resolveAppHostMode } from '../modules/platform/platformHost'
 import { SUPPORT_VIEW_TOKEN_MARKER } from '@services/platformSupport'
 import { bootstrapSupportViewIfNeeded } from '../modules/platform/bootstrapSupportView'
 import GoogleContactsCallback from '@pages/employee/companies/contacts/components/GoogleContactsCallback'
@@ -78,6 +79,7 @@ function SupportProbeSpinner() {
 const RootRedirect: FC = () => {
   const hasSession = useHasAuthenticatedSession()
   const supportReady = useSupportViewBootstrap(hasSession)
+  if (resolveAppHostMode() === 'platform') return <Navigate to="/platform" replace />
   if (hasSession || supportReady === true) return <Navigate to="/dashboard" replace />
   if (supportReady === null) return <SupportProbeSpinner />
   return <Navigate to="/auth" replace />
@@ -86,6 +88,7 @@ const RootRedirect: FC = () => {
 const AuthRoute: FC = () => {
   const hasSession = useHasAuthenticatedSession()
   const supportReady = useSupportViewBootstrap(hasSession)
+  if (resolveAppHostMode() === 'platform') return <Navigate to="/platform/login" replace />
   if (hasSession || supportReady === true) return <Navigate to="/dashboard" replace />
   if (supportReady === null) return <SupportProbeSpinner />
   return <AuthPage />
@@ -94,9 +97,17 @@ const AuthRoute: FC = () => {
 const ProtectedRoute: FC = () => {
   const hasSession = useHasAuthenticatedSession()
   const supportReady = useSupportViewBootstrap(hasSession)
+  if (resolveAppHostMode() === 'platform') return <Navigate to="/platform" replace />
   if (hasSession || supportReady === true) return <PrivateRoutes />
   if (supportReady === null) return <SupportProbeSpinner />
   return <Navigate to="/auth" replace />
+}
+
+/** Platform console — blocked on tenant-only hosts once VITE_PLATFORM_HOST is set. */
+const PlatformConsoleRoute: FC = () => {
+  if (!isPlatformConsoleEnabled()) return <Navigate to="/auth" replace />
+  if (resolveAppHostMode() === 'tenant') return <Navigate to="/auth" replace />
+  return <PlatformRoutes />
 }
 
 const router = createBrowserRouter(
@@ -114,11 +125,8 @@ const router = createBrowserRouter(
       <Route index element={<RootRedirect />} />
       <Route path="auth/*" element={<AuthRoute />} />
       {/* Platform console — separate cookie/session; must sit before the tenant catch-all.
-          Kill switch: VITE_PLATFORM_CONSOLE_ENABLED=false (mirrors BE PLATFORM_CONSOLE_ENABLED). */}
-      <Route
-        path="platform/*"
-        element={isPlatformConsoleEnabled() ? <PlatformRoutes /> : <Navigate to="/auth" replace />}
-      />
+          Kill switch: VITE_PLATFORM_CONSOLE_ENABLED=false. Host gate: VITE_PLATFORM_HOST. */}
+      <Route path="platform/*" element={<PlatformConsoleRoute />} />
       <Route path="/*" element={<ProtectedRoute />} />
     </Route>,
   ),

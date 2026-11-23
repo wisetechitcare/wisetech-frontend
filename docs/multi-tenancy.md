@@ -15,7 +15,7 @@ The UI is **not** the security boundary. The API enforces org-family scope. The 
 | Org family | Orgs returned by company overview / session ΓÇö WISETECH GROUP + children |
 | `companyId` on HRMS APIs | Always an **Organization** id from that family (or omit = whole family) |
 | CRM ΓÇ£companyΓÇ¥ | Client company in leads/contacts ΓÇö **different id space**; never use as HRMS tenant |
-| Platform console | `/platform` — KAIZNOVA `platform_users` cookie session; **not** tenant Redux. Dogfood HR stays on `/auth`. Flag: `VITE_PLATFORM_CONSOLE_ENABLED` (unset = on). |
+| Platform console | `/platform` — KAIZNOVA `platform_users` cookie session; **not** tenant Redux. Dogfood HR stays on `/auth`. Flag: `VITE_PLATFORM_CONSOLE_ENABLED` (unset = on). Host split (Phase 4): `VITE_PLATFORM_HOST=platform.kaiznova.com` makes that hostname ops-only; `VITE_TENANT_APP_ORIGIN` / `VITE_PLATFORM_APP_ORIGIN` for cross-host view-as. See domain cutover runbook Phase 4. **Settings** (`/platform/settings`): CRUD commercial plans (`platform_commercial_plans`) → packs; create/detail load plans from API. |
 | Support view-as | Active `kaiznova_support_view` cookie → `bootstrapSupportView` seeds marker token + hydrates viewed user/employee/roles into Redux. APIs auth via cookie (Bearer marker skipped). Default `accessMode=READ`; `READ_WRITE` still hard-denies passwords/MFA/roles/PIN/approvals/bank. |
 
 ---
