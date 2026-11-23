@@ -64,6 +64,7 @@ export function PlatformSupportBanner() {
       <p className="min-w-0 font-medium">
         {PLATFORM_CONSOLE_BRAND} Support viewing as {name}
         {session.breakGlass ? ' (break-glass)' : ''}
+        {session.accessMode === 'READ_WRITE' ? ' · read-write' : ' · read-only'}
         {left ? ` — ends ${left}` : ''}
       </p>
       <Button

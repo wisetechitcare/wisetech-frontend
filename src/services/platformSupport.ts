@@ -37,12 +37,15 @@ export type PlatformSupportStatus =
   | 'EXPIRED'
   | 'CANCELLED'
 
+export type PlatformSupportAccessMode = 'READ' | 'READ_WRITE'
+
 export type PlatformSupportSession = {
   id: string
   operatorId: string
   rootOrganizationId: string
   reason: string
   breakGlass: boolean
+  accessMode: PlatformSupportAccessMode
   status: PlatformSupportStatus
   durationMinutes: number
   approvedByEmployeeId: string | null
@@ -73,6 +76,7 @@ export type ActiveSupportSession = {
   viewAsUserId: string | null
   expiresAt: string | null
   breakGlass: boolean
+  accessMode: PlatformSupportAccessMode
 }
 
 /** Sentinel localStorage token so ProtectedRoute allows the tenant shell during view-as. */
@@ -88,6 +92,7 @@ export async function createPlatformSupportSession(input: {
   reason: string
   durationMinutes: number
   breakGlass?: boolean
+  accessMode?: PlatformSupportAccessMode
   totpCode?: string
 }): Promise<PlatformSupportSession> {
   const { data } = await platformClient.post('/api/platform/support/sessions', input)

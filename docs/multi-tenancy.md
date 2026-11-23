@@ -16,6 +16,7 @@ The UI is **not** the security boundary. The API enforces org-family scope. The 
 | `companyId` on HRMS APIs | Always an **Organization** id from that family (or omit = whole family) |
 | CRM ΓÇ£companyΓÇ¥ | Client company in leads/contacts ΓÇö **different id space**; never use as HRMS tenant |
 | Platform console | `/platform` — KAIZNOVA `platform_users` cookie session; **not** tenant Redux. Dogfood HR stays on `/auth`. Flag: `VITE_PLATFORM_CONSOLE_ENABLED` (unset = on). |
+| Support view-as | Active `kaiznova_support_view` cookie → `bootstrapSupportView` seeds marker token + hydrates viewed user/employee/roles into Redux. APIs auth via cookie (Bearer marker skipped). Default `accessMode=READ`; `READ_WRITE` still hard-denies passwords/MFA/roles/PIN/approvals/bank. |
 
 ---
 

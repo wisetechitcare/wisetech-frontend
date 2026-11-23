@@ -35,6 +35,7 @@ import {
   type SupportViewEmployee,
 } from '@services/platformSupport'
 import { PlatformShell } from './PlatformShell'
+import { usePlatformSession } from './PlatformSessionContext'
 
 function errMessage(err: unknown): string {
   const ax = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
@@ -66,6 +67,9 @@ function formatWhen(iso: string | null): string {
 }
 
 export default function PlatformSupportPage() {
+  const { user } = usePlatformSession()
+  const canRequestWrite = user?.platformRole === 'ADMIN' || user?.platformRole === 'DEVELOPER'
+
   const [rows, setRows] = useState<PlatformSupportSession[]>([])
   const [tenants, setTenants] = useState<PlatformTenant[]>([])
   const [loading, setLoading] = useState(true)
@@ -76,6 +80,7 @@ export default function PlatformSupportPage() {
   const [reason, setReason] = useState('')
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [breakGlass, setBreakGlass] = useState(false)
+  const [readWrite, setReadWrite] = useState(false)
   const [totpCode, setTotpCode] = useState('')
   const [createBusy, setCreateBusy] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -137,6 +142,7 @@ export default function PlatformSupportPage() {
         reason: reason.trim(),
         durationMinutes,
         breakGlass,
+        accessMode: canRequestWrite && readWrite ? 'READ_WRITE' : 'READ',
         totpCode: breakGlass ? totpCode.trim() : undefined,
       })
       toast.success(breakGlass ? 'Break-glass session started' : 'Support request submitted')
@@ -144,6 +150,7 @@ export default function PlatformSupportPage() {
       setReason('')
       setTotpCode('')
       setBreakGlass(false)
+      setReadWrite(false)
       await refresh()
     } catch (err) {
       setCreateError(errMessage(err))
@@ -228,6 +235,11 @@ export default function PlatformSupportPage() {
                 Break-glass
               </Badge>
             ) : null}
+            {row.original.accessMode === 'READ_WRITE' ? (
+              <Badge variant="warning" dot>
+                Read-write
+              </Badge>
+            ) : null}
           </div>
         ),
       },
@@ -292,7 +304,7 @@ export default function PlatformSupportPage() {
   return (
     <PlatformShell
       title="Support"
-      description="Request or break-glass into a tenant (read-only). Tenant Admins approve normal requests."
+      description="Request or break-glass into a tenant. Default is read-only; ADMIN/DEVELOPER can request read-write."
       actions={
         <Button
           type="button"
@@ -410,6 +422,17 @@ export default function PlatformSupportPage() {
                   </span>
                 </span>
               </Label>
+              {canRequestWrite ? (
+                <Label className="flex items-start gap-3 font-normal">
+                  <Checkbox checked={readWrite} onCheckedChange={(v) => setReadWrite(v === true)} />
+                  <span>
+                    <span className="font-medium text-foreground">Read-write (S5)</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      Allows non-GET APIs. Passwords, MFA, roles, PIN areas, and approvals stay blocked.
+                    </span>
+                  </span>
+                </Label>
+              ) : null}
               {breakGlass ? (
                 <Field>
                   <FieldLabel htmlFor="support-totp">Authenticator Code</FieldLabel>
