@@ -12,7 +12,8 @@ import { FiscalYearRangeField } from '@app/modules/common/components/ui';
 import { splitFiscalYearRange } from '@utils/fiscalYearRange';
 
 /**
- * Create an organization, or a sub-organization under one — a kit Form Dialog.
+ * Create a sub-organization under a parent — a kit Form Dialog.
+ * Root (tenant) creation is a platform action (`scripts/provision_tenant.ts`), not this UI.
  *
  * Fiscal year uses the shared {@link FiscalYearRangeField} (ISO `"start to end"`),
  * the same control as prefix / org profile — not a one-off pair of date fields.
@@ -91,16 +92,22 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
 
   async function handleSubmit() {
     if (!validate()) return;
+    // A missing parent would mint a new tenant root — refused by the API as PLATFORM_ONLY.
+    // Sub-orgs only from this screen; new tenants use scripts/provision_tenant.ts.
+    if (!parentOrg?.id) {
+      errorConfirmation('Pick a parent organization. A new top-level organization is a platform action.');
+      return;
+    }
     if (fiscalYear.length > 64) {
       setErrors((e) => ({ ...e, fiscalYear: 'Fiscal year range is too long to save — pick calendar dates again' }));
       return;
     }
     setSaving(true);
     try {
-      const payload: any = { ...form, fiscalYear, ...(parentOrg ? { parentOrganizationId: parentOrg.id } : {}) };
+      const payload: any = { ...form, fiscalYear, parentOrganizationId: parentOrg.id };
       const res = await createCompanyOverview(payload);
       if (res && !res.hasError) {
-        successConfirmation(parentOrg ? 'Sub-organization created.' : 'Organization created.');
+        successConfirmation('Sub-organization created.');
         onCreated();
         onClose();
       } else {
@@ -109,8 +116,11 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
     } catch (err: any) {
       const data = err?.response?.data ?? (err?.message && typeof err === 'object' ? err : null);
       const detail = typeof data?.detail === 'string' ? data.detail : '';
+      const code = data?.meta?.code as string | undefined;
       const prismaCode = data?.prismaCode as string | undefined;
-      if (prismaCode === 'P2002' || /unique/i.test(detail)) {
+      if (code === 'PLATFORM_ONLY') {
+        errorConfirmation(detail || 'This is a KAIZNOVA platform action. Contact KAIZNOVA support.');
+      } else if (prismaCode === 'P2002' || /unique/i.test(detail)) {
         errorConfirmation(`An organization named "${form.name.trim()}" already exists. Choose a different name.`);
       } else if (/fiscal_year/i.test(detail) || (/fiscal/i.test(detail) && /too long/i.test(detail))) {
         errorConfirmation('Fiscal year value is too long for the database. Pick the start and end dates again.');
@@ -129,8 +139,8 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
         errorConfirmation(`${field}${(first?.errors || []).join(', ') || data.detail || 'Invalid organization details'}`);
       } else {
         const msg =
-          (typeof data?.message === 'string' && data.message) ||
           (detail && detail !== 'A database error occurred' ? detail : '') ||
+          (typeof data?.message === 'string' && data.message !== 'Forbidden' ? data.message : '') ||
           'Failed to create organization';
         errorConfirmation(msg);
       }
@@ -146,12 +156,12 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
     <FormDialog
       open={show}
       onOpenChange={(open) => { if (!open) onClose(); }}
-      title={parentOrg ? 'Add sub-organization' : 'New organization'}
-      description={parentOrg ? `Under ${parentOrg.name}` : 'Create an organization and its working calendar'}
+      title="Add organization"
+      description={parentOrg ? `Under ${parentOrg.name}` : 'A parent organization is required'}
       icon={parentOrg ? <Network aria-hidden /> : <Building2 aria-hidden />}
       size="lg"
       formId={FORM_ID}
-      submitLabel={parentOrg ? 'Create sub-organization' : 'Create organization'}
+      submitLabel="Create organization"
       submitting={saving}
       dirty={dirty}
     >

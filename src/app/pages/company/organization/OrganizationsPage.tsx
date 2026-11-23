@@ -77,6 +77,12 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
 
   const searching = search.trim().length > 0;
   const visible = useMemo(() => filterTree(tree, search), [tree, search]);
+  // Top-level nodes from the tree API are this tenant's roots. A root org (no parent) is a
+  // new tenant — PLATFORM_ONLY on the API — so "New organization" must always attach under one.
+  const tenantRoot = useMemo(
+    () => (tree[0] ? { id: tree[0].id, name: tree[0].name } : null),
+    [tree],
+  );
   // The next click's direction: after "Expand all" the button offers to collapse.
   const willOpen = !expandSignal.open;
 
@@ -146,7 +152,14 @@ export default function OrganizationsPage({ onOpenOrg }: Props) {
                   {willOpen ? 'Expand all' : 'Collapse all'}
                 </Button>
                 {canProvisionOrganizations && (
-                  <Button size="sm" onClick={() => setModal({ show: true, parent: null })}>
+                  <Button
+                    size="sm"
+                    disabled={!tenantRoot}
+                    onClick={() => {
+                      if (!tenantRoot) return;
+                      setModal({ show: true, parent: tenantRoot });
+                    }}
+                  >
                     <Plus data-icon="inline-start" aria-hidden />
                     New organization
                   </Button>
