@@ -5,7 +5,7 @@ import type { FieldError } from "react-hook-form";
 
 import { Field, FieldDescription, FieldError as FieldErrorMessage, FieldLabel } from "@/ds/ui/field";
 
-import { hasFieldError, resolveFieldHint } from "@/components/form/common";
+import { FIELD_CONTROL_RADIUS, hasFieldError, resolveFieldHint } from "@/components/form/common";
 import { cn } from "@/lib/utils";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -62,7 +62,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <div
           data-slot="input"
           className={cn(
-            "relative flex h-11 w-full items-center rounded-lg border shadow-theme-xs dark:bg-gray-900",
+            "relative flex h-11 w-full items-center border shadow-theme-xs dark:bg-gray-900",
+            FIELD_CONTROL_RADIUS,
             disabled &&
               "cursor-not-allowed border-gray-300 bg-gray-100 opacity-40 dark:border-gray-700 dark:bg-gray-800",
             !disabled &&

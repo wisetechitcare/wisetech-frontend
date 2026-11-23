@@ -5,7 +5,7 @@ import type { FieldError } from "react-hook-form";
 import { Textarea as KitTextarea } from "@/ds/ui/textarea";
 import { Field, FieldDescription, FieldError as FieldErrorMessage, FieldLabel } from "@/ds/ui/field";
 
-import { hasFieldError, resolveFieldHint } from "@/components/form/common";
+import { FIELD_TEXTAREA_RADIUS, hasFieldError, resolveFieldHint } from "@/components/form/common";
 import { cn } from "@/lib/utils";
 
 export interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -63,7 +63,7 @@ const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
           disabled={disabled}
           required={required}
           aria-invalid={isError || undefined}
-          className={cn("min-h-24 resize-y", className)}
+          className={cn("min-h-24 resize-y", FIELD_TEXTAREA_RADIUS, className)}
           {...rest}
         />
 

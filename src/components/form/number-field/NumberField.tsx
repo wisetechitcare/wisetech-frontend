@@ -5,7 +5,7 @@ import type { FieldError } from "react-hook-form";
 
 import { Field, FieldDescription, FieldError as FieldErrorMessage, FieldLabel } from "@/ds/ui/field";
 
-import { hasFieldError, resolveFieldHint } from "@/components/form/common";
+import { FIELD_CONTROL_RADIUS, hasFieldError, resolveFieldHint } from "@/components/form/common";
 import { cn } from "@/lib/utils";
 
 export interface NumberFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
@@ -103,7 +103,8 @@ const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
         <div
           data-slot="input"
           className={cn(
-            "relative flex h-11 w-full items-center rounded-lg border shadow-theme-xs dark:bg-gray-900",
+            "relative flex h-11 w-full items-center border shadow-theme-xs dark:bg-gray-900",
+            FIELD_CONTROL_RADIUS,
             disabled &&
               "cursor-not-allowed border-gray-300 bg-gray-100 opacity-40 dark:border-gray-700 dark:bg-gray-800",
             !disabled &&
@@ -145,7 +146,7 @@ const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
                 disabled={disabled}
                 aria-label="Decrease value"
                 onClick={() => adjustValue(-1)}
-                className="flex size-7 items-center justify-center rounded-md text-gray-500 transition-colors duration-200 hover:text-gray-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:text-gray-200"
+                className="flex size-7 items-center justify-center rounded-4xl text-gray-500 transition-colors duration-200 hover:text-gray-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:text-gray-200"
               >
                 <Minus className="size-4" />
               </button>
@@ -154,7 +155,7 @@ const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(
                 disabled={disabled}
                 aria-label="Increase value"
                 onClick={() => adjustValue(1)}
-                className="flex size-7 items-center justify-center rounded-md text-gray-500 transition-colors duration-200 hover:text-gray-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:text-gray-200"
+                className="flex size-7 items-center justify-center rounded-4xl text-gray-500 transition-colors duration-200 hover:text-gray-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:text-gray-200"
               >
                 <Plus className="size-4" />
               </button>

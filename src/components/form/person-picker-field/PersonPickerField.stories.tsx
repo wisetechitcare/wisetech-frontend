@@ -2,10 +2,21 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor } from "storybook/test";
 
-import PersonPickerField, { type PersonOption, type PersonPickerFieldProps } from "./PersonPickerField";
+import PersonPickerField, {
+  type PersonOption,
+  type PersonPickerFieldProps,
+} from "./PersonPickerField";
+
+import portrait from "@/storybook/support/assets/portrait.svg";
 
 const PEOPLE: PersonOption[] = [
-  { id: "42", name: "Meera Joshi", code: "WT-0042", subtitle: "Senior MEP Engineer" },
+  {
+    id: "42",
+    name: "Meera Joshi",
+    code: "WT-0042",
+    subtitle: "Senior MEP Engineer",
+    avatarUrl: portrait,
+  },
   { id: "17", name: "Arjun Rao", code: "WT-0017", subtitle: "Engineering Manager" },
   { id: "88", name: "Tara Menon", code: "WT-0088", subtitle: "HR Executive" },
   { id: "91", name: "Tara Menon", code: "WT-0091", subtitle: "Site Supervisor" },
@@ -57,6 +68,7 @@ export const Default: Story = {
     await userEvent.click(canvas.getByRole("combobox"));
     await userEvent.click(await canvas.findByText("Meera Joshi"));
     await waitFor(() => expect(args.onChange).toHaveBeenCalledWith(["42"]));
+    await expect(canvas.getByRole("button", { name: "Clear" })).toBeInTheDocument();
   },
 };
 
@@ -65,7 +77,11 @@ export const Multiple: Story = {
     label: "Interview panel",
     multiple: true,
   },
-  render: (args) => <ControlledPersonPicker {...args} initialIds={["42"]} />,
+  render: (args) => <ControlledPersonPicker {...args} initialIds={["17"]} />,
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Arjun Rao")).toBeInTheDocument();
+    await expect(canvas.getByText("AR")).toBeInTheDocument();
+  },
 };
 
 export const Invalid: Story = {

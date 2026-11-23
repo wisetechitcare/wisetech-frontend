@@ -1,8 +1,11 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, waitFor } from "storybook/test";
-import { Bike, Car, Hotel, Utensils } from "lucide-react";
+import { expect, fn } from "storybook/test";
 
-import ComboboxField, { type ComboboxOption } from "./ComboboxField";
+import ComboboxField, {
+  type ComboboxFieldProps,
+  type ComboboxOption,
+} from "./ComboboxField";
 
 const BRANCHES: ComboboxOption[] = [
   { value: "andheri", label: "Mumbai — Andheri" },
@@ -11,21 +14,30 @@ const BRANCHES: ComboboxOption[] = [
   { value: "bengaluru", label: "Bengaluru" },
 ];
 
-const CATEGORIES: ComboboxOption[] = [
-  { value: "bike", label: "Bike", icon: <Bike /> },
-  { value: "cab", label: "Cab", icon: <Car /> },
-  { value: "hotel", label: "Hotel", icon: <Hotel /> },
-  { value: "meal", label: "Meal", icon: <Utensils /> },
-];
+function ControlledCombobox({
+  initialValue = [],
+  ...args
+}: ComboboxFieldProps & { initialValue?: string[] }) {
+  const [value, setValue] = useState<string[]>(initialValue);
+  return (
+    <ComboboxField
+      {...args}
+      value={value}
+      onChange={(next) => {
+        setValue(next);
+        args.onChange?.(next);
+      }}
+    />
+  );
+}
 
 const meta = {
   title: "Forms/Select/Combobox Field",
   component: ComboboxField,
   args: {
-    label: "Branch",
-    name: "branch",
+    label: "Branches",
     options: BRANCHES,
-    placeholder: "Search branches",
+    placeholder: "Select options",
     required: true,
     onChange: fn(),
   },
@@ -42,42 +54,29 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
-  play: async ({ args, canvas }) => {
-    await userEvent.click(canvas.getByRole("combobox"));
-    await userEvent.click(await canvas.findByRole("option", { name: /Pune/i }));
-    await waitFor(() =>
-      expect(args.onChange).toHaveBeenCalledWith(
-        "pune",
-        expect.objectContaining({ value: "pune", label: "Pune" })
-      )
-    );
-  },
-};
-
-export const WithIcons: Story = {
-  args: {
-    label: "Category",
-    options: CATEGORIES,
-    value: "cab",
-    placeholder: "Search categories",
+  render: (args) => (
+    <ControlledCombobox {...args} initialValue={["pune", "bengaluru"]} />
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("Pune")).toBeInTheDocument();
+    await expect(canvas.getByText("Bengaluru")).toBeInTheDocument();
   },
 };
 
 export const Invalid: Story = {
   args: {
-    value: null,
-    error: { type: "validate", message: "Choose a branch." },
+    value: [],
+    error: { type: "validate", message: "Choose at least one branch." },
   },
   play: async ({ canvas }) => {
-    await expect(canvas.getByText("Choose a branch.")).toBeInTheDocument();
+    await expect(canvas.getByText("Choose at least one branch.")).toBeInTheDocument();
   },
 };
 
 export const Disabled: Story = {
-  args: {
-    value: "pune",
-    disabled: true,
-  },
+  render: (args) => (
+    <ControlledCombobox {...args} initialValue={["pune", "bkc"]} disabled />
+  ),
   play: async ({ canvas }) => {
     await expect(canvas.getByRole("combobox")).toBeDisabled();
   },

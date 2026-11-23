@@ -1,86 +1,160 @@
-import { useId } from "react";
+import { useId, useMemo } from "react";
 import type { FieldError } from "react-hook-form";
 
 import {
-  SearchSelect,
-  type SearchSelectOption,
-} from "@/ds/patterns/search-select";
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "@/ds/ui/combobox";
+import { Field, FieldDescription, FieldError as FieldErrorMessage, FieldLabel } from "@/ds/ui/field";
 
-import { hasFieldError, resolveFieldHint } from "@/components/form/common";
+import {
+  FIELD_CHIP_RADIUS,
+  FIELD_CONTROL_RADIUS,
+  FIELD_MENU_RADIUS,
+  hasFieldError,
+  resolveFieldHint,
+} from "@/components/form/common";
+import { SELECT_EMPTY_MESSAGE, SELECT_LOADING_PLACEHOLDER } from "@/lib/constants/common";
+import { cn } from "@/lib/utils";
 
-export type ComboboxOption = SearchSelectOption;
+export interface ComboboxOption {
+  value: string;
+  label: string;
+}
 
 export interface ComboboxFieldProps {
   id?: string;
   name?: string;
   label?: string;
   required?: boolean;
+  options: ComboboxOption[];
+  value?: string[];
+  onChange?: (value: string[]) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  loading?: boolean;
   error?: boolean | FieldError;
   hint?: string;
-  disabled?: boolean;
   className?: string;
-  placeholder?: string;
-  emptyText?: string;
-  clearable?: boolean;
-  options: ComboboxOption[];
-  value?: string | null;
-  onChange?: (value: string | null, option: ComboboxOption | null) => void;
-  onBlur?: () => void;
-  onCreate?: (label: string) => void | Promise<void>;
-  createLabel?: (query: string) => string;
-  limit?: number;
 }
 
+const byValue = (a: ComboboxOption, b: ComboboxOption) => a.value === b.value;
+
 /**
- * Searchable dropdown for forms — same usage props as Input Field.
- * Built on kit SearchSelect (Combobox + floating label). Use this for any
- * dropdown / search pick (branch, category, country list, etc.).
+ * Common ComboBox — searchable multi-select with chips.
+ * Same Field chrome as Input / Select Field. Replaces legacy MultiSelect.
  */
 const ComboboxField = ({
   id,
   name,
-  label = "Select",
+  label,
   required = false,
+  options,
+  value = [],
+  onChange,
+  placeholder = "Select options",
+  disabled = false,
+  loading = false,
   error,
   hint,
-  disabled = false,
   className,
-  placeholder = "Search…",
-  emptyText,
-  clearable = true,
-  options,
-  value = null,
-  onChange,
-  onBlur,
-  onCreate,
-  createLabel,
-  limit,
 }: ComboboxFieldProps) => {
   const generatedId = useId();
   const isError = hasFieldError(error);
   const resolvedHint = resolveFieldHint(hint, error);
   const controlId = id ?? name ?? generatedId;
+  const labelId = `${controlId}-label`;
+  const anchor = useComboboxAnchor();
+  const isDisabled = disabled || loading;
+
+  const selectedOptions = useMemo(
+    () =>
+      value
+        .map((selectedValue) => options.find((option) => option.value === selectedValue))
+        .filter((option): option is ComboboxOption => !!option),
+    [options, value]
+  );
 
   return (
-    <SearchSelect
-      id={controlId}
-      label={label}
-      value={value}
-      onValueChange={(next, option) => onChange?.(next, option)}
-      options={options}
-      placeholder={placeholder}
-      emptyText={emptyText}
-      hint={!isError ? resolvedHint : undefined}
-      error={isError ? resolvedHint : undefined}
-      required={required}
-      disabled={disabled}
-      clearable={clearable}
-      onBlur={onBlur}
-      onCreate={onCreate}
-      createLabel={createLabel}
-      limit={limit}
-      className={className}
-    />
+    <Field
+      data-invalid={isError || undefined}
+      data-disabled={isDisabled || undefined}
+      data-filled={selectedOptions.length > 0 ? "true" : undefined}
+      className={cn("w-full min-w-0", className)}
+    >
+      {label && <FieldLabel id={labelId}>{label}</FieldLabel>}
+
+      {required && <span className="sr-only" aria-required="true" />}
+
+      <Combobox
+        multiple
+        items={options}
+        value={selectedOptions}
+        onValueChange={(next: ComboboxOption[]) =>
+          onChange?.(next.map((option) => option.value))
+        }
+        itemToStringLabel={(option: ComboboxOption | null) => option?.label ?? ""}
+        itemToStringValue={(option: ComboboxOption) => option.value}
+        isItemEqualToValue={byValue}
+        disabled={isDisabled}
+        required={required}
+      >
+        <ComboboxChips
+          ref={anchor}
+          aria-invalid={isError || undefined}
+          className={cn("min-h-11", FIELD_CONTROL_RADIUS)}
+        >
+          <ComboboxValue>
+            {(values: ComboboxOption[]) => (
+              <>
+                {values.map((option) => (
+                  <ComboboxChip key={option.value} className={FIELD_CHIP_RADIUS}>
+                    {option.label}
+                  </ComboboxChip>
+                ))}
+                <ComboboxChipsInput
+                  id={controlId}
+                  aria-labelledby={label ? labelId : undefined}
+                  placeholder={
+                    values.length
+                      ? ""
+                      : loading
+                        ? SELECT_LOADING_PLACEHOLDER
+                        : placeholder
+                  }
+                  disabled={isDisabled}
+                />
+              </>
+            )}
+          </ComboboxValue>
+        </ComboboxChips>
+        <ComboboxContent anchor={anchor} className={FIELD_MENU_RADIUS}>
+          <ComboboxEmpty>{SELECT_EMPTY_MESSAGE}</ComboboxEmpty>
+          <ComboboxList>
+            {(option: ComboboxOption) => (
+              <ComboboxItem key={option.value} value={option}>
+                {option.label}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+
+      {resolvedHint &&
+        (isError ? (
+          <FieldErrorMessage>{resolvedHint}</FieldErrorMessage>
+        ) : (
+          <FieldDescription>{resolvedHint}</FieldDescription>
+        ))}
+    </Field>
   );
 };
 

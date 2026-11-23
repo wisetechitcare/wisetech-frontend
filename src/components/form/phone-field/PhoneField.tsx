@@ -4,7 +4,7 @@ import type { CountryIso2 } from "react-international-phone";
 import { PhoneField as KitPhoneField } from "@/ds/patterns/phone-field";
 import { Field, FieldDescription, FieldError as FieldErrorMessage, FieldLabel } from "@/ds/ui/field";
 
-import { hasFieldError, resolveFieldHint } from "@/components/form/common";
+import { FIELD_CONTROL_RADIUS, hasFieldError, resolveFieldHint } from "@/components/form/common";
 import { cn } from "@/lib/utils";
 
 export enum DefaultPhoneCountry {
@@ -73,6 +73,7 @@ const PhoneField = ({
         invalid={isError}
         onChange={onChange}
         className={cn(
+          FIELD_CONTROL_RADIUS,
           isError && "border-destructive focus-within:border-destructive focus-within:ring-destructive/20"
         )}
       />

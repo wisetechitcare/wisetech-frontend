@@ -41,8 +41,8 @@ export interface OtpFieldProps {
 
 function digitSlotClassName(isError: boolean): string {
   return cn(
-    "relative flex size-12 items-center justify-center rounded-xl border border-input bg-input/40 text-base font-semibold tabular-nums shadow-none transition-colors outline-none md:text-sm",
-    "first:rounded-xl first:border-l last:rounded-xl border-x border-y",
+    "relative flex size-12 items-center justify-center rounded-4xl border border-input bg-input/40 text-base font-semibold tabular-nums shadow-none transition-colors outline-none md:text-sm",
+    "first:rounded-4xl first:border-l last:rounded-4xl border-x border-y",
     "data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:bg-background data-[active=true]:ring-[3px] data-[active=true]:ring-ring/50",
     isError &&
       "border-destructive data-[active=true]:border-destructive data-[active=true]:ring-destructive/20 dark:data-[active=true]:ring-destructive/40",

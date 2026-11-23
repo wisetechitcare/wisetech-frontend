@@ -99,9 +99,9 @@ const preview: Preview = {
           'Forms',
           [
             'Input', ['Input Field', 'Number Field', 'Phone Field', 'Text Area', 'Password Field', 'OTP Field'],
-            'Select', ['Combobox Field', 'Person Picker'],
+            'Select', ['Docs', 'Select Field', 'Combobox Field', 'Person Picker'],
             'Date & Time', ['Date Picker', 'Date Field'],
-            'Choice', ['Checkbox', 'Radio Group', 'Switch', 'Choice Cards', 'Slider'],
+            'Choice', ['Checkbox Field', 'Radio Field', 'Switch Field', 'Choice Cards', 'Slider'],
             'Pickers',
             'Upload', ['Image Field', 'Video Field', 'File Upload'],
           ],
