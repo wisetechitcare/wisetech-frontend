@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { RootState } from '@redux/store';
 import {
   fetchNotificationsAllByEmployeeId,
@@ -17,6 +17,7 @@ import {
 import { Pagination, Spinner, Alert } from 'react-bootstrap';
 import { KTIcon } from '../../../../_metronic/helpers';
 import AssignedTasksInbox from './AssignedTasksInbox';
+import { NotificationPreferencesPanel } from './NotificationPreferencesPanel';
 import { ToneChip } from '@app/modules/common/components/ui';
 import { Button } from '@/ds/ui/button';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
@@ -44,6 +45,7 @@ const FILTER_TABS = [
   { key: 'checkout',      label: 'Checkout' },
   { key: 'late',          label: 'Late / Penalty' },
   { key: 'other',         label: 'Other' },
+  { key: 'preferences',   label: 'Preferences' },
 ] as const;
 
 type FilterKey = (typeof FILTER_TABS)[number]['key'];
@@ -67,7 +69,7 @@ const TASK_TYPES = new Set(['TASK_ASSIGNED']);
 function matchesFilter(notification: Notification, filter: FilterKey): boolean {
   if (filter === 'all') return true;
   // The Tasks tab renders its own list; nothing is filtered for it here.
-  if (filter === 'tasks') return false;
+  if (filter === 'tasks' || filter === 'preferences') return false;
   const s = notification.status ?? '';
   if (filter === 'checkin')  return CHECKIN_TYPES.has(s as any);
   if (filter === 'checkout') return CHECKOUT_TYPES.has(s as any);
@@ -81,6 +83,7 @@ const Notifications: React.FC = () => {
     (state: RootState) => state.employee.currentEmployee.id,
   );
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [notifications, setNotifications]   = useState<Notification[]>([]);
   const [page, setPage]                     = useState(1);
@@ -88,7 +91,10 @@ const Notifications: React.FC = () => {
   const [loading, setLoading]               = useState(false);
   const [clearing, setClearing]             = useState(false);
   const [error, setError]                   = useState<string | null>(null);
-  const [activeFilter, setActiveFilter]     = useState<FilterKey>('all');
+  const initialTab = searchParams.get('tab');
+  const [activeFilter, setActiveFilter]     = useState<FilterKey>(
+    initialTab === 'preferences' ? 'preferences' : 'all',
+  );
   const limit = 20;
 
   const fetchNotifications = useCallback(async () => {
@@ -163,7 +169,9 @@ const Notifications: React.FC = () => {
       {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
 
       {/* ── Content ── */}
-      {activeFilter === 'tasks' ? (
+      {activeFilter === 'preferences' ? (
+        <NotificationPreferencesPanel />
+      ) : activeFilter === 'tasks' ? (
         <AssignedTasksInbox />
       ) : loading ? (
         <div className="d-flex justify-content-center align-items-center py-5">

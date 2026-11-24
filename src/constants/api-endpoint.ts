@@ -352,6 +352,8 @@ export const EMPLOYEE = {
     GET_NOTIFICATIONS: "api/employee/notification",
     UPDATE_NOTIFICATION: "api/employee/notification",
     GET_ALL_NOTIFICATIONS: "api/employee/allnotification",
+    GET_NOTIFICATION_PREFERENCES: "api/employee/notification-preferences",
+    SET_NOTIFICATION_PREFERENCES: "api/employee/notification-preferences",
     MARK_ALL_AS_READ: "api/employee/mark-all-read",
     EMAIL_SALARY_SLIP: "api/employee/email-salary-slip",
     EMAIL_CONTRACT_BILL: "api/employee/email-contract-bill",
