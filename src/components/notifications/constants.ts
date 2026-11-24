@@ -60,6 +60,18 @@ export const IMPORTANT_STATUSES = new Set<string>([
   'approval_rejected',           // your leave / attendance request was rejected
 ]);
 
+/** Cleared locally when the API emits `attendanceRemindersCleared` after a punch. */
+export const ATTENDANCE_CHECKIN_REMINDER_STATUSES = [
+  'attendance_early_checkin',
+  'attendance_checkin_reminder',
+  'attendance_late_warning',
+] as const;
+
+export const ATTENDANCE_CHECKOUT_REMINDER_STATUSES = [
+  'attendance_checkout_reminder',
+  'attendance_missing_checkout',
+] as const;
+
 /** Modules whose notifications are always treated as important. */
 export const IMPORTANT_MODULES = new Set<string>(['approvals']);
 

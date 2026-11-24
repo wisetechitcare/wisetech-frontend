@@ -23,6 +23,21 @@ self.addEventListener('push', (event) => {
     payload = { title: APP_NAME, body: event.data.text(), data: { path: '/' } };
   }
 
+  // Clear/replace: punch handlers send { data: { action: 'close', tag } } so stale
+  // "Time to check in" banners disappear after the employee already punched.
+  const closeTag =
+    payload?.data?.action === 'close'
+      ? (payload.data.tag || payload.tag)
+      : null;
+  if (closeTag) {
+    event.waitUntil(
+      self.registration.getNotifications({ tag: closeTag }).then((list) => {
+        list.forEach((n) => n.close());
+      }),
+    );
+    return;
+  }
+
   const title   = payload.title  ?? APP_NAME;
   const options = {
     body:               payload.body              ?? '',
@@ -34,6 +49,7 @@ self.addEventListener('push', (event) => {
     vibrate:            payload.vibrate           ?? [200, 100, 200],
     requireInteraction: payload.requireInteraction ?? false,
     silent:             false,
+    renotify:           !!payload.tag,
     actions:            payload.actions           ?? [
       { action: 'view',    title: '👁 View Details' },
       { action: 'dismiss', title: '✕ Dismiss'       },
