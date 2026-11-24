@@ -333,6 +333,10 @@ export function DataTable<T extends RowData>({
   reorderableColumns = true,
   pinnableColumns = true,
   groupableColumns = true,
+  /** The icon strip (filters, density, columns, reset, full screen). Off for a quieter table that only needs search + `toolbar`. */
+  tools = true,
+  /** Vertical alignment of body cells. `top` keeps short cells with tall notes (MoM document view). */
+  cellAlign = "middle",
 }: {
   /** Names the table for assistive tech (rendered visually hidden). */
   caption: string
@@ -419,6 +423,10 @@ export function DataTable<T extends RowData>({
    * list, would mislead).
    */
   groupableColumns?: boolean
+  /** When false, the table tools ButtonGroup is omitted (filters / density / columns / reset / full screen). */
+  tools?: boolean
+  /** Body cell vertical alignment. Default keeps the kit's middle look. */
+  cellAlign?: "top" | "middle"
 }) {
   // The kit's locale (KitProvider) — the same grouping as every other number in v2.
   const { locale } = useLocale()
@@ -587,7 +595,7 @@ export function DataTable<T extends RowData>({
       // Hide All keeps the first column (the record's name): a table of no columns has nothing to show.
       ...Object.fromEntries(hideable.map((c, i) => [c.id, on || i === 0])),
     }))
-  const cellPad = density === "compact" ? "py-1.5" : "py-3"
+  const cellPad = cn(density === "compact" ? "py-1.5" : "py-3", cellAlign === "top" && "align-top")
   const hasFooter = table.getAllLeafColumns().some((c) => c.columnDef.footer !== undefined)
   const visibleIds = table.getVisibleLeafColumns().map((c) => c.id)
   const columnSizing: ColumnSizingState = table.state.columnSizing ?? NO_SIZING
@@ -1023,6 +1031,7 @@ export function DataTable<T extends RowData>({
                 : toolbar}
               {/* The table's tools, one joined group (ButtonGroup story): what the old table's icon strip had —
                   column filters, density, columns, reset layout, full screen. A tool is tinted only while ON. */}
+              {tools && (
               <ButtonGroup aria-label="Table tools">
                 {canFilterColumns && (
                   <ToolButton
@@ -1085,6 +1094,7 @@ export function DataTable<T extends RowData>({
                   {fullscreen ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
                 </ToolButton>
               </ButtonGroup>
+              )}
             </div>
           </>
         )}
