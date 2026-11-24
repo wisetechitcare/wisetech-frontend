@@ -384,7 +384,14 @@ const OrganizationProfileForm = ({ organizationId, onBack, onBranchesClick }: Or
                                                     text (an address) takes a row of its own. */}
                                                 <AutoGrid min={220} stretch>
                                                     {fields.map(field => (
-                                                        <div key={field.id} className={isWideOrgField(field) ? 'col-span-full min-w-0' : 'min-w-0'}>
+                                                        <div
+                                                            key={field.id}
+                                                            className={
+                                                                isWideOrgField(field) || field.id === 'fiscalYear'
+                                                                    ? 'col-span-full min-w-0'
+                                                                    : 'min-w-0'
+                                                            }
+                                                        >
                                                             {renderField(field, section.id, f)}
                                                         </div>
                                                     ))}

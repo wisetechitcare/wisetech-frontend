@@ -129,3 +129,97 @@ export const RangeWithPresets: Story = {
     await expect(canvas.getByRole('group', { name: 'Fiscal Year' })).toHaveTextContent('2026.04.01–2027.03.31')
   },
 }
+
+/**
+ * Confirm mode (fiscal-year style): day / preset picks stay open until OK; Cancel discards via close.
+ * Leave-style ranges keep the default auto-close behaviour above.
+ */
+export const RangeWithConfirm: Story = {
+  render: (args) => (
+    <div className="w-80">
+      <DateRangePicker
+        label="Fiscal year"
+        placeholderValue={args.placeholderValue}
+        onChange={args.onChange as (value: RangeValue<DateValue> | null) => void}
+        confirmSelection
+        closeOnPresetSelect={false}
+        canConfirm
+        presets={[{ label: 'Apr–Mar', value: { start: parseDate('2026-04-01'), end: parseDate('2027-03-31') } }]}
+      />
+    </div>
+  ),
+  play: async ({ args, canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Apr–Mar' }))
+    await expect(dialog).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'OK' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const range = mocked(args.onChange!).mock.lastCall?.[0] as unknown as RangeValue<DateValue>
+    await expect(range.start.toString()).toBe('2026-04-01')
+    await expect(range.end.toString()).toBe('2027-03-31')
+    await expect(canvas.getByRole('group', { name: 'Fiscal Year' })).toHaveTextContent('2026.04.01–2027.03.31')
+  },
+}
+
+/**
+ * Kit pickers always open Monday-first. October 2026 (Thu 1st) leads with Mon 28 Sep — not Sun 27.
+ */
+export const MondayFirst: Story = {
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await expect(within(dialog).getByRole('button', { name: /Monday, 28 September 2026/ })).toBeInTheDocument()
+    await expect(within(dialog).queryByRole('button', { name: /27 September 2026/ })).not.toBeInTheDocument()
+  },
+}
+
+/**
+ * `hideOutsideDays` keeps the week grid but blanks adjacent-month cells (`invisible`, out of a11y tree).
+ * In-month days still pick and close the popover.
+ */
+export const HideOutsideDays: Story = {
+  args: { hideOutsideDays: true },
+  play: async ({ args, canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
+    const dialog = await screen.findByRole('dialog')
+    const outside = dialog.querySelector('[aria-label="Monday, 28 September 2026"]')
+    await expect(outside).toBeTruthy()
+    await expect(outside).toHaveClass('invisible')
+    await expect(within(dialog).queryByRole('button', { name: /28 September 2026/ })).not.toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: /Thursday, 1 October 2026/ }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const value = mocked(args.onChange!).mock.lastCall?.[0] as DateValue
+    await expect(value.toString()).toBe('2026-10-01')
+  },
+}
+
+/** Range picker with the same Monday-first + hideOutsideDays knobs as single date. */
+export const RangeHideOutsideDays: Story = {
+  args: { hideOutsideDays: true },
+  render: (args) => (
+    <div className="w-80">
+      <DateRangePicker
+        label="Leave dates"
+        placeholderValue={args.placeholderValue}
+        hideOutsideDays={args.hideOutsideDays}
+        onChange={args.onChange as (value: RangeValue<DateValue> | null) => void}
+      />
+    </div>
+  ),
+  play: async ({ args, canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await expect(within(dialog).getByRole('button', { name: /Monday, 5 October 2026/ })).toBeInTheDocument()
+    await expect(within(dialog).queryByRole('button', { name: /27 September 2026/ })).not.toBeInTheDocument()
+    const outside = dialog.querySelector('[aria-label="Monday, 28 September 2026"]')
+    await expect(outside).toBeTruthy()
+    await expect(outside).toHaveClass('invisible')
+    await userEvent.click(within(dialog).getByRole('button', { name: /28 October 2026/ }))
+    await userEvent.click(within(dialog).getByRole('button', { name: /31 October 2026/ }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const range = mocked(args.onChange!).mock.lastCall?.[0] as unknown as RangeValue<DateValue>
+    await expect(range.start.toString()).toBe('2026-10-28')
+    await expect(range.end.toString()).toBe('2026-10-31')
+  },
+}

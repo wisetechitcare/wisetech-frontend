@@ -242,7 +242,7 @@ export type { OptionPickerDialogProps, PickerOption } from './pickers';
 // and unthemeable (so it stays light in dark mode). These render the company standard YYYY.MM.DD.
 export { WtDateField, WtDateTimeField } from './dates';
 export type { WtDateFieldBaseProps, WtDateTimeFieldProps } from './dates';
-// Org / prefix fiscal year range — two WtDateFields, ISO `"start to end"` wire.
+// Org / prefix fiscal year range — kit DateRangePicker adapter; ISO `"start to end"` wire.
 export { FiscalYearRangeField } from './FiscalYearRangeField';
 export type { FiscalYearRangeFieldProps } from './FiscalYearRangeField';
 // Canonical wizard/multi-step indicator — responsive (compact summary on phones) + theme-aware.

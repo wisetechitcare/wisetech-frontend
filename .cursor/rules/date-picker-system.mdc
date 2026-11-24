@@ -1,0 +1,37 @@
+---
+description: Shared DatePicker / Fiscal Year architecture, scope limits, and standing constraints
+globs: "**/calendar.tsx,**/date-picker.tsx,**/date-field.tsx,**/FiscalYear*,**/fiscalYear*,**/dates.tsx,**/PlainDatePicker.tsx,**/DatePicker.stories.tsx"
+alwaysApply: false
+---
+
+# DatePicker system (WiseTech)
+
+## Architecture (do not reinvent)
+
+- **Calendar engine:** `src/ds/ui/calendar.tsx` (`Calendar` / `RangeCalendar`, `@internationalized/date`)
+- **Fields:** `src/ds/ui/date-picker.tsx` → `DatePicker` (single) + `DateRangePicker` (range)
+- **Display segments:** `src/ds/ui/date-field.tsx` → company `YYYY.MM.DD`
+- **Fiscal product adapter:** `FiscalYearRangeField` wraps kit `DateRangePicker`; wire `"YYYY-MM-DD to YYYY-MM-DD"` via `@utils/fiscalYearRange`
+- **Parallel MUI stack:** `WtDateField` / `PlainDatePicker` / overview raw MUI — leave alone unless explicitly asked
+
+Values: `CalendarDate` / `.toString()` → ISO. Never JS `Date` for day wire (IST/UTC shift).
+
+## Standing scope (until user expands it)
+
+- Consumer replacement is **Organization / Fiscal Year only**
+- Do **not** migrate overview toggles, PeriodFilter, `WtDateField`, `WtDateTimeField`, or `PlainDatePicker` to kit
+- Do **not** start Organization module integration / Phase 3 unless the user asks
+- Do **not** push to remote unless the user explicitly asks
+- Do **not** redesign DatePicker UI or change public APIs without need
+
+## Phase intents
+
+1. **Shared kit** — Monday-first, `hideOutsideDays`, fiscal `fiscalStartMonth` / presets (done / keep)
+2. **Cleanup** — simplify kit + FY code only; no consumer migrations
+3. **Org integration** — only when approved
+
+## Prefer
+
+- Extend kit calendar / pickers; keep FY business logic in FY field + `fiscalYearRange` utils
+- Preserve wire contracts and existing Formik/org call sites
+- No `react-day-picker`, `date-fns`, or `moment`

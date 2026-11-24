@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { cva } from "class-variance-authority"
-import { cn } from "cn"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import { motion } from "motion/react"
+import * as React from "react";
+import { cva } from "class-variance-authority";
+import { cn } from "cn";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { motion } from "motion/react";
 import {
   Button,
   Calendar as AriaCalendar,
@@ -21,10 +21,10 @@ import {
   type CalendarProps,
   type DateValue,
   type RangeCalendarProps,
-} from "react-aria-components"
+} from "react-aria-components";
 
-import { toneStyle, type Tone } from "@/ds/lib/tone"
-import { buttonVariants } from "@/ds/ui/button"
+import { toneStyle, type Tone } from "@/ds/lib/tone";
+import { buttonVariants } from "@/ds/ui/button";
 
 /**
  * THE calendar engine. Every calendar in the kit — Calendar, RangeCalendar, DatePicker, DateRangePicker,
@@ -41,23 +41,27 @@ import { buttonVariants } from "@/ds/ui/button"
  * - `granularity` (Calendar only): "day" (default), "month" or "year". The jump grids then COMMIT instead of
  *   drilling down: a month picker opens on the month grid and a click selects the 1st of that month; a year
  *   picker is the year grid alone. Months/years wholly outside minValue/maxValue are disabled.
+ * - `hideOutsideDays`: when true, days from adjacent months stay in the grid for layout but are invisible
+ *   and non-interactive. Default false keeps muted outside-day numbers (today's behaviour).
  *
  * Values are @internationalized/date CalendarDate (a calendar day, no time zone). Cross the API boundary with
  * value.toString() → 'YYYY-MM-DD'; a JS Date round-trip shifts days across IST/UTC.
  */
 export type DayState = {
-  tone?: Tone | (string & {})
-  pattern?: "solid" | "dashed"
-  marker?: boolean
-  label?: string
-}
+  tone?: Tone | (string & {});
+  pattern?: "solid" | "dashed";
+  marker?: boolean;
+  label?: string;
+};
 
 type EngineProps = {
-  numberOfMonths?: number
-  getDayState?: (date: DateValue) => DayState | undefined
-  rangeStyle?: "band" | "outline"
-  size?: "default" | "lg"
-}
+  numberOfMonths?: number;
+  getDayState?: (date: DateValue) => DayState | undefined;
+  rangeStyle?: "band" | "outline";
+  size?: "default" | "lg";
+  /** Hide adjacent-month days visually while keeping the week grid. Default shows muted outside days. */
+  hideOutsideDays?: boolean;
+};
 
 const cellVariants = cva(
   "group/day relative mt-2 aspect-square h-full w-full cursor-default rounded-(--cell-radius) p-0 text-center outline-none select-none [&:is(:first-child>[data-selected=true])>div]:rounded-l-(--cell-radius) [&:is(:last-child>[data-selected=true])>div]:rounded-r-(--cell-radius)",
@@ -80,24 +84,35 @@ const cellVariants = cva(
       },
     },
     // A one-day range has no band to join.
-    compoundVariants: [{ isSelectionStart: true, isSelectionEnd: true, className: "after:hidden" }],
-  }
-)
+    compoundVariants: [
+      {
+        isSelectionStart: true,
+        isSelectionEnd: true,
+        className: "after:hidden",
+      },
+    ],
+  },
+);
 
 const calendarClassName =
-  "group/calendar w-fit bg-background p-3 [--cell-radius:var(--radius-4xl)] [--cell-size:--spacing(8)] [--range-edge:inset_0_1px_0_var(--primary),inset_0_-1px_0_var(--primary)] data-[size=lg]:w-full data-[size=lg]:[--cell-radius:var(--radius-xl)] data-[size=lg]:[--cell-size:--spacing(11)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent"
+  "group/calendar w-fit bg-background p-3 [--cell-radius:var(--radius-4xl)] [--cell-size:--spacing(8)] [--range-edge:inset_0_1px_0_var(--primary),inset_0_-1px_0_var(--primary)] data-[size=lg]:w-full data-[size=lg]:[--cell-radius:var(--radius-xl)] data-[size=lg]:[--cell-size:--spacing(11)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent";
 
-export type CalendarGranularity = "day" | "month" | "year"
+export type CalendarGranularity = "day" | "month" | "year";
 
-function Calendar<T extends DateValue, M extends "single" | "multiple" = "single">({
+function Calendar<
+  T extends DateValue,
+  M extends "single" | "multiple" = "single",
+>({
   className,
   numberOfMonths = 1,
   getDayState,
   rangeStyle = "band",
   size = "default",
   granularity = "day",
+  hideOutsideDays = false,
   ...props
-}: Omit<CalendarProps<T, M>, "visibleDuration"> & EngineProps & { granularity?: CalendarGranularity }) {
+}: Omit<CalendarProps<T, M>, "visibleDuration"> &
+  EngineProps & { granularity?: CalendarGranularity }) {
   return (
     <AriaCalendar
       {...props}
@@ -106,11 +121,18 @@ function Calendar<T extends DateValue, M extends "single" | "multiple" = "single
       data-range-style={rangeStyle}
       data-granularity={granularity}
       visibleDuration={{ months: numberOfMonths }}
-      className={composeRenderProps(className, (className) => cn(calendarClassName, className))}
+      className={composeRenderProps(className, (className) =>
+        cn(calendarClassName, className),
+      )}
     >
-      <CalendarInner numberOfMonths={numberOfMonths} getDayState={getDayState} granularity={granularity} />
+      <CalendarInner
+        numberOfMonths={numberOfMonths}
+        getDayState={getDayState}
+        granularity={granularity}
+        hideOutsideDays={hideOutsideDays}
+      />
     </AriaCalendar>
-  )
+  );
 }
 
 function RangeCalendar<T extends DateValue>({
@@ -119,6 +141,7 @@ function RangeCalendar<T extends DateValue>({
   getDayState,
   rangeStyle = "band",
   size = "default",
+  hideOutsideDays = false,
   ...props
 }: Omit<RangeCalendarProps<T>, "visibleDuration"> & EngineProps) {
   return (
@@ -128,102 +151,147 @@ function RangeCalendar<T extends DateValue>({
       data-size={size}
       data-range-style={rangeStyle}
       visibleDuration={{ months: numberOfMonths }}
-      className={composeRenderProps(className, (className) => cn(calendarClassName, className))}
+      className={composeRenderProps(className, (className) =>
+        cn(calendarClassName, className),
+      )}
     >
-      <CalendarInner numberOfMonths={numberOfMonths} getDayState={getDayState} isRange />
+      <CalendarInner
+        numberOfMonths={numberOfMonths}
+        getDayState={getDayState}
+        hideOutsideDays={hideOutsideDays}
+        isRange
+      />
     </AriaRangeCalendar>
-  )
+  );
 }
 
 // cn, not buttonVariants({ className }): the default size's h-10 px-4 must be merged away.
-const navButtonClassName = cn(buttonVariants({ variant: "ghost" }), "size-(--cell-size) p-0 select-none")
+const navButtonClassName = cn(
+  buttonVariants({ variant: "ghost" }),
+  "size-(--cell-size) p-0 select-none",
+);
 const pickButtonClassName = cn(
   buttonVariants({ variant: "ghost" }),
-  "h-10 w-full rounded-(--radius-xl) px-2 text-sm font-normal data-[current=true]:bg-primary data-[current=true]:text-primary-foreground data-[current=true]:hover:bg-primary data-disabled:pointer-events-none data-disabled:opacity-40"
-)
+  "h-10 w-full rounded-(--radius-xl) px-2 text-sm font-normal data-[current=true]:bg-primary data-[current=true]:text-primary-foreground data-[current=true]:hover:bg-primary data-disabled:pointer-events-none data-disabled:opacity-40",
+);
 
 /** Motion for a month change (slides the way you moved) and a view switch (soft scale-in). */
-const SPRING = { type: "spring", stiffness: 420, damping: 36, mass: 0.7 } as const
+const SPRING = {
+  type: "spring",
+  stiffness: 420,
+  damping: 36,
+  mass: 0.7,
+} as const;
 
-type View = "days" | "months" | "years"
-const FLOOR: Record<CalendarGranularity, View> = { day: "days", month: "months", year: "years" }
+type View = "days" | "months" | "years";
+const FLOOR: Record<CalendarGranularity, View> = {
+  day: "days",
+  month: "months",
+  year: "years",
+};
 
 function CalendarInner({
   numberOfMonths,
   isRange,
   getDayState,
   granularity = "day",
+  hideOutsideDays = false,
 }: {
-  numberOfMonths: number
-  isRange?: boolean
-  getDayState?: EngineProps["getDayState"]
-  granularity?: CalendarGranularity
+  numberOfMonths: number;
+  isRange?: boolean;
+  getDayState?: EngineProps["getDayState"];
+  granularity?: CalendarGranularity;
+  hideOutsideDays?: boolean;
 }) {
-  const single = React.useContext(CalendarStateContext)
-  const range = React.useContext(RangeCalendarStateContext)
-  const state = (isRange ? range : single)!
-  const { locale } = useLocale()
+  const single = React.useContext(CalendarStateContext);
+  const range = React.useContext(RangeCalendarStateContext);
+  const state = isRange ? range : single;
+  const { locale } = useLocale();
   // The lowest view this calendar goes to; the title cycles floor -> ... -> years -> back to the floor.
-  const floor = FLOOR[granularity]
-  const [view, setViewState] = React.useState<View>(floor)
+  const floor = FLOOR[granularity];
+  const [view, setViewState] = React.useState<View>(floor);
   // Only a view the user SWITCHED to scales in; the view a picker opens on just appears (its popover
   // already animates, and a second entrance on mount would read as lag).
-  const [switched, setSwitched] = React.useState(false)
+  const [switched, setSwitched] = React.useState(false);
   const setView = (next: View) => {
-    setSwitched(true)
-    setViewState(next)
-  }
-  const focused = state.focusedDate
-  // In a month/year picker the highlighted tile is the VALUE; in a day calendar it is the focused month.
-  const raw = !isRange && floor !== "days" ? single?.value : null
-  // Multiple-selection calendars hold an array; a month/year picker is single-value only.
-  const picked = raw && !Array.isArray(raw) ? (raw as DateValue) : null
-  const { minValue, maxValue } = state
-  // A period is pickable unless it lies wholly outside [minValue, maxValue].
-  const outOfRange = (start: DateValue, end: DateValue) =>
-    (minValue != null && end.compare(minValue) < 0) || (maxValue != null && start.compare(maxValue) > 0)
-  const commit = (fields: { year: number; month: number }) => {
-    const date = focused.set({ ...fields, day: 1 })
-    state.setFocusedDate(date)
-    single?.selectDate(date)
-  }
+    setSwitched(true);
+    setViewState(next);
+  };
 
   // Which way the month moved, so the grid slides in from that side.
-  const monthKey = focused.year * 12 + focused.month
-  const prevKey = React.useRef(monthKey)
-  const direction = monthKey === prevKey.current ? 0 : monthKey > prevKey.current ? 1 : -1
+  // Hooks stay above any early return (rules-of-hooks).
+  const monthKey = state
+    ? state.focusedDate.year * 12 + state.focusedDate.month
+    : 0;
+  const prevKey = React.useRef(monthKey);
+  const direction =
+    monthKey === prevKey.current ? 0 : monthKey > prevKey.current ? 1 : -1;
   React.useEffect(() => {
-    prevKey.current = monthKey
-  }, [monthKey])
+    prevKey.current = monthKey;
+  }, [monthKey]);
+
+  if (!state) return null;
+
+  const focused = state.focusedDate;
+  // In a month/year picker the highlighted tile is the VALUE; in a day calendar it is the focused month.
+  const raw = !isRange && floor !== "days" ? single?.value : null;
+  // Multiple-selection calendars hold an array; a month/year picker is single-value only.
+  // React Aria types `value` as `T | T[] | null`; month/year pickers are always single-value.
+  const picked =
+    raw && !Array.isArray(raw) ? (raw as DateValue) : null;
+  const { minValue, maxValue } = state;
+  // A period is pickable unless it lies wholly outside [minValue, maxValue].
+  const outOfRange = (start: DateValue, end: DateValue) =>
+    (minValue != null && end.compare(minValue) < 0) ||
+    (maxValue != null && start.compare(maxValue) > 0);
+  const commit = (fields: { year: number; month: number }) => {
+    const date = focused.set({ ...fields, day: 1 });
+    state.setFocusedDate(date);
+    single?.selectDate(date);
+  };
 
   const monthName = (m: number, style: "long" | "short") =>
-    new Intl.DateTimeFormat(locale, { month: style, timeZone: "UTC" }).format(new Date(Date.UTC(2000, m - 1, 1)))
+    new Intl.DateTimeFormat(locale, { month: style, timeZone: "UTC" }).format(
+      new Date(Date.UTC(2000, m - 1, 1)),
+    );
   const title = (offset: number) => {
-    const d = focused.add({ months: offset })
-    return `${monthName(d.month, "long")} ${d.year}`
-  }
+    const d = focused.add({ months: offset });
+    return `${monthName(d.month, "long")} ${d.year}`;
+  };
   // The year grid centres on the current year (5 before, 6 after), so nearby years are one click either way.
-  const decadeStart = focused.year - 5
+  const decadeStart = focused.year - 5;
 
   const goTo = (fields: { year?: number; month?: number }) => {
-    state.setFocusedDate(focused.set(fields))
-  }
+    state.setFocusedDate(focused.set(fields));
+  };
 
   // Jump views (months / years) replace the day grid; one month only — a multi-month range keeps plain titles.
-  const canJump = numberOfMonths === 1
-  const nextView: Record<View, View> = { days: "months", months: "years", years: floor }
+  const canJump = numberOfMonths === 1;
+  const nextView: Record<View, View> = {
+    days: "months",
+    months: "years",
+    years: floor,
+  };
   // A year picker has nowhere above its grid to go: the title is a plain label.
-  const titleIsButton = canJump && floor !== "years"
+  const titleIsButton = canJump && floor !== "years";
 
   return (
     <div className="relative flex flex-col gap-4 md:flex-row">
       <div className="absolute inset-x-0 top-0 z-10 flex w-full items-center justify-between gap-1">
         {view === "days" ? (
           <>
-            <Button slot="previous" data-slot="calendar-previous" className={navButtonClassName}>
+            <Button
+              slot="previous"
+              data-slot="calendar-previous"
+              className={navButtonClassName}
+            >
               <ChevronLeftIcon className="size-4" />
             </Button>
-            <Button slot="next" data-slot="calendar-next" className={navButtonClassName}>
+            <Button
+              slot="next"
+              data-slot="calendar-next"
+              className={navButtonClassName}
+            >
               <ChevronRightIcon className="size-4" />
             </Button>
           </>
@@ -234,9 +302,13 @@ function CalendarInner({
             <Button
               slot={null}
               data-slot="calendar-previous"
-              aria-label={view === "months" ? "Previous year" : "Previous years"}
+              aria-label={
+                view === "months" ? "Previous year" : "Previous years"
+              }
               className={navButtonClassName}
-              onPress={() => goTo({ year: focused.year - (view === "months" ? 1 : 12) })}
+              onPress={() =>
+                goTo({ year: focused.year - (view === "months" ? 1 : 12) })
+              }
             >
               <ChevronLeftIcon className="size-4" />
             </Button>
@@ -245,7 +317,9 @@ function CalendarInner({
               data-slot="calendar-next"
               aria-label={view === "months" ? "Next year" : "Next years"}
               className={navButtonClassName}
-              onPress={() => goTo({ year: focused.year + (view === "months" ? 1 : 12) })}
+              onPress={() =>
+                goTo({ year: focused.year + (view === "months" ? 1 : 12) })
+              }
             >
               <ChevronRightIcon className="size-4" />
             </Button>
@@ -272,11 +346,20 @@ function CalendarInner({
                 className="rounded-lg px-2 py-1 text-sm font-semibold outline-none select-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
                 onPress={() => setView(nextView[view])}
               >
-                {view === "days" ? title(0) : view === "months" ? focused.year : `${decadeStart} – ${decadeStart + 11}`}
+                {view === "days"
+                  ? title(0)
+                  : view === "months"
+                    ? focused.year
+                    : `${decadeStart} – ${decadeStart + 11}`}
               </Button>
             ) : (
-              <span data-slot="calendar-title" className="text-sm font-semibold select-none">
-                {view === "years" ? `${decadeStart} – ${decadeStart + 11}` : title(i)}
+              <span
+                data-slot="calendar-title"
+                className="text-sm font-semibold select-none"
+              >
+                {view === "years"
+                  ? `${decadeStart} – ${decadeStart + 11}`
+                  : title(i)}
               </span>
             )}
           </div>
@@ -284,7 +367,9 @@ function CalendarInner({
           {view === "days" ? (
             <motion.div
               key={`${monthKey}-${i}`}
-              initial={direction === 0 ? false : { opacity: 0, x: direction * 16 }}
+              initial={
+                direction === 0 ? false : { opacity: 0, x: direction * 16 }
+              }
               animate={{ opacity: 1, x: 0 }}
               transition={SPRING}
             >
@@ -303,11 +388,34 @@ function CalendarInner({
                 </AriaCalendarGridHeader>
                 <CalendarGridBody>
                   {(date) => (
-                    <CalendarCell date={date} className={(renderProps) => cellVariants(renderProps)}>
+                    <CalendarCell
+                      date={date}
+                      className={(renderProps) =>
+                        cn(
+                          cellVariants(renderProps),
+                          hideOutsideDays &&
+                            renderProps.isOutsideMonth &&
+                            "invisible pointer-events-none",
+                        )
+                      }
+                    >
                       {(renderProps) => {
-                        const day = renderProps.isOutsideMonth ? undefined : getDayState?.(date)
+                        if (hideOutsideDays && renderProps.isOutsideMonth) {
+                          return (
+                            <div
+                              aria-hidden
+                              className="aspect-square h-full w-full min-w-(--cell-size)"
+                            />
+                          );
+                        }
+                        const day = renderProps.isOutsideMonth
+                          ? undefined
+                          : getDayState?.(date);
                         const isMiddle =
-                          renderProps.isSelected && !renderProps.isSelectionStart && !renderProps.isSelectionEnd && isRange
+                          renderProps.isSelected &&
+                          !renderProps.isSelectionStart &&
+                          !renderProps.isSelectionEnd &&
+                          isRange;
                         return (
                           <div
                             title={day?.label}
@@ -315,13 +423,22 @@ function CalendarInner({
                             data-tone={day?.tone ? "" : undefined}
                             data-pattern={day?.pattern}
                             data-marker={day?.marker || undefined}
-                            data-selected-single={renderProps.isSelected && !isRange}
-                            data-range-start={renderProps.isSelectionStart && isRange}
-                            data-range-end={renderProps.isSelectionEnd && isRange}
+                            data-selected-single={
+                              renderProps.isSelected && !isRange
+                            }
+                            data-range-start={
+                              renderProps.isSelectionStart && isRange
+                            }
+                            data-range-end={
+                              renderProps.isSelectionEnd && isRange
+                            }
                             data-range-middle={isMiddle}
                             style={day?.tone ? toneStyle(day.tone) : undefined}
                             className={cn(
-                              buttonVariants({ variant: "ghost", size: "icon" }),
+                              buttonVariants({
+                                variant: "ghost",
+                                size: "icon",
+                              }),
                               "relative isolate z-10 flex aspect-square h-full w-full min-w-(--cell-size) flex-col gap-1 rounded-(--cell-radius) border-0 leading-none font-normal transition-[background-color,box-shadow,color] duration-150",
                               "group-data-[size=lg]/calendar:text-sm",
                               // Today: a ring (the legend's "Today"), never a fill — a fill means selected.
@@ -336,12 +453,12 @@ function CalendarInner({
                               "group-data-[range-style=band]/calendar:data-[range-end=true]:bg-primary group-data-[range-style=band]/calendar:data-[range-end=true]:text-primary-foreground group-data-[range-style=band]/calendar:data-[range-start=true]:bg-primary group-data-[range-style=band]/calendar:data-[range-start=true]:text-primary-foreground group-data-[range-style=band]/calendar:data-[range-middle=true]:rounded-none group-data-[range-style=band]/calendar:data-[range-middle=true]:bg-primary/20 group-data-[range-style=band]/calendar:data-[range-middle=true]:text-foreground group-data-[range-style=band]/calendar:data-[range-middle=true]:shadow-(--range-edge)",
                               // Outline style: days keep their tone; the ends get a strong ring.
                               "group-data-[range-style=outline]/calendar:data-[range-start=true]:ring-2 group-data-[range-style=outline]/calendar:data-[range-start=true]:ring-foreground group-data-[range-style=outline]/calendar:data-[range-start=true]:font-semibold group-data-[range-style=outline]/calendar:data-[range-end=true]:ring-2 group-data-[range-style=outline]/calendar:data-[range-end=true]:ring-foreground group-data-[range-style=outline]/calendar:data-[range-end=true]:font-semibold",
-                              "data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground hover:data-[selected-single=true]:bg-primary [&>span]:text-xs [&>span]:opacity-70"
+                              "data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground hover:data-[selected-single=true]:bg-primary [&>span]:text-xs [&>span]:opacity-70",
                             )}
                           >
                             {renderProps.defaultChildren}
                           </div>
-                        )
+                        );
                       }}
                     </CalendarCell>
                   )}
@@ -359,10 +476,10 @@ function CalendarInner({
             >
               {view === "months"
                 ? Array.from({ length: 12 }, (_, m) => {
-                    const start = focused.set({ month: m + 1, day: 1 })
+                    const start = focused.set({ month: m + 1, day: 1 });
                     const current = picked
                       ? picked.year === focused.year && picked.month === m + 1
-                      : m + 1 === focused.month
+                      : m + 1 === focused.month;
                     return (
                       <Button
                         key={m}
@@ -370,12 +487,16 @@ function CalendarInner({
                         data-slot="calendar-month"
                         data-current={current || undefined}
                         aria-current={picked && current ? "date" : undefined}
-                        isDisabled={outOfRange(start, start.add({ months: 1 }).subtract({ days: 1 }))}
+                        isDisabled={outOfRange(
+                          start,
+                          start.add({ months: 1 }).subtract({ days: 1 }),
+                        )}
                         className={pickButtonClassName}
                         onPress={() => {
-                          if (floor === "months") return commit({ year: focused.year, month: m + 1 })
-                          goTo({ month: m + 1 })
-                          setView("days")
+                          if (floor === "months")
+                            return commit({ year: focused.year, month: m + 1 });
+                          goTo({ month: m + 1 });
+                          setView("days");
                         }}
                       >
                         {/* Shows "Jan", is named "January 2026": the abbreviation is hidden from the accessible name and
@@ -383,12 +504,14 @@ function CalendarInner({
                         <span aria-hidden>{monthName(m + 1, "short")}</span>
                         <span className="sr-only">{`${monthName(m + 1, "long")} ${focused.year}`}</span>
                       </Button>
-                    )
+                    );
                   })
                 : Array.from({ length: 12 }, (_, k) => {
-                    const year = decadeStart + k
-                    const start = focused.set({ year, month: 1, day: 1 })
-                    const current = picked ? picked.year === year : year === focused.year
+                    const year = decadeStart + k;
+                    const start = focused.set({ year, month: 1, day: 1 });
+                    const current = picked
+                      ? picked.year === year
+                      : year === focused.year;
                     return (
                       <Button
                         key={year}
@@ -396,24 +519,28 @@ function CalendarInner({
                         data-slot="calendar-year"
                         data-current={current || undefined}
                         aria-current={picked && current ? "date" : undefined}
-                        isDisabled={outOfRange(start, start.set({ month: 12, day: 31 }))}
+                        isDisabled={outOfRange(
+                          start,
+                          start.set({ month: 12, day: 31 }),
+                        )}
                         className={pickButtonClassName}
                         onPress={() => {
-                          if (floor === "years") return commit({ year, month: 1 })
-                          goTo({ year })
-                          setView("months")
+                          if (floor === "years")
+                            return commit({ year, month: 1 });
+                          goTo({ year });
+                          setView("months");
                         }}
                       >
                         {year}
                       </Button>
-                    )
+                    );
                   })}
             </motion.div>
           )}
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 /**
@@ -424,32 +551,44 @@ function CalendarLegend({
   items,
   className,
 }: {
-  items: Array<{ label: string; tone?: DayState["tone"]; pattern?: DayState["pattern"]; marker?: boolean; today?: boolean }>
-  className?: string
+  items: Array<{
+    label: string;
+    tone?: DayState["tone"];
+    pattern?: DayState["pattern"];
+    marker?: boolean;
+    today?: boolean;
+  }>;
+  className?: string;
 }) {
   return (
-    <ul data-slot="calendar-legend" className={cn("flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground", className)}>
+    <ul
+      data-slot="calendar-legend"
+      className={cn(
+        "flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground",
+        className,
+      )}
+    >
       {items.map((item) => (
         <li key={item.label} className="flex items-center gap-1.5">
           <span
             aria-hidden
             style={item.tone ? toneStyle(item.tone) : undefined}
             className={cn(
-              "relative size-3.5 shrink-0 overflow-hidden rounded-[4px]",
+              "relative size-3.5 shrink-0 overflow-hidden rounded-sm",
               item.today && "ring-2 ring-primary ring-inset",
               item.tone &&
                 "bg-[color-mix(in_oklch,var(--tone)_14%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--tone)_28%,transparent)]",
               item.pattern === "dashed" &&
                 "shadow-none outline-1 -outline-offset-1 outline-dashed outline-[color-mix(in_oklch,var(--tone)_60%,transparent)]",
               item.marker &&
-                "after:absolute after:top-0 after:right-0 after:size-2 after:bg-(--tone) after:[clip-path:polygon(0_0,100%_0,100%_100%)]"
+                "after:absolute after:top-0 after:right-0 after:size-2 after:bg-(--tone) after:[clip-path:polygon(0_0,100%_0,100%_100%)]",
             )}
           />
           {item.label}
         </li>
       ))}
     </ul>
-  )
+  );
 }
 
-export { Calendar, RangeCalendar, CalendarLegend }
+export { Calendar, RangeCalendar, CalendarLegend };

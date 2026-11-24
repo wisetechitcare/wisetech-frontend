@@ -1,0 +1,12 @@
+---
+description: Standing DatePicker work limits — Organization-only, no push, no Phase 3 unless asked
+alwaysApply: true
+---
+
+# DatePicker standing scope
+
+- **Do not push** unless the user explicitly asks.
+- DatePicker **consumer** changes: **Organization / Fiscal Year only** until the user expands scope.
+- Do not migrate `WtDateField`, overview MUI From/To, PeriodFilter, or `PlainDatePicker` to the kit unless asked.
+- Do not start Organization DatePicker integration (Phase 3) unless the user asks.
+- Shared kit lives in `src/ds/ui/calendar.tsx` + `date-picker.tsx`; FY adapter is `FiscalYearRangeField`. See `.cursor/rules/date-picker-system.mdc` for architecture detail.

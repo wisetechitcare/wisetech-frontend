@@ -221,3 +221,32 @@ export const YearPicker: Story = {
     await expect((mocked(args.onChange!).mock.lastCall?.[0] as DateValue).toString()).toBe('2024-01-01')
   },
 }
+
+/**
+ * Monday-first week: October 2026 (Thu 1st) leads with Mon 28 Sep — not Sun 27 Sep.
+ * React Aria's day grid does not expose columnheader roles here, so the leading day is the signal.
+ */
+export const MondayFirst: Story = {
+  args: { firstDayOfWeek: 'mon' },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole('button', { name: /Monday, 28 September 2026/ })).toBeInTheDocument()
+    await expect(canvas.queryByRole('button', { name: /27 September 2026/ })).not.toBeInTheDocument()
+  },
+}
+
+/**
+ * `hideOutsideDays`: adjacent-month cells stay in the DOM for layout but are `invisible` (and
+ * therefore out of the a11y tree). In-month days still pick normally.
+ */
+export const HideOutsideDays: Story = {
+  args: { firstDayOfWeek: 'mon', hideOutsideDays: true },
+  play: async ({ args, canvas, canvasElement }) => {
+    const outside = canvasElement.querySelector('[aria-label="Monday, 28 September 2026"]')
+    await expect(outside).toBeTruthy()
+    await expect(outside).toHaveClass('invisible')
+    await expect(canvas.queryByRole('button', { name: /28 September 2026/ })).not.toBeInTheDocument()
+    await userEvent.click(canvas.getByRole('button', { name: /Thursday, 1 October 2026/ }))
+    await waitFor(() => expect(args.onChange).toHaveBeenCalledTimes(1))
+    await expect((mocked(args.onChange!).mock.lastCall?.[0] as DateValue).toString()).toBe('2026-10-01')
+  },
+}
