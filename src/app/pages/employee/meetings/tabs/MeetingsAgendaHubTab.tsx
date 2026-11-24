@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -34,6 +35,8 @@ import AccessTimeRounded from '@mui/icons-material/AccessTimeRounded';
 import VideocamOutlined from '@mui/icons-material/VideocamOutlined';
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
+import KeyboardArrowLeftRounded from '@mui/icons-material/KeyboardArrowLeftRounded';
+import KeyboardArrowRightRounded from '@mui/icons-material/KeyboardArrowRightRounded';
 import dayjs from 'dayjs';
 import { hasPermission } from '@utils/authAbac';
 import { apiErrorMessage } from '@utils/apiError';
@@ -43,6 +46,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
 import { Skeleton } from '@/ds/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/ds/ui/tabs';
 import { EmptyState } from '@/ds/patterns/empty-state';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
 import { customConfirmation, successConfirmation } from '@utils/modal';
 import {
   permissionConstToUseWithHasPermission,
@@ -271,6 +275,7 @@ export default function MeetingsAgendaHubTab() {
   const [showNew, setShowNew] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [mobileDetail, setMobileDetail] = useState(false);
+  const [listCollapsed, setListCollapsed] = useState(false);
 
   const cacheRef = useRef(cache);
   cacheRef.current = cache;
@@ -517,14 +522,15 @@ export default function MeetingsAgendaHubTab() {
   const showList = !isMobile || !mobileDetail;
   const showDetail = !isMobile || mobileDetail;
 
+  const listOpen = showList && !listCollapsed;
+
   return (
     <Box
       ref={hubRef}
       sx={{
-        display: 'grid',
-        // minmax(0, 1fr): a `1fr` track won't shrink below its content, so long one-line
-        // addresses pushed the phone list past the screen edge.
-        gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(320px, 380px) minmax(0, 1fr)' },
+        display: 'flex',
+        flexDirection: { xs: 'column', lg: 'row' },
+        alignItems: 'stretch',
         gap: 0,
         minHeight: { lg: hubHeight },
         borderTop: `1px solid ${C.line}`,
@@ -535,41 +541,83 @@ export default function MeetingsAgendaHubTab() {
       {error && (
         <Alert
           severity="error"
-          sx={{ gridColumn: '1 / -1', m: 1.5, mb: 0 }}
+          sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 3, m: 0 }}
           onClose={() => setError(null)}
         >
           {error}
         </Alert>
       )}
 
-      {/* ── Left: meetings list ── */}
+      {/* ── Left: meetings list — slides to zero width so detail gets the room ── */}
       <Box
+        aria-hidden={!listOpen}
         sx={{
-          borderRight: { lg: `1px solid ${C.line}` },
-          bgcolor: C.paper,
           display: showList ? 'flex' : 'none',
           flexDirection: 'column',
           minHeight: 0,
           maxHeight: { lg: hubHeight },
+          bgcolor: C.paper,
+          borderRight: { lg: listOpen ? `1px solid ${C.line}` : 0 },
+          overflow: 'hidden',
+          // Width/visibility: closed pane leaves no strip; reopen via the edge handle.
+          transition: { lg: 'width 220ms ease, opacity 180ms ease, visibility 0s linear 0s' },
+          ...(listCollapsed && !isMobile
+            ? {
+                width: 0,
+                opacity: 0,
+                visibility: 'hidden',
+                transition: 'width 220ms ease, opacity 180ms ease, visibility 0s linear 220ms',
+                pointerEvents: 'none',
+              }
+            : {
+                width: { xs: '100%', lg: 'clamp(320px, 28vw, 380px)' },
+                opacity: 1,
+                visibility: 'visible',
+                flexShrink: 0,
+              }),
         }}
       >
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="space-between"
-          sx={{ px: 2, pt: 2, pb: 1.25 }}
+          spacing={1}
+          sx={{ px: 2, pt: 2, pb: 1.25, minWidth: 280 }}
         >
-          <Typography sx={{ fontWeight: 800, fontSize: 16, color: C.ink }}>
-            Meetings ({activeFilterCount || query.trim() ? `${filtered.length} of ${meetings.length}` : meetings.length})
+          <Typography sx={{ fontWeight: 800, fontSize: 16, color: C.ink, minWidth: 0 }}>
+            Meetings (
+            {activeFilterCount || query.trim()
+              ? `${filtered.length} of ${meetings.length}`
+              : meetings.length}
+            )
           </Typography>
-          {canCreate && !isMobile && (
-            <Button type="button" size="sm" onClick={() => setShowNew(true)}>
-              + New Meeting
-            </Button>
-          )}
+          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ flexShrink: 0 }}>
+            {canCreate && !isMobile && (
+              <Button type="button" size="sm" onClick={() => setShowNew(true)}>
+                + New Meeting
+              </Button>
+            )}
+            {!isMobile && (
+              <Tooltip>
+                <TooltipTrigger render={<span className="inline-flex shrink-0" />}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Hide meetings list"
+                    onClick={() => setListCollapsed(true)}
+                    className="shrink-0"
+                  >
+                    <KeyboardArrowLeftRounded sx={{ fontSize: 20, color: C.mute }} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Hide meetings list</TooltipContent>
+              </Tooltip>
+            )}
+          </Stack>
         </Stack>
 
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 2, pb: 1 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 2, pb: 1, minWidth: 280 }}>
           <TextField
             size="small"
             fullWidth
@@ -757,9 +805,11 @@ export default function MeetingsAgendaHubTab() {
         </Box>
       </Box>
 
-      {/* ── Right: detail — height follows content (no empty stretch). ── */}
+      {/* ── Right: detail — full width when the list is slid away ── */}
       <Box
         sx={{
+          position: 'relative',
+          flex: 1,
           minWidth: 0,
           alignSelf: { lg: 'start' },
           width: '100%',
@@ -770,8 +820,60 @@ export default function MeetingsAgendaHubTab() {
           // Phones: clear the app's floating bottom bar, which would hide the last lines.
           pb: { xs: 12, md: 2.5 },
           display: showDetail ? 'block' : 'none',
+          // Room for the reopen handle when the list is closed.
+          pl: { lg: listCollapsed ? 4.5 : 2 },
         }}
       >
+        {!isMobile && listCollapsed && (
+          <Tooltip>
+            <TooltipTrigger render={<span />}>
+              <Box
+                component="button"
+                type="button"
+                onClick={() => setListCollapsed(false)}
+                aria-label="Show meetings list"
+                sx={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 16,
+                  zIndex: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  width: 28,
+                  py: 1.25,
+                  px: 0,
+                  border: `1px solid ${C.line}`,
+                  borderLeft: 0,
+                  borderRadius: '0 10px 10px 0',
+                  bgcolor: C.paper,
+                  color: C.mute,
+                  cursor: 'pointer',
+                  boxShadow: '1px 1px 4px rgba(15, 23, 42, 0.06)',
+                  '&:hover': { bgcolor: C.blueSoft, color: C.blue, borderColor: C.blueEdge },
+                  '&:focus-visible': { outline: `2px solid ${C.blue}`, outlineOffset: 2 },
+                }}
+              >
+                <KeyboardArrowRightRounded sx={{ fontSize: 20 }} />
+                <Typography
+                  component="span"
+                  sx={{
+                    writingMode: 'vertical-rl',
+                    transform: 'rotate(180deg)',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                    lineHeight: 1,
+                  }}
+                >
+                  Meetings
+                </Typography>
+              </Box>
+            </TooltipTrigger>
+            <TooltipContent side="right">Show meetings list</TooltipContent>
+          </Tooltip>
+        )}
         {!selectedMeeting ? (
           <EmptyState title="No meeting selected" description="Select a meeting to view its agenda." />
         ) : (
@@ -1068,16 +1170,6 @@ function MeetingTracker({
           </Box>
         )}
       </Stack>
-    </Box>
-  );
-}
-
-/** A labelled field in a phone MoM card. */
-function MomField({ label, wide, children }: { label: string; wide?: boolean; children: ReactNode }) {
-  return (
-    <Box sx={{ gridColumn: wide ? '1 / -1' : 'auto', minWidth: 0 }}>
-      <Typography sx={{ fontSize: 11, fontWeight: 700, color: C.mute, mb: 0.4 }}>{label}</Typography>
-      {children}
     </Box>
   );
 }
@@ -1635,22 +1727,30 @@ function MomPanel({
   const [busy, setBusy] = useState(false);
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
   const [topicPickerKey, setTopicPickerKey] = useState(0);
-  const [adding, setAdding] = useState(false);
   const [teamIds, setTeamIds] = useState<Set<string> | null>(null);
+  // Topics picked while editing — local drafts until Save (so they stay at the bottom, not A–Z sorted yet).
+  const [pendingTopics, setPendingTopics] = useState<any[]>([]);
   // Company statuses from Configure → Agenda statuses, A–Z.
   const statusOptions = useAgendaStatusOptions();
   const { data: directory = [], isLoading: directoryLoading } = useEmployeeDirectory();
-  const momItems = useMemo(() => items.filter((it: any) => it.inMom), [items]);
   const { options: taskOptions, loading: topicOptionsLoading } = useAgendaTaskOptions(
     meeting?.projectId || null,
   );
-  // Same source as the agenda; anything already on the agenda or in the MoM is left out.
-  const topicOptions = useMemo(() => {
-    const taken = new Set(items.map((i: any) => String(i.description || '')));
-    return taskOptions.filter((o) => !taken.has(o.name));
-  }, [taskOptions, items]);
+  // Same source as the agenda — topics may be repeated (same deliverable discussed again).
+  const topicOptions = taskOptions;
+  const isPendingTopicId = (id: string) => String(id).startsWith('pending-');
+  const momItems = useMemo(
+    () => [...items.filter((it: any) => it.inMom), ...pendingTopics],
+    [items, pendingTopics],
+  );
   const projectId = meeting?.projectId || null;
   const rowsEditable = canEdit && !!minutes;
+  /** Editors stay off until Edit — view mode reads like the MoM document. */
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    setEditing(false);
+  }, [meetingId]);
+  const interactive = rowsEditable && editing;
   const isPhone = useMediaQuery(useTheme().breakpoints.down('sm'));
   // Lines that can become tasks now: an assignee, and not a task yet.
   const readyToAssign = momItems.filter((it: any) => it.responsibleUserId && !it.taskId).length;
@@ -1666,13 +1766,25 @@ function MomPanel({
     const item = draft ? { ...saved, ...draft.display } : saved;
     const rowBusy = rowBusyId === item.id || saving;
     // Once a line is a task, its assignee and due date live on the task.
-    const lineEditable = rowsEditable && !item.taskId;
+    const lineEditable = interactive && !item.taskId;
     const dueVal = item.targetCompletionDate ? dayjs(item.targetCompletionDate).format('YYYY-MM-DD') : '';
-    // A topic added here (not on the agenda) can be swapped here too, from the same list it was
-    // picked from. Its own option is put back in — `topicOptions` leaves out what is already used.
+    // A topic added here can be swapped from the same list it was picked from (repeats allowed).
     const currentTopic = item.addedInMom && lineEditable
       ? taskOptions.find((o) => o.name === item.description)
       : undefined;
+    const statusTone =
+      item.statusColor ||
+      statusOptions.find((o) => o.value === item.status)?.color ||
+      '#64748B';
+    const statusText = item.statusLabel || item.status || '—';
+    const statusBadge = (
+      <DsBadge
+        variant="custom"
+        style={{ '--tone': statusTone } as CSSProperties}
+      >
+        {statusText}
+      </DsBadge>
+    );
     return {
       title: (
         <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
@@ -1680,7 +1792,7 @@ function MomPanel({
             <Box sx={{ width: '100%' }}>
               <TaskPathSelect
                 value={currentTopic.id}
-                options={[currentTopic, ...topicOptions]}
+                options={topicOptions}
                 disabled={rowBusy}
                 loading={topicOptionsLoading}
                 label=""
@@ -1688,6 +1800,11 @@ function MomPanel({
                 onChange={(opt) => {
                   // Clearing would leave a nameless line; only a real pick changes it.
                   if (!opt || opt.name === item.description) return;
+                  if (isPendingTopicId(item.id)) {
+                    setPendingTopics((rows) =>
+                      rows.map((r) => (r.id === item.id ? { ...r, description: opt.name } : r)),
+                    );
+                  }
                   stageItem(item.id, { description: opt.name });
                 }}
               />
@@ -1746,7 +1863,7 @@ function MomPanel({
       ) : (
         <Box component="span" sx={{ fontSize: 13 }}>{fmtDate(item.targetCompletionDate)}</Box>
       ),
-      status: rowsEditable && statusOptions.length ? (
+      status: interactive && statusOptions.length ? (
         <WtSelect
           size="sm"
           options={statusOptions}
@@ -1763,19 +1880,17 @@ function MomPanel({
           }}
         />
       ) : (
-        <Stack direction="row" alignItems="center" gap={0.75} sx={{ fontSize: 13 }}>
-          <Box aria-hidden sx={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, bgcolor: item.statusColor || C.mute }} />
-          <span>{item.statusLabel || item.status || '—'}</span>
-        </Stack>
+        statusBadge
       ),
-      note: rowsEditable ? (
+      note: interactive ? (
         <TextField
           // Re-seed when the saved note changes (refresh / another tab).
           key={`${item.id}:${item.remarks ?? ''}`}
           size="small"
           fullWidth
           multiline
-          maxRows={4}
+          minRows={2}
+          // Grow with the note — a capped height puts a scrollbar inside the row and spoils the table.
           placeholder="Note"
           defaultValue={item.remarks || ''}
           disabled={rowBusy}
@@ -1785,13 +1900,18 @@ function MomPanel({
             if (remarks === (item.remarks || null)) return;
             stageItem(item.id, { remarks });
           }}
-          sx={{ '& .MuiInputBase-root': { fontSize: 13 } }}
+          sx={{
+            '& .MuiInputBase-root': { fontSize: 13, alignItems: 'flex-start' },
+            '& textarea': { overflow: 'hidden' },
+          }}
         />
       ) : (
-        <Box sx={{ whiteSpace: 'pre-wrap', fontSize: 13, color: item.remarks ? C.ink : C.mute }}>{item.remarks || '—'}</Box>
+        <Box sx={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.55, color: item.remarks ? C.ink : C.mute }}>
+          {item.remarks || '—'}
+        </Box>
       ),
       // Agenda items leave the MoM by unticking them on the Agenda tab.
-      remove: rowsEditable && item.addedInMom ? (
+      remove: interactive && item.addedInMom ? (
         <ActionIconButton
           iconName="trash"
           tone="danger"
@@ -1868,8 +1988,9 @@ function MomPanel({
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     setDrafts({});
+    setPendingTopics([]);
   }, [meetingId]);
-  const dirtyCount = Object.keys(drafts).length + (attendeesDirty ? 1 : 0);
+  const dirtyCount = Object.keys(drafts).length + pendingTopics.length + (attendeesDirty ? 1 : 0);
   const dirty = dirtyCount > 0;
   // A tab close or reload would drop the drafts silently — let the browser ask first.
   useEffect(() => {
@@ -1962,8 +2083,33 @@ function MomPanel({
     setSaving(true);
     try {
       if (mode === 'revision') await reviseMeetingMinutes(meetingId);
+      // New topics first — they only exist locally until Save. Drop each from pending as it lands
+      // so a mid-save failure does not create the same draft twice on retry.
+      for (const pending of pendingTopics) {
+        const staged = drafts[pending.id]?.payload || {};
+        await createAgendaItem(meetingId, {
+          itemMode: 'DISCUSSION',
+          addedInMom: true,
+          description: (staged.description as string) || pending.description,
+          status: (staged.status as string) || pending.status || 'INFORMATION',
+          remarks: staged.remarks !== undefined ? staged.remarks : pending.remarks,
+          responsibleUserId:
+            staged.responsibleUserId !== undefined ? staged.responsibleUserId : pending.responsibleUserId,
+          responsibleContactId:
+            staged.responsibleContactId !== undefined
+              ? staged.responsibleContactId
+              : pending.responsibleContactId,
+          targetCompletionDate:
+            staged.targetCompletionDate !== undefined
+              ? staged.targetCompletionDate
+              : pending.targetCompletionDate,
+        });
+        setPendingTopics((rows) => rows.filter((r) => r.id !== pending.id));
+        setDrafts(({ [pending.id]: _done, ...rest }) => rest);
+      }
       // One at a time: each write rebuilds the MoM lines server-side, so parallel writes would race.
       for (const [itemId, d] of Object.entries(drafts)) {
+        if (isPendingTopicId(itemId)) continue;
         await updateAgendaItem(meetingId, itemId, d.payload);
         setDrafts(({ [itemId]: _done, ...rest }) => rest);
       }
@@ -1980,24 +2126,42 @@ function MomPanel({
 
   const discardAll = () => {
     setDrafts({});
+    setPendingTopics([]);
     setLiveAttendees(JSON.parse(savedAttendeesKey));
   };
 
-  /** A topic discussed in the meeting that was never on the agenda. */
-  const addTopic = async (description: string) => {
-    setAdding(true);
-    try {
-      await createAgendaItem(meetingId, { description, itemMode: 'DISCUSSION', addedInMom: true });
-      setTopicPickerKey((n) => n + 1);
-      await onRefresh();
-    } catch (e) {
-      onError(errMsg(e));
-    } finally {
-      setAdding(false);
-    }
+  /** Stage a topic at the bottom of the table — persisted only on Save. */
+  const addTopic = (description: string) => {
+    const status =
+      statusOptions.find((o) => o.value === 'INFORMATION') || statusOptions[0] || null;
+    setPendingTopics((rows) => [
+      ...rows,
+      {
+        id: `pending-${crypto.randomUUID()}`,
+        description,
+        itemMode: 'DISCUSSION',
+        addedInMom: true,
+        inMom: true,
+        status: status?.value || 'INFORMATION',
+        statusLabel: status?.label || 'Information',
+        statusColor: status?.color || null,
+        remarks: null,
+        responsibleUserId: null,
+        responsibleContactId: null,
+        responsibleName: null,
+        targetCompletionDate: null,
+        taskId: null,
+      },
+    ]);
+    setTopicPickerKey((n) => n + 1);
   };
 
   const removeTopic = async (itemId: string) => {
+    if (isPendingTopicId(itemId)) {
+      setPendingTopics((rows) => rows.filter((r) => r.id !== itemId));
+      setDrafts(({ [itemId]: _gone, ...rest }) => rest);
+      return;
+    }
     setRowBusyId(itemId);
     try {
       await deleteAgendaItem(meetingId, itemId);
@@ -2145,128 +2309,197 @@ function MomPanel({
         meetingId={meetingId}
         projectId={projectId}
         attendees={liveAttendees}
-        editable={rowsEditable && !saving}
+        editable={interactive && !saving}
         teamIds={teamIds}
         onError={onError}
         onChange={setLiveAttendees}
         deferSave
       />
 
-      <Box sx={{ bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5, overflow: 'hidden' }}>
-        {momItems.length === 0 ? (
-          <EmptyState
-            className="m-3"
-            title="Nothing in these minutes yet"
-            description={`Convert items from the Agenda tab${rowsEditable ? ', or add a topic discussed below.' : '.'}`}
-          />
-        ) : (
-          // Phones get one card per line (fields stacked, nothing to scroll sideways); wider
-          // screens the table. Both draw the same fields from `lineFields`.
-          isPhone ? (
-            <Stack spacing={1.25} sx={{ p: 1.25, bgcolor: C.page }}>
-              {momItems.map((item: any, idx: number) => {
-                const f = lineFields(item);
+      {(() => {
+        const momColumns: ColumnDef<any, any>[] = [
+          {
+            id: 'serial',
+            accessorFn: (r) => r.serialNo ?? 0,
+            header: '#',
+            size: 56,
+            cell: ({ row }) => (
+              <span className="text-muted-foreground tabular-nums">{row.index + 1}</span>
+            ),
+          },
+          {
+            accessorKey: 'description',
+            header: 'Agenda item',
+            size: 220,
+            cell: ({ row }) => (
+              <div className={editing ? undefined : 'font-semibold'}>{lineFields(row.original).title}</div>
+            ),
+          },
+          {
+            accessorKey: 'remarks',
+            header: 'Note',
+            size: 280,
+            cell: ({ row }) => lineFields(row.original).note,
+          },
+          {
+            id: 'assignee',
+            accessorFn: (r) => r.responsibleName || '',
+            header: 'Assignee',
+            size: 180,
+            cell: ({ row }) => lineFields(row.original).assignee,
+          },
+          {
+            id: 'due',
+            accessorFn: (r) => r.targetCompletionDate || '',
+            header: 'Due date',
+            size: 130,
+            cell: ({ row }) => lineFields(row.original).due,
+          },
+          {
+            id: 'status',
+            accessorFn: (r) => r.statusLabel || r.status || '',
+            header: 'Status',
+            size: 150,
+            cell: ({ row }) => lineFields(row.original).status,
+          },
+          ...(interactive
+            ? [
+                {
+                  id: 'remove',
+                  header: '',
+                  size: 48,
+                  enableSorting: false,
+                  enableHiding: false,
+                  cell: ({ row }: { row: { original: any } }) => lineFields(row.original).remove,
+                } as ColumnDef<any, any>,
+              ]
+            : []),
+        ];
+        return (
+          <Stack spacing={1.25}>
+            <DataTable
+              caption="Points discussed"
+              columns={momColumns}
+              data={momItems}
+              getRowId={(r) => String(r.id)}
+              searchPlaceholder="Search agenda items…"
+              initialPageSize={25}
+              minWidth={720}
+              stateKey="meetings.mom.points"
+              resizableColumns
+              tools={false}
+              cellAlign="top"
+              rowTone={(r) => {
+                const draft = drafts[r.id];
+                const item = draft ? { ...r, ...draft.display } : r;
                 return (
-                  <Box
-                    key={item.id}
-                    sx={{
-                      p: 1.75,
-                      bgcolor: C.paper,
-                      border: `1px solid ${C.line}`,
-                      // The line's status colour, readable at a glance while scrolling.
-                      borderLeft: `4px solid ${item.statusColor || C.line}`,
-                      borderRadius: 2.5,
-                    }}
-                  >
-                    <Stack direction="row" alignItems="flex-start" gap={1.25}>
-                      <Box
-                        aria-hidden
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: '50%',
-                          bgcolor: C.slate,
-                          color: C.mute,
-                          display: 'grid',
-                          placeItems: 'center',
-                          fontSize: 11.5,
-                          fontWeight: 800,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {idx + 1}
-                      </Box>
-                      <Box sx={{ flex: 1, minWidth: 0, pt: '2px' }}>{f.title}</Box>
-                      {f.remove}
-                    </Stack>
-                    {/* Due date + Status share a row when each gets 150px; on the narrowest phones they stack. */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', columnGap: 1.25, rowGap: 1.5, mt: 1.75 }}>
-                      <MomField label="Note" wide>{f.note}</MomField>
-                      <MomField label="Assignee" wide>{f.assignee}</MomField>
-                      <MomField label="Due date">{f.due}</MomField>
-                      <MomField label="Status">{f.status}</MomField>
-                    </Box>
-                  </Box>
+                  item.statusColor ||
+                  statusOptions.find((o) => o.value === item.status)?.color ||
+                  undefined
                 );
-              })}
-            </Stack>
-          ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <Box component="table" sx={agendaTableSx}>
-              <Box component="thead">
-                <Box component="tr">
-                  {['#', 'Agenda item', 'Note', 'Assignee', 'Due date', 'Status'].map((h) => (
-                    <Box component="th" key={h}>
-                      {h}
-                    </Box>
-                  ))}
-                  {rowsEditable && <Box component="th" sx={{ width: 44 }} />}
-                </Box>
-              </Box>
-              <Box component="tbody">
-                {momItems.map((item: any, idx: number) => {
-                  const f = lineFields(item);
-                  return (
-                    <Box component="tr" key={item.id}>
-                      <Box component="td" sx={{ color: C.mute, width: 36 }}>{idx + 1}</Box>
-                      <Box component="td" sx={{ minWidth: 220 }}>{f.title}</Box>
-                      <Box component="td" sx={{ minWidth: 220 }}>{f.note}</Box>
-                      <Box component="td" sx={{ minWidth: 200 }}>{f.assignee}</Box>
-                      <Box component="td" sx={{ whiteSpace: 'nowrap', minWidth: 150 }}>{f.due}</Box>
-                      <Box component="td" sx={{ minWidth: 160 }}>{f.status}</Box>
-                      {rowsEditable && <Box component="td" sx={{ textAlign: 'center' }}>{f.remove}</Box>}
-                    </Box>
-                  );
-                })}
-              </Box>
-            </Box>
-          </Box>
-          )
-        )}
-        {rowsEditable && (
-          <Box sx={{ p: 1.5, borderTop: `1px solid ${C.line}`, bgcolor: C.page }}>
-            <TaskPathSelect
-              key={topicPickerKey}
-              value=""
-              options={topicOptions}
-              disabled={adding}
-              onChange={(opt) => {
-                if (opt) void addTopic(opt.name);
               }}
-              label="Add a topic discussed"
-              placeholder={projectId
-                ? 'Search this project’s deliverable tasks…'
-                : 'Search, e.g. electrical load sheet'}
-              loading={topicOptionsLoading}
-              helperText={adding ? 'Adding…' : 'Discussed but not on the agenda? Pick it here.'}
+              empty={
+                <EmptyState
+                  size="sm"
+                  title="Nothing in these minutes yet"
+                  description={`Convert items from the Agenda tab${interactive ? ', or add a topic discussed below.' : rowsEditable ? '. Click Edit to add a topic.' : '.'}`}
+                />
+              }
+              toolbar={
+                rowsEditable ? (
+                  editing ? (
+                    <Tooltip>
+                      <TooltipTrigger render={<span className="inline-flex" />}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={dirty || saving}
+                          onClick={() => setEditing(false)}
+                        >
+                          Done
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {dirty ? 'Save or discard your changes first.' : 'Return to the document view.'}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Button type="button" size="sm" onClick={() => setEditing(true)}>
+                      Edit
+                    </Button>
+                  )
+                ) : null
+              }
+              renderCard={(item) => {
+                const f = lineFields(item);
+                const draft = drafts[item.id];
+                const live = draft ? { ...item, ...draft.display } : item;
+                const tone =
+                  live.statusColor ||
+                  statusOptions.find((o) => o.value === live.status)?.color;
+                return (
+                  <div
+                    className={
+                      tone
+                        ? 'flex flex-col gap-3 rounded-xl p-2 shadow-[inset_3px_0_0_var(--tone)] [--row-bg:color-mix(in_oklch,var(--tone)_7%,transparent)] bg-(--row-bg)'
+                        : 'flex flex-col gap-3 p-1'
+                    }
+                    style={tone ? ({ '--tone': tone } as CSSProperties) : undefined}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 font-semibold">{f.title}</div>
+                      {f.remove}
+                    </div>
+                    <div className="grid gap-2 text-sm">
+                      <div>
+                        <div className="text-muted-foreground text-xs font-semibold">Note</div>
+                        {f.note}
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground text-xs font-semibold">Assignee</div>
+                        {f.assignee}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="text-muted-foreground text-xs font-semibold">Due date</div>
+                          {f.due}
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground text-xs font-semibold">Status</div>
+                          {f.status}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }}
             />
-          </Box>
-        )}
-      </Box>
+            {interactive && (
+              <Box sx={{ p: 1.5, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
+                <TaskPathSelect
+                  key={topicPickerKey}
+                  value=""
+                  options={topicOptions}
+                  disabled={saving}
+                  onChange={(opt) => {
+                    if (opt) addTopic(opt.name);
+                  }}
+                  label="Add a topic discussed"
+                  placeholder={projectId
+                    ? 'Search this project’s deliverable tasks…'
+                    : 'Search, e.g. electrical load sheet'}
+                  loading={topicOptionsLoading}
+                  helperText="Stays as a draft at the bottom until you save. Topics already on the agenda can be added again."
+                />
+              </Box>
+            )}
+          </Stack>
+        );
+      })()}
 
-      {/* Always there for an editable MoM, so Save is never hunted for; enabled once something
-          changes. Sticky, so it is reachable from anywhere in a long MoM. */}
-      {rowsEditable && (
+      {/* Sticky save bar only while editing — view mode has nothing to stage. */}
+      {interactive && (
         <Stack
           direction="row"
           alignItems="center"

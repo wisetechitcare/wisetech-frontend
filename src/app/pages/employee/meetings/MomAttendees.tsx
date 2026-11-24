@@ -210,8 +210,15 @@ export default function MomAttendees({
                   decorative
                 />
                 <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>
-                    {a.companyName ? `${a.name} (${a.companyName})` : a.name}
+                  <Typography noWrap sx={{ fontSize: 13.5 }}>
+                    <Box component="span" sx={{ fontWeight: 700, color: C.ink }}>
+                      {a.name}
+                    </Box>
+                    {a.companyName ? (
+                      <Box component="span" sx={{ fontWeight: 400, color: C.mute }}>
+                        {' '}({a.companyName})
+                      </Box>
+                    ) : null}
                   </Typography>
                   <Typography noWrap sx={{ fontSize: 11.5, color: C.mute, fontStyle: typed ? 'italic' : 'normal' }}>
                     {caption}
