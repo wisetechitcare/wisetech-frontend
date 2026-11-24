@@ -131,6 +131,10 @@ type MeetingStage = 'AGENDA_NEEDED' | 'SCHEDULED' | 'MOM_PENDING' | 'TASKS_PENDI
 type WhenFilter = 'all' | 'upcoming' | 'past';
 type AgendaFilter = 'any' | 'with' | 'none';
 
+/** Doc. No. on screen without `-revxx` — the download filename still uses the full value. */
+const momDocNoDisplay = (documentNo?: string | null) =>
+  documentNo ? documentNo.replace(/-rev\d+.*$/i, '') || documentNo : '—';
+
 const C = {
   ink: '#0F172A',
   mute: '#64748B',
@@ -283,9 +287,8 @@ export default function MeetingsAgendaHubTab() {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   /**
-   * The hub fills the viewport exactly: from where it starts down to the app footer.
-   * Measured, not guessed — the old `100vh - 220px` came up ~65px short and left an empty band
-   * above the footer. Re-measured on resize; a callback ref because the grid mounts after loading.
+   * Cap for the meetings list / detail scrollports — not a min-height on the hub itself
+   * (that left a blank band under short Overview content). Measured to the footer.
    */
   const [hubHeight, setHubHeight] = useState('calc(100vh - 220px)');
   const hubEl = useRef<HTMLDivElement | null>(null);
@@ -530,9 +533,9 @@ export default function MeetingsAgendaHubTab() {
       sx={{
         display: 'flex',
         flexDirection: { xs: 'column', lg: 'row' },
-        alignItems: 'stretch',
+        alignItems: 'flex-start',
         gap: 0,
-        minHeight: { lg: hubHeight },
+        // Height follows content — no viewport min-height (that painted empty space under Overview).
         borderTop: `1px solid ${C.line}`,
         bgcolor: C.page,
         position: 'relative',
@@ -817,8 +820,8 @@ export default function MeetingsAgendaHubTab() {
           overflowY: 'auto',
           bgcolor: C.page,
           p: { xs: 1.5, md: 2 },
-          // Phones: clear the app's floating bottom bar, which would hide the last lines.
-          pb: { xs: 12, md: 2.5 },
+          // Phones: clear the floating bottom bar + branding so the last MoM lines can scroll into view.
+          pb: { xs: 'calc(6.5rem + env(safe-area-inset-bottom, 0px))', md: 2.5 },
           display: showDetail ? 'block' : 'none',
           // Room for the reopen handle when the list is closed.
           pl: { lg: listCollapsed ? 4.5 : 2 },
@@ -1891,10 +1894,10 @@ function MomPanel({
           multiline
           minRows={2}
           // Grow with the note — a capped height puts a scrollbar inside the row and spoils the table.
-          placeholder="Note"
+          placeholder="Description"
           defaultValue={item.remarks || ''}
           disabled={rowBusy}
-          inputProps={{ 'aria-label': `Note for ${item.description}` }}
+          inputProps={{ 'aria-label': `Description for ${item.description}` }}
           onBlur={(e) => {
             const remarks = e.target.value.trim() || null;
             if (remarks === (item.remarks || null)) return;
@@ -2225,7 +2228,11 @@ function MomPanel({
   }
 
   return (
-    <Stack spacing={1.5}>
+    <Stack
+      spacing={1.5}
+      // Room under the sticky save bar on phones so it does not cover the last points / add-topic row.
+      sx={interactive ? { pb: { xs: 8, sm: 0 } } : undefined}
+    >
       <Box sx={{ p: 2, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap gap={1}>
           <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
@@ -2233,12 +2240,12 @@ function MomPanel({
               <Box>
                 <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: C.mute }}>Document No.</Typography>
                 <Typography sx={{ fontSize: 14, fontWeight: 800, color: C.ink, letterSpacing: '0.01em' }}>
-                  {minutes.documentNo || '—'}
+                  {momDocNoDisplay(minutes.documentNo)}
                 </Typography>
               </Box>
             ) : (
               <Typography sx={{ fontSize: 13, color: C.mute }}>
-                Document No. {minutes.documentNo || '—'}
+                Document No. {momDocNoDisplay(minutes.documentNo)}
               </Typography>
             )}
           </Stack>
@@ -2305,11 +2312,12 @@ function MomPanel({
         </Stack>
       </Box>
 
+      {/* Attendees edit on their own — the Points Edit toggle does not gate this card. */}
       <MomAttendees
         meetingId={meetingId}
         projectId={projectId}
         attendees={liveAttendees}
-        editable={interactive && !saving}
+        editable={rowsEditable && !saving}
         teamIds={teamIds}
         onError={onError}
         onChange={setLiveAttendees}
@@ -2322,14 +2330,14 @@ function MomPanel({
             id: 'serial',
             accessorFn: (r) => r.serialNo ?? 0,
             header: '#',
-            size: 56,
+            size: 44,
             cell: ({ row }) => (
               <span className="text-muted-foreground tabular-nums">{row.index + 1}</span>
             ),
           },
           {
             accessorKey: 'description',
-            header: 'Agenda item',
+            header: 'Tasks',
             size: 220,
             cell: ({ row }) => (
               <div className={editing ? undefined : 'font-semibold'}>{lineFields(row.original).title}</div>
@@ -2337,7 +2345,7 @@ function MomPanel({
           },
           {
             accessorKey: 'remarks',
-            header: 'Note',
+            header: 'Description',
             size: 280,
             cell: ({ row }) => lineFields(row.original).note,
           },
@@ -2375,108 +2383,119 @@ function MomPanel({
               ]
             : []),
         ];
-        return (
-          <Stack spacing={1.25}>
-            <DataTable
-              caption="Points discussed"
-              columns={momColumns}
-              data={momItems}
-              getRowId={(r) => String(r.id)}
-              searchPlaceholder="Search agenda items…"
-              initialPageSize={25}
-              minWidth={720}
-              stateKey="meetings.mom.points"
-              resizableColumns
-              tools={false}
-              cellAlign="top"
-              rowTone={(r) => {
-                const draft = drafts[r.id];
-                const item = draft ? { ...r, ...draft.display } : r;
-                return (
-                  item.statusColor ||
-                  statusOptions.find((o) => o.value === item.status)?.color ||
-                  undefined
-                );
-              }}
-              empty={
-                <EmptyState
+        const pointsEditControl = rowsEditable ? (
+          editing ? (
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <Button
+                  type="button"
                   size="sm"
-                  title="Nothing in these minutes yet"
-                  description={`Convert items from the Agenda tab${interactive ? ', or add a topic discussed below.' : rowsEditable ? '. Click Edit to add a topic.' : '.'}`}
-                />
-              }
-              toolbar={
-                rowsEditable ? (
-                  editing ? (
-                    <Tooltip>
-                      <TooltipTrigger render={<span className="inline-flex" />}>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={dirty || saving}
-                          onClick={() => setEditing(false)}
-                        >
-                          Done
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {dirty ? 'Save or discard your changes first.' : 'Return to the document view.'}
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <Button type="button" size="sm" onClick={() => setEditing(true)}>
-                      Edit
-                    </Button>
-                  )
-                ) : null
-              }
-              renderCard={(item) => {
-                const f = lineFields(item);
-                const draft = drafts[item.id];
-                const live = draft ? { ...item, ...draft.display } : item;
-                const tone =
-                  live.statusColor ||
-                  statusOptions.find((o) => o.value === live.status)?.color;
-                return (
-                  <div
-                    className={
-                      tone
-                        ? 'flex flex-col gap-3 rounded-xl p-2 shadow-[inset_3px_0_0_var(--tone)] [--row-bg:color-mix(in_oklch,var(--tone)_7%,transparent)] bg-(--row-bg)'
-                        : 'flex flex-col gap-3 p-1'
-                    }
-                    style={tone ? ({ '--tone': tone } as CSSProperties) : undefined}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 font-semibold">{f.title}</div>
-                      {f.remove}
-                    </div>
-                    <div className="grid gap-2 text-sm">
-                      <div>
-                        <div className="text-muted-foreground text-xs font-semibold">Note</div>
-                        {f.note}
+                  variant="outline"
+                  disabled={dirty || saving}
+                  onClick={() => setEditing(false)}
+                >
+                  Done
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {dirty ? 'Save or discard your changes first.' : 'Return to the document view.'}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button type="button" size="sm" onClick={() => setEditing(true)}>
+              Edit
+            </Button>
+          )
+        ) : null;
+        return (
+          <Box
+            sx={{
+              bgcolor: C.paper,
+              border: `1px solid ${C.line}`,
+              borderRadius: 2.5,
+              overflow: 'hidden',
+            }}
+          >
+            <Typography sx={{ px: 1.5, pt: 1.25, pb: 0.5, fontWeight: 800, fontSize: 14, color: C.ink }}>
+              Points discussed
+            </Typography>
+            <Box sx={{ px: { xs: 1, sm: 1.25 }, pb: { xs: 1, sm: 1.25 } }}>
+              <DataTable
+                caption="Points discussed"
+                columns={momColumns}
+                data={momItems}
+                getRowId={(r) => String(r.id)}
+                searchPlaceholder="Search agenda items…"
+                initialPageSize={25}
+                minWidth={720}
+                stateKey="meetings.mom.points"
+                resizableColumns
+                tools={false}
+                cellAlign="top"
+                toolbar={pointsEditControl}
+                rowTone={(r) => {
+                  const draft = drafts[r.id];
+                  const item = draft ? { ...r, ...draft.display } : r;
+                  return (
+                    item.statusColor ||
+                    statusOptions.find((o) => o.value === item.status)?.color ||
+                    undefined
+                  );
+                }}
+                empty={
+                  <EmptyState
+                    size="sm"
+                    title="Nothing in these minutes yet"
+                    description={`Convert items from the Agenda tab${interactive ? ', or add a topic discussed below.' : rowsEditable ? '. Click Edit to add a topic.' : '.'}`}
+                  />
+                }
+                renderCard={(item) => {
+                  const f = lineFields(item);
+                  const draft = drafts[item.id];
+                  const live = draft ? { ...item, ...draft.display } : item;
+                  const tone =
+                    live.statusColor ||
+                    statusOptions.find((o) => o.value === live.status)?.color;
+                  return (
+                    <div
+                      className={
+                        tone
+                          ? 'flex flex-col gap-3 rounded-xl p-2 shadow-[inset_3px_0_0_var(--tone)] [--row-bg:color-mix(in_oklch,var(--tone)_7%,transparent)] bg-(--row-bg)'
+                          : 'flex flex-col gap-3 p-1'
+                      }
+                      style={tone ? ({ '--tone': tone } as CSSProperties) : undefined}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 font-semibold">{f.title}</div>
+                        {f.remove}
                       </div>
-                      <div>
-                        <div className="text-muted-foreground text-xs font-semibold">Assignee</div>
-                        {f.assignee}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid gap-2 text-sm">
                         <div>
-                          <div className="text-muted-foreground text-xs font-semibold">Due date</div>
-                          {f.due}
+                          <div className="text-muted-foreground text-xs font-semibold">Description</div>
+                          {f.note}
                         </div>
                         <div>
-                          <div className="text-muted-foreground text-xs font-semibold">Status</div>
-                          {f.status}
+                          <div className="text-muted-foreground text-xs font-semibold">Assignee</div>
+                          {f.assignee}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="text-muted-foreground text-xs font-semibold">Due date</div>
+                            {f.due}
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground text-xs font-semibold">Status</div>
+                            {f.status}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              }}
-            />
+                  );
+                }}
+              />
+            </Box>
             {interactive && (
-              <Box sx={{ p: 1.5, bgcolor: C.paper, border: `1px solid ${C.line}`, borderRadius: 2.5 }}>
+              <Box sx={{ p: 1.5, borderTop: `1px solid ${C.line}` }}>
                 <TaskPathSelect
                   key={topicPickerKey}
                   value=""
@@ -2494,12 +2513,12 @@ function MomPanel({
                 />
               </Box>
             )}
-          </Stack>
+          </Box>
         );
       })()}
 
-      {/* Sticky save bar only while editing — view mode has nothing to stage. */}
-      {interactive && (
+      {/* Save bar for points edits and/or attendee changes waiting to be written. */}
+      {rowsEditable && (interactive || dirty) && (
         <Stack
           direction="row"
           alignItems="center"
@@ -2508,7 +2527,8 @@ function MomPanel({
           aria-label="Unsaved MoM changes"
           sx={{
             position: 'sticky',
-            bottom: 12,
+            // Sit above the app's floating bottom nav on phones; desktop stays near the edge.
+            bottom: { xs: 72, sm: 12 },
             zIndex: 2,
             px: 2,
             py: 1.25,
