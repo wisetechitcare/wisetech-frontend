@@ -40,9 +40,12 @@ body.page-loading {
     linear-gradient(180deg, #FAFBFF 0%, #F5F7FB 100%);
 }
 
-/* Fades out when the app is ready (utils/splashGate adds this, then removes the splash after the fade). */
-.splash-screen { transition: opacity 0.35s ease; }
+/* The exit, when the app is ready (utils/splashGate adds .splash--leaving, then removes the splash once it is over —
+   keep its FADE_MS in step). Staged: the content lifts away first, then the background dissolves onto the page. */
+.splash-screen { transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.15s; }
 .splash-screen.splash--leaving { opacity: 0; pointer-events: none; }
+.splash-orb { transition: opacity 0.45s ease; }
+.splash--leaving .splash-orb { opacity: 0; }
 
 /* Soft colour glows, scaled to the screen so they read on a monitor and stay gentle on a phone. */
 .splash-orb {
@@ -77,7 +80,17 @@ body.page-loading {
   gap: clamp(18px, 2.4vw, 26px);
   width: 100%;
   max-width: 360px;
-  animation: splashFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* backwards, not both: a finished entrance must not pin opacity/transform, or the exit transition can't run. */
+  animation: splashFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  transition:
+    opacity 0.45s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.45s ease;
+}
+.splash--leaving .splash-inner {
+  opacity: 0;
+  transform: translateY(-10px) scale(1.06);
+  filter: blur(8px);
 }
 
 /* The logo on a soft tile, with a slow shimmer sweep. */
@@ -96,7 +109,7 @@ body.page-loading {
   outline: 1px solid rgba(15, 23, 42, 0.05);
   -webkit-backdrop-filter: blur(8px); /* guard:allow — pre-React splash, loads before the UI kit exists */
   backdrop-filter: blur(8px); /* guard:allow — pre-React splash, loads before the UI kit exists */
-  animation: splashLogoIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: splashLogoIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 .splash-logo {
   /* The stacked WiseTech lockup (emblem over the wordmark, ~1.73:1). */
@@ -112,10 +125,11 @@ body.page-loading {
   inset: 0;
   background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.7) 50%, transparent 62%);
   transform: translateX(-160%);
-  animation: splashShimmer 3s ease-in-out 1s infinite;
+  animation: splashShimmer 1.4s ease-in-out 0.6s both;
 }
 
-/* A slim indeterminate bar in the brand gradient — the element is index.html's role="progressbar". */
+/* A slim bar in the brand gradient — the element is index.html's role="progressbar". Determinate: index.html and
+   utils/splashGate drive --splash-progress (and how long each step takes), so it fills once and completes. */
 .splash-loader {
   position: relative;
   width: clamp(140px, 18vw, 200px);
@@ -130,10 +144,12 @@ body.page-loading {
   top: 0;
   bottom: 0;
   left: 0;
-  width: 42%;
+  width: var(--splash-progress, 0%);
+  transition: width var(--splash-progress-ms, 0ms) cubic-bezier(0.25, 0.8, 0.3, 1);
   border-radius: inherit;
-  background: linear-gradient(90deg, #4285F4, #9B72CB, #D96570, #F9AB55);
-  animation: splashBar 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  background: linear-gradient(90deg, #4285F4, #9B72CB, #D96570, #F9AB55, #4285F4);
+  background-size: 200% 100%;
+  animation: splashBarShimmer 2s linear infinite;
 }
 
 .loading-text {
@@ -147,9 +163,8 @@ body.page-loading {
 }
 
 /* ── Organization splash video ──────────────────────────────────
-   index.html adds the <video> and sets .splash--video once its first frame plays. Full-bleed and object-fit: cover,
-   so a 16:9 desktop video and a 9:16 phone video both fill any screen without distortion or letterboxing (the edges
-   crop instead). It is the whole loading screen and loops until the app is ready (see .splash--has-video below). */
+   index.html adds the <video> and sets .splash--video once its first frame plays; it then fades in over the logo
+   intro and plays through once. Full-bleed and object-fit: cover when the shapes match (see letterbox below). */
 .splash-video {
   position: absolute;
   inset: 0;
@@ -163,21 +178,16 @@ body.page-loading {
   background: #000;
 }
 .splash--video .splash-video { opacity: 1; }
-/* index.html adds .splash--has-video up front when an organization video is set: the splash is the video and nothing
-   else — no logo tile, loader or text, not even before the first frame (black until then). If the video fails the
-   class is removed and the logo splash shows instead. */
-.splash--has-video .splash-inner,
-.splash--has-video .splash-orb { display: none; }
-.splash-screen.splash--has-video { background: #000; }
 
 /* When the video's shape doesn't match the screen (a landscape video on a phone, a tall window) it is scaled to the
    screen's width (or height) and shown whole, never cropped. Its edges fade into a fill painted from its own outermost
-   rows (index.html), so a plain-background video looks like one continuous screen — no bars, no visible seam. */
-.splash-video { z-index: 1; }
+   rows (index.html), so a plain-background video looks like one continuous screen — no bars, no visible seam.
+   Both sit above the logo intro (z-index 1), which stays underneath until the video has faded in over it. */
+.splash-video { z-index: 3; }
 .splash-video-backdrop {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 2;
   width: 100%;
   height: 100%;
   opacity: 0;
@@ -225,6 +235,44 @@ html[data-bs-theme='dark'] .splash-orb {
   opacity: 0.55;
 }
 
+/* ── Top bar ────────────────────────────────────────────────────
+   Every load after the intro has played in this tab (reloads, signing in): no screen, just the bar along the top,
+   with the page showing through. After the dark block on purpose — same specificity, so this wins. */
+html .splash-screen.splash--bar {
+  inset: 0 0 auto 0;
+  height: 3px;
+  padding: 0;
+  display: block;
+  background: none;
+  pointer-events: none;
+}
+.splash--bar .splash-inner {
+  display: block;
+  max-width: none;
+  height: 100%;
+  animation: none;
+}
+.splash--bar .splash-orb,
+.splash--bar .splash-logo-wrap,
+.splash--bar .loading-text { display: none; }
+html .splash--bar .splash-loader {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: transparent;
+}
+.splash--bar .splash-loader::before {
+  border-radius: 0 999px 999px 0;
+  box-shadow: 0 0 8px rgba(66, 133, 244, 0.5);
+}
+/* The bar just fades — no staged exit, no delay. */
+.splash-screen.splash--bar { transition: opacity 0.3s ease; }
+.splash--bar.splash--leaving .splash-inner { transform: none; filter: none; }
+
+/* The bar completing (utils/splashGate's FINISH_MS step) lights up briefly before the exit. */
+.splash-loader::before { transition-property: width, box-shadow; }
+.splash--finishing .splash-loader::before { box-shadow: 0 0 14px rgba(155, 114, 203, 0.65); }
+
 
 /* ── Keyframes ──────────────────────────────────────────────── */
 @keyframes splashFadeIn {
@@ -232,16 +280,16 @@ html[data-bs-theme='dark'] .splash-orb {
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes splashLogoIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(8px) scale(0.96); filter: blur(6px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 @keyframes splashShimmer {
-  0%        { transform: translateX(-160%); }
-  55%, 100% { transform: translateX(160%); }
+  from { transform: translateX(-160%); }
+  to   { transform: translateX(160%); }
 }
-@keyframes splashBar {
-  0%   { transform: translateX(-110%); }
-  100% { transform: translateX(250%); }
+@keyframes splashBarShimmer {
+  from { background-position: 100% 0; }
+  to   { background-position: -100% 0; }
 }
 @keyframes splashTextPulse {
   0%, 100% { opacity: 1; }
@@ -256,12 +304,13 @@ html[data-bs-theme='dark'] .splash-orb {
   50%      { transform: translate(-4vw, -3vh); }
 }
 
-/* Respect reduced-motion — calm, static state; the bar still shows progress, slowly. */
+/* Respect reduced-motion — calm, static state; the bar still fills to show progress. */
 @media (prefers-reduced-motion: reduce) {
   .splash-inner,
   .splash-logo-wrap { animation: none; }
   .splash-logo-wrap::after { display: none; }
   .splash-orb { animation: none; }
   .loading-text { animation: none; }
-  .splash-loader::before { animation-duration: 3s; }
+  .splash-loader::before { animation: none; }
+  .splash--leaving .splash-inner { transform: none; filter: none; }
 }
