@@ -229,7 +229,9 @@ export default function MeetingsOverviewTab() {
                         {d.title}
                       </Typography>
                       <Typography noWrap sx={{ fontSize: 12, color: C.mute }}>
-                        {d.documentNo || 'Minutes of Meeting'}
+                        {d.documentNo
+                          ? d.documentNo.replace(/-rev\d+.*$/i, '') || d.documentNo
+                          : 'Minutes of Meeting'}
                       </Typography>
                     </Box>
                   </Box>
