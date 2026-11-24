@@ -23,9 +23,19 @@ export type MomAttendee = {
   employeeId?: string | null;
   contactId?: string | null;
   name: string;
+  /** Display only — org/company from the server (or picker); never saved. */
+  companyName?: string | null;
   /** Display only — the server reads contact photos fresh; never saved. */
   avatar?: string | null;
   gender?: string | null;
+};
+
+/** "Manish (A2O Realty)" → "A2O Realty" when bareName is "Manish". */
+const companyFromLabel = (label: string, bareName?: string) => {
+  if (!bareName || !label.startsWith(bareName)) return null;
+  const rest = label.slice(bareName.length).trim();
+  const m = /^\((.+)\)$/.exec(rest);
+  return m?.[1]?.trim() || null;
 };
 
 type Side = MomAttendee['side'];
@@ -98,7 +108,13 @@ export default function MomAttendees({
       ? { side, name: String(opt.value).trim() }
       : side === 'INTERNAL'
         ? { side, employeeId: opt.value, name: opt.label }
-        : { side, contactId: opt.value, name: opt.name || opt.label, avatar: opt.avatar };
+        : {
+            side,
+            contactId: opt.value,
+            name: opt.name || opt.label,
+            companyName: companyFromLabel(opt.label, opt.name),
+            avatar: opt.avatar,
+          };
     if (!person.name) return;
     const dup = list.some(
       (a) =>
@@ -116,10 +132,23 @@ export default function MomAttendees({
   const [contactFor, setContactFor] = useState<number | null>(null);
   const linkContact = (index: number, contact: any) => {
     if (!contact?.id) return;
+    const companyName =
+      contact.company?.companyName?.trim() ||
+      (contact.subCompany?.subCompanyName
+        ? contact.subCompany.mainCompany?.companyName
+          ? `${contact.subCompany.mainCompany.companyName} (${contact.subCompany.subCompanyName})`
+          : contact.subCompany.subCompanyName
+        : null);
     void save(
       list.map((a, i) =>
         i === index
-          ? { side: 'EXTERNAL', contactId: contact.id, name: contact.fullName || a.name, avatar: contact.profilePhoto }
+          ? {
+              side: 'EXTERNAL',
+              contactId: contact.id,
+              name: contact.fullName || a.name,
+              companyName: companyName || null,
+              avatar: contact.profilePhoto,
+            }
           : a,
       ),
     );
@@ -181,8 +210,15 @@ export default function MomAttendees({
                   decorative
                 />
                 <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>
-                    {a.name}
+                  <Typography noWrap sx={{ fontSize: 13.5 }}>
+                    <Box component="span" sx={{ fontWeight: 700, color: C.ink }}>
+                      {a.name}
+                    </Box>
+                    {a.companyName ? (
+                      <Box component="span" sx={{ fontWeight: 400, color: C.mute }}>
+                        {' '}({a.companyName})
+                      </Box>
+                    ) : null}
                   </Typography>
                   <Typography noWrap sx={{ fontSize: 11.5, color: C.mute, fontStyle: typed ? 'italic' : 'normal' }}>
                     {caption}
