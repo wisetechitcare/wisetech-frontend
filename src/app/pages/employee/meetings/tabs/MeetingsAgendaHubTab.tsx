@@ -560,7 +560,6 @@ export default function MeetingsAgendaHubTab() {
           borderRight: { lg: listOpen ? `1px solid ${C.line}` : 0 },
           overflow: 'hidden',
           // Width/visibility: closed pane leaves no strip; reopen via the edge handle.
-          transition: { lg: 'width 220ms ease, opacity 180ms ease, visibility 0s linear 0s' },
           ...(listCollapsed && !isMobile
             ? {
                 width: 0,
@@ -574,6 +573,7 @@ export default function MeetingsAgendaHubTab() {
                 opacity: 1,
                 visibility: 'visible',
                 flexShrink: 0,
+                transition: { lg: 'width 220ms ease, opacity 180ms ease, visibility 0s linear 0s' },
               }),
         }}
       >
