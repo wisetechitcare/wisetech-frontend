@@ -73,149 +73,177 @@
     </div>
   </div>
   <!--
-    The organization's branding, remembered by the app (src/utils/splashBrand.ts): the signed-in user's own org after
-    login, the company's public branding on the login screen. Kept across logout, so the login screen shows it too.
-    Runs right after the markup above, before first paint, so the default logo never flashes. Keep the keys in sync
-    with splashBrand.ts. Only http(s) URLs are used; anything else keeps the default.
+    Starts the splash before first paint (and again from utils/splashGate.showSplashAgain() after signing in).
 
-    Logo: swapped into the tile.
-    Video: the organization's one splash video, on every screen. It fills
-    the screen; when its shape doesn't match (a phone, a tall window) it is scaled to the width and shown whole, with
-    the rest filled by a soft, blurred copy of its own edges — never cropped, never grey bars. It is the loading screen: it loops while the app loads
-    and fades out when the app is ready (utils/splashGate). A failed video falls back to the logo splash.
-    Skipped for reduced-motion and Data Saver users, who keep the logo.
+    First open in a browser tab: the full intro, played start to finish exactly once (like a game's start screen).
+    Later loads in that tab — reloads, signing in — skip it and show only a slim progress bar along the top
+    (.splash--bar). sessionStorage remembers it per tab: a new tab or a reopened browser plays the intro again.
+    utils/splashGate lifts either once the intro has finished (`data-intro-done`) and the app is ready.
+
+    The intro: the organization's branding, remembered by the app (src/utils/splashBrand.ts) — keep the keys in sync.
+    Only http(s) URLs are used; anything else keeps the default.
+    Logo: swapped into the tile; the bar fills over INTRO_MS.
+    Video: the organization's splash video, played through ONCE. It fades in over the logo when its first frame plays;
+    when its shape doesn't match the screen it is scaled to fit and shown whole, the rest filled from its own edges.
+    One that hasn't started by the end of the logo intro (slow network) is dropped and the logo intro completes; a
+    failed one falls back to the logo. Skipped for reduced-motion and Data Saver users, who keep the logo.
   -->
   <script>
     (function () {
       var ok = function (v) { return !!v && /^https?:\/\/[^\s"'<>]+$/i.test(v) }
       var get = function (k) { try { return localStorage.getItem(k) } catch (e) { return null } }
+      var SEEN_KEY = 'wt-splash-seen'
+      var INTRO_MS = 2400
+      var VIDEO_MAX_MS = 15000 // a longer (or stalled) video ends the intro here
+      var run = 0
+      var seen = function () { try { return sessionStorage.getItem(SEEN_KEY) === '1' } catch (e) { return false } }
+      var afterPaint = function (fn) { requestAnimationFrame(function () { requestAnimationFrame(fn) }) }
 
-      // Draws the remembered branding into the splash. Runs now, before first paint, and again from
-      // utils/splashGate.showSplashAgain() when the splash covers the load after signing in.
-      window.wtSplashBrand = function () {
-      var splash = document.getElementById('splash-screen')
-      if (!splash) return
-
-      var logo = get('wt-splash-logo')
-      if (ok(logo)) {
-        var imgs = splash.querySelectorAll('.splash-logo')
-        for (var i = 0; i < imgs.length; i++) {
-          imgs[i].src = logo
-          imgs[i].alt = 'Organization logo'
+      window.wtSplashStart = function () {
+        var splash = document.getElementById('splash-screen')
+        if (!splash) return
+        var myRun = ++run
+        // splashGate adds .splash--finishing when it runs the bar to 100%; nothing may pull it back after that.
+        var live = function () { return myRun === run && !splash.classList.contains('splash--finishing') }
+        var progress = function (pct, ms) {
+          splash.style.setProperty('--splash-progress-ms', ms + 'ms')
+          splash.style.setProperty('--splash-progress', pct + '%')
         }
-      }
+        var introDone = function () {
+          if (myRun !== run || splash.hasAttribute('data-intro-done')) return
+          splash.setAttribute('data-intro-done', '')
+          try { sessionStorage.setItem(SEEN_KEY, '1') } catch (e) {}
+          splash.dispatchEvent(new Event('splash-intro-done'))
+        }
+        splash.removeAttribute('data-intro-done')
+        progress(0, 0)
 
-      try {
-        var src = get('wt-splash-video-desktop')
-        if (!ok(src)) return
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-        if (navigator.connection && navigator.connection.saveData) return
+        if (seen()) {
+          splash.classList.add('splash--bar')
+          introDone()
+          afterPaint(function () { if (live()) progress(70, 1500) })
+          setTimeout(function () { if (live()) progress(92, 8000) }, 1600)
+          return
+        }
+        splash.classList.remove('splash--bar')
 
-        // One video for every screen. On a narrower screen it is scaled to the screen's width, shown whole, and the
-        // space above/below is filled from its own edges.
+        // The bar reaches 90% as the intro ends, creeps while the app finishes, and splashGate completes it.
+        var finish = function () {
+          introDone()
+          if (live()) progress(96, 4000)
+        }
+        afterPaint(function () { if (live()) progress(90, INTRO_MS) })
 
-        var makeVideo = function (cls) {
-          var v = document.createElement('video')
-          v.className = cls
+        var logo = get('wt-splash-logo')
+        if (ok(logo)) {
+          var imgs = splash.querySelectorAll('.splash-logo')
+          for (var i = 0; i < imgs.length; i++) {
+            imgs[i].src = logo
+            imgs[i].alt = 'Organization logo'
+          }
+        }
+
+        var dropVideo = null
+        var introTimer = setTimeout(function () {
+          if (splash.classList.contains('splash--video')) return // the video is playing; its end ends the intro
+          if (dropVideo) dropVideo()
+          finish()
+        }, INTRO_MS)
+
+        try {
+          var src = get('wt-splash-video-desktop')
+          if (!ok(src)) return
+          if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+          if (navigator.connection && navigator.connection.saveData) return
+
+          var video = document.createElement('video')
+          video.className = 'splash-video'
           // Muted + inline are what let every browser (iOS Safari included) autoplay without a tap.
-          v.muted = true
-          v.defaultMuted = true
-          v.setAttribute('muted', '')
-          v.setAttribute('playsinline', '')
-          v.setAttribute('aria-hidden', 'true')
-          v.playsInline = true
-          v.autoplay = true
-          v.loop = true // it is the loading screen: it plays for as long as loading takes
-          v.preload = 'auto'
-          return v
-        }
-        var video = makeVideo('splash-video')
-        // The blurred fill around a whole-shown video: one frame painted into a tiny canvas that CSS stretches and blurs.
-        // Not a second <video> — that decoded the whole file twice, on the screen that is supposed to be the fast one.
-        // (Drawing a cross-origin video taints the canvas; it can still be SHOWN, which is all this does.)
-        var backdrop = document.createElement('canvas')
-        backdrop.className = 'splash-video-backdrop'
-        backdrop.setAttribute('aria-hidden', 'true')
-        // The fill is the video's own outermost row (or column) on each side, 2 pixels stretched over the screen: the
-        // browser's smooth upscaling turns it into a clean colour — no blur, so no darkened corners.
-        var paintBackdrop = function (barsY) {
-          try {
-            var w = video.videoWidth, h = video.videoHeight, ctx = backdrop.getContext('2d')
-            backdrop.width = barsY ? 16 : 2
-            backdrop.height = barsY ? 2 : 16
-            if (barsY) {
-              ctx.drawImage(video, 0, 0, w, 2, 0, 0, 16, 1)
-              ctx.drawImage(video, 0, h - 2, w, 2, 0, 1, 16, 1)
-            } else {
-              ctx.drawImage(video, 0, 0, 2, h, 0, 0, 1, 16)
-              ctx.drawImage(video, w - 2, 0, 2, h, 1, 0, 1, 16)
-            }
-          } catch (e) {}
-        }
-        var play = function (v) { var p = v.play && v.play(); if (p && p.catch) p.catch(function () {}) }
+          video.muted = true
+          video.defaultMuted = true
+          video.setAttribute('muted', '')
+          video.setAttribute('playsinline', '')
+          video.setAttribute('aria-hidden', 'true')
+          video.playsInline = true
+          video.autoplay = true
+          video.preload = 'auto'
+          // The fill around a whole-shown video: one frame's outermost rows painted into a tiny canvas that CSS
+          // stretches — not a second <video>, which decoded the whole file twice. (A cross-origin frame taints the
+          // canvas; it can still be SHOWN, which is all this does.)
+          var backdrop = document.createElement('canvas')
+          backdrop.className = 'splash-video-backdrop'
+          backdrop.setAttribute('aria-hidden', 'true')
+          var paintBackdrop = function (barsY) {
+            try {
+              var w = video.videoWidth, h = video.videoHeight, ctx = backdrop.getContext('2d')
+              backdrop.width = barsY ? 16 : 2
+              backdrop.height = barsY ? 2 : 16
+              if (barsY) {
+                ctx.drawImage(video, 0, 0, w, 2, 0, 0, 16, 1)
+                ctx.drawImage(video, 0, h - 2, w, 2, 0, 1, 16, 1)
+              } else {
+                ctx.drawImage(video, 0, 0, 2, h, 0, 0, 1, 16)
+                ctx.drawImage(video, w - 2, 0, 2, h, 1, 0, 1, 16)
+              }
+            } catch (e) {}
+          }
 
-        // Fill the screen only when that crops almost nothing; otherwise show the WHOLE video (a logo or text in it is
-        // never cut) over a blurred copy that fills the rest. Decided from the real sizes, on every resize — not just
-        // portrait-vs-landscape, which let a 9:16 video lose its sides on a narrow phone or a 16:9 one on a 16:10 laptop.
-        var MAX_CROP = 0.06 // share of the video that may be cut off to fill the screen edge-to-edge
-        var fit = function () {
-          if (!video.isConnected || !video.videoWidth) return
-          var vr = video.videoWidth / video.videoHeight
-          var sr = window.innerWidth / window.innerHeight
-          var mismatch = Math.min(vr, sr) / Math.max(vr, sr) < 1 - MAX_CROP
-          var barsY = vr > sr // video wider than the screen: fit to width, fill above and below
-          splash.classList.toggle('splash--letterbox', mismatch)
-          splash.classList.toggle('splash--bars-y', mismatch && barsY)
-          splash.classList.toggle('splash--bars-x', mismatch && !barsY)
-          if (mismatch) paintBackdrop(barsY)
-        }
-        video.addEventListener('loadedmetadata', fit)
-        // Resize / rotate: re-fit. Once a frame.
-        var queued = false
-        var onResize = function () {
-          if (queued) return
-          queued = true
-          requestAnimationFrame(function () {
-            queued = false
-            if (!video.isConnected) { window.removeEventListener('resize', onResize); return } // splash gone
-            fit()
+          // Fill the screen only when that crops almost nothing; otherwise show the WHOLE video (a logo or text in it
+          // is never cut) over the fill. Decided from the real sizes, on every resize.
+          var MAX_CROP = 0.06 // share of the video that may be cut off to fill the screen edge-to-edge
+          var fit = function () {
+            if (!video.isConnected || !video.videoWidth) return
+            var vr = video.videoWidth / video.videoHeight
+            var sr = window.innerWidth / window.innerHeight
+            var mismatch = Math.min(vr, sr) / Math.max(vr, sr) < 1 - MAX_CROP
+            var barsY = vr > sr // video wider than the screen: fit to width, fill above and below
+            splash.classList.toggle('splash--letterbox', mismatch)
+            splash.classList.toggle('splash--bars-y', mismatch && barsY)
+            splash.classList.toggle('splash--bars-x', mismatch && !barsY)
+            if (mismatch) paintBackdrop(barsY)
+          }
+          video.addEventListener('loadedmetadata', fit)
+          var queued = false
+          var onResize = function () {
+            if (queued) return
+            queued = true
+            requestAnimationFrame(function () {
+              queued = false
+              if (!video.isConnected) { window.removeEventListener('resize', onResize); return } // splash gone
+              fit()
+            })
+          }
+          window.addEventListener('resize', onResize)
+
+          dropVideo = function () {
+            splash.classList.remove('splash--video', 'splash--has-video', 'splash--letterbox', 'splash--bars-y', 'splash--bars-x')
+            video.pause()
+            if (video.parentNode) video.parentNode.removeChild(video)
+            if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop)
+          }
+          var started = false
+          video.addEventListener('playing', function () {
+            if (started || myRun !== run) return // a resume after buffering, not the first frame
+            started = true
+            clearTimeout(introTimer)
+            splash.classList.add('splash--video')
+            fit() // paints the fill from a real frame (metadata alone has none)
+            setTimeout(finish, VIDEO_MAX_MS)
           })
-        }
-        window.addEventListener('resize', onResize)
-        video.src = src
-
-        // With a video there is no logo / loader / text — the video IS the loading screen. It plays while the app loads
-        // and the splash lifts as soon as the app is ready (utils/splashGate) — it never waits for the video to finish.
-        // The one hold: once the first frame is on screen it stays at least MIN_MS, so a fast load doesn't flash a
-        // split-second of video. If the app is ready before the first frame, there is no hold and no video at all.
-        var MIN_MS = 900
-        splash.classList.add('splash--has-video')
-        var release = function () {
-          if (!splash.hasAttribute('data-hold')) return
-          splash.removeAttribute('data-hold')
-          splash.dispatchEvent(new Event('splash-release'))
-        }
-        video.addEventListener('playing', function () {
-          if (splash.classList.contains('splash--video')) return // a loop restart, not the first frame
-          splash.classList.add('splash--video')
-          fit() // paints the fill from a real frame (metadata alone has none)
-          if (splash.style.display === 'none' || splash.classList.contains('splash--leaving')) return
-          splash.setAttribute('data-hold', '1')
-          setTimeout(release, MIN_MS)
-        })
-        video.addEventListener('error', function () {
-          // Fall back to the logo splash.
-          splash.classList.remove('splash--video', 'splash--has-video', 'splash--letterbox', 'splash--bars-y', 'splash--bars-x')
-          if (video.parentNode) video.parentNode.removeChild(video)
-          if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop)
-          release()
-        })
-        splash.insertBefore(video, splash.firstChild)
-        splash.insertBefore(backdrop, video)
-        play(video)
-      } catch (e) {}
+          video.addEventListener('ended', finish)
+          video.addEventListener('error', function () {
+            dropVideo()
+            if (started) finish() // otherwise the logo intro is still running and ends itself
+          })
+          splash.classList.add('splash--has-video')
+          video.src = src
+          splash.insertBefore(video, splash.firstChild)
+          splash.insertBefore(backdrop, video)
+          var p = video.play && video.play()
+          if (p && p.catch) p.catch(function () {})
+        } catch (e) {}
       }
-      window.wtSplashBrand()
+      window.wtSplashStart()
     })()
   </script>
   <!--end::Loading markup-->

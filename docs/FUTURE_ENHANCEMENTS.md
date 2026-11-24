@@ -9,6 +9,17 @@ Format: **what** — evidence (file / screen) — suggested fix.
 
 ## Backend
 
+- **Prod `APP_URL` for email one-click unsubscribe** — digests/greetings already emit RFC 8058
+  `List-Unsubscribe` / `List-Unsubscribe-Post`; one-click needs `APP_URL` or `API_PUBLIC_BASE_URL`
+  pointing at the API so `POST /api/public/email-unsubscribe?token=…` is reachable. Until then the
+  HTTPS link falls back to in-app Preferences. (deferred 2026-11-24) — Set the env in each API
+  environment; smoke with a signed token from `signEmailUnsubToken`.
+
+- **Per-tenant Slack/Teams digest webhooks** — `FeatureConfigurations` module
+  `notificationIntegrations` (`slackWebhookUrl`, `teamsWebhookUrl`, `digestToSlack`,
+  `digestToTeams`) is read by manager leave digest fan-out; no tenant UI yet. (deferred
+  2026-11-24) — Seed JSON per org that wants chat digests, or add a Settings surface later.
+
 - **The reimbursement form downloads whole lists on every open** — `GET .../projects/reimbursement-options`
   (up to 10,000 leads, ~1.5s in the dev log) and `GET .../client-companies?pageSize=9999` (~1.6s), now
   family-scoped but still full. (found 2026-11-09) — A typeahead search endpoint for each, plus a Redis cache

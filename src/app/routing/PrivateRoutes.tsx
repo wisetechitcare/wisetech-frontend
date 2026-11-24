@@ -1,5 +1,5 @@
-import { FC, lazy, ReactElement, Suspense, useEffect, useState } from 'react'
-import { holdSplash } from '@utils/splashGate'
+import { FC, lazy, ReactElement, Suspense, useEffect, useState, useSyncExternalStore } from 'react'
+import { holdSplash, isSplashShowing, subscribeSplash } from '@utils/splashGate'
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { TAB_PATHS } from './tabPaths'
 import { MasterLayout } from '../../_metronic/layout/MasterLayout'
@@ -1000,10 +1000,14 @@ const tabRoutes = (base: string, slugs: readonly string[], element: ReactElement
   ...slugs.map((slug) => <Route key={`${base}/${slug}`} path={`${base}/${slug}`} element={element} />),
 ]
 
-/** The route fallback: the top bar, and it keeps the startup splash up while a route chunk is still arriving. */
+/**
+ * The route fallback: keeps the startup splash up while a route chunk is still arriving, and shows the top bar —
+ * once the splash (which has its own bar) is gone.
+ */
 const RouteLoading: FC = () => {
   useEffect(() => holdSplash(), [])
-  return <TopBarProgress />
+  const splashShowing = useSyncExternalStore(subscribeSplash, isSplashShowing)
+  return splashShowing ? null : <TopBarProgress />
 }
 
 const SuspensedView: FC<WithChildren> = ({ children }) => {
