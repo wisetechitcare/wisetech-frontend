@@ -55,22 +55,35 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'dismiss') return;
 
-  const path = event.notification.data?.path ?? '/';
+  const data = event.notification.data || {};
+  const path = typeof data.path === 'string' && data.path.startsWith('/') ? data.path : '/';
+  // Prefer absolute https URL from the API (tenant host). Relative-only payloads still
+  // open on this SW's origin — which is wrong for stale Amplify subscriptions after cutover.
+  const absolute =
+    typeof data.url === 'string' && /^https:\/\//i.test(data.url) ? data.url : null;
+  const targetUrl = absolute || `${self.location.origin}${path}`;
 
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((windowClients) => {
-        // If the app is already open in a tab, focus it and navigate
+        // Prefer an already-open tab on the same origin as the click target
+        let targetOrigin = self.location.origin;
+        try {
+          targetOrigin = new URL(targetUrl).origin;
+        } catch {
+          /* keep SW origin */
+        }
         for (const client of windowClients) {
-          if (client.url.includes(self.location.origin)) {
+          if (client.url.includes(targetOrigin) || client.url.includes(self.location.origin)) {
             client.focus();
-            client.navigate(self.location.origin + path);
+            if (typeof client.navigate === 'function') {
+              client.navigate(targetUrl);
+            }
             return;
           }
         }
-        // Otherwise open a new tab at the target path
-        return clients.openWindow(self.location.origin + path);
+        return clients.openWindow(targetUrl);
       }),
   );
 });
