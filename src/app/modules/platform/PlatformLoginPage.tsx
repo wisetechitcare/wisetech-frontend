@@ -1,5 +1,5 @@
-import { FormEvent, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { FormEvent, useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/ds/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
@@ -30,6 +30,7 @@ function errMessage(err: unknown): string {
 
 export default function PlatformLoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { setUser } = usePlatformSession()
 
   const [phase, setPhase] = useState<Phase>('password')
@@ -41,6 +42,30 @@ export default function PlatformLoginPage() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  /** After self-disable MFA, Settings sends here with setup cookie + ?reenroll=1. */
+  useEffect(() => {
+    if (searchParams.get('reenroll') !== '1') return
+    let cancelled = false
+    void (async () => {
+      setBusy(true)
+      setError(null)
+      try {
+        const enrollment = await platformMfaEnrollStart()
+        if (cancelled) return
+        setQrDataUrl(enrollment.qrDataUrl)
+        setManualSecret(enrollment.manualSecret)
+        setPhase('enroll')
+      } catch (err) {
+        if (!cancelled) setError(errMessage(err))
+      } finally {
+        if (!cancelled) setBusy(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams])
 
   async function onPassword(e: FormEvent) {
     e.preventDefault()
@@ -124,8 +149,16 @@ export default function PlatformLoginPage() {
     setError(null)
     setBusy(true)
     try {
-      const user = await platformMfaVerify(code.trim())
-      setUser(user)
+      const result = await platformMfaVerify(code.trim())
+      setCode('')
+      if ('step' in result && result.step === 'enroll') {
+        const enrollment = await platformMfaEnrollStart()
+        setQrDataUrl(enrollment.qrDataUrl)
+        setManualSecret(enrollment.manualSecret)
+        setPhase('enroll')
+        return
+      }
+      setUser(result as { id: string; email: string; displayName: string; platformRole: string })
       navigate('/platform/tenants', { replace: true })
     } catch (err) {
       setError(errMessage(err))
@@ -152,7 +185,7 @@ export default function PlatformLoginPage() {
           ? 'Wait for your authenticator to refresh, then enter the next code.'
           : phase === 'recovery'
             ? 'Store these codes somewhere safe. They are shown only once.'
-            : 'Enter the 6-digit code from your authenticator app, or a recovery code.'
+            : 'Enter the 6-digit code from your authenticator app, or a recovery code (recovery clears MFA and requires a new authenticator).'
 
   return (
     <PlatformAuthScreen title={title} description={description}>

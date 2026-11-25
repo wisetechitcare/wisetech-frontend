@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { KeyRound, Package, Pencil, Plus, Shield, Star, Trash2 } from 'lucide-react'
+import { KeyRound, Package, Pencil, Plus, Shield, ShieldOff, Star, Trash2 } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { Badge } from '@/ds/ui/badge'
 import { Card, CardContent, CardHeader } from '@/ds/ui/card'
@@ -13,7 +13,7 @@ import { Label } from '@/ds/ui/label'
 import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { NumberField } from '@/ds/ui/number-field'
 import { PasswordField } from '@/ds/patterns/password-field'
-import { platformChangePassword } from '@services/platformAuth'
+import { platformChangePassword, platformMfaDisable } from '@services/platformAuth'
 import { useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/ds/patterns/section-header'
 import { DescriptionList } from '@/ds/patterns/description-list'
@@ -78,7 +78,7 @@ type PolicyFormState = {
  */
 export default function PlatformSettingsPage() {
   const navigate = useNavigate()
-  const { user, signOut } = usePlatformSession()
+  const { user, setUser, signOut } = usePlatformSession()
   const isAdmin = user?.platformRole === 'ADMIN'
 
   const [plans, setPlans] = useState<PlatformCommercialPlan[]>([])
@@ -94,6 +94,11 @@ export default function PlatformSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [pwBusy, setPwBusy] = useState(false)
   const [pwError, setPwError] = useState<string | null>(null)
+
+  const [mfaDisableOpen, setMfaDisableOpen] = useState(false)
+  const [mfaCode, setMfaCode] = useState('')
+  const [mfaBusy, setMfaBusy] = useState(false)
+  const [mfaError, setMfaError] = useState<string | null>(null)
 
   const [editorOpen, setEditorOpen] = useState(false)
   const [editing, setEditing] = useState<PlatformCommercialPlan | null>(null)
@@ -299,6 +304,29 @@ export default function PlatformSettingsPage() {
     }
   }
 
+  async function onDisableMfa(e: FormEvent) {
+    e.preventDefault()
+    setMfaError(null)
+    if (!mfaCode.trim()) {
+      setMfaError('Enter your current authenticator code.')
+      return
+    }
+    setMfaBusy(true)
+    try {
+      await platformMfaDisable(mfaCode.trim())
+      toast.success('Authenticator disabled. Set up a new one.')
+      setMfaDisableOpen(false)
+      setMfaCode('')
+      // Do not call platformLogout — it would clear the enroll bridge cookie set by disable.
+      setUser(null)
+      navigate('/platform/login?reenroll=1', { replace: true })
+    } catch (err) {
+      setMfaError(platformApiError(err))
+    } finally {
+      setMfaBusy(false)
+    }
+  }
+
   return (
     <PlatformShell
       title="Settings"
@@ -325,13 +353,62 @@ export default function PlatformSettingsPage() {
             description={user ? `${user.displayName} · ${user.email}` : 'Signed-in operator'}
             icon={<KeyRound aria-hidden />}
             action={
-              <Button type="button" variant="outline" size="sm" onClick={() => setPwOpen(true)}>
-                Change Password
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setPwOpen(true)}>
+                  Change Password
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setMfaDisableOpen(true)}>
+                  <ShieldOff aria-hidden /> Disable Authenticator
+                </Button>
+              </div>
             }
           />
         </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Disabling MFA requires a current authenticator code, then you enrol a new device immediately.
+            Lost phone? Ask another ADMIN to use Reset Authenticator, or use a recovery code at sign-in.
+          </p>
+        </CardContent>
       </Card>
+
+      <FormDialog
+        open={mfaDisableOpen}
+        onOpenChange={(open) => {
+          setMfaDisableOpen(open)
+          if (!open) {
+            setMfaError(null)
+            setMfaCode('')
+          }
+        }}
+        title="Disable Authenticator"
+        description="Enter a current 6-digit code. Your sessions end and you must enrol a new authenticator."
+        icon={<ShieldOff aria-hidden />}
+        formId="platform-mfa-disable"
+        submitLabel="Disable And Re-enrol"
+        submitting={mfaBusy}
+        dirty={Boolean(mfaCode)}
+      >
+        <form id="platform-mfa-disable" className="grid gap-5 p-6" onSubmit={onDisableMfa} noValidate>
+          {mfaError ? (
+            <Alert variant="danger">
+              <AlertTitle>Could Not Disable</AlertTitle>
+              <AlertDescription>{mfaError}</AlertDescription>
+            </Alert>
+          ) : null}
+          <Field>
+            <FieldLabel htmlFor="platform-mfa-disable-code">Authenticator Code</FieldLabel>
+            <Input
+              id="platform-mfa-disable-code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              required
+              value={mfaCode}
+              onChange={(e) => setMfaCode(e.target.value)}
+            />
+          </Field>
+        </form>
+      </FormDialog>
 
       <FormDialog
         open={pwOpen}

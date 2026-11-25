@@ -87,7 +87,9 @@ export async function platformChangePassword(
   unwrap(data)
 }
 
-export async function platformMfaVerify(code: string): Promise<PlatformUser> {
+export type PlatformMfaVerifyResult = PlatformUser | { step: 'enroll' }
+
+export async function platformMfaVerify(code: string): Promise<PlatformMfaVerifyResult> {
   const { data } = await client.post('/api/platform/auth/mfa', { code })
   return unwrap(data)
 }
@@ -101,6 +103,8 @@ export async function platformMe(): Promise<PlatformUser> {
   return unwrap(data)
 }
 
+export type OperatorMfaStatus = 'enrolled' | 'not_enrolled' | 'locked'
+
 export type PlatformOperator = {
   id: string
   email: string
@@ -110,6 +114,8 @@ export type PlatformOperator = {
   lastLoginAt: string | null
   inviteExpiresAt: string | null
   createdAt: string
+  mfaStatus: OperatorMfaStatus
+  recoveryCodesRemaining: number | null
 }
 
 export type PlatformInviteResult = {
@@ -156,6 +162,22 @@ export async function updatePlatformOperator(
 ): Promise<PlatformOperator> {
   const { data } = await client.patch(`/api/platform/operators/${encodeURIComponent(id)}`, input)
   return unwrap<{ operator: PlatformOperator }>(data).operator
+}
+
+export async function resetPlatformOperatorMfa(id: string): Promise<PlatformOperator> {
+  const { data } = await client.post(`/api/platform/operators/${encodeURIComponent(id)}/reset-mfa`, {})
+  return unwrap<{ operator: PlatformOperator }>(data).operator
+}
+
+export async function clearPlatformOperatorLockout(id: string): Promise<PlatformOperator> {
+  const { data } = await client.post(`/api/platform/operators/${encodeURIComponent(id)}/clear-lockout`, {})
+  return unwrap<{ operator: PlatformOperator }>(data).operator
+}
+
+/** Self-service: disable MFA with current TOTP → enroll bridge cookie. */
+export async function platformMfaDisable(code: string): Promise<{ step: 'enroll' }> {
+  const { data } = await client.post('/api/platform/auth/mfa/disable', { code })
+  return unwrap(data)
 }
 
 /** Public — sets password from invite token; sets MFA enroll bridge cookie. */

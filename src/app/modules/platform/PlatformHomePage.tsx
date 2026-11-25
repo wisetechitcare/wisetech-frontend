@@ -20,11 +20,13 @@ import { DataTable, type ColumnDef } from '@/ds/patterns/data-table'
 import { FormDialog } from '@/ds/patterns/form-dialog'
 import { ConfirmDialog } from '@/ds/patterns/confirm-dialog'
 import {
+  clearPlatformOperatorLockout,
   disablePlatformOperator,
   enablePlatformOperator,
   invitePlatformOperator,
   listPlatformOperators,
   resendPlatformInvite,
+  resetPlatformOperatorMfa,
   updatePlatformOperator,
   type PlatformInviteResult,
   type PlatformOperator,
@@ -40,6 +42,18 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral
   ACTIVE: 'success',
   INVITED: 'warning',
   DISABLED: 'danger',
+}
+
+const MFA_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
+  enrolled: 'success',
+  locked: 'danger',
+  not_enrolled: 'warning',
+}
+
+const MFA_LABEL: Record<string, string> = {
+  enrolled: 'Enrolled',
+  locked: 'Locked',
+  not_enrolled: 'Not enrolled',
 }
 
 function formatWhen(iso: string | null): string {
@@ -76,6 +90,7 @@ export default function PlatformHomePage() {
   const [editError, setEditError] = useState<string | null>(null)
 
   const [disableTarget, setDisableTarget] = useState<PlatformOperator | null>(null)
+  const [resetMfaTarget, setResetMfaTarget] = useState<PlatformOperator | null>(null)
 
   const refresh = useCallback(async () => {
     setListError(null)
@@ -195,6 +210,19 @@ export default function PlatformHomePage() {
     }
   }
 
+  async function onResetMfa() {
+    if (!resetMfaTarget) return
+    try {
+      await resetPlatformOperatorMfa(resetMfaTarget.id)
+      toast.success('Authenticator reset — they must enrol again at next sign-in')
+      setResetMfaTarget(null)
+      await refresh()
+    } catch (err) {
+      toast.error(platformApiError(err))
+      throw err
+    }
+  }
+
   const columns = useMemo<ColumnDef<PlatformOperator>[]>(
     () => [
       {
@@ -224,6 +252,27 @@ export default function PlatformHomePage() {
             <Badge variant={STATUS_VARIANT[s] ?? 'neutral'} dot>
               {s}
             </Badge>
+          )
+        },
+      },
+      {
+        id: 'mfaStatus',
+        meta: { label: 'MFA' },
+        header: 'MFA',
+        cell: ({ row }) => {
+          const status = row.original.mfaStatus ?? 'not_enrolled'
+          const remaining = row.original.recoveryCodesRemaining
+          return (
+            <div className="min-w-0">
+              <Badge variant={MFA_VARIANT[status] ?? 'neutral'} dot>
+                {MFA_LABEL[status] ?? status}
+              </Badge>
+              {status === 'enrolled' && remaining != null ? (
+                <div className="mt-0.5 text-xs text-muted-foreground tabular">
+                  {remaining} recovery left
+                </div>
+              ) : null}
+            </div>
           )
         },
       },
@@ -274,6 +323,30 @@ export default function PlatformHomePage() {
                 ) : null}
                 {op.status === 'INVITED' ? (
                   <DropdownMenuItem onClick={() => void onResend(op)}>Resend Invite</DropdownMenuItem>
+                ) : null}
+                {op.status !== 'DISABLED' &&
+                op.status !== 'INVITED' &&
+                (op.mfaStatus === 'enrolled' || op.mfaStatus === 'locked') ? (
+                  <DropdownMenuItem onClick={() => setResetMfaTarget(op)}>
+                    Reset Authenticator
+                  </DropdownMenuItem>
+                ) : null}
+                {op.mfaStatus === 'locked' ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void (async () => {
+                        try {
+                          await clearPlatformOperatorLockout(op.id)
+                          toast.success('Lockout cleared')
+                          await refresh()
+                        } catch (err) {
+                          toast.error(platformApiError(err))
+                        }
+                      })()
+                    }}
+                  >
+                    Clear Lockout
+                  </DropdownMenuItem>
                 ) : null}
                 {op.status === 'DISABLED' && !isSelf ? (
                   <DropdownMenuItem onClick={() => void onEnable(op)}>Re-enable</DropdownMenuItem>
@@ -519,6 +592,22 @@ export default function PlatformHomePage() {
         }
         confirmLabel="Disable"
         onConfirm={() => onConfirmDisable()}
+      />
+      <ConfirmDialog
+        open={Boolean(resetMfaTarget)}
+        onOpenChange={(open) => {
+          if (!open) setResetMfaTarget(null)
+        }}
+        variant="warning"
+        danger
+        title="Reset authenticator?"
+        description={
+          resetMfaTarget
+            ? `${resetMfaTarget.displayName} (${resetMfaTarget.email}) loses their current authenticator and recovery codes immediately. All their platform sessions end. They must sign in with password and enrol a new authenticator.`
+            : undefined
+        }
+        confirmLabel="Reset authenticator"
+        onConfirm={onResetMfa}
       />
     </PlatformShell>
   )

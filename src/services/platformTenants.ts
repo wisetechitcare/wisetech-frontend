@@ -80,11 +80,24 @@ export type ProvisionTenantResult = {
   resumed: boolean
 }
 
+export type PlatformTenantOwnerSetup = {
+  employeeId: string | null
+  workEmail: string | null
+  passwordSet: boolean
+  canResendSetup: boolean
+}
+
 export type PlatformTenantDetail = PlatformTenant & {
   address: string | null
   gstNumber: string | null
   panNo: string | null
   childOrganizations: { id: string; name: string }[]
+  ownerSetup: PlatformTenantOwnerSetup
+}
+
+export type ResendOwnerPasswordSetupResult = {
+  ownerEmployeeId: string
+  sentTo: string[]
 }
 
 export async function listPlatformTenants(): Promise<PlatformTenant[]> {
@@ -131,6 +144,13 @@ export async function suspendPlatformTenant(id: string): Promise<PlatformTenantD
 export async function reactivatePlatformTenant(id: string): Promise<PlatformTenantDetail> {
   const { data } = await client.post(`/api/platform/tenants/${encodeURIComponent(id)}/reactivate`)
   return unwrap<{ tenant: PlatformTenantDetail }>(data).tenant
+}
+
+export async function resendOwnerPasswordSetup(id: string): Promise<ResendOwnerPasswordSetupResult> {
+  const { data } = await client.post(
+    `/api/platform/tenants/${encodeURIComponent(id)}/resend-owner-password-setup`,
+  )
+  return unwrap<{ result: ResendOwnerPasswordSetupResult }>(data).result
 }
 
 /** Geo handlers return `{ data: T }` (not the usual success envelope). */
