@@ -47,12 +47,49 @@ export async function platformMfaEnrollStart(): Promise<{
   return unwrap(data)
 }
 
-export async function platformMfaEnrollConfirm(code: string): Promise<PlatformUser> {
-  const { data } = await client.post('/api/platform/auth/mfa/enroll/confirm', { code })
+export type PlatformEnrollConfirmResult =
+  | { stage: 'awaiting_next' }
+  | (PlatformUser & { recoveryCodes?: string[] })
+
+export async function platformMfaEnrollConfirm(
+  code: string,
+  nextCode?: string,
+): Promise<PlatformEnrollConfirmResult> {
+  const body: { code?: string; nextCode?: string } = {}
+  if (code.trim()) body.code = code.trim()
+  if (nextCode?.trim()) body.nextCode = nextCode.trim()
+  const { data } = await client.post('/api/platform/auth/mfa/enroll/confirm', body)
   return unwrap(data)
 }
 
-export async function platformMfaVerify(code: string): Promise<PlatformUser> {
+export async function platformForgotPassword(email: string): Promise<string> {
+  const { data } = await client.post('/api/platform/auth/forgot-password', { email })
+  const ok = data as ApiOk<unknown> & { message?: string }
+  if (ok.hasError) throw new Error((ok as { detail?: string }).detail || ok.message || 'Request failed')
+  return ok.message || 'If an account exists for that email, a password reset link has been sent to it.'
+}
+
+export async function platformResetPassword(token: string, password: string, confirmPassword: string): Promise<void> {
+  const { data } = await client.post('/api/platform/auth/reset-password', { token, password, confirmPassword })
+  unwrap(data)
+}
+
+export async function platformChangePassword(
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string,
+): Promise<void> {
+  const { data } = await client.post('/api/platform/auth/change-password', {
+    currentPassword,
+    newPassword,
+    confirmPassword,
+  })
+  unwrap(data)
+}
+
+export type PlatformMfaVerifyResult = PlatformUser | { step: 'enroll' }
+
+export async function platformMfaVerify(code: string): Promise<PlatformMfaVerifyResult> {
   const { data } = await client.post('/api/platform/auth/mfa', { code })
   return unwrap(data)
 }
@@ -66,6 +103,8 @@ export async function platformMe(): Promise<PlatformUser> {
   return unwrap(data)
 }
 
+export type OperatorMfaStatus = 'enrolled' | 'not_enrolled' | 'locked'
+
 export type PlatformOperator = {
   id: string
   email: string
@@ -75,6 +114,8 @@ export type PlatformOperator = {
   lastLoginAt: string | null
   inviteExpiresAt: string | null
   createdAt: string
+  mfaStatus: OperatorMfaStatus
+  recoveryCodesRemaining: number | null
 }
 
 export type PlatformInviteResult = {
@@ -121,6 +162,22 @@ export async function updatePlatformOperator(
 ): Promise<PlatformOperator> {
   const { data } = await client.patch(`/api/platform/operators/${encodeURIComponent(id)}`, input)
   return unwrap<{ operator: PlatformOperator }>(data).operator
+}
+
+export async function resetPlatformOperatorMfa(id: string): Promise<PlatformOperator> {
+  const { data } = await client.post(`/api/platform/operators/${encodeURIComponent(id)}/reset-mfa`, {})
+  return unwrap<{ operator: PlatformOperator }>(data).operator
+}
+
+export async function clearPlatformOperatorLockout(id: string): Promise<PlatformOperator> {
+  const { data } = await client.post(`/api/platform/operators/${encodeURIComponent(id)}/clear-lockout`, {})
+  return unwrap<{ operator: PlatformOperator }>(data).operator
+}
+
+/** Self-service: disable MFA with current TOTP → enroll bridge cookie. */
+export async function platformMfaDisable(code: string): Promise<{ step: 'enroll' }> {
+  const { data } = await client.post('/api/platform/auth/mfa/disable', { code })
+  return unwrap(data)
 }
 
 /** Public — sets password from invite token; sets MFA enroll bridge cookie. */

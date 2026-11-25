@@ -610,15 +610,7 @@ export function useNavigation() {
         fontIcon: 'bi-shield-lock',
         visible: tier != null,
       },
-      {
-        type: 'item',
-        id: 'admin-tenant-modules',
-        to: '/admin/app-settings?area=tenant-modules',
-        title: 'Tenant modules',
-        fontIcon: 'bi-boxes',
-        // Commercial packs — platform Super Admin only (not tenant Admin self-serve).
-        visible: tier === 'SUPER_ADMIN',
-      },
+      // Pack entitlements live on the platform console (tenant create / detail), not here.
       {
         type: 'item',
         id: 'admin-developer-mfa',
