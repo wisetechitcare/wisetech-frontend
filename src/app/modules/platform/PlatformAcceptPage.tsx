@@ -24,7 +24,7 @@ function errMessage(err: unknown): string {
   )
 }
 
-type Phase = 'password' | 'enroll'
+type Phase = 'password' | 'enroll' | 'awaiting_next' | 'recovery'
 
 /** Public accept invite — set password, then MFA enrol (bridge cookie from accept). */
 export default function PlatformAcceptPage() {
@@ -39,6 +39,7 @@ export default function PlatformAcceptPage() {
   const [code, setCode] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [manualSecret, setManualSecret] = useState<string | null>(null)
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -78,8 +79,26 @@ export default function PlatformAcceptPage() {
     setError(null)
     setBusy(true)
     try {
-      const user = await platformMfaEnrollConfirm(code.trim())
-      setUser(user)
+      const first = phase === 'awaiting_next'
+      const result = await platformMfaEnrollConfirm(first ? '' : code.trim(), first ? code.trim() : undefined)
+      if ('stage' in result && result.stage === 'awaiting_next') {
+        setPhase('awaiting_next')
+        setCode('')
+        return
+      }
+      if ('recoveryCodes' in result && result.recoveryCodes?.length) {
+        setRecoveryCodes(result.recoveryCodes)
+        setUser({
+          id: result.id,
+          email: result.email,
+          displayName: result.displayName,
+          platformRole: result.platformRole,
+        })
+        setPhase('recovery')
+        setCode('')
+        return
+      }
+      setUser(result as { id: string; email: string; displayName: string; platformRole: string })
       navigate('/platform/tenants', { replace: true })
     } catch (err) {
       setError(errMessage(err))
@@ -88,11 +107,20 @@ export default function PlatformAcceptPage() {
     }
   }
 
-  const title = phase === 'password' ? 'Accept Platform Invite' : 'Set Up Authenticator'
+  const title =
+    phase === 'password'
+      ? 'Accept Platform Invite'
+      : phase === 'recovery'
+        ? 'Save Recovery Codes'
+        : 'Set Up Authenticator'
   const description =
     phase === 'password'
       ? 'Choose a password for your KAIZNOVA platform account. You will enrol MFA next.'
-      : 'Scan the QR code, then enter a 6-digit code to finish.'
+      : phase === 'awaiting_next'
+        ? 'Wait for your authenticator to refresh, then enter the next code.'
+        : phase === 'recovery'
+          ? 'Store these codes somewhere safe. They are shown only once.'
+          : 'Scan the QR code, then enter the current 6-digit code.'
 
   return (
     <PlatformAuthScreen title={title} description={description}>
@@ -143,9 +171,11 @@ export default function PlatformAcceptPage() {
             Continue
           </Button>
         </form>
-      ) : (
+      ) : null}
+
+      {(phase === 'enroll' || phase === 'awaiting_next') && (
         <form className="grid gap-6" onSubmit={onEnroll} noValidate>
-          {qrDataUrl ? (
+          {phase === 'enroll' && qrDataUrl ? (
             <div className="flex flex-col items-center gap-3">
               <img src={qrDataUrl} alt="Authenticator QR code" className="size-[220px] rounded-md border border-border" />
               {manualSecret ? (
@@ -157,7 +187,9 @@ export default function PlatformAcceptPage() {
             </div>
           ) : null}
           <Field>
-            <FieldLabel htmlFor="accept-enroll-code">Authenticator Code</FieldLabel>
+            <FieldLabel htmlFor="accept-enroll-code">
+              {phase === 'awaiting_next' ? 'Next Authenticator Code' : 'Authenticator Code'}
+            </FieldLabel>
             <Input
               id="accept-enroll-code"
               size="lg"
@@ -170,9 +202,28 @@ export default function PlatformAcceptPage() {
           </Field>
           <Button type="submit" size="lg" className="w-full" disabled={busy}>
             {busy ? <Spinner data-icon="inline-start" aria-hidden /> : null}
-            Activate And Sign In
+            {phase === 'awaiting_next' ? 'Confirm And Finish' : 'Continue'}
           </Button>
         </form>
+      )}
+
+      {phase === 'recovery' && (
+        <div className="grid gap-6">
+          <Alert>
+            <AlertTitle>Shown Once</AlertTitle>
+            <AlertDescription>
+              Copy these codes before continuing. Each code signs you in once if you lose your authenticator.
+            </AlertDescription>
+          </Alert>
+          <ul className="grid gap-2 rounded-md border border-border bg-muted/40 p-4 font-mono text-sm">
+            {recoveryCodes.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          <Button type="button" size="lg" className="w-full" onClick={() => navigate('/platform/tenants', { replace: true })}>
+            Continue To Platform
+          </Button>
+        </div>
       )}
     </PlatformAuthScreen>
   )

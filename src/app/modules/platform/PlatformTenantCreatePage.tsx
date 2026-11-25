@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { parseDate, type DateValue } from '@internationalized/date'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
-import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
 import { Checkbox } from '@/ds/ui/checkbox'
 import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
@@ -251,12 +251,18 @@ export default function PlatformTenantCreatePage() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         workEmail: workEmail.trim(),
-        personalEmail: personalEmail.trim(),
+        ...(personalEmail.trim() ? { personalEmail: personalEmail.trim() } : {}),
         dateOfBirth: dob ? dob.toString() : '',
       },
       sendMail,
     }
   }
+
+  const workEmailTrimmed = workEmail.trim()
+  const personalEmailTrimmed = personalEmail.trim()
+  const recoveryUsesWork =
+    !personalEmailTrimmed && workEmailTrimmed.length > 0 && workEmailTrimmed.length <= 30
+  const resolvedRecoveryEmail = personalEmailTrimmed || (recoveryUsesWork ? workEmailTrimmed : '')
 
   function validateStep(): string | null {
     if (step === 0) {
@@ -273,11 +279,14 @@ export default function PlatformTenantCreatePage() {
       return null
     }
     if (step === 2) {
-      if (!firstName.trim() || !lastName.trim() || !workEmail.trim() || !personalEmail.trim() || !dob) {
-        return 'Complete all owner fields.'
+      if (!firstName.trim() || !lastName.trim() || !workEmailTrimmed || !dob) {
+        return 'Complete first name, last name, work email, and date of birth.'
       }
-      if (personalEmail.trim().length > 30) return 'Personal email must be at most 30 characters.'
-      if (workEmail.trim().length > 50) return 'Work email must be at most 50 characters.'
+      if (workEmailTrimmed.length > 50) return 'Work email must be at most 50 characters.'
+      if (personalEmailTrimmed.length > 30) return 'Recovery email must be at most 30 characters.'
+      if (!personalEmailTrimmed && workEmailTrimmed.length > 30) {
+        return 'Recovery email is required when work email exceeds 30 characters.'
+      }
       return null
     }
     return null
@@ -575,22 +584,36 @@ export default function PlatformTenantCreatePage() {
                 type="email"
                 size="lg"
                 required
+                autoComplete="email"
                 value={workEmail}
                 onChange={(e) => setWorkEmail(e.target.value)}
               />
+              <FieldDescription>
+                Sign-in identity and org notification contact (max 50 characters).
+              </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="personal">Personal Email</FieldLabel>
+              <FieldLabel htmlFor="personal">Recovery Email</FieldLabel>
               <Input
                 id="personal"
                 type="email"
                 size="lg"
-                required
                 maxLength={30}
+                autoComplete="email"
                 value={personalEmail}
                 onChange={(e) => setPersonalEmail(e.target.value)}
+                placeholder={
+                  workEmailTrimmed.length > 30
+                    ? 'Required — work email is too long to reuse'
+                    : 'Optional — leave blank to use work email'
+                }
               />
-              <p className="text-xs text-muted-foreground">Max 30 characters (database limit).</p>
+              <FieldDescription>
+                Personal / recovery inbox (max 30 characters). Leave blank to use the work email when it
+                fits. A different address is recommended so a locked work mailbox can still recover
+                access.
+                {recoveryUsesWork ? ' Setup mail will go to the work address only.' : null}
+              </FieldDescription>
             </Field>
             <DatePicker
               label="Date Of Birth"
@@ -632,8 +655,18 @@ export default function PlatformTenantCreatePage() {
             <p>
               <span className="text-muted-foreground">Owner</span>
               <br />
-              {firstName} {lastName} &lt;{workEmail}&gt;
-              {sendMail ? ' — setup mail on' : ' — no mail'}
+              {firstName} {lastName} &lt;{workEmailTrimmed}&gt;
+              <br />
+              <span className="text-muted-foreground">
+                Recovery:{' '}
+                {resolvedRecoveryEmail
+                  ? recoveryUsesWork
+                    ? `${resolvedRecoveryEmail} (same as work)`
+                    : resolvedRecoveryEmail
+                  : '—'}
+              </span>
+              <br />
+              {sendMail ? 'Setup mail on' : 'No setup mail'}
             </p>
           </div>
         ) : null}

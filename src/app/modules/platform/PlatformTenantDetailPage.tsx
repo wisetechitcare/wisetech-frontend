@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Building2, Package, PauseCircle, Pencil, PlayCircle } from 'lucide-react'
+import { ArrowLeft, Building2, Mail, Package, PauseCircle, Pencil, PlayCircle } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { Badge } from '@/ds/ui/badge'
 import { Card, CardContent, CardHeader } from '@/ds/ui/card'
@@ -21,6 +21,7 @@ import { FormDialog } from '@/ds/patterns/form-dialog'
 import {
   getPlatformTenant,
   reactivatePlatformTenant,
+  resendOwnerPasswordSetup,
   suspendPlatformTenant,
   updatePlatformTenantPacks,
   updatePlatformTenantProfile,
@@ -93,6 +94,8 @@ export default function PlatformTenantDetailPage() {
   )
   const [suspendOpen, setSuspendOpen] = useState(false)
   const [reactivateOpen, setReactivateOpen] = useState(false)
+  const [resendSetupOpen, setResendSetupOpen] = useState(false)
+  const [resendSetupBusy, setResendSetupBusy] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileBusy, setProfileBusy] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
@@ -208,6 +211,26 @@ export default function PlatformTenantDetailPage() {
     toast.success('Tenant reactivated')
   }
 
+  const onResendOwnerSetup = async () => {
+    if (!id) return
+    setResendSetupBusy(true)
+    try {
+      const result = await resendOwnerPasswordSetup(id)
+      const next = await getPlatformTenant(id)
+      setTenant(next)
+      toast.success(
+        result.sentTo.length === 1
+          ? `Setup mail sent to ${result.sentTo[0]}`
+          : `Setup mail sent to ${result.sentTo.length} addresses`,
+      )
+    } catch (err) {
+      toast.error(platformApiError(err))
+      throw err
+    } finally {
+      setResendSetupBusy(false)
+    }
+  }
+
   return (
     <PlatformShell
       title={tenant?.name ?? 'Tenant'}
@@ -215,15 +238,22 @@ export default function PlatformTenantDetailPage() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           {tenant && isAdmin ? (
-            isSuspended ? (
-              <Button type="button" variant="outline" onClick={() => setReactivateOpen(true)}>
-                <PlayCircle aria-hidden /> Reactivate
-              </Button>
-            ) : (
-              <Button type="button" variant="destructive" onClick={() => setSuspendOpen(true)}>
-                <PauseCircle aria-hidden /> Suspend
-              </Button>
-            )
+            <>
+              {tenant.ownerSetup?.canResendSetup && !isSuspended ? (
+                <Button type="button" variant="outline" onClick={() => setResendSetupOpen(true)}>
+                  <Mail aria-hidden /> Resend Setup Mail
+                </Button>
+              ) : null}
+              {isSuspended ? (
+                <Button type="button" variant="outline" onClick={() => setReactivateOpen(true)}>
+                  <PlayCircle aria-hidden /> Reactivate
+                </Button>
+              ) : (
+                <Button type="button" variant="destructive" onClick={() => setSuspendOpen(true)}>
+                  <PauseCircle aria-hidden /> Suspend
+                </Button>
+              )}
+            </>
           ) : null}
           <Button type="button" variant="outline" onClick={() => navigate('/platform/tenants')}>
             <ArrowLeft aria-hidden /> Back To Tenants
@@ -301,6 +331,22 @@ export default function PlatformTenantDetailPage() {
                     ),
                   },
                   { label: 'Owner contact', value: tenant.ownerContactEmail || '—' },
+                  {
+                    label: 'Owner password',
+                    value: tenant.ownerSetup?.passwordSet ? (
+                      <Badge variant="success" dot>
+                        Set
+                      </Badge>
+                    ) : tenant.ownerSetup?.canResendSetup ? (
+                      <Badge variant="warning" dot>
+                        Pending setup
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral" dot>
+                        Unknown
+                      </Badge>
+                    ),
+                  },
                   { label: 'Address', value: tenant.address || '—' },
                   { label: 'GST', value: tenant.gstNumber || '—' },
                   { label: 'PAN', value: tenant.panNo || '—' },
@@ -519,6 +565,24 @@ export default function PlatformTenantDetailPage() {
         description="Sign-in and API access resume for this org family."
         confirmLabel="Reactivate tenant"
         onConfirm={onReactivate}
+      />
+      <ConfirmDialog
+        open={resendSetupOpen}
+        onOpenChange={setResendSetupOpen}
+        variant="confirm"
+        title="Resend Owner password-setup email?"
+        description={
+          tenant?.ownerContactEmail
+            ? `Sends a fresh 24-hour setup link to the Owner (${tenant.ownerContactEmail}${
+                tenant.ownerSetup?.workEmail &&
+                tenant.ownerSetup.workEmail !== tenant.ownerContactEmail
+                  ? ` / ${tenant.ownerSetup.workEmail}`
+                  : ''
+              }). Limited to 3 sends per day with a 10-minute cooldown.`
+            : 'Sends a fresh 24-hour setup link to the Owner work and recovery inboxes. Limited to 3 sends per day with a 10-minute cooldown.'
+        }
+        confirmLabel={resendSetupBusy ? 'Sending…' : 'Send setup mail'}
+        onConfirm={onResendOwnerSetup}
       />
     </PlatformShell>
   )
