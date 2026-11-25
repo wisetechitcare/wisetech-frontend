@@ -61,8 +61,13 @@ export type ProvisionTenantPayload = {
   owner: {
     firstName: string
     lastName: string
+    /** Login + org notification identity. */
     workEmail: string
-    personalEmail: string
+    /**
+     * Optional recovery inbox (`users.personal_email_id`).
+     * Omit / blank → backend mirrors work when it fits VARCHAR(30).
+     */
+    personalEmail?: string
     dateOfBirth: string
   }
   sendMail?: boolean
