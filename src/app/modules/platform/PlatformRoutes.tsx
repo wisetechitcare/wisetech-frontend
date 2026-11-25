@@ -2,8 +2,10 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Spinner } from '@/ds/ui/spinner'
 import PlatformAcceptPage from './PlatformAcceptPage'
+import PlatformForgotPasswordPage from './PlatformForgotPasswordPage'
 import PlatformHomePage from './PlatformHomePage'
 import PlatformLoginPage from './PlatformLoginPage'
+import PlatformResetPasswordPage from './PlatformResetPasswordPage'
 import PlatformSupportPage from './PlatformSupportPage'
 import PlatformTenantCreatePage from './PlatformTenantCreatePage'
 import PlatformTenantDetailPage from './PlatformTenantDetailPage'
@@ -45,6 +47,8 @@ export function PlatformRoutes() {
     <PlatformSessionProvider>
       <Routes>
         <Route path="login" element={<PlatformLoginGate />} />
+        <Route path="forgot-password" element={<PlatformForgotPasswordPage />} />
+        <Route path="reset-password" element={<PlatformResetPasswordPage />} />
         <Route path="accept" element={<PlatformAcceptPage />} />
         <Route
           path="tenants/new"

@@ -214,19 +214,8 @@ export const fetchTenantEntitlements = async (companyId?: string) => {
     }
 };
 
-export const updateTenantEntitlements = async (
-    packs: Record<string, boolean>,
-    companyId?: string,
-) => {
-    try {
-        const endpoint = `${API_BASE_URL}/${COMPANY.PUT_ENTITLEMENTS}`;
-        const body = companyId ? { ...packs, companyId } : packs;
-        const { data } = await axios.put(endpoint, body);
-        return data;
-    } catch (err) {
-        throw err;
-    }
-};
+// Pack writes are platform-only (`PATCH /api/platform/tenants/:id/packs`).
+// Tenant PUT /api/company/entitlements is refused server-side — no client.
 
 // ─── Multi-organization endpoints ──────────────────────────────────────────────
 

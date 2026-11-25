@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Package, Pencil, Plus, Shield, Star, Trash2 } from 'lucide-react'
+import { KeyRound, Package, Pencil, Plus, Shield, Star, Trash2 } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { Badge } from '@/ds/ui/badge'
 import { Card, CardContent, CardHeader } from '@/ds/ui/card'
@@ -12,6 +12,9 @@ import { Checkbox } from '@/ds/ui/checkbox'
 import { Label } from '@/ds/ui/label'
 import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { NumberField } from '@/ds/ui/number-field'
+import { PasswordField } from '@/ds/patterns/password-field'
+import { platformChangePassword } from '@services/platformAuth'
+import { useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/ds/patterns/section-header'
 import { DescriptionList } from '@/ds/patterns/description-list'
 import { ConfirmDialog } from '@/ds/patterns/confirm-dialog'
@@ -74,7 +77,8 @@ type PolicyFormState = {
  * Section icons sit top-right inside Cards (kit: cards right, rows left, dialogs left).
  */
 export default function PlatformSettingsPage() {
-  const { user } = usePlatformSession()
+  const navigate = useNavigate()
+  const { user, signOut } = usePlatformSession()
   const isAdmin = user?.platformRole === 'ADMIN'
 
   const [plans, setPlans] = useState<PlatformCommercialPlan[]>([])
@@ -83,6 +87,13 @@ export default function PlatformSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showInactive, setShowInactive] = useState(false)
+
+  const [pwOpen, setPwOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
+  const [pwError, setPwError] = useState<string | null>(null)
 
   const [editorOpen, setEditorOpen] = useState(false)
   const [editing, setEditing] = useState<PlatformCommercialPlan | null>(null)
@@ -260,6 +271,34 @@ export default function PlatformSettingsPage() {
     }
   }
 
+  async function onChangePassword(e: FormEvent) {
+    e.preventDefault()
+    setPwError(null)
+    if (newPassword.length < 8) {
+      setPwError('New password must be at least 8 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError('Passwords do not match.')
+      return
+    }
+    setPwBusy(true)
+    try {
+      await platformChangePassword(currentPassword, newPassword, confirmPassword)
+      toast.success('Password updated. Sign in again.')
+      setPwOpen(false)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      await signOut()
+      navigate('/platform/login', { replace: true })
+    } catch (err) {
+      setPwError(platformApiError(err))
+    } finally {
+      setPwBusy(false)
+    }
+  }
+
   return (
     <PlatformShell
       title="Settings"
@@ -278,6 +317,82 @@ export default function PlatformSettingsPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <SectionHeader
+            title="Your Account"
+            description={user ? `${user.displayName} · ${user.email}` : 'Signed-in operator'}
+            icon={<KeyRound aria-hidden />}
+            action={
+              <Button type="button" variant="outline" size="sm" onClick={() => setPwOpen(true)}>
+                Change Password
+              </Button>
+            }
+          />
+        </CardHeader>
+      </Card>
+
+      <FormDialog
+        open={pwOpen}
+        onOpenChange={(open) => {
+          setPwOpen(open)
+          if (!open) {
+            setPwError(null)
+            setCurrentPassword('')
+            setNewPassword('')
+            setConfirmPassword('')
+          }
+        }}
+        title="Change Password"
+        description="You will be signed out of every platform session after saving."
+        icon={<KeyRound aria-hidden />}
+        formId="platform-change-password"
+        submitLabel="Update Password"
+        submitting={pwBusy}
+        dirty={Boolean(currentPassword || newPassword || confirmPassword)}
+      >
+        <form id="platform-change-password" className="grid gap-5 p-6" onSubmit={onChangePassword} noValidate>
+          {pwError ? (
+            <Alert variant="danger">
+              <AlertTitle>Could Not Update</AlertTitle>
+              <AlertDescription>{pwError}</AlertDescription>
+            </Alert>
+          ) : null}
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel htmlFor="platform-current-password">Current Password</FieldLabel>
+              <PasswordField
+                id="platform-current-password"
+                autoComplete="current-password"
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="platform-new-password">New Password</FieldLabel>
+              <PasswordField
+                id="platform-new-password"
+                autoComplete="new-password"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="platform-confirm-password">Confirm New Password</FieldLabel>
+              <PasswordField
+                id="platform-confirm-password"
+                autoComplete="new-password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </Field>
+          </FieldGroup>
+        </form>
+      </FormDialog>
 
       {loading ? (
         <div className="flex justify-center py-16" role="status">

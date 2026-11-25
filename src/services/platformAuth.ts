@@ -47,9 +47,44 @@ export async function platformMfaEnrollStart(): Promise<{
   return unwrap(data)
 }
 
-export async function platformMfaEnrollConfirm(code: string): Promise<PlatformUser> {
-  const { data } = await client.post('/api/platform/auth/mfa/enroll/confirm', { code })
+export type PlatformEnrollConfirmResult =
+  | { stage: 'awaiting_next' }
+  | (PlatformUser & { recoveryCodes?: string[] })
+
+export async function platformMfaEnrollConfirm(
+  code: string,
+  nextCode?: string,
+): Promise<PlatformEnrollConfirmResult> {
+  const body: { code?: string; nextCode?: string } = {}
+  if (code.trim()) body.code = code.trim()
+  if (nextCode?.trim()) body.nextCode = nextCode.trim()
+  const { data } = await client.post('/api/platform/auth/mfa/enroll/confirm', body)
   return unwrap(data)
+}
+
+export async function platformForgotPassword(email: string): Promise<string> {
+  const { data } = await client.post('/api/platform/auth/forgot-password', { email })
+  const ok = data as ApiOk<unknown> & { message?: string }
+  if (ok.hasError) throw new Error((ok as { detail?: string }).detail || ok.message || 'Request failed')
+  return ok.message || 'If an account exists for that email, a password reset link has been sent to it.'
+}
+
+export async function platformResetPassword(token: string, password: string, confirmPassword: string): Promise<void> {
+  const { data } = await client.post('/api/platform/auth/reset-password', { token, password, confirmPassword })
+  unwrap(data)
+}
+
+export async function platformChangePassword(
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string,
+): Promise<void> {
+  const { data } = await client.post('/api/platform/auth/change-password', {
+    currentPassword,
+    newPassword,
+    confirmPassword,
+  })
+  unwrap(data)
 }
 
 export async function platformMfaVerify(code: string): Promise<PlatformUser> {
