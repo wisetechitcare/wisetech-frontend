@@ -3,7 +3,6 @@ import { PageLink, PageTitle } from '@metronic/layout/core';
 import { useSelector } from 'react-redux';
 import MaterialHeaderTab, { TabItem } from '@app/modules/common/components/MaterialHeaderTab';
 import { companyOverviewIcons, leadsIcons } from '@metronic/assets/sidepanelicons';
-import Masters from '../masters/Masters';
 import OrganizationProfileForm from '../organization/OrganizationProfileForm';
 import { RootState } from '@redux/store';
 import RuleMainPage from './rule/RuleMainPage';

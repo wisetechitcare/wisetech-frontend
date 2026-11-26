@@ -1,6 +1,6 @@
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Settings } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { PageTabs, type PageTabItem } from '@/ds/patterns/page-tabs';
 import { PageLink, PageTitle } from '@metronic/layout/core';
 import type { RootState } from '@redux/store';
@@ -8,7 +8,6 @@ import { IOrgNode } from '@models/company';
 import { useTabRoute } from '@app/hooks/useTabRoute';
 import { isSectionTabHidden } from '@utils/sectionTabs';
 import OrganizationsPage from './OrganizationsPage';
-import Masters from '../masters/Masters';
 
 const ACCESS_SECTION = 'settings.profile';
 
@@ -25,17 +24,15 @@ function OrganizationProfileMain() {
 
     const tabItems = [
         { title: 'Organizations', component: <OrganizationsPage onOpenOrg={handleOpenOrg} />, icon: Building2 },
-        { title: 'Configure', component: <Masters />, icon: Settings },
     ];
 
-    // The tab is the URL (/company/organization-profile/configure), so it survives a refresh,
+    // The tab is the URL (/company/organization-profile), so it survives a refresh,
     // a shared link, and the remount the header does at the mobile breakpoint. The base is
     // explicit: this route has no splat of its own (it shares its base with /:orgId), so an
     // omitted base picked up the app-wide `/*` splat and redirected to /organizations → 404.
     const { activeTab, setActiveTab } = useTabRoute('/company/organization-profile', tabItems.map((t) => t.title));
 
-    // Tabs turned off for this person (Access → Advanced), and Configure without Write on the
-    // section. Subscribed so a live access change re-renders the bar.
+    // Tabs turned off for this person (Access → Advanced). Subscribed so a live access change re-renders the bar.
     useSelector((s: RootState) => (s as any).authz?.deniedTabs);
     useSelector((s: RootState) => (s as any).authz?.access);
 

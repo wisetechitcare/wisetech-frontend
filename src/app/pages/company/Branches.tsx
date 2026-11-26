@@ -18,11 +18,9 @@ import { FormDialog } from '@/ds/patterns/form-dialog'
 import { PageHeader } from '@/ds/patterns/page-header'
 import { SearchSelect } from '@/ds/patterns/search-select'
 import {
-  createNewTowns,
   fetchAllCountries,
   fetchAllCurrencies,
   fetchAllStates,
-  fetchAllTowns,
   fetchCountryName,
   fetchStateName,
 } from '@services/options'
@@ -73,9 +71,9 @@ const branchSchema = Yup.object({
   name: Yup.string().required().label('Branch Name'),
   address: Yup.string().required().label('Branch Address'),
   cityId: Yup.string().required().label('City'),
-  countryId: Yup.string().required().label('Town'),
+  countryId: Yup.string().required().label('Country'),
   stateId: Yup.string().required().label('State'),
-  townId: Yup.string().required().label('Town'),
+  locality: Yup.string().optional().label('Locality'),
   postalCode: Yup.string().required().label('Postal Code'),
   latitude: Yup.string().required().label('Latitude'),
   longitude: Yup.string().required().label('Longitude'),
@@ -143,7 +141,7 @@ let initialState = {
   countryId: '',
   cityId: '',
   stateId: '',
-  townId: '',
+  locality: '',
   postalCode: '',
   latitude: '',
   longitude: '',
@@ -244,7 +242,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
   const [statesOption, setStatesOptions] = useState<{ value: string; label: string }[]>([])
   const [selectedState, setSelectedState] = useState<Option | null>(null)
 
-  const [townsOption, setTownsOptions] = useState<{ value: string; label: string }[]>([])
 
   const [currenciesOption, setCurrenciesOptions] = useState<{ value: string; label: string }[]>([])
   const [isDeviceNotDesktop, setIsDeviceNotDesktop] = useState(false)
@@ -350,7 +347,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       countryId: '',
       cityId: '',
       stateId: '',
-      townId: '',
+      locality: '',
       postalCode: '',
       latitude: '',
       longitude: '',
@@ -384,7 +381,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       name,
       stateId,
       countryId,
-      townId,
+      locality,
       latitude,
       longitude,
       currency,
@@ -409,7 +406,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
     initialState = {
       address,
       cityId,
-      townId,
+      locality: locality || '',
       countryId,
       name,
       stateId,
@@ -557,7 +554,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       setListReady(true)
     }
 
-    fetchTowns()
     fetchData()
   }, [loading, companyId])
 
@@ -619,16 +615,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
     }
   }
 
-  const fetchTowns = async () => {
-    const townsResponse = await fetchAllTowns()
-    const townsOptions = townsResponse.data.towns.map((town: any) => ({
-      value: town.id,
-      label: town.name,
-    }))
-    setTownsOptions(townsOptions)
-    return townsOptions as { value: string; label: string }[]
-  }
-
   const fetchCurrencies = async () => {
     try {
       const currenciesResponse = await fetchAllCurrencies()
@@ -639,18 +625,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       })))
     } catch (error) {
       console.error('Error fetching currencies:', error)
-    }
-  }
-
-  /** Inline create from the Town field: save the town, reload the list, select it. */
-  const createTown = async (name: string, formikProps: FormikProps<typeof initialState>) => {
-    try {
-      await createNewTowns({ companyId: '', towns: [name] })
-      const fresh = await fetchTowns()
-      const created = fresh.find((t) => t.label.toLowerCase() === name.toLowerCase())
-      if (created) formikProps.setFieldValue('townId', created.value, true)
-    } catch (err: any) {
-      errorConfirmation(err?.response?.data?.message || `Couldn't add ${name}. Try again.`)
     }
   }
 
@@ -771,7 +745,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
               dirty={formikProps.dirty}
               sections={[
                 { id: 'branch-details', label: 'Branch details', icon: <Building2 aria-hidden />, invalid: Boolean(err('name')) },
-                { id: 'branch-location', label: 'Location', icon: <MapPin aria-hidden />, invalid: Boolean(err('countryId') || err('stateId') || err('cityId') || err('townId') || err('postalCode')) },
+                { id: 'branch-location', label: 'Location', icon: <MapPin aria-hidden />, invalid: Boolean(err('countryId') || err('stateId') || err('cityId') || err('postalCode')) },
                 { id: 'branch-coordinates', label: 'Map coordinates', icon: <LocateFixed aria-hidden />, invalid: Boolean(err('latitude') || err('longitude') || err('address')) },
                 { id: 'branch-preferences', label: 'Preferences', icon: <Settings2 aria-hidden /> },
               ]}
@@ -813,7 +787,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                           setSelectedState(null)
                           formikProps.setFieldValue('stateId', '')
                           formikProps.setFieldValue('cityId', '')
-                          formikProps.setFieldValue('townId', '')
                           setStatesOptions([])
 
                           // Scope the Timezone field to ONLY this country's real zones, and
@@ -861,7 +834,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                           formikProps.setFieldValue('stateId', value ?? '')
                           setSelectedState(option ? { value: option.value, label: option.label } : null)
                           formikProps.setFieldValue('cityId', '')
-                          formikProps.setFieldValue('townId', '')
                         }}
                         options={selectedState && !statesOption.some((s) => s.value === selectedState.value)
                           ? [selectedState, ...statesOption]
@@ -872,18 +844,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                           needs a key) and cities are stored by name. */}
                       <BranchTextField form={formikProps} name="cityId" label="City" required />
 
-                      <SearchSelect
-                        id="branch-townId"
-                        label="Town"
-                        required
-                        value={v.townId || null}
-                        error={err('townId')}
-                        onBlur={() => formikProps.setFieldTouched('townId', true)}
-                        onValueChange={(value) => formikProps.setFieldValue('townId', value ?? '')}
-                        options={townsOption}
-                        onCreate={(name) => createTown(name, formikProps)}
-                        createLabel={(q) => `Add town “${q}”`}
-                      />
+                      <BranchTextField form={formikProps} name="locality" label="Locality" />
 
                       <BranchTextField form={formikProps} name="postalCode" label="Postal code" required inputMode="numeric" />
                     </AutoGrid>
