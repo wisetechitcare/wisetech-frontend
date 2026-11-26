@@ -42,7 +42,7 @@ function SignInForm() {
  * corner from `lg`, and centred at the top of the stack below it. The headline keeps rotating; the background and illustration always move.
  */
 const meta = {
-  title: 'Patterns/Auth Layout',
+  title: 'Screens/Auth Layout',
   component: AuthLayout,
   parameters: { layout: 'fullscreen' },
   args: {

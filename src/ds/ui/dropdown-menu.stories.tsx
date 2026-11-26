@@ -17,7 +17,7 @@ const onDeactivate = fn();
 
 /** Row and page actions. Destructive items are separated and coloured. */
 const meta = {
-  title: "Components/Dropdown Menu",
+  title: "Feedback & Overlays/Dropdown Menu",
   component: DropdownMenu,
   render: (args) => (
     <DropdownMenu {...args}>

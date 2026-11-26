@@ -8,7 +8,7 @@ import { Button } from './button'
  * icons are imported from `lucide-react` directly. An unknown name renders nothing.
  */
 const meta = {
-  title: 'Kit/Dynamic Icon',
+  title: 'Foundations/Dynamic Icon',
   component: DynamicIcon,
   args: { name: 'setting-2' },
 } satisfies Meta<typeof DynamicIcon>

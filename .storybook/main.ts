@@ -11,13 +11,14 @@ import { mergeConfig } from 'vite';
  * fails with "Failed to fetch dynamically imported module" (Vite: 504 Outdated Optimize Dep).
  */
 function kitDependencies(): string[] {
-  const root = fileURLToPath(new URL('../src/ds', import.meta.url));
+  // The kit plus Storybook's own screens, which import kit-adjacent packages (e.g. @internationalized/date).
+  const roots = ['../src/ds', '../src/storybook'].map((dir) => fileURLToPath(new URL(dir, import.meta.url)));
   const files = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
       e.isDirectory() ? files(join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [join(dir, e.name)] : [],
     );
   const deps = new Set<string>();
-  for (const file of files(root)) {
+  for (const file of roots.flatMap(files)) {
     for (const [, spec] of readFileSync(file, 'utf8').matchAll(/from\s+['"]([^'"]+)['"]/g)) {
       // Bare package specifiers only: not relative, not the @/ alias, not Storybook's own virtual modules.
       if (/^(\.|@\/|node:|storybook|@storybook\/)/.test(spec)) continue;
@@ -28,9 +29,16 @@ function kitDependencies(): string[] {
 }
 
 const config: StorybookConfig = {
+  // Explicit roots (docs/STORYBOOK_STRUCTURE.md): Storybook-only pages, the kit, the shared form fields,
+  // and app components that document themselves beside their source.
   "stories": [
-    "../src/**/*.mdx",
-    "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"
+    "../src/storybook/**/*.mdx",
+    "../src/storybook/**/*.stories.@(ts|tsx)",
+    "../src/ds/**/*.mdx",
+    "../src/ds/**/*.stories.@(ts|tsx)",
+    "../src/components/**/*.mdx",
+    "../src/components/**/*.stories.@(ts|tsx)",
+    "../src/app/**/*.stories.@(ts|tsx)"
   ],
   "addons": [
     "@storybook/addon-a11y",

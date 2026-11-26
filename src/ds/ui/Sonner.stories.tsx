@@ -11,7 +11,7 @@ import { Toaster, toast } from './sonner'
  * a time-left bar.
  */
 const meta = {
-  title: 'Components/Toast',
+  title: 'Feedback & Overlays/Toast',
   component: Toaster,
   beforeEach: () => {
     toast.dismiss()

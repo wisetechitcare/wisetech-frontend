@@ -75,7 +75,7 @@ export function TreeTable({
   forceExpand?: boolean
   /** Bump `n` to open (or close) every node at once. */
   expandSignal?: { open: boolean; n: number }
-  /** Rendered instead of the rows when there are none (Patterns/Empty State). */
+  /** Rendered instead of the rows when there are none (Feedback & Overlays/Empty State). */
   empty?: React.ReactNode
   className?: string
 }) {

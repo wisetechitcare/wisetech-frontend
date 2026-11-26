@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs'
 
 /** Switch between related views of the same record. */
 const meta = {
-  title: 'Components/Tabs',
+  title: 'Navigation/Tabs',
   component: Tabs,
   args: { defaultValue: 'overview' },
   render: (args) => (

@@ -78,7 +78,7 @@ function HiddenPages({ pages }: HiddenPagesProps) {
  * the current page is marked with `aria-current="page"` and is not a link.
  */
 const meta = {
-  title: 'Components/Breadcrumb',
+  title: 'Navigation/Breadcrumb',
   component: Breadcrumb,
 } satisfies Meta<typeof Breadcrumb>
 
