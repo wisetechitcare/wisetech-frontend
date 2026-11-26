@@ -26,6 +26,7 @@ import { resolveReactComponent } from '@utils/resolveReactComponent';
 import './GlobalSearch.css';
 import { ToneChip } from '@app/modules/common/components/ui';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
+import { Badge } from '@/ds/ui/badge';
 
 const AutoAwesomeIcon = resolveReactComponent<typeof AutoAwesomeIconModule>(AutoAwesomeIconModule);
 const BusinessIcon = resolveReactComponent<typeof BusinessIconModule>(BusinessIconModule);
@@ -473,7 +474,7 @@ const GlobalSearch: React.FC<GlobalSearchProps> = ({
                     <div key={type} className="search-section border-bottom border-gray-200 last:border-0">
                       <div className="search-section-header bg-light-gray px-4 py-2 d-flex justify-content-between align-items-center">
                         <span className="section-title fw-bold text-gray-700 fs-8 text-uppercase">{sectionLabels[type]}</span>
-                        <span className="section-count badge badge-light-primary fs-9">{typeResults.length}</span>
+                        <Badge variant="info" className="section-count">{typeResults.length}</Badge>
                       </div>
                       {typeResults.slice(0, 10).map((result, idx) => (
                         <div data-wt-control="row" {...pressableProps(() => handleResultClick(result))}

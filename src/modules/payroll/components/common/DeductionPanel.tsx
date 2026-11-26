@@ -4,6 +4,7 @@ import { DeductionBreakdownProps } from '../../types/payroll.types';
 import { formatMoneyDecimal, formatMoneyDecimalTruncated, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 
 const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
@@ -101,7 +102,13 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
      * line; the second line spells out how the amount was reached.
      */
     type PhoneRow = { key: string; name: string; code?: string; amount: string; amountClass: string; how?: string | null; note?: string | null };
-    const renderPhoneList = (rows: PhoneRow[], emptyText: string, totalLabel: string, total: number, codeBadgeClass: string) => (
+    const renderPhoneList = (
+        rows: PhoneRow[],
+        emptyText: string,
+        totalLabel: string,
+        total: number,
+        codeBadgeVariant: 'danger' | 'warning',
+    ) => (
         <div className="d-md-none bg-white rounded-3 shadow-sm border border-gray-200 overflow-hidden">
             {rows.length === 0 ? (
                 <div className="text-center py-8 text-muted fs-7" style={{ borderBottom: '1px dashed #e5e7eb' }}>{emptyText}</div>
@@ -110,7 +117,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                     <div className="d-flex align-items-start justify-content-between gap-3">
                         <div className="d-flex align-items-center flex-wrap gap-2" style={{ minWidth: 0 }}>
                             <span className="text-gray-800 fw-bold fs-7">{row.name}</span>
-                            {row.code && <span className={`badge ${codeBadgeClass} fs-9 fw-bold px-2 py-1`}>{row.code}</span>}
+                            {row.code && <Badge variant={codeBadgeVariant}>{row.code}</Badge>}
                         </div>
                         <span className={`${row.amountClass} fw-bolder fs-7 text-nowrap ${sensitiveCls}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
                             {row.amount}
@@ -184,7 +191,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                     <div className="bullet bullet-vertical h-25px bg-danger me-3" style={{ width: '4px' }}></div>
                     <h6 className="fw-bolder text-gray-800 mb-0 fs-5">1. Attendance Adjustments</h6>
                 </div>
-                {renderPhoneList(attendancePhoneRows, 'No variable deductions', 'Total Attendance Adjustments Deductions', totalVariable, 'badge-light-danger')}
+                {renderPhoneList(attendancePhoneRows, 'No variable deductions', 'Total Attendance Adjustments Deductions', totalVariable, 'danger')}
                 <div className="table-responsive bg-white rounded-3 shadow-sm border border-gray-200 d-none d-md-block">
                     <table className="table table-row-dashed table-row-gray-200 align-middle gs-6 gy-4 mb-0">
                         <thead>
@@ -224,14 +231,14 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                 <span className="text-gray-800 fw-bold fs-7">{itemName}</span>
                                             )}
                                             {meta?.shortCode && (
-                                                <span className="badge badge-light-danger fs-9 fw-bold px-2 py-1 d-md-none">{meta.shortCode}</span>
+                                                <Badge variant="danger" className="d-md-none">{meta.shortCode}</Badge>
                                             )}
                                             </div>
                                         </td>
                                         <td className="text-center">
-                                            <span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>
+                                            <Badge variant="secondary" className={sensitiveCls}>
                                                 {item.value ?? '-'}
-                                            </span>
+                                            </Badge>
                                         </td>
                                             <td className="text-center">
                                                 <span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>
@@ -318,7 +325,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                     <div className="bullet bullet-vertical h-25px bg-danger me-3" style={{ width: '4px' }}></div>
                     <h6 className="fw-bolder text-gray-800 mb-0 fs-5">2. Government & Payroll Deductions</h6>
                 </div>
-                {renderPhoneList(governmentPhoneRows, 'No fixed deductions', 'Total Government & Payroll deductions', totalFixed, 'badge-light-warning')}
+                {renderPhoneList(governmentPhoneRows, 'No fixed deductions', 'Total Government & Payroll deductions', totalFixed, 'warning')}
                 <div className="table-responsive bg-white rounded-3 shadow-sm border border-gray-200 d-none d-md-block">
                     <table className="table table-row-dashed table-row-gray-200 align-middle gs-6 gy-4 mb-0">
                         <thead>
@@ -362,7 +369,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                     <span className="text-gray-800 fw-bold fs-7">{displayName}</span>
                                                 )}
                                                 {meta?.shortCode && (
-                                                    <span className="badge badge-light-warning fs-9 fw-bold px-2 py-1 d-md-none">{meta.shortCode}</span>
+                                                    <Badge variant="warning" className="d-md-none">{meta.shortCode}</Badge>
                                                 )}
                                                 </div>
                                                 {isInactiveWithExtra && (
@@ -370,7 +377,7 @@ const DeductionPanel: React.FC<DeductionBreakdownProps> = ({
                                                 )}
                                             </td>
                                             <td>
-                                                <span className="badge badge-light-secondary fw-bold fs-8">{typeLabel}</span>
+                                                <Badge variant="secondary">{typeLabel}</Badge>
                                             </td>
                                             <td className="text-end">
                                                 <span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>{isInactiveWithExtra ? '—' : rate}</span>

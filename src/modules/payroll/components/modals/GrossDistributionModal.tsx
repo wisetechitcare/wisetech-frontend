@@ -6,6 +6,7 @@ import { Close } from '@mui/icons-material';
 import { GrossDistributionData, DynamicField } from '../../types/payroll.types';
 import { formatMoneyDecimal } from '../../utils/payrollFormatters';
 import { getCurrencySymbol } from '@utils/currency';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 
 interface GrossDistributionModalProps {
@@ -55,7 +56,7 @@ const GrossDistributionModal: React.FC<GrossDistributionModalProps> = ({
                                 <span className="fw-bolder fs-8 text-uppercase text-gray-600" style={{ letterSpacing: '0.06em' }}>
                                     Work Earnings
                                 </span>
-                                <span className="badge badge-light-success fs-9 py-1 px-2">Auto-Calculated</span>
+                                <Badge variant="success">Auto-Calculated</Badge>
                             </div>
                             <span className="fw-bolder fs-6 text-success">+{formatMoneyDecimal(workTotal)}</span>
                         </div>

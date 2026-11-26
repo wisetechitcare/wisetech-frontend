@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Row, Col, Badge, Card } from 'react-bootstrap';
+import { Modal, Row, Col, Card } from 'react-bootstrap';
 import { Formik, Form as FormikForm, FormikValues } from 'formik';
 import * as Yup from 'yup';
 import TextInput from '@app/modules/common/inputs/TextInput';
@@ -8,6 +8,7 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { KTIcon } from '@metronic/helpers';
 import { formatMoney2 } from '../../utils/payrollFormatters';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 
 interface PaymentModalProps {
@@ -197,7 +198,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                 <Card.Body className="p-4">
                                     <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">Salary In Hand</span>
                                     <span className="text-gray-900 fs-3 fw-bolder d-block">{formatMoney2(salaryInHand)}</span>
-                                    <Badge bg="primary" className="bg-opacity-10 text-primary mt-1">Pending: {formatMoney2(salaryPending)}</Badge>
+                                    <Badge variant="info" className="mt-1">Pending: {formatMoney2(salaryPending)}</Badge>
                                 </Card.Body>
                             </Card>
                         </Col>
@@ -228,13 +229,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                         <span className="fs-8 fw-semibold text-gray-500">Total</span>
                                                         <span className="fs-5 fw-bolder text-gray-900">{formatMoney2(correctedFixedDeductions)}</span>
                                                     </div>
-                                                    <Badge bg="danger" className="bg-opacity-10 text-danger mt-2 px-3 rounded-pill">Pending: {formatMoney2(govtPending)}</Badge>
+                                                    <Badge variant="danger" className="mt-2">Pending: {formatMoney2(govtPending)}</Badge>
                                                 </div>
                                             </>
                                         ) : (
                                             <>
                                                 <span className="text-gray-900 fs-3 fw-bolder d-block">{formatMoney2(correctedFixedDeductions)}</span>
-                                                <Badge bg="danger" className="bg-opacity-10 text-danger mt-1">Pending: {formatMoney2(govtPending)}</Badge>
+                                                <Badge variant="danger" className="mt-1">Pending: {formatMoney2(govtPending)}</Badge>
                                             </>
                                         )}
                                     </Card.Body>
@@ -246,7 +247,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                 <Card.Body className="p-4">
                                     <span className="text-gray-600 fs-8 fw-bold d-block mb-1 text-uppercase">Salary Paid</span>
                                     <span className="text-success fs-3 fw-bolder d-block">{formatMoney2(salaryPaid)}</span>
-                                    <Badge bg="success" className="bg-opacity-10 text-success mt-1">Paid to Employee</Badge>
+                                    <Badge variant="success" className="mt-1">Paid to Employee</Badge>
                                 </Card.Body>
                             </Card>
                         </Col>
@@ -276,8 +277,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                                         {formatMoney2(paidAmt)}
                                                                     </span>
                                                                     {fullyPaid
-                                                                        ? <span className="badge badge-light-success rounded-pill px-2 py-1" style={{ fontSize: '9px' }}>✓</span>
-                                                                        : <span className="badge badge-light rounded-pill px-2 py-1" style={{ fontSize: '9px', color: '#b5b5c3' }}>—</span>
+                                                                        ? <Badge variant="success">Paid</Badge>
+                                                                        : <Badge variant="neutral">Open</Badge>
                                                                     }
                                                                 </div>
                                                             </div>
@@ -289,13 +290,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                                         <span className="fs-8 fw-semibold text-gray-500">Total Paid</span>
                                                         <span className="fs-5 fw-bolder text-info">{formatMoney2(govPaidNonRetention)}</span>
                                                     </div>
-                                                    <Badge bg="info" className="bg-opacity-10 text-info mt-2 px-3 rounded-pill">Paid</Badge>
+                                                    <Badge variant="info" className="mt-2">Paid</Badge>
                                                 </div>
                                             </>
                                         ) : (
                                             <>
                                                 <span className="text-info fs-3 fw-bolder d-block">{formatMoney2(govPaidNonRetention)}</span>
-                                                <Badge bg="info" className="bg-opacity-10 text-info mt-1">Paid</Badge>
+                                                <Badge variant="info" className="mt-1">Paid</Badge>
                                             </>
                                         )}
                                     </Card.Body>
@@ -312,9 +313,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                         </div>
                                         <span className="text-gray-900 fs-3 fw-bolder d-block">{formatMoney2(companyTotal)}</span>
                                         {companyPending > 0 ? (
-                                            <Badge bg="warning" className="bg-opacity-10 text-warning mt-1">Pending: {formatMoney2(companyPending)}</Badge>
+                                            <Badge variant="warning" className="mt-1">Pending: {formatMoney2(companyPending)}</Badge>
                                         ) : (
-                                            <Badge bg="success" className="bg-opacity-10 text-success mt-1">Settled: {formatMoney2(retentionPaid)}</Badge>
+                                            <Badge variant="success" className="mt-1">Settled: {formatMoney2(retentionPaid)}</Badge>
                                         )}
                                     </Card.Body>
                                 </Card>

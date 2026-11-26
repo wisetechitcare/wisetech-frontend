@@ -68,17 +68,11 @@ Format: **what** — evidence (file / screen) — suggested fix.
   all 17 injections. `cfgPulse` goes last: `ConfigSettingsRow` and `ConfigStatsCards` still draw their
   skeletons with it, and both should move to the kit `Skeleton` as `ConfigSectionCard` has.
 
-- **Billing's own files are kit-only; its dependency GRAPH is not** (2026-11-20) — every `.tsx` under
-  `src/app/pages/billing` is now free of MUI, KTIcon and Metronic imports, but
-  `node scripts/legacy-ui-reach.mjs src/app/pages/billing` still reports 45 files, every chain ending in a legacy
-  adapter: `MaterialHeaderTab`, `ModuleOrgFilter`, `PerOrgPrefixSettings`, `ui/buttons`, `ui/checkbox`, `ui/chips`,
-  `ConfigColorChip`, `DetailCard`, `EntityPageHeader`, `ui/glass`, `ui/patterns`, `SegmentedControl`,
-  `WtColorPicker`, `WtField`, `ConfigPageLayout`, `ConfigSectionCard`, `MaterialTableImpl`, `ui/dates`,
-  `FloatingLabel` — plus one cross-module screen, `tasks/TaskFormDialog`. Billing therefore cannot join
-  `MUI_FREE_ROOTS` yet, and the last step is not an adapter at all: five billing screens sit on `MaterialTable`,
-  whose swap KitMap gates until kit Data Table gains per-column filters, pinning, virtualisation, export and saved
-  column preferences. — Convert the adapters (each is a KitMap row); `src/app/pages/billing` can only join
-  `MUI_FREE_ROOTS` after the Data Table swap, which is last by design.
+- **Billing's own files are kit-only; its dependency GRAPH is not** (2026-11-20; table gate cleared
+  2026-11-26) — every `.tsx` under `src/app/pages/billing` is free of MUI / KTIcon / Metronic imports, and
+  billing tables are on kit `DataTable` (MaterialTable removed). `legacy-ui-reach` still reports chains into
+  legacy adapters (`MaterialHeaderTab`, `ModuleOrgFilter`, `WtField`, `ConfigPageLayout`, …) plus
+  `tasks/TaskFormDialog`. — Convert those adapters (KitMap rows); then billing can join `MUI_FREE_ROOTS`.
 
 - ~~**`BillingLayout` still uses Metronic `PageTitle` and `MaterialHeaderTab`**~~ **Partial (2026-11-26):**
   tab bar → kit `PageTabs`. `PageTitle` kept as app-wide breadcrumb context (same as Reimbursement /
@@ -111,10 +105,9 @@ Format: **what** — evidence (file / screen) — suggested fix.
   `utils/reimbursementFormat.ts` is a hex palette (light-only) used by `PaymentQueueTable`; `BatchWorkflowPanel`
   keeps its own status map (Needs info = cyan "Query"). — Replace both with the tone tokens when the Payment
   tables and the batch panel move to the kit. (found 2026-11-09)
-- **Reimbursement migration — what is still legacy** (tracking, 2026-11-09): the Submission detail modal
-  (MaterialTable + `UnsavedChangesModal`, a `<style>` block, hex backgrounds), the payment history table, the
-  Payment tab's queue/history tables, the admin tables (All Employee, By Project, limits), the module's
-  `MaterialHeaderTab` page tabs.
+- **Reimbursement migration — what is still legacy** (tracking, 2026-11-09; tables cleared 2026-11-26):
+  Submission / payment / admin lists are on kit `DataTable`. Still legacy: Submission detail modal chrome
+  (`UnsavedChangesModal`, `<style>`, hex backgrounds), module `MaterialHeaderTab` page tabs.
 
 - ~~**App content background stays light in dark mode**~~ **Fixed 2026-11-09 (`ae4e95ed`):** dark `.content` now uses the kit `--background` token (src/main.css). Original note — `#kt_content` (`.content`, `$content-background:
   #F6F9FC` in `_metronic/.../layout/_content.scss`) has no dark override, so it shows through wherever a page

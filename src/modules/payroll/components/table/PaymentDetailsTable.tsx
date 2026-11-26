@@ -1,10 +1,10 @@
 import React from 'react';
-import { Badge } from 'react-bootstrap';
 import { KTIcon } from '@metronic/helpers';
 import dayjs from 'dayjs';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { PayrollTableRow } from '../../types/payroll.types';
 import { formatMoneyRounded } from '../../utils/payrollFormatters';
+import { Badge } from '@/ds/ui/badge';
 import { Button as KitButton } from '@/ds/ui/button';
 import { canDelete } from '@utils/can';
 
@@ -35,24 +35,24 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
         const s = status.toLowerCase().trim();
 
         if (s === 'paid extra') {
-            return <Badge bg="light-info" className="text-info fw-bold px-4 py-2">Paid Extra</Badge>;
+            return <Badge variant="info" dot>Paid Extra</Badge>;
         }
         if (s === 'full paid' || s === 'paid') {
-            return <Badge bg="light-success" className="text-success fw-bold px-4 py-2">Full Paid</Badge>;
+            return <Badge variant="success" dot>Full Paid</Badge>;
         }
         if (s === 'partially paid' || s === 'partial') {
-            return <Badge bg="light-warning" className="text-warning fw-bold px-4 py-2">Partially Paid</Badge>;
+            return <Badge variant="warning" dot>Partially Paid</Badge>;
         }
         if (s === 'overdue' || s === 'due' || s === 'pending') {
-            return <Badge bg="light-danger" className="text-danger fw-bold px-4 py-2">Pending</Badge>;
+            return <Badge variant="danger" dot>Pending</Badge>;
         }
         if (s === 'upcoming') {
-            return <Badge bg="light-info" className="text-info fw-bold px-4 py-2">Upcoming</Badge>;
+            return <Badge variant="info" dot>Upcoming</Badge>;
         }
         if (s === 'unpaid') {
-            return <Badge bg="light-danger" className="text-danger fw-bold px-4 py-2">Unpaid</Badge>;
+            return <Badge variant="danger" dot>Unpaid</Badge>;
         }
-        return <Badge bg="light-secondary" className="text-gray-600 fw-bold px-4 py-2">No Payment</Badge>;
+        return <Badge variant="neutral">No Payment</Badge>;
     };
 
     // ── Shared cell content ───────────────────────────────────────────────────
@@ -69,7 +69,7 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
     /** SALARY / ADVANCE / … or, for a government payout, which deduction it was. */
     const typeBadge = (row: PayrollTableRow) => {
         if (row.paymentType !== 'GOVERNMENT') {
-            return <Badge bg="light-info" className="text-info fs-9 py-1 px-2">{row.paymentType}</Badge>;
+            return <Badge variant="info">{row.paymentType}</Badge>;
         }
         const deduction = (row as any).deductionType;
         if (!deduction) return null;
@@ -79,7 +79,7 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
             : ['professional tax', 'ptax', 'prof. tax'].some((k) => value.includes(k))
                 ? 'PTAX'
                 : deduction;
-        return <Badge bg="light-warning" className="text-warning fs-9 py-1 px-2">{short}</Badge>;
+        return <Badge variant="warning">{short}</Badge>;
     };
 
     const methodLabel = (row: PayrollTableRow) =>
@@ -291,7 +291,7 @@ const PaymentDetailsTable: React.FC<PaymentDetailsTableProps> = ({
                                             </div>
                                         </td>
                                         <td className="text-center">
-                                            <Badge bg="light-primary" className="text-primary fw-bold">
+                                            <Badge variant="brand">
                                                 {methodLabel(row)}
                                             </Badge>
                                         </td>

@@ -14,6 +14,7 @@ import { EVENT_KEYS } from '@constants/eventKeys';
 import { getTimeTokens } from '@utils/timeFormat';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { ToneChip } from '@app/modules/common/components/ui';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 
 // Extend dayjs with duration plugin
@@ -383,12 +384,11 @@ const TaskTimesheet: React.FC<TaskTimesheetProps> = ({
                             >
                                 {filter}
                                 {filter !== 'All' && (
-                                    <span className="badge badge-circle badge-light-primary ms-2">
-                                        {filter === 'Billable' 
-                                            ? calculatedSummary.billableLogs 
-                                            : calculatedSummary.nonBillableLogs
-                                        }
-                                    </span>
+                                    <Badge variant="info-solid" className="ms-2">
+                                        {filter === 'Billable'
+                                            ? calculatedSummary.billableLogs
+                                            : calculatedSummary.nonBillableLogs}
+                                    </Badge>
                                 )}
                             </Button>
                         ))}

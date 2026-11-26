@@ -4,6 +4,7 @@ import { BreakdownTableProps } from '../../types/payroll.types';
 import { formatMoneyDecimal, formatValue, sumBreakdownEarnings } from '../../utils/payrollFormatters';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 
 const BreakdownTable: React.FC<BreakdownTableProps> = ({
@@ -113,7 +114,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                             <div className="d-flex align-items-center flex-wrap gap-2" style={{ minWidth: 0 }}>
                                 <span className="text-gray-800 fw-bold fs-7">{row.displayLabel}</span>
                                 {row.meta?.shortCode && (
-                                    <span className="badge badge-light-primary fs-9 fw-bold px-2 py-1">{row.meta.shortCode}</span>
+                                    <Badge variant="info">{row.meta.shortCode}</Badge>
                                 )}
                             </div>
                             <span className={`text-gray-800 fw-bolder fs-7 text-nowrap ${sensitiveCls}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -187,9 +188,9 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                                 </div>
                                             </td>
                                             <td className="text-center">
-                                                <span className={`badge badge-light fw-bold fs-8 ${sensitiveCls}`}>
+                                                <Badge variant="secondary" className={sensitiveCls}>
                                                     {detail}
-                                                </span>
+                                                </Badge>
                                             </td>
                                             <td className="text-center">
                                                 <span className={`text-gray-600 fw-bold fs-7 ${sensitiveCls}`}>
@@ -247,7 +248,7 @@ const BreakdownTable: React.FC<BreakdownTableProps> = ({
                                                     <span className="text-gray-800 fw-bold fs-7">{displayLabel}</span>
                                                 )}
                                                 {meta?.shortCode && (
-                                                    <span className="badge badge-light-primary fs-9 fw-bold px-2 py-1">{meta.shortCode}</span>
+                                                    <Badge variant="info">{meta.shortCode}</Badge>
                                                 )}
                                             </div>
                                         </td>
