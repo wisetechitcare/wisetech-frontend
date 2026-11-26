@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { parseDate, type DateValue } from '@internationalized/date'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, LocateFixed, MapPin } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
@@ -12,7 +12,11 @@ import { Spinner } from '@/ds/ui/spinner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select'
 import { DatePicker } from '@/ds/ui/date-picker'
 import { Label } from '@/ds/ui/label'
+import { Card, CardContent } from '@/ds/ui/card'
 import { Stepper } from '@/ds/patterns/stepper'
+import { DescriptionList } from '@/ds/patterns/description-list'
+import { EmptyState } from '@/ds/patterns/empty-state'
+import { geocodeAddress } from '@services/geocoding'
 import {
   createPlatformTenant,
   platformGeoCities,
@@ -86,10 +90,12 @@ export default function PlatformTenantCreatePage() {
   const [hoName, setHoName] = useState('Head Office')
   const [hoAddress, setHoAddress] = useState('')
   const [postalCode, setPostalCode] = useState('')
-  const [latitude, setLatitude] = useState('18.5204')
-  const [longitude, setLongitude] = useState('73.8567')
+  const [latitude, setLatitude] = useState('')
+  const [longitude, setLongitude] = useState('')
   const [timezone, setTimezone] = useState('Asia/Kolkata')
   const [currency, setCurrency] = useState('INR')
+  const [geoBusy, setGeoBusy] = useState(false)
+  const [geoMessage, setGeoMessage] = useState('')
 
   const [countries, setCountries] = useState<GeoCountry[]>([])
   const [states, setStates] = useState<GeoState[]>([])
@@ -214,13 +220,16 @@ export default function PlatformTenantCreatePage() {
   if (!isAdmin) {
     return (
       <PlatformShell title="Create Tenant" description="Only platform admins can provision tenants.">
-        <Alert variant="warning">
-          <AlertTitle>Admin Required</AlertTitle>
-          <AlertDescription>Ask a KAIZNOVA platform ADMIN to create tenants.</AlertDescription>
-        </Alert>
-        <Button variant="outline" render={<Link to="/platform/tenants" />}>
-          <ArrowLeft aria-hidden /> Back To Tenants
-        </Button>
+        <EmptyState
+          variant="error"
+          title="Admin Required"
+          description="Ask a KAIZNOVA platform ADMIN to create tenants."
+          action={
+            <Button size="sm" variant="outline" render={<Link to="/platform/tenants" />}>
+              <ArrowLeft aria-hidden /> Back To Tenants
+            </Button>
+          }
+        />
       </PlatformShell>
     )
   }
@@ -270,8 +279,21 @@ export default function PlatformTenantCreatePage() {
       return null
     }
     if (step === 1) {
-      if (!hoName.trim() || !countryIso || !stateIso || !cityId || !townId || !postalCode.trim()) {
+      if (
+        !hoName.trim() ||
+        !(hoAddress.trim() || orgAddress.trim()) ||
+        !countryIso ||
+        !stateIso ||
+        !cityId ||
+        !townId ||
+        !postalCode.trim() ||
+        !timezone.trim() ||
+        !currency.trim()
+      ) {
         return 'Complete all head-office location fields.'
+      }
+      if (!latitude.trim() || !longitude.trim()) {
+        return 'Set latitude and longitude — use address lookup or current location.'
       }
       if (!Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
         return 'Latitude and longitude must be numbers.'
@@ -290,6 +312,56 @@ export default function PlatformTenantCreatePage() {
       return null
     }
     return null
+  }
+
+  async function fillCoordinatesFromAddress() {
+    const address = (hoAddress.trim() || orgAddress.trim())
+    if (!address) {
+      setGeoMessage('Type the branch address first (or set the organization address).')
+      return
+    }
+    setGeoBusy(true)
+    setGeoMessage('Looking up the address…')
+    try {
+      const pick = await geocodeAddress(address)
+      if (pick) {
+        setLatitude(String(pick.lat))
+        setLongitude(String(pick.lng))
+        setGeoMessage('Coordinates filled from the address.')
+      } else {
+        setGeoMessage("Couldn't find that address. Check it, or enter the coordinates.")
+      }
+    } finally {
+      setGeoBusy(false)
+    }
+  }
+
+  function detectCurrentLocation() {
+    try {
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (zone) setTimezone(zone)
+    } catch {
+      /* leave timezone alone */
+    }
+    if (!navigator.geolocation) {
+      setGeoMessage("This browser can't share its location.")
+      return
+    }
+    setGeoBusy(true)
+    setGeoMessage('Finding your location…')
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setLatitude(String(coords.latitude))
+        setLongitude(String(coords.longitude))
+        setGeoBusy(false)
+        setGeoMessage('Coordinates set to your current location.')
+      },
+      () => {
+        setGeoBusy(false)
+        setGeoMessage("Couldn't read your location. Allow location access, or enter the coordinates.")
+      },
+      { enableHighAccuracy: true },
+    )
   }
 
   function onNext() {
@@ -351,8 +423,10 @@ export default function PlatformTenantCreatePage() {
         </Alert>
       ) : null}
 
+      <Card variant="panel" className="max-w-2xl">
+        <CardContent className="pt-6">
       <form
-        className="grid max-w-2xl gap-6"
+        className="grid gap-6"
         onSubmit={(e) => {
           e.preventDefault()
           if (step < 3) onNext()
@@ -448,10 +522,15 @@ export default function PlatformTenantCreatePage() {
               <Input
                 id="ho-address"
                 size="lg"
+                aria-required="true"
+                required={!orgAddress.trim()}
                 value={hoAddress}
                 placeholder={orgAddress || undefined}
                 onChange={(e) => setHoAddress(e.target.value)}
               />
+              <FieldDescription>
+                Required (or reuse the organization address). Used for map coordinate lookup.
+              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel id="country-label">Country</FieldLabel>
@@ -466,7 +545,7 @@ export default function PlatformTenantCreatePage() {
                   if (c?.defaultTimezone) setTimezone(c.defaultTimezone)
                 }}
               >
-                <SelectTrigger className="w-full" aria-labelledby="country-label">
+                <SelectTrigger className="w-full" aria-required="true" aria-labelledby="country-label">
                   <SelectValue placeholder="Country" />
                 </SelectTrigger>
                 <SelectContent>
@@ -482,7 +561,7 @@ export default function PlatformTenantCreatePage() {
               <Field>
                 <FieldLabel id="state-label">State</FieldLabel>
                 <Select items={stateItems} value={stateIso || null} onValueChange={(v) => setStateIso(String(v ?? ''))}>
-                  <SelectTrigger className="w-full" aria-labelledby="state-label">
+                  <SelectTrigger className="w-full" aria-required="true" aria-labelledby="state-label">
                     <SelectValue placeholder="State" />
                   </SelectTrigger>
                   <SelectContent>
@@ -497,7 +576,7 @@ export default function PlatformTenantCreatePage() {
               <Field>
                 <FieldLabel id="city-label">City</FieldLabel>
                 <Select items={cityItems} value={cityId || null} onValueChange={(v) => setCityId(String(v ?? ''))}>
-                  <SelectTrigger className="w-full" aria-labelledby="city-label">
+                  <SelectTrigger className="w-full" aria-required="true" aria-labelledby="city-label">
                     <SelectValue placeholder="City" />
                   </SelectTrigger>
                   <SelectContent>
@@ -514,7 +593,7 @@ export default function PlatformTenantCreatePage() {
               <Field>
                 <FieldLabel id="town-label">Town</FieldLabel>
                 <Select items={townItems} value={townId || null} onValueChange={(v) => setTownId(String(v ?? ''))}>
-                  <SelectTrigger className="w-full" aria-labelledby="town-label">
+                  <SelectTrigger className="w-full" aria-required="true" aria-labelledby="town-label">
                     <SelectValue placeholder="Town" />
                   </SelectTrigger>
                   <SelectContent>
@@ -535,7 +614,7 @@ export default function PlatformTenantCreatePage() {
               <Field>
                 <FieldLabel id="tz-label">Timezone</FieldLabel>
                 <Select items={timezoneItems} value={timezone} onValueChange={(v) => setTimezone(String(v ?? ''))}>
-                  <SelectTrigger className="w-full" aria-labelledby="tz-label">
+                  <SelectTrigger className="w-full" aria-required="true" aria-labelledby="tz-label">
                     <SelectValue placeholder="Timezone" />
                   </SelectTrigger>
                   <SelectContent>
@@ -555,13 +634,55 @@ export default function PlatformTenantCreatePage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="lat">Latitude</FieldLabel>
-                <Input id="lat" required value={latitude} onChange={(e) => setLatitude(e.target.value)} />
+                <Input
+                  id="lat"
+                  required
+                  inputMode="decimal"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                />
               </Field>
               <Field>
                 <FieldLabel htmlFor="lng">Longitude</FieldLabel>
-                <Input id="lng" required value={longitude} onChange={(e) => setLongitude(e.target.value)} />
+                <Input
+                  id="lng"
+                  required
+                  inputMode="decimal"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                />
               </Field>
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={geoBusy}
+                onClick={() => void fillCoordinatesFromAddress()}
+              >
+                <MapPin data-icon="inline-start" aria-hidden /> Get Coordinates From Address
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={geoBusy}
+                onClick={detectCurrentLocation}
+              >
+                <LocateFixed data-icon="inline-start" aria-hidden /> Use My Current Location
+              </Button>
+              {geoBusy ? <Spinner className="size-4" aria-hidden /> : null}
+            </div>
+            {geoMessage ? (
+              <p aria-live="polite" className="text-xs text-muted-foreground">
+                {geoMessage}
+              </p>
+            ) : (
+              <FieldDescription>
+                Same helpers as Branches: look up the address, or use the device location (also sets timezone).
+              </FieldDescription>
+            )}
           </FieldGroup>
         ) : null}
 
@@ -621,6 +742,7 @@ export default function PlatformTenantCreatePage() {
               value={dob}
               onChange={(d) => setDob(d)}
               placeholderValue={parseDate('1990-01-01')}
+              description="Open the calendar, then click the month title to jump by month or year."
             />
             <Label className="flex items-center gap-3 font-normal">
               <Checkbox checked={sendMail} onCheckedChange={(v) => setSendMail(v === true)} />
@@ -630,45 +752,34 @@ export default function PlatformTenantCreatePage() {
         ) : null}
 
         {step === 3 ? (
-          <div className="grid gap-3 text-sm">
-            <p>
-              <span className="text-muted-foreground">Organization</span>
-              <br />
-              <span className="font-medium">{orgName}</span>
-            </p>
-            <p>
-              <span className="text-muted-foreground">Plan</span>
-              <br />
-              {selectedPlanName}
-              {' — '}
-              Core
-              {packs.workforce ? ' + Workforce' : ''}
-              {packs.pay ? ' + Pay' : ''}
-              {packs.psa ? ' + PSA' : ''}
-              {packs.talent ? ' + Talent' : ''}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Head Office</span>
-              <br />
-              {hoName} — {cityId}, {stateIso}, {countryIso} ({timezone}, {currency})
-            </p>
-            <p>
-              <span className="text-muted-foreground">Owner</span>
-              <br />
-              {firstName} {lastName} &lt;{workEmailTrimmed}&gt;
-              <br />
-              <span className="text-muted-foreground">
-                Recovery:{' '}
-                {resolvedRecoveryEmail
+          <DescriptionList
+            rows={[
+              { label: 'Organization', value: orgName },
+              {
+                label: 'Plan',
+                value: `${selectedPlanName} — Core${packs.workforce ? ' + Workforce' : ''}${
+                  packs.pay ? ' + Pay' : ''
+                }${packs.psa ? ' + PSA' : ''}${packs.talent ? ' + Talent' : ''}`,
+              },
+              {
+                label: 'Head Office',
+                value: `${hoName} — ${cityId}, ${stateIso}, ${countryIso} (${timezone}, ${currency})`,
+              },
+              {
+                label: 'Owner',
+                value: `${firstName} ${lastName} <${workEmailTrimmed}>`,
+              },
+              {
+                label: 'Recovery',
+                value: resolvedRecoveryEmail
                   ? recoveryUsesWork
                     ? `${resolvedRecoveryEmail} (same as work)`
                     : resolvedRecoveryEmail
-                  : '—'}
-              </span>
-              <br />
-              {sendMail ? 'Setup mail on' : 'No setup mail'}
-            </p>
-          </div>
+                  : '—',
+              },
+              { label: 'Setup mail', value: sendMail ? 'On' : 'Off' },
+            ]}
+          />
         ) : null}
 
         <div className="flex flex-wrap gap-2">
@@ -683,6 +794,8 @@ export default function PlatformTenantCreatePage() {
           </Button>
         </div>
       </form>
+        </CardContent>
+      </Card>
     </PlatformShell>
   )
 }

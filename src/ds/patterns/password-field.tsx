@@ -3,7 +3,6 @@ import { Eye, EyeOff } from "lucide-react"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/ds/ui/input-group"
 import type { InputSize } from "@/ds/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip"
-
 /**
  * A password. The control only — wrap it in `Field` + `FieldLabel` like every field (the label floats).
  *
@@ -14,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip"
  * - **`autoComplete` is required**: `current-password` to sign in, `new-password` when choosing one. Password
  *   managers and the browser's strong-password generator key on it; `off` (what the live screens had) blocks
  *   both and pushes people to weak, reused passwords.
- * - Paste is never blocked.
+ * - Copy / cut / paste are blocked by kit `Input` (`protectClipboard`) — one policy for platform + tenant.
  */
 export function PasswordField({
   id,
@@ -72,6 +71,7 @@ export function PasswordField({
         ref={inputRef}
         name={name}
         type={revealed ? "text" : "password"}
+        protectClipboard
         value={value}
         defaultValue={defaultValue}
         onChange={onChange}

@@ -58,6 +58,16 @@ export default function PlatformResetPasswordPage() {
     <PlatformAuthScreen
       title="Choose A New Password"
       description="After you save, every platform session is signed out. Sign in again with MFA."
+      footer={
+        <Button
+          variant="link"
+          size="sm"
+          className="w-full"
+          render={<Link to="/platform/login" />}
+        >
+          Back To Sign In
+        </Button>
+      }
     >
       {error && (
         <Alert variant="danger" className="mb-6">
@@ -94,9 +104,6 @@ export default function PlatformResetPasswordPage() {
           {busy ? <Spinner data-icon="inline-start" aria-hidden /> : null}
           Save Password
         </Button>
-        <Link to="/platform/login" className="text-center text-sm text-muted-foreground hover:text-foreground">
-          Back To Sign In
-        </Link>
       </form>
     </PlatformAuthScreen>
   )

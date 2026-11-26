@@ -5,6 +5,7 @@ import {
   Navigate,
   Route,
   RouterProvider,
+  useLocation,
 } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { jwtDecode } from 'jwt-decode'
@@ -14,7 +15,7 @@ import { ErrorsPage } from '../modules/errors/ErrorsPage'
 import { Logout, AuthPage, getAuth } from '../modules/auth'
 import { PlatformRoutes } from '../modules/platform/PlatformRoutes'
 import { isPlatformConsoleEnabled } from '../modules/platform/platformConsoleFlag'
-import { resolveAppHostMode } from '../modules/platform/platformHost'
+import { resolveAppHostMode, tenantAppHref } from '../modules/platform/platformHost'
 import { SUPPORT_VIEW_TOKEN_MARKER } from '@services/platformSupport'
 import { bootstrapSupportViewIfNeeded } from '../modules/platform/bootstrapSupportView'
 import GoogleContactsCallback from '@pages/employee/companies/contacts/components/GoogleContactsCallback'
@@ -86,9 +87,31 @@ const RootRedirect: FC = () => {
 }
 
 const AuthRoute: FC = () => {
+  const location = useLocation()
   const hasSession = useHasAuthenticatedSession()
   const supportReady = useSupportViewBootstrap(hasSession)
-  if (resolveAppHostMode() === 'platform') return <Navigate to="/platform/login" replace />
+  if (resolveAppHostMode() === 'platform') {
+    // Owner / employee setup + tenant forgot links must land on the tenant app.
+    // Mis-built emails used platform.kaiznova.com/auth/reset-password — preserve the token.
+    const path = location.pathname
+    const search = location.search
+    if (path === '/auth/reset-password' || path.endsWith('/auth/reset-password')) {
+      const href = tenantAppHref(`/auth/reset-password${search}`)
+      // Absolute tenant origin required — relative /auth on this host loops / drops the token.
+      if (href.startsWith('http')) {
+        window.location.replace(href)
+        return <SupportProbeSpinner />
+      }
+    }
+    if (path === '/auth/forgot-password' || path.endsWith('/auth/forgot-password')) {
+      const href = tenantAppHref(`/auth/forgot-password${search}`)
+      if (href.startsWith('http')) {
+        window.location.replace(href)
+        return <SupportProbeSpinner />
+      }
+    }
+    return <Navigate to="/platform/login" replace />
+  }
   if (hasSession || supportReady === true) return <Navigate to="/dashboard" replace />
   if (supportReady === null) return <SupportProbeSpinner />
   return <AuthPage />

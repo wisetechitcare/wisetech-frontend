@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/ds/ui/button'
+import { Badge } from '@/ds/ui/badge'
 import {
   endActiveSupportSessionFromBanner,
   fetchActiveSupportSession,
@@ -60,14 +61,24 @@ export function PlatformSupportBanner() {
   return (
     <div
       role="status"
-      className="sticky top-0 z-[100] flex flex-wrap items-center justify-between gap-3 border-b border-warning-foreground/20 bg-warning-soft px-4 py-2 text-sm text-warning-foreground"
+      className="sticky top-0 z-[100] flex flex-wrap items-center justify-between gap-3 border-b border-warning-foreground/20 bg-warning-soft px-4 py-2.5 text-sm text-warning-foreground"
     >
-      <p className="min-w-0 font-medium">
-        {PLATFORM_CONSOLE_BRAND} Support viewing as {name}
-        {session.breakGlass ? ' (break-glass)' : ''}
-        {session.accessMode === 'READ_WRITE' ? ' · read-write' : ' · read-only'}
-        {left ? ` — ends ${left}` : ''}
-      </p>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <p className="min-w-0 font-medium">
+          {PLATFORM_CONSOLE_BRAND} Support viewing as {name}
+        </p>
+        {session.breakGlass ? (
+          <Badge variant="danger" dot>
+            Break-glass
+          </Badge>
+        ) : null}
+        <Badge variant={session.accessMode === 'READ_WRITE' ? 'warning' : 'neutral'} dot>
+          {session.accessMode === 'READ_WRITE' ? 'Read-write' : 'Read-only'}
+        </Badge>
+        {left ? (
+          <span className="tabular text-warning-foreground/80">Ends {left}</span>
+        ) : null}
+      </div>
       <Button
         type="button"
         size="sm"

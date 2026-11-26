@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/ds/ui/button'
-import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
 import { PasswordField } from '@/ds/patterns/password-field'
@@ -14,6 +14,7 @@ import {
   type PlatformLoginStep,
 } from '@services/platformAuth'
 import { PlatformAuthScreen } from './PlatformAuthScreen'
+import { PlatformMfaEnrollForm } from './PlatformMfaEnrollForm'
 import { usePlatformSession } from './PlatformSessionContext'
 
 type Phase = 'password' | PlatformLoginStep | 'awaiting_next' | 'recovery'
@@ -89,13 +90,12 @@ export default function PlatformLoginPage() {
     }
   }
 
-  async function onEnrollConfirm(e: FormEvent) {
-    e.preventDefault()
+  async function onEnrollConfirm(entered: string) {
     setError(null)
     setBusy(true)
     try {
       if (phase === 'awaiting_next') {
-        const result = await platformMfaEnrollConfirm('', code.trim())
+        const result = await platformMfaEnrollConfirm('', entered)
         if ('stage' in result && result.stage === 'awaiting_next') {
           setError('Enter the next code from your authenticator.')
           return
@@ -109,7 +109,6 @@ export default function PlatformLoginPage() {
             platformRole: result.platformRole,
           })
           setPhase('recovery')
-          setCode('')
           return
         }
         setUser(result as { id: string; email: string; displayName: string; platformRole: string })
@@ -117,10 +116,9 @@ export default function PlatformLoginPage() {
         return
       }
 
-      const result = await platformMfaEnrollConfirm(code.trim())
+      const result = await platformMfaEnrollConfirm(entered)
       if ('stage' in result && result.stage === 'awaiting_next') {
         setPhase('awaiting_next')
-        setCode('')
         return
       }
       if ('recoveryCodes' in result && result.recoveryCodes?.length) {
@@ -132,7 +130,6 @@ export default function PlatformLoginPage() {
           platformRole: result.platformRole,
         })
         setPhase('recovery')
-        setCode('')
         return
       }
       setUser(result as { id: string; email: string; displayName: string; platformRole: string })
@@ -180,12 +177,12 @@ export default function PlatformLoginPage() {
     phase === 'password'
       ? 'KAIZNOVA operators only. Use your platform email.'
       : phase === 'enroll'
-        ? 'Scan the QR code, then enter the current 6-digit code.'
+        ? 'Scan the QR code, then verify two consecutive authenticator codes.'
         : phase === 'awaiting_next'
           ? 'Wait for your authenticator to refresh, then enter the next code.'
           : phase === 'recovery'
-            ? 'Store these codes somewhere safe. They are shown only once.'
-            : 'Enter the 6-digit code from your authenticator app, or a recovery code (recovery clears MFA and requires a new authenticator).'
+            ? 'Store these codes somewhere safe. They are shown only once — we cannot show them again.'
+            : 'Enter the 6-digit code from your authenticator app.'
 
   return (
     <PlatformAuthScreen title={title} description={description}>
@@ -225,9 +222,14 @@ export default function PlatformLoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
               <p className="mt-2 text-sm">
-                <Link to="/platform/forgot-password" className="text-primary underline-offset-4 hover:underline">
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto px-0"
+                  render={<Link to="/platform/forgot-password" />}
+                >
                   Forgot password?
-                </Link>
+                </Button>
               </p>
             </Field>
           </FieldGroup>
@@ -239,37 +241,21 @@ export default function PlatformLoginPage() {
       )}
 
       {(phase === 'enroll' || phase === 'awaiting_next') && (
-        <form className="grid gap-6" onSubmit={onEnrollConfirm} noValidate>
-          {phase === 'enroll' && qrDataUrl && (
-            <div className="flex flex-col items-center gap-3">
-              <img src={qrDataUrl} alt="Authenticator QR code" className="size-[220px] rounded-md border border-border" />
-              {manualSecret && (
-                <p className="text-center text-sm text-muted-foreground">
-                  Or enter this key manually:{' '}
-                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">{manualSecret}</code>
-                </p>
-              )}
-            </div>
-          )}
-          <Field>
-            <FieldLabel htmlFor="platform-enroll-code">
-              {phase === 'awaiting_next' ? 'Next Authenticator Code' : 'Authenticator Code'}
-            </FieldLabel>
-            <Input
-              id="platform-enroll-code"
-              size="lg"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              required
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-          </Field>
-          <Button type="submit" size="lg" className="w-full" disabled={busy}>
-            {busy ? <Spinner data-icon="inline-start" aria-hidden /> : null}
-            {phase === 'awaiting_next' ? 'Confirm And Finish' : 'Continue'}
-          </Button>
-        </form>
+        <PlatformMfaEnrollForm
+          stage={phase}
+          qrDataUrl={qrDataUrl}
+          manualSecret={manualSecret}
+          busy={busy}
+          onConfirm={onEnrollConfirm}
+          onBackToFirst={
+            phase === 'awaiting_next'
+              ? () => {
+                  setError(null)
+                  setPhase('enroll')
+                }
+              : undefined
+          }
+        />
       )}
 
       {phase === 'recovery' && (
@@ -277,7 +263,8 @@ export default function PlatformLoginPage() {
           <Alert>
             <AlertTitle>Shown Once</AlertTitle>
             <AlertDescription>
-              Copy or download these codes before continuing. Each code signs you in once if you lose your authenticator.
+              Copy these now. If you lose your authenticator, one unused code gets you back in and forces a new
+              authenticator setup. They are not stored in clear text — we cannot resend them later.
             </AlertDescription>
           </Alert>
           <ul className="grid gap-2 rounded-md border border-border bg-muted/40 p-4 font-mono text-sm">
@@ -308,7 +295,7 @@ export default function PlatformLoginPage() {
       {phase === 'mfa' && (
         <form className="grid gap-6" onSubmit={onMfa} noValidate>
           <Field>
-            <FieldLabel htmlFor="platform-mfa-code">Authenticator Code</FieldLabel>
+            <FieldLabel htmlFor="platform-mfa-code">Authenticator Or Recovery Code</FieldLabel>
             <Input
               id="platform-mfa-code"
               size="lg"
@@ -317,6 +304,11 @@ export default function PlatformLoginPage() {
               value={code}
               onChange={(e) => setCode(e.target.value)}
             />
+            <FieldDescription>
+              Recovery codes were shown once when you enrolled MFA (saved offline / password manager). Using one
+              clears MFA and requires a new authenticator. Lost both phone and codes? Ask a platform ADMIN to use
+              Reset Authenticator on Operators.
+            </FieldDescription>
           </Field>
           <Button type="submit" size="lg" className="w-full" disabled={busy}>
             {busy ? <Spinner data-icon="inline-start" aria-hidden /> : null}

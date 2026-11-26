@@ -217,13 +217,15 @@ function CalendarInner({
 
   return (
     <div className="relative flex flex-col gap-4 md:flex-row">
-      <div className="absolute inset-x-0 top-0 z-10 flex w-full items-center justify-between gap-1">
+      {/* pointer-events-none on the strip so the month/year title underneath stays clickable (Storybook
+          MonthYearJump). Only the chevrons capture clicks. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex w-full items-center justify-between gap-1">
         {view === "days" ? (
           <>
-            <Button slot="previous" data-slot="calendar-previous" className={navButtonClassName}>
+            <Button slot="previous" data-slot="calendar-previous" className={cn(navButtonClassName, "pointer-events-auto")}>
               <ChevronLeftIcon className="size-4" />
             </Button>
-            <Button slot="next" data-slot="calendar-next" className={navButtonClassName}>
+            <Button slot="next" data-slot="calendar-next" className={cn(navButtonClassName, "pointer-events-auto")}>
               <ChevronRightIcon className="size-4" />
             </Button>
           </>
@@ -235,7 +237,7 @@ function CalendarInner({
               slot={null}
               data-slot="calendar-previous"
               aria-label={view === "months" ? "Previous year" : "Previous years"}
-              className={navButtonClassName}
+              className={cn(navButtonClassName, "pointer-events-auto")}
               onPress={() => goTo({ year: focused.year - (view === "months" ? 1 : 12) })}
             >
               <ChevronLeftIcon className="size-4" />
@@ -244,7 +246,7 @@ function CalendarInner({
               slot={null}
               data-slot="calendar-next"
               aria-label={view === "months" ? "Next year" : "Next years"}
-              className={navButtonClassName}
+              className={cn(navButtonClassName, "pointer-events-auto")}
               onPress={() => goTo({ year: focused.year + (view === "months" ? 1 : 12) })}
             >
               <ChevronRightIcon className="size-4" />

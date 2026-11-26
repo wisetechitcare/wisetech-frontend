@@ -1,251 +1,197 @@
-
-import React, {useEffect, useState} from 'react'
-import * as Yup from 'yup'
-import {useFormik} from 'formik'
-import {IUpdatePassword, updatePassword} from '../SettingsModel'
-import {fetchEmployeeProfileData} from '@services/employee'
-import {useDispatch, useSelector} from 'react-redux'
-import {RootState} from '@redux/store'
-import {changePassword} from '@services/auth'
-import {errorConfirmation} from '@utils/modal'
-import {removeAuth} from '@app/modules/auth'
-import {logoutUser} from '@redux/slices/auth'
-import {useNavigate} from 'react-router-dom'
-import { Button } from '@/ds/ui/button';
-
-const passwordFormValidationSchema = Yup.object().shape({
-  currentPassword: Yup.string()
-    .min(3, 'Minimum 3 symbols')
-    .max(50, 'Maximum 50 symbols')
-    .required('Current password is required'),
-  newPassword: Yup.string()
-    .min(3, 'Minimum 3 symbols')
-    .max(50, 'Maximum 50 symbols')
-    .required('New password is required'),
-  passwordConfirmation: Yup.string()
-    .min(3, 'Minimum 3 symbols')
-    .max(50, 'Maximum 50 symbols')
-    .required('Confirm password is required')
-    .oneOf([Yup.ref('newPassword')], 'Passwords must match'),
-})
+import { FormEvent, useEffect, useState } from 'react'
+import { KeyRound } from 'lucide-react'
+import { useDispatch, useSelector } from 'react-redux'
+import { useNavigate } from 'react-router-dom'
+import { RootState } from '@redux/store'
+import { fetchEmployeeProfileData } from '@services/employee'
+import { changePassword } from '@services/auth'
+import { removeAuth } from '@app/modules/auth'
+import { logoutUser } from '@redux/slices/auth'
+import { errorConfirmation } from '@utils/modal'
+import { Button } from '@/ds/ui/button'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field'
+import { PasswordField } from '@/ds/patterns/password-field'
+import { FormDialog } from '@/ds/patterns/form-dialog'
+import { SettingsRow, SettingsSection } from '@/ds/patterns/settings-section'
 
 const SignInMethod: React.FC = () => {
-  const [passwordUpdateData, setPasswordUpdateData] = useState<IUpdatePassword>(updatePassword)
-  const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const [profileData, setProfileData] = useState();
-  const profile = profileData as any;
-  const [showPasswordForm, setPasswordForm] = useState<boolean>(false)
+  const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id)
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
 
-  const [loading2, setLoading2] = useState(false)
+  const [companyEmail, setCompanyEmail] = useState<string | null>(null)
+  const [loadingProfile, setLoadingProfile] = useState(true)
 
-  const formik2 = useFormik<IUpdatePassword>({
-    initialValues: {
-      ...passwordUpdateData,
-    },
-    validationSchema: passwordFormValidationSchema,
-    onSubmit: async (values) => {
-      setLoading2(true);
-      setPasswordUpdateData(values);
-      try {
-        await changePassword(employeeId, values);
-        setLoading2(false);
-        setPasswordForm(false);
-        removeAuth();
-        dispatch(logoutUser())
-        navigate('/auth')
-        location.reload()
-      }
-      catch (err) {
-        errorConfirmation("Failure in updating the password");
-        setLoading2(false);
-        setPasswordForm(false);
-      }
-    },
-  })
+  const [pwOpen, setPwOpen] = useState(false)
+  const [pwBusy, setPwBusy] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<{
+    currentPassword?: string
+    newPassword?: string
+    passwordConfirmation?: string
+  }>({})
 
   useEffect(() => {
-    if(!employeeId) return;
-
-    async function fetchProfileData() {
-      const { data: { employeeProfile } } = await fetchEmployeeProfileData(employeeId)
-      setProfileData(employeeProfile)
+    if (!employeeId) {
+      setLoadingProfile(false)
+      return
     }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const {
+          data: { employeeProfile },
+        } = await fetchEmployeeProfileData(employeeId)
+        if (!cancelled) {
+          setCompanyEmail(
+            typeof employeeProfile?.companyEmailId === 'string' ? employeeProfile.companyEmailId : null,
+          )
+        }
+      } catch {
+        if (!cancelled) setCompanyEmail(null)
+      } finally {
+        if (!cancelled) setLoadingProfile(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [employeeId])
 
-    fetchProfileData();
-  }, [employeeId]);
+  function resetPasswordForm() {
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setFieldErrors({})
+  }
 
-  if (!profile) return;
+  function validate(): boolean {
+    const next: typeof fieldErrors = {}
+    if (!currentPassword.trim()) next.currentPassword = 'Current password is required'
+    if (!newPassword.trim()) next.newPassword = 'New password is required'
+    else if (newPassword.length < 8) next.newPassword = 'Password must be at least 8 characters'
+    if (!confirmPassword.trim()) next.passwordConfirmation = 'Confirm password is required'
+    else if (confirmPassword !== newPassword) next.passwordConfirmation = 'Passwords must match'
+    setFieldErrors(next)
+    return Object.keys(next).length === 0
+  }
+
+  async function onChangePassword(e: FormEvent) {
+    e.preventDefault()
+    if (!employeeId || !validate()) return
+    setPwBusy(true)
+    try {
+      await changePassword(employeeId, {
+        currentPassword,
+        newPassword,
+        passwordConfirmation: confirmPassword,
+      })
+      setPwOpen(false)
+      resetPasswordForm()
+      removeAuth()
+      dispatch(logoutUser())
+      navigate('/auth')
+      location.reload()
+    } catch {
+      errorConfirmation('Failure in updating the password')
+    } finally {
+      setPwBusy(false)
+    }
+  }
 
   return (
-    <div className='card mb-5 mb-xl-10'>
-      <div data-wt-control="accordion"
-        className='card-header border-0 cursor-pointer'
-        role='button'
-        data-bs-toggle='collapse'
-        data-bs-target='#kt_account_signin_method'
+    <>
+      <SettingsSection
+        title="Sign-In Method"
+        description="Work email and password for this account."
+        icon={<KeyRound aria-hidden />}
+        loading={loadingProfile}
+        className="mb-5"
       >
-        <div className='card-title m-0'>
-          <h3 className='fw-bolder m-0'>Sign-in Method</h3>
-        </div>
-      </div>
+        <SettingsRow
+          label="Email Address"
+          description="Work email used to sign in. Managed on the employee profile."
+          control={
+            <p className="text-sm font-medium text-foreground sm:text-right">
+              {companyEmail ?? '—'}
+            </p>
+          }
+        />
+        <SettingsRow
+          label="Password"
+          description="You will be signed out of every session after saving."
+          control={
+            <Button type="button" variant="outline" size="sm" onClick={() => setPwOpen(true)}>
+              Change Password
+            </Button>
+          }
+        />
+      </SettingsSection>
 
-      <div id='kt_account_signin_method' className='collapse show'>
-        <div className='card-body border-top p-9'>
-          <div className='d-flex flex-wrap align-items-center'>
-            <div id='kt_signin_email'>
-              <div className='fs-6 fw-bolder mb-1'>Email Address</div>
-              <div className='fw-bold text-black-600'>{profile.companyEmailId}</div>
-            </div>
-          </div>
-
-          <div className='separator separator-dashed my-6'></div>
-
-          <div className='d-flex flex-wrap align-items-center mb-10'>
-            <div id='kt_signin_password' className={' ' + (showPasswordForm && 'd-none')}>
-              <div className='fs-6 fw-bolder mb-1'>Password</div>
-              <div className='fw-bold text-gray-600'>************</div>
-            </div>
-
-            <div
-              id='kt_signin_password_edit'
-              className={'flex-row-fluid ' + (!showPasswordForm && 'd-none')}
-            >
-              <form
-                onSubmit={formik2.handleSubmit}
-                id='kt_signin_change_password'
-                className='form'
-                noValidate
-              >
-                <div className='row mb-1'>
-                  <div className='col-lg-4'>
-                    <div className='fv-row mb-0'>
-                      <label htmlFor='currentpassword' className='form-label fs-6 fw-bolder mb-3'>
-                        Current Password
-                      </label>
-                      <input
-                        type='password'
-                        className='form-control form-control-lg form-control-solid '
-                        id='currentpassword'
-                        {...formik2.getFieldProps('currentPassword')}
-                      />
-                      {formik2.touched.currentPassword && formik2.errors.currentPassword && (
-                        <div className='fv-plugins-message-container'>
-                          <div className='fv-help-block'>{formik2.errors.currentPassword}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className='col-lg-4'>
-                    <div className='fv-row mb-0'>
-                      <label htmlFor='newpassword' className='form-label fs-6 fw-bolder mb-3'>
-                        New Password
-                      </label>
-                      <input
-                        type='password'
-                        className='form-control form-control-lg form-control-solid '
-                        id='newpassword'
-                        {...formik2.getFieldProps('newPassword')}
-                      />
-                      {formik2.touched.newPassword && formik2.errors.newPassword && (
-                        <div className='fv-plugins-message-container'>
-                          <div className='fv-help-block'>{formik2.errors.newPassword}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className='col-lg-4'>
-                    <div className='fv-row mb-0'>
-                      <label htmlFor='confirmpassword' className='form-label fs-6 fw-bolder mb-3'>
-                        Confirm New Password
-                      </label>
-                      <input
-                        type='password'
-                        className='form-control form-control-lg form-control-solid '
-                        id='confirmpassword'
-                        {...formik2.getFieldProps('passwordConfirmation')}
-                      />
-                      {formik2.touched.passwordConfirmation && formik2.errors.passwordConfirmation && (
-                        <div className='fv-plugins-message-container'>
-                          <div className='fv-help-block'>{formik2.errors.passwordConfirmation}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className='form-text mb-5'>
-                  Password must be at least 8 character and contain symbols
-                </div>
-
-                <div className='d-flex'>
-                  <Button
-                    id='kt_password_submit'
-                    type='submit'
-                    className="me-2"
-                  >
-                    {!loading2 && 'Update Password'}
-                    {loading2 && (
-                      <span className='indicator-progress' style={{ display: 'block' }}>
-                        Please wait...{' '}
-                        <span className='spinner-border spinner-border-sm align-middle ms-2'></span>
-                      </span>
-                    )}
-                  </Button>
-                  <Button variant="ghost"
-                    onClick={() => {
-                      setPasswordForm(false)
-                    }}
-                    id='kt_password_cancel'
-                    type='button'
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </div>
-
-            <div
-              id='kt_signin_password_button'
-              className={'ms-auto ' + (showPasswordForm && 'd-none')}
-            >
-              <Button variant="outline" type="submit"
-                onClick={() => {
-                  setPasswordForm(true)
-                }}
-              >
-                Reset Password
-              </Button>
-            </div>
-          </div>
-
-          {/* <div className='notice d-flex bg-light-primary rounded border-primary border border-dashed p-6'>
-            <KTIcon iconName='shield-tick' className='fs-2tx text-primary me-4' />
-            <div className='d-flex flex-stack flex-grow-1 flex-wrap flex-md-nowrap'>
-              <div className='mb-3 mb-md-0 fw-bold'>
-                <h4 className='text-gray-800 fw-bolder'>Secure Your Account</h4>
-                <div className='fs-6 text-gray-600 pe-7'>
-                  Two-factor authentication adds an extra layer of security to your account. To log
-                  in, in addition you'll need to provide a 6 digit code
-                </div>
-              </div>
-              <a
-                href='#'
-                className='btn btn-primary px-6 align-self-center text-nowrap'
-                data-bs-toggle='modal'
-                data-bs-target='#kt_modal_two_factor_authentication'
-              >
-                Enable
-              </a>
-            </div>
-          </div> */}
-        </div>
-      </div>
-    </div>
+      <FormDialog
+        open={pwOpen}
+        onOpenChange={(open) => {
+          setPwOpen(open)
+          if (!open) resetPasswordForm()
+        }}
+        title="Change Password"
+        description="You will be signed out of every session after saving."
+        icon={<KeyRound aria-hidden />}
+        formId="account-change-password"
+        submitLabel="Update Password"
+        submitting={pwBusy}
+        dirty={Boolean(currentPassword || newPassword || confirmPassword)}
+      >
+        <form id="account-change-password" className="grid gap-5 p-6" onSubmit={onChangePassword} noValidate>
+          <FieldGroup className="gap-4">
+            <Field data-invalid={fieldErrors.currentPassword ? true : undefined}>
+              <FieldLabel htmlFor="account-current-password">Current Password</FieldLabel>
+              <PasswordField
+                id="account-current-password"
+                autoComplete="current-password"
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                invalid={Boolean(fieldErrors.currentPassword)}
+              />
+              {fieldErrors.currentPassword ? <FieldError>{fieldErrors.currentPassword}</FieldError> : null}
+            </Field>
+            <Field data-invalid={fieldErrors.newPassword ? true : undefined}>
+              <FieldLabel htmlFor="account-new-password">New Password</FieldLabel>
+              <PasswordField
+                id="account-new-password"
+                autoComplete="new-password"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                invalid={Boolean(fieldErrors.newPassword)}
+              />
+              {fieldErrors.newPassword ? <FieldError>{fieldErrors.newPassword}</FieldError> : null}
+            </Field>
+            <Field data-invalid={fieldErrors.passwordConfirmation ? true : undefined}>
+              <FieldLabel htmlFor="account-confirm-password">Confirm New Password</FieldLabel>
+              <PasswordField
+                id="account-confirm-password"
+                autoComplete="new-password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                invalid={Boolean(fieldErrors.passwordConfirmation)}
+              />
+              {fieldErrors.passwordConfirmation ? (
+                <FieldError>{fieldErrors.passwordConfirmation}</FieldError>
+              ) : null}
+            </Field>
+          </FieldGroup>
+          <p className="text-sm text-muted-foreground">
+            Password must be at least 8 characters and contain symbols.
+          </p>
+        </form>
+      </FormDialog>
+    </>
   )
 }
 
-export {SignInMethod}
+export { SignInMethod }

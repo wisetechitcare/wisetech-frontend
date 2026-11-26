@@ -53,6 +53,11 @@ export interface DataTableColumnMeta<TData = any> {
    * shows inside another cell (an employee code under the name) that a spreadsheet still wants as its own column.
    */
   exportOnly?: boolean
+  /**
+   * When fixed layout is on, cells wrap by default so longer values stay visible. Set `false` for dates, IDs,
+   * counts, and other tokens that must stay on one line (pair with `size` / `minSize` so the column is wide enough).
+   */
+  wrap?: boolean
 }
 
 /**

@@ -2,7 +2,6 @@ import { FormEvent, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/ds/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
-import { Input } from '@/ds/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
 import { PasswordField } from '@/ds/patterns/password-field'
 import { Spinner } from '@/ds/ui/spinner'
@@ -12,6 +11,7 @@ import {
   platformMfaEnrollStart,
 } from '@services/platformAuth'
 import { PlatformAuthScreen } from './PlatformAuthScreen'
+import { PlatformMfaEnrollForm } from './PlatformMfaEnrollForm'
 import { usePlatformSession } from './PlatformSessionContext'
 
 function errMessage(err: unknown): string {
@@ -36,7 +36,6 @@ export default function PlatformAcceptPage() {
   const [phase, setPhase] = useState<Phase>('password')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [code, setCode] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [manualSecret, setManualSecret] = useState<string | null>(null)
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
@@ -74,16 +73,14 @@ export default function PlatformAcceptPage() {
     }
   }
 
-  async function onEnroll(e: FormEvent) {
-    e.preventDefault()
+  async function onEnroll(entered: string) {
     setError(null)
     setBusy(true)
     try {
-      const first = phase === 'awaiting_next'
-      const result = await platformMfaEnrollConfirm(first ? '' : code.trim(), first ? code.trim() : undefined)
+      const isNext = phase === 'awaiting_next'
+      const result = await platformMfaEnrollConfirm(isNext ? '' : entered, isNext ? entered : undefined)
       if ('stage' in result && result.stage === 'awaiting_next') {
         setPhase('awaiting_next')
-        setCode('')
         return
       }
       if ('recoveryCodes' in result && result.recoveryCodes?.length) {
@@ -95,7 +92,6 @@ export default function PlatformAcceptPage() {
           platformRole: result.platformRole,
         })
         setPhase('recovery')
-        setCode('')
         return
       }
       setUser(result as { id: string; email: string; displayName: string; platformRole: string })
@@ -120,7 +116,7 @@ export default function PlatformAcceptPage() {
         ? 'Wait for your authenticator to refresh, then enter the next code.'
         : phase === 'recovery'
           ? 'Store these codes somewhere safe. They are shown only once.'
-          : 'Scan the QR code, then enter the current 6-digit code.'
+          : 'Scan the QR code, then verify two consecutive authenticator codes.'
 
   return (
     <PlatformAuthScreen title={title} description={description}>
@@ -174,37 +170,21 @@ export default function PlatformAcceptPage() {
       ) : null}
 
       {(phase === 'enroll' || phase === 'awaiting_next') && (
-        <form className="grid gap-6" onSubmit={onEnroll} noValidate>
-          {phase === 'enroll' && qrDataUrl ? (
-            <div className="flex flex-col items-center gap-3">
-              <img src={qrDataUrl} alt="Authenticator QR code" className="size-[220px] rounded-md border border-border" />
-              {manualSecret ? (
-                <p className="text-center text-sm text-muted-foreground">
-                  Or enter this key manually:{' '}
-                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">{manualSecret}</code>
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          <Field>
-            <FieldLabel htmlFor="accept-enroll-code">
-              {phase === 'awaiting_next' ? 'Next Authenticator Code' : 'Authenticator Code'}
-            </FieldLabel>
-            <Input
-              id="accept-enroll-code"
-              size="lg"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              required
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-          </Field>
-          <Button type="submit" size="lg" className="w-full" disabled={busy}>
-            {busy ? <Spinner data-icon="inline-start" aria-hidden /> : null}
-            {phase === 'awaiting_next' ? 'Confirm And Finish' : 'Continue'}
-          </Button>
-        </form>
+        <PlatformMfaEnrollForm
+          stage={phase}
+          qrDataUrl={qrDataUrl}
+          manualSecret={manualSecret}
+          busy={busy}
+          onConfirm={onEnroll}
+          onBackToFirst={
+            phase === 'awaiting_next'
+              ? () => {
+                  setError(null)
+                  setPhase('enroll')
+                }
+              : undefined
+          }
+        />
       )}
 
       {phase === 'recovery' && (

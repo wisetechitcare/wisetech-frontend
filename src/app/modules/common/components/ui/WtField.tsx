@@ -689,7 +689,15 @@ export const WtField: React.FC<WtFieldProps> = ({
                         fullWidth
                         error={invalid}
                         InputProps={{ readOnly, startAdornment, endAdornment: clearButton }}
-                        inputProps={{ inputMode, min, max, maxLength, step, 'aria-label': label ? undefined : ariaLabel, 'aria-describedby': message ? messageId : undefined }}
+                        inputProps={{
+                            inputMode,
+                            min,
+                            max,
+                            maxLength,
+                            step,
+                            'aria-label': label ? undefined : ariaLabel,
+                            'aria-describedby': message ? messageId : undefined,
+                        }}
                         sx={controlSx(activeTone, invalid, size, false, !multiline)}
                     />
                 )}

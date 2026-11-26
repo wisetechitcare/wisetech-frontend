@@ -8,7 +8,7 @@ import { PasswordField } from './password-field'
 /**
  * A password: floating label (via Field), reveal toggle with a tooltip, Caps Lock notice.
  * `autoComplete` is required — `current-password` to sign in, `new-password` when choosing one —
- * so password managers and the browser's generator work. Paste is never blocked.
+ * so password managers and the browser's generator work. Copy, cut, and paste are always blocked.
  */
 const meta = {
   title: 'Patterns/Password Field',
@@ -116,6 +116,22 @@ export const CapsLock: Story = {
     key('b', false)
     await waitFor(() => expect(canvas.queryByRole('status')).toBeNull())
     await expect(input.getAttribute('aria-describedby') ?? '').not.toContain('caps')
+  },
+}
+
+/** Copy, cut, and paste are blocked — typing (and password-manager autofill) still work. */
+export const NoClipboard: Story = {
+  play: async ({ canvas }) => {
+    const input = canvas.getByLabelText('Password') as HTMLInputElement
+    await userEvent.click(input)
+    await userEvent.type(input, 'TypedOnly')
+    await expect(input.value).toBe('TypedOnly')
+    const paste = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: new DataTransfer() })
+    paste.clipboardData?.setData('text/plain', 'PastedSecret')
+    await expect(input.dispatchEvent(paste)).toBe(false)
+    await expect(input.value).toBe('TypedOnly')
+    const copy = new ClipboardEvent('copy', { bubbles: true, cancelable: true })
+    await expect(input.dispatchEvent(copy)).toBe(false)
   },
 }
 

@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Headset, Plus, ShieldAlert } from 'lucide-react'
+import { Headset, MoreHorizontal, Plus, ShieldAlert } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { Badge } from '@/ds/ui/badge'
 import { Input } from '@/ds/ui/input'
@@ -12,10 +12,18 @@ import { Spinner } from '@/ds/ui/spinner'
 import { Checkbox } from '@/ds/ui/checkbox'
 import { Label } from '@/ds/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/ds/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip'
 import { EmptyState } from '@/ds/patterns/empty-state'
 import { DataTable, type ColumnDef } from '@/ds/patterns/data-table'
 import { ConfirmDialog } from '@/ds/patterns/confirm-dialog'
 import { FormDialog } from '@/ds/patterns/form-dialog'
+import { formatDateTime } from '@utils/dateFormats'
 import { listPlatformTenants, type PlatformTenant } from '@services/platformTenants'
 import {
   activatePlatformSupportSession,
@@ -53,13 +61,18 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral
   CANCELLED: 'neutral',
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Pending',
+  APPROVED: 'Approved',
+  ACTIVE: 'Active',
+  REJECTED: 'Rejected',
+  ENDED: 'Ended',
+  EXPIRED: 'Expired',
+  CANCELLED: 'Cancelled',
+}
+
 function formatWhen(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    return new Date(iso).toLocaleString()
-  } catch {
-    return iso
-  }
+  return formatDateTime(iso)
 }
 
 export default function PlatformSupportPage() {
@@ -222,6 +235,8 @@ export default function PlatformSupportPage() {
         id: 'tenant',
         meta: { label: 'Tenant' },
         header: 'Tenant',
+        size: 260,
+        minSize: 180,
         cell: ({ row }) => (
           <div className="min-w-0">
             <div className="truncate font-medium text-foreground">
@@ -233,12 +248,14 @@ export default function PlatformSupportPage() {
       },
       {
         accessorKey: 'status',
-        meta: { label: 'Status' },
+        meta: { label: 'Status', wrap: false },
         header: 'Status',
+        size: 220,
+        minSize: 180,
         cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-nowrap items-center gap-1">
             <Badge variant={STATUS_VARIANT[row.original.status] ?? 'neutral'} dot>
-              {row.original.status}
+              {STATUS_LABEL[row.original.status] ?? row.original.status}
             </Badge>
             {row.original.breakGlass ? (
               <Badge variant="danger" dot>
@@ -255,55 +272,82 @@ export default function PlatformSupportPage() {
       },
       {
         accessorKey: 'durationMinutes',
-        meta: { label: 'Duration' },
+        meta: { label: 'Duration', wrap: false, exportType: 'number' },
         header: 'Duration',
-        cell: ({ getValue }) => <span className="tabular">{String(getValue())} min</span>,
+        size: 100,
+        minSize: 96,
+        cell: ({ getValue }) => (
+          <span className="block text-right tabular">{String(getValue())} min</span>
+        ),
       },
       {
         accessorKey: 'expiresAt',
-        meta: { label: 'Expires' },
+        meta: { label: 'Expires', wrap: false },
         header: 'Expires',
+        size: 176,
+        minSize: 168,
         cell: ({ row }) => (
-          <span className="tabular text-muted-foreground">{formatWhen(row.original.expiresAt)}</span>
+          <span className="block text-right tabular text-muted-foreground">
+            {formatWhen(row.original.expiresAt)}
+          </span>
         ),
       },
       {
         accessorKey: 'createdAt',
-        meta: { label: 'Created' },
+        meta: { label: 'Created', wrap: false },
         header: 'Created',
+        size: 176,
+        minSize: 168,
         cell: ({ row }) => (
-          <span className="tabular text-muted-foreground">{formatWhen(row.original.createdAt)}</span>
+          <span className="block text-right tabular text-muted-foreground">
+            {formatWhen(row.original.createdAt)}
+          </span>
         ),
       },
       {
         id: 'actions',
         enableHiding: false,
+        meta: { wrap: false, pin: 'end' },
         header: 'Actions',
+        size: 64,
+        minSize: 56,
         cell: ({ row }) => {
           const s = row.original
+          const hasActions =
+            s.status === 'APPROVED' || s.status === 'ACTIVE' || s.status === 'PENDING'
+          if (!hasActions) return null
+          const label = `Actions for ${tenantName(s.rootOrganizationId)}`
           return (
-            <div className="flex flex-wrap gap-1">
-              {s.status === 'APPROVED' ? (
-                <Button type="button" size="sm" variant="outline" onClick={() => setActivateTarget(s)}>
-                  Activate
-                </Button>
-              ) : null}
-              {s.status === 'ACTIVE' ? (
-                <>
-                  <Button type="button" size="sm" onClick={() => void openViewAs(s)}>
-                    View As
-                  </Button>
-                  <Button type="button" size="sm" variant="destructive" onClick={() => setEndTarget(s)}>
-                    End
-                  </Button>
-                </>
-              ) : null}
-              {s.status === 'PENDING' ? (
-                <Button type="button" size="sm" variant="outline" onClick={() => setEndTarget(s)}>
-                  Cancel
-                </Button>
-              ) : null}
-            </div>
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <DropdownMenuTrigger
+                      render={<Button variant="ghost" size="icon-sm" aria-label={label} />}
+                    />
+                  }
+                >
+                  <MoreHorizontal aria-hidden />
+                </TooltipTrigger>
+                <TooltipContent>{label}</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="end">
+                {s.status === 'APPROVED' ? (
+                  <DropdownMenuItem onClick={() => setActivateTarget(s)}>Activate</DropdownMenuItem>
+                ) : null}
+                {s.status === 'ACTIVE' ? (
+                  <>
+                    <DropdownMenuItem onClick={() => void openViewAs(s)}>View As</DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" onClick={() => setEndTarget(s)}>
+                      End Session
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+                {s.status === 'PENDING' ? (
+                  <DropdownMenuItem onClick={() => setEndTarget(s)}>Cancel Request</DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )
         },
       },
@@ -311,42 +355,45 @@ export default function PlatformSupportPage() {
     [tenantName],
   )
 
+  const openCreate = () => {
+    setCreateOpen(true)
+    setCreateError(null)
+    setRootOrganizationId(tenants[0]?.id ?? '')
+  }
+
   return (
     <PlatformShell
       title="Support"
       description="Request or break-glass into a tenant. Default is read-only; ADMIN/DEVELOPER can request read-write."
       actions={
-        <Button
-          type="button"
-          onClick={() => {
-            setCreateOpen(true)
-            setCreateError(null)
-            setRootOrganizationId(tenants[0]?.id ?? '')
-          }}
-        >
+        <Button type="button" onClick={openCreate}>
           <Plus aria-hidden /> New Session
         </Button>
       }
     >
       {error ? (
-        <Alert variant="danger">
-          <AlertTitle>Could Not Load Sessions</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <EmptyState
+          variant="error"
+          icon={<Headset aria-hidden />}
+          title="Could Not Load Sessions"
+          description={error}
+          action={
+            <Button size="sm" variant="outline" onClick={() => void refresh()}>
+              Retry
+            </Button>
+          }
+        />
       ) : null}
 
-      {!loading && rows.length === 0 ? (
+      {!error && !loading && rows.length === 0 ? (
         <EmptyState
           icon={<Headset aria-hidden />}
           title="No Support Sessions"
           description="Request access to a tenant. Admins approve, then you activate with MFA and view as an employee."
-          action={
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus aria-hidden /> New Session
-            </Button>
-          }
         />
-      ) : (
+      ) : null}
+
+      {!error && (loading || rows.length > 0) ? (
         <DataTable
           caption="Support Sessions"
           columns={columns}
@@ -354,8 +401,9 @@ export default function PlatformSupportPage() {
           getRowId={(r) => r.id}
           loading={loading}
           searchPlaceholder="Search sessions"
+          onRetry={() => void refresh()}
         />
-      )}
+      ) : null}
 
       <FormDialog
         open={createOpen}

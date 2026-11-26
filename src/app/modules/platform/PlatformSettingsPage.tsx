@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { KeyRound, Package, Pencil, Plus, Shield, ShieldOff, Star, Trash2 } from 'lucide-react'
+import { KeyRound, MoreHorizontal, Package, Pencil, Plus, Shield, ShieldOff, Star, Trash2 } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { Badge } from '@/ds/ui/badge'
 import { Card, CardContent, CardHeader } from '@/ds/ui/card'
@@ -12,10 +12,18 @@ import { Checkbox } from '@/ds/ui/checkbox'
 import { Label } from '@/ds/ui/label'
 import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { NumberField } from '@/ds/ui/number-field'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/ds/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip'
 import { PasswordField } from '@/ds/patterns/password-field'
 import { platformChangePassword, platformMfaDisable } from '@services/platformAuth'
 import { useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/ds/patterns/section-header'
+import { SettingsRow, SettingsSection } from '@/ds/patterns/settings-section'
 import { DescriptionList } from '@/ds/patterns/description-list'
 import { ConfirmDialog } from '@/ds/patterns/confirm-dialog'
 import { EmptyState } from '@/ds/patterns/empty-state'
@@ -339,38 +347,31 @@ export default function PlatformSettingsPage() {
         ) : null
       }
     >
-      {error ? (
-        <Alert variant="danger">
-          <AlertTitle>Could Not Load Plans</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <SectionHeader
-            title="Your Account"
-            description={user ? `${user.displayName} · ${user.email}` : 'Signed-in operator'}
-            icon={<KeyRound aria-hidden />}
-            action={
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setPwOpen(true)}>
-                  Change Password
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => setMfaDisableOpen(true)}>
-                  <ShieldOff aria-hidden /> Disable Authenticator
-                </Button>
-              </div>
-            }
-          />
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Disabling MFA requires a current authenticator code, then you enrol a new device immediately.
-            Lost phone? Ask another ADMIN to use Reset Authenticator, or use a recovery code at sign-in.
-          </p>
-        </CardContent>
-      </Card>
+      <SettingsSection
+        title="Your Account"
+        description={user ? `${user.displayName} · ${user.email}` : 'Signed-in operator'}
+        icon={<KeyRound aria-hidden />}
+        divided
+      >
+        <SettingsRow
+          label="Password"
+          description="Updates immediately. Every platform session signs out after a change."
+          control={
+            <Button type="button" variant="outline" size="sm" onClick={() => setPwOpen(true)}>
+              Change Password
+            </Button>
+          }
+        />
+        <SettingsRow
+          label="Authenticator"
+          description="Disable requires a current code, then you enrol a new device. Lost phone? Ask another ADMIN to reset MFA, or use a recovery code at sign-in."
+          control={
+            <Button type="button" variant="outline" size="sm" onClick={() => setMfaDisableOpen(true)}>
+              <ShieldOff aria-hidden /> Disable
+            </Button>
+          }
+        />
+      </SettingsSection>
 
       <FormDialog
         open={mfaDisableOpen}
@@ -471,11 +472,27 @@ export default function PlatformSettingsPage() {
         </form>
       </FormDialog>
 
-      {loading ? (
+      {error ? (
+        <EmptyState
+          variant="error"
+          icon={<Package aria-hidden />}
+          title="Could Not Load Settings"
+          description={error}
+          action={
+            <Button size="sm" variant="outline" onClick={() => void refresh()}>
+              Retry
+            </Button>
+          }
+        />
+      ) : null}
+
+      {!error && loading ? (
         <div className="flex justify-center py-16" role="status">
           <Spinner aria-label="Loading platform settings" />
         </div>
-      ) : (
+      ) : null}
+
+      {!error && !loading ? (
         <div className="grid gap-6">
           <Card tone="brand">
             <CardHeader>
@@ -511,60 +528,93 @@ export default function PlatformSettingsPage() {
                   }
                 />
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {visiblePlans.map((plan) => (
-                    <Card key={plan.id} size="sm" className={!plan.isActive ? 'opacity-70' : undefined}>
-                      <CardHeader className="gap-2 space-y-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="heading-case text-base font-semibold text-foreground">{plan.name}</h3>
-                          {plan.isDefault || plan.id === defaultId ? (
-                            <Badge variant="info" dot>
-                              Default
-                            </Badge>
-                          ) : null}
-                          {!plan.isActive ? (
-                            <Badge variant="neutral" dot>
-                              Inactive
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <p className="text-xs text-muted-foreground">Code: {plan.code}</p>
-                        {plan.description ? (
-                          <p className="text-sm text-muted-foreground">{plan.description}</p>
-                        ) : null}
-                      </CardHeader>
-                      <CardContent className="grid gap-4">
-                        <PackChips packs={plan.packs} />
-                        {isAdmin ? (
-                          <div className="relative z-10 flex flex-wrap gap-2">
-                            <Button type="button" size="sm" variant="outline" onClick={() => openEdit(plan)}>
-                              <Pencil aria-hidden /> Edit
-                            </Button>
-                            {plan.isActive && !plan.isDefault ? (
-                              <Button type="button" size="sm" variant="outline" onClick={() => void onSetDefault(plan)}>
-                                <Star aria-hidden /> Set Default
-                              </Button>
-                            ) : null}
-                            {plan.isActive && !plan.isDefault ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => setDeleteTarget(plan)}
-                              >
-                                <Trash2 aria-hidden /> Deactivate
-                              </Button>
-                            ) : null}
-                            {!plan.isActive ? (
-                              <Button type="button" size="sm" variant="outline" onClick={() => void onReactivate(plan)}>
-                                Reactivate
-                              </Button>
+                <div className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {visiblePlans.map((plan) => {
+                    const isDefault = plan.isDefault || plan.id === defaultId
+                    const planActionsLabel = `Actions for ${plan.name}`
+                    return (
+                      <Card
+                        key={plan.id}
+                        size="sm"
+                        className={!plan.isActive ? 'flex h-full flex-col opacity-70' : 'flex h-full flex-col'}
+                      >
+                        <CardHeader className="gap-2 space-y-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="heading-case text-base font-semibold text-foreground">
+                                  {plan.name}
+                                </h3>
+                                {isDefault ? (
+                                  <Badge variant="info" dot>
+                                    Default
+                                  </Badge>
+                                ) : null}
+                                {!plan.isActive ? (
+                                  <Badge variant="neutral" dot>
+                                    Inactive
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              <p className="font-mono text-xs text-muted-foreground">{plan.code}</p>
+                            </div>
+                            {isAdmin ? (
+                              <DropdownMenu>
+                                <Tooltip>
+                                  <TooltipTrigger
+                                    render={
+                                      <DropdownMenuTrigger
+                                        render={
+                                          <Button
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            className="shrink-0"
+                                            aria-label={planActionsLabel}
+                                          />
+                                        }
+                                      />
+                                    }
+                                  >
+                                    <MoreHorizontal aria-hidden />
+                                  </TooltipTrigger>
+                                  <TooltipContent>{planActionsLabel}</TooltipContent>
+                                </Tooltip>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openEdit(plan)}>
+                                    <Pencil aria-hidden /> Edit
+                                  </DropdownMenuItem>
+                                  {plan.isActive && !isDefault ? (
+                                    <DropdownMenuItem onClick={() => void onSetDefault(plan)}>
+                                      <Star aria-hidden /> Set Default
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {plan.isActive && !isDefault ? (
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      onClick={() => setDeleteTarget(plan)}
+                                    >
+                                      <Trash2 aria-hidden /> Deactivate
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {!plan.isActive ? (
+                                    <DropdownMenuItem onClick={() => void onReactivate(plan)}>
+                                      Reactivate
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             ) : null}
                           </div>
-                        ) : null}
-                      </CardContent>
-                    </Card>
-                  ))}
+                          {plan.description ? (
+                            <p className="line-clamp-2 text-sm text-muted-foreground">{plan.description}</p>
+                          ) : null}
+                        </CardHeader>
+                        <CardContent className="mt-auto">
+                          <PackChips packs={plan.packs} />
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
                 </div>
               )}
             </CardContent>
@@ -646,29 +696,17 @@ export default function PlatformSettingsPage() {
                   ]}
                 />
               )}
-              <DescriptionList
-                rows={[
-                  {
-                    label: 'Platform roles',
-                    value: 'Fixed product set: Admin, Developer, Support, Billing (schema enum — not Settings-editable)',
-                    wide: true,
-                  },
-                  {
-                    label: 'Module packs',
-                    value: 'Fixed taxonomy: Core, Workforce, Pay, PSA, Talent — plans toggle these; pack keys are not dynamic',
-                    wide: true,
-                  },
-                  {
-                    label: 'Billing / invoices',
-                    value: 'External (not in-app) — connect Stripe/Chargebee when GTM needs it',
-                    wide: true,
-                  },
-                ]}
-              />
+              <Alert>
+                <AlertTitle>Fixed Product Rules</AlertTitle>
+                <AlertDescription>
+                  Roles (Admin, Developer, Support, Billing) and pack keys (Core, Workforce, Pay, PSA, Talent)
+                  are schema-fixed. Billing and invoices stay external until a payment provider is connected.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         </div>
-      )}
+      ) : null}
 
       <FormDialog
         open={editorOpen}

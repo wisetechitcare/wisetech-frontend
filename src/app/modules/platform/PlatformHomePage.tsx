@@ -15,6 +15,7 @@ import {
 } from '@/ds/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip'
+import { cn } from '@/ds/lib/utils'
 import { EmptyState } from '@/ds/patterns/empty-state'
 import { DataTable, type ColumnDef } from '@/ds/patterns/data-table'
 import { FormDialog } from '@/ds/patterns/form-dialog'
@@ -33,6 +34,7 @@ import {
 } from '@services/platformAuth'
 import { PlatformShell } from './PlatformShell'
 import { usePlatformSession } from './PlatformSessionContext'
+import { formatDateTime } from '@utils/dateFormats'
 import { platformApiError } from './platformApiError'
 import { PLATFORM_ROLE_ITEMS } from '@constants/platformRoles'
 
@@ -42,6 +44,19 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral
   ACTIVE: 'success',
   INVITED: 'warning',
   DISABLED: 'danger',
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  ACTIVE: 'Active',
+  INVITED: 'Invited',
+  DISABLED: 'Disabled',
+}
+
+const ROLE_VARIANT: Record<string, 'info' | 'neutral'> = {
+  ADMIN: 'info',
+  DEVELOPER: 'neutral',
+  SUPPORT: 'neutral',
+  BILLING: 'neutral',
 }
 
 const MFA_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
@@ -57,12 +72,7 @@ const MFA_LABEL: Record<string, string> = {
 }
 
 function formatWhen(iso: string | null): string {
-  if (!iso) return '—'
-  try {
-    return new Date(iso).toLocaleString()
-  } catch {
-    return iso
-  }
+  return formatDateTime(iso)
 }
 
 /** Platform operators — invite, edit role/name, resend, disable / re-enable. */
@@ -229,6 +239,8 @@ export default function PlatformHomePage() {
         accessorKey: 'displayName',
         meta: { label: 'Name' },
         header: 'Name',
+        size: 240,
+        minSize: 160,
         cell: ({ row }) => (
           <div className="min-w-0">
             <div className="truncate font-medium text-foreground">{row.original.displayName}</div>
@@ -238,37 +250,50 @@ export default function PlatformHomePage() {
       },
       {
         accessorKey: 'platformRole',
-        meta: { label: 'Role' },
+        meta: { label: 'Role', wrap: false },
         header: 'Role',
-        cell: ({ getValue }) => <Badge variant="neutral">{String(getValue())}</Badge>,
+        size: 120,
+        minSize: 110,
+        cell: ({ getValue }) => {
+          const role = String(getValue())
+          return <Badge variant={ROLE_VARIANT[role] ?? 'neutral'}>{role}</Badge>
+        },
       },
       {
         accessorKey: 'status',
-        meta: { label: 'Status' },
+        meta: { label: 'Status', wrap: false },
         header: 'Status',
+        size: 120,
+        minSize: 110,
         cell: ({ row }) => {
           const s = row.original.status
           return (
             <Badge variant={STATUS_VARIANT[s] ?? 'neutral'} dot>
-              {s}
+              {STATUS_LABEL[s] ?? s}
             </Badge>
           )
         },
       },
       {
         id: 'mfaStatus',
-        meta: { label: 'MFA' },
+        meta: { label: 'MFA', wrap: false },
         header: 'MFA',
+        size: 148,
+        minSize: 132,
         cell: ({ row }) => {
           const status = row.original.mfaStatus ?? 'not_enrolled'
           const remaining = row.original.recoveryCodesRemaining
+          const recoveryTone =
+            status === 'enrolled' && remaining != null && remaining === 0
+              ? 'text-destructive'
+              : 'text-muted-foreground'
           return (
             <div className="min-w-0">
               <Badge variant={MFA_VARIANT[status] ?? 'neutral'} dot>
                 {MFA_LABEL[status] ?? status}
               </Badge>
               {status === 'enrolled' && remaining != null ? (
-                <div className="mt-0.5 text-xs text-muted-foreground tabular">
+                <div className={cn('mt-0.5 text-xs tabular', recoveryTone)}>
                   {remaining} recovery left
                 </div>
               ) : null}
@@ -278,24 +303,35 @@ export default function PlatformHomePage() {
       },
       {
         id: 'inviteExpiresAt',
-        meta: { label: 'Invite Expires' },
+        meta: { label: 'Invite Expires', wrap: false },
         header: 'Invite Expires',
+        size: 176,
+        minSize: 168,
         cell: ({ row }) => (
-          <span className="tabular text-muted-foreground">{formatWhen(row.original.inviteExpiresAt)}</span>
+          <span className="block text-right tabular text-muted-foreground">
+            {formatWhen(row.original.inviteExpiresAt)}
+          </span>
         ),
       },
       {
         id: 'lastLoginAt',
-        meta: { label: 'Last Sign In' },
+        meta: { label: 'Last Sign In', wrap: false },
         header: 'Last Sign In',
+        size: 176,
+        minSize: 168,
         cell: ({ row }) => (
-          <span className="tabular text-muted-foreground">{formatWhen(row.original.lastLoginAt)}</span>
+          <span className="block text-right tabular text-muted-foreground">
+            {formatWhen(row.original.lastLoginAt)}
+          </span>
         ),
       },
       {
         id: 'actions',
         enableHiding: false,
+        meta: { wrap: false },
         header: 'Actions',
+        size: 64,
+        minSize: 56,
         cell: ({ row }) => {
           const op = row.original
           if (!isAdmin) return null

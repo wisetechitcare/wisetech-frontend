@@ -42,6 +42,16 @@ export default function PlatformForgotPasswordPage() {
     <PlatformAuthScreen
       title="Reset Platform Password"
       description="Enter your operator email. If an account exists, we will send a reset link."
+      footer={
+        <Button
+          variant="link"
+          size="sm"
+          className="w-full"
+          render={<Link to="/platform/login" />}
+        >
+          Back To Sign In
+        </Button>
+      }
     >
       {error && (
         <Alert variant="danger" className="mb-6">
@@ -55,12 +65,9 @@ export default function PlatformForgotPasswordPage() {
             <AlertTitle>Check Your Email</AlertTitle>
             <AlertDescription>{doneMessage}</AlertDescription>
           </Alert>
-          <Link
-            to="/platform/login"
-            className="inline-flex h-10 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
-          >
+          <Button size="lg" className="w-full" render={<Link to="/platform/login" />}>
             Back To Sign In
-          </Link>
+          </Button>
         </div>
       ) : (
         <form className="grid gap-6" onSubmit={onSubmit} noValidate>
@@ -80,9 +87,6 @@ export default function PlatformForgotPasswordPage() {
             {busy ? <Spinner data-icon="inline-start" aria-hidden /> : null}
             Send Reset Link
           </Button>
-          <Link to="/platform/login" className="text-center text-sm text-muted-foreground hover:text-foreground">
-            Back To Sign In
-          </Link>
         </form>
       )}
     </PlatformAuthScreen>

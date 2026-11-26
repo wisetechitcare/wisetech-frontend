@@ -18,11 +18,13 @@ const NAV = [
 
 /** Shared chrome for authenticated platform console pages — kit PageHeader + thin nav. */
 export function PlatformShell({
+  eyebrow,
   title,
   description,
   actions,
   children,
 }: {
+  eyebrow?: ReactNode
   title: ReactNode
   description?: ReactNode
   actions?: ReactNode
@@ -34,11 +36,13 @@ export function PlatformShell({
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
-      <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="min-w-0">
-            <p className="heading-case text-xs font-medium text-muted-foreground">{PLATFORM_CONSOLE_BRAND}</p>
-            <nav className="mt-2 flex flex-wrap gap-1" aria-label="Platform">
+      <header className="sticky top-0 z-40 border-b border-border bg-background">
+        <div className="mx-auto flex w-full max-w-[100rem] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 flex-wrap items-center gap-4 sm:gap-6">
+            <p className="heading-case shrink-0 text-xs font-semibold tracking-wide text-foreground">
+              {PLATFORM_CONSOLE_BRAND}
+            </p>
+            <nav className="flex flex-wrap gap-1" aria-label="Platform">
               {NAV.map(({ to, label, icon: Icon, end }) => (
                 <NavLink
                   key={to}
@@ -46,14 +50,14 @@ export function PlatformShell({
                   end={end}
                   className={({ isActive }) =>
                     cn(
-                      'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                      'inline-flex min-h-9 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                       isActive
-                        ? 'bg-muted text-foreground'
+                        ? 'bg-primary/10 text-foreground shadow-[inset_0_-2px_0_0_var(--color-primary)]'
                         : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
                     )
                   }
                 >
-                  <Icon className="size-4" aria-hidden />
+                  <Icon className="size-4 shrink-0" aria-hidden />
                   {label}
                 </NavLink>
               ))}
@@ -61,12 +65,15 @@ export function PlatformShell({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {user ? (
-              <span className="hidden text-sm text-muted-foreground sm:inline">{user.displayName}</span>
+              <span className="hidden max-w-[12rem] truncate text-sm text-muted-foreground sm:inline">
+                {user.displayName}
+              </span>
             ) : null}
             <ThemeToggle mode={mode} onToggle={toggle} />
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 void signOut().then(() => navigate('/platform/login', { replace: true }))
               }}
@@ -76,8 +83,8 @@ export function PlatformShell({
           </div>
         </div>
       </header>
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-        <PageHeader title={title} description={description} actions={actions} />
+      <main className="mx-auto flex w-full max-w-[100rem] flex-col gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-8 lg:px-8">
+        <PageHeader eyebrow={eyebrow} title={title} description={description} actions={actions} />
         {children}
       </main>
     </div>

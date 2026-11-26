@@ -13,6 +13,15 @@ import { Input } from '@/ds/ui/input'
 import { Textarea } from '@/ds/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ds/ui/select'
 import { Field, FieldGroup, FieldLabel } from '@/ds/ui/field'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/ds/ui/breadcrumb'
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/ds/ui/item'
 import { SectionHeader } from '@/ds/patterns/section-header'
 import { DescriptionList } from '@/ds/patterns/description-list'
 import { EmptyState } from '@/ds/patterns/empty-state'
@@ -233,32 +242,36 @@ export default function PlatformTenantDetailPage() {
 
   return (
     <PlatformShell
-      title={tenant?.name ?? 'Tenant'}
-      description="Root customer tenant. Sub-orgs below belong to this family; HR runs in the tenant app."
+      eyebrow="Tenants"
+      title="Tenant"
+      description={
+        tenant
+          ? `${tenant.name} — root customer organization. Sub-orgs belong to this family; HR runs in the tenant app.`
+          : 'Root customer organization. Sub-orgs belong to this family; HR runs in the tenant app.'
+      }
       actions={
-        <div className="flex flex-wrap items-center gap-2">
-          {tenant && isAdmin ? (
-            <>
-              {tenant.ownerSetup?.canResendSetup && !isSuspended ? (
-                <Button type="button" variant="outline" onClick={() => setResendSetupOpen(true)}>
-                  <Mail aria-hidden /> Resend Setup Mail
-                </Button>
-              ) : null}
-              {isSuspended ? (
-                <Button type="button" variant="outline" onClick={() => setReactivateOpen(true)}>
-                  <PlayCircle aria-hidden /> Reactivate
-                </Button>
-              ) : (
-                <Button type="button" variant="destructive" onClick={() => setSuspendOpen(true)}>
-                  <PauseCircle aria-hidden /> Suspend
-                </Button>
-              )}
-            </>
-          ) : null}
-          <Button type="button" variant="outline" onClick={() => navigate('/platform/tenants')}>
-            <ArrowLeft aria-hidden /> Back To Tenants
+        tenant && isAdmin ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {tenant.ownerSetup?.canResendSetup && !isSuspended ? (
+              <Button type="button" variant="outline" onClick={() => setResendSetupOpen(true)}>
+                <Mail aria-hidden /> Resend Setup Mail
+              </Button>
+            ) : null}
+            {isSuspended ? (
+              <Button type="button" variant="outline" onClick={() => setReactivateOpen(true)}>
+                <PlayCircle aria-hidden /> Reactivate
+              </Button>
+            ) : (
+              <Button type="button" variant="destructive" onClick={() => setSuspendOpen(true)}>
+                <PauseCircle aria-hidden /> Suspend
+              </Button>
+            )}
+          </div>
+        ) : (
+          <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/platform/tenants')}>
+            <ArrowLeft aria-hidden /> Back
           </Button>
-        </div>
+        )
       }
     >
       {loading ? (
@@ -268,10 +281,17 @@ export default function PlatformTenantDetailPage() {
       ) : null}
 
       {error ? (
-        <Alert variant="danger">
-          <AlertTitle>Could Not Load Tenant</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <EmptyState
+          variant="error"
+          icon={<Building2 aria-hidden />}
+          title="Could Not Load Tenant"
+          description={error}
+          action={
+            <Button size="sm" variant="outline" onClick={() => void load()}>
+              Retry
+            </Button>
+          }
+        />
       ) : null}
 
       {!loading && !error && !tenant ? (
@@ -288,7 +308,19 @@ export default function PlatformTenantDetailPage() {
       ) : null}
 
       {tenant ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Breadcrumb className="lg:col-span-2">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink render={<Link to="/platform/tenants" />}>Tenants</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{tenant.name}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
           {isSuspended ? (
             <Alert variant="warning" className="lg:col-span-2">
               <AlertTitle>Tenant Suspended</AlertTitle>
@@ -387,7 +419,7 @@ export default function PlatformTenantDetailPage() {
                         if (plan) setDraftPacks(optionalPacksFromFlags(plan.packs))
                       }}
                     >
-                      <SelectTrigger className="w-full max-w-md" aria-labelledby="tenant-plan-label">
+                      <SelectTrigger className="w-full" aria-labelledby="tenant-plan-label">
                         <SelectValue placeholder="Select plan" />
                       </SelectTrigger>
                       <SelectContent>
@@ -468,14 +500,16 @@ export default function PlatformTenantDetailPage() {
                   description="Children of this root are managed inside the tenant app."
                 />
               ) : (
-                <ul className="divide-y divide-border">
+                <ItemGroup className="gap-0 divide-y divide-border">
                   {tenant.childOrganizations.map((child) => (
-                    <li key={child.id} className="flex items-center justify-between gap-3 py-3 text-sm">
-                      <span className="font-medium text-foreground">{child.name}</span>
-                      <span className="font-mono text-xs text-muted-foreground">{child.id}</span>
-                    </li>
+                    <Item key={child.id} size="sm" className="rounded-none border-0 px-0">
+                      <ItemContent>
+                        <ItemTitle>{child.name}</ItemTitle>
+                        <ItemDescription className="font-mono">{child.id}</ItemDescription>
+                      </ItemContent>
+                    </Item>
                   ))}
-                </ul>
+                </ItemGroup>
               )}
             </CardContent>
           </Card>

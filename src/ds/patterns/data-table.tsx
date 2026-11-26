@@ -625,7 +625,11 @@ export function DataTable<T extends RowData>({
       if (columnSizing[id] !== undefined) continue
       const w = headRefs.current.get(id)?.getBoundingClientRect().width ?? 0
       if (w <= 0) return // hidden (phone cards) or not laid out yet: measure on a later render
-      missing[id] = Math.round(w)
+      // Headers are often shorter than the body ("Created" vs "2025.06.12"). Honour size/minSize so nowrap
+      // columns are not locked narrower than their content and forced to wrap.
+      const def = table.getColumn(id)?.columnDef
+      const floor = Math.max(def?.minSize ?? 60, typeof def?.size === "number" ? def.size : 0)
+      missing[id] = Math.max(Math.round(w), floor)
     }
     for (const [id, w] of Object.entries(missing)) naturalWidths.current.set(id, w)
     table.setColumnSizing((old) => ({ ...old, ...missing }))
@@ -833,7 +837,15 @@ export function DataTable<T extends RowData>({
                 style={withWidth(cell.column, fixedLayout ? cell.column.getSize() : undefined)}
                 // Once widths are fixed, text that no longer fits WRAPS — never "…". Widths are measured from the first
                 // rows shown, so later, longer data ("office → station") used to be cut off: hidden content.
-                className={cn(cellPad, narrowCol(cell.column.id), pinClass(cell.column), fixedLayout && "whitespace-normal break-words")}
+                // Columns that opt out (`meta.wrap: false`) stay on one line (dates, IDs, counts).
+                className={cn(
+                  cellPad,
+                  narrowCol(cell.column.id),
+                  pinClass(cell.column),
+                  fixedLayout && ((cell.column.columnDef.meta as { wrap?: boolean } | undefined)?.wrap === false
+                    ? "whitespace-nowrap"
+                    : "whitespace-normal break-words"),
+                )}
               >
                 {/* In a grouped column the value is in the group's heading; repeating it on every row is noise. */}
                 {cell.getIsPlaceholder() ? null : flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Building2, Plus } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { Badge } from '@/ds/ui/badge'
-import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip'
 import { EmptyState } from '@/ds/patterns/empty-state'
 import { DataTable, type ColumnDef } from '@/ds/patterns/data-table'
 import { listPlatformTenants, type PlatformTenant } from '@services/platformTenants'
@@ -58,6 +58,8 @@ export default function PlatformTenantsPage() {
         accessorKey: 'name',
         meta: { label: 'Tenant' },
         header: 'Tenant',
+        size: 320,
+        minSize: 200,
         cell: ({ row }) => (
           <div className="min-w-0">
             <div className="truncate font-medium text-foreground">{row.original.name}</div>
@@ -67,8 +69,10 @@ export default function PlatformTenantsPage() {
       },
       {
         accessorKey: 'status',
-        meta: { label: 'Status' },
+        meta: { label: 'Status', wrap: false },
         header: 'Status',
+        size: 120,
+        minSize: 110,
         cell: ({ row }) =>
           row.original.status === 'SUSPENDED' ? (
             <Badge variant="warning" dot>
@@ -82,28 +86,54 @@ export default function PlatformTenantsPage() {
       },
       {
         id: 'packs',
-        meta: { label: 'Packs' },
+        meta: { label: 'Packs', wrap: false },
         header: 'Packs',
-        cell: ({ row }) => <Badge variant="neutral">{packsLabel(row.original.packs)}</Badge>,
+        size: 280,
+        minSize: 180,
+        cell: ({ row }) => {
+          const label = packsLabel(row.original.packs)
+          return (
+            <Tooltip>
+              <TooltipTrigger
+                render={<Badge variant="neutral" tabIndex={0} className="max-w-full cursor-help truncate" />}
+              >
+                {label}
+              </TooltipTrigger>
+              <TooltipContent>{label}</TooltipContent>
+            </Tooltip>
+          )
+        },
       },
       {
         accessorKey: 'branchCount',
-        meta: { label: 'Branches' },
+        meta: { label: 'Branches', wrap: false, exportType: 'number' },
         header: 'Branches',
-        cell: ({ getValue }) => <span className="tabular">{String(getValue())}</span>,
+        size: 104,
+        minSize: 96,
+        cell: ({ getValue }) => (
+          <span className="block text-right tabular">{String(getValue())}</span>
+        ),
       },
       {
         accessorKey: 'employeeCount',
-        meta: { label: 'People' },
+        meta: { label: 'People', wrap: false, exportType: 'number' },
         header: 'People',
-        cell: ({ getValue }) => <span className="tabular">{String(getValue())}</span>,
+        size: 104,
+        minSize: 96,
+        cell: ({ getValue }) => (
+          <span className="block text-right tabular">{String(getValue())}</span>
+        ),
       },
       {
         accessorKey: 'createdAt',
-        meta: { label: 'Created' },
+        meta: { label: 'Created', wrap: false },
         header: 'Created',
+        size: 124,
+        minSize: 118,
         cell: ({ getValue }) => (
-          <span className="tabular text-muted-foreground">{formatDate(String(getValue()))}</span>
+          <span className="block text-right tabular text-muted-foreground">
+            {formatDate(String(getValue()))}
+          </span>
         ),
       },
     ],
@@ -123,13 +153,20 @@ export default function PlatformTenantsPage() {
       }
     >
       {error ? (
-        <Alert variant="danger">
-          <AlertTitle>Could Not Load Tenants</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <EmptyState
+          variant="error"
+          icon={<Building2 aria-hidden />}
+          title="Could Not Load Tenants"
+          description={error}
+          action={
+            <Button size="sm" variant="outline" onClick={() => void refresh()}>
+              Retry
+            </Button>
+          }
+        />
       ) : null}
 
-      {!loading && rows.length === 0 ? (
+      {!error && !loading && rows.length === 0 ? (
         <EmptyState
           icon={<Building2 aria-hidden />}
           title="No Tenants Yet"
@@ -142,7 +179,9 @@ export default function PlatformTenantsPage() {
             ) : undefined
           }
         />
-      ) : (
+      ) : null}
+
+      {!error && (loading || rows.length > 0) ? (
         <DataTable
           caption="Customer Tenants"
           columns={columns}
@@ -152,8 +191,9 @@ export default function PlatformTenantsPage() {
           searchPlaceholder="Search tenants"
           rowLabel={(r) => `Open ${r.name}`}
           onRowClick={(r) => navigate(`/platform/tenants/${r.id}`)}
+          onRetry={() => void refresh()}
         />
-      )}
+      ) : null}
     </PlatformShell>
   )
 }
