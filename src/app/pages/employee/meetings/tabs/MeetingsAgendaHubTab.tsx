@@ -40,6 +40,8 @@ import KeyboardArrowRightRounded from '@mui/icons-material/KeyboardArrowRightRou
 import dayjs from 'dayjs';
 import { hasPermission } from '@utils/authAbac';
 import { apiErrorMessage } from '@utils/apiError';
+import { Check, Pencil, Plus, X } from 'lucide-react';
+import { cn } from 'cn';
 import { Button } from '@/ds/ui/button';
 import { Badge as DsBadge } from '@/ds/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
@@ -1729,7 +1731,6 @@ function MomPanel({
 }) {
   const [busy, setBusy] = useState(false);
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
-  const [topicPickerKey, setTopicPickerKey] = useState(0);
   const [teamIds, setTeamIds] = useState<Set<string> | null>(null);
   // Topics picked while editing — local drafts until Save (so they stay at the bottom, not A–Z sorted yet).
   const [pendingTopics, setPendingTopics] = useState<any[]>([]);
@@ -1775,6 +1776,8 @@ function MomPanel({
     const currentTopic = item.addedInMom && lineEditable
       ? taskOptions.find((o) => o.name === item.description)
       : undefined;
+    // A row from "Add agenda" starts blank; its topic is picked in place.
+    const pickTopic = lineEditable && (!!currentTopic || isPendingTopicId(item.id));
     const statusTone =
       item.statusColor ||
       statusOptions.find((o) => o.value === item.status)?.color ||
@@ -1791,15 +1794,15 @@ function MomPanel({
     return {
       title: (
         <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-          {currentTopic ? (
+          {pickTopic ? (
             <Box sx={{ width: '100%' }}>
               <TaskPathSelect
-                value={currentTopic.id}
+                value={currentTopic?.id ?? ''}
                 options={topicOptions}
                 disabled={rowBusy}
                 loading={topicOptionsLoading}
                 label=""
-                placeholder="Change topic"
+                placeholder={currentTopic ? 'Change topic' : 'Pick a topic'}
                 onChange={(opt) => {
                   // Clearing would leave a nameless line; only a real pick changes it.
                   if (!opt || opt.name === item.description) return;
@@ -2076,6 +2079,10 @@ function MomPanel({
 
   /** Writes every staged line + the attendees, then reloads so every view of this meeting agrees. */
   const saveAll = async () => {
+    if (pendingTopics.some((p) => !((drafts[p.id]?.payload?.description as string) || p.description))) {
+      onError('Pick a topic for every new row before saving.');
+      return;
+    }
     // Same choice as saving a lead. A revision is opened FIRST, so the edits below land on the
     // new revision and the previous one stays exactly as it was — that is the history record.
     const mode = await customConfirmation('Save Revision', 'Update Only', {
@@ -2118,6 +2125,7 @@ function MomPanel({
       }
       if (attendeesDirty) await updateMeetingMinutesDraft(meetingId, { attendees: liveAttendees });
       await onRefresh();
+      setEditing(false); // saved = finished; no separate "Done" click
       toast({ icon: 'success', title: mode === 'revision' ? 'New MoM revision saved' : 'MoM saved' });
     } catch (e) {
       // Lines already written are gone from `drafts`; the rest stay staged for another try.
@@ -2127,14 +2135,16 @@ function MomPanel({
     }
   };
 
+  /** Drops staged edits and leaves edit mode. */
   const discardAll = () => {
     setDrafts({});
     setPendingTopics([]);
     setLiveAttendees(JSON.parse(savedAttendeesKey));
+    setEditing(false);
   };
 
   /** Stage a topic at the bottom of the table — persisted only on Save. */
-  const addTopic = (description: string) => {
+  const addTopic = (description = '') => {
     const status =
       statusOptions.find((o) => o.value === 'INFORMATION') || statusOptions[0] || null;
     setPendingTopics((rows) => [
@@ -2156,7 +2166,6 @@ function MomPanel({
         taskId: null,
       },
     ]);
-    setTopicPickerKey((n) => n + 1);
   };
 
   const removeTopic = async (itemId: string) => {
@@ -2383,29 +2392,12 @@ function MomPanel({
               ]
             : []),
         ];
-        const pointsEditControl = rowsEditable ? (
-          editing ? (
-            <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex" />}>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={dirty || saving}
-                  onClick={() => setEditing(false)}
-                >
-                  Done
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {dirty ? 'Save or discard your changes first.' : 'Return to the document view.'}
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <Button type="button" size="sm" onClick={() => setEditing(true)}>
-              Edit
-            </Button>
-          )
+        // Leaving edit mode lives in the save bar (Save / Discard / Close), so only Edit sits here.
+        const pointsEditControl = rowsEditable && !editing ? (
+          <Button type="button" onClick={() => setEditing(true)}>
+            <Pencil data-icon="inline-start" />
+            Edit minutes
+          </Button>
         ) : null;
         return (
           <Box
@@ -2495,23 +2487,19 @@ function MomPanel({
               />
             </Box>
             {interactive && (
-              <Box sx={{ p: 1.5, borderTop: `1px solid ${C.line}` }}>
-                <TaskPathSelect
-                  key={topicPickerKey}
-                  value=""
-                  options={topicOptions}
+              <div className="border-t border-border p-3">
+                <Button
+                  type="button"
+                  variant="tinted"
+                  size="lg"
                   disabled={saving}
-                  onChange={(opt) => {
-                    if (opt) addTopic(opt.name);
-                  }}
-                  label="Add a topic discussed"
-                  placeholder={projectId
-                    ? 'Search this project’s deliverable tasks…'
-                    : 'Search, e.g. electrical load sheet'}
-                  loading={topicOptionsLoading}
-                  helperText="Stays as a draft at the bottom until you save. Topics already on the agenda can be added again."
-                />
-              </Box>
+                  onClick={() => addTopic()}
+                  className="w-full border-dashed font-semibold"
+                >
+                  <Plus data-icon="inline-start" />
+                  Add agenda
+                </Button>
+              </div>
             )}
           </Box>
         );
@@ -2519,41 +2507,39 @@ function MomPanel({
 
       {/* Save bar for points edits and/or attendee changes waiting to be written. */}
       {rowsEditable && (interactive || dirty) && (
-        <Stack
-          direction="row"
-          alignItems="center"
-          gap={1.5}
+        // Sits above the phone's floating bottom nav; a compact centred pill instead of a full-width slab.
+        <div
           role="region"
-          aria-label="Unsaved MoM changes"
-          sx={{
-            position: 'sticky',
-            // Sit above the app's floating bottom nav on phones; desktop stays near the edge.
-            bottom: { xs: 72, sm: 12 },
-            zIndex: 2,
-            px: 2,
-            py: 1.25,
-            bgcolor: C.paper,
-            border: `1px solid ${C.line}`,
-            borderRadius: 2.5,
-            // Lifts only while there is something to save — the shadow is the "act on me" cue.
-            boxShadow: dirty ? '0 6px 20px rgba(15, 23, 42, 0.12)' : 'none',
-          }}
+          aria-label="Minutes editing"
+          className={cn(
+            'sticky bottom-[72px] z-[2] mx-auto flex w-full max-w-3xl flex-wrap items-center gap-3 rounded-2xl border bg-background px-4 py-2.5 sm:bottom-4',
+            dirty ? 'border-primary/30 shadow-lg' : 'border-border shadow-sm',
+          )}
         >
-          <Typography
-            aria-live="polite"
-            sx={{ fontSize: 13, color: dirty ? C.ink : C.mute, fontWeight: 600, flex: 1, minWidth: 0 }}
-          >
-            {dirty ? `${dirtyCount} unsaved change${dirtyCount === 1 ? '' : 's'}` : 'All changes saved'}
-          </Typography>
-          {dirty && (
-            <Button type="button" size="sm" variant="inverted" disabled={saving} onClick={discardAll}>
-              Discard
+          <span
+            aria-hidden
+            className={cn('size-2 shrink-0 rounded-full', dirty ? 'bg-warning' : 'bg-success')}
+          />
+          <p aria-live="polite" className="min-w-0 flex-1 text-sm font-medium">
+            {dirty ? `${dirtyCount} unsaved change${dirtyCount === 1 ? '' : 's'}` : 'Editing minutes, no changes yet'}
+          </p>
+          {dirty ? (
+            <>
+              <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={discardAll}>
+                Discard
+              </Button>
+              <Button type="button" size="sm" loading={saving} onClick={() => void saveAll()}>
+                <Check data-icon="inline-start" />
+                {saving ? 'Saving…' : 'Save changes'}
+              </Button>
+            </>
+          ) : (
+            <Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>
+              <X data-icon="inline-start" />
+              Close editing
             </Button>
           )}
-          <Button type="button" size="sm" disabled={!dirty} loading={saving} onClick={() => void saveAll()}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </Button>
-        </Stack>
+        </div>
       )}
     </Stack>
   );
