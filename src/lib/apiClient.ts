@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getAuth, isSessionDeathResponse, endSessionAndRedirect } from '@/app/modules/auth/core/AuthHelpers';
+import { SUPPORT_VIEW_TOKEN_MARKER } from '@services/platformSupport';
 import { securityPinBus, isSecurityLockedResponse, SECURITY_AREA_HEADER } from '@utils/securityPinBus';
 import { holdSplashDuringRequests } from '@utils/splashGate';
 
@@ -28,7 +29,7 @@ apiClient.interceptors.request.use(
             try {
                 const parsed = JSON.parse(raw);
                 const token = parsed?.token;
-                if (typeof token === 'string' && token) {
+                if (typeof token === 'string' && token && token !== SUPPORT_VIEW_TOKEN_MARKER) {
                     config.headers.Authorization = `Bearer ${token}`;
                 }
             } catch {

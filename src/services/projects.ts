@@ -704,6 +704,7 @@ export const getManagedProjects = async (employeeId: string): Promise<ManagedPro
 
 // Get rating by company id
 export const getRatingByCompanyId = async (id: string) => {
+    if (!id || id === "undefined" || id === "null") return { data: { companyRating: [] } };
     try {
         const endpoint = `${API_BASE_URL}/${LEAD_PROJECT_COMPANY.GET_RATING_BY_COMPANY_ID.replace(":companyId", id)}`;
         const { data } = await axios.get(endpoint);

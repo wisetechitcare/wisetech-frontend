@@ -64,7 +64,7 @@ export default function Login() {
         const { data: loginRes } = await login(values.email, values.password)
         dispatch(saveToken(loginRes.token))
         setAuth(loginRes)
-        // The organization's splash covers the dashboard's first load, exactly as on a fresh open of the app.
+        // The startup top bar covers the dashboard's first load (the full intro already played when the app opened).
         showSplashAgain()
         const { data: currUserRes } = await fetchCurrentUser(loginRes.id)
         dispatch(saveCurrentUser(currUserRes.user))

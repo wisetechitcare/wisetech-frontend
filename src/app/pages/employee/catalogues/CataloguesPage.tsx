@@ -1,6 +1,6 @@
 import { BookOpenText } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { DataTable, SortableHeader, type ColumnDef } from "@/ds/patterns/data-table";
 import MaterialHeaderTab from "@app/modules/common/components/MaterialHeaderTab";
 import { PageTitle } from "@metronic/layout/core";
@@ -9,7 +9,7 @@ import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import { toast } from "@app/modules/common/components/ui/feedback";
 import { apiErrorMessage } from "@utils/apiError";
 import { canSection } from "@utils/can";
-import { CatalogueActionsMenu, DeleteDialog, RenameDialog, type CatalogueActions } from "@pages/employee/companies/companies/components/CompanyCatalogue";
+import { CatalogueActionsMenu, CatalogueViewer, DeleteDialog, RenameDialog, type CatalogueActions } from "@pages/employee/companies/companies/components/CompanyCatalogue";
 import { deleteCompanyCatalogue, getAllCatalogues, renameCompanyCatalogue, type CatalogueRow } from "@services/companyCatalogues";
 
 const SHOWN = 2;
@@ -35,8 +35,9 @@ const tagColumn = (key: "companyTypes" | "services" | "subServices", label: stri
 
 function CataloguesTable() {
   const canWrite = canSection("crm.companies", "write");
-  const navigate = useNavigate();
-  const openCatalogue = (c: CatalogueRow) => navigate(`/companies/${c.companyId}/catalogue?open=${c.id}`);
+  // Opens in place; the company page is still one click away via the Company column.
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const openCatalogue = (c: CatalogueRow) => setViewingId(c.id);
   const [rows, setRows] = useState<CatalogueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -106,6 +107,7 @@ function CataloguesTable() {
         onRetry={() => void load()}
         stateKey="crm-catalogues"
       />
+      <CatalogueViewer items={rows} viewingId={viewingId} onViewingChange={setViewingId} actions={actions} />
       <RenameDialog
         catalogue={renaming}
         onClose={() => setRenaming(null)}

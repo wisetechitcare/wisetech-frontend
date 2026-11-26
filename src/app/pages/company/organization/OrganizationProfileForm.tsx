@@ -36,7 +36,7 @@ import { canSection } from '@utils/can';
 // the standalone Admin Settings page; it now lives here as a built-in field. The main
 // organization already has it configured, so this default only kicks in if an org's
 // value is ever blank — keeping admin notifications/working from silently losing a recipient.
-export const DEFAULT_SUPER_ADMIN_EMAIL = 'wisetechandassociates@gmail.com';
+export const DEFAULT_SUPER_ADMIN_EMAIL = 'official@kaiznova.com';
 
 const initialValues: ICompanyOverview = {
     name: "",

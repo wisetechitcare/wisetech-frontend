@@ -27,7 +27,6 @@ import {
   WtButton,
   TRIO,
 } from '@app/modules/common/components/ui';
-import { countEnabledOptionalPacks, normalizePackFlags } from '@constants/entitlements';
 import type { RootState } from '@redux/store';
 import { canSection } from '@utils/can';
 import { SETTINGS_AREAS, findArea } from './settings/registry';
@@ -37,11 +36,9 @@ export function AppSettings() {
   const tier = useSelector((state: RootState) => state.authz.tier);
   // Re-read when authz access map changes so section-gated tiles appear after grants.
   const access = useSelector((state: RootState) => state.authz.access);
-  const packs = useSelector((state: RootState) => state.authz.packs);
   const visibleAreas = useMemo(
     () =>
       SETTINGS_AREAS.filter((a) => {
-        if (a.superAdminOnly) return tier === 'SUPER_ADMIN';
         if (a.adminTierOnly) return tier != null;
         if (a.sectionKey) return canSection(a.sectionKey, 'read');
         return true;
@@ -112,7 +109,7 @@ export function AppSettings() {
             mb={0}
           />
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            That settings area is only available to platform operators (Super Admin).
+            That settings area is not available for your account.
           </Typography>
         </Stack>
       ) : (
@@ -125,27 +122,18 @@ export function AppSettings() {
             mb={0}
           />
           <AutoGrid min={320}>
-            {visibleAreas.map((area) => {
-              const meta =
-                area.id === 'tenant-modules'
-                  ? (() => {
-                      const n = countEnabledOptionalPacks(normalizePackFlags(packs));
-                      return n === 4 ? 'All optional modules on' : `${n} of 4 optional modules on`;
-                    })()
-                  : area.useMeta?.();
-              return (
-                <NavCard
-                  key={area.id}
-                  icon={area.icon}
-                  tone={area.tone}
-                  title={area.title}
-                  description={area.description}
-                  meta={meta}
-                  disabled={area.comingSoon}
-                  onClick={() => open(area.id)}
-                />
-              );
-            })}
+            {visibleAreas.map((area) => (
+              <NavCard
+                key={area.id}
+                icon={area.icon}
+                tone={area.tone}
+                title={area.title}
+                description={area.description}
+                meta={area.useMeta?.()}
+                disabled={area.comingSoon}
+                onClick={() => open(area.id)}
+              />
+            ))}
           </AutoGrid>
         </Stack>
       )}

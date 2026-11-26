@@ -1,5 +1,6 @@
 import {AuthModel} from './_models'
 import {securityPinBus, isSecurityLockedResponse, SECURITY_AREA_HEADER} from '@utils/securityPinBus'
+import { SUPPORT_VIEW_TOKEN_MARKER } from '@services/platformSupport'
 
 const AUTH_LOCAL_STORAGE_KEY = 'wise_tech_login'
 
@@ -123,7 +124,9 @@ export function setupAxios(axios: any) {
         // Header fallback: in-memory token (this session) or a token persisted
         // by a pre-cookie release. New sessions rely on the httpOnly cookie.
         const token = inMemoryToken || getAuth()?.token
-        if (token) {
+        // Support view-as uses the httpOnly support cookie + protect — never send the
+        // localStorage marker as Bearer (it is not a JWT; blacklist would SESSION_INVALID).
+        if (token && token !== SUPPORT_VIEW_TOKEN_MARKER) {
           config.headers.Authorization = `Bearer ${token}`
         }
         // Which protected tab is on screen, so the server judges this request by that tab's own

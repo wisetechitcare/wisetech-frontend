@@ -69,7 +69,7 @@ export function PhoneField({
 
   return (
     <InputGroup ref={anchor} className={className} data-disabled={disabled || undefined}>
-      <InputGroupAddon>
+      <InputGroupAddon className="shrink-0">
         {/* The country list IS the kit Combobox (search in the popup, highlighted and chosen rows, check,
             flipping arrow) — inherited, not rebuilt. The list opens under the whole field. */}
         <Combobox

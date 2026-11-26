@@ -82,6 +82,24 @@ interface ImportMetaEnv {
     /** Feature flag for the new My Team information architecture. Defaults to on. */
     readonly VITE_NEW_MY_TEAM_IA: string | undefined;
 
+    /**
+     * KAIZNOVA platform console (`/platform`). Unset = on. Set `false`/`0`/`off`/`no`
+     * and rebuild to hide routes. Mirrors BE `PLATFORM_CONSOLE_ENABLED`.
+     */
+    readonly VITE_PLATFORM_CONSOLE_ENABLED: string | undefined;
+
+    /**
+     * Hostname that is ops-only (e.g. `platform.kaiznova.com`). Unset = combined mode
+     * (dev / pre–Phase 4). When set, that host serves `/platform` only; other hosts block it.
+     */
+    readonly VITE_PLATFORM_HOST: string | undefined;
+
+    /** Absolute tenant origin for view-as redirects from the platform host (`https://app.kaiznova.com`). */
+    readonly VITE_TENANT_APP_ORIGIN: string | undefined;
+
+    /** Absolute platform origin for End Session from the tenant host (`https://platform.kaiznova.com`). */
+    readonly VITE_PLATFORM_APP_ORIGIN: string | undefined;
+
     /** Cognito identity pool granting the browser only Rekognition liveness-stream access. */
     readonly VITE_ATTENDANCE_COGNITO_IDENTITY_POOL_ID: string | undefined;
 }
