@@ -4,7 +4,16 @@ import { IAnnouncement, IAnnouncementCreate, ICompanyBranch, ICompanyBranchUpdat
 import { store } from "@redux/store";
 import { putToS3 } from "@utils/directUpload";
 import dayjs, { Dayjs } from "dayjs";
+import { cachedRequest, invalidateRequestCache } from "./_requestCache";
 const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
+
+/** Short TTL: dedupe the 6–8× GET /company/overview storm on every navigation. */
+const COMPANY_OVERVIEW_KEY = "companyOverview";
+const COMPANY_OVERVIEW_TTL_MS = 45_000;
+
+function invalidateCompanyOverviewCache() {
+    invalidateRequestCache(COMPANY_OVERVIEW_KEY);
+}
 
 export const createPublicHoliday = async (payload: IPublicHoliday) => {
     try {
@@ -154,6 +163,7 @@ export const createCompanyOverview = async (overview: ICompanyOverview) => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.CREATE_OVERVIEW}`;
         const { data } = await axios.post(endpoint, { ...overview });
+        invalidateCompanyOverviewCache();
         return data;
     }
     catch (err) {
@@ -184,6 +194,7 @@ export const updateCompanyOverview = async (companyId: string, overview: Partial
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.UPDATE_OVERVIEW}?id=${companyId}`;
         const { data } = await axios.put(endpoint, { ...overview });
+        invalidateCompanyOverviewCache();
         return data;
     }
     catch (err) {
@@ -193,9 +204,15 @@ export const updateCompanyOverview = async (companyId: string, overview: Partial
 
 export const fetchCompanyOverview = async () => {
     try {
-        const endpoint = `${API_BASE_URL}/${COMPANY.GET_OVERVIEW}`;
-        const { data } = await axios.get(endpoint);
-        return data;
+        return await cachedRequest(
+            COMPANY_OVERVIEW_KEY,
+            async () => {
+                const endpoint = `${API_BASE_URL}/${COMPANY.GET_OVERVIEW}`;
+                const { data } = await axios.get(endpoint);
+                return data;
+            },
+            COMPANY_OVERVIEW_TTL_MS,
+        );
     }
     catch (err) {
         throw err;
@@ -256,6 +273,7 @@ export const deleteOrganizationById = async (orgId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.DELETE_OVERVIEW_BY_ID.replace(':id', orgId)}`;
         const { data } = await axios.delete(endpoint);
+        invalidateCompanyOverviewCache();
         return data;
     }
     catch (err) {
@@ -267,6 +285,7 @@ export const deleteBranchById = async (branchId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.DELETE_BRANCH_BY_ID.replace(':id', branchId)}`;
         const { data } = await axios.delete(endpoint);
+        invalidateCompanyOverviewCache();
         return data;
     }
     catch (err) {
@@ -278,6 +297,7 @@ export const promoteBranchToSubOrg = async (branchId: string) => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.PROMOTE_BRANCH_TO_SUBORG.replace(':id', branchId)}`;
         const { data } = await axios.post(endpoint, {});
+        invalidateCompanyOverviewCache();
         return data;
     }
     catch (err) {
@@ -289,6 +309,7 @@ export const createNewBranch = async (branches: ICompanyBranch[]) => {
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.CREATE_BRANCHES}`;
         const { data } = await axios.post(endpoint, { branches });
+        invalidateCompanyOverviewCache();
         return data;
     }
     catch (err) {
@@ -322,6 +343,7 @@ export const updateBranchById = async (branchId: string, payload: ICompanyBranch
     try {
         const endpoint = `${API_BASE_URL}/${COMPANY.UPDATE_BRANCH_BY_ID.replace(':branchId', branchId)}`;
         const { data } = await axios.put(endpoint, payload);
+        invalidateCompanyOverviewCache();
         return data;
     }
     catch (err) {

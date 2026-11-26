@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Building2, Plus } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
 import { Badge } from '@/ds/ui/badge'
@@ -10,6 +11,7 @@ import { listPlatformTenants, type PlatformTenant } from '@services/platformTena
 import { formatDate } from '@utils/dateFormats'
 import { PlatformShell } from './PlatformShell'
 import { usePlatformSession } from './PlatformSessionContext'
+import { PlatformTenantCreateWizard } from './PlatformTenantCreateWizard'
 
 function errMessage(err: unknown): string {
   const ax = err as { response?: { data?: { detail?: string; message?: string } }; message?: string }
@@ -30,11 +32,13 @@ function packsLabel(packs: unknown): string {
 
 export default function PlatformTenantsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = usePlatformSession()
   const isAdmin = user?.platformRole === 'ADMIN'
   const [rows, setRows] = useState<PlatformTenant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const refresh = useCallback(async () => {
     setError(null)
@@ -51,6 +55,19 @@ export default function PlatformTenantsPage() {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  useEffect(() => {
+    const st = location.state as { openCreateTenant?: boolean; createdRootOrgId?: string; resumed?: boolean } | null
+    if (st?.openCreateTenant && isAdmin) {
+      setCreateOpen(true)
+      navigate('.', { replace: true, state: {} })
+    }
+    if (st?.createdRootOrgId) {
+      toast.success(st.resumed ? 'Tenant provisioning resumed.' : 'Tenant created.')
+      void refresh()
+      navigate('.', { replace: true, state: {} })
+    }
+  }, [location.state, isAdmin, navigate, refresh])
 
   const columns = useMemo<ColumnDef<PlatformTenant>[]>(
     () => [
@@ -146,7 +163,7 @@ export default function PlatformTenantsPage() {
       description="Root organizations (customer tenants). Sub-orgs stay inside each tenant's own console."
       actions={
         isAdmin ? (
-          <Button render={<Link to="/platform/tenants/new" />}>
+          <Button onClick={() => setCreateOpen(true)}>
             <Plus aria-hidden /> Create Tenant
           </Button>
         ) : null
@@ -173,7 +190,7 @@ export default function PlatformTenantsPage() {
           description="No root organizations found. If WISETECH already exists in the app, restart the API and refresh — it should appear here as a customer tenant."
           action={
             isAdmin ? (
-              <Button size="sm" render={<Link to="/platform/tenants/new" />}>
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
                 <Plus aria-hidden /> Create Tenant
               </Button>
             ) : undefined
@@ -192,6 +209,16 @@ export default function PlatformTenantsPage() {
           rowLabel={(r) => `Open ${r.name}`}
           onRowClick={(r) => navigate(`/platform/tenants/${r.id}`)}
           onRetry={() => void refresh()}
+        />
+      ) : null}
+
+      {isAdmin ? (
+        <PlatformTenantCreateWizard
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onCreated={() => {
+            void refresh()
+          }}
         />
       ) : null}
     </PlatformShell>

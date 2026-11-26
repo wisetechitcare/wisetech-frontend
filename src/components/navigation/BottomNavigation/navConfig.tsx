@@ -130,7 +130,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItemConfig[] = [
   },
   {
     id: 'gift-management',
-    label: 'Gift Managements',
+    label: 'Gift Management',
     icon: 'bi-gift',
     to: '/gift-management',
     match: ['/gift-management', '/gift-management/'],

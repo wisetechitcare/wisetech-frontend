@@ -8,7 +8,7 @@
  * Plain `fetch`, never the app's axios: that instance carries our JWT and treats any 401 as a session end,
  * so a geocoder rejecting a request would otherwise log the user out mid-form.
  *
- * Consumers: SmartLocationPicker (search + pin drop), Branches ("Get coordinates from address").
+ * Consumers: SmartLocationPicker (search + pin drop), Branches / Create Tenant ("Get coordinates from address").
  */
 
 export const NOMINATIM = 'https://nominatim.openstreetmap.org';
@@ -25,6 +25,9 @@ export const NOMINATIM = 'https://nominatim.openstreetmap.org';
  */
 export const POINT_ZOOM = 18;
 export const AREA_ZOOM = 14;
+
+/** Nominatim polite-use gap between progressive fallback queries (ms). */
+const NOMINATIM_GAP_MS = 1100;
 
 export interface GeoPick {
   lat: number;
@@ -87,6 +90,62 @@ export const toGeoPick = (result: any): GeoPick => {
   };
 };
 
+const tidyQuery = (q: string) =>
+  q
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/^,+|,+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * Progressive Nominatim queries for a noisy registered / branch address.
+ *
+ * Floor lines, "opp. …", and long compound names often return zero hits for the full string;
+ * peeling those off and then falling back to locality + PIN recovers coordinates without a key.
+ * Cap is small so a button click stays inside Nominatim's ≤1 req/sec budget.
+ */
+export function geocodeQueryCandidates(address: string): string[] {
+  const raw = tidyQuery(address);
+  if (!raw) return [];
+
+  const out: string[] = [];
+  const push = (q: string) => {
+    const t = tidyQuery(q);
+    if (t && !out.includes(t)) out.push(t);
+  };
+
+  push(raw);
+
+  const cleaned = tidyQuery(
+    raw
+      .replace(/\b\d+(?:st|nd|rd|th)\s+floor\b/gi, '')
+      .replace(/\b(?:ground|first|second|third|basement)\s+floor\b/gi, '')
+      .replace(/\bopp\.?\s+[^,]+/gi, '')
+      .replace(/\b(?:near|behind|beside|facing)\s+[^,]+/gi, '')
+      .replace(/\b\d+\s*\/\s*\d+\b/g, ''),
+  );
+  push(cleaned);
+
+  const parts = cleaned.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 3) push(parts.slice(-3).join(', '));
+  if (parts.length >= 2) push(parts.slice(-2).join(', '));
+
+  const pin = raw.match(/\b\d{6}\b/);
+  if (pin) {
+    const locality = parts.find((p) =>
+      /\b(mumbai|pune|delhi|bengaluru|bangalore|hyderabad|chennai|kolkata|ahmedabad|jaipur|surat)\b/i.test(p),
+    );
+    if (locality) push(`${locality} ${pin[0]}`);
+    else push(pin[0]);
+  }
+
+  return out.slice(0, 4);
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
 /** Places matching free text, best first (raw Nominatim results; map them with {@link toGeoPick}). */
 export async function searchPlaces(query: string, limit = 6): Promise<any[]> {
   const res = await fetch(`${NOMINATIM}/search?format=jsonv2&addressdetails=1&limit=${limit}&q=${encodeURIComponent(query)}`);
@@ -103,16 +162,21 @@ export async function reverseGeocode(lat: number, lng: number, zoom: number = PO
 
 /**
  * The best match for a typed address, as a GeoPick — or null when nothing matches or the lookup fails.
- * One request; for a "fill coordinates from address" button, not for search-as-you-type.
+ * Tries progressive simplifications when the full line misses (registered addresses with floor / opp. noise).
+ * One button press; respects Nominatim's ≤1 request/sec between fallbacks.
  */
 export async function geocodeAddress(address: string): Promise<GeoPick | null> {
-  const q = address.trim();
-  if (!q) return null;
+  const queries = geocodeQueryCandidates(address);
+  if (!queries.length) return null;
   try {
-    const [best] = await searchPlaces(q, 1);
-    if (!best) return null;
-    const pick = toGeoPick(best);
-    return Number.isFinite(pick.lat) && Number.isFinite(pick.lng) ? pick : null;
+    for (let i = 0; i < queries.length; i++) {
+      if (i > 0) await sleep(NOMINATIM_GAP_MS);
+      const [best] = await searchPlaces(queries[i]!, 1);
+      if (!best) continue;
+      const pick = toGeoPick(best);
+      if (Number.isFinite(pick.lat) && Number.isFinite(pick.lng)) return pick;
+    }
+    return null;
   } catch {
     return null;
   }

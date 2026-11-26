@@ -193,7 +193,7 @@ export default function Overview() {
       >
         <Box>
           <Typography variant="h5" fontWeight={700}>
-            Gift Managements
+            Gift Management
           </Typography>
           <Typography color="text.secondary">
             {fyLabel} overview — groups, runs, and handover health

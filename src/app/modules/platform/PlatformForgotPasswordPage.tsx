@@ -47,6 +47,7 @@ export default function PlatformForgotPasswordPage() {
           variant="link"
           size="sm"
           className="w-full"
+          nativeButton={false}
           render={<Link to="/platform/login" />}
         >
           Back To Sign In
@@ -65,7 +66,7 @@ export default function PlatformForgotPasswordPage() {
             <AlertTitle>Check Your Email</AlertTitle>
             <AlertDescription>{doneMessage}</AlertDescription>
           </Alert>
-          <Button size="lg" className="w-full" render={<Link to="/platform/login" />}>
+          <Button size="lg" className="w-full" nativeButton={false} render={<Link to="/platform/login" />}>
             Back To Sign In
           </Button>
         </div>

@@ -2,14 +2,14 @@ import { useEffect } from 'react';
 import { useHomeRootOrg } from './useRootOrgNames';
 import { rememberSplashLogo, rememberSplashVideo } from '@utils/splashBrand';
 
-const DEFAULT_TITLE = 'Wisetech MEP Consultants Pvt Ltd';
+const DEFAULT_TITLE = 'KAIZNOVA';
 
 /**
  * Sync the browser tab title (and favicon when a logo exists) to the logged-in
  * user's home org — the same root that drives the sidebar brand logo.
  *
- * Static `index.html` still ships the WiseTech defaults for the auth splash /
- * first paint; this takes over once the session home root resolves.
+ * Static `index.html` ships KAIZNOVA for auth / first paint; this takes over
+ * once the session home root resolves (tenant org name).
  */
 export function useHomeBrand(): void {
   const { id, name, logo, splashVideoDesktop } = useHomeRootOrg();

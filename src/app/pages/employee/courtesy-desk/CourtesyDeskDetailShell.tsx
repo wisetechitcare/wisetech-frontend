@@ -30,7 +30,7 @@ export default function CourtesyDeskDetailShell({
     { title: '', path: '', isSeparator: true, isActive: false },
     { title: 'CRM', path: '/workspace/crm', isSeparator: false, isActive: false },
     { title: '', path: '', isSeparator: true, isActive: false },
-    { title: 'Gift Managements', path: GIFT_MANAGEMENT_BASE, isSeparator: false, isActive: false },
+    { title: 'Gift Management', path: GIFT_MANAGEMENT_BASE, isSeparator: false, isActive: false },
     { title: '', path: '', isSeparator: true, isActive: false },
   ];
 

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button } from '@/ds/ui/button'
+import { Button, buttonVariants } from '@/ds/ui/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
@@ -222,14 +222,13 @@ export default function PlatformLoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
               <p className="mt-2 text-sm">
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto px-0"
-                  render={<Link to="/platform/forgot-password" />}
+                <Link
+                  data-slot="button"
+                  to="/platform/forgot-password"
+                  className={buttonVariants({ variant: 'link', size: 'sm', className: 'h-auto px-0' })}
                 >
                   Forgot password?
-                </Button>
+                </Link>
               </p>
             </Field>
           </FieldGroup>

@@ -300,7 +300,7 @@ export default function PlatformTenantDetailPage() {
           title="Tenant Not Found"
           description="That id is not a root organization, or it was removed."
           action={
-            <Button size="sm" render={<Link to="/platform/tenants" />}>
+            <Button size="sm" nativeButton={false} render={<Link to="/platform/tenants" />}>
               <ArrowLeft aria-hidden /> Back To Tenants
             </Button>
           }

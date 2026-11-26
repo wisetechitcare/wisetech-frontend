@@ -370,7 +370,7 @@ export function useNavigation() {
         type: 'item',
         id: 'crm-gift-management',
         to: '/gift-management',
-        title: 'Gift Managements',
+        title: 'Gift Management',
         fontIcon: 'bi-gift',
         // PSA pack + Contacts section until a dedicated crm.courtesyDesk permission exists.
         visible: isPackEnabled('psa') && !isSectionBlocked('crm.contacts'),

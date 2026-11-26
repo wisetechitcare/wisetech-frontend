@@ -2,7 +2,7 @@ import { resolveActiveOrgId } from '@utils/activeOrg';
 import React, { useEffect, useRef, useState } from 'react'
 import { Form, Formik, FormikProps, FormikValues } from 'formik'
 import * as Yup from 'yup'
-import { Building2, Clock, LocateFixed, MapPin, Plus, Settings2, TriangleAlert, Info } from 'lucide-react'
+import { Building2, Clock, MapPin, Plus, Settings2, TriangleAlert, Info } from 'lucide-react'
 import { PageLink, PageTitle } from '@metronic/layout/core'
 import { Alert, AlertDescription } from '@/ds/ui/alert'
 import { Badge } from '@/ds/ui/badge'
@@ -17,6 +17,7 @@ import { EmptyState } from '@/ds/patterns/empty-state'
 import { FormDialog } from '@/ds/patterns/form-dialog'
 import { PageHeader } from '@/ds/patterns/page-header'
 import { SearchSelect } from '@/ds/patterns/search-select'
+import { LocationFields } from '@/ds/patterns/location-fields'
 import {
   createNewTowns,
   fetchAllCountries,
@@ -69,14 +70,20 @@ const branchesBreadCrumb: Array<PageLink> = [
   },
 ]
 
+/** Match branches.address VARCHAR(300) — same limit as platform Create Tenant. */
+const BRANCH_ADDRESS_MAX = 300
+
 const branchSchema = Yup.object({
   name: Yup.string().required().label('Branch Name'),
-  address: Yup.string().required().label('Branch Address'),
+  address: Yup.string()
+    .required()
+    .max(BRANCH_ADDRESS_MAX, `Branch Address must be at most ${BRANCH_ADDRESS_MAX} characters`)
+    .label('Branch Address'),
   cityId: Yup.string().required().label('City'),
   countryId: Yup.string().required().label('Town'),
   stateId: Yup.string().required().label('State'),
   townId: Yup.string().required().label('Town'),
-  postalCode: Yup.string().required().label('Postal Code'),
+  postalCode: Yup.string().required().max(10).label('Postal Code'),
   latitude: Yup.string().required().label('Latitude'),
   longitude: Yup.string().required().label('Longitude'),
   currency: Yup.string().optional().label('Currency'),
@@ -189,7 +196,7 @@ const toBranchTimeFormat = (value: string): boolean | null =>
 
 /** One text field of the branch form, bound to Formik: kit Field + floating label + error. */
 function BranchTextField({
-  form, name, label, required, multiline, inputMode,
+  form, name, label, required, multiline, inputMode, maxLength, hint, trailing,
 }: {
   form: FormikProps<typeof initialState>
   name: keyof typeof initialState
@@ -197,23 +204,41 @@ function BranchTextField({
   required?: boolean
   multiline?: boolean
   inputMode?: 'decimal' | 'numeric' | 'text'
+  maxLength?: number
+  hint?: string
+  trailing?: React.ReactNode
 }) {
   const id = `branch-${name}`
   const error = (form.touched[name] || form.submitCount > 0) ? (form.errors[name] as string | undefined) : undefined
+  const value = String(form.values[name] ?? '')
   const common = {
     id,
     name,
     required,
-    value: String(form.values[name] ?? ''),
+    value,
+    maxLength,
     onChange: form.handleChange,
     onBlur: form.handleBlur,
     'aria-invalid': error ? true : undefined,
-    'aria-describedby': error ? `${id}-error` : undefined,
+    'aria-describedby': error ? `${id}-error` : hint ? `${id}-hint` : undefined,
   }
   return (
     <Field data-invalid={error ? true : undefined}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      {multiline ? <Textarea {...common} rows={2} /> : <Input {...common} inputMode={inputMode} />}
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        {trailing}
+      </div>
+      {multiline ? <Textarea {...common} rows={2} placeholder="Street, area, landmark" /> : <Input {...common} inputMode={inputMode} />}
+      {hint ? (
+        <FieldDescription id={`${id}-hint`}>
+          {hint}
+          {typeof maxLength === 'number' ? ` ${value.length}/${maxLength} characters.` : null}
+        </FieldDescription>
+      ) : typeof maxLength === 'number' ? (
+        <FieldDescription>
+          {value.length}/{maxLength} characters
+        </FieldDescription>
+      ) : null}
       {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
     </Field>
   )
@@ -252,6 +277,8 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
   const [branches, setBranches] = useState([])
   const [listReady, setListReady] = useState(false)
   const [orgOptions, setOrgOptions] = useState<{ value: string; label: string }[]>([])
+  /** Registered org address by organization id — for “Use organization address” on create. */
+  const [orgAddressById, setOrgAddressById] = useState<Record<string, string>>({})
   const [empModal, setEmpModal] = useState<{ show: boolean; branch: any | null }>({ show: false, branch: null })
   const [devicesModal, setDevicesModal] = useState<{ show: boolean; branch: any | null }>({ show: false, branch: null })
   const [loading, setLoading] = useState(false)
@@ -344,9 +371,13 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
     setCountryTimezoneOptions(null)
     setGeoStatus({ busy: false, message: '' })
 
+    const companyForNew = initialState.companyId
+    const orgAddr = (orgAddressById[companyForNew] || '').trim().slice(0, BRANCH_ADDRESS_MAX)
+
     initialState = {
       name: '',
-      address: '',
+      // Real value (not a placeholder) so Tab/edit/geocode work immediately — same as Create Tenant.
+      address: orgAddr,
       countryId: '',
       cityId: '',
       stateId: '',
@@ -355,7 +386,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       latitude: '',
       longitude: '',
       currency: '',
-      companyId: initialState.companyId,
+      companyId: companyForNew,
       isActive: false,
       showDateIn12HourFormat: 'inherit',
       timezone: '',
@@ -669,7 +700,15 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
     async function loadOrgs() {
       try {
         const { data: { companyOverview } } = await fetchCompanyOverview()
-        setOrgOptions((companyOverview || []).map((o: any) => ({ value: o.id, label: o.name })))
+        const rows = companyOverview || []
+        setOrgOptions(rows.map((o: any) => ({ value: o.id, label: o.name })))
+        const addresses: Record<string, string> = {}
+        for (const o of rows) {
+          if (o?.id && typeof o.address === 'string' && o.address.trim()) {
+            addresses[o.id] = o.address.trim()
+          }
+        }
+        setOrgAddressById(addresses)
       } catch (error) {
         console.error('Failed to load organizations for branch form', error)
       }
@@ -771,8 +810,21 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
               dirty={formikProps.dirty}
               sections={[
                 { id: 'branch-details', label: 'Branch details', icon: <Building2 aria-hidden />, invalid: Boolean(err('name')) },
-                { id: 'branch-location', label: 'Location', icon: <MapPin aria-hidden />, invalid: Boolean(err('countryId') || err('stateId') || err('cityId') || err('townId') || err('postalCode')) },
-                { id: 'branch-coordinates', label: 'Map coordinates', icon: <LocateFixed aria-hidden />, invalid: Boolean(err('latitude') || err('longitude') || err('address')) },
+                {
+                  id: 'branch-location',
+                  label: 'Location & map',
+                  icon: <MapPin aria-hidden />,
+                  invalid: Boolean(
+                    err('countryId') ||
+                      err('stateId') ||
+                      err('cityId') ||
+                      err('townId') ||
+                      err('postalCode') ||
+                      err('latitude') ||
+                      err('longitude') ||
+                      err('address'),
+                  ),
+                },
                 { id: 'branch-preferences', label: 'Preferences', icon: <Settings2 aria-hidden /> },
               ]}
             >
@@ -787,7 +839,19 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                         label="Organization"
                         required
                         value={v.companyId || null}
-                        onValueChange={(value) => formikProps.setFieldValue('companyId', value ?? '')}
+                        onValueChange={(value) => {
+                          const nextId = value ?? ''
+                          formikProps.setFieldValue('companyId', nextId)
+                          // New branch only: keep address as a real org copy when empty or still the previous org’s.
+                          if (editMode) return
+                          const prevOrg = (orgAddressById[v.companyId] || '').trim()
+                          const nextOrg = (orgAddressById[nextId] || '').trim().slice(0, BRANCH_ADDRESS_MAX)
+                          const current = String(formikProps.values.address ?? '').trim()
+                          if (!nextOrg) return
+                          if (!current || current === prevOrg) {
+                            formikProps.setFieldValue('address', nextOrg, true)
+                          }
+                        }}
                         options={orgOptions}
                       />
                     </AutoGrid>
@@ -796,101 +860,92 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
 
                 <section id="branch-location" className="scroll-mt-4">
                   <FieldSet>
-                    <FieldLegend>Location</FieldLegend>
-                    <AutoGrid min={220} stretch>
-                      {/* Country and Currency side by side: currency is DERIVED from country. */}
-                      <SearchSelect
-                        id="branch-countryId"
-                        label="Country"
-                        required
-                        value={v.countryId || null}
-                        error={err('countryId')}
-                        onBlur={() => formikProps.setFieldTouched('countryId', true)}
-                        onValueChange={(value, option) => {
-                          formikProps.setFieldValue('countryId', value ?? '')
-                          setSelectedCountry(option ? { value: option.value, label: option.label } : null)
-
+                    <FieldLegend>Location &amp; map</FieldLegend>
+                    <FieldDescription>Address and coordinates validate on-site attendance check-ins.</FieldDescription>
+                    <LocationFields
+                      cityMode="text"
+                      showCurrency
+                      currencyMode="select"
+                      currencyOptions={currenciesOption}
+                      addressMaxLength={BRANCH_ADDRESS_MAX}
+                      value={{
+                        countryId: v.countryId,
+                        stateId: v.stateId,
+                        cityId: v.cityId,
+                        townId: v.townId,
+                        postalCode: v.postalCode,
+                        address: v.address,
+                        latitude: v.latitude,
+                        longitude: v.longitude,
+                        currency: v.currency,
+                      }}
+                      errors={{
+                        countryId: err('countryId'),
+                        stateId: err('stateId'),
+                        cityId: err('cityId'),
+                        townId: err('townId'),
+                        postalCode: err('postalCode'),
+                        address: err('address'),
+                        latitude: err('latitude'),
+                        longitude: err('longitude'),
+                      }}
+                      countryOptions={countriesOption}
+                      stateOptions={
+                        selectedState && !statesOption.some((s) => s.value === selectedState.value)
+                          ? [selectedState, ...statesOption]
+                          : statesOption
+                      }
+                      townOptions={townsOption}
+                      reuseAddress={(orgAddressById[v.companyId] || '').trim().slice(0, BRANCH_ADDRESS_MAX)}
+                      onReuseAddress={() => {
+                        const orgAddr = (orgAddressById[v.companyId] || '').trim().slice(0, BRANCH_ADDRESS_MAX)
+                        if (!orgAddr) return
+                        formikProps.setFieldValue('address', orgAddr, true)
+                        formikProps.setFieldTouched('address', true, false)
+                      }}
+                      onCreateTown={(name) => createTown(name, formikProps)}
+                      createTownLabel={(q) => `Add town “${q}”`}
+                      geoBusy={geoStatus.busy}
+                      geoMessage={geoStatus.message}
+                      onGeocodeFromAddress={() => void fillCoordinatesFromAddress(formikProps)}
+                      onUseCurrentLocation={() => detectCurrentLocation(formikProps)}
+                      onChange={(patch) => {
+                        if (patch.countryId !== undefined) {
+                          const value = patch.countryId
+                          formikProps.setFieldValue('countryId', value)
+                          const option = countriesOption.find((c) => c.value === value) ?? null
+                          setSelectedCountry(option)
                           setSelectedState(null)
                           formikProps.setFieldValue('stateId', '')
                           formikProps.setFieldValue('cityId', '')
-                          formikProps.setFieldValue('townId', '')
                           setStatesOptions([])
-
-                          // Scope the Timezone field to ONLY this country's real zones, and
-                          // prefill its default — never overwriting a timezone the admin already
-                          // picked explicitly in this session (see TIMEZONE_OPTIONS).
                           const { options: tzOptions, defaultZone } = resolveCountryTimezones(value)
                           setCountryTimezoneOptions(tzOptions)
                           if (!timezoneManuallyEdited && defaultZone) {
                             formikProps.setFieldValue('timezone', defaultZone)
                           }
-
-                          // Currency follows the country, on the same terms as the timezone:
-                          // derived, and stored so the branch says what it bills in.
                           const picked = geoCountries?.find((c) => c.iso2 === value)
-                          if (picked?.currency) {
-                            formikProps.setFieldValue('currency', picked.currency)
-                          }
-                        }}
-                        options={countriesOption}
-                      />
-
-                      {/* Editable, because a branch that bills in something other than its local
-                          currency is a real arrangement (a Gulf office invoicing in dollars). The
-                          full list, not a country-or-dollar pair. */}
-                      <SearchSelect
-                        id="branch-currency"
-                        label="Currency"
-                        value={v.currency || null}
-                        onValueChange={(value) => formikProps.setFieldValue('currency', value ?? '')}
-                        options={currenciesOption}
-                        hint={v.currency && !currencyDeviates
-                          ? `Salaries, offers and payslips at this branch are shown in ${getCurrencySymbol(v.currency)} ${v.currency}, from the selected country.`
-                          : undefined}
-                      />
-
-                      <SearchSelect
-                        id="branch-stateId"
-                        label="State"
-                        required
-                        disabled={selectedCountry == null}
-                        value={v.stateId || null}
-                        error={err('stateId')}
-                        onBlur={() => formikProps.setFieldTouched('stateId', true)}
-                        onValueChange={(value, option) => {
-                          formikProps.setFieldValue('stateId', value ?? '')
-                          setSelectedState(option ? { value: option.value, label: option.label } : null)
+                          if (picked?.currency) formikProps.setFieldValue('currency', picked.currency)
+                        }
+                        if (patch.stateId !== undefined) {
+                          formikProps.setFieldValue('stateId', patch.stateId)
+                          const option =
+                            statesOption.find((s) => s.value === patch.stateId) ||
+                            (selectedState?.value === patch.stateId ? selectedState : null)
+                          setSelectedState(option)
                           formikProps.setFieldValue('cityId', '')
-                          formikProps.setFieldValue('townId', '')
-                        }}
-                        options={selectedState && !statesOption.some((s) => s.value === selectedState.value)
-                          ? [selectedState, ...statesOption]
-                          : statesOption}
-                      />
-
-                      {/* City is free text: the city dataset isn't available offline (the CSC API
-                          needs a key) and cities are stored by name. */}
-                      <BranchTextField form={formikProps} name="cityId" label="City" required />
-
-                      <SearchSelect
-                        id="branch-townId"
-                        label="Town"
-                        required
-                        value={v.townId || null}
-                        error={err('townId')}
-                        onBlur={() => formikProps.setFieldTouched('townId', true)}
-                        onValueChange={(value) => formikProps.setFieldValue('townId', value ?? '')}
-                        options={townsOption}
-                        onCreate={(name) => createTown(name, formikProps)}
-                        createLabel={(q) => `Add town “${q}”`}
-                      />
-
-                      <BranchTextField form={formikProps} name="postalCode" label="Postal code" required inputMode="numeric" />
-                    </AutoGrid>
-                    {/* Deviating from the country is allowed but never silent. Salary, offers and
-                        exported payslips all read this. */}
+                        }
+                        if (patch.cityId !== undefined) formikProps.setFieldValue('cityId', patch.cityId)
+                        if (patch.townId !== undefined) formikProps.setFieldValue('townId', patch.townId)
+                        if (patch.postalCode !== undefined) formikProps.setFieldValue('postalCode', patch.postalCode)
+                        if (patch.address !== undefined) formikProps.setFieldValue('address', patch.address)
+                        if (patch.latitude !== undefined) formikProps.setFieldValue('latitude', patch.latitude)
+                        if (patch.longitude !== undefined) formikProps.setFieldValue('longitude', patch.longitude)
+                        if (patch.currency !== undefined) formikProps.setFieldValue('currency', patch.currency)
+                      }}
+                    />
                     {currencyDeviates && (
-                      <Alert variant="warning">
+                      <Alert variant="warning" className="mt-4">
                         <TriangleAlert aria-hidden />
                         <AlertDescription>
                           This branch bills in <strong>{getCurrencySymbol(v.currency)} {v.currency}</strong>, not its
@@ -898,41 +953,15 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                         </AlertDescription>
                       </Alert>
                     )}
-                  </FieldSet>
-                </section>
-
-                <section id="branch-coordinates" className="scroll-mt-4">
-                  <FieldSet>
-                    <FieldLegend>Map coordinates</FieldLegend>
-                    <FieldDescription>Used to validate on-site attendance check-ins.</FieldDescription>
-                    <FieldGroup>
-                      <AutoGrid min={220} stretch>
-                        <div className="col-span-full">
-                          <BranchTextField form={formikProps} name="address" label="Branch address" required multiline />
-                        </div>
-                        <BranchTextField form={formikProps} name="latitude" label="Latitude" required inputMode="decimal" />
-                        <BranchTextField form={formikProps} name="longitude" label="Longitude" required inputMode="decimal" />
-                      </AutoGrid>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button type="button" size="sm" variant="outline" disabled={geoStatus.busy} onClick={() => fillCoordinatesFromAddress(formikProps)}>
-                          <MapPin data-icon="inline-start" aria-hidden /> Get coordinates from address
-                        </Button>
-                        <Button type="button" size="sm" variant="outline" disabled={geoStatus.busy} onClick={() => detectCurrentLocation(formikProps)}>
-                          <LocateFixed data-icon="inline-start" aria-hidden /> Use my current location
-                        </Button>
-                        {geoStatus.busy && <Spinner className="size-4" aria-hidden />}
-                      </div>
-                      <p aria-live="polite" className="text-xs text-muted-foreground">{geoStatus.message}</p>
-                      {!isDeviceNotDesktop && (
-                        <Alert variant="info">
-                          <Info aria-hidden />
-                          <AlertDescription>
-                            On a desktop, the current location comes from the network and can be approximate — a phone
-                            or tablet uses GPS. Prefer the address lookup here.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </FieldGroup>
+                    {!isDeviceNotDesktop && (
+                      <Alert variant="info" className="mt-4">
+                        <Info aria-hidden />
+                        <AlertDescription>
+                          On a desktop, the current location comes from the network and can be approximate — a phone
+                          or tablet uses GPS. Prefer the address lookup here.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </FieldSet>
                 </section>
 

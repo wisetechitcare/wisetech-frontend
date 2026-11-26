@@ -68,7 +68,7 @@ export default function CourtesyDeskMain() {
     },
     { title: "", path: "", isSeparator: true, isActive: false },
     {
-      title: "Gift Managements",
+      title: "Gift Management",
       path: GIFT_MANAGEMENT_BASE,
       isSeparator: false,
       isActive: false,

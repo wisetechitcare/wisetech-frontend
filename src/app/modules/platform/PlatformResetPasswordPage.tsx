@@ -63,6 +63,7 @@ export default function PlatformResetPasswordPage() {
           variant="link"
           size="sm"
           className="w-full"
+          nativeButton={false}
           render={<Link to="/platform/login" />}
         >
           Back To Sign In

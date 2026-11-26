@@ -58,20 +58,35 @@ interface CountryRecord {
  * Exported because a screen that needs the country list should use this rather than dispatch
  * a third shape into the locations slice.
  */
-const countryDirectoryQuery = {
-    queryKey: ['geo', 'countries'],
-    queryFn: fetchAllCountries,
-    staleTime: Infinity,
-    gcTime: Infinity,
-    // A missing directory costs a fallback to INR, not a broken screen — so failing
-    // quietly and quickly beats retrying three times behind every money figure.
-    retry: false,
-} as const;
+/**
+ * Geo countries require a tenant session (`protect`). Never hit the API on /auth or
+ * platform-only screens — that was a noisy 401 on every cold load.
+ */
+function useCountryDirectoryQuery() {
+    const isAuthenticated = useSelector((s: RootState) => Boolean(s.auth.currentUser?.id));
+    return useQuery<CountryRecord[]>({
+        queryKey: ['geo', 'countries'],
+        queryFn: fetchAllCountries,
+        enabled: isAuthenticated,
+        staleTime: Infinity,
+        gcTime: Infinity,
+        // A missing directory costs a fallback to INR, not a broken screen — so failing
+        // quietly and quickly beats retrying three times behind every money figure.
+        retry: false,
+    });
+}
 
-export const useCountryDirectory = () => useQuery<CountryRecord[]>(countryDirectoryQuery).data;
+export const useCountryDirectory = () => useCountryDirectoryQuery().data;
 
-/** True once the directory has answered (or failed) — i.e. the currency will not change again on its own. */
-export const useCountryDirectoryReady = () => useQuery<CountryRecord[]>(countryDirectoryQuery).isFetched;
+/**
+ * True once the directory has answered (or failed), or when we are not authenticated
+ * (no fetch will run — App must not wait forever for currency on the sign-in screen).
+ */
+export const useCountryDirectoryReady = () => {
+    const isAuthenticated = useSelector((s: RootState) => Boolean(s.auth.currentUser?.id));
+    const q = useCountryDirectoryQuery();
+    return !isAuthenticated || q.isFetched;
+};
 
 export interface ResolvedCurrency {
     /** ISO 4217, e.g. `INR`. */

@@ -112,10 +112,11 @@ const PendingRequestsTable = () => {
   const getAllWeekends = useSelector((state: RootState) => state?.employee?.currentEmployee?.branches?.workingAndOffDays);
   const allHolidays = useSelector((state: RootState) => state?.attendanceStats?.publicHolidays);
   const leaveTypeColors = useSelector((state: RootState) => state.customColors?.leaveTypes);
-  const openLeaveRequestsFromRedux = useSelector((state: RootState) => {
-    const { attendance } = state;
-    return attendance.leaveRequests.filter((el: any) => el.status === LeaveStatus.ApprovalPending);
-  });
+  const leaveRequests = useSelector((state: RootState) => state.attendance.leaveRequests);
+  const openLeaveRequestsFromRedux = useMemo(
+    () => leaveRequests.filter((el: any) => el.status === LeaveStatus.ApprovalPending),
+    [leaveRequests],
+  );
 
   // Fetch approvals the current user can act on (used for attendance & leaves)
   const fetchActionableApprovals = useCallback(async () => {
@@ -159,8 +160,8 @@ const PendingRequestsTable = () => {
       const { data: { attendanceRequests } } = await getPendingAttendanceRequests(companyId);
       const transformed = transformAttendanceRequest(attendanceRequests);
       setAttendanceRequests(transformed);
-    } catch (error) {
-      console.error('Error fetching attendance requests:', error);
+    } catch {
+      // 403 (no capability) and other failures: empty table, no console noise.
       setAttendanceRequests([]);
     } finally {
       endLoad();
@@ -173,8 +174,9 @@ const PendingRequestsTable = () => {
     try {
       const { data: { leaveRequest } } = await fetchLeaveRequest();
       dispatch(saveLeaveRequests(transformLeaveRequests(leaveRequest)));
-    } catch (error) {
-      console.error('Error fetching leave requests:', error);
+    } catch {
+      // Same as attendance: viewers without rights see an empty list, not an error toast.
+      dispatch(saveLeaveRequests([]));
     } finally {
       endLoad();
     }
