@@ -8,7 +8,7 @@ import { Spinner } from './spinner'
  * is loading content, use Skeleton in the content's shape instead (replaces the live kit's `PageLoader`).
  */
 const meta = {
-  title: 'Components/Spinner',
+  title: 'Feedback & Overlays/Spinner',
   component: Spinner,
 } satisfies Meta<typeof Spinner>
 

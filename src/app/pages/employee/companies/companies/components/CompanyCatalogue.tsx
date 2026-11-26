@@ -335,6 +335,75 @@ function CatalogueTable({ items, newIds, actions }: { items: Catalogue[]; newIds
 
 /* ---------- Dialogs (the gallery's Create album / Delete dialogs, for a catalogue) ---------- */
 
+/**
+ * The gallery's viewer for catalogues: the file on the dark stage, every detail beside it.
+ * Shared by the company's Catalogue tab and CRM -> Catalogue. A deleted catalogue drops out of
+ * `items`, which closes it.
+ */
+export function CatalogueViewer({ items, viewingId, onViewingChange, actions, newIds }: {
+  items: Catalogue[];
+  viewingId: string | null;
+  onViewingChange: (id: string | null) => void;
+  actions: CatalogueActions;
+  newIds?: Set<string>;
+}) {
+  const viewerList = useMemo(
+    () => items.map((c) => ({ id: c.id, name: c.fileName, src: c.url, kind: c.kind === "pdf" ? ("pdf" as const) : ("image" as const), size: c.sizeBytes / 1048576, c })),
+    [items],
+  );
+  const viewIndex = viewingId ? viewerList.findIndex((v) => v.id === viewingId) : -1;
+  return (
+    <ItemViewer
+      list={viewerList}
+      index={viewIndex < 0 ? null : viewIndex}
+      onIndexChange={(i) => onViewingChange(viewerList[i]?.id ?? null)}
+      onClose={() => onViewingChange(null)}
+      onShare={(v) => shareCatalogue(v.c)}
+      onDownload={(v) => downloadCatalogue(v.c)}
+      side={({ c }, { dims }) => ({
+          eyebrow: `${kindLabel(c)} · Catalogue`,
+          title: c.name,
+          tags: newIds?.has(c.id) ? <Badge variant="success">New</Badge> : undefined,
+          body: (
+            <div className="space-y-4 p-5">
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
+                {c.kind === "pdf" && <ViewerRow k="Pages" v={c.pageCount} />}
+                <ViewerRow k="Uploaded" v={formatDateTime(c.createdAt)} />
+                <ViewerRow k="Uploaded by" v={c.uploadedByName ?? "—"} />
+              </dl>
+              <Separator />
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
+                <ViewerRow k="File name" v={<span className="break-all">{c.fileName}</span>} />
+                <ViewerRow k="Type" v={(c.fileName.split(".").pop() ?? "").toUpperCase() || kindLabel(c)} />
+                <ViewerRow k="Size" v={formatSize(c.sizeBytes / 1048576)} />
+                {dims && dims.w > 0 && <ViewerRow k="Resolution" v={`${dims.w} × ${dims.h} px`} />}
+              </dl>
+              <Separator />
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={() => downloadCatalogue(c)}>
+                  <Download data-icon="inline-start" /> Download
+                </Button>
+                <Button variant="outline" onClick={() => shareCatalogue(c)}>
+                  <Share2 data-icon="inline-start" /> Share
+                </Button>
+                {actions.rename && (
+                  <Button variant="outline" className="col-span-2" onClick={() => actions.rename?.(c)}>
+                    <Pencil data-icon="inline-start" /> Edit name
+                  </Button>
+                )}
+                {actions.remove && (
+                  <Button variant="destructive" className="col-span-2" onClick={() => actions.remove?.(c)}>
+                    <Trash2 data-icon="inline-start" /> Delete
+                  </Button>
+                )}
+              </div>
+            </div>
+          ),
+        })}
+    />
+  );
+}
+
 export function RenameDialog({ catalogue, onClose, onSave }: { catalogue: Catalogue | null; onClose: () => void; onSave: (name: string) => Promise<void> }) {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
@@ -538,13 +607,6 @@ const CompanyCatalogue = ({ companyId, canWrite, addRequested, onAddHandled }: P
       );
   }, [items, q, kind, sort]);
 
-  // The gallery's viewer, over the list as it is shown (so ← → follow the current filter and sort).
-  const viewerList = useMemo(
-    () => list.map((c) => ({ id: c.id, name: c.fileName, src: c.url, kind: c.kind === "pdf" ? ("pdf" as const) : ("image" as const), size: c.sizeBytes / 1048576, c })),
-    [list],
-  );
-  const viewIndex = viewingId ? viewerList.findIndex((v) => v.id === viewingId) : -1;
-
   const actions: CatalogueActions = {
     preview: (c) => setViewingId(c.id),
     ...(canWrite ? { rename: setRenaming, remove: setDeleting } : {}),
@@ -685,56 +747,8 @@ const CompanyCatalogue = ({ companyId, canWrite, addRequested, onAddHandled }: P
         )}
       </div>
 
-      {/* The gallery's viewer: the file on the dark stage, every detail from the card beside it.
-          A deleted catalogue drops out of the list, which closes it here. */}
-      <ItemViewer
-        list={viewerList}
-        index={viewIndex < 0 ? null : viewIndex}
-        onIndexChange={(i) => setViewingId(viewerList[i]?.id ?? null)}
-        onClose={() => setViewingId(null)}
-        onShare={(v) => shareCatalogue(v.c)}
-        onDownload={(v) => downloadCatalogue(v.c)}
-        side={({ c }, { dims }) => ({
-          eyebrow: `${kindLabel(c)} · Catalogue`,
-          title: c.name,
-          tags: newIds.has(c.id) ? <Badge variant="success">New</Badge> : undefined,
-          body: (
-            <div className="space-y-4 p-5">
-              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
-                {c.kind === "pdf" && <ViewerRow k="Pages" v={c.pageCount} />}
-                <ViewerRow k="Uploaded" v={formatDateTime(c.createdAt)} />
-                <ViewerRow k="Uploaded by" v={c.uploadedByName ?? "—"} />
-              </dl>
-              <Separator />
-              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
-                <ViewerRow k="File name" v={<span className="break-all">{c.fileName}</span>} />
-                <ViewerRow k="Type" v={(c.fileName.split(".").pop() ?? "").toUpperCase() || kindLabel(c)} />
-                <ViewerRow k="Size" v={formatSize(c.sizeBytes / 1048576)} />
-                {dims && dims.w > 0 && <ViewerRow k="Resolution" v={`${dims.w} × ${dims.h} px`} />}
-              </dl>
-              <Separator />
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={() => downloadCatalogue(c)}>
-                  <Download data-icon="inline-start" /> Download
-                </Button>
-                <Button variant="outline" onClick={() => shareCatalogue(c)}>
-                  <Share2 data-icon="inline-start" /> Share
-                </Button>
-                {actions.rename && (
-                  <Button variant="outline" className="col-span-2" onClick={() => actions.rename?.(c)}>
-                    <Pencil data-icon="inline-start" /> Edit name
-                  </Button>
-                )}
-                {actions.remove && (
-                  <Button variant="destructive" className="col-span-2" onClick={() => actions.remove?.(c)}>
-                    <Trash2 data-icon="inline-start" /> Delete
-                  </Button>
-                )}
-              </div>
-            </div>
-          ),
-        })}
-      />
+      {/* ← → follow the list as shown (current filter and sort). */}
+      <CatalogueViewer items={list} viewingId={viewingId} onViewingChange={setViewingId} actions={actions} newIds={newIds} />
       <RenameDialog
         catalogue={renaming}
         onClose={() => setRenaming(null)}

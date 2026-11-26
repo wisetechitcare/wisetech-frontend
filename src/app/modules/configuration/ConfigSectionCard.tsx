@@ -5,7 +5,7 @@ import { SettingsSection, type SettingsSectionStatus } from '@/ds/patterns/setti
 import { legacyTone } from '@app/modules/common/components/ui/legacyTone';
 
 /**
- * ConfigSectionCard — a THIN ADAPTER over the kit's `Patterns/Settings Section`.
+ * ConfigSectionCard — a THIN ADAPTER over the kit's `Components/Cards/Settings Section`.
  *
  * It was 293 lines that drew its own card: MUI's `useTheme()` read into inline `style` objects,
  * a hand-built accent bar, hover shadow, skeleton, status pill and badge, plus a third icon

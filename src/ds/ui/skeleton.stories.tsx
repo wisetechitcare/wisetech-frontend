@@ -3,7 +3,7 @@ import { Skeleton } from './skeleton'
 
 /** Loading placeholder that matches the shape of the content it stands in for — never a full-page spinner. */
 const meta = {
-  title: 'Components/Skeleton',
+  title: 'Feedback & Overlays/Skeleton',
   component: Skeleton,
 } satisfies Meta<typeof Skeleton>
 

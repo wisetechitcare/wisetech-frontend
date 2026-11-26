@@ -10,7 +10,8 @@ import { describe, expect, it } from 'vitest';
  * token swatches on purpose.
  */
 const DS = __dirname;
-const SCANNED = ['prototypes', 'patterns'];
+// Storybook's screen prototypes (src/storybook/screens) are held to the same rule as the patterns.
+const SCANNED = [join(DS, 'patterns'), join(DS, '..', 'storybook', 'screens')];
 
 const RULES: Array<[RegExp, string]> = [
     [/<button\b/, 'raw <button> — use Button (or SidebarMenuButton, TabsTrigger…)'],
@@ -33,7 +34,7 @@ function tsxFiles(dir: string): string[] {
 describe('v2 kit consistency', () => {
     it('screens and patterns use kit components instead of hand-built ones', () => {
         const hits: string[] = [];
-        for (const file of SCANNED.flatMap((d) => tsxFiles(join(DS, d)))) {
+        for (const file of SCANNED.flatMap(tsxFiles)) {
             readFileSync(file, 'utf8')
                 .split('\n')
                 .forEach((line, i) => {
@@ -48,7 +49,7 @@ describe('v2 kit consistency', () => {
     // A command list's rows sit inside CommandGroup: its inset keeps each row's rounded highlight fully visible
     // (rows placed straight in CommandList ran flush against the search box — the phone field's country list).
     it('command rows are grouped', () => {
-        const hits = SCANNED.flatMap((d) => tsxFiles(join(DS, d)))
+        const hits = SCANNED.flatMap(tsxFiles)
             .filter((file) => !file.endsWith('.stories.tsx'))
             .filter((file) => {
                 const src = readFileSync(file, 'utf8');

@@ -15,7 +15,7 @@ import {
  * kit's `Pager`. Tables draw their own footer.
  */
 const meta = {
-  title: 'Components/Pagination',
+  title: 'Navigation/Pagination',
   component: Pagination,
 } satisfies Meta<typeof Pagination>
 

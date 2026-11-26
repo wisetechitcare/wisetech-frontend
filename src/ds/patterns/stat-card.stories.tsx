@@ -5,7 +5,7 @@ import { StatCard } from './stat-card'
 
 /** KPI tile. Trend direction is shown with an arrow and text, not colour alone. `tone` sets the accent; `sparkline` adds a mini trend chart. */
 const meta = {
-  title: 'Patterns/Stat Card',
+  title: 'Components/Cards/Stat Card',
   component: StatCard,
   args: { label: 'Headcount', value: '248', icon: <Users aria-hidden /> },
   decorators: [(Story) => <div className="w-80"><Story /></div>],

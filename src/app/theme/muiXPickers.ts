@@ -3,7 +3,8 @@
  *
  * Imported into {@link makeWisetechTheme} so every `DatePicker` / `DateCalendar`
  * / desktop popper inherits the same sheet, day, and today treatment as the
- * custom M3 fiscal / time dialogs.
+ * custom M3 time dialog (`TimePickerField`). Fiscal year editing uses the kit
+ * `DateRangePicker` popover, not these MUI X overrides.
  */
 import { alpha, type Components, type Theme } from '@mui/material/styles';
 import { sheetSx } from './surfaces';

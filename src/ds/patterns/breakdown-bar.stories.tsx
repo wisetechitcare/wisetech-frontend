@@ -4,7 +4,7 @@ import { BreakdownBar } from './breakdown-bar'
 
 /** How a whole splits into parts — a stacked bar with a legend that carries the facts. */
 const meta = {
-  title: 'Patterns/BreakdownBar',
+  title: 'Patterns/Breakdown Bar',
   component: BreakdownBar,
   decorators: [(Story) => <div className="max-w-sm"><Story /></div>],
   args: {

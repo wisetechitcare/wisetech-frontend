@@ -40,6 +40,9 @@ export const Basic: Story = {
 
 /** `headerAction` is pinned to the right of the bar: here the eye that hides amounts, in its `onPrimary` look. */
 export const WithHeaderAction: Story = {
+  // Show the written source: generating the snippet at runtime walks React's dev-only element internals of the
+  // JSX nested in `items[].content` below and freezes the whole Storybook tab (dev server only).
+  parameters: { docs: { source: { type: 'code' } } },
   render: (args) => (
     <SensitiveProvider>
       <PageTabs
