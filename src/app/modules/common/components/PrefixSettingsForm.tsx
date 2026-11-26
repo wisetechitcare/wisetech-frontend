@@ -9,17 +9,11 @@ import { fetchCompanyOverview } from '@services/company';
 import { successConfirmation } from '@utils/modal';
 import { FiscalYearRangeField } from '@app/modules/common/components/ui';
 import { canonicalFiscalYear } from '@utils/fiscalYearSegment';
-import {
-  toISODateString,
-  getDefaultFiscalYear,
-  convertFiscalYearToDates,
-  toCanonicalFiscalYearRange,
-} from '@utils/fiscalYearRange';
+import { getDefaultFiscalYear, toCanonicalFiscalYearRange } from '@utils/fiscalYearRange';
 import { Button } from '@/ds/ui/button';
 
-// Re-export helpers so existing PerOrg / LeadWizard imports keep working.
-// Canonical home is `@utils/fiscalYearRange`.
-export { toISODateString, getDefaultFiscalYear, convertFiscalYearToDates };
+// Re-exported so PerOrgPrefixSettings' import keeps working. Canonical home is `@utils/fiscalYearRange`.
+export { getDefaultFiscalYear };
 
 // Props interface simplified - parent only needs to provide type information
 interface PrefixSettingsFormProps {

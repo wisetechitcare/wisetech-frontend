@@ -9,6 +9,7 @@ import { DatePicker, DateRangePicker } from './date-picker'
 /**
  * Typed date entry (DateField segments) plus a calendar popover. `placeholderValue` sets the
  * month the calendar opens on while empty. Values are `CalendarDate`; send `value.toString()`.
+ * Forms that hold ISO strings use Date Picker Field instead (same picker, strings in and out).
  */
 const meta = {
   title: 'Forms/Date & Time/Date Picker',
@@ -163,23 +164,33 @@ export const RangeWithConfirm: Story = {
 }
 
 /**
- * Kit pickers always open Monday-first. October 2026 (Thu 1st) leads with Mon 28 Sep — not Sun 27.
+ * Kit pickers open Monday-first by default (`firstDayOfWeek`). October 2026 (Thu 1st) leads with Mon 28 Sep — not
+ * Sun 27. The leading cell is a hidden outside day, so it is found by its label rather than as a button.
  */
 export const MondayFirst: Story = {
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
     const dialog = await screen.findByRole('dialog')
-    await expect(within(dialog).getByRole('button', { name: /Monday, 28 September 2026/ })).toBeInTheDocument()
-    await expect(within(dialog).queryByRole('button', { name: /27 September 2026/ })).not.toBeInTheDocument()
+    await expect(dialog.querySelector('[aria-label="Monday, 28 September 2026"]')).toBeTruthy()
+    await expect(dialog.querySelector('[aria-label*="27 September 2026"]')).toBeNull()
+  },
+}
+
+/** `firstDayOfWeek` overrides the Monday default for one picker. */
+export const SundayFirst: Story = {
+  args: { firstDayOfWeek: 'sun' },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await expect(dialog.querySelector('[aria-label="Sunday, 27 September 2026"]')).toBeTruthy()
   },
 }
 
 /**
- * `hideOutsideDays` keeps the week grid but blanks adjacent-month cells (`invisible`, out of a11y tree).
- * In-month days still pick and close the popover.
+ * Outside-month days are hidden by default: the week grid keeps its shape but adjacent-month cells are blank
+ * (`invisible`, out of the a11y tree). In-month days still pick and close the popover.
  */
 export const HideOutsideDays: Story = {
-  args: { hideOutsideDays: true },
   play: async ({ args, canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
     const dialog = await screen.findByRole('dialog')
@@ -194,7 +205,27 @@ export const HideOutsideDays: Story = {
   },
 }
 
-/** Range picker with the same Monday-first + hideOutsideDays knobs as single date. */
+/** `hideOutsideDays={false}` brings back the muted adjacent-month days. */
+export const ShowOutsideDays: Story = {
+  args: { hideOutsideDays: false },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await expect(within(dialog).getByRole('button', { name: /Monday, 28 September 2026/ })).not.toHaveClass('invisible')
+  },
+}
+
+/** `isClearable` adds a clear button while the field holds a date. */
+export const Clearable: Story = {
+  args: { isClearable: true, defaultValue: parseDate('2026-10-28') },
+  play: async ({ args, canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: 'Clear' }))
+    await expect(args.onChange).toHaveBeenLastCalledWith(null)
+    await expect(canvas.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
+  },
+}
+
+/** Range picker with the same Monday-first + hidden outside days defaults as single date. */
 export const RangeHideOutsideDays: Story = {
   args: { hideOutsideDays: true },
   render: (args) => (

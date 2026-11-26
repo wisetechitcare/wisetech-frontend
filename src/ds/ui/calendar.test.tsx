@@ -68,4 +68,15 @@ describe('Calendar Monday-first week', () => {
     expect(screen.getByRole('button', { name: /28 September 2026/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /27 September 2026/ })).toBeNull();
   });
+
+  it('starts weeks on Monday by default, without the prop', () => {
+    render(
+      <KitProvider>
+        <Calendar aria-label="Joining date" defaultFocusedValue={parseDate('2026-10-28')} />
+      </KitProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: /Monday, 28 September 2026/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /27 September 2026/ })).toBeNull();
+  });
 });

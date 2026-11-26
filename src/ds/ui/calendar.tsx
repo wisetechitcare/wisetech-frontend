@@ -1,9 +1,15 @@
 "use client";
 
 import * as React from "react";
+import { endOfMonth, endOfYear, isWeekend, startOfWeek } from "@internationalized/date";
 import { cva } from "class-variance-authority";
 import { cn } from "cn";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronUpIcon,
+} from "lucide-react";
 import { motion } from "motion/react";
 import {
   Button,
@@ -42,7 +48,11 @@ import { buttonVariants } from "@/ds/ui/button";
  *   drilling down: a month picker opens on the month grid and a click selects the 1st of that month; a year
  *   picker is the year grid alone. Months/years wholly outside minValue/maxValue are disabled.
  * - `hideOutsideDays`: when true, days from adjacent months stay in the grid for layout but are invisible
- *   and non-interactive. Default false keeps muted outside-day numbers (today's behaviour).
+ *   and non-interactive. Default false here; the pickers default it to true.
+ * - `firstDayOfWeek`: defaults to Monday (the app-wide week) for every calendar and picker.
+ * - `showWeekends`: default true. When false the weekend columns (per locale) are removed from the grid.
+ * - `showMonthYearSelect`: default true. When false the title is a plain label and the month/year grids are
+ *   not reachable (a month/year `granularity` calendar always keeps them, they ARE its picker).
  *
  * Values are @internationalized/date CalendarDate (a calendar day, no time zone). Cross the API boundary with
  * value.toString() → 'YYYY-MM-DD'; a JS Date round-trip shifts days across IST/UTC.
@@ -61,6 +71,20 @@ type EngineProps = {
   size?: "default" | "lg";
   /** Hide adjacent-month days visually while keeping the week grid. Default shows muted outside days. */
   hideOutsideDays?: boolean;
+  /** Show the weekend columns. Default true; false removes them (weekend days follow the locale). */
+  showWeekends?: boolean;
+  /** Let the title open the month and year grids. Default true. */
+  showMonthYearSelect?: boolean;
+};
+
+const HIDE_COLUMN_CLASS: Record<number, string> = {
+  1: "[&_th:nth-child(1)]:hidden [&_td:nth-child(1)]:hidden",
+  2: "[&_th:nth-child(2)]:hidden [&_td:nth-child(2)]:hidden",
+  3: "[&_th:nth-child(3)]:hidden [&_td:nth-child(3)]:hidden",
+  4: "[&_th:nth-child(4)]:hidden [&_td:nth-child(4)]:hidden",
+  5: "[&_th:nth-child(5)]:hidden [&_td:nth-child(5)]:hidden",
+  6: "[&_th:nth-child(6)]:hidden [&_td:nth-child(6)]:hidden",
+  7: "[&_th:nth-child(7)]:hidden [&_td:nth-child(7)]:hidden",
 };
 
 const cellVariants = cva(
@@ -98,6 +122,8 @@ const calendarClassName =
   "group/calendar w-fit bg-background p-3 [--cell-radius:var(--radius-4xl)] [--cell-size:--spacing(8)] [--range-edge:inset_0_1px_0_var(--primary),inset_0_-1px_0_var(--primary)] data-[size=lg]:w-full data-[size=lg]:[--cell-radius:var(--radius-xl)] data-[size=lg]:[--cell-size:--spacing(11)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent";
 
 export type CalendarGranularity = "day" | "month" | "year";
+export type FirstDayOfWeek = NonNullable<CalendarProps<DateValue>["firstDayOfWeek"]>;
+const DEFAULT_FIRST_DAY_OF_WEEK: FirstDayOfWeek = "mon";
 
 function Calendar<
   T extends DateValue,
@@ -110,12 +136,16 @@ function Calendar<
   size = "default",
   granularity = "day",
   hideOutsideDays = false,
+  showWeekends = true,
+  showMonthYearSelect = true,
+  firstDayOfWeek = DEFAULT_FIRST_DAY_OF_WEEK,
   ...props
 }: Omit<CalendarProps<T, M>, "visibleDuration"> &
   EngineProps & { granularity?: CalendarGranularity }) {
   return (
     <AriaCalendar
       {...props}
+      firstDayOfWeek={firstDayOfWeek}
       data-slot="calendar"
       data-size={size}
       data-range-style={rangeStyle}
@@ -130,6 +160,9 @@ function Calendar<
         getDayState={getDayState}
         granularity={granularity}
         hideOutsideDays={hideOutsideDays}
+        showWeekends={showWeekends}
+        showMonthYearSelect={showMonthYearSelect}
+        firstDayOfWeek={firstDayOfWeek}
       />
     </AriaCalendar>
   );
@@ -142,11 +175,15 @@ function RangeCalendar<T extends DateValue>({
   rangeStyle = "band",
   size = "default",
   hideOutsideDays = false,
+  showWeekends = true,
+  showMonthYearSelect = true,
+  firstDayOfWeek = DEFAULT_FIRST_DAY_OF_WEEK,
   ...props
 }: Omit<RangeCalendarProps<T>, "visibleDuration"> & EngineProps) {
   return (
     <AriaRangeCalendar
       {...props}
+      firstDayOfWeek={firstDayOfWeek}
       data-slot="calendar"
       data-size={size}
       data-range-style={rangeStyle}
@@ -159,6 +196,9 @@ function RangeCalendar<T extends DateValue>({
         numberOfMonths={numberOfMonths}
         getDayState={getDayState}
         hideOutsideDays={hideOutsideDays}
+        showWeekends={showWeekends}
+        showMonthYearSelect={showMonthYearSelect}
+        firstDayOfWeek={firstDayOfWeek}
         isRange
       />
     </AriaRangeCalendar>
@@ -168,7 +208,7 @@ function RangeCalendar<T extends DateValue>({
 // cn, not buttonVariants({ className }): the default size's h-10 px-4 must be merged away.
 const navButtonClassName = cn(
   buttonVariants({ variant: "ghost" }),
-  "size-(--cell-size) p-0 select-none",
+  "pointer-events-auto size-(--cell-size) p-0 select-none",
 );
 const pickButtonClassName = cn(
   buttonVariants({ variant: "ghost" }),
@@ -196,17 +236,31 @@ function CalendarInner({
   getDayState,
   granularity = "day",
   hideOutsideDays = false,
+  showWeekends = true,
+  showMonthYearSelect = true,
+  firstDayOfWeek = DEFAULT_FIRST_DAY_OF_WEEK,
 }: {
   numberOfMonths: number;
   isRange?: boolean;
   getDayState?: EngineProps["getDayState"];
   granularity?: CalendarGranularity;
   hideOutsideDays?: boolean;
+  showWeekends?: boolean;
+  showMonthYearSelect?: boolean;
+  firstDayOfWeek?: FirstDayOfWeek;
 }) {
   const single = React.useContext(CalendarStateContext);
   const range = React.useContext(RangeCalendarStateContext);
   const state = isRange ? range : single;
   const { locale } = useLocale();
+  // A month grid names 24 months per render; build each formatter once per locale.
+  const monthFormatters = React.useMemo(
+    () => ({
+      long: new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }),
+      short: new Intl.DateTimeFormat(locale, { month: "short", timeZone: "UTC" }),
+    }),
+    [locale],
+  );
   // The lowest view this calendar goes to; the title cycles floor -> ... -> years -> back to the floor.
   const floor = FLOOR[granularity];
   const [view, setViewState] = React.useState<View>(floor);
@@ -235,8 +289,7 @@ function CalendarInner({
   const focused = state.focusedDate;
   // In a month/year picker the highlighted tile is the VALUE; in a day calendar it is the focused month.
   const raw = !isRange && floor !== "days" ? single?.value : null;
-  // Multiple-selection calendars hold an array; a month/year picker is single-value only.
-  // React Aria types `value` as `T | T[] | null`; month/year pickers are always single-value.
+  // React Aria types `value` as `T | T[] | null` (multiple selection); month/year pickers are single-value.
   const picked =
     raw && !Array.isArray(raw) ? (raw as DateValue) : null;
   const { minValue, maxValue } = state;
@@ -251,22 +304,30 @@ function CalendarInner({
   };
 
   const monthName = (m: number, style: "long" | "short") =>
-    new Intl.DateTimeFormat(locale, { month: style, timeZone: "UTC" }).format(
-      new Date(Date.UTC(2000, m - 1, 1)),
-    );
+    monthFormatters[style].format(new Date(Date.UTC(2000, m - 1, 1)));
   const title = (offset: number) => {
     const d = focused.add({ months: offset });
     return `${monthName(d.month, "long")} ${d.year}`;
   };
   // The year grid centres on the current year (5 before, 6 after), so nearby years are one click either way.
   const decadeStart = focused.year - 5;
+  const decadeTitle = `${decadeStart} – ${decadeStart + 11}`;
+  // The jump arrows move a year on the month grid and a whole 12-year page on the year grid.
+  const jumpYears = view === "months" ? 1 : 12;
 
   const goTo = (fields: { year?: number; month?: number }) => {
     state.setFocusedDate(focused.set(fields));
   };
 
   // Jump views (months / years) replace the day grid; one month only — a multi-month range keeps plain titles.
-  const canJump = numberOfMonths === 1;
+  const canJump = numberOfMonths === 1 && (showMonthYearSelect || floor !== "days");
+  const weekStart = startOfWeek(focused, locale, firstDayOfWeek);
+  // Grid columns (1-7) that fall on a weekend in this locale and week start.
+  const hiddenColumns = showWeekends
+    ? []
+    : Array.from({ length: 7 }, (_, i) => i + 1).filter((column) =>
+        isWeekend(weekStart.add({ days: column - 1 }), locale),
+      );
   const nextView: Record<View, View> = {
     days: "months",
     months: "years",
@@ -277,7 +338,7 @@ function CalendarInner({
 
   return (
     <div className="relative flex flex-col gap-4 md:flex-row">
-      <div className="absolute inset-x-0 top-0 z-10 flex w-full items-center justify-between gap-1">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex w-full items-center justify-between gap-1">
         {view === "days" ? (
           <>
             <Button
@@ -306,9 +367,7 @@ function CalendarInner({
                 view === "months" ? "Previous year" : "Previous years"
               }
               className={navButtonClassName}
-              onPress={() =>
-                goTo({ year: focused.year - (view === "months" ? 1 : 12) })
-              }
+              onPress={() => goTo({ year: focused.year - jumpYears })}
             >
               <ChevronLeftIcon className="size-4" />
             </Button>
@@ -317,9 +376,7 @@ function CalendarInner({
               data-slot="calendar-next"
               aria-label={view === "months" ? "Next year" : "Next years"}
               className={navButtonClassName}
-              onPress={() =>
-                goTo({ year: focused.year + (view === "months" ? 1 : 12) })
-              }
+              onPress={() => goTo({ year: focused.year + jumpYears })}
             >
               <ChevronRightIcon className="size-4" />
             </Button>
@@ -343,23 +400,26 @@ function CalendarInner({
                         ? "Back to months"
                         : "Back to days"
                 }
-                className="rounded-lg px-2 py-1 text-sm font-semibold outline-none select-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold outline-none select-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
                 onPress={() => setView(nextView[view])}
               >
                 {view === "days"
                   ? title(0)
                   : view === "months"
                     ? focused.year
-                    : `${decadeStart} – ${decadeStart + 11}`}
+                    : decadeTitle}
+                {view === "years" ? (
+                  <ChevronUpIcon className="size-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronDownIcon className="size-3.5 text-muted-foreground" />
+                )}
               </Button>
             ) : (
               <span
                 data-slot="calendar-title"
                 className="text-sm font-semibold select-none"
               >
-                {view === "years"
-                  ? `${decadeStart} – ${decadeStart + 11}`
-                  : title(i)}
+                {view === "years" ? decadeTitle : title(i)}
               </span>
             )}
           </div>
@@ -376,7 +436,13 @@ function CalendarInner({
               <CalendarGrid
                 // Band style: cells touch so the range reads as one continuous band. Outline style: tiles get
                 // breathing room, each one a distinct day.
-                className="w-full border-collapse group-data-[range-style=outline]/calendar:border-separate group-data-[range-style=outline]/calendar:[border-spacing:0.375rem_0]"
+                className={cn(
+                  "w-full border-collapse group-data-[range-style=outline]/calendar:border-separate group-data-[range-style=outline]/calendar:[border-spacing:0.375rem_0]",
+                  // A week left with no visible day (only hidden weekend days) would show as a blank row.
+                  hiddenColumns.length > 0 &&
+                    "[&_tbody_tr:not(:has([data-day]))]:hidden",
+                  ...hiddenColumns.map((column) => HIDE_COLUMN_CLASS[column]),
+                )}
                 offset={{ months: i }}
               >
                 <AriaCalendarGridHeader>
@@ -408,6 +474,7 @@ function CalendarInner({
                             />
                           );
                         }
+                        const isHiddenWeekend = !showWeekends && isWeekend(date, locale);
                         const day = renderProps.isOutsideMonth
                           ? undefined
                           : getDayState?.(date);
@@ -419,6 +486,7 @@ function CalendarInner({
                         return (
                           <div
                             title={day?.label}
+                            data-day={isHiddenWeekend ? undefined : ""}
                             data-today={renderProps.isToday || undefined}
                             data-tone={day?.tone ? "" : undefined}
                             data-pattern={day?.pattern}
@@ -487,10 +555,7 @@ function CalendarInner({
                         data-slot="calendar-month"
                         data-current={current || undefined}
                         aria-current={picked && current ? "date" : undefined}
-                        isDisabled={outOfRange(
-                          start,
-                          start.add({ months: 1 }).subtract({ days: 1 }),
-                        )}
+                        isDisabled={outOfRange(start, endOfMonth(start))}
                         className={pickButtonClassName}
                         onPress={() => {
                           if (floor === "months")
@@ -519,10 +584,7 @@ function CalendarInner({
                         data-slot="calendar-year"
                         data-current={current || undefined}
                         aria-current={picked && current ? "date" : undefined}
-                        isDisabled={outOfRange(
-                          start,
-                          start.set({ month: 12, day: 31 }),
-                        )}
+                        isDisabled={outOfRange(start, endOfYear(start))}
                         className={pickButtonClassName}
                         onPress={() => {
                           if (floor === "years")

@@ -15,45 +15,50 @@ import {
   type ClipboardEvent,
   type FocusEvent,
 } from 'react';
-import { parseDate, type CalendarDate } from '@internationalized/date';
+import type { CalendarDate } from '@internationalized/date';
 
 import { Badge } from '@/ds/ui/badge';
-import { DateRangePicker, type DateRangePreset } from '@/ds/ui/date-picker';
-
-import { formatDate } from '@utils/dateFormats';
 import {
-  composeOrderedFiscalYearRange,
-  DEFAULT_FISCAL_START_MONTH,
-  getDefaultFiscalYear,
-  getFiscalPresetLabel,
-  isAcceptableFiscalYearRange,
-  parseTypedFiscalDate,
-  parseTypedFiscalRangeInput,
-  splitFiscalYearRange,
-  toCanonicalFiscalYearRange,
-  type FiscalYearRangeValue,
-} from '@utils/fiscalYearRange';
+  DateRangePicker,
+  type DateRangePreset,
+  type PickerCalendarOptions,
+} from '@/ds/ui/date-picker';
 import {
   FiscalYearRangeKeyboardPanel,
   FiscalYearRangeModeToggle,
   FiscalYearRangePopoverHeader,
   type FiscalYearPickerMode,
 } from './FiscalYearRangePopover';
+
+import { isAllowedDate, toCalendarConstraints, type IsoDateConstraints } from '@/ds/lib/iso-date';
+import { formatDate } from '@utils/dateFormats';
+import {
+  DEFAULT_FISCAL_START_MONTH,
+  fiscalRangeFromString,
+  fiscalStringFromRange,
+  getDefaultFiscalYear,
+  getFiscalPresetLabel,
+  isCompleteFiscalYear,
+  orderFiscalCalendarRange,
+  parseFiscalCalendarDate,
+  parseTypedFiscalDate,
+  parseTypedFiscalRangeInput,
+  type FiscalCalendarRange,
+  type FiscalYearRangeValue,
+} from '@utils/fiscalYearRange';
 import {
   applyFiscalCalendarDayPick,
+  EMPTY_FISCAL_DRAFT,
+  type FiscalCalendarRangeDraft,
   type FiscalRangeBound,
 } from './fiscalYearRangePick';
 
-/** React Aria calendar grid: Monday-first week + British month names. */
-const CALENDAR_LOCALE = 'en-GB';
-
-/**
- * Kit segment typing emits partial years (`0002-…`) before the user finishes.
- * Years below this floor are treated as incomplete and never committed.
- */
-const MIN_COMPLETE_YEAR = 1900;
-
-export interface FiscalYearRangeFieldProps {
+export interface FiscalYearRangeFieldProps
+  extends IsoDateConstraints,
+    Pick<
+      PickerCalendarOptions,
+      'firstDayOfWeek' | 'hideOutsideDays' | 'showWeekends' | 'showMonthYearSelect' | 'calendarLocale'
+    > {
   /** Stored range (`YYYY-MM-DD to YYYY-MM-DD` or legacy `DD/MM/YYYY to …`). */
   value: FiscalYearRangeValue;
   onChange: (value: FiscalYearRangeValue) => void;
@@ -75,6 +80,10 @@ export interface FiscalYearRangeFieldProps {
   fiscalPresetLabel?: string;
   required?: boolean;
   disabled?: boolean;
+  /** Shows the value without allowing edits (the calendar stays closed). */
+  readOnly?: boolean;
+  /** Show a clear button while the field holds a range. */
+  clearable?: boolean;
   error?: boolean;
   /** Shown as the error message while `error`, else as the field's hint. */
   helperText?: string;
@@ -88,46 +97,7 @@ export interface FiscalYearRangeFieldProps {
   tone?: unknown;
 }
 
-type CalendarRange = { start: CalendarDate; end: CalendarDate };
-
-const isAfterDay = (a: CalendarDate, b: CalendarDate): boolean => a.compare(b) > 0;
-
-/** Order a range so start ≤ end (accept writes chronologically). */
-export function orderFiscalCalendarRange(range: CalendarRange): CalendarRange {
-  if (!isAfterDay(range.start, range.end)) return range;
-  return { start: range.end, end: range.start };
-}
-
-/** Stored string → kit range value; null when either side is missing or unreadable. */
-export function fiscalRangeFromString(value: string | null | undefined): CalendarRange | null {
-  const canonical = toCanonicalFiscalYearRange(value) || String(value ?? '');
-  const { from, to } = splitFiscalYearRange(canonical);
-  if (!from || !to) return null;
-  try {
-    return orderFiscalCalendarRange({ start: parseDate(from), end: parseDate(to) });
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Kit range value → stored string, or `undefined` while it is not worth storing yet.
- * Complete ranges are always written chronologically as ISO `"YYYY-MM-DD to YYYY-MM-DD"`.
- */
-const isCompleteCalendarYear = (day: CalendarDate): boolean => day.year >= MIN_COMPLETE_YEAR;
-
-export function fiscalStringFromRange(range: CalendarRange | null): string | undefined {
-  if (!range) return '';
-  if (!isCompleteCalendarYear(range.start) || !isCompleteCalendarYear(range.end)) {
-    return undefined;
-  }
-  const ordered = orderFiscalCalendarRange(range);
-  const wire = composeOrderedFiscalYearRange(ordered.start.toString(), ordered.end.toString());
-  if (!wire) return '';
-  const { from, to } = splitFiscalYearRange(wire);
-  if (!isAcceptableFiscalYearRange(from, to)) return undefined;
-  return wire;
-}
+type DraftText = Record<FiscalRangeBound, string>;
 
 /** One-click fiscal preset for the kit range picker (default Apr–Mar). */
 export function buildFiscalYearPresets(
@@ -146,32 +116,41 @@ export function buildFiscalYearPresets(
   ];
 }
 
-const seedFromValue = (value: FiscalYearRangeValue): {
-  from: CalendarDate | null;
-  to: CalendarDate | null;
-  bound: FiscalRangeBound;
-} => {
+const seedFromValue = (value: FiscalYearRangeValue): FiscalCalendarRangeDraft => {
   const range = fiscalRangeFromString(value);
-  if (!range) return { from: null, to: null, bound: 'start' };
-  return { from: range.start, to: range.end, bound: 'start' };
-};
-
-/** Picker-visible value: incomplete end is painted as a same-day anchor so hover-preview still works. */
-const toPickerValue = (
-  from: CalendarDate | null,
-  to: CalendarDate | null,
-): CalendarRange | null => {
-  if (!from) return null;
-  if (!to) return { start: from, end: from };
-  return orderFiscalCalendarRange({ start: from, end: to });
+  return range ? { from: range.start, to: range.end, bound: 'start' } : EMPTY_FISCAL_DRAFT;
 };
 
 const toDisplayText = (day: CalendarDate | null): string =>
   day ? formatDate(day.toString(), '') : '';
 
-const canAcceptDraft = (from: CalendarDate | null, to: CalendarDate | null): boolean => {
-  if (!from || !to) return false;
-  return from.compare(to) <= 0;
+const toDraftText = ({ from, to }: FiscalCalendarRangeDraft): DraftText => ({
+  start: toDisplayText(from),
+  end: toDisplayText(to),
+});
+
+/** Picker-visible value: incomplete end is painted as a same-day anchor so hover-preview still works. */
+const toPickerValue = ({ from, to }: FiscalCalendarRangeDraft): FiscalCalendarRange | null => {
+  if (!from) return null;
+  if (!to) return { start: from, end: from };
+  return orderFiscalCalendarRange({ start: from, end: to });
+};
+
+const canAcceptDraft = (
+  { from, to }: FiscalCalendarRangeDraft,
+  constraints: IsoDateConstraints,
+): boolean =>
+  Boolean(
+    from &&
+      to &&
+      from.compare(to) <= 0 &&
+      isAllowedDate(from, constraints) &&
+      isAllowedDate(to, constraints),
+  );
+
+const parseTypedDay = (raw: string): CalendarDate | null => {
+  const iso = parseTypedFiscalDate(raw);
+  return iso ? parseFiscalCalendarDate(iso) : null;
 };
 
 export function FiscalYearRangeField({
@@ -184,242 +163,204 @@ export function FiscalYearRangeField({
   fiscalPresetLabel,
   required,
   disabled,
+  readOnly,
+  clearable = false,
   error,
   helperText,
   onBlur,
   density = 'comfortable',
   changed = false,
+  minValue,
+  maxValue,
+  isDateUnavailable,
+  firstDayOfWeek,
+  hideOutsideDays,
+  showWeekends,
+  showMonthYearSelect,
+  calendarLocale,
 }: FiscalYearRangeFieldProps) {
-  const seeded = useMemo(() => seedFromValue(value), [value]);
   const presets = useMemo(
     () => buildFiscalYearPresets(fiscalStartMonth, fiscalPresetLabel),
     [fiscalStartMonth, fiscalPresetLabel],
   );
+  const constraints: IsoDateConstraints = { minValue, maxValue, isDateUnavailable };
+  const calendarConstraints = useMemo(
+    () => toCalendarConstraints({ minValue, maxValue, isDateUnavailable }),
+    [minValue, maxValue, isDateUnavailable],
+  );
 
-  const [draftFrom, setDraftFrom] = useState<CalendarDate | null>(seeded.from);
-  const [draftTo, setDraftTo] = useState<CalendarDate | null>(seeded.to);
-  const [bound, setBound] = useState<FiscalRangeBound>(seeded.bound);
+  const [draft, setDraft] = useState<FiscalCalendarRangeDraft>(() => seedFromValue(value));
+  const [text, setText] = useState<DraftText>(() => toDraftText(draft));
   const [mode, setMode] = useState<FiscalYearPickerMode>('calendar');
-  const [textFrom, setTextFrom] = useState<string>(toDisplayText(seeded.from));
-  const [textTo, setTextTo] = useState<string>(toDisplayText(seeded.to));
 
+  // React Aria can fire onChange and onOpenChange in one tick, before a re-render: handlers read these.
+  const draftRef = useRef<FiscalCalendarRangeDraft>(draft);
   const openRef = useRef<boolean>(false);
   const pendingCommitRef = useRef<boolean>(false);
   const snapshotRef = useRef<FiscalYearRangeValue>(value);
-  const draftFromRef = useRef<CalendarDate | null>(draftFrom);
-  const draftToRef = useRef<CalendarDate | null>(draftTo);
-  const boundRef = useRef<FiscalRangeBound>(bound);
 
-  const syncDraft = (
-    from: CalendarDate | null,
-    to: CalendarDate | null,
-    nextBound: FiscalRangeBound,
-    syncText = true,
-  ) => {
-    draftFromRef.current = from;
-    draftToRef.current = to;
-    boundRef.current = nextBound;
-    setDraftFrom(from);
-    setDraftTo(to);
-    setBound(nextBound);
-    if (syncText) {
-      setTextFrom(toDisplayText(from));
-      setTextTo(toDisplayText(to));
-    }
+  const syncDraft = (next: FiscalCalendarRangeDraft, syncText = true) => {
+    draftRef.current = next;
+    setDraft(next);
+    if (syncText) setText(toDraftText(next));
   };
 
-  const setActiveBound = (nextBound: FiscalRangeBound) => {
-    boundRef.current = nextBound;
-    setBound(nextBound);
+  const setActiveBound = (bound: FiscalRangeBound) => {
+    if (draftRef.current.bound !== bound) syncDraft({ ...draftRef.current, bound }, false);
   };
 
   useEffect(() => {
     // Outside an open session, keep draft aligned with the committed prop.
-    if (openRef.current) return;
-    const next = seedFromValue(value);
-    syncDraft(next.from, next.to, next.bound);
+    if (!openRef.current) syncDraft(seedFromValue(value));
   }, [value]);
 
-  const commitIfAcceptable = (from: CalendarDate | null, to: CalendarDate | null): boolean => {
+  const commitIfAcceptable = (from: CalendarDate | null, to: CalendarDate | null) => {
     if (!from || !to) {
-      if (!from && !to && value) {
-        onChange('');
-        return true;
-      }
-      return false;
+      if (!from && !to && value) onChange('');
+      return;
     }
     const ordered = orderFiscalCalendarRange({ start: from, end: to });
+    if (!canAcceptDraft({ from: ordered.start, to: ordered.end, bound: 'start' }, constraints)) return;
     const stored = fiscalStringFromRange(ordered);
-    if (stored === undefined || stored === '') return false;
-    syncDraft(ordered.start, ordered.end, 'start');
+    if (!stored) return;
+    syncDraft({ from: ordered.start, to: ordered.end, bound: 'start' });
     if (stored !== value) onChange(stored);
-    return true;
-  };
-
-  const discardToSnapshot = () => {
-    const next = seedFromValue(snapshotRef.current);
-    syncDraft(next.from, next.to, next.bound);
   };
 
   /**
    * Calendar / preset path while the popover is open: apply the fiscal pick machine,
    * keep changes in draft only (commit happens on OK).
    */
-  const applyCalendarRange = (next: CalendarRange | null) => {
+  const applyCalendarRange = (next: FiscalCalendarRange | null) => {
     if (!next) {
-      syncDraft(null, null, 'start');
+      syncDraft(EMPTY_FISCAL_DRAFT);
       return;
     }
     // Segment typing emits partial years (0002-…) — never treat those as calendar picks.
-    if (!isCompleteCalendarYear(next.start) || !isCompleteCalendarYear(next.end)) return;
+    if (!isCompleteFiscalYear(next.start) || !isCompleteFiscalYear(next.end)) return;
 
-    const prevFrom = draftFromRef.current;
-    const prevTo = draftToRef.current;
-    const activeBound = boundRef.current;
-    const sameDay = next.start.compare(next.end) === 0;
-    const ordered = orderFiscalCalendarRange(next);
-
+    const previous = draftRef.current;
+    const isSameDay = next.start.compare(next.end) === 0;
     // Completing a pending end: start was anchored, RAC returns {start: from, end: clicked}.
-    const isPendingEndComplete = Boolean(
-      prevFrom && !prevTo && !sameDay && next.start.compare(prevFrom) === 0,
+    const completesPendingEnd = Boolean(
+      previous.from && !previous.to && !isSameDay && next.start.compare(previous.from) === 0,
     );
 
     // One-shot full range (fiscal preset / wholesale replace) — not a day-pick step.
-    if (!sameDay && !isPendingEndComplete) {
-      syncDraft(ordered.start, ordered.end, 'start');
+    if (!isSameDay && !completesPendingEnd) {
+      const ordered = orderFiscalCalendarRange(next);
+      syncDraft({ from: ordered.start, to: ordered.end, bound: 'start' });
       return;
     }
 
-    // End bound + complete range + RAC "restart" click → replace End only.
-    if (activeBound === 'end' && prevFrom && prevTo && sameDay) {
-      syncDraft(prevFrom, next.start, 'start');
-      return;
-    }
-
-    const clicked: CalendarDate = isPendingEndComplete || !sameDay ? next.end : next.start;
-    const picked = applyFiscalCalendarDayPick(
-      { from: prevFrom, to: prevTo, bound: activeBound },
-      clicked,
-    );
-    syncDraft(picked.from, picked.to, picked.bound);
+    // Either way the clicked day is `end`: {anchor, clicked} or a same-day {clicked, clicked}.
+    syncDraft(applyFiscalCalendarDayPick(previous, next.end));
   };
 
   /**
    * Segment typing while the popover is closed commits a complete valid range immediately
    * (keyboard confirmation). Incomplete years stay local.
    */
-  const applyTypedRange = (next: CalendarRange | null) => {
+  const applyTypedRange = (next: FiscalCalendarRange | null) => {
     if (!next) {
-      syncDraft(null, null, 'start');
+      syncDraft(EMPTY_FISCAL_DRAFT);
       if (value) onChange('');
       return;
     }
-    if (!isCompleteCalendarYear(next.start) || !isCompleteCalendarYear(next.end)) {
+    const isStartComplete = isCompleteFiscalYear(next.start);
+    const isEndComplete = isCompleteFiscalYear(next.end);
+    if (!isStartComplete || !isEndComplete) {
       // Half-typed: keep whatever sides are plausible without writing.
-      syncDraft(
-        isCompleteCalendarYear(next.start) ? next.start : draftFromRef.current,
-        isCompleteCalendarYear(next.end) ? next.end : null,
-        boundRef.current,
-      );
+      syncDraft({
+        from: isStartComplete ? next.start : draftRef.current.from,
+        to: isEndComplete ? next.end : null,
+        bound: draftRef.current.bound,
+      });
       return;
     }
-    const ordered = orderFiscalCalendarRange(next);
-    syncDraft(ordered.start, ordered.end, 'start');
-    commitIfAcceptable(ordered.start, ordered.end);
+    commitIfAcceptable(next.start, next.end);
   };
 
   const applyTypedSide = (side: FiscalRangeBound, raw: string) => {
-    if (side === 'start') setTextFrom(raw);
-    else setTextTo(raw);
+    setText((current) => ({ ...current, [side]: raw }));
+    const day = parseTypedDay(raw);
+    if (!day) return;
 
-    const iso = parseTypedFiscalDate(raw);
-    if (!iso) return;
-
-    try {
-      const day = parseDate(iso);
-      if (side === 'start') {
-        syncDraft(day, draftToRef.current, 'start', false);
-        setTextFrom(raw);
-        return;
-      }
-      const from = draftFromRef.current;
-      if (!from) {
-        // End typed first: treat it as the start and wait for the other bound.
-        syncDraft(day, null, 'end', false);
-        setTextTo(raw);
-        return;
-      }
-      syncDraft(from, day, 'end', false);
-      setTextTo(raw);
-    } catch {
-      // ignore unparseable calendar days
+    const { from, to } = draftRef.current;
+    if (side === 'start') {
+      syncDraft({ from: day, to, bound: 'start' }, false);
+    } else if (!from) {
+      // End typed first: treat it as the start and wait for the other bound.
+      syncDraft({ from: day, to: null, bound: 'end' }, false);
+    } else {
+      syncDraft({ from, to: day, bound: 'end' }, false);
     }
   };
 
   const applyPastedRange = (event: ClipboardEvent<HTMLDivElement>) => {
-    if (disabled) return;
-    const text = event.clipboardData.getData('text');
-    if (!text?.trim()) return;
+    if (disabled || readOnly) return;
+    const pasted = event.clipboardData.getData('text');
+    if (!pasted.trim()) return;
 
     // Full range paste: `1 Apr 2026 to 31 Mar 2027` / dotted / ISO.
-    const wire = parseTypedFiscalRangeInput(text);
+    const wire = parseTypedFiscalRangeInput(pasted);
     if (wire) {
       const range = fiscalRangeFromString(wire);
       if (!range) return;
       event.preventDefault();
-      syncDraft(range.start, range.end, 'start');
+      syncDraft({ from: range.start, to: range.end, bound: 'start' });
       if (!openRef.current) commitIfAcceptable(range.start, range.end);
       return;
     }
 
     // Single-date paste into the active bound (natural or dotted).
-    const iso = parseTypedFiscalDate(text);
-    if (!iso) return;
-    try {
-      const day = parseDate(iso);
-      event.preventDefault();
-      if (boundRef.current === 'end') {
-        const from = draftFromRef.current;
-        if (!from) {
-          syncDraft(day, null, 'end');
-        } else {
-          syncDraft(from, day, 'start');
-          if (!openRef.current) commitIfAcceptable(from, day);
-        }
-        return;
-      }
-      syncDraft(day, null, 'end');
-    } catch {
-      // ignore unparseable
+    const day = parseTypedDay(pasted);
+    if (!day) return;
+    event.preventDefault();
+    const { from, bound } = draftRef.current;
+    if (bound === 'end' && from) {
+      syncDraft({ from, to: day, bound: 'start' });
+      if (!openRef.current) commitIfAcceptable(from, day);
+      return;
     }
+    syncDraft({ from: day, to: null, bound: 'end' });
   };
 
   const resolveBoundFromFocus = (event: FocusEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLElement | null;
-    if (!target) return;
-    const group = target.closest('[data-slot="date-range-picker-group"]');
-    if (!group) return;
-    const inputs = group.querySelectorAll('[data-slot="date-input"]');
-    if (inputs.length < 2) return;
-    if (inputs[0]?.contains(target)) {
-      setActiveBound('start');
-      return;
-    }
-    if (inputs[1]?.contains(target)) {
-      setActiveBound('end');
-    }
+    if (!(event.target instanceof Element)) return;
+    const input = event.target.closest('[data-slot="date-input"]');
+    const group = input?.closest('[data-slot="date-range-picker-group"]');
+    if (!input || !group) return;
+    const index = Array.from(group.querySelectorAll('[data-slot="date-input"]')).indexOf(input);
+    if (index === 0) setActiveBound('start');
+    else if (index === 1) setActiveBound('end');
   };
 
   const handleModeChange = (nextMode: FiscalYearPickerMode) => {
-    if (nextMode === 'keyboard') {
-      setTextFrom(toDisplayText(draftFromRef.current));
-      setTextTo(toDisplayText(draftToRef.current));
-    }
+    if (nextMode === 'keyboard') setText(toDraftText(draftRef.current));
     setMode(nextMode);
   };
 
-  const pickerValue = toPickerValue(draftFrom, draftTo);
-  const canConfirm = canAcceptDraft(draftFrom, draftTo);
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      snapshotRef.current = value;
+      pendingCommitRef.current = false;
+      syncDraft(seedFromValue(value));
+      setMode('calendar');
+      openRef.current = true;
+      return;
+    }
+
+    // OK sets pendingCommit; Cancel / outside / Esc discard.
+    if (pendingCommitRef.current) {
+      commitIfAcceptable(draftRef.current.from, draftRef.current.to);
+    } else {
+      syncDraft(seedFromValue(snapshotRef.current));
+    }
+    pendingCommitRef.current = false;
+    openRef.current = false;
+    onBlur?.();
+  };
 
   return (
     <div
@@ -432,52 +373,32 @@ export function FiscalYearRangeField({
         className="w-full min-w-0 flex-1"
         label={label || undefined}
         aria-label={label ? undefined : 'Fiscal year'}
-        calendarLocale={CALENDAR_LOCALE}
-        value={pickerValue}
+        {...calendarConstraints}
+        firstDayOfWeek={firstDayOfWeek}
+        hideOutsideDays={hideOutsideDays}
+        showWeekends={showWeekends}
+        showMonthYearSelect={showMonthYearSelect}
+        calendarLocale={calendarLocale}
+        isClearable={clearable}
+        value={toPickerValue(draft)}
         onChange={(next) => {
-          const range =
-            next?.start && next?.end
-              ? { start: next.start, end: next.end }
-              : null;
-          if (openRef.current) applyCalendarRange(range);
-          else applyTypedRange(range);
+          if (openRef.current) applyCalendarRange(next);
+          else applyTypedRange(next);
         }}
         onBlur={() => {
           if (!openRef.current) onBlur?.();
         }}
-        onOpenChange={(nextOpen) => {
-          if (nextOpen) {
-            snapshotRef.current = value;
-            pendingCommitRef.current = false;
-            const seededOpen = seedFromValue(value);
-            const openBound: FiscalRangeBound =
-              seededOpen.from && !seededOpen.to ? 'end' : 'start';
-            syncDraft(seededOpen.from, seededOpen.to, openBound);
-            setMode('calendar');
-            openRef.current = true;
-            return;
-          }
-
-          // OK sets pendingCommit; Cancel / outside / Esc discard.
-          if (pendingCommitRef.current) {
-            commitIfAcceptable(draftFromRef.current, draftToRef.current);
-          } else {
-            discardToSnapshot();
-          }
-          pendingCommitRef.current = false;
-          openRef.current = false;
-          setMode('calendar');
-          onBlur?.();
-        }}
+        onOpenChange={handleOpenChange}
         isRequired={required}
         isDisabled={disabled}
+        isReadOnly={readOnly}
         isInvalid={error}
         errorMessage={error ? helperText : undefined}
         description={error ? undefined : helperText}
         presets={presets}
         confirmSelection
         closeOnPresetSelect={false}
-        canConfirm={canConfirm}
+        canConfirm={canAcceptDraft(draft, constraints)}
         onConfirm={() => {
           pendingCommitRef.current = true;
         }}
@@ -487,9 +408,9 @@ export function FiscalYearRangeField({
         popoverHeader={
           <FiscalYearRangePopoverHeader
             mode={mode}
-            bound={bound}
-            draftFrom={draftFrom}
-            draftTo={draftTo}
+            bound={draft.bound}
+            draftFrom={draft.from}
+            draftTo={draft.to}
             startLabel={startLabel}
             endLabel={endLabel}
             onBoundChange={setActiveBound}
@@ -500,10 +421,9 @@ export function FiscalYearRangeField({
             <FiscalYearRangeKeyboardPanel
               startLabel={startLabel}
               endLabel={endLabel}
-              textFrom={textFrom}
-              textTo={textTo}
-              onTextFromChange={(raw) => applyTypedSide('start', raw)}
-              onTextToChange={(raw) => applyTypedSide('end', raw)}
+              textFrom={text.start}
+              textTo={text.end}
+              onTextChange={applyTypedSide}
               onBoundChange={setActiveBound}
             />
           ) : undefined

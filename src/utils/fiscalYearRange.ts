@@ -1,4 +1,10 @@
 import dayjs from 'dayjs';
+import {
+  CalendarDate,
+  getLocalTimeZone,
+  parseDate,
+  today,
+} from '@internationalized/date';
 import { DATE_FORMATS, formatDate } from './dateFormats';
 
 /**
@@ -16,14 +22,23 @@ import { DATE_FORMATS, formatDate } from './dateFormats';
 /** Wire shape produced by {@link composeFiscalYearRange}. */
 export type FiscalYearRangeValue = string;
 
+/** A fiscal range as kit calendar values (`@internationalized/date`, no time zone). */
+export type FiscalCalendarRange = { start: CalendarDate; end: CalendarDate };
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const DMY_DATE = /^\d{2}\/\d{2}\/\d{4}$/;
+const DMY_DATE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 const DOTTED_DISPLAY = /^(\d{4})\.(\d{2})\.(\d{2})$/;
 /** `"a to b"`, `"a - b"`, `"a – b"` (en-dash) for pasted / typed ranges. */
 const RANGE_SPLIT = /\s+(?:to|–|-)\s+/i;
 
-/** Format a Date as `YYYY-MM-DD` (storage / WtDateField wire). */
-export const toISODateString = (date: Date): string => {
+/**
+ * Kit segment typing emits partial years (`0002-…`) before the user finishes.
+ * Years below this floor are treated as incomplete and never committed.
+ */
+const MIN_COMPLETE_YEAR = 1900;
+
+/** Format a Date as `YYYY-MM-DD` from its local calendar day (no UTC shift). */
+const toISODateString = (date: Date): string => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
@@ -32,22 +47,28 @@ export const toISODateString = (date: Date): string => {
 
 /**
  * Parse one side of a fiscal range. Accepts ISO and legacy `DD/MM/YYYY`.
- * Returns null when the string is empty or unrecognisable.
+ * Returns null when the string is empty or unrecognisable. Lenient: JS rolls an
+ * impossible day over (`2023-02-29` → 1 Mar), which stored rows have always relied on.
  */
 export const parseFiscalDateString = (str: string): Date | null => {
   const trimmed = str.trim();
   if (!trimmed) return null;
-  if (DMY_DATE.test(trimmed)) {
-    const [dd, mm, yyyy] = trimmed.split('/');
-    const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00`);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-  if (ISO_DATE.test(trimmed)) {
-    const d = new Date(`${trimmed}T00:00:00`);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-  const d = new Date(trimmed);
+  const dmy = trimmed.match(DMY_DATE);
+  const d = dmy
+    ? new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}T00:00:00`)
+    : ISO_DATE.test(trimmed)
+      ? new Date(`${trimmed}T00:00:00`)
+      : new Date(trimmed);
   return Number.isNaN(d.getTime()) ? null : d;
+};
+
+/** Strict ISO `YYYY-MM-DD` → CalendarDate; null for malformed or impossible days (e.g. `2023-02-29`). */
+export const parseFiscalCalendarDate = (iso: string): CalendarDate | null => {
+  try {
+    return parseDate(iso);
+  } catch {
+    return null;
+  }
 };
 
 /** Calendar month the fiscal year starts (1=Jan … 12=Dec). Default April. */
@@ -73,11 +94,12 @@ const clampFiscalStartMonth = (fiscalStartMonth: number): number =>
     ? fiscalStartMonth
     : DEFAULT_FISCAL_START_MONTH;
 
-const pad2 = (n: number): string => String(n).padStart(2, '0');
-
-/** Last calendar day of `month` (1–12) in `year`. */
-const lastDayOfMonth = (year: number, month: number): number =>
-  new Date(year, month, 0).getDate();
+/** `startYear-startMonth-01 to` the day before the same date in `endYear` (leap-safe). */
+const composeFiscalWindow = (startYear: number, endYear: number, startMonth: number): string => {
+  const start = new CalendarDate(startYear, startMonth, 1);
+  const end = start.set({ year: endYear }).subtract({ days: 1 });
+  return composeFiscalYearRange(start.toString(), end.toString());
+};
 
 /**
  * Preset chip label for a fiscal start month (e.g. 4 → `"Apr–Mar"`, 1 → `"Jan–Dec"`).
@@ -98,15 +120,9 @@ export const getDefaultFiscalYear = (
   fiscalStartMonth: number = DEFAULT_FISCAL_START_MONTH,
 ): string => {
   const startMonth = clampFiscalStartMonth(fiscalStartMonth);
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth() + 1;
-
-  const startYear = currentMonth >= startMonth ? currentYear : currentYear - 1;
-  const endYear = startMonth === 1 ? startYear : startYear + 1;
-  const endMonth = startMonth === 1 ? 12 : startMonth - 1;
-  const endDay = lastDayOfMonth(endYear, endMonth);
-
-  return `${startYear}-${pad2(startMonth)}-01 to ${endYear}-${pad2(endMonth)}-${pad2(endDay)}`;
+  const now = today(getLocalTimeZone());
+  const startYear = now.month >= startMonth ? now.year : now.year - 1;
+  return composeFiscalWindow(startYear, startYear + 1, startMonth);
 };
 
 /** Split a stored range into WtDateField wire values (`YYYY-MM-DD`). */
@@ -149,15 +165,9 @@ export const composeOrderedFiscalYearRange = (from: string, to: string): string 
 export const toCanonicalFiscalYearRange = (fiscalYear: string | null | undefined): string => {
   const raw = String(fiscalYear ?? '').trim();
   if (!raw) return '';
-  // Legacy `"2030-2031"` year-pair → default fiscal window (Apr–Mar).
   if (/^\d{4}-\d{4}$/.test(raw)) {
-    const [startYearRaw, endYearRaw] = raw.split('-');
-    const startYear = Number(startYearRaw);
-    const endYear = Number(endYearRaw);
-    const startMonth = clampFiscalStartMonth(DEFAULT_FISCAL_START_MONTH);
-    const endMonth = startMonth === 1 ? 12 : startMonth - 1;
-    const endDay = lastDayOfMonth(endYear, endMonth);
-    return `${startYear}-${pad2(startMonth)}-01 to ${endYear}-${pad2(endMonth)}-${pad2(endDay)}`;
+    const [startYear, endYear] = raw.split('-').map(Number);
+    return composeFiscalWindow(startYear, endYear, DEFAULT_FISCAL_START_MONTH);
   }
   const { from, to } = splitFiscalYearRange(raw);
   return composeOrderedFiscalYearRange(from, to);
@@ -166,24 +176,23 @@ export const toCanonicalFiscalYearRange = (fiscalYear: string | null | undefined
 /**
  * Typed / pasted single-date parse (keyboard path from the fiscal-year UX).
  * Accepts company display `YYYY.MM.DD`, ISO, legacy `DD/MM/YYYY`, and natural
- * forms dayjs understands (e.g. `1 Apr 2026`). Invalid / partial → null.
+ * forms dayjs understands (e.g. `1 Apr 2026`). Invalid / partial / impossible
+ * days (e.g. `2023.02.29`) → null.
  */
 export const parseTypedFiscalDate = (raw: string): string | null => {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
   const dotted = trimmed.match(DOTTED_DISPLAY);
-  if (dotted) {
-    const iso = `${dotted[1]}-${dotted[2]}-${dotted[3]}`;
-    const d = dayjs(iso);
-    // Reject rolled invalid calendar days (e.g. 2023.02.29 → Mar 1).
-    return d.isValid() && d.format(DATE_FORMATS.WIRE) === iso ? iso : null;
-  }
-
-  if (ISO_DATE.test(trimmed) || DMY_DATE.test(trimmed)) {
-    const known = parseFiscalDateString(trimmed);
-    return known ? toISODateString(known) : null;
-  }
+  const dmy = trimmed.match(DMY_DATE);
+  const iso = dotted
+    ? `${dotted[1]}-${dotted[2]}-${dotted[3]}`
+    : dmy
+      ? `${dmy[3]}-${dmy[2]}-${dmy[1]}`
+      : ISO_DATE.test(trimmed)
+        ? trimmed
+        : null;
+  if (iso) return parseFiscalCalendarDate(iso)?.toString() ?? null;
 
   // Natural language only (e.g. "1 Apr 2026") — avoid dayjs guessing on partial numerics.
   if (!/[a-zA-Z]/.test(trimmed)) return null;
@@ -201,10 +210,7 @@ export const parseTypedFiscalRangeInput = (raw: string): FiscalYearRangeValue =>
   if (!trimmed) return '';
 
   const canonical = toCanonicalFiscalYearRange(trimmed);
-  if (canonical) {
-    const { from, to } = splitFiscalYearRange(canonical);
-    return composeOrderedFiscalYearRange(from, to);
-  }
+  if (canonical) return canonical;
 
   const parts = trimmed.split(RANGE_SPLIT);
   if (parts.length !== 2) return '';
@@ -214,21 +220,34 @@ export const parseTypedFiscalRangeInput = (raw: string): FiscalYearRangeValue =>
   return composeOrderedFiscalYearRange(from, to);
 };
 
-/** True when both sides exist and end is not before start (day precision). */
-export const isAcceptableFiscalYearRange = (from: string, to: string): boolean => {
-  const a = from.trim();
-  const b = to.trim();
-  if (!a || !b) return false;
-  return a <= b;
+/** False while a kit segment is still mid-typing its year (`0002-…`). */
+export const isCompleteFiscalYear = (day: CalendarDate): boolean => day.year >= MIN_COMPLETE_YEAR;
+
+/** Order a range so start ≤ end (accept writes chronologically). */
+export const orderFiscalCalendarRange = (range: FiscalCalendarRange): FiscalCalendarRange =>
+  range.start.compare(range.end) > 0 ? { start: range.end, end: range.start } : range;
+
+/** Stored string → kit range value; null when either side is missing or unreadable. */
+export const fiscalRangeFromString = (
+  value: string | null | undefined,
+): FiscalCalendarRange | null => {
+  const { from, to } = splitFiscalYearRange(toCanonicalFiscalYearRange(value));
+  const start = parseFiscalCalendarDate(from);
+  const end = parseFiscalCalendarDate(to);
+  return start && end ? { start, end } : null;
 };
 
-/** Date[] for callers that still speak Flatpickr (prefer {@link splitFiscalYearRange}). */
-export const convertFiscalYearToDates = (fiscalYear: string): Date[] => {
-  const { from, to } = splitFiscalYearRange(fiscalYear);
-  const start = from ? parseFiscalDateString(from) : null;
-  const end = to ? parseFiscalDateString(to) : null;
-  if (!start || !end) return [];
-  return [start, end];
+/**
+ * Kit range value → stored string, or `undefined` while it is not worth storing yet.
+ * Complete ranges are always written chronologically as ISO `"YYYY-MM-DD to YYYY-MM-DD"`.
+ */
+export const fiscalStringFromRange = (
+  range: FiscalCalendarRange | null,
+): FiscalYearRangeValue | undefined => {
+  if (!range) return '';
+  if (!isCompleteFiscalYear(range.start) || !isCompleteFiscalYear(range.end)) return undefined;
+  const { start, end } = orderFiscalCalendarRange(range);
+  return composeFiscalYearRange(start.toString(), end.toString());
 };
 
 /**
