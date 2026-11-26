@@ -1,6 +1,8 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getAuth, isSessionDeathResponse, endSessionAndRedirect } from '@/app/modules/auth/core/AuthHelpers';
+import { SUPPORT_VIEW_TOKEN_MARKER } from '@services/platformSupport';
 import { securityPinBus, isSecurityLockedResponse, SECURITY_AREA_HEADER } from '@utils/securityPinBus';
+import { holdSplashDuringRequests } from '@utils/splashGate';
 
 const BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND || '';
 
@@ -11,6 +13,9 @@ export const apiClient = axios.create({
     // Auth travels in the httpOnly cookie set at login (XSS-safe).
     withCredentials: true,
 });
+
+// First, so the startup splash waits for this client's calls too (see utils/splashGate).
+holdSplashDuringRequests(apiClient);
 
 // ── Request: legacy Bearer-token fallback ─────────────────────────────────────
 // New sessions authenticate via the httpOnly cookie. Sessions persisted by a
@@ -24,7 +29,7 @@ apiClient.interceptors.request.use(
             try {
                 const parsed = JSON.parse(raw);
                 const token = parsed?.token;
-                if (typeof token === 'string' && token) {
+                if (typeof token === 'string' && token && token !== SUPPORT_VIEW_TOKEN_MARKER) {
                     config.headers.Authorization = `Bearer ${token}`;
                 }
             } catch {

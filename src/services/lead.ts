@@ -8,6 +8,23 @@ const API_BASE_URL = import.meta.env.VITE_APP_WISE_TECH_BACKEND;
 const LOOKUP_TTL = 5 * 60_000;
 const MUTABLE_TTL = 45_000;
 
+/**
+ * Restore a built-in lead / project / PO status to its shipped name and colour.
+ * Built-ins carry a `code` and have no delete — this replaces it.
+ */
+export const resetBuiltinStatus = async (kind: "lead-status" | "project-status" | "po-status" | "referral-type", id: string) => {
+    const path = {
+        "referral-type": LEAD_PROJECT_COMPANY.RESET_LEAD_REFERRAL_TYPE,
+        "lead-status": LEAD_PROJECT_COMPANY.RESET_LEAD_STATUS,
+        "project-status": LEAD_PROJECT_COMPANY.RESET_PROJECT_STATUS,
+        "po-status": LEAD_PROJECT_COMPANY.RESET_LEAD_PO_STATUS,
+    }[kind];
+    const { data } = await axios.post(`${API_BASE_URL}/${path.replace(":id", id)}`);
+    if (kind === "po-status") invalidateRequestCache("leadPoStatuses");
+    if (kind === "project-status") invalidateRequestCache("projectStatuses");
+    return data;
+}
+
 // Get All Lead Status
 export const getAllLeadStatus = async () => {
     try {

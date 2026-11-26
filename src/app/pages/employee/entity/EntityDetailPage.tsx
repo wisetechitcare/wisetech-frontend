@@ -2,14 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useTabKeyRoute } from "@app/hooks/useTabRoute";
 import { Button } from "@/ds/ui/button";
-import { KTIcon } from "@metronic/helpers";
 import { useDispatch } from "react-redux";
 import { getLeadById } from "@services/leads";
 import {
   getClientCompanyById,
   getClientContactById,
 } from "@services/companies";
-import { miscellaneousIcons } from "@metronic/assets/miscellaneousicons";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { mapLeadToFormInitialValues } from "@pages/employee/leads/lead/utils";
@@ -18,7 +16,6 @@ import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import type { AppDispatch } from "@redux/store";
 
 import LeadWizardModal from "@pages/employee/leads/lead/LeadWizardModal";
-import ProposalTemplatePage from "@pages/employee/leads/lead/components/ProposalTemplatePage";
 import { DMSProvider } from "@pages/employee/leads/lead/components/dms/store/DmsContext";
 
 import {
@@ -46,7 +43,10 @@ import BillingSection from "./detail/sections/BillingSection";
 import DeliverablesSection from "./detail/sections/DeliverablesSection";
 import ProjectMeetings from "./detail/sections/ProjectMeetings";
 import ProjectStatusControl from "./detail/ProjectStatusControl";
-import { AppIcon } from "@app/modules/common/components/ui/AppIcon";
+import { RecordHeader } from "@/ds/patterns/record-header";
+import { OptionPickerTrigger } from "@/ds/patterns/option-picker-dialog";
+import { Badge } from "@/ds/ui/badge";
+import { KanbanSquare, Pencil, Star } from "lucide-react";
 import { UnderlineTabs, WtEmptyState } from "@app/modules/common/components/ui";
 import NoAccessPage from "@app/modules/common/components/NoAccessPage";
 import SensitiveDataProvider, {
@@ -107,7 +107,6 @@ const EntityDetailPage: React.FC = () => {
   const [formValues, setFormValues] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showProposalModal, setShowProposalModal] = useState(false);
 
   // The lead IS a project once it reaches a project-trigger status — data-driven, not nav-driven.
   const isProject = isProjectEntity(lead);
@@ -155,7 +154,6 @@ const EntityDetailPage: React.FC = () => {
       tasks: p?._count?.tasks ?? 0,
       timesheet: p?._count?.timesheets ?? 0,
       reimbursement: p?._count?.reimbursements ?? 0,
-      documents: lead?.generatedProposals?.length ?? 0,
     };
   }, [lead]);
 
@@ -286,11 +284,6 @@ const EntityDetailPage: React.FC = () => {
             vm={vm}
             isProject={isProject}
             projectId={projectId}
-            onExport={
-              canViewCommercial("crm.leads")
-                ? () => setShowProposalModal(true)
-                : undefined
-            }
           />
         );
       case "gallery":
@@ -363,6 +356,8 @@ const EntityDetailPage: React.FC = () => {
     );
   }
 
+  const showProjectView = isProject && !fromLeads && activeTab !== "leads";
+
   return (
     <DMSProvider
       leadId={lead.id}
@@ -372,194 +367,64 @@ const EntityDetailPage: React.FC = () => {
       <div className="d-flex flex-column flex-lg-row p-6">
         <div className="flex-lg-row-fluid">
           {/* ── Header ── */}
-          <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-4 mb-2">
-            <div
-              className="d-flex align-items-start gap-3 grow"
-              style={{ minWidth: 0 }}
-            >
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(-1)}
-                aria-label="Back"
-              >
-                <img
-                  src={miscellaneousIcons.leftArrow}
-                  alt="Back"
-                  style={{ width: "36px", height: "36px" }}
-                />
-              </Button>
-              {isProject && !fromLeads && (
-                <ProjectAvatar
-                  src={lead?.coverImageUrl}
-                  label={initialsOf(lead?.title || "")}
-                  className="size-12 shrink-0 text-base"
-                />
-              )}
-
-              <div className="d-flex flex-column grow" style={{ minWidth: 0 }}>
-                {/* Meta string */}
-                <div
-                  className="d-flex align-items-center flex-wrap gap-2 mb-1"
-                  style={{
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    letterSpacing: "0.5px",
-                  }}
-                >
-                  {/* Which number identifies this record follows the VIEW, not just
-                      the tab: in the lead view every tab is looking at the lead, so
-                      it stays the lead/OFFER number throughout. Showing the project
-                      number on the lead view's Commercial tab was the same
-                      lead-vs-project mix-up as the Project No. tile. */}
-                  {isProject && !fromLeads && activeTab !== "leads" ? (
-                    <span
-                      style={{ color: "#059669" }}
-                    >{`#${projectNumberOf(lead) || "N/A"}`}</span>
-                  ) : (
-                    <span
-                      style={{ color: "#64748B" }}
-                    >{`#${lead?.prefix || "N/A"}`}</span>
-                  )}
-                  {lead?.revisionCount !== undefined &&
-                    lead?.revisionCount !== null && (
-                      <>
-                        <span style={{ color: "#CBD5E1" }}>•</span>
-                        <span
-                          style={{ color: "#94A3B8" }}
-                        >{`R${lead.revisionCount}`}</span>
-                      </>
-                    )}
-                  {lead?.priority && (
-                    <>
-                      <span style={{ color: "#CBD5E1" }}>•</span>
-                      <span
-                        className="d-inline-flex align-items-center gap-1"
-                        style={{ color: "#F59E0B" }}
-                      >
-                        <AppIcon
-                          name="bi-star-fill"
-                          className="fs-8"
-                          style={{ marginTop: "-1px" }}
-                        />{" "}
-                        {lead.priority}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                {/* Title */}
-                <h2
-                  className="mb-0 text-truncate"
-                  style={{
-                    fontFamily: "Barlow, sans-serif",
-                    fontWeight: 700,
-                    fontSize: "26px",
-                    color: "#0F172A",
-                    letterSpacing: "-0.3px",
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {lead?.title || "Unnamed Entity"}
-                </h2>
-              </div>
-            </div>
-
-            {/* Status pill follows the active tab: Lead status while on the Leads
-                tab, Project status everywhere else (once the lead is a project).
-                Edit/Export stay lead-only actions, shown only on the Leads tab. */}
-            <div className="d-flex flex-wrap align-items-stretch align-items-sm-center gap-2 mt-1 mt-md-0">
-              {isProject && !fromLeads && activeTab !== "leads" ? (
-                <ProjectStatusControl
-                  leadId={leadId!}
-                  projectStatusId={lead?.execution?.projectStatusId}
-                  projectStatus={lead?.execution?.projectStatus}
-                  actualEndDate={lead?.actualEndDate}
-                  onChanged={fetchLeadDetails}
-                  prefix="Project - "
-                />
-              ) : (
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 9,
-                    border: `1px solid ${lead?.status?.color || "#64748B"}3D`,
-                    background: `linear-gradient(180deg, ${lead?.status?.color || "#64748B"}17, ${lead?.status?.color || "#64748B"}0A)`,
-                    color: lead?.status?.color || "#64748B",
-                    borderRadius: 10,
-                    padding: "7px 14px",
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    letterSpacing: "-0.1px",
-                    boxShadow: `0 1px 2px ${lead?.status?.color || "#64748B"}14`,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: lead?.status?.color || "#64748B",
-                      display: "inline-block",
-                      boxShadow: `0 0 0 3px ${lead?.status?.color || "#64748B"}22`,
-                    }}
+          {/* Which number identifies this record follows the VIEW, not just the tab: in the lead view every tab is
+              looking at the lead, so it stays the lead/OFFER number throughout. Status follows the tab: Lead status
+              on the Leads tab, Project status everywhere else (once the lead is a project). */}
+          <RecordHeader
+            title={lead?.title || "Unnamed Entity"}
+            reference={showProjectView ? projectNumberOf(lead) || "N/A" : lead?.prefix || "N/A"}
+            referenceTone={showProjectView ? "brand" : "muted"}
+            onBack={() => navigate(-1)}
+            avatar={
+              isProject && !fromLeads ? (
+                <ProjectAvatar src={lead?.coverImageUrl} label={initialsOf(lead?.title || "")} className="size-11 text-sm" />
+              ) : undefined
+            }
+            meta={
+              <>
+                {lead?.revisionCount !== undefined && lead?.revisionCount !== null && (
+                  <Badge variant="neutral" title="Revision">Rev {lead.revisionCount}</Badge>
+                )}
+                {lead?.priority && (
+                  <Badge variant="amber"><Star aria-hidden /> {lead.priority}</Badge>
+                )}
+              </>
+            }
+            actions={
+              <>
+                {showProjectView ? (
+                  <ProjectStatusControl
+                    leadId={leadId!}
+                    projectStatusId={lead?.execution?.projectStatusId}
+                    projectStatus={lead?.execution?.projectStatus}
+                    actualEndDate={lead?.actualEndDate}
+                    onChanged={fetchLeadDetails}
+                    prefix="Project"
                   />
-                  Lead - {lead?.status?.name || "Set status"}
-                </div>
-              )}
-
-              {/* The lead view hides every project tab by design, so a lead that
-                  IS a project needs a door through to the project view — without
-                  it an old /leads/:id link to a project is a dead end. Only this
-                  direction needs one: the Leads tab is present in both views. */}
-              {isProject && fromLeads && (
-                <Button
-                  variant="tinted"
-                  size="sm"
-                  className="flex-auto"
-                  onClick={() => navigate(`/project/${leadId}`)}
-                  style={
-                    { "--tint": "var(--cta-success)" } as React.CSSProperties
-                  }
-                >
-                  <span data-icon="inline-start" className="inline-flex">
-                    <AppIcon name="bi-kanban" className="fs-7" />
-                  </span>{" "}
-                  Project view
-                </Button>
-              )}
-
-              {canWrite && activeTab === "leads" && (
-                <>
-                  <Button size="sm" className="flex-auto" onClick={openEdit}>
-                    <span data-icon="inline-start" className="inline-flex">
-                      <AppIcon name="bi-pencil-fill" className="fs-7" />
-                    </span>{" "}
+                ) : (
+                  <OptionPickerTrigger
+                    label="Lead"
+                    value={lead?.status?.name || "Set status"}
+                    color={lead?.status?.color || "#64748B"}
+                  />
+                )}
+                {/* The lead view hides every project tab by design, so a lead that IS a project needs a door through
+                    to the project view — without it an old /leads/:id link to a project is a dead end. */}
+                {isProject && fromLeads && (
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/project/${leadId}`)}>
+                    <KanbanSquare data-icon="inline-start" />
+                    Project view
+                  </Button>
+                )}
+                {canWrite && activeTab === "leads" && (
+                  <Button size="sm" onClick={openEdit}>
+                    <Pencil data-icon="inline-start" />
                     Edit
                   </Button>
-
-                  {canViewCommercial("crm.leads") && (
-                    <Button
-                      size="sm"
-                      className="flex-auto"
-                      onClick={() => setShowProposalModal(true)}
-                    >
-                      <span data-icon="inline-start" className="inline-flex">
-                        <AppIcon
-                          name="bi-file-earmark-arrow-down-fill"
-                          className="fs-7"
-                        />
-                      </span>{" "}
-                      Export
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+                )}
+              </>
+            }
+          />
 
           {/* ── Sticky tab nav ── */}
           {/* The provider wraps the bar AND the content so one eye governs both. Disabled
@@ -603,15 +468,6 @@ const EntityDetailPage: React.FC = () => {
           isEditMode={!!formValues?.id}
         />
       )}
-
-      <ProposalTemplatePage
-        show={showProposalModal}
-        onHide={() => setShowProposalModal(false)}
-        leadData={lead}
-        companyData={company}
-        contactData={contact}
-        projectData={lead?.project || null}
-      />
     </DMSProvider>
   );
 };

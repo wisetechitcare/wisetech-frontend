@@ -33,6 +33,7 @@ import OnboardingDocConfigureForm, { OnboardingDocItem } from "./OnboardingDocCo
 import { fetchAllDepartments, archiveDepartmentById } from "@services/company";
 import { fetchWorkingMethods, deleteWorkingMethodById, fetchOnboardingDocs, fetchSrcOfHire, deleteSourceOfHire } from "@services/options";
 import OrganizationConfigureForm from "@pages/company/masters/components/OrganizationConfigureForm";
+import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import {
   ConfigPageLayout,
   ConfigSectionCard,
@@ -459,7 +460,7 @@ const EmployeeConfigure = () => {
       const rows = response?.data?.workingMethods || [];
       // The column is `type`; mapped to `name` so ItemChip renders it unchanged.
       setWorkingTypes(
-        rows.map((w: any) => ({ id: w.id, name: w.type, companyId: w.companyId }))
+        rows.map((w: any) => ({ id: w.id, name: w.type, companyId: w.companyId, isBuiltin: !!w.isBuiltin }))
       );
       setWorkingTypeCompanyId(rows[0]?.companyId);
     } catch (error) {
@@ -707,7 +708,13 @@ const EmployeeConfigure = () => {
           {item.name}
         </span>
       </div>
-      {canWrite && <div style={{ display: 'flex', gap: SP.sm, alignItems: 'center', flexShrink: 0 }}>
+      {canWrite && item.isBuiltin && (
+        // Office / On-site / Hybrid: attendance and biometric rules match them by name.
+        <span title="Built in — attendance rules recognise this name, so it can't be renamed or deleted" style={{ color: C.textMuted, flexShrink: 0 }}>
+          <AppIcon name="lock" />
+        </span>
+      )}
+      {canWrite && !item.isBuiltin && <div style={{ display: 'flex', gap: SP.sm, alignItems: 'center', flexShrink: 0 }}>
         <ActionIconButton iconName="pencil" title="Edit" onClick={() => onEdit(item)} size="sm" />
         <ActionIconButton
           iconName="trash"

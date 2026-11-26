@@ -3,11 +3,11 @@ import React, {
   Dispatch,
   FC,
   SetStateAction,
-  useContext,
   useEffect,
   useState,
 } from 'react'
 import {WithChildren} from '../../helpers'
+import {holdSplash} from '@utils/splashGate'
 
 const MetronicSplashScreenContext = createContext<Dispatch<SetStateAction<number>> | undefined>(
   undefined
@@ -47,30 +47,12 @@ const MetronicSplashScreenProvider: FC<WithChildren> = ({children}) => {
   )
 }
 
+/**
+ * Keeps the startup splash up while it is mounted (App's top-level Suspense fallback, AuthInit's session check).
+ * It used to count into MetronicSplashScreenProvider, which nothing mounts, so it did nothing at all.
+ */
 const LayoutSplashScreen: FC<{visible?: boolean}> = ({visible = true}) => {
-  // Everything are ready - remove splashscreen
-  const setCount = useContext(MetronicSplashScreenContext)
-
-  useEffect(() => {
-    if (!visible) {
-      return
-    }
-
-    if (setCount) {
-      setCount((prev) => {
-        return prev + 1
-      })
-    }
-
-    return () => {
-      if (setCount) {
-        setCount((prev) => {
-          return prev - 1
-        })
-      }
-    }
-  }, [setCount, visible])
-
+  useEffect(() => (visible ? holdSplash() : undefined), [visible])
   return null
 }
 

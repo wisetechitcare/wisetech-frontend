@@ -1249,8 +1249,8 @@ function ComponentCard({
             </Button>
           </Tooltip>
 
-          {/* Delete — permanent deletion for all active components */}
-          {item.isActive && canDelete('finance.salary') && (
+          {/* Delete — custom components only; built-ins are turned off, not deleted */}
+          {item.isActive && canDelete('finance.salary') && !(item.isSystem && !item.employeeId) && (
             <Tooltip title="Delete permanently">
               <Button variant="tinted" size="icon-sm" aria-label="Delete permanently" onClick={onDelete}
                 className={HIDE_BELOW_SM} style={DANGER_TINT}>

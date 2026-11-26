@@ -14,9 +14,8 @@ import { getBillingStatusLabels, type BillingStatusColour } from "@services/bill
  *
  * `tone()` returns undefined for a code the config does not carry, rather than
  * guessing a colour. The caller supplies its own fallback — which keeps this
- * module from importing `BILLING_STATUS_TONES` out of `BillingPrimitives`, whose
- * badge imports this hook back. A cycle between the two would be initialised in
- * whichever order the bundler happened to pick.
+ * module from importing `BILLING_STATUS_TONES` out of `BillingStatusBadge`, which
+ * imports this hook back.
  */
 
 const humanise = (code: string) =>
@@ -56,25 +55,14 @@ export const useBillingLabels = () => {
         groups
           .find((group) => group.key === groupKey)
           ?.entries.map((entry) => ({ value: entry.code, label: entry.label })) ?? [],
-      /**
-       * The code this group settles on — the one an admin marked DEFAULT in
-       * Configure. Used to highlight the likely choice in a dropdown; it is never
-       * applied on its own, because a default that silently fills 756 rows would
-       * claim work that has not happened.
-       */
-      defaultCode: (groupKey: string): string | undefined =>
-        groups.find((group) => group.key === groupKey)?.entries.find((e) => e.isDefault)?.code,
     };
   }, [data]);
 };
 
 /** Group keys from the server catalogue (`services/billing/statusLabels.ts` GROUPS). */
 export const BILLING_LABEL_GROUP = {
-  STATUS: "OPERATION_STATUS",
+  STATUS: "BILL_STAGE",
   /** The three components a bill settles as, each configured on its own. */
-  BILL_AMOUNT: "BILL_AMOUNT_STATUS",
-  GST: "GST_STATUS",
-  TDS: "TDS_STATUS",
   STAGE: "STAGE",
   BILL_PAYMENT: "BILL_PAYMENT_STATUS",
 } as const;

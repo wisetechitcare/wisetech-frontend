@@ -16,7 +16,11 @@ export const SIGN_IN_HEADLINE: readonly TypewriterLine[] = [
   [{ text: 'Fast', tone: 'blue' }, ', ', { text: 'Efficient', tone: 'green' }, ' & ', { text: 'Productive', tone: 'purple' }],
 ]
 
-export const SIGN_IN_TAGLINE = 'All-in-one HR, CRM, Projects and Payroll for your whole organisation.'
+export const SIGN_IN_TAGLINE = 'All-in-one HR, CRM, Projects and Payroll for your whole organization.'
 
-/** The organisation shown before the logo endpoint answers (and if it fails). */
-export const DEFAULT_BRAND = 'WiseTech'
+/**
+ * The sign-in pages show the PLATFORM brand, not a tenant's (user decision 2026-11-18): every tenant signs in on
+ * the same page, so one tenant's logo there is wrong for all the others. A tenant-branded sign-in needs a tenant
+ * hint (subdomain) first — see docs/FUTURE_ENHANCEMENTS.md.
+ */
+export const PLATFORM_BRAND = 'KAIZNOVA'

@@ -1,10 +1,12 @@
-import React, { useMemo, useRef } from "react";
+import React from "react";
 import { useFormikContext } from "formik";
-import { MenuItem, Stack, TextField, Typography } from "@mui/material";
-import { Delete, Add } from "@mui/icons-material";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { WtButton, WtIconButton } from "@app/modules/common/components/ui";
+import { Plus, Ruler, Trash2 } from "lucide-react";
 import { formatCurrencyDecimal } from "@utils/currency";
+import { Button } from "@/ds/ui/button";
+import { Input } from "@/ds/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ds/ui/select";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/ds/ui/table";
+import { EmptyState } from "@/ds/patterns/empty-state";
 
 interface CommercialsGridProps {
   type: "lead" | "project";
@@ -12,7 +14,8 @@ interface CommercialsGridProps {
   title?: string;
 }
 
-const inputSx = { "& .MuiOutlinedInput-input": { py: "7px", fontSize: 13 } };
+/** Select has no empty value, so "no cost type yet" is this sentinel. */
+const NONE = "__none__";
 
 export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type, title = "Commercial Work Areas" }) => {
   const { values, setFieldValue, setFieldError } = useFormikContext<any>();
@@ -25,6 +28,12 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type, title = 
     ? { area: "projectArea", rate: "rate", rateCost: "cost", lumpsumCost: "cost", RATE: "1", LUMPSUM: "2" }
     : { area: "area", rate: "rate", rateCost: "rateCost", lumpsumCost: "lumpsumCost", RATE: "RATE", LUMPSUM: "LUMPSUM" };
 
+  const costTypes = [
+    { value: NONE, label: "Select" },
+    { value: keys.RATE, label: "Rate" },
+    { value: keys.LUMPSUM, label: "Lumpsum" },
+  ];
+
   const grandTotal = items.reduce((sum, item) => {
     const costType = String(item.costType);
     if (costType === keys.RATE) return sum + (parseFloat(item[keys.rateCost]) || 0);
@@ -36,8 +45,7 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type, title = 
   // measured whether it is priced per sqft or as a lump sum.
   const totalArea = items.reduce((sum, item) => sum + (parseFloat(item[keys.area]) || 0), 0);
 
-  // `row` is the row as it stands now; `patch` is the field being typed. Cells are rendered
-  // from row.original, so this never reads a stale `values` closure.
+  // `row` is the row as it stands now; `patch` is the field being typed.
   const updateRow = (index: number, row: any, patch: Record<string, string>) => {
     Object.entries(patch).forEach(([k, v]) => setFieldValue(`${arrayPath}.${index}.${k}`, v));
     const item = { ...row, ...patch };
@@ -63,142 +71,131 @@ export const CommercialsGrid: React.FC<CommercialsGridProps> = ({ type, title = 
         : { label: "", area: "", costType: "", rate: "", rateCost: "", lumpsumCost: "" },
     ]);
 
-  // Columns are memoized (so typing doesn't rebuild the table); read rows through a ref.
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
-  const removeRow = (index: number) => setFieldValue(arrayPath, itemsRef.current.filter((_, i) => i !== index));
+  const removeRow = (index: number) => setFieldValue(arrayPath, items.filter((_, i) => i !== index));
 
-  const columns = useMemo(
-    () => [
-      {
-        accessorKey: "label",
-        header: "Label",
-        size: 220,
-        Cell: ({ row }: any) => (
-          <TextField
-            fullWidth size="small" sx={inputSx} placeholder="e.g. Basement Ground"
-            value={row.original.label || ""}
-            onChange={(e) => setFieldValue(`${arrayPath}.${row.index}.label`, e.target.value)}
-          />
-        ),
-        Footer: () => <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: "primary.main" }}>GRAND TOTAL</Typography>,
-      },
-      {
-        accessorKey: keys.area,
-        header: "Area (sqft)",
-        size: 130,
-        Footer: () => (
-          <Typography sx={{ fontSize: 14, fontWeight: 800, color: "primary.main" }}>
-            {totalArea ? totalArea.toLocaleString("en-IN") : "—"}
-          </Typography>
-        ),
-        Cell: ({ row }: any) => (
-          <TextField
-            fullWidth size="small" sx={inputSx} type="number" placeholder="0"
-            value={row.original[keys.area] || ""}
-            onChange={(e) => nonNegative(e.target.value) && updateRow(row.index, row.original, { [keys.area]: e.target.value })}
-          />
-        ),
-      },
-      {
-        accessorKey: "costType",
-        header: "Cost Type",
-        size: 150,
-        Cell: ({ row }: any) => (
-          <TextField
-            select fullWidth size="small" sx={inputSx}
-            value={row.original.costType ?? ""}
-            onChange={(e) => updateRow(row.index, row.original, { costType: e.target.value })}
-            SelectProps={{ displayEmpty: true }}
-          >
-            <MenuItem value="">Select</MenuItem>
-            <MenuItem value={keys.RATE}>Rate</MenuItem>
-            <MenuItem value={keys.LUMPSUM}>Lumpsum</MenuItem>
-          </TextField>
-        ),
-      },
-      {
-        accessorKey: "rate",
-        header: "Rate",
-        size: 130,
-        Cell: ({ row }: any) =>
-          String(row.original.costType) === keys.LUMPSUM ? (
-            <Typography sx={{ fontSize: 13, color: "text.disabled" }}>N/A (Lumpsum)</Typography>
-          ) : (
-            <TextField
-              fullWidth size="small" sx={inputSx} type="number" placeholder="0.00"
-              value={row.original.rate || ""}
-              onChange={(e) => nonNegative(e.target.value) && updateRow(row.index, row.original, { rate: e.target.value })}
-            />
-          ),
-      },
-      {
-        id: "cost",
-        header: "Calculated Cost",
-        size: 170,
-        accessorFn: (r: any) => (String(r.costType) === keys.LUMPSUM ? r[keys.lumpsumCost] : r[keys.rateCost]),
-        Cell: ({ row }: any) =>
-          String(row.original.costType) === keys.LUMPSUM ? (
-            <TextField
-              fullWidth size="small" sx={inputSx} type="number" placeholder="Enter Cost"
-              value={row.original[keys.lumpsumCost] || ""}
-              onChange={(e) =>
-                nonNegative(e.target.value) && setFieldValue(`${arrayPath}.${row.index}.${keys.lumpsumCost}`, e.target.value)
-              }
-            />
-          ) : (
-            <TextField
-              fullWidth size="small" sx={inputSx} placeholder="Calculated"
-              value={row.original[keys.rateCost] || ""}
-              InputProps={{ readOnly: true }}
-            />
-          ),
-        Footer: () => (
-          <Typography sx={{ fontSize: 14, fontWeight: 800, color: "primary.main" }}>
-            {formatCurrencyDecimal(grandTotal)}
-          </Typography>
-        ),
-      },
-      {
-        id: "actions",
-        header: "",
-        size: 60,
-        enableSorting: false,
-        Cell: ({ row }: any) => (
-          <WtIconButton color="#dc2626" title="Delete Row" onClick={() => removeRow(row.index)} sx={{ width: 34, height: 34 }}>
-            <Delete fontSize="small" />
-          </WtIconButton>
-        ),
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [arrayPath, grandTotal, totalArea, items.length],
+  const addButton = (
+    <Button type="button" variant="outline" size="sm" onClick={addRow}>
+      <Plus data-icon="inline-start" />
+      Add Commercial Row
+    </Button>
   );
 
   return (
-    <div>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} sx={{ mb: 2, pb: 1.5, borderBottom: 1, borderColor: "divider" }}>
-        <Typography sx={{ fontSize: 15, fontWeight: 700, color: "text.primary" }}>{title}</Typography>
-        <WtButton tone="accent" size="small" ghost startIcon={<Add fontSize="small" />} onClick={addRow}>
-          Add Commercial Row
-        </WtButton>
-      </Stack>
-      <MaterialTable
-        tableName={`commercials-${type}`}
-        data={items}
-        columns={columns}
-        showColumnFooter
-        hideFilters
-        hideExportCenter
-        hidePagination
-        enableBottomToolbar={false}
-        enableColumnSpecificSearch={false}
-        enableSorting={false}
-        enableColumnActions={false}
-        enableGrouping={false}
-        enableColumnDragging={false}
-        persistPreferences={false}
-      />
-    </div>
+    <section data-slot="commercials-grid" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="m-0 text-sm font-semibold text-foreground">{title}</h3>
+        {items.length > 0 && addButton}
+      </div>
+
+      {items.length === 0 ? (
+        <EmptyState
+          size="sm"
+          icon={<Ruler />}
+          title="No work areas yet"
+          description="Add a row for each area you are pricing, by rate per sqft or as a lump sum."
+          action={addButton}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-2xl ring-1 ring-border">
+          <Table className="min-w-[760px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[26%]">Label</TableHead>
+                <TableHead className="w-[16%]">Area (sqft)</TableHead>
+                <TableHead className="w-[16%]">Cost Type</TableHead>
+                <TableHead className="w-[14%]">Rate</TableHead>
+                <TableHead className="w-[20%]">Calculated Cost</TableHead>
+                <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((row, i) => {
+                const isLumpsum = String(row.costType) === keys.LUMPSUM;
+                return (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Input
+                        aria-label={`Row ${i + 1} label`} placeholder="e.g. Basement Ground"
+                        value={row.label || ""}
+                        onChange={(e) => setFieldValue(`${arrayPath}.${i}.label`, e.target.value)}
+                        className="h-9"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        aria-label={`Row ${i + 1} area`} type="number" min={0} placeholder="0"
+                        value={row[keys.area] || ""}
+                        onChange={(e) => nonNegative(e.target.value) && updateRow(i, row, { [keys.area]: e.target.value })}
+                        className="h-9"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        items={costTypes}
+                        value={row.costType ? String(row.costType) : NONE}
+                        onValueChange={(v) => updateRow(i, row, { costType: v === NONE ? "" : String(v) })}
+                      >
+                        <SelectTrigger className="h-9 w-full" aria-label={`Row ${i + 1} cost type`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {costTypes.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      {isLumpsum ? (
+                        <span className="text-sm text-muted-foreground">N/A (Lumpsum)</span>
+                      ) : (
+                        <Input
+                          aria-label={`Row ${i + 1} rate`} type="number" min={0} placeholder="0.00"
+                          value={row.rate || ""}
+                          onChange={(e) => nonNegative(e.target.value) && updateRow(i, row, { rate: e.target.value })}
+                          className="h-9"
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isLumpsum ? (
+                        <Input
+                          aria-label={`Row ${i + 1} cost`} type="number" min={0} placeholder="Enter cost"
+                          value={row[keys.lumpsumCost] || ""}
+                          onChange={(e) => nonNegative(e.target.value) && setFieldValue(`${arrayPath}.${i}.${keys.lumpsumCost}`, e.target.value)}
+                          className="h-9"
+                        />
+                      ) : (
+                        <Input
+                          aria-label={`Row ${i + 1} calculated cost`} readOnly placeholder="Calculated"
+                          value={row[keys.rateCost] || ""}
+                          className="h-9 bg-muted/60"
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        type="button" variant="tinted" size="icon-sm" title="Delete row" aria-label={`Delete row ${i + 1}`}
+                        style={{ "--tint": "var(--cta-danger)" } as React.CSSProperties}
+                        onClick={() => removeRow(i)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell className="text-xs font-bold tracking-wider text-primary uppercase">Grand total</TableCell>
+                <TableCell className="font-bold text-primary tabular-nums">{totalArea ? totalArea.toLocaleString("en-IN") : "—"}</TableCell>
+                <TableCell colSpan={2} />
+                <TableCell className="font-bold text-primary tabular-nums">{formatCurrencyDecimal(grandTotal)}</TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </div>
+      )}
+    </section>
   );
 };

@@ -21,6 +21,7 @@ existing API (the way `WtButton` now renders the v2 Button).
 | `toast`, `GlassNotification`, react-toastify, sonner | Components/Toast | ✅ |
 | `ConfirmDialog`, `confirmDialog()`, `alertDialog()`, `useConfirmDialog`, `usePromptDialog`, SweetAlert | Components/Modal | ✅ |
 | `WtTooltip` | Components/Tooltip | ✅ |
+| Row / card icon actions (`ActionIconButton` in a row, hand-rolled tinted icon buttons) | Patterns/Row Action — Button `tinted` + Tooltip + accessible name, `tint="danger"` for destructive | ✅ |
 | `PageLoader`, `Skeleton` (common) | Components/Skeleton, Components/Spinner | ✅ |
 | `WtEmptyState` | Patterns/Empty State (`empty`, `no-match`, `error`) | ✅ |
 | `ExportButton` | Components/ButtonGroup + DropdownMenu | ✅ |
@@ -60,8 +61,10 @@ the build on a hand-drawn card (`bg-card` with a border or radius).
 | `DetailCard`, `KeyValueList`, `KeyValueRow`, `DetailGrid`, `SectionDivider` | Patterns/Description List (+ Card + Section Header = the `DetailCard` look) | ✅ |
 | `EntityIdentityHeader`, `EmployeeIdentityCell` | Patterns/Person (`PersonHeader`, `PersonCell`) | ✅ |
 | `EntityCard` | Patterns/Entity Card | ✅ |
+| Hand-built timelines (`BillingTimeline`; a record's history `<ol>`) | Patterns/Timeline — ordered history with state markers, timestamps and nested events (the Stepper is the control for a task in progress, not history) | ✅ |
+| `OrgTree` (org / sub-org / branch tree with ├ └ guides and count columns) | Patterns/Tree Table — any hierarchy as rows: expand / collapse, figure columns, row actions | ✅ (OrgTree now renders it) |
 | `NavCard` | Patterns/Entity Card with `href` (one tile for records and navigation) | ✅ |
-| `MaterialTable` / `MaterialTableImpl` (106 screens) | Patterns/Data Table (TanStack) — sort, search, column show/hide, selection, paging, density, loading / empty / error / no-match | ✅ design · ⏳ swap is last (see below) |
+| `MaterialTable` / `MaterialTableImpl` (106 screens) | Patterns/Data Table (TanStack) — sort, search, column filters, group rows, column show/hide / pin / drag / resize, selection, paging, density, full screen, phone cards, loading / empty / error / no-match; export via `DataTableExport` | ✅ design · ⏳ swap is last (see below) |
 | `TableSelectionBar` | Patterns/Data Table — selection bar | ✅ |
 
 ## Inputs and forms
@@ -107,13 +110,15 @@ The design above covers the core. These live `MaterialTableImpl` features (count
 them) are built into Data Table during the swap, so no screen loses one — a hand-written table that dropped
 them is how the recruitment drill-down regressed:
 
-| Feature | Screens | | Feature | Screens |
-| --- | --- | --- | --- | --- |
-| Per-column search / filters | 22 | | Column resizing | 4 |
-| Column pinning | 6 | | Grouping | 4 |
-| Row virtualisation (long lists) | 5 | | Expandable rows | 4 |
-| Column drag-reorder | 5 | | Saved column preferences | all |
-| Full-screen toggle | 5 | | Export (Excel / PDF) | many |
+Status checked against the code 2026-11-17:
+
+| Feature | Screens | Data Table | | Feature | Screens | Data Table |
+| --- | --- | --- | --- | --- | --- | --- |
+| Per-column search / filters | 22 | ✅ filter row (Table tools) | | Column resizing | 4 | ✅ `resizableColumns` |
+| Column pinning | 6 | ✅ Columns panel, `meta.pin` | | Grouping | on by default | ✅ Group by (Table tools) |
+| Row virtualisation (long lists) | 5 | ⏳ not built | | Expandable rows | 4 | ✅ `renderDetail` |
+| Column drag-reorder | 5 | ✅ `reorderableColumns` | | Saved column preferences | all | ✅ `stateKey` (sort / page size / search not yet) |
+| Full-screen toggle | 5 | ✅ Table tools | | Export (Excel / CSV) | many | ✅ `DataTableExport` in `toolbar` |
 
 ## Design decisions (decided 2026-11-03)
 

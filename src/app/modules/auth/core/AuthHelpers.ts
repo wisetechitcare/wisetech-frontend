@@ -1,5 +1,6 @@
 import {AuthModel} from './_models'
 import {securityPinBus, isSecurityLockedResponse, SECURITY_AREA_HEADER} from '@utils/securityPinBus'
+import { SUPPORT_VIEW_TOKEN_MARKER } from '@services/platformSupport'
 
 const AUTH_LOCAL_STORAGE_KEY = 'wise_tech_login'
 
@@ -39,10 +40,10 @@ const setAuth = (auth: any) => {
     // TEMPORARY REVERT (prod hotfix): persist the JWT in localStorage so it is
     // sent as an Authorization: Bearer header and survives page reloads. The
     // httpOnly-cookie approach cannot work while the frontend (amplifyapp.com)
-    // and API (wisetech-mep.com) are on different registrable domains — the
+    // and API (kaiznova.com) are on different registrable domains — the
     // cross-site cookie is blocked by browsers. Restore the cookie-only,
     // token-stripped version once FE + API share a domain (e.g.
-    // app.wisetech-mep.com + api.wisetech-mep.com). See [[auth-cookie-migration]].
+    // app.kaiznova.com + api.kaiznova.com). See [[auth-cookie-migration]].
     inMemoryToken = auth?.token
     const lsValue = JSON.stringify(auth)
     localStorage.setItem(AUTH_LOCAL_STORAGE_KEY, lsValue)
@@ -53,6 +54,8 @@ const setAuth = (auth: any) => {
 
 const removeAuth = () => {
   inMemoryToken = undefined
+  // The splash branding is deliberately KEPT: the login screen shows the organization's splash too, and re-syncs it to
+  // the company's public branding (/api/company/logo) as soon as it opens.
   if (!localStorage) {
     return
   }
@@ -121,7 +124,9 @@ export function setupAxios(axios: any) {
         // Header fallback: in-memory token (this session) or a token persisted
         // by a pre-cookie release. New sessions rely on the httpOnly cookie.
         const token = inMemoryToken || getAuth()?.token
-        if (token) {
+        // Support view-as uses the httpOnly support cookie + protect — never send the
+        // localStorage marker as Bearer (it is not a JWT; blacklist would SESSION_INVALID).
+        if (token && token !== SUPPORT_VIEW_TOKEN_MARKER) {
           config.headers.Authorization = `Bearer ${token}`
         }
         // Which protected tab is on screen, so the server judges this request by that tab's own

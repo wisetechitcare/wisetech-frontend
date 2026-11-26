@@ -39,7 +39,6 @@ export interface GeneratedDocument {
   subjectId: string;
   leadId?: string | null;
   companyId?: string | null;
-  billingRequestId?: string | null;
   currency: string;
   /** Which version the editor is showing. Absent on the list payload. */
   currentVersionId?: string | null;
@@ -78,11 +77,13 @@ export interface DocumentEmailEntry {
 /** Everything the editor needs: the document, its rendered HTML, and the contract. */
 export interface DocumentPayload {
   document: GeneratedDocument;
-  version: DocumentVersionSummary & { html: string };
+  version: DocumentVersionSummary & { html: string; mergeData: Record<string, unknown> };
   policy: FieldPolicy;
   html: string;
   editable: Record<string, string>;
   isEditable: boolean;
+  /** Page-layout script shared with the server's PDF renderer — see DocumentSheet. */
+  paginator?: string;
 }
 
 const url = (path: string, id?: string) =>
@@ -103,22 +104,27 @@ export const getDocument = async (id: string): Promise<DocumentPayload> => {
   return data;
 };
 
-export const listDocuments = async (params: {
-  kind?: DocumentKind;
-  status?: DocumentStatus;
-  leadId?: string;
-  search?: string;
-} = {}): Promise<GeneratedDocument[]> => {
-  const { data } = await axios.get(url(DOCUMENT.LIST), { params, withCredentials: true });
-  return data.documents ?? [];
-};
-
 /** Persist the editable half. Locked keys sent here are discarded server-side. */
 export const saveDocumentDraft = async (
   id: string,
   editable: Record<string, string>,
 ): Promise<DocumentPayload> => {
   const { data } = await axios.patch(url(DOCUMENT.SAVE_DRAFT, id), { editable }, { withCredentials: true });
+  return data;
+};
+
+/** Re-pull a draft's record-derived fields (bank, Bill To, SAC…) from the ERP. */
+export const refreshDocumentDraft = async (id: string): Promise<DocumentPayload> => {
+  const { data } = await axios.post(url(DOCUMENT.REFRESH, id), {}, { withCredentials: true });
+  return data;
+};
+
+/**
+ * The page as it would read after saving, without saving. The editor calls this while a bill amount is being typed,
+ * so the fee schedule, GST and totals follow the amount live. Refused (with the reason) when the bill cannot take it.
+ */
+export const previewDocumentDraft = async (id: string, editable: Record<string, string>): Promise<{ html: string; connected: Record<string, string> }> => {
+  const { data } = await axios.post(url(DOCUMENT.PREVIEW, id), { editable }, { withCredentials: true });
   return data;
 };
 
@@ -132,22 +138,33 @@ export const reviseDocument = async (id: string, reason: string): Promise<Docume
   return data;
 };
 
-export const cancelDocument = async (id: string) => {
-  const { data } = await axios.post(url(DOCUMENT.CANCEL, id), {}, { withCredentials: true });
-  return data.document as GeneratedDocument;
-};
-
 /** Returns a short-lived presigned link — documents are stored privately. */
 export const generateDocumentPdf = async (
   id: string,
   versionId?: string,
+  size?: PaperSize,
 ): Promise<{ versionId: string; url: string; regenerated: boolean }> => {
   const { data } = await axios.post(url(DOCUMENT.PDF, id), {}, {
-    params: versionId ? { versionId } : undefined,
+    params: { ...(versionId ? { versionId } : {}), ...(size ? { size } : {}) },
     withCredentials: true,
   });
   return data;
 };
+
+/**
+ * Paper sizes a document can be previewed and printed on. Mirrors the server's
+ * `services/documents/paper.ts` — the keys are the wire values and the CSS class
+ * suffix (`paper-<key>`); `px` is the page width at 96 dpi, for fit-to-width.
+ */
+export const PAPER_SIZES = [
+  { key: "a4", label: "A4", px: 794 },
+  { key: "a5", label: "A5", px: 559 },
+  { key: "letter", label: "Letter", px: 816 },
+  { key: "legal", label: "Legal", px: 816 },
+  { key: "thermal80", label: "Thermal 80mm", px: 302 },
+] as const;
+
+export type PaperSize = (typeof PAPER_SIZES)[number]["key"];
 
 export const getDocumentVersions = async (id: string): Promise<DocumentVersionSummary[]> => {
   const { data } = await axios.get(url(DOCUMENT.VERSIONS, id), { withCredentials: true });

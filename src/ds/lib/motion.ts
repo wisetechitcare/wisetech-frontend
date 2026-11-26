@@ -18,12 +18,37 @@ export function useReducedMotion(): boolean {
 }
 
 /**
- * Resolves when every finite running animation (CSS and Motion's WAAPI) has finished. Tests and a11y
- * checks judge the end state, not a mid-fade frame; infinite loops (pulse, border beam) are skipped.
+ * Resolves when every finite animation has finished. Tests and a11y checks judge the end state, not a
+ * mid-fade frame; infinite loops (pulse, border beam) are skipped.
+ *
+ * Three kinds of motion, three waits:
+ * 1. Two frames first — Motion starts an animation on the frame AFTER the render that asked for it, so a
+ *    snapshot taken straight after a click or a mount would see nothing yet.
+ * 2. CSS and WAAPI animations (`document.getAnimations()`).
+ * 3. Motion's JS frame loop — values it cannot hand to WAAPI (a disclosure panel's height + opacity run
+ *    together on the main thread) never appear in `getAnimations()`. Settled = the inline styles Motion
+ *    writes stopped changing for two frames in a row (the same "settled" `useSettledWhenOpen` uses).
+ *    Capped at 3s so a looping JS animation cannot hang a test.
  */
 export async function animationsSettled(root: Document = document) {
+  const view = root.defaultView
+  const frame = () =>
+    view?.requestAnimationFrame ? new Promise<void>((resolve) => view.requestAnimationFrame(() => resolve())) : Promise.resolve()
+  await frame()
+  await frame()
   const finite = root.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity)
   await Promise.all(finite.map((a) => a.finished.catch(() => undefined)))
+  if (!view?.requestAnimationFrame) return
+  const inlineStyles = () => Array.from(root.querySelectorAll<HTMLElement>("[style]"), (el) => el.getAttribute("style")).join("|")
+  const deadline = Date.now() + 3000
+  let previous = inlineStyles()
+  let stable = 0
+  while (stable < 2 && Date.now() < deadline) {
+    await frame()
+    const current = inlineStyles()
+    stable = current === previous ? stable + 1 : 0
+    previous = current
+  }
 }
 
 /**

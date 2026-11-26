@@ -5,19 +5,33 @@ import React, {
     useMemo,
     useCallback,
 } from 'react';
-import { MultiValue } from 'react-select';
 import { useFormikContext } from 'formik';
 import { Box, Stack, Typography } from '@mui/material';
+import { Plus } from 'lucide-react';
 import { sortOptionsAlphabetically } from '@utils/sortUtils';
-import { createAddOptionMenuListFromProp } from '@app/modules/common/inputs/SelectMenuAddRow';
 import {
     GlassDialog,
     PlainDialogHeader,
     WtButton,
     WtField,
-    WtSelect,
-    type WtAddOption,
 } from '@app/modules/common/components/ui';
+import { Button } from '@/ds/ui/button';
+import { FieldError } from '@/ds/ui/field';
+import {
+    Combobox,
+    ComboboxChip,
+    ComboboxChips,
+    ComboboxChipsInput,
+    ComboboxCollection,
+    ComboboxContent,
+    ComboboxEmpty,
+    ComboboxGroup,
+    ComboboxItem,
+    ComboboxLabel,
+    ComboboxList,
+    ComboboxValue,
+    useComboboxAnchor,
+} from '@/ds/ui/combobox';
 
 export interface Option {
     value: string;
@@ -88,7 +102,6 @@ const MultiSelectWithInlineCreate = forwardRef<
     const [createValue, setCreateValue] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [parentId, setParentId] = useState('');
-    const [menuIsOpen, setMenuIsOpen] = useState(false);
 
     const showParentPicker = Array.isArray(parentOptions);
 
@@ -121,14 +134,16 @@ const MultiSelectWithInlineCreate = forwardRef<
     const hasError = !!(touched[formikField] && errors[formikField]);
     const errorMessage = hasError ? String(errors[formikField]) : undefined;
 
-    const handleSelectChange = (newValue: MultiValue<Option> | null) => {
-        const next = newValue ? newValue.map((option) => option.value) : [];
-        setFieldValue(formikField, next);
-    };
-
-    const handleFieldMultiChange = (next: string | string[]) => {
-        setFieldValue(formikField, Array.isArray(next) ? next : next ? [next] : []);
-    };
+    // Grouped lists (react-select `{label, options}`) become Combobox groups `{value, items}`.
+    const comboItems = useMemo(
+        () => (hasGroupedOptions
+            ? (sortedOptions as any[]).map((g) => (Array.isArray(g.options)
+                ? { value: String(g.label), items: sortOptionsAlphabetically(g.options) }
+                : { value: '', items: [g] }))
+            : sortedOptions),
+        [hasGroupedOptions, sortedOptions],
+    );
+    const anchor = useComboboxAnchor();
 
     const openInlineCreateDialog = useCallback(() => {
         setCreateValue('');
@@ -140,7 +155,6 @@ const MultiSelectWithInlineCreate = forwardRef<
     }, [defaultParentId, parentOptions]);
 
     const handleAddNew = useCallback(() => {
-        setMenuIsOpen(false);
         if (!onCreate) return;
 
         if (externalCreate) {
@@ -191,18 +205,6 @@ const MultiSelectWithInlineCreate = forwardRef<
         },
     }));
 
-    const addOptionProp: WtAddOption | undefined = useMemo(
-        () => (onCreate
-            ? { onAdd: handleAddNew, label: createButtonText, placement: 'menu' as const }
-            : undefined),
-        [onCreate, handleAddNew, createButtonText],
-    );
-
-    const AddOptionMenuList = useMemo(
-        () => (addOptionProp ? createAddOptionMenuListFromProp(addOptionProp) : undefined),
-        [addOptionProp],
-    );
-
     const sortedParentOptions = useMemo(
         () => (parentOptions ? sortOptionsAlphabetically(parentOptions) : []),
         [parentOptions],
@@ -211,54 +213,71 @@ const MultiSelectWithInlineCreate = forwardRef<
     const createDisabled =
         !createValue.trim() || isCreating || (requireParent && !parentId);
 
-    /** Flat lists → Sandwich floating WtField; grouped (company services) → WtSelect adapter. */
-    const useFloatingMulti = !hasGroupedOptions;
+    const busy = disabled || isLoading;
+    const item = (o: Option) => (
+        <ComboboxItem key={o.value} value={o} title={o.label}>
+            <span className="truncate">{o.label}</span>
+        </ComboboxItem>
+    );
+
+    const picker = (
+        <Combobox
+            multiple
+            autoHighlight
+            items={comboItems}
+            value={selectedOptions}
+            onValueChange={(next: Option[]) => setFieldValue(formikField, next.map((o) => o.value))}
+            itemToStringLabel={(o: Option) => o?.label ?? ''}
+            isItemEqualToValue={(a: Option, b: Option) => a?.value === b?.value}
+            disabled={busy}
+        >
+            <ComboboxChips ref={anchor} aria-invalid={hasError || undefined} className="min-h-10">
+                <ComboboxValue>
+                    {(chosen: Option[]) => (
+                        <>
+                            {chosen.map((o) => <ComboboxChip key={o.value}>{o.label}</ComboboxChip>)}
+                            <ComboboxChipsInput
+                                name={formikField}
+                                aria-label={inputLabel}
+                                placeholder={chosen.length ? '' : placeholder}
+                            />
+                        </>
+                    )}
+                </ComboboxValue>
+            </ComboboxChips>
+            <ComboboxContent anchor={anchor}>
+                <ComboboxEmpty>No matches.</ComboboxEmpty>
+                <ComboboxList>
+                    {hasGroupedOptions
+                        ? (g: { value: string; items: Option[] }) => (
+                            <ComboboxGroup key={g.value} items={g.items}>
+                                <ComboboxLabel>{g.value}</ComboboxLabel>
+                                <ComboboxCollection>{item}</ComboboxCollection>
+                            </ComboboxGroup>
+                        )
+                        : item}
+                </ComboboxList>
+                {onCreate && (
+                    <div className="border-t border-border/60 p-1">
+                        <Button type="button" variant="ghost" size="sm" className="w-full justify-start" onClick={handleAddNew}>
+                            <Plus data-icon="inline-start" />
+                            {createButtonText}
+                        </Button>
+                    </div>
+                )}
+            </ComboboxContent>
+        </Combobox>
+    );
 
     return (
         <>
-            <Box className={className}>
-                {useFloatingMulti ? (
-                    <WtField
-                        label={inputLabel}
-                        required={isRequired}
-                        error={errorMessage}
-                        disabled={disabled || isLoading}
-                        placeholder={placeholder}
-                        multiple
-                        clearable
-                        options={flatOptions.map((o) => ({ value: o.value, label: o.label }))}
-                        value={selectedIds}
-                        onChange={handleFieldMultiChange}
-                        addOption={addOptionProp}
-                    />
-                ) : (
-                    <WtField
-                        label={inputLabel}
-                        required={isRequired}
-                        error={errorMessage}
-                        disabled={disabled}
-                        // Only read by a floating label, to know whether to stay lifted.
-                        value={selectedIds}
-                    >
-                        <WtSelect
-                            name={formikField}
-                            ariaLabel={inputLabel}
-                            isMulti
-                            options={sortedOptions}
-                            value={selectedOptions}
-                            onChange={handleSelectChange}
-                            placeholder={placeholder}
-                            isDisabled={disabled}
-                            isLoading={isLoading}
-                            isClearable
-                            error={hasError}
-                            menuIsOpen={menuIsOpen}
-                            onMenuOpen={() => setMenuIsOpen(true)}
-                            onMenuClose={() => setMenuIsOpen(false)}
-                            components={AddOptionMenuList ? { MenuList: AddOptionMenuList } : undefined}
-                        />
-                    </WtField>
-                )}
+            <Box className={className} sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Box component="label" sx={{ display: 'flex', gap: 0.5, mb: 1, minHeight: 22, fontSize: 13.5, fontWeight: 500, color: 'text.primary' }}>
+                    {inputLabel}
+                    {isRequired && <Box component="span" aria-hidden sx={{ color: 'error.main' }}>*</Box>}
+                </Box>
+                {picker}
+                {errorMessage && <FieldError className="mt-1 text-xs">{errorMessage}</FieldError>}
             </Box>
 
             {onCreate && !externalCreate && (

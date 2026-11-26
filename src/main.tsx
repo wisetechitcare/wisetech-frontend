@@ -10,6 +10,7 @@ import '@mui/material/styles'
 
 // Calendars / dayjs weeks start Monday everywhere (before any picker mounts).
 import { configureWeekStart } from '@utils/configureWeekStart'
+import { splashLogoSrc } from '@utils/splashBrand'
 configureWeekStart()
 
 import { createRoot } from 'react-dom/client'
@@ -39,6 +40,8 @@ import { ToastContainer, Slide } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import './app/theme/toast.css'
 import { getAuth, setupAxios } from './app/modules/auth'
+import { SUPPORT_VIEW_TOKEN_MARKER } from '@services/platformSupport'
+import { holdSplashDuringRequests } from '@utils/splashGate'
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { fetchCurrentUser } from '@services/users'
 import { saveCurrentUser } from '@redux/slices/auth'
@@ -58,6 +61,8 @@ import { installCheckboxBounce } from '@app/modules/common/components/ui/checkbo
  *
  * @see https://github.com/axios/axios#interceptors
  */
+// First, so its response handler sees every outcome before the auth/PIN handlers (see utils/splashGate).
+holdSplashDuringRequests(axios)
 setupAxios(axios)
 Chart.register(...registerables)
 void registerServiceWorker()
@@ -86,11 +91,13 @@ const container = document.getElementById('root')
 // bootstrap calls below. Only legacy (pre-cookie) sessions still persist a
 // readable token, so the client-side expiry check applies to them alone.
 const hasLegacyToken = Boolean(currentUser?.token);
+const isSupportViewMarker = currentUser?.token === SUPPORT_VIEW_TOKEN_MARKER;
 let isTokenExpired = false;
-if (hasLegacyToken) {
+if (hasLegacyToken && !isSupportViewMarker) {
   // A token that cannot be decoded (corrupted / tampered storage) is a dead session: treat it as expired, so the
   // gate below clears it and shows Sign In. It used to throw here — a permanent white screen on every load, with
   // no way back to Sign In (audit C-09).
+  // Support view-as uses a non-JWT marker + httpOnly support cookie — never treat it as expired JWT.
   try {
     const decodedToken = jwtDecode(currentUser.token);
     if (decodedToken.iat && decodedToken.exp) {
@@ -275,7 +282,7 @@ const showConnectingSplash = (attempt: number) => {
 
         <!-- Brand Logo -->
         <div class="wt-conn-brand">
-          <img src="/WT-logo.ico" alt="WiseTech Logo" style="width:72px;height:72px;object-fit:contain" onerror="this.style.display='none'"/>
+          <img src="${splashLogoSrc('/WT-logo.ico')}" alt="Organization logo" style="width:72px;height:72px;object-fit:contain" onerror="this.style.display='none'"/>
         </div>
         <p style="font-size:11px;font-weight:800;letter-spacing:2px;color:#546e7a;text-transform:uppercase;margin-bottom:0">
           MEP CONSULTANTS PVT. LTD.
@@ -401,7 +408,7 @@ const showFailedSplash = () => {
 
         <!-- Brand Logo -->
         <div class="wt-brand-logo">
-          <img src="/WT-logo.ico" alt="WiseTech Logo" style="width:72px;height:72px;object-fit:contain" onerror="this.style.display='none'"/>
+          <img src="${splashLogoSrc('/WT-logo.ico')}" alt="Organization logo" style="width:72px;height:72px;object-fit:contain" onerror="this.style.display='none'"/>
         </div>
         <p style="font-size:10px;font-weight:800;letter-spacing:2px;color:#37474f;text-transform:uppercase;margin-top:4px;margin-bottom:28px">
           WISETECH &nbsp;·&nbsp; MEP CONSULTANTS

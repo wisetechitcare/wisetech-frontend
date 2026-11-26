@@ -17,7 +17,7 @@ import {
   fetchAllStates,
 } from "@services/options";
 
-import { Formik, Form as FormikForm, FieldArray, type FormikProps } from "formik";
+import { Formik, Form as FormikForm, FieldArray, useFormikContext, type FormikProps } from "formik";
 import * as Yup from "yup";
 import PhoneNumberInput from "@app/components/PhoneNumberInput";
 import TextInput from "@app/modules/common/inputs/TextInput";
@@ -25,7 +25,7 @@ import DropDownInput from "@app/modules/common/inputs/DropdownInput";
 import { WtDateField, AppIcon, useDiscardConfirm, WtButton, WtTooltip, WtSwitch, WtField, WtFieldFormik, FloatingLabels, FloatingLabelFrame } from "@app/modules/common/components/ui";
 import { Box } from "@mui/material";
 import { Button } from "@/ds/ui/button";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Select from "react-select";
 import { errorConfirmation, successConfirmation } from "@utils/modal";
 import eventBus from "@utils/EventBus";
@@ -43,7 +43,9 @@ import DragDropFileField from "@app/modules/common/components/DragDropFileField"
 import { IFormField, IFormSection } from "@models/company";
 import { cloneCompanyDefaults, mergeCompanySchema } from "./companyFormSchema";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
+import { GST_VALIDATION, GstNumberField, GstStateField, PanNumberField, StatutoryDocumentField } from "./GstStatutory";
 import { FullscreenWizardModal } from "@app/pages/employee/forms/shared/FullscreenWizardModal";
+import { WizardHeaderBadge } from "@/shared/form-engine";
 import { CompanyWorkspace } from "../../forms/CompanyWorkspace";
 import { CrmSection } from "../../forms/CrmSection";
 import { ContactAddressSection } from "../../forms/ContactAddressSection";
@@ -108,6 +110,7 @@ interface FormValues {
   gstNumber?: string;
   panNumber?: string;
   gstAddress?: string;
+  gstState?: string;
   gstDocument?: string;
   panDocument?: string;
   services: string[];
@@ -144,6 +147,7 @@ const validationSchema = Yup.object().shape({
   area: Yup.string(),
   latitude: Yup.string(),
   longitude: Yup.string(),
+  ...GST_VALIDATION,
   services: Yup.array().of(Yup.string()),
 });
 
@@ -239,6 +243,7 @@ const NewCompanyForm: React.FC<Props> = ({
     gstNumber: "",
     panNumber: "",
     gstAddress: "",
+    gstState: "",
     gstDocument: "",
     panDocument: "",
     services: [],
@@ -256,7 +261,7 @@ const NewCompanyForm: React.FC<Props> = ({
   });
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [servicesLoaded, setServicesLoaded] = useState(false);
-  // Per-company admin-defined custom sections/fields (mirrors the Organisation edit form).
+  // Per-company admin-defined custom sections/fields (mirrors the Organization edit form).
   // Seeded with the built-in section anchors so they appear in the schema manager.
   const [formSections, setFormSections] = useState<IFormSection[]>(cloneCompanyDefaults());
   const liveSchema = useMemo(() => schemaFor(formSections), [formSections]);
@@ -575,6 +580,7 @@ const NewCompanyForm: React.FC<Props> = ({
               gstNumber: company.gstNumber || "",
               panNumber: company.panNumber || "",
               gstAddress: company.gstAddress || "",
+              gstState: company.gstState || "",
               gstDocument: company.gstDocument || "",
               panDocument: company.panDocument || "",
               services: (() => {
@@ -658,6 +664,7 @@ const NewCompanyForm: React.FC<Props> = ({
           gstNumber: "",
           panNumber: "",
           gstAddress: "",
+          gstState: "",
           gstDocument: "",
           services: [],
           subServiceIds: [],
@@ -719,7 +726,7 @@ const NewCompanyForm: React.FC<Props> = ({
 
   // ── Per-company custom sections/fields ────────────────────────────────────────
   // Custom field values live inline on the schema (field.value), exactly like the
-  // Organisation edit form. File fields upload immediately and store the returned URL.
+  // Organization edit form. File fields upload immediately and store the returned URL.
   const updateCustomValue = (sectionId: string, fieldId: string, value: string) => {
     setFormSections((prev) =>
       prev.map((sec) =>
@@ -802,6 +809,7 @@ const NewCompanyForm: React.FC<Props> = ({
   };
 
   useEffect(() => {
+    if (!editingCompanyId) return;
     fetchRatingFactors();
   }, [editingCompanyId]);
 
@@ -1020,7 +1028,7 @@ const NewCompanyForm: React.FC<Props> = ({
             // all reach the form. Built-ins keep their bespoke widgets; only the
             // label and required flag are the admin's.
             const COLS: Record<string, string> = {
-              companyName: "col-12", references: "col-12", gstAddress: "col-12", note: "col-12",
+              companyName: "col-12", references: "col-12", gstAddress: "col-12", gstDocument: "col-12", note: "col-12",
               companyTypes: "col-lg-4", subTypes: "col-lg-4", services: "col-lg-4",
               email: "col-lg-4", website: "col-lg-4", fax: "col-lg-4",
             };
@@ -1375,21 +1383,8 @@ const NewCompanyForm: React.FC<Props> = ({
                 case "website":
                   return <TextInput formikField="website" label={label} placeholder="https://" isRequired={req} />;
                 case "gstDocument":
-                case "panDocument": {
-                  const url = values[f.id as "gstDocument" | "panDocument"];
-                  return (
-                    <DragDropFileField
-                      label={label}
-                      required={req}
-                      compact
-                      labelClassName="fs-6 form-label mb-2"
-                      currentFileUrl={url}
-                      currentFileName={url ? url.split("/").pop() : ""}
-                      uploadFn={uploadCompanyAsset}
-                      onChange={(next) => setFieldValue(f.id, next)}
-                    />
-                  );
-                }
+                case "panDocument":
+                  return <StatutoryDocumentField field={f.id as "gstDocument" | "panDocument"} label={label} required={req} />;
                 case "status":
                   return (
                     <DropDownInput
@@ -1436,6 +1431,12 @@ const NewCompanyForm: React.FC<Props> = ({
                   return (
                     <WtFieldFormik name="note" label={label} required={req} multiline minRows={3} placeholder="Enter note" />
                   );
+                case "gstNumber":
+                  return <GstNumberField label={label} required={req} />;
+                case "panNumber":
+                  return <PanNumberField label={label} required={req} />;
+                case "gstState":
+                  return <GstStateField label={label} required={req} />;
                 default:
                   // gstNumber, panNumber, gstAddress, fax — plain text built-ins.
                   return <TextInput formikField={f.id} label={label} isRequired={req} />;
@@ -1466,6 +1467,32 @@ const NewCompanyForm: React.FC<Props> = ({
               }
               const visible = section.fields.filter((f) => !f.hidden);
               if (!visible.length) return null;
+              const renderCard = (key: string, title: string, fields: IFormField[]) =>
+                fields.length ? (
+                  <CrmSection key={key} title={title}>
+                    <div className="row g-3">
+                      {fields.map((f) => (
+                        <div key={f.id} className={colOf(f)}>
+                          {f.isSystem ? renderBuiltin(f) : renderCustomField(f, section.id)}
+                        </div>
+                      ))}
+                    </div>
+                  </CrmSection>
+                ) : null;
+              // GST on top, PAN in its own card below it.
+              if (section.id === "gst") {
+                const isPan = (f: IFormField) => f.id === "panNumber" || f.id === "panDocument";
+                // Fixed order even if a saved Manage Fields layout predates it; custom fields go last.
+                const ORDER = ["gstNumber", "gstState", "gstAddress", "gstDocument"];
+                const rank = (f: IFormField) => (ORDER.includes(f.id) ? ORDER.indexOf(f.id) : ORDER.length);
+                const gst = visible.filter((f) => !isPan(f)).sort((a, b) => rank(a) - rank(b));
+                return (
+                  <Fragment key={section.id}>
+                    {renderCard("gst", "GST Details", gst)}
+                    {renderCard("pan", "PAN Details", visible.filter(isPan))}
+                  </Fragment>
+                );
+              }
               return (
                 <CrmSection key={section.id} title={section.title || "Custom Fields"}>
                   <div className="row g-3">
@@ -1569,11 +1596,7 @@ const NewCompanyForm: React.FC<Props> = ({
                   onCancel={discard.requestClose}
                   isSubmitting={isSubmitting || isDataLoading}
                   headerMeta={
-                    prefix ? (
-                      <span className="wizard-meta-chip">
-                        <AppIcon name="bi-hash" /> {prefix}
-                      </span>
-                    ) : undefined
+                    prefix ? <WizardHeaderBadge icon="bi-hash">{prefix}</WizardHeaderBadge> : undefined
                   }
                   headerActions={
                     <>

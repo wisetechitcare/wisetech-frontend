@@ -88,7 +88,7 @@ export const TIME_TOKENS: Record<TimeFormat, {
 
 /** The options a settings screen offers, declared once so two screens can't disagree. */
 export const TIME_FORMAT_OPTIONS: ReadonlyArray<{ value: TimeFormatPreference; label: string }> = [
-    { value: "inherit", label: "Organisation default" },
+    { value: "inherit", label: "Organization default" },
     { value: "12h", label: "12-hour" },
     { value: "24h", label: "24-hour" },
 ];

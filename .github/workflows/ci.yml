@@ -70,6 +70,16 @@ jobs:
           base="${{ github.event.before }}"
           # `before` is all-zeros on a branch's first push; fall back to the parent commit.
           case "$base" in ''|0000000000000000000000000000000000000000) base=$(git rev-parse HEAD~1) ;; esac
+          # `before` can also name a commit this clone genuinely does not have. When a branch is
+          # force-pushed, or merged and deleted (a dependabot branch is the usual one), its old tip
+          # stops being reachable from any ref — and `fetch-depth: 0` fetches refs, not orphans, so
+          # the object never arrives. git then tries to lazily fetch it, because this is a blob:none
+          # partial clone, finds no credentials (persist-credentials: false) and fails the whole job:
+          #   fatal: could not read Username for 'https://github.com'
+          #   fatal: bad object 827639fe...
+          # That is a CI outage caused by someone else's branch being tidied up, not by this push,
+          # so fall back to the parent commit exactly as the first-push case does.
+          git cat-file -e "${base}^{commit}" 2>/dev/null || base=$(git rev-parse HEAD~1)
           echo "sha=$base" >> "$GITHUB_OUTPUT"
 
       - name: 🧷 Guard self-test

@@ -1,8 +1,6 @@
 import React from "react";
-import { Box } from "@mui/material";
-import { alpha } from "@mui/material/styles";
-import { ChevronLeft, ChevronRight } from "@mui/icons-material";
-import { WtButton } from "@app/modules/common/components/ui";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/ds/ui/button";
 
 export interface WizardFooterActionsProps {
   isSubmitting: boolean;
@@ -22,10 +20,13 @@ export interface WizardFooterActionsProps {
   nextSlot?: React.ReactNode;
 }
 
+/** Phones: each cluster takes a full row and its buttons share it equally. */
+const CLUSTER = "flex min-w-0 flex-[1_1_100%] flex-wrap items-center gap-2 sm:flex-[0_1_auto] [&>*]:max-sm:min-w-0 [&>*]:max-sm:flex-1";
+
 /**
  * The one wizard footer: Cancel + Save on the left, Back + Save & Continue on the right.
- * Both wizard layouts (GroupedWizard and the steps wizard) render this, so every form
- * — Employee, Contact, Company, Lead — has the same buttons in the same places.
+ * Both wizard layouts (GroupedWizard and the steps wizard) render this, so every form has the
+ * same buttons in the same places.
  */
 export function WizardFooterActions({
   isSubmitting, onCancel, onDirectSave, directSaveLabel, directSaveDisabled, leftExtra,
@@ -33,25 +34,26 @@ export function WizardFooterActions({
 }: WizardFooterActionsProps) {
   return (
     <>
-      {/* Phones: each cluster takes a full row and its buttons share it equally (matched as
-          `button`, not `.MuiButton-root` — the kit buttons render through the design system now). */}
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", flex: { xs: "1 1 100%", sm: "0 1 auto" }, "& > button, & > a": { flex: { xs: "1 1 0", sm: "none" }, minWidth: 0 } }}>
-        <WtButton ghost onClick={onCancel} disabled={isSubmitting}>Cancel</WtButton>
-        {/* Secondary save — outlined, so the footer has exactly one filled primary action. */}
-        <WtButton inverted onClick={onDirectSave} disabled={isSubmitting || directSaveDisabled}
-          sx={(theme) => (theme.palette.mode === "dark" ? {} : { borderColor: alpha(theme.palette.primary.main, 0.45), boxShadow: "none" })}>
+      <div className={CLUSTER}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
+        {/* Secondary save — inverted, so the footer has exactly one filled primary action. */}
+        <Button type="button" variant="inverted" onClick={onDirectSave} disabled={isSubmitting || directSaveDisabled}>
           {isSubmitting ? "Saving…" : directSaveLabel}
-        </WtButton>
+        </Button>
         {leftExtra}
-      </Box>
-      <Box sx={{ display: "flex", gap: 1, flex: { xs: "1 1 100%", sm: "1 1 auto" }, justifyContent: "flex-end", "& > button, & > a": { flex: { xs: "1 1 0", sm: "none" }, minWidth: 0 } }}>
-        <WtButton ghost startIcon={<ChevronLeft />} onClick={onBack} disabled={backDisabled || isSubmitting}>Back</WtButton>
+      </div>
+      <div className={`${CLUSTER} sm:flex-[1_1_auto] sm:justify-end`}>
+        <Button type="button" variant="outline" onClick={onBack} disabled={backDisabled || isSubmitting}>
+          <ChevronLeft data-icon="inline-start" />
+          Back
+        </Button>
         {nextSlot ?? (
-          <WtButton tone="accent" endIcon={<ChevronRight />} onClick={onNext} disabled={isSubmitting || nextDisabled}>
+          <Button type="button" onClick={onNext} disabled={isSubmitting || nextDisabled}>
             {isSubmitting ? "Saving…" : nextLabel}
-          </WtButton>
+            <ChevronRight data-icon="inline-end" />
+          </Button>
         )}
-      </Box>
+      </div>
     </>
   );
 }

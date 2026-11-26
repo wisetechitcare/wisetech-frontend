@@ -250,7 +250,6 @@ export const computeMissingInfo = (lead: any): MissingItem[] => {
 
 export interface RelatedCounts {
   activities: number;
-  proposals: number;
   commercials: number;
   team: number;
   referrals: number;
@@ -260,7 +259,6 @@ export interface RelatedCounts {
 
 export const relatedCounts = (lead: any): RelatedCounts => ({
   activities: lead?.connections?.length || 0,
-  proposals: lead?.generatedProposals?.length || 0,
   commercials: lead?.commercials?.length || 0,
   team: lead?.leadTeams?.length || 0,
   referrals: lead?.referrals?.length || 0,

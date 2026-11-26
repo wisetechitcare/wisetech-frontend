@@ -9,7 +9,7 @@ import { faqsIcons, leadsIcons, navbarIcon } from '@metronic/assets/sidepanelico
 import { useDispatch } from 'react-redux';
 import { useEffect, useState } from 'react';
 import { fetchRolesAndPermissions } from '@redux/slices/rolesAndPermissions';
-import FaqsMainPage from '@pages/company/organisationInfo/faqs/FaqsMainPage';
+import FaqsMainPage from '@pages/company/organizationInfo/faqs/FaqsMainPage';
 import DailyShiftTime from './attendance/AttendanceConfig/component/DailyShiftTime';
 import AttendanceConfig from './attendance/AttendanceConfig/AttendanceConfig';
 import AttendanceAdminFaqs from './adminFaqs/AttendaceAdminFaqs';

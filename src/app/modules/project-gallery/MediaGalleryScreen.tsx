@@ -1,3 +1,4 @@
+import { ToggleList, TOGGLE_TAB } from "@/ds/ui/tabs";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
@@ -45,8 +46,6 @@ import {
   CoverPickerDialog,
   CreateAlbumDialog,
   GallerySelect,
-  ToggleList,
-  TOGGLE_TAB,
 } from "./GalleryDialogs";
 import {
   BUILTIN_VIEWS,

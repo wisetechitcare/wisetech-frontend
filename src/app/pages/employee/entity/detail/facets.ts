@@ -67,16 +67,6 @@ export interface CommercialLineVM {
   rate?: any;
   cost: any;
 }
-export interface DocVM {
-  name: string;
-  template?: string;
-  revision?: any;
-  date?: string;
-  by?: string;
-  pdf?: string;
-  docx?: string;
-}
-
 export interface EntityVM {
   isProject: boolean;
   client: {
@@ -96,7 +86,6 @@ export interface EntityVM {
     lead: { lines: CommercialLineVM[]; totals: CommercialTotals };
     project?: { lines: CommercialLineVM[]; totals: CommercialTotals };
   };
-  documents: DocVM[];
   /** Narrative content captured on the lead — has no other home. */
   notes: { remarks?: string; description?: string };
   /** Where the source files for this record live (lead-level). */
@@ -275,17 +264,6 @@ export const buildEntityVM = (lead: any): EntityVM => {
     cost: c.totalCost ?? c.rateCost ?? c.lumpsumCost,
   }));
 
-  // ── DOCUMENTS (lead lineage; single home) ──
-  const documents: DocVM[] = (lead?.generatedProposals || []).map((d: any) => ({
-    name: d.fileName || "Proposal",
-    template: d.template?.templateName,
-    revision: d.revisionNumber,
-    date: d.createdAt ? fmtDate(d.createdAt) : undefined,
-    by: employeeUserName(d.creator) || undefined,
-    pdf: d.generatedPdfUrl,
-    docx: d.generatedDocxUrl,
-  }));
-
   // ── NOTES & FILE LOCATION (lead-level narrative + where files live) ──
   const notes = {
     remarks: lead?.remarks || undefined,
@@ -375,7 +353,6 @@ export const buildEntityVM = (lead: any): EntityVM => {
         ? { project: { lines: projectLines, totals: sumProjectCommercials(p) } }
         : {}),
     },
-    documents,
     notes,
     fileLocation,
     systemRows,

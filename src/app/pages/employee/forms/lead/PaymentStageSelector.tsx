@@ -1,13 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useFormikContext } from "formik";
-import { KTIcon } from "@metronic/helpers";
+import { RotateCcw } from "lucide-react";
 import { getAllPaymentPlans } from "@services/paymentPlan";
 import type { PaymentPlan } from "@models/leads";
 import { filterPlansForLead } from "./paymentPlanScope";
 import { getCurrencySymbol, getCurrencyLocale } from '@utils/currency';
 import PaymentPlanStagesTree from "@app/pages/employee/leads/configuration/components/PaymentPlanStagesTree";
 import { pct, toPlanStage, type PlanStage } from "@app/pages/employee/leads/configuration/components/paymentPlanStages";
-import { WtButton } from "@app/modules/common/components/ui";
+import { Button } from "@/ds/ui/button";
+import { EmptyState } from "@/ds/patterns/empty-state";
+import { Field, FieldLabel } from "@/ds/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/ds/ui/select";
+
+/** Select has no empty value, so "no plan" is this sentinel. */
+const NONE = "__none__";
 
 /**
  * Lead commercial step — payment stage break-up.
@@ -125,7 +131,8 @@ export const PaymentStageSelector: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlan, stages]);
 
-  const handleSelect = (id: string) => {
+  const handleSelect = (picked: string) => {
+    const id = picked === NONE ? "" : picked;
     setFieldValue("paymentPlanId", id);
     const plan = options.find((p) => p.id === id) || null;
     // Carry the full plan so the breakdown renders immediately and survives archival.
@@ -134,45 +141,46 @@ export const PaymentStageSelector: React.FC = () => {
     setStages(plan ? planStages(plan) : null);
   };
 
+  const planItems = [
+    { value: NONE, label: "— No payment plan —" },
+    ...options.map((p) => ({ value: p.id, label: `${p.name}${p.isDefault ? " (Default)" : ""}` })),
+  ];
+
   return (
-    <div>
-      <div className="row g-3 align-items-end mb-2">
-        <div className="col-md-7">
-          <label className="form-label fw-semibold text-gray-800 fs-7 mb-2">
-            Payment Plan
-          </label>
-          <select
-            className="form-select form-select-solid"
-            value={values.paymentPlanId || ""}
-            onChange={(e) => handleSelect(e.target.value)}
+    <div data-slot="payment-stage-selector" className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <Field className="min-w-60 flex-1 md:max-w-xl">
+          <FieldLabel>Payment Plan</FieldLabel>
+          <Select
+            items={planItems}
+            value={values.paymentPlanId || NONE}
+            onValueChange={(v) => handleSelect(String(v))}
             disabled={loading && plans.length === 0}
           >
-            <option value="">— No payment plan —</option>
-            {options.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-                {p.isDefault ? " (Default)" : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="col-md-5">
-          <div className="d-flex flex-column align-items-md-end">
-            <span className="text-gray-600 fs-8 fw-bold text-uppercase">Total Commercial Cost</span>
-            <span className="text-primary fs-5 fw-bolder">{getCurrencySymbol()} {formatAmount(totalCost)}</span>
-          </div>
-        </div>
+            <SelectTrigger className="w-full" aria-label="Payment Plan">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {planItems.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </Field>
+        <dl className="m-0 flex flex-col items-end">
+          <dt className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">Total Commercial Cost</dt>
+          <dd className="m-0 text-lg font-bold text-primary tabular-nums">{getCurrencySymbol()} {formatAmount(totalCost)}</dd>
+        </dl>
       </div>
 
       {plans.length === 0 && !loading && (
-        <div className="text-muted fs-7 text-center py-4 border border-dashed rounded mt-3">
-          No payment plans configured yet. Create one under{" "}
-          <span className="fw-semibold">Lead Configuration → Payment Plans</span>.
-        </div>
+        <EmptyState
+          size="sm"
+          title="No payment plans yet"
+          description="Create one under Lead Configuration → Payment Plans."
+        />
       )}
 
       {selectedPlan && (
-        <div className="mt-4">
+        <div>
           {/* The plan editor's own tree, minus deliverables (those are project config). No
               numbering picker: the Sr No follows the plan's format (or the default). */}
           <PaymentPlanStagesTree
@@ -183,21 +191,17 @@ export const PaymentStageSelector: React.FC = () => {
             amounts={totalCost > 0 ? computed.map((r) => `${getCurrencySymbol()} ${formatAmount(r.amount)}`) : undefined}
             headerAction={
               isEdited && (
-                <WtButton
-                  tone="accent" size="small" ghost
-                  onClick={() => setStages(planStages(selectedPlan))}
-                  startIcon={<KTIcon iconName="arrows-circle" className="fs-6" />}
-                  sx={{ flexShrink: 0, minHeight: 32, fontSize: 12.5, borderRadius: "9px" }}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => setStages(planStages(selectedPlan))}>
+                  <RotateCcw data-icon="inline-start" />
                   Reset to plan
-                </WtButton>
+                </Button>
               )
             }
           />
           {totalCost === 0 && (
-            <div className="text-muted fs-8 mt-2">
+            <p className="m-0 mt-2 text-xs text-muted-foreground">
               Add work-area rows above to see the amounts split across the stages.
-            </div>
+            </p>
           )}
         </div>
       )}

@@ -63,7 +63,8 @@ function AlertDialogContent({
         data-slot="alert-dialog-content"
         data-size={size}
         className={cn(
-          "group/alert-dialog-content fixed inset-0 m-auto grid h-fit w-full gap-6 rounded-4xl bg-popover p-6 text-popover-foreground ring-1 ring-foreground/5 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-md",
+          // Phones: nearly full width (not a slim pill). Desktop keeps the kit's md card.
+          "group/alert-dialog-content fixed inset-0 m-auto grid h-fit w-full gap-4 rounded-2xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/5 outline-none data-[size=default]:max-w-[calc(100%-1.5rem)] data-[size=sm]:max-w-[calc(100%-1.5rem)] data-[size=default]:sm:max-w-md data-[size=sm]:sm:max-w-xs sm:gap-6 sm:rounded-4xl sm:p-6",
           LAYER[layer],
           className
         )}
@@ -81,7 +82,8 @@ function AlertDialogHeader({
     <div
       data-slot="alert-dialog-header"
       className={cn(
-        "grid grid-rows-[auto_1fr] place-items-center gap-1.5 text-center has-data-[slot=alert-dialog-media]:grid-rows-[auto_auto_1fr] has-data-[slot=alert-dialog-media]:gap-x-6 sm:group-data-[size=default]/alert-dialog-content:place-items-start sm:group-data-[size=default]/alert-dialog-content:text-left sm:group-data-[size=default]/alert-dialog-content:has-data-[slot=alert-dialog-media]:grid-rows-[auto_1fr]",
+        // `auto` rows only — a `1fr` row stretched the dialog and left a blank band under the copy.
+        "grid grid-rows-[auto_auto] place-items-center gap-1.5 text-center has-data-[slot=alert-dialog-media]:grid-rows-[auto_auto_auto] has-data-[slot=alert-dialog-media]:gap-x-6 sm:group-data-[size=default]/alert-dialog-content:place-items-start sm:group-data-[size=default]/alert-dialog-content:text-left sm:group-data-[size=default]/alert-dialog-content:has-data-[slot=alert-dialog-media]:grid-rows-[auto_auto]",
         className
       )}
       {...props}
@@ -113,7 +115,7 @@ function AlertDialogMedia({
     <div
       data-slot="alert-dialog-media"
       className={cn(
-        "mb-2 inline-flex size-16 items-center justify-center rounded-full bg-muted sm:group-data-[size=default]/alert-dialog-content:row-span-2 *:[svg:not([class*='size-'])]:size-8",
+        "mb-1 inline-flex size-12 items-center justify-center rounded-full bg-muted sm:mb-2 sm:size-16 sm:group-data-[size=default]/alert-dialog-content:row-span-2 *:[svg:not([class*='size-'])]:size-6 sm:*:[svg:not([class*='size-'])]:size-8",
         className
       )}
       {...props}
@@ -128,7 +130,7 @@ function AlertDialogTitle({ className, children,
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
       className={cn(
-        "heading-case text-lg font-medium sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
+        "heading-case text-base font-medium sm:text-lg sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
         className
       )}
       {...props}
@@ -145,7 +147,7 @@ function AlertDialogDescription({
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
       className={cn(
-        "text-sm text-balance text-muted-foreground md:text-pretty *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+        "text-xs text-balance text-muted-foreground sm:text-sm md:text-pretty *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
         className
       )}
       {...props}

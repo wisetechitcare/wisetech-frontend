@@ -222,9 +222,10 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
           throw new Error(res?.message || "Failed to delete holiday");
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting holiday:", error);
-      errorConfirmation("Failed to delete public holiday!");
+      // The server refuses a holiday that still has scheduled dates — show why.
+      errorConfirmation(error?.response?.data?.message || "Failed to delete public holiday!");
     } finally {
       setLoading(false);
     }

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { useTheme } from '@mui/material/styles';
-import { C, FONT, SP, RADIUS, KEYFRAMES } from './ConfigDesignSystem';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import React from 'react';
+import { KEYFRAMES } from './ConfigDesignSystem';
+import { cn } from '@/ds/lib/utils';
+import { Badge } from '@/ds/ui/badge';
 import { IconSlot, type IconSource } from '@/ds/ui/dynamic-icon';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ds/ui/tabs';
 
 export interface ConfigTab {
   id: string;
@@ -31,6 +32,23 @@ export interface ConfigPageLayoutProps {
   className?: string;
 }
 
+/**
+ * The frame around a configuration page: an optional actions row, an optional stats bar, an
+ * optional tab bar, and the body.
+ *
+ * The tab bar WAS eleven hand-built `<button role="tab">`s carrying ~20 inline style properties
+ * each, with MUI's `useTheme()` supplying their colours and a hover tracked in React state. It is
+ * now the kit's Tabs in its `line` variant, which owns the selected and hover treatments, the
+ * keyboard model and the focus ring. The body moved inside a `TabsContent`, so the bar finally
+ * has a panel to point at — it used to be a `tablist` whose tabs controlled nothing, which is
+ * invalid ARIA however correct it looked.
+ *
+ * `<style>{KEYFRAMES}</style>` STAYS, for now. It is not MUI, and it is not this file's to drop:
+ * `.cfg-fade-in` and the `.cfg-tab-btn` focus rules are injected by ~18 files (Departments.tsx
+ * explicitly deleted its own copy because this one was already there), so removing it here would
+ * quietly take the fade off pages that rely on this layout for it. Retiring all 18 copies is one
+ * job, logged in FUTURE_ENHANCEMENTS.
+ */
 const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
   tabs,
   activeTab,
@@ -40,151 +58,67 @@ const ConfigPageLayout: React.FC<ConfigPageLayoutProps> = ({
   children,
   className = '',
 }) => {
-  const theme = useTheme();
-  const [hoveredTab, setHoveredTab] = useState<string | null>(null);
-  const hasTabs = !!tabs && tabs.length > 0;
+  const shown = tabs ?? [];
+  const hasTabs = shown.length > 0;
   const hasHeader = hasTabs || !!actions || !!statsBar;
-  const paper = theme.palette.background.paper;
-  const pageBg = theme.palette.background.default;
-  const divider = theme.palette.divider;
+  // A controlled bar needs a value even before the page has chosen one.
+  const selected = activeTab ?? shown[0]?.id ?? '';
 
-  return (
-    <div className={`cfg-layout ${className}`} style={{ backgroundColor: pageBg, minHeight: '100vh' }}>
-      <style>{KEYFRAMES}</style>
-
-      {/* ── Header: only what a page actually passes (actions, stats, tabs) ── */}
-      {hasHeader && (
-      <div
-        style={{
-          backgroundColor: paper,
-          borderRadius: hasTabs ? `${RADIUS.xl} ${RADIUS.xl} 0 0` : RADIUS.xl,
-          border: `1px solid ${divider}`,
-          borderBottom: hasTabs ? 'none' : `1px solid ${divider}`,
-          boxShadow: theme.shadows[1],
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        {actions && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            gap: SP.sm,
-            flexWrap: 'wrap',
-            padding: `${SP.md} ${SP.xl}`,
-          }}>
-            {actions}
-          </div>
-        )}
-
-        {/* Stats bar */}
-        {statsBar && (
-          <div style={{ padding: `${SP.md} ${SP.xl}` }}>{statsBar}</div>
-        )}
-
-        {/* Tab bar */}
-        {hasTabs && (
-          <div className="cfg-tab-bar" role="tablist" style={{
-            display: 'flex',
-            gap: '4px',
-            padding: `${SP.md} ${SP.xl} 0 ${SP.xl}`,
-            borderBottom: `2px solid ${divider}`,
-            overflowX: 'auto',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none' as any,
-            WebkitOverflowScrolling: 'touch' as any,
-          }}>
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              const isHovered = hoveredTab === tab.id && !isActive;
-              return (
-                <button
-                  key={tab.id}
-                  role="tab"
-                  aria-selected={isActive}
-                  className="cfg-tab-btn"
-                  data-active={isActive ? 'true' : 'false'}
-                  onClick={() => onTabChange?.(tab.id)}
-                  onMouseEnter={() => setHoveredTab(tab.id)}
-                  onMouseLeave={() => setHoveredTab(null)}
-                  style={{
-                    background: isActive
-                      ? C.primaryLight
-                      : isHovered
-                      ? theme.palette.action.hover
-                      : 'transparent',
-                    border: 'none',
-                    borderRadius: `${RADIUS.md} ${RADIUS.md} 0 0`,
-                    padding: '9px 16px 11px 16px',
-                    margin: 0,
-                    color: isActive ? C.primary : isHovered ? theme.palette.text.primary : theme.palette.text.secondary,
-                    fontFamily: FONT.body,
-                    fontWeight: isActive ? 600 : 500,
-                    fontSize: '13.5px',
-                    position: 'relative',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '7px',
-                    transition: 'all 0.15s ease',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                    letterSpacing: '0',
-                  }}
-                >
-                  {typeof tab.icon === 'string'
-                    ? <AppIcon name={tab.icon} className="fs-6" style={{ opacity: isActive ? 1 : 0.75 }} />
-                    : <IconSlot icon={tab.icon} className={isActive ? 'size-[16px] opacity-100' : 'size-[16px] opacity-75'} />}
-                  {tab.label}
-                  {tab.badge !== undefined && (
-                    <span style={{
-                      backgroundColor: isActive ? C.primary : theme.palette.action.selected,
-                      color: isActive ? theme.palette.primary.contrastText : theme.palette.text.secondary,
-                      borderRadius: RADIUS.full,
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      padding: '1px 6px',
-                      lineHeight: '16px',
-                      transition: 'all 0.15s ease',
-                    }}>
-                      {tab.badge}
-                    </span>
-                  )}
-                  {/* Active bottom border – hidden on mobile via CSS */}
-                  <span className="cfg-tab-active-line" style={{
-                    position: 'absolute',
-                    bottom: '-2px',
-                    left: 0, right: 0,
-                    height: '2px',
-                    backgroundColor: isActive ? C.primary : 'transparent',
-                    borderRadius: '2px 2px 0 0',
-                    transition: 'background-color 0.15s ease',
-                  }} />
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+  const header = hasHeader && (
+    <div
+      className={cn(
+        'relative overflow-hidden border border-border bg-card shadow-sm',
+        hasTabs ? 'rounded-t-2xl border-b-0' : 'rounded-2xl',
       )}
+    >
+      {actions && <div className="flex flex-wrap items-center justify-end gap-2 px-8 py-4">{actions}</div>}
+      {statsBar && <div className="px-8 py-4">{statsBar}</div>}
+      {hasTabs && (
+        <TabsList
+          variant="line"
+          className="h-auto w-full justify-start gap-1 rounded-none border-b-2 border-border px-8 pt-4 pb-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {shown.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id} className="shrink-0 gap-[7px] text-[13.5px] whitespace-nowrap">
+              {tab.icon && <IconSlot icon={tab.icon} className="size-4" />}
+              {tab.label}
+              {tab.badge !== undefined && <Badge variant="neutral">{tab.badge}</Badge>}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      )}
+    </div>
+  );
 
-      {/* ── Body ───────────────────────────────────────────────────────── */}
-      <div
-        className="cfg-fade-in cfg-body-wrap"
-        style={{
-          backgroundColor: hasTabs ? paper : 'transparent',
-          borderRadius: hasTabs ? `0 0 ${RADIUS.xl} ${RADIUS.xl}` : 0,
-          border: hasTabs ? `1px solid ${divider}` : 'none',
-          borderTop: 'none',
-          boxShadow: hasTabs ? theme.shadows[1] : 'none',
+  const body = (
+    <div
+      className={cn(
+        'cfg-fade-in cfg-body-wrap',
+        hasTabs
+          ? 'rounded-b-2xl border border-t-0 border-border bg-card p-8 shadow-sm'
           // With no header above, the body starts flush — the gap was only ever there to
           // separate it from the title band.
-          padding: hasTabs ? `${SP.xl} ${SP.xl}` : `${hasHeader ? SP.lg : 0} 0 ${SP.lg}`,
-        }}
-      >
-        {children}
-      </div>
+          : hasHeader ? 'py-6' : 'pb-6',
+      )}
+    >
+      {children}
+    </div>
+  );
+
+  return (
+    <div className={cn('cfg-layout min-h-screen bg-background', className)}>
+      <style>{KEYFRAMES}</style>
+      {hasTabs ? (
+        <Tabs value={selected} onValueChange={(value) => onTabChange?.(String(value))}>
+          {header}
+          <TabsContent value={selected}>{body}</TabsContent>
+        </Tabs>
+      ) : (
+        <>
+          {header}
+          {body}
+        </>
+      )}
     </div>
   );
 };

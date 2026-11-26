@@ -46,7 +46,7 @@ export const DocumentManagementCenter: React.FC = () => {
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
               <KTIcon iconName={isGlobalMode ? 'abstract-26' : 'note-2'} className="fs-2 text-primary" />
               <h3 style={{ margin: '16px 0 8px', fontSize: '18px', fontWeight: 700 }}>Empty Folder</h3>
-              <p style={{ margin: 0, fontSize: '14px' }}>Upload files or generate proposals to see them here.</p>
+              <p style={{ margin: 0, fontSize: '14px' }}>Upload files to see them here.</p>
             </div>
           ) : (
             <div

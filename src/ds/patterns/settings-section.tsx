@@ -4,12 +4,23 @@ import { cn } from "@/ds/lib/utils"
 import { Badge } from "@/ds/ui/badge"
 import { Card, CardContent, CardHeader } from "@/ds/ui/card"
 import { Label } from "@/ds/ui/label"
+import { Skeleton } from "@/ds/ui/skeleton"
 import { SectionHeader } from "./section-header"
+
+/** Whether the thing this section configures is switched on, and whether it is healthy. */
+export type SettingsSectionStatus = "active" | "inactive" | "warning" | "error"
+
+const STATUS: Record<SettingsSectionStatus, { variant: "success" | "neutral" | "warning" | "danger"; label: string }> = {
+  active: { variant: "success", label: "Active" },
+  inactive: { variant: "neutral", label: "Inactive" },
+  warning: { variant: "warning", label: "Warning" },
+  error: { variant: "danger", label: "Error" },
+}
 
 /**
  * One group of settings on a configuration screen (Leave policy, Attendance, Payroll…). Replaces the live
- * kit's `SettingsSection`: the frame every config engine shares, so those screens stop drifting apart.
- * Fill it with `SettingsRow`s (or any content); `divided` puts a hairline between rows.
+ * kit's `SettingsSection` and `ConfigSectionCard`: the frame every config engine shares, so those screens
+ * stop drifting apart. Fill it with `SettingsRow`s (or any content); `divided` puts a hairline between rows.
  */
 export function SettingsSection({
   title,
@@ -17,7 +28,10 @@ export function SettingsSection({
   icon,
   tone = "brand",
   count,
+  status,
   action,
+  loading = false,
+  size = "default",
   divided = true,
   children,
   className,
@@ -28,30 +42,80 @@ export function SettingsSection({
   tone?: Tone | (string & {})
   /** How many items the section holds (rules, types…). */
   count?: number | string
+  /** A state pill beside the title. Never colour alone — each one carries its word. Hidden while loading. */
+  status?: SettingsSectionStatus
   action?: React.ReactNode
+  /** First paint only — see the note on `showSkeleton` below. */
+  loading?: boolean
+  /** `sm` tightens the padding for a dense configuration page. */
+  size?: "default" | "sm"
   divided?: boolean
   children?: React.ReactNode
   className?: string
 }) {
+  /**
+   * Skeletons are for the FIRST paint only — never for a refetch.
+   *
+   * Swapping `children` out on every `loading` pass UNMOUNTS them, and a section body is not a
+   * dumb list: category and preset-task trees keep their expanded set in local state, so a save
+   * that triggered a refetch silently collapsed the tree the user had just opened. The card also
+   * shrank to three skeleton lines, which collapsed the page height and threw the scroll position
+   * back to the top — so an edit made three screens down came back at screen one, tree closed.
+   *
+   * Once the body has rendered real content a later load keeps showing it. The header still
+   * reflects `loading`, so the refresh stays visible without destroying what is on screen.
+   */
+  const hasRenderedBody = React.useRef(false)
+  if (!loading) hasRenderedBody.current = true
+  const showSkeleton = loading && !hasRenderedBody.current
+
   return (
-    <Card tone={tone} className={className}>
+    <Card tone={tone} size={size} className={className}>
       <CardHeader>
         <SectionHeader
           icon={icon}
           tone={tone}
           title={
             <span className="inline-flex items-center gap-2">
-              {title}
-              {count !== undefined && <Badge variant="neutral">{count}</Badge>}
+              {loading ? (
+                <>
+                  <Skeleton aria-hidden className="h-4 w-36 rounded-md" />
+                  {/* The title is KNOWN while loading; only its pixels are pending. Without this the
+                      <h2> has no accessible text at all (axe: empty-heading). */}
+                  <span className="sr-only">{title}</span>
+                </>
+              ) : (
+                title
+              )}
+              {!loading && count !== undefined && <Badge variant="neutral">{count}</Badge>}
+              {!loading && status && (
+                <Badge variant={STATUS[status].variant} dot>
+                  {STATUS[status].label}
+                </Badge>
+              )}
             </span>
           }
-          description={description}
+          description={loading && description ? <Skeleton className="h-3 w-56 rounded-md" /> : description}
+          /*
+           * Rendered through every state, loading included. Whether a control may be used before
+           * the data arrives is the CALLER's policy, not this frame's: a view control (a period
+           * toggle, a tab bar) belongs on screen while the body loads, while a write ("New Slab")
+           * does not. Deciding here would have hidden the toggle on every loading chart section.
+           */
           action={action}
         />
       </CardHeader>
       {children && (
-        <CardContent className={cn(divided && "divide-y [&>*]:py-4 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0")}>
-          {children}
+        <CardContent className={cn(divided && !showSkeleton && "divide-y [&>*]:py-4 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0")}>
+          {showSkeleton ? (
+            <div className="flex flex-col gap-2" role="status" aria-busy aria-label="Loading section">
+              <Skeleton className="h-3.5 w-full rounded-md" />
+              <Skeleton className="h-3.5 w-4/5 rounded-md" />
+              <Skeleton className="h-3.5 w-3/5 rounded-md" />
+            </div>
+          ) : (
+            children
+          )}
         </CardContent>
       )}
     </Card>

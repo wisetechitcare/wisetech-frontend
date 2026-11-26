@@ -118,7 +118,7 @@ export function useNavigation() {
 
   useEffect(refreshPendingApprovalsCount, [capabilities]);
   // Subscribed to the APPROVAL key, not the leave one the socket also carries: this badge
-  // must not refetch on every leave edit in the organisation.
+  // must not refetch on every leave edit in the organization.
   useEventBus(EVENT_KEYS.approvalUpdated, refreshPendingApprovalsCount);
 
   const menu = useMemo(() => {
@@ -550,7 +550,7 @@ export function useNavigation() {
         type: 'section',
         id: 'organization-section',
         title: 'Organization',
-        visible: !isSectionBlocked('settings') && (anyChildGranted('settings') || hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+        visible: !isSectionBlocked('settings') && (anyChildGranted('settings') || hasPermission(uiControlResourceNameMapWithCamelCase.organizationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.branchesUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.departmentsUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.designationUnderCompany, permissionConstToUseWithHasPermission.readOthers) || hasPermission(uiControlResourceNameMapWithCamelCase.mediaUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
       },
       // As `sub` children these rows carried no icon and inherited the group's
       // glyph (ModuleGrid does that fallback for cluster children only). Top-level
@@ -559,10 +559,10 @@ export function useNavigation() {
       {
         type: 'item',
         id: 'org-profile',
-        to: '/company/organisation-profile',
+        to: '/company/organization-profile',
         title: 'Organization Profile',
         fontIcon: 'bi-house-fill',
-        visible: isSubsectionVisible('settings.profile', hasPermission(uiControlResourceNameMapWithCamelCase.organisationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
+        visible: isSubsectionVisible('settings.profile', hasPermission(uiControlResourceNameMapWithCamelCase.organizationProfileUnderCompany, permissionConstToUseWithHasPermission.readOthers)),
       },
       {
         type: 'item',
@@ -610,15 +610,7 @@ export function useNavigation() {
         fontIcon: 'bi-shield-lock',
         visible: tier != null,
       },
-      {
-        type: 'item',
-        id: 'admin-tenant-modules',
-        to: '/admin/app-settings?area=tenant-modules',
-        title: 'Tenant modules',
-        fontIcon: 'bi-boxes',
-        // Commercial packs — platform Super Admin only (not tenant Admin self-serve).
-        visible: tier === 'SUPER_ADMIN',
-      },
+      // Pack entitlements live on the platform console (tenant create / detail), not here.
       {
         type: 'item',
         id: 'admin-developer-mfa',

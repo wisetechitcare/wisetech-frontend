@@ -32,6 +32,7 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { createSubCompany, updateSubCompany, fetchSubCompanyById } from "@services/company";
 import MultiSelectWithInlineCreate, { Option } from "@app/modules/common/components/MultiSelectWithInlineCreate";
 import { transformToOptions, createNewCompanyService } from "@app/modules/common/components/InlineCreateHelpers";
+import { EMPTY_GST_VALUES, GST_VALIDATION, GstStatutoryFields, gstValuesOf } from "./GstStatutory";
 import FormSchemaManager from "@app/modules/common/components/FormSchemaManager";
 import DragDropFileField from "@app/modules/common/components/DragDropFileField";
 import { IFormField, IFormSection } from "@models/company";
@@ -95,6 +96,12 @@ interface FormValues {
   visibility: string;
   note: string;
   services: string[];
+  gstNumber: string;
+  panNumber: string;
+  gstAddress: string;
+  gstState: string;
+  gstDocument: string;
+  panDocument: string;
 }
 
 interface Props {
@@ -121,6 +128,7 @@ const validationSchema = Yup.object().shape({
   latitude: Yup.string(),
   longitude: Yup.string(),
   services: Yup.array().of(Yup.string()),
+  ...GST_VALIDATION,
 });
 
 // Built-ins an admin marked required in Manage Fields. Multi-selects need a pick, text
@@ -192,6 +200,7 @@ const SubCompanyForm: React.FC<Props> = ({
     visibility: "EVERYONE",
     note: "",
     services: [],
+    ...EMPTY_GST_VALUES,
   });
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [formSections, setFormSections] = useState<IFormSection[]>(cloneSubCompanyDefaults());
@@ -396,6 +405,7 @@ const SubCompanyForm: React.FC<Props> = ({
               blacklisted: subCompany.blacklisted || false,
               visibility: subCompany.visibility || "EVERYONE",
               note: subCompany.note || "",
+              ...gstValuesOf(subCompany),
               services: (() => {
                 let extractedServices = [];
 
@@ -468,6 +478,7 @@ const SubCompanyForm: React.FC<Props> = ({
           visibility: "EVERYONE",
           note: "",
           services: [],
+          ...EMPTY_GST_VALUES,
         });
         setLogoPreview(null);
         setLogoFile(null);
@@ -628,6 +639,12 @@ const SubCompanyForm: React.FC<Props> = ({
           blacklisted: values.blacklisted,
           visibility: values.visibility,
           note: values.note || null,
+          gstNumber: values.gstNumber || null,
+          panNumber: values.panNumber || null,
+          gstAddress: values.gstAddress || null,
+          gstState: values.gstState || null,
+          gstDocument: values.gstDocument || null,
+          panDocument: values.panDocument || null,
           logo: logoUrl || null,
           overallRating: 0.0,
           services: values.services || [],
@@ -803,6 +820,14 @@ const SubCompanyForm: React.FC<Props> = ({
             };
 
             const renderSection = (section: IFormSection) => {
+              // GST, PAN and their documents are one step with their own grouped layout.
+              if (section.id === "gst") {
+                return (
+                  <CrmSection title={section.title}>
+                    <GstStatutoryFields />
+                  </CrmSection>
+                );
+              }
               if (section.id === "address") {
                 return (
                   <ContactAddressSection
@@ -843,6 +868,7 @@ const SubCompanyForm: React.FC<Props> = ({
               details: { subtitle: "Logo, name, type, parent company and sub-services", icon: "bi-buildings" },
               contact: { subtitle: "Phone, fax, email and website", icon: "bi-telephone" },
               address: { subtitle: "Where it is, and its map pin", icon: "bi-geo-alt" },
+              gst: { subtitle: "GST, PAN and their documents", icon: "bi-file-earmark-text" },
               others: { subtitle: "Status, blacklist and notes", icon: "bi-sliders" },
             };
             const steps = formSections

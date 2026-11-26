@@ -28,7 +28,11 @@ import {
   savePinnedIds,
   sortNotifications,
 } from './utils';
-import { SNACKBAR_AUTOHIDE_MS } from './constants';
+import {
+  ATTENDANCE_CHECKIN_REMINDER_STATUSES,
+  ATTENDANCE_CHECKOUT_REMINDER_STATUSES,
+  SNACKBAR_AUTOHIDE_MS,
+} from './constants';
 
 // ── Reducer ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +52,9 @@ type Action =
   | { type: 'MARK_ALL_READ' }
   | { type: 'DISMISS'; id: string }
   | { type: 'CLEAR_ALL' }
-  | { type: 'TOGGLE_PIN'; id: string };
+  | { type: 'TOGGLE_PIN'; id: string }
+  | { type: 'SUPERSEDE_ATTENDANCE_REMINDERS'; kind: 'checkin' | 'checkout' | 'both' }
+  | { type: 'SUPERSEDE_APPROVAL_PENDING'; instanceId: string };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -115,8 +121,40 @@ function reducer(state: State, action: Action): State {
       };
     }
 
-    default:
+    case 'SUPERSEDE_ATTENDANCE_REMINDERS': {
+      const statuses = new Set<string>([
+        ...(action.kind === 'checkout' ? [] : ATTENDANCE_CHECKIN_REMINDER_STATUSES),
+        ...(action.kind === 'checkin' ? [] : ATTENDANCE_CHECKOUT_REMINDER_STATUSES),
+      ]);
+      return {
+        ...state,
+        items: sortNotifications(
+          state.items.map((n) =>
+            n.status && statuses.has(n.status) ? { ...n, isRead: true } : n,
+          ),
+        ),
+      };
+    }
+
+    case 'SUPERSEDE_APPROVAL_PENDING': {
+      const instanceId = action.instanceId;
+      return {
+        ...state,
+        items: sortNotifications(
+          state.items.map((n) =>
+            n.status === 'approval_pending' && n.path?.includes(instanceId)
+              ? { ...n, isRead: true }
+              : n,
+          ),
+        ),
+      };
+    }
+
+    default: {
+      const _exhaustive: never = action;
+      void _exhaustive;
       return state;
+    }
   }
 }
 
@@ -234,9 +272,38 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const onRemindersCleared = (payload: { kind?: 'checkin' | 'checkout' | 'both' }) => {
+      const kind = payload?.kind ?? 'both';
+      dispatch({ type: 'SUPERSEDE_ATTENDANCE_REMINDERS', kind });
+      setSnackbarItem((current) => {
+        if (!current?.status) return current;
+        const checkin = (ATTENDANCE_CHECKIN_REMINDER_STATUSES as readonly string[]).includes(current.status);
+        const checkout = (ATTENDANCE_CHECKOUT_REMINDER_STATUSES as readonly string[]).includes(current.status);
+        if (kind === 'both' && (checkin || checkout)) return null;
+        if (kind === 'checkin' && checkin) return null;
+        if (kind === 'checkout' && checkout) return null;
+        return current;
+      });
+    };
+
+    const onApprovalPendingCleared = (payload: { instanceId?: string }) => {
+      const instanceId = payload?.instanceId;
+      if (!instanceId) return;
+      dispatch({ type: 'SUPERSEDE_APPROVAL_PENDING', instanceId });
+      setSnackbarItem((current) => {
+        if (current?.status !== 'approval_pending') return current;
+        if (current.path?.includes(instanceId)) return null;
+        return current;
+      });
+    };
+
     socket.on('newNotification', onNotification);
+    socket.on('attendanceRemindersCleared', onRemindersCleared);
+    socket.on('approvalPendingCleared', onApprovalPendingCleared);
     return () => {
       socket.off('newNotification', onNotification);
+      socket.off('attendanceRemindersCleared', onRemindersCleared);
+      socket.off('approvalPendingCleared', onApprovalPendingCleared);
     };
   }, [employeeId, clearAutohide]);
 

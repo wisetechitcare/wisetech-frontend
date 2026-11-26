@@ -1,43 +1,31 @@
 /**
- * LEGACY ADAPTER — do not use for new plain single-selects.
- *
- * Prefer **`WtFieldFormik`** (Sandwich floating-label look) for Formik forms.
- * Keep this file only when you need avatar / colour option rows, smart sort, or
- * “+ Add” → CommonModal. The Add control is kit `WtAddOptionButton` (same look as
- * `WtField addOption` with `placement: 'label'`). See docs/bootstrap-to-kit-migration.md §3.
+ * Formik single-select on the kit Combobox (src/ds/ui/combobox). Owns only the Formik binding,
+ * the label row, "+ Add" → CommonModal, and the colour / avatar option rows.
  */
 import { useField, useFormikContext, type FormikValues } from "formik";
 import HighlightErrors from "../../errors/components/HighlightErrors";
-import { components as RSComponents } from "react-select";
 import React, { useState, useMemo } from "react";
 import { Box } from "@mui/material";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import CommonModal from "../components/CommonModal";
-import { ColourOption, SingleValue, AvatarOption, AvatarSingleValue } from "./ColorInDropdwon";
-import DropdownChevron from "./DropdownChevron";
-import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
 import { WtAddOptionButton } from "@app/modules/common/components/ui/WtAddOption";
-import { FloatingLabelFrame, useFloatingLabels } from "@app/modules/common/components/ui/FloatingLabel";
 import { useUnsavedChangesRegistration } from "../components/ui/UnsavedChangesProvider";
+import {
+    Combobox,
+    ComboboxContent,
+    ComboboxEmpty,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxList,
+} from "@/ds/ui/combobox";
+import { InputGroupAddon } from "@/ds/ui/input-group";
+import { PersonCell } from "@/ds/patterns/person";
 
-const VIRTUALIZE_THRESHOLD = 80;
+// ponytail: rendering is capped instead of windowed (react-select virtualised past 80); typing narrows
+// the list. Raise the cap or add windowing if users need to scroll through thousands.
+const RENDER_LIMIT = 200;
 
-/**
- * The option row is clamped to one line, so a long label is ellipsised. Carry the full
- * text in `title` — otherwise the truncated part is simply unreadable, and for project
- * names the part that gets cut is the end, which is where the status sits.
- */
-function TitledOption(props: any) {
-    return (
-        <RSComponents.Option
-            {...props}
-            innerProps={{
-                ...props.innerProps,
-                title: typeof props.label === 'string' ? props.label : undefined,
-            }}
-        />
-    );
-}
+type Option = { value: any; label: any; color?: string; avatar?: string | null };
 
 interface DropDownInputProps {
     isRequired: boolean;
@@ -45,13 +33,17 @@ interface DropDownInputProps {
     options: any;
     /**
      * Formik field this writes to. Pass `''` for a FILTER-ONLY dropdown: one that
-     * narrows another control but is not part of the record. Without that escape
-     * hatch the only way to reuse this component as a filter was to give it a real
-     * field name, which then rode along into the submitted payload.
+     * narrows another control but is not part of the record, so the key never rides
+     * along into the submitted payload.
      */
     formikField: string;
     placeholder?: string;
     showAddBtn?: boolean;
+    /**
+     * "+ Add" in the label row that runs the CALLER's create flow (its own modal) instead of the built-in one. Keeps
+     * the action in the label row, so a field with it lines up with one without — a link under the field does not.
+     */
+    onAddClick?: () => void;
     functionToCallOnModalSubmit?: any;
     fieldName?: string;
     functionToSetFieldOptions?: any;
@@ -59,201 +51,149 @@ interface DropDownInputProps {
     value?: any;
     disabled?: boolean;
     showColor?: boolean;
-    /** Render each option with a SmartAvatar (real photo, else the same
-     *  deterministic gradient + initials the Contacts page uses) instead of
-     *  a plain label. Expects each option to carry an `avatar` (image URL). */
+    /** Render each option with its avatar (`option.avatar`, else initials). */
     showAvatar?: boolean;
     defaultValue?: any;
-    filterOption?: (option: any, inputValue: any) => boolean; // Added: Support for custom filtering
-    enableSmartSort?: boolean; // Added: Enable smart priority-based sorting
-    smartFilterFunction?: (options: any[], inputValue: string) => any[]; // Added: Smart filter and sort function
+    /** react-select signature: `(option{label,value,data}, inputValue) => boolean`. */
+    filterOption?: (option: any, inputValue: any) => boolean;
+    enableSmartSort?: boolean;
+    smartFilterFunction?: (options: any[], inputValue: string) => any[];
     disableAlphabeticalSort?: boolean;
 }
 
-function DropDownInput({ 
-    formikField, 
-    inputLabel, 
-    options, 
-    isRequired, 
-    placeholder, 
-    showAddBtn = false, 
-    functionToCallOnModalSubmit, 
-    fieldName, 
+const labelText = (o: Option | null) => (o == null ? "" : typeof o.label === "string" ? o.label : String(o.label ?? ""));
+
+function ColorDot({ color }: { color?: string }) {
+    return <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: color || "var(--muted-foreground)" }} />;
+}
+
+function DropDownInput({
+    formikField,
+    inputLabel,
+    options,
+    isRequired,
+    placeholder,
+    showAddBtn = false,
+    onAddClick,
+    functionToCallOnModalSubmit,
+    fieldName,
     functionToSetFieldOptions,
     onChange: propOnChange,
     value: propValue,
     disabled = false,
     showColor = false,
     showAvatar = false,
-    defaultValue,
-    filterOption, // Added: Custom filter function
-    enableSmartSort = false, // Added: Smart sorting flag
-    smartFilterFunction, // Added: Smart filter and sort function
+    filterOption,
+    enableSmartSort = false,
+    smartFilterFunction,
     disableAlphabeticalSort = false,
 }: DropDownInputProps) {
-    // Filter-only mode. useField still runs (hooks cannot be conditional) but against a
-    // name nothing reads, and setValue is never called — so Formik's `values` stays clean
-    // and the key cannot leak into a submitted payload.
+    // Filter-only mode: useField still runs (hooks cannot be conditional) against a name nothing
+    // reads, and setValue is never called, so Formik's `values` stays clean.
     const isFilterOnly = !formikField;
-    const [field, meta, helpers] = useField(formikField || '__filterOnly');
+    const [field, meta, helpers] = useField(formikField || "__filterOnly");
     const { dirty } = useFormikContext<FormikValues>();
     useUnsavedChangesRegistration(dirty && !isFilterOnly);
     const [show, setShow] = useState(false);
     const hasError = !!(meta.touched && meta.error);
-    const [inputValue, setInputValue] = useState('');
-    
-    const handleChange = (selectedOption: any) => {
+    const [inputValue, setInputValue] = useState("");
+
+    const handleChange = (selectedOption: Option | null) => {
         if (isFilterOnly) {
             propOnChange?.(selectedOption);
             return;
         }
-        // `setValue` validates against the values PATCHED with the new selection, so it
-        // is the only one of the two that can see what was just chosen.
+        // setValue validates against the values patched with the new selection; setTouched(…, true)
+        // would validate the render-time snapshot (old value) and flash "required" on a fresh pick.
         helpers.setValue(selectedOption?.value || "");
-        // `setTouched(true, true)` used to re-validate here, and Formik's setTouched
-        // validates `state.values` — the render-time snapshot, which in this same tick
-        // still holds the OLD value. So picking a branch marked the field touched and
-        // then evaluated the form as if it were still empty: "Branch is a required
-        // field" appeared the instant a branch was chosen, and only cleared on the next
-        // interaction, which in turn stamped the same stale error on whatever field was
-        // touched next. Mark it touched and let the setValue pass above own validation.
         helpers.setTouched(true, false);
-        if (propOnChange) {
-            propOnChange(selectedOption);
-        }
+        propOnChange?.(selectedOption);
     };
-    
-    const handleShow = () => setShow(true);
 
-    // Smart filtering and sorting of options
-    const processedOptions = useMemo(() => {
-        if (enableSmartSort && smartFilterFunction && inputValue.trim()) {
-            return smartFilterFunction(options || [], inputValue);
-        }
-        return options || [];
-    }, [enableSmartSort, smartFilterFunction, options, inputValue]);
+    const items: Option[] = useMemo(() => {
+        const base: Option[] = enableSmartSort && smartFilterFunction && inputValue.trim()
+            ? smartFilterFunction(options || [], inputValue)
+            : options || [];
+        return disableAlphabeticalSort ? base : sortOptionsAlphabetically(base);
+    }, [enableSmartSort, smartFilterFunction, options, inputValue, disableAlphabeticalSort]);
 
-    // Centralized case-insensitive alphabetical sorting
-    const sortedOptions = useMemo(() => {
-        if (disableAlphabeticalSort) {
-            return options || [];
-        }
-        const listToSort = enableSmartSort ? processedOptions : (options || []);
-        return sortOptionsAlphabetically(listToSort);
-    }, [disableAlphabeticalSort, enableSmartSort, processedOptions, options]);
+    const selected: Option | null =
+        propValue !== undefined
+            ? typeof propValue === "object"
+                ? propValue
+                : (options || []).find((o: Option) => o.value === propValue) ?? null
+            : (options || []).find((o: Option) => o.value === field.value) ?? null;
 
-    // Use propValue if provided, otherwise use formik field value
-    let selectedValue;
+    const filter = enableSmartSort
+        ? () => true // smartFilterFunction already narrowed `items`
+        : filterOption
+            ? (o: Option, q: string) => filterOption({ label: o.label, value: o.value, data: o }, q)
+            : undefined;
 
-
-    if(defaultValue?.length){
-        selectedValue = defaultValue[0];
-    }
-
-    selectedValue = propValue !== undefined
-        ? propValue
-        : (options ? options.find((option: any) => option.value === field.value) : null);
-
-
-    // console.log("options:", options);
-    // console.log("field.value:", field.value);
-    // console.log("propValue:", propValue);
-    // console.log("selectedValue passed to <Select />:", selectedValue);
-    selectedValue =
-  propValue !== undefined
-    ? (typeof propValue === "object"
-        ? propValue
-        : options.find((option: any) => option.value === propValue)
-      )
-    : options.find((option: any) => option.value === field.value) || null;
-
-
-    const DropdownIndicator = (indicatorProps: any) => (
-        <DropdownChevron {...indicatorProps} color={showColor ? selectedValue?.color : undefined} />
-    );
-
-    const floating = useFloatingLabels();
+    const ariaLabel = typeof inputLabel === "string" ? inputLabel : undefined;
     const select = (
-        <WtSelect
-            name={formikField}
-            ariaLabel={typeof inputLabel === "string" ? inputLabel : undefined}
-            options={sortedOptions}
-            value={selectedValue ?? null}
-            onChange={handleChange}
-            onInputChange={(v: string) => { if (enableSmartSort) setInputValue(v); }}
-            defaultInputValue={defaultValue}
-            placeholder={placeholder}
-            isClearable
-            isDisabled={disabled}
-            error={hasError}
-            accentColor={showColor ? selectedValue?.color : undefined}
-            virtualizeThreshold={VIRTUALIZE_THRESHOLD}
-            filterOption={enableSmartSort ? null : filterOption}
-            components={{
-                DropdownIndicator,
-                ...(!showColor && !showAvatar ? { Option: TitledOption } : {}),
-                ...(showColor ? { Option: ColourOption, SingleValue } : {}),
-                ...(showAvatar ? { Option: AvatarOption, SingleValue: AvatarSingleValue } : {}),
-            }}
-        />
+        <Combobox
+            items={items}
+            value={selected}
+            onValueChange={handleChange}
+            onInputValueChange={(v: string) => { if (enableSmartSort) setInputValue(v); }}
+            itemToStringLabel={labelText}
+            isItemEqualToValue={(a: Option, b: Option) => a?.value === b?.value}
+            filter={filter}
+            limit={RENDER_LIMIT}
+            disabled={disabled}
+        >
+            <ComboboxInput
+                name={formikField || undefined}
+                aria-label={ariaLabel}
+                aria-invalid={hasError || undefined}
+                placeholder={placeholder ?? "Select…"}
+                disabled={disabled}
+                showClear={!!selected}
+                className="w-full"
+            >
+                {showColor && selected && (
+                    <InputGroupAddon align="inline-start"><ColorDot color={selected.color} /></InputGroupAddon>
+                )}
+            </ComboboxInput>
+            <ComboboxContent>
+                <ComboboxEmpty>No matches.</ComboboxEmpty>
+                <ComboboxList>
+                    {(o: Option) => (
+                        <ComboboxItem key={String(o.value)} value={o} title={labelText(o)}>
+                            {showAvatar ? (
+                                <PersonCell name={labelText(o)} avatarUrl={o.avatar ?? undefined} />
+                            ) : (
+                                <>
+                                    {showColor && <ColorDot color={o.color} />}
+                                    <span className="truncate">{o.label}</span>
+                                </>
+                            )}
+                        </ComboboxItem>
+                    )}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
     );
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-            {/* The label row's height must NOT depend on whether the add button is
-                present. As a `btn btn-sm` it stood ~10px taller than a bare label, so a
-                dropdown offering "+ Add" pushed its own field below the one beside it
-                and the two columns no longer lined up. Sized to the label's own line
-                box instead, it costs the row no extra height. */}
-            {floating ? (
-                // Floating mode: the label lives in the box; "+ Add" keeps its own slim row.
-                showAddBtn && (
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
-                        <WtAddOptionButton label="Add" onAdd={handleShow} disabled={disabled} />
-                    </Box>
-                )
-            ) : (
-            <Box sx={{
-                display: 'flex', flexDirection: 'row',
-                justifyContent: 'space-between', alignItems: 'center',
-                gap: 1, mb: 1,
-            }}>
-                {/* The asterisk used to be painted by Metronic's `.required::after`.
-                    Rendered explicitly now the Bootstrap class is gone, and aria-hidden —
-                    requiredness reaches assistive tech through validation, not a glyph. */}
-                <Box component="label" sx={{
-                    display: 'flex', alignItems: 'center', gap: 0.5, mb: 0,
-                    fontSize: 13.5, fontWeight: 500, color: 'text.primary',
-                }}>
+        <Box sx={{ display: "flex", flexDirection: "column" }}>
+            {/* The label row's height must not depend on "+ Add", or paired columns stop lining up. */}
+            <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 1, mb: 1, minHeight: 22 }}>
+                <Box component="label" sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0, fontSize: 13.5, fontWeight: 500, color: "text.primary" }}>
                     {inputLabel}
-                    {isRequired && <Box component="span" aria-hidden sx={{ color: 'error.main' }}>*</Box>}
+                    {isRequired && <Box component="span" aria-hidden sx={{ color: "error.main" }}>*</Box>}
                 </Box>
-                {showAddBtn && (
-                    <WtAddOptionButton label="Add" onAdd={handleShow} disabled={disabled} />
-                )}
+                {onAddClick
+                    ? <WtAddOptionButton label="Add" onAdd={onAddClick} disabled={disabled} />
+                    : showAddBtn && <WtAddOptionButton label="Add" onAdd={() => setShow(true)} disabled={disabled} />}
             </Box>
-            )}
-            {/* Delegates to the kit engine: portal, auto-flip, bounded + windowed menu,
-                theme tokens and ARIA live there. This wrapper keeps only what is genuinely
-                its own — the Formik binding, the label row, "+ Add", and the option
-                renderers this app already uses (colour dot / avatar / titled row). */}
-            {floating ? (
-                <FloatingLabelFrame
-                    label={inputLabel}
-                    required={isRequired}
-                    filled={Array.isArray(selectedValue) ? selectedValue.length > 0 : !!selectedValue}
-                    error={hasError}
-                    disabled={disabled}
-                >
-                    {select}
-                </FloatingLabelFrame>
-            ) : select}
+            {select}
 
             {!isFilterOnly && <HighlightErrors isRequired={isRequired} formikField={formikField} />}
-            <CommonModal functionToCallOnModalSubmit={functionToCallOnModalSubmit} show={show} setShow={setShow} fieldName={fieldName} functionToSetFieldOptions={functionToSetFieldOptions}/>
+            <CommonModal functionToCallOnModalSubmit={functionToCallOnModalSubmit} show={show} setShow={setShow} fieldName={fieldName} functionToSetFieldOptions={functionToSetFieldOptions} />
         </Box>
-    )
+    );
 }
-
 
 export default DropDownInput;

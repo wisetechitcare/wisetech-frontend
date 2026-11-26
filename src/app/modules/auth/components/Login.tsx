@@ -16,6 +16,7 @@ import { saveCurrentEmployee } from '@redux/slices/employee'
 import { redirect, saveCurrentUser, saveToken } from '@redux/slices/auth'
 import { RootState } from '@redux/store'
 import { setAuth } from '../core/AuthHelpers'
+import { showSplashAgain } from '@utils/splashGate'
 import { AuthScreen } from '../AuthScreen'
 
 const loginSchema = Yup.object().shape({
@@ -63,6 +64,8 @@ export default function Login() {
         const { data: loginRes } = await login(values.email, values.password)
         dispatch(saveToken(loginRes.token))
         setAuth(loginRes)
+        // The startup top bar covers the dashboard's first load (the full intro already played when the app opened).
+        showSplashAgain()
         const { data: currUserRes } = await fetchCurrentUser(loginRes.id)
         dispatch(saveCurrentUser(currUserRes.user))
         if (!currEmployee.id) {

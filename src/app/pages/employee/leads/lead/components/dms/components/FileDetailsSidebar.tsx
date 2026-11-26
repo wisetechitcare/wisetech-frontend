@@ -32,7 +32,6 @@ export const FileDetailsSidebar: React.FC<FileDetailsSidebarProps> = ({ file, on
   const handleRename = async () => {
     if (newName.trim() && newName !== file.name) {
       try {
-        await dmsService.renameDocument(file.id, newName.trim());
         dispatch({ type: 'UPDATE_FILE', payload: { id: file.id, name: newName.trim() } });
         successConfirmation('File renamed.');
       } catch (err) {

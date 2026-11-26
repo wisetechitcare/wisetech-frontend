@@ -4,6 +4,7 @@ import { cn } from "@/ds/lib/utils"
 import { SmartAvatar, avatarInitials } from "@/ds/ui/smart-avatar"
 import { Badge } from "@/ds/ui/badge"
 import { Button } from "@/ds/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip"
 
 /** The kit's one initials rule (see SmartAvatar). */
 export const initials = avatarInitials
@@ -69,15 +70,19 @@ export function PersonHeader({
   actions,
   onBack,
   backLabel = "Back",
+  avatarFit = "cover",
   className,
 }: {
   name: string
   avatarUrl?: string | null
+  /** `contain` for a logo (an organization, a client): the whole mark, never cropped. */
+  avatarFit?: "cover" | "contain"
   /** Short facts, joined with dots: designation, department, location, code. */
   meta?: React.ReactNode[]
   badges?: React.ReactNode
-  /** Contact links (mail, phone) — real links so they work with the keyboard and on phones. */
-  links?: Array<{ href: string; label: string; icon?: React.ReactNode }>
+  /** Contact links (mail, phone) — real links so they work with the keyboard and on phones.
+   *  `external` (a website) opens in a new tab, safely (noopener). */
+  links?: Array<{ href: string; label: string; icon?: React.ReactNode; external?: boolean }>
   actions?: React.ReactNode
   onBack?: () => void
   backLabel?: string
@@ -87,11 +92,15 @@ export function PersonHeader({
     <header data-slot="person-header" className={cn("flex flex-col gap-4 sm:flex-row sm:items-center", className)}>
       <div className="flex min-w-0 flex-1 items-center gap-4">
         {onBack && (
-          <Button variant="ghost" size="icon" aria-label={backLabel} onClick={onBack}>
-            <ArrowLeft aria-hidden />
-          </Button>
+          // Icon-only, so it carries the kit Tooltip as well as its accessible name.
+          <Tooltip>
+            <TooltipTrigger render={<Button variant="ghost" size="icon" aria-label={backLabel} onClick={onBack} />}>
+              <ArrowLeft aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent>{backLabel}</TooltipContent>
+          </Tooltip>
         )}
-        <SmartAvatar name={name} src={avatarUrl} size="lg" shape="rounded" preview decorative />
+        <SmartAvatar name={name} src={avatarUrl} size="lg" shape="rounded" fit={avatarFit} preview decorative />
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-2xl font-semibold tracking-tight">{name}</h1>
@@ -110,7 +119,11 @@ export function PersonHeader({
           {links && links.length > 0 && (
             <p data-slot="person-meta" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               {links.map((l) => (
-                <a key={l.href} href={l.href} className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline [&>svg]:size-3.5">
+                <a
+                  key={l.href}
+                  href={l.href}
+                  {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                  className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline [&>svg]:size-3.5">
                   {l.icon}
                   {l.label}
                 </a>

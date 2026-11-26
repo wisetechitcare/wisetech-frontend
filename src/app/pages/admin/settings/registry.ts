@@ -3,7 +3,6 @@ import type { Trio } from '@app/modules/common/components/ui/patterns';
 import { TRIO } from '@app/modules/common/components/ui/patterns';
 import { AppearanceHeaderActions, AppearancePanel } from './AppearancePanel';
 import { DateTimePanel } from './DateTimePanel';
-import { TenantModulesPanel } from './TenantModulesPanel';
 import { DeveloperMfaHeaderActions, DeveloperMfaPanel } from './DeveloperMfaPanel';
 
 /**
@@ -38,8 +37,6 @@ export interface SettingsArea {
   comingSoon?: boolean;
   /** Hidden from the hub unless the signed-in user is Admin / Super Admin. */
   adminTierOnly?: boolean;
-  /** Hidden unless Super Admin — commercial / platform ops (subscription packs). */
-  superAdminOnly?: boolean;
   /**
    * Section access key (e.g. settings.developerMfa). When set, the hub tile and
    * detail view require Read on that section (Super Admin always passes).
@@ -60,7 +57,7 @@ export const SETTINGS_AREAS: readonly SettingsArea[] = [
   {
     id: 'date-time',
     title: 'date & time',
-    description: 'Whether times read as 2:30 PM or 14:30, for you and for your organisation.',
+    description: 'Whether times read as 2:30 PM or 14:30, for you and for your organization.',
     icon: 'time',
     tone: TRIO.blue,
     Panel: DateTimePanel,
@@ -74,15 +71,6 @@ export const SETTINGS_AREAS: readonly SettingsArea[] = [
     Panel: DeveloperMfaPanel,
     HeaderActions: DeveloperMfaHeaderActions,
     sectionKey: 'settings.developerMfa',
-  },
-  {
-    id: 'tenant-modules',
-    title: 'tenant modules',
-    description: 'Platform ops: which packs this org family purchased (not customer self-serve).',
-    icon: 'element-11',
-    tone: TRIO.cyan,
-    Panel: TenantModulesPanel,
-    superAdminOnly: true,
   },
 ];
 

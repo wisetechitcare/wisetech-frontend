@@ -30,7 +30,7 @@ import {
   useConfirmDialog,
   usePromptDialog,
 } from "@app/modules/common/components/ui";
-import { SolidChip } from "@app/pages/billing/operations/TrackerCells";
+import { SolidChip } from "@app/modules/common/components/ui/SolidChip";
 import { GIFT_MANAGEMENT_BASE } from "../giftPaths";
 import { useCourtesyDesk } from "../hooks/useCourtesyDesk";
 import {
