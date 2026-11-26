@@ -1,28 +1,24 @@
-import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { parseWorkingDays } from '@utils/workingDays';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from '@constants/statistics';
 import { IWeekend } from '@models/company';
 import { saveCurrentEmployee } from '@redux/slices/employee';
-import { RootState, store } from '@redux/store';
+import { store } from '@redux/store';
 import { fetchAllBranches, updateBranchById } from '@services/company';
 import { hasPermission } from '@utils/authAbac';
 import { usePermission } from '@hooks/usePermission';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { useFormik } from 'formik';
-import { MRT_ColumnDef } from 'material-react-table';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { RowAction } from '@/ds/patterns/row-action';
+import { Pencil } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react'
-import { useSelector } from 'react-redux';
 import * as Yup from 'yup';
 import {
   ConfigSectionCard,
   C,
-  FONT,
   SP,
-  RADIUS,
   KEYFRAMES,
 } from '@app/modules/configuration';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { Button } from '@/ds/ui/button';
 import { Typography } from '@mui/material';
 import {
   ConfigureFormDialog,
@@ -70,7 +66,6 @@ const weekendSchema = Yup.object().shape({
 
 function WeekendsAndWorkingDays() {
     const isAdmin = usePermission('settings.manage.all');
-    const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const [loading, setLoading] = useState(false);
     const [weekends, setWeekends] = useState<weekends[]>([]);
     const [showWeekendDaysModal, setShowWeekendDaysModal] = useState(false)
@@ -141,39 +136,38 @@ function WeekendsAndWorkingDays() {
         getBranchDetails();
     }, [refetch]);
 
-    const columns = useMemo<MRT_ColumnDef<weekends>[]>(() => {
-        const cols: MRT_ColumnDef<weekends>[] = [
+    const columns = useMemo<ColumnDef<weekends>[]>(() => {
+        const cols: ColumnDef<weekends>[] = [
             {
                 accessorKey: 'branchName',
                 header: 'Branch Name',
-                Cell: ({ renderedCellValue }) => <span>{renderedCellValue}</span>,
             },
             {
                 accessorKey: 'type',
                 header: 'Holiday Schedule',
-                Cell: ({ renderedCellValue }) => <span>{renderedCellValue}</span>,
             },
         ];
 
         if (isAdmin && hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.editOthers)) {
             cols.push({
-                accessorKey: 'actions',
+                id: 'actions',
                 header: 'Actions',
-                Cell: ({ row }: any) => (
-                    <Button
-                        variant="tinted"
+                enableSorting: false,
+                meta: { export: false, pin: 'end' },
+                cell: ({ row }) => (
+                    <RowAction
+                        label="Edit weekends"
                         size="icon-sm"
-                        aria-label="Edit weekends"
                         onClick={() => handleEdit(row.original)}
                     >
-                        <AppIcon name="bi-pencil" className="fs-4" />
-                    </Button>
+                        <Pencil className="size-4" aria-hidden />
+                    </RowAction>
                 ),
             });
         }
 
         return cols;
-    }, [weekends, isAdmin]);
+    }, [isAdmin]);
 
     const formik = useFormik<IWeekend>({
         initialValues: { ...currWeekendValues },
@@ -255,23 +249,16 @@ function WeekendsAndWorkingDays() {
             >
                 <div style={{ marginTop: SP.md }}>
                     {hasPermission(resourceNameMapWithCamelCase.branch, permissionConstToUseWithHasPermission.readOthers) &&
-                        <MaterialTable
+                        <DataTable
+                            caption="Weekends And Working Days"
                             columns={columns}
                             data={weekends}
-                            tableName="Weekends And Working Days"
-                            enableBottomToolbar={false}
-                            employeeId={employeeIdCurrent}
-                            muiTableProps={{
-                                sx: {
-                                    '& .MuiTableCell-head': {
-                                        backgroundColor: C.bgSection,
-                                        fontWeight: 600,
-                                        fontSize: '13px',
-                                        color: C.textPrimary,
-                                        fontFamily: FONT.body,
-                                    },
-                                },
-                            }}
+                            getRowId={(r) => r.id}
+                            stateKey="Weekends And Working Days"
+                            loading={loading}
+                            tools={false}
+                            groupableColumns={false}
+                            searchPlaceholder="Search branches…"
                         />
                     }
                 </div>

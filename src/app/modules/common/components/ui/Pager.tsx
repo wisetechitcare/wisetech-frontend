@@ -7,8 +7,8 @@ import { ELLIPSIS, pageWindow } from './pageWindow';
  * Numbered page control — `‹ 1 2 3 ›` with a per-page selector and a range
  * readout.
  *
- * The **standard pager for any view that is not a MaterialTable** (card grids,
- * tiles, timelines). MaterialTable draws its own footer; this is for everything
+ * The **standard pager for any view that is not kit DataTable** (card grids,
+ * tiles, timelines). DataTable draws its own footer; this is for everything
  * that pages server-side without the table engine, so those views get numbered
  * pages instead of MUI's stock "1–25 of 63 ‹ ›", which only walks one step at a
  * time and never tells you how many pages there are.

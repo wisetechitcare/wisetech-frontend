@@ -25,7 +25,7 @@ import { FormDialog } from '@/ds/patterns/form-dialog';
 import { PasswordField } from '@/ds/patterns/password-field';
 import { SearchSelect } from '@/ds/patterns/search-select';
 import { StatCard } from '@/ds/patterns/stat-card';
-import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
 import {

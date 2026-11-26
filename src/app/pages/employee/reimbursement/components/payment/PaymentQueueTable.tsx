@@ -9,7 +9,7 @@ import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-ta
 import { DescriptionList } from '@/ds/patterns/description-list';
 import { EmptyState } from '@/ds/patterns/empty-state';
 import { PersonCell } from '@/ds/patterns/person';
-import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 import { fmtDate, formatMoney, PAYMENT_LABEL, resolveStatusNum, STATUS_LABEL } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow, PAYMENT_STATE_LABEL, type PaymentState } from './paymentData';
 import PaymentEmptyState from './PaymentEmptyState';
@@ -124,7 +124,7 @@ export default function PaymentQueueTable({
         },
         {
             accessorKey: 'state',
-            meta: { label: 'Payment Status', exportValue: (r: PaymentBatchRow) => PAYMENT_STATE_LABEL[r.state] },
+            meta: { label: 'Payment Status', facet: true, exportValue: (r: PaymentBatchRow) => PAYMENT_STATE_LABEL[r.state] },
             header: 'Payment Status',
             enableSorting: false,
             cell: ({ row }) => <PaymentStateBadge state={row.original.state} />,

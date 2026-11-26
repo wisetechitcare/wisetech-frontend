@@ -1,10 +1,9 @@
-import { useState, useMemo, useEffect } from "react";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { useMemo, useState } from "react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/ds/ui/button";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
-import { MRT_ColumnDef } from "material-react-table";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
 import Loader from "@app/modules/common/utils/Loader";
+import { cn } from "@/ds/lib/utils";
 
 interface Reminder {
   id: string;
@@ -18,193 +17,90 @@ interface Reminder {
 
 type ReminderTab = "received" | "sent";
 
+const SAMPLE: Reminder[] = [
+  {
+    id: "1",
+    date: "12/2/2024",
+    day: "Fri",
+    sender: "Amit Singh",
+    message: "Check the staging error from Turisom client",
+    reference: "Image",
+    referenceType: "image",
+  },
+  {
+    id: "2",
+    date: "12/2/2024",
+    day: "Fri",
+    sender: "Amit Singh",
+    message: 'Reminder for tasks "Wireframe for XYZ"',
+    reference: "Tasks",
+    referenceType: "tasks",
+  },
+  {
+    id: "3",
+    date: "12/2/2024",
+    day: "Fri",
+    sender: "Amit Singh",
+    message: "Reminder for review",
+    reference: "Review",
+    referenceType: "review",
+  },
+  {
+    id: "4",
+    date: "12/2/2024",
+    day: "Fri",
+    sender: "Amit Singh",
+    message: "Reminder for attendance request",
+    reference: "Attendance Request",
+    referenceType: "attendance",
+  },
+  {
+    id: "5",
+    date: "12/2/2024",
+    day: "Fri",
+    sender: "Amit Singh",
+    message: "Reminder for reimbursement request.",
+    reference: "Request.",
+    referenceType: "reimbursement",
+  },
+];
+
 const RemindersTable = () => {
   const [activeTab, setActiveTab] = useState<ReminderTab>("received");
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Sample data - replace with actual API call
-  const sampleData: Reminder[] = [
-    {
-      id: "1",
-      date: "12/2/2024",
-      day: "Fri",
-      sender: "Amit Singh",
-      message: "Check the staging error from Turisom client",
-      reference: "Image",
-      referenceType: "image",
-    },
-    {
-      id: "2",
-      date: "12/2/2024",
-      day: "Fri",
-      sender: "Amit Singh",
-      message: 'Reminder for tasks "Wireframe for XYZ"',
-      reference: "Tasks",
-      referenceType: "tasks",
-    },
-    {
-      id: "3",
-      date: "12/2/2024",
-      day: "Fri",
-      sender: "Amit Singh",
-      message: "Reminder for review",
-      reference: "Review",
-      referenceType: "review",
-    },
-    {
-      id: "4",
-      date: "12/2/2024",
-      day: "Fri",
-      sender: "Amit Singh",
-      message: "Reminder for attendance request",
-      reference: "Attendance Request",
-      referenceType: "attendance",
-    },
-    {
-      id: "5",
-      date: "12/2/2024",
-      day: "Fri",
-      sender: "Amit Singh",
-      message: "Reminder for reimbursement request.",
-      reference: "Request.",
-      referenceType: "reimbursement",
-    },
-  ];
+  const [isLoading] = useState(false);
 
   const handleCompleted = (reminderId: string) => {
     console.log("Completed reminder:", reminderId);
-    // TODO: Implement API call to mark reminder as completed
   };
 
   const handleDismiss = (reminderId: string) => {
     console.log("Dismissed reminder:", reminderId);
-    // TODO: Implement API call to dismiss reminder
   };
 
   const handleReferenceClick = (reference: string, referenceType: string) => {
     console.log("Reference clicked:", reference, referenceType);
-    // TODO: Implement navigation based on reference type
   };
 
-  const handleNewReminder = () => {
-    console.log("New Reminder clicked");
-    // TODO: Implement modal/form for creating new reminder
-  };
-
-  const handleViewAll = () => {
-    console.log("View All clicked");
-    // TODO: Implement navigation to full reminders page
-  };
-
-  // TODO: Fetch reminders from API
-  // Uncomment and implement when API is ready
-  // useEffect(() => {
-  //   const fetchReminders = async () => {
-  //     try {
-  //       setIsLoading(true);
-  //       const response = await getAllReminders(activeTab);
-  //       setReminders(response.data);
-  //     } catch (error) {
-  //       console.error("Error fetching reminders:", error);
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   };
-  //
-  //   fetchReminders();
-  // }, [activeTab]);
-
-  const columns = useMemo<MRT_ColumnDef<Reminder>[]>(
+  const columns = useMemo<ColumnDef<Reminder>[]>(
     () => [
-      {
-        accessorKey: "date",
-        header: "Date",
-        size: 100,
-        muiTableHeadCellProps: {
-          sx: {
-            color: "#7a8597",
-            fontSize: "14px",
-            fontWeight: 400,
-          },
-        },
-        muiTableBodyCellProps: {
-          sx: {
-            fontSize: "14px",
-            color: "#000",
-          },
-        },
-      },
-      {
-        accessorKey: "day",
-        header: "Day",
-        size: 50,
-        muiTableHeadCellProps: {
-          sx: {
-            color: "#7a8597",
-            fontSize: "14px",
-            fontWeight: 400,
-          },
-        },
-        muiTableBodyCellProps: {
-          sx: {
-            fontSize: "14px",
-            color: "#000",
-          },
-        },
-      },
-      {
-        accessorKey: "sender",
-        header: "Sender",
-        size: 120,
-        muiTableHeadCellProps: {
-          sx: {
-            color: "#7a8597",
-            fontSize: "14px",
-            fontWeight: 400,
-          },
-        },
-        muiTableBodyCellProps: {
-          sx: {
-            fontSize: "14px",
-            color: "#000",
-          },
-        },
-      },
+      { accessorKey: "date", meta: { label: "Date", wrap: false }, header: "Date" },
+      { accessorKey: "day", meta: { label: "Day", wrap: false }, header: "Day" },
+      { accessorKey: "sender", meta: { label: "Sender" }, header: "Sender" },
       {
         accessorKey: "message",
+        meta: { label: "Message" },
         header: "Message",
-        size: 350,
-        muiTableHeadCellProps: {
-          sx: {
-            color: "#7a8597",
-            fontSize: "14px",
-            fontWeight: 400,
-          },
-        },
-        muiTableBodyCellProps: {
-          sx: {
-            fontSize: "14px",
-            color: "#000",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            maxWidth: "350px",
-          },
-        },
+        cell: ({ getValue }) => (
+          <span className="block max-w-xs truncate">{String(getValue() ?? "")}</span>
+        ),
       },
       {
         accessorKey: "reference",
+        meta: { label: "Reference" },
         header: "Reference",
-        size: 150,
-        muiTableHeadCellProps: {
-          sx: {
-            color: "#7a8597",
-            fontSize: "14px",
-            fontWeight: 400,
-          },
-        },
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <Button
+            type="button"
             variant="link"
             size="xs"
             className="h-auto p-0"
@@ -217,214 +113,78 @@ const RemindersTable = () => {
         ),
       },
       {
-        accessorKey: "action",
+        id: "action",
+        meta: { label: "Action", export: false, pin: "end", wrap: false },
+        enableSorting: false,
+        enableHiding: false,
         header: "Action",
-        size: 150,
-        muiTableHeadCellProps: {
-          sx: {
-            color: "#7a8597",
-            fontSize: "14px",
-            fontWeight: 400,
-          },
-        },
-        Cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleCompleted(row.original.id)}
-            >
-              <CheckCircleOutlineIcon
-                data-icon="inline-start"
-                sx={{ fontSize: "20px", color: "#2d8e7c" }}
-              />
-              <span style={{ color: "#2d8e7c", fontSize: "14px" }}>
-                Completed
-              </span>
+        cell: ({ row }) => (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => handleCompleted(row.original.id)}>
+              <CheckCircle2 className="text-success-foreground" data-icon="inline-start" aria-hidden />
+              Completed
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDismiss(row.original.id)}
-            >
-              <CancelOutlinedIcon
-                data-icon="inline-start"
-                sx={{ fontSize: "20px", color: "#b22e2e" }}
-              />
-              <span style={{ color: "#b22e2e", fontSize: "14px" }}>
-                Dismiss
-              </span>
+            <Button type="button" variant="ghost" size="sm" onClick={() => handleDismiss(row.original.id)}>
+              <XCircle className="text-destructive" data-icon="inline-start" aria-hidden />
+              Dismiss
             </Button>
           </div>
         ),
       },
     ],
-    []
+    [],
   );
 
   if (isLoading) {
     return (
-      <div
-        style={{
-          backgroundColor: "white",
-          borderRadius: "24px",
-          padding: "16px 20px",
-          boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-          minHeight: "400px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
+      <div className="flex min-h-100 items-center justify-center rounded-3xl bg-card p-5 shadow-sm">
         <Loader />
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        backgroundColor: "white",
-        borderRadius: "24px",
-        padding: "16px 20px",
-        boxShadow: "8px 8px 16px 0px rgba(0,0,0,0.04)",
-      }}
-    >
-      {/* Header Section */}
-      <div style={{ marginBottom: "12px" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "8px",
-          }}
-        >
-          <h2
-            style={{
-              fontSize: "20px",
-              fontWeight: 600,
-              margin: 0,
-              fontFamily: "Barlow, sans-serif",
-            }}
-          >
-            Reminders
-          </h2>
-          <div style={{ display: "flex", gap: "12px" }}>
-            {/* No destination exists yet (handleViewAll is a stub), so this stays a button. */}
-            <Button variant="outline" onClick={handleViewAll}>
-              View all
-            </Button>
-            <Button onClick={handleNewReminder}>
-              New Reminder
-            </Button>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: "8px" }} role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "received"}
-            onClick={() => setActiveTab("received")}
-            style={{
-              padding: "7px 12px",
-              borderRadius: "323px",
-              border:
-                activeTab === "received"
-                  ? "2px solid #1E3A8A"
-                  : "1px solid #a0b4d2",
-              backgroundColor: "white",
-              fontSize: "14px",
-              cursor: "pointer",
-              fontFamily: "Inter, sans-serif",
-              color: "#000",
-            }}
-          >
-            Received
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "sent"}
-            onClick={() => setActiveTab("sent")}
-            style={{
-              padding: "7px 12px",
-              borderRadius: "323px",
-              border:
-                activeTab === "sent"
-                  ? "2px solid #1E3A8A"
-                  : "1px solid #a0b4d2",
-              backgroundColor: "white",
-              fontSize: "14px",
-              cursor: "pointer",
-              fontFamily: "Inter, sans-serif",
-              color: "#000",
-            }}
-          >
-            Sent
-          </button>
+    <div className="space-y-3 rounded-3xl bg-card p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold">Reminders</h2>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={() => console.log("View All")}>
+            View all
+          </Button>
+          <Button type="button" onClick={() => console.log("New Reminder")}>
+            New Reminder
+          </Button>
         </div>
       </div>
 
-      {/* Table */}
-      <div
-        style={{
-          border: "1px solid #eeeeee",
-          borderRadius: "12px",
-          padding: "12px",
-        }}
-      >
-        <MaterialTable
-          columns={columns}
-          data={sampleData}
-          tableName="Reminders"
-          isLoading={isLoading}
-          hideFilters={true}
-          hideExportCenter={true}
-          hidePagination={false}
-          enableSorting={false}
-          enableColumnActions={false}
-          enableFilters={false}
-          enableGrouping={false}
-          enableColumnDragging={false}
-          enableColumnResizing={false}
-          enableColumnPinning={false}
-          enableExpandAll={false}
-          enableHiding={false}
-          enableFullScreenToggle={false}
-          muiTableProps={{
-            sx: {
-              "& .MuiTableHead-root": {
-                "& .MuiTableRow-root": {
-                  "& .MuiTableCell-root": {
-                    backgroundColor: "transparent",
-                    borderBottom: "none",
-                  },
-                },
-              },
-              "& .MuiTableBody-root": {
-                "& .MuiTableRow-root": {
-                  "&:hover": {
-                    backgroundColor: "rgba(0, 0, 0, 0.02)",
-                  },
-                  "& .MuiTableCell-root": {
-                    borderBottom: "none",
-                    padding: "12px",
-                  },
-                },
-              },
-            },
-          }}
-          muiTablePaperStyle={{
-            sx: {
-              boxShadow: "none",
-              border: "none",
-            },
-          }}
-        />
+      <div className="flex gap-2" role="tablist" aria-label="Reminder folder">
+        {(["received", "sent"] as const).map((tab) => (
+          <Button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
+            size="sm"
+            variant={activeTab === tab ? "default" : "outline"}
+            className={cn(activeTab === tab && "pointer-events-none")}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === "received" ? "Received" : "Sent"}
+          </Button>
+        ))}
       </div>
+
+      <DataTable
+        caption={`Reminders ${activeTab}`}
+        columns={columns}
+        data={SAMPLE}
+        getRowId={(r) => r.id}
+        stateKey={`dashboard.reminders.${activeTab}`}
+        tools={false}
+        groupableColumns={false}
+        reorderableColumns={false}
+        pinnableColumns={false}
+      />
     </div>
   );
 };

@@ -3,7 +3,8 @@ import { useDispatch, useSelector } from "react-redux";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { Box, Typography } from "@mui/material";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import { GlassDialog, GlassHeader, ToneChip, AutoGrid, GlassCard } from "@app/modules/common/components/ui";
 import { KTIcon } from "@metronic/helpers";
@@ -342,7 +343,7 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             accessorKey: 'name',
             header: 'Employee',
             size: 240,
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <EmployeeIdentityCell
                     name={row.original.name}
                     code={row.original.code}
@@ -355,19 +356,19 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             accessorKey: 'present',
             header: 'Present',
             size: 110,
-            Cell: ({ row }: any) => <CountCell value={row.original.present} tone="success" />,
+            cell: ({ row }: any) => <CountCell value={row.original.present} tone="success" />,
         },
         {
             accessorKey: 'absent',
             header: 'Absent',
             size: 110,
-            Cell: ({ row }: any) => <CountCell value={row.original.absent} tone="danger" />,
+            cell: ({ row }: any) => <CountCell value={row.original.absent} tone="danger" />,
         },
         {
             accessorKey: 'leave',
             header: 'Leave',
             size: 110,
-            Cell: ({ row }: any) => <CountCell value={row.original.leave} tone="warning" />,
+            cell: ({ row }: any) => <CountCell value={row.original.leave} tone="warning" />,
         },
         {
             accessorKey: 'lateCheckins',
@@ -375,19 +376,19 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             size: 130,
             // Server-scored (countLateCheckins) — honours each employee's check-in
             // deadline override, so this agrees with salary and KPI by construction.
-            Cell: ({ row }: any) => <CountCell value={row.original.lateCheckins} tone="danger" />,
+            cell: ({ row }: any) => <CountCell value={row.original.lateCheckins} tone="danger" />,
         },
         {
             accessorKey: 'earlyCheckouts',
             header: 'Early Check-out',
             size: 140,
-            Cell: ({ row }: any) => <CountCell value={row.original.earlyCheckouts} tone="warning" />,
+            cell: ({ row }: any) => <CountCell value={row.original.earlyCheckouts} tone="warning" />,
         },
         {
             accessorKey: 'checkoutMissing',
             header: 'Check-out Missing',
             size: 150,
-            Cell: ({ row }: any) => <CountCell value={row.original.checkoutMissing} tone="warning" />,
+            cell: ({ row }: any) => <CountCell value={row.original.checkoutMissing} tone="warning" />,
         },
         {
             accessorKey: 'workedMinutes',
@@ -395,7 +396,7 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             size: 130,
             // Sorts on the numeric accessor, renders the formatted string — sorting the
             // display text would order "9h 5m" after "142h 10m".
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <Typography component="span" sx={{ fontSize: '0.82rem', fontWeight: 600 }}>
                     {formatWorkedMinutes(row.original.workedMinutes)}
                 </Typography>
@@ -406,7 +407,7 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
             header: '',
             size: 90,
             enableSorting: false,
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <Box
                     component="button"
                     type="button"
@@ -436,17 +437,14 @@ function PeriodAttendanceSummary({ range }: PeriodAttendanceSummaryProps) {
                 </Typography>
             </div>
 
-            <MaterialTable
+            <DataTable
+                caption="Attendance Summary"
                 columns={columns as any}
                 data={summaries}
-                tableName="Attendance Summary"
-                resource={resourceNameMapWithCamelCase.attendanceReport}
-                viewOwn={true}
-                viewOthers={true}
-                employeeId={employeeIdCurrent}
-                checkOwnWithOthers={true}
-                manualPagination={false}
-                persistPreferences={false}
+                getRowId={(r: any) => String(r.employeeId ?? r.id)}
+                stateKey="attendance.periodSummary"
+                groupableColumns={false}
+                searchPlaceholder="Search employees…"
             />
 
             <GlassDialog

@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Building2, Network } from 'lucide-react';
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field';
 import { Input } from '@/ds/ui/input';
 import { NumberField } from '@/ds/ui/number-field';
 import { FormDialog } from '@/ds/patterns/form-dialog';
 import { ImageField } from '@/ds/patterns/image-field';
+import { LocationFields } from '@/ds/patterns/location-fields';
 import { createCompanyOverview } from '@services/company';
+import { searchPlaces, toGeoPick } from '@services/geocoding';
 import { uploadCompanyAsset } from '@services/uploader';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { FiscalYearRangeField } from '@app/modules/common/components/ui';
 import { splitFiscalYearRange } from '@utils/fiscalYearRange';
+import { PROVISION_LIMITS as L } from '@constants/provisionColumnLimits';
 
 /**
  * Create a sub-organization under a parent — a kit Form Dialog.
@@ -235,13 +238,36 @@ export default function OrganizationFormModal({ show, parentOrg, onCreated, onCl
             />
           </div>
 
-          <Field>
-            <FieldLabel htmlFor="org-address">Address</FieldLabel>
-            <Input id="org-address" value={form.address} onChange={(e) => set('address', e.target.value)} />
-            <FieldDescription>
-              GST, bank details, certificates and custom fields are filled in from the organization’s profile once it exists.
-            </FieldDescription>
-          </Field>
+          <LocationFields
+            registeredAddressOnly
+            addressLabel="Organization Address"
+            addressMaxLength={L.organizationAddress}
+            value={{
+              countryId: '',
+              stateId: '',
+              cityId: '',
+              postalCode: '',
+              address: form.address,
+              latitude: '',
+              longitude: '',
+            }}
+            onChange={(patch) => {
+              if (patch.address !== undefined) set('address', patch.address)
+            }}
+            suggestAddress={async (query) => {
+              const rows = await searchPlaces(query, 5)
+              return rows.map((raw, i) => {
+                const pick = toGeoPick(raw)
+                return {
+                  id: String(raw?.place_id ?? `${pick.lat},${pick.lng},${i}`),
+                  label: pick.formatted || pick.street || query,
+                  address: (pick.street || pick.formatted || query).slice(0, L.organizationAddress),
+                  latitude: String(pick.lat ?? ''),
+                  longitude: String(pick.lng ?? ''),
+                }
+              })
+            }}
+          />
         </FieldGroup>
       </form>
     </FormDialog>

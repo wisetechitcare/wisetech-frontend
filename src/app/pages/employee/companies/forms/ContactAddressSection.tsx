@@ -177,7 +177,7 @@ export function ContactAddressSection({
       <TextInput formikField="area" label={label || "Locality"} placeholder="Area / neighbourhood — auto-filled from the map" isRequired={required} />
     )},
     { name: "zipCode", md: 6, render: (label, required) => (
-      <TextInput formikField="zipCode" label={label || "Pincode"} isRequired={required} />
+      <TextInput formikField="zipCode" label={label || "Postal Code"} isRequired={required} />
     )},
     { name: address, md: 6, render: (label, required) => (
       <TextInput formikField={address} label={label || "Formatted Address"} placeholder="Building, street, landmark" isRequired={required} />

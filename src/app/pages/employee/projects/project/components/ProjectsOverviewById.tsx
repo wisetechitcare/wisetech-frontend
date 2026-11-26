@@ -10,14 +10,13 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import NewCompanyForm from "@pages/employee/companies/companies/components/NewCompanyForm";
 import { getAllTimeSheetWithCostByProjectId } from "@services/tasks";
 import { getProjectProjectPoints, type ProjectPointValue } from "@services/projectPoints";
-import OverlayTrigger from "react-bootstrap/OverlayTrigger";
-import Tooltip from "react-bootstrap/Tooltip";
 // Audit (change history)
 import { VersionHistory } from "@modules/audit/VersionHistory";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { getTimeTokens } from '@utils/timeFormat';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
 import { Button } from '@/ds/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
 
 const ProjectOverviewById = ({
   projectId,
@@ -111,12 +110,8 @@ const ProjectOverviewById = ({
     (company: any) => company.id === companyId
   )?.name;
 
-  // ── The two read-only tables below are MaterialTable, like every other list in the
-  //    app, so they get sorting, per-column search, column show/hide and (for the
-  //    companies table) export. Rows are flattened to real values so the table sorts
-  //    and searches on those rather than on JSX; the cells render exactly as before.
-  const currentUserId = useSelector((state: RootState) => state.auth?.currentUser?.id);
-
+  // ── Two read-only kit DataTables. Rows are flattened to real values so sort/search
+  //    work on text rather than JSX; cells keep the same links and status presentation.
   const companyRows = useMemo(
     () => (projectData?.projectCompanyMappings || []).map((mapping: any) => ({
       relation: mapping?.relation ?? "Other",
@@ -132,15 +127,15 @@ const ProjectOverviewById = ({
     [projectData?.projectCompanyMappings, companyTypes]
   );
 
-  const companyColumns = useMemo(
+  const companyColumns = useMemo<ColumnDef<(typeof companyRows)[number]>[]>(
     () => [
       { accessorKey: "relation", header: "Relation" },
       { accessorKey: "companyType", header: "Company Type" },
       {
         accessorKey: "companyName",
         header: "Company",
-        Cell: ({ row }: any) => (
-          <Link to={`/companies/${row.original.companyId}`} style={{ color: "#b23b3b", fontWeight: 500 }}>
+        cell: ({ row }) => (
+          <Link to={`/companies/${row.original.companyId}`} className="font-medium text-primary">
             {row.original.companyName}
           </Link>
         ),
@@ -148,8 +143,8 @@ const ProjectOverviewById = ({
       {
         accessorKey: "contact",
         header: "Contact",
-        Cell: ({ row }: any) => (
-          <Link to={`/contacts/${row.original.contactPersonId}`} style={{ color: "#b23b3b" }}>
+        cell: ({ row }) => (
+          <Link to={`/contacts/${row.original.contactPersonId}`} className="text-primary">
             {row.original.contact}
           </Link>
         ),
@@ -157,58 +152,54 @@ const ProjectOverviewById = ({
       {
         accessorKey: "contactStatus",
         header: "Contact Status",
-        Cell: ({ cell }: any) => (
-          <div className="d-flex align-items-center gap-2">
-            <span
-              style={{
-                display: "inline-block",
-                width: "10px",
-                height: "10px",
-                borderRadius: "50%",
-                backgroundColor: cell.getValue() === "Active" ? "#5cb85c" : "#0d1b2a",
-              }}
-            />
-            {cell.getValue()}
-          </div>
-        ),
+        cell: ({ cell }) => {
+          const value = String(cell.getValue() ?? "");
+          const active = value === "Active";
+          return (
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-block size-2.5 rounded-full ${active ? "bg-success" : "bg-muted-foreground"}`}
+                aria-hidden
+              />
+              {value}
+            </div>
+          );
+        },
       },
     ],
     []
   );
 
-  const timeLogColumns = useMemo(
+  const timeLogColumns = useMemo<ColumnDef<{ taskName: string; totalHours: unknown; costFormatted: unknown }>[]>(
     () => [
       {
         accessorKey: "taskName",
         header: "Task Name",
-        Cell: ({ row, cell }: any) => (
-          <OverlayTrigger
-            placement="top"
-            overlay={<Tooltip id={`tooltip-taskname-${row.id}`}>{cell.getValue()}</Tooltip>}
-          >
-            <div
-              style={{
-                maxWidth: "200px",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                cursor: "pointer",
-              }}
-            >
-              {cell.getValue()}
-            </div>
-          </OverlayTrigger>
-        ),
+        cell: ({ cell }) => {
+          const value = String(cell.getValue() ?? "");
+          return (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <div className="max-w-[200px] cursor-default truncate" />
+                }
+              >
+                {value}
+              </TooltipTrigger>
+              <TooltipContent>{value}</TooltipContent>
+            </Tooltip>
+          );
+        },
       },
       {
         accessorKey: "totalHours",
         header: "Total Hours",
-        Cell: ({ cell }: any) => `${cell.getValue() || "0"} hrs`,
+        cell: ({ cell }) => `${cell.getValue() || "0"} hrs`,
       },
       {
         accessorKey: "costFormatted",
         header: "Cost",
-        Cell: ({ cell }: any) => cell.getValue() || "-",
+        cell: ({ cell }) => cell.getValue() || "-",
       },
     ],
     []
@@ -1101,11 +1092,12 @@ const ProjectOverviewById = ({
               </div>
 
               {/* Table */}
-              <MaterialTable
-                tableName="ProjectClientCompanies"
-                employeeId={currentUserId}
+              <DataTable
+                caption="Project Client Companies"
+                stateKey="ProjectClientCompanies"
                 data={companyRows}
                 columns={companyColumns}
+                getRowId={(r, i) => String(r.companyId || i)}
               />
             </div>
           </div>
@@ -1135,14 +1127,14 @@ const ProjectOverviewById = ({
               </div>
               <div className="mt-3">
                 {farmatedTimeSheetData && farmatedTimeSheetData.length > 0 ? (
-                  <MaterialTable
-                    tableName="ProjectTimeLogPreview"
-                    employeeId={currentUserId}
+                  <DataTable
+                    caption="Project Time Log Preview"
+                    stateKey="ProjectTimeLogPreview"
                     data={timeLogRows}
                     columns={timeLogColumns}
-                    hidePagination
-                    hideExportCenter
-                    enableColumnActions={false}
+                    getRowId={(r, i) => `${r.taskName}-${i}`}
+                    tools={false}
+                    initialPageSize={4}
                   />
                 ) : (
                   <div

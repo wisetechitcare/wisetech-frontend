@@ -11,8 +11,10 @@ import {
 import { useServerPagination } from "@hooks/useServerPagination";
 import { fetchAllPages } from "@utils/fetchAllPages";
 import NewCompanyForm from "./components/NewCompanyForm";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { MRT_ColumnDef } from "material-react-table";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
+
+
 import { KTIcon } from "@metronic/helpers";
 import eventBus from "@utils/EventBus";
 import { deleteConfirmation } from "@utils/modal";
@@ -21,7 +23,6 @@ import { Company } from "@models/companies";
 import dayjs, { Dayjs } from "dayjs";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
-import { crmListRowSx, isRowAction } from "../crmListRowSx";
 
 interface ProcessedCompany extends Company {
   companyTypeName: string;
@@ -112,9 +113,6 @@ const ClientCompaniesMain = ({
   isOthersView,
   top10Ids,
 }: Props) => {
-  const employeeIdCurrent = useSelector(
-    (state: RootState) => state.employee.currentEmployee.id,
-  );
   const allEmployees = useSelector(
     (state: RootState) => state.allEmployees?.list,
   );
@@ -232,15 +230,14 @@ const ClientCompaniesMain = ({
   // lean defaults without colliding with the full-page `Client-Companies` prefs.
   const drillTableName = `CompanyDrill_${drillContextKey ?? "base"}`;
 
-  const columns = useMemo<MRT_ColumnDef<ProcessedCompany, any>[]>(
+  const columns = useMemo<ColumnDef<ProcessedCompany, any>[]>(
     () => {
-      const base: MRT_ColumnDef<ProcessedCompany, any>[] = [
+      const base: ColumnDef<ProcessedCompany, any>[] = [
       {
         accessorKey: "prefix",
         header: "Company Id",
         size: 80,
-        enableEditing: false,
-        Cell: ({ row }: { row: any }) => {
+        cell: ({ row }: { row: any }) => {
           return (
             <Link
               to={`/companies/${row.original.id}`}
@@ -259,7 +256,7 @@ const ClientCompaniesMain = ({
         accessorKey: "logo",
         enableSorting: false,
         header: "Logo",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <SmartAvatar
             name={row.original.companyName}
             id={row.original.id}
@@ -273,7 +270,7 @@ const ClientCompaniesMain = ({
       {
         accessorKey: "companyName",
         header: "Company Name",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <Link
             to={`/companies/${row.original.id}`}
             className="text-start text-decoration-none"
@@ -291,13 +288,13 @@ const ClientCompaniesMain = ({
         accessorKey: "companyTypeName",
         enableSorting: false,
         header: "Company Type",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "referenceType",
         enableSorting: false,
         header: "Reference Type",
-        Cell: ({ cell }: { cell: any }) => {
+        cell: ({ cell }: { cell: any }) => {
           const reference = cell.getValue();
 
           //  const referenceType = cell.getValue();
@@ -308,7 +305,7 @@ const ClientCompaniesMain = ({
         accessorKey: "internalReferenceEmployeeId",
         enableSorting: false,
         header: "Internal Referred By",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           return (
             employeeNameMap.get(cell.getValue()) ||
             cell.getValue() ||
@@ -320,7 +317,7 @@ const ClientCompaniesMain = ({
         accessorKey: "externalReferenceContactId",
         enableSorting: false,
         header: "External Referred By",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           return cell.getValue() || "N/A";
         },
       },
@@ -328,7 +325,7 @@ const ClientCompaniesMain = ({
         accessorKey: "status",
         header: "Status",
         // CLOSED is shown as "Inactive" to match the Active/Inactive wording used in the form.
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const v = cell.getValue();
           if (v === "ACTIVE") return "Active";
           if (v === "CLOSED") return "Inactive";
@@ -340,12 +337,12 @@ const ClientCompaniesMain = ({
         enableSorting: false,
         header: "No. of Projects",
         size: 110,
-        Cell: ({ cell }) => cell.getValue() ?? 0,
+        cell: ({ cell }) => cell.getValue() ?? 0,
       },
       {
         accessorKey: "overallRating",
         header: "Rating ⭐",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const rating = cell.getValue();
           return rating ? (
             <span className="text-warning">⭐ {rating}</span>
@@ -358,7 +355,7 @@ const ClientCompaniesMain = ({
         accessorKey: "totalBudget",
         enableSorting: false,
         header: "Budget",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const budget = Number(cell.getValue()) || 0;
           return `${currencyPrefix()}${budget.toLocaleString(getCurrencyLocale())}`;
         },
@@ -366,83 +363,83 @@ const ClientCompaniesMain = ({
       {
         accessorKey: "phone",
         header: "Phone",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "phone2",
         header: "Phone 2",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "fax",
         header: "Fax",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "email",
         header: "Email",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "website",
         header: "Website",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "address",
         header: "Address",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "area",
         header: "Area",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "city",
         header: "City",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "state",
         header: "State",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "country",
         header: "Country",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "zipCode",
-        header: "ZIP Code",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        header: "Postal Code",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "blacklisted",
         header: "Blacklisted",
-        Cell: ({ cell }) => (cell.getValue() ? "Yes" : "No"),
+        cell: ({ cell }) => (cell.getValue() ? "Yes" : "No"),
       },
       {
         accessorKey: "visibility",
         header: "Visibility",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "note",
         header: "Note",
-        Cell: ({ cell }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => cell.getValue() || "N/A",
       },
       {
         accessorKey: "isActive",
         header: "Active",
-        Cell: ({ cell }) => (cell.getValue() ? "Yes" : "No"),
+        cell: ({ cell }) => (cell.getValue() ? "Yes" : "No"),
       },
       {
         accessorKey: "createdAt",
         header: "Created Date",
         meta: { defaultVisible: false },
-        Cell: ({ cell }: any) =>
+        cell: ({ cell }: any) =>
           cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
       },
       {
@@ -452,7 +449,7 @@ const ClientCompaniesMain = ({
         // The payload embeds the creator, so the name is read off the row first: the
         // employee list is only in the store once some other screen has fetched it, and
         // keying off it alone printed "N/A" over a name the response already carried.
-        Cell: ({ row }: any) => employeeName(row.original.createdBy)
+        cell: ({ row }: any) => employeeName(row.original.createdBy)
           || employeeNameMap.get(row.original.createdById)
           || "N/A",
       },
@@ -460,14 +457,14 @@ const ClientCompaniesMain = ({
         accessorKey: "updatedAt",
         header: "Last Edited Date",
         meta: { defaultVisible: false },
-        Cell: ({ cell }: any) =>
+        cell: ({ cell }: any) =>
           cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
       },
       {
         accessorKey: "updatedById",
         header: "Last Edited By",
         meta: { defaultVisible: false },
-        Cell: ({ row }: any) => employeeName(row.original.updatedBy)
+        cell: ({ row }: any) => employeeName(row.original.updatedBy)
           || employeeNameMap.get(row.original.updatedById)
           || "N/A",
       },
@@ -476,7 +473,7 @@ const ClientCompaniesMain = ({
             {
               accessorKey: "actions",
               header: "Actions",
-              Cell: ({ row }: any) => (
+              cell: ({ row }: any) => (
                 <div className="d-flex align-items-center gap-2">
                   <Button
                     variant="ghost"
@@ -566,47 +563,39 @@ const ClientCompaniesMain = ({
           </div>
         )}
       </div>
-      <MaterialTable
+      <DataTable<ProcessedCompany>
+        caption={isDrillDown ? drillTableName : "Client Companies"}
         columns={columns}
         data={companies}
-        tableName={isDrillDown ? drillTableName : "Client-Companies"}
-        employeeId={employeeIdCurrent}
-        resource="COMPANIES"
-        viewOwn={true}
-        viewOthers={true}
-        checkOwnWithOthers={true}
-        defaultSorting={[{ id: "companyName", desc: false }]}
-        // The server owns paging, sorting and search — all three together, or one of them
-        // would act on the single page the browser holds while implying the whole list.
-        manualPagination
-        manualSorting
-        manualFiltering
+        getRowId={(r) => r.id}
+        loading={isLoading}
         rowCount={totalRecords}
-        paginationState={pagination}
+        pagination={pagination}
         onPaginationChange={setPagination}
+        sorting={sorting}
         onSortingChange={setSorting}
-        onSearchChange={setSearch}
-        fetchAllRows={fetchAllRows}
-        isLoading={isLoading}
-        // Per-column filters and grouping would act on one page only.
-        enableFilters={false}
-        enableGrouping={false}
-        // Only the rows in view are rendered, so 1000 rows per page costs what ~20 do.
-        enableRowVirtualization
-        muiTableProps={{
-
-          muiTableBodyRowProps: ({ row }) => ({
-            // Row click opens the company overview, same as clicking its name. Edit still
-            // happens via the pencil in the Actions column.
-            onClick: (e: React.MouseEvent) => {
-              if (!isRowAction(e)) navigate(`/companies/${row.original.id}`);
-            },
-            // ACTIVE → soft green; CLOSED (Inactive) → soft slate. Blacklist still wins.
-            sx: crmListRowSx(row.original.status === "ACTIVE", {
-              blacklisted: !!row.original.blacklisted,
-            }),
-          }),
-        }}
+        globalFilter={search}
+        onGlobalFilterChange={setSearch}
+        virtualized
+        virtualMaxHeight="70vh"
+        initialPageSize={pagination.pageSize}
+        groupableColumns={false}
+        stateKey={isDrillDown ? `crm.companies.${drillTableName}` : "crm.companies"}
+        // ACTIVE → success edge; CLOSED → muted; blacklist → danger (was crmListRowSx on MRT).
+        rowTone={(r) =>
+          r.blacklisted ? "danger" : r.status === "ACTIVE" ? "success" : "neutral"
+        }
+        onRowClick={(r) => navigate(`/companies/${r.id}`)}
+        rowLabel={(r) => r.companyName || "Open company"}
+        searchPlaceholder="Search companies…"
+        toolbar={(ctx) => (
+          <DataTableExport
+            columns={columns}
+            ctx={ctx}
+            filename="Client Companies"
+            getData={fetchAllRows}
+          />
+        )}
       />
       <NewCompanyForm
         show={showNewCompanyForm}

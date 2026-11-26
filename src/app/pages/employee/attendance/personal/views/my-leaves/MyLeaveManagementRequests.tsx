@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { getAllLeaveManagements } from "@services/employee";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
 import { StatusBadge, IconBox, TRIO, type Trio, CurrencySymbol } from "@app/modules/common/components/ui/tw";
 import { toast } from "react-toastify";
@@ -111,7 +112,7 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
     {
       accessorKey: "managementTypeText",
       header: "Type",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const trio = row.original.managementType === LEAVE_MANAGEMENT_TYPE.CASH ? TRIO.blue : TRIO.purple;
         return <StatusBadge trio={trio} label={row.original.managementTypeText || '-NA-'} />;
       },
@@ -119,14 +120,14 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
     {
       accessorKey: "leaveCount",
       header: "Total Leaves",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <span style={{ fontWeight: '600' }}>{row.original.leaveCount || '-NA-'}</span>
       ),
     },
     {
       accessorKey: "leaveTypeDetails",
       header: "Leave Breakdown",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <span style={{ fontSize: '12px' }}>
           {row.original.leaveTypeDetails || '-NA-'}
         </span>
@@ -135,7 +136,7 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
     {
       accessorKey: "totalAmount",
       header: "Amount",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <span style={{ fontWeight: row.original.totalAmount ? '600' : 'normal' }}>
           {row.original.totalAmount ? `${currencyPrefix()}${Number(row.original.totalAmount).toLocaleString()}` : '-NA-'}
         </span>
@@ -144,14 +145,14 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
     {
       accessorKey: "createdAt",
       header: "Requested At",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <span>{dayjs(row.original.createdAt).format(`DD MMM YYYY ${getTimeTokens().TIME}`)}</span>
       ),
     },
     {
       accessorKey: "status",
       header: "Status",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <StatusBadge trio={getStatusTrio(row.original.status)} label={getStatusText(row.original.status)} pulse={row.original.status === 0} />
       ),
     },
@@ -167,11 +168,15 @@ function MyLeaveManagementRequests({ startDateNew, endDateNew }: { startDateNew:
         <IconBox icon={<CurrencySymbol />} trio={TRIO.purple} size={40} fs="fs-2" />
         <span className="font-bold text-[17px] text-slate-900">My Leave Management Requests</span>
       </div>
-      <MaterialTable
+      <DataTable
+        caption="My Leave Management Requests"
         columns={columns}
         data={requests}
-        tableName="My Leave Management Requests"
-        isLoading={loading}
+        getRowId={(r: any) => String(r.id)}
+        loading={loading}
+        stateKey="attendance.myLeaveManagement"
+        groupableColumns={false}
+        searchPlaceholder="Search requests…"
       />
     </div>
   );

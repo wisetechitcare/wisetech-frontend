@@ -30,7 +30,7 @@ export const AddressesCard: React.FC<{ vm: EntityVM; only?: 'lead' | 'project'; 
                 <div style={{ fontFamily: 'Barlow', fontWeight: 700, fontSize: 14, color: '#1E293B', marginBottom: 6 }}>{a.title || 'Address'}</div>
                 <DetailRow label="Address" value={a.full || DASH} />
                 <DetailRow label="Area" value={a.area || DASH} />
-                <DetailRow label="Zip" value={a.zip || DASH} />
+                <DetailRow label="Postal Code" value={a.zip || DASH} />
                 <DetailRow label="Map" value={a.lat && a.lng ? <DetailMapLink lat={a.lat} lng={a.lng} /> : DASH} isLast />
               </div>
             </div>

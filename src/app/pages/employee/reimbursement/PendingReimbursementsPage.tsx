@@ -18,7 +18,7 @@ import {
   submitReimbursementBatch,
 } from '@services/employee';
 import { showDialog } from '@app/modules/common/components/ui/dialogStore';
-import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 import { uploadUserAsset } from '@services/uploader';
 import ReimbursementKpiRow from './components/ReimbursementKpiRow';
 import { SensitiveValue, useSensitive } from '@/ds/patterns/sensitive';

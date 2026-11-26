@@ -1,12 +1,10 @@
 /**
- * Chronological sorting for date columns — pure, no React/MUI, so it can be
- * exercised by dateSort.test.ts without bundling the UI layer.
+ * Chronological sorting for kit DataTable date columns — pure, no React, so
+ * dateSort.test.ts can exercise it without the UI layer.
  *
- * Why this exists: MRT's default `sortingFn: 'auto'` sorts a display string
- * alphanumerically. It chunks "30/07/2024" into [30, 7, 2024] and orders by DAY
- * OF MONTH first; "DD MMM YYYY" is worse still, because the month sorts
- * alphabetically (Apr, Aug, Dec…). Any column whose row value is a formatted
- * date needs an explicit comparator.
+ * Why this exists: string/"auto" sort orders display dates alphanumerically
+ * (day-of-month first, or Apr/Aug/Dec for month names). Any column whose row
+ * value is a formatted date needs this comparator (`sortFn` / `dateColumn`).
  */
 
 import dayjs from "dayjs";

@@ -73,7 +73,7 @@ Need a UI control or server helper?
 | Modal shell | `GlassDialog` + header | Bootstrap `Modal` |
 | Short master form | `ConfigureFormDialog` | Bootstrap Modal + C/FONT/SP |
 | Long form dialog | `WtFormDialog` | Private modal layout |
-| Data table | Neighbor `MaterialTable` | Page-local `<Table>` / second MRT |
+| Data table | Kit `DataTable` (`src/ds/patterns/data-table`) | Page-local `<Table>` / second table engine |
 | Empty / error | `WtEmptyState` | Mute “no data” only |
 | Block load | `PageLoader` | Bootstrap spinner as page chrome |
 | In-form notice | `InlineNotice` / `InlineHint` | Bootstrap `.alert` + hex |
@@ -125,7 +125,7 @@ Track live status: [summary/audits/DRY_100_SCORECARD.md](../../summary/audits/DR
 |------|--------|-----------|
 | **W1** | Bootstrap `Modal` → `GlassDialog` (+ header/footer) | No product `react-bootstrap` Modal |
 | **W2** | Footers → `GlassDialogActions` | No hand-rolled Cancel/Submit `DialogActions` |
-| **W3** | Hand `<Table>` → `MaterialTable` | No product hand grids (except documented `keep`) |
+| **W3** | Hand `<Table>` → kit `DataTable` | No product hand grids (except documented `keep`) |
 | **W4** | Selects → `WtField` / Neighbors | No feature `react-select`; `DropdownInput` / `AllEmployeesSearchDropdown` frozen→gone |
 | **W5** | CTAs → `WtButton` / icon kit | No product `btn-*` / raw MUI Button CTAs |
 | **W6** | Badges / alerts / switches | No Bootstrap badge/alert/form-switch status chrome |

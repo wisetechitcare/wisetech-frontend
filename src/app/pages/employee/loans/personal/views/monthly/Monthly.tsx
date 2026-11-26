@@ -1,8 +1,9 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { KTIcon } from "@metronic/helpers";
 import { useMemo, useState, useEffect } from "react";
-import { MRT_ColumnDef } from "material-react-table";
+
 import { IReimbursements, IReimbursementsFetch, IReimbursementsUpdate } from "@models/employee";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -45,21 +46,21 @@ function Monthly({ month, resource, viewOthers, viewOwn }: { month: Dayjs, resou
         (state: RootState) => state.employee.currentEmployee.id
     );
 
-    const columns = useMemo<MRT_ColumnDef<any>[]>(
+    const columns = useMemo<ColumnDef<any>[]>(
         () => [
             {
                 accessorKey: "loanAmount",
                 header: "Loan Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ cell }: any) => formatNumber(cell.getValue()),
             },
             {
                 accessorKey: "loan",
                 header: "Loan Details",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ row }: any) => {
+                cell: ({ row }: any) => {
 
                     return (
                         <div className="flex items-center justify-center space-x-4">
@@ -76,28 +77,28 @@ function Monthly({ month, resource, viewOthers, viewOwn }: { month: Dayjs, resou
                 header: "Due Date",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "billDueThisMonth",
                 header: "Bill Due This Month",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ cell }: any) => formatNumber(cell.getValue()),
             },
             {
                 accessorKey: "status",
                 header: "Status",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             ...([{
                 accessorKey: "actions",
                 header: "Actions",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ row }: any) => {
+                cell: ({ row }: any) => {
                       const resEdit = hasPermission(resourceNameMapWithCamelCase.loanInstallment, permissionConstToUseWithHasPermission.editOwn, row?.original);
                     //   const resDelete = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
                     
@@ -286,26 +287,17 @@ function Monthly({ month, resource, viewOthers, viewOwn }: { month: Dayjs, resou
         </CommonCard>
 
             <h4 className='d-flex justify-content-between align-items-center mb-5 pt-8'>This Month Installments</h4>
-            <MaterialTable
-                columns={columns}
-                data={installmentsData}
-                muiTableProps={{
-                    sx: {
-                        "& .MuiTableBody-root .MuiTableCell-root": {
-                            borderBottom: "none",
-                            paddingY: "5px",
-                        },
-                        "& .MuiTableBody-root .MuiTableRow-root": {
-                            // padding: '0px',
-                        },
-                    },
-                }}
-                tableName="MonthlyInstallments"
-                resource={resource}
-                viewOwn={viewOwn}
-                viewOthers={viewOthers}
-                employeeId={employeeId}
-            />
+            <DataTable
+        caption="Monthly Installments"
+        columns={columns}
+        data={installmentsData}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.personal.monthly"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
+      />
 
             <Modal size="lg" show={showSkipAndCustomPaymentModal} onHide={() => {
                 setShowSkipAndCustomPaymentModal(false)

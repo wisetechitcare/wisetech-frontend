@@ -1,5 +1,5 @@
 import React from "react";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable } from '@/ds/patterns/data-table';
 import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 
 interface MonthlySalaryEmployDataProps {
@@ -7,92 +7,43 @@ interface MonthlySalaryEmployDataProps {
   employeeId: string;
 }
 
+const columns = [
+  { accessorKey: "id", header: "ID", cell: ({ cell }: any) => cell.getValue() || "N/A" },
+  { accessorKey: "name", header: "Name", cell: ({ cell }: any) => cell.getValue() || "N/A" },
+  { accessorKey: "department", header: "Department", cell: ({ cell }: any) => cell.getValue() || "N/A" },
+  { accessorKey: "totalDays", header: "Total Days", cell: ({ cell }: any) => cell.getValue() ?? "0", meta: { exportType: "number" as const } },
+  { accessorKey: "present", header: "Present", cell: ({ cell }: any) => cell.getValue() ?? "0", meta: { exportType: "number" as const } },
+  { accessorKey: "absent", header: "Absent", cell: ({ cell }: any) => cell.getValue() ?? "0", meta: { exportType: "number" as const } },
+  { accessorKey: "late", header: "Late", cell: ({ cell }: any) => cell.getValue() ?? "0", meta: { exportType: "number" as const } },
+  { accessorKey: "paidLeave", header: "Paid Leave", cell: ({ cell }: any) => cell.getValue() ?? "0", meta: { exportType: "number" as const } },
+  { accessorKey: "unpaidLeave", header: "Unpaid Leave", cell: ({ cell }: any) => cell.getValue() ?? "0", meta: { exportType: "number" as const } },
+  { accessorKey: "extraDay", header: "Extra day", cell: ({ cell }: any) => cell.getValue() ?? "0", meta: { exportType: "number" as const } },
+  { accessorKey: "workingTime", header: "Working Time", cell: ({ cell }: any) => cell.getValue() || "00:00:00" },
+  { accessorKey: "overTime", header: "Over Time", cell: ({ cell }: any) => cell.getValue() || "00:00:00" },
+  { accessorKey: "remainingMinutes", header: "Remaining Minutes", cell: ({ cell }: any) => cell.getValue() || "00:00:00" },
+  {
+    accessorKey: "salary",
+    header: "Salary",
+    meta: { exportType: "currency" as const },
+    cell: ({ cell }: any) =>
+      `${currencyPrefix()}${Math.round(Number(cell.getValue() || 0)).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+  },
+];
+
 const MonthlySalaryEmployData: React.FC<MonthlySalaryEmployDataProps> = ({
   employeesData,
-  employeeId
 }) => {
   return (
     <div className="mt-5">
       <h1>Monthly Salary</h1>
-      <MaterialTable
-        columns={[
-          {
-            accessorKey: "id",
-            header: "ID",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-          },
-          {
-            accessorKey: "name",
-            header: "Name",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-          },
-          {
-            accessorKey: "department",
-            header: "Department",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-          },
-          {
-            accessorKey: "totalDays",
-            header: "Total Days",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
-          },
-          {
-            accessorKey: "present",
-            header: "Present",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
-          },
-          {
-            accessorKey: "absent",
-            header: "Absent",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
-          },
-          {
-            accessorKey: "late",
-            header: "Late",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
-          },
-          {
-            accessorKey: "paidLeave",
-            header: "Paid Leave",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
-          },
-          {
-            accessorKey: "unpaidLeave",
-            header: "Unpaid Leave",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
-          },
-          {
-            accessorKey: "extraDay",
-            header: "Extra day",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
-          },
-          {
-            accessorKey: "workingTime",
-            header: "Working Time",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue || "00:00:00"
-          },
-          {
-            accessorKey: "overTime",
-            header: "Over Time",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue || "00:00:00"
-          },
-          {
-            accessorKey: "remainingMinutes",
-            header: "Remaining Minutes",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue || "00:00:00"
-          },
-          {
-            accessorKey: "salary",
-            header: "Salary",
-            Cell: ({ renderedCellValue }: any) => (
-              `${currencyPrefix()}${Math.round(Number(renderedCellValue || 0)).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-            )
-          },
-        ]}
+      <DataTable
+        caption="Salary Employee Data"
+        columns={columns as any}
         data={employeesData}
-        tableName="SalaryEmployeeData"
-        employeeId={employeeId}
-        enableColumnSpecificSearch={true}
+        getRowId={(r: any) => String(r.id ?? r.employeeId)}
+        stateKey="salary.employeeData"
+        groupableColumns={false}
+        searchPlaceholder="Search employees…"
       />
     </div>
   );

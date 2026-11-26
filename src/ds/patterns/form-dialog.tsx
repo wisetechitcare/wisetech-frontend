@@ -31,6 +31,47 @@ const formDialogVariants = cva("flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-
 })
 
 /**
+ * Wizard / custom FormDialog footer layout (Fitts + Hick):
+ * quiet Cancel on the left (content-sized), primary actions clustered on the right.
+ * Never put Cancel and Next as bare DialogFooter children — `DialogFooter`'s `*:flex-1`
+ * stretches Cancel into a huge hit target and makes the primary look secondary.
+ */
+export function FormDialogActions({
+  onCancel,
+  cancelLabel = "Cancel",
+  disabled,
+  children,
+  className,
+}: {
+  onCancel: () => void
+  cancelLabel?: string
+  disabled?: boolean
+  /** Right cluster — Back / Next / Finish (primary last). */
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        "flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between",
+        className,
+      )}
+    >
+      <Button
+        type="button"
+        variant="outline"
+        disabled={disabled}
+        onClick={onCancel}
+        className="w-full sm:w-auto"
+      >
+        {cancelLabel}
+      </Button>
+      <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:justify-end">{children}</div>
+    </div>
+  )
+}
+
+/**
  * The dialog shell for creating or editing a record: icon + title header, a scrolling body, and a sticky
  * Cancel / Save footer. Replaces the live kit's `GlassDialog` + `GlassHeader` + `GlassDialogActions`, and
  * `UnsavedChangesModal`: while `dirty`, every way of closing (Esc, ✕, Cancel, backdrop) asks to discard first.
@@ -40,7 +81,7 @@ const formDialogVariants = cva("flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-
  *
  * Without `formId` it is a read-only dialog with one Close button — the live `DrillDownDialog` (use `xl`).
  * With `subheader` + `footer` it is a wizard (Stepper above, Back / Next / Finish below) — the live
- * `WtWizardDialog`.
+ * `WtWizardDialog`. Use `FormDialogActions` inside `footer` so Cancel stays secondary.
  */
 export function FormDialog({
   open,
@@ -149,24 +190,39 @@ export function FormDialog({
             )}
             <div className="min-h-0 flex-1 scroll-smooth overflow-y-auto px-6 py-5">{children}</div>
           </div>
-          <DialogFooter className="items-center border-t border-border px-6 py-4 sm:justify-between">
+          {/*
+            Override DialogFooter `*:flex-1` — equal stretch makes Cancel dominate wizards (Fitts inverted).
+            One full-width child owns the row; buttons stay content-sized (full-width only on phone).
+          */}
+          <DialogFooter className="items-center border-t border-border px-6 py-4 *:flex-none">
             {footer ? (
               footer(requestClose)
             ) : (
-              <>
+              <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="hidden sm:block">{footerStart}</div>
-                {/* DialogFooter stretches its children; the group pins the buttons to the right edge. */}
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <Button variant="outline" disabled={submitting} onClick={requestClose}>
+                <div className="flex w-full flex-col-reverse gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:justify-end">
+                  <Button
+                    variant="outline"
+                    disabled={submitting}
+                    onClick={requestClose}
+                    className="w-full sm:w-auto"
+                  >
                     {formId ? cancelLabel : "Close"}
                   </Button>
                   {formId && (
-                    <Button type="submit" form={formId} variant={submitVariant} loading={submitting} disabled={submitDisabled}>
+                    <Button
+                      type="submit"
+                      form={formId}
+                      variant={submitVariant}
+                      loading={submitting}
+                      disabled={submitDisabled}
+                      className="w-full sm:min-w-28 sm:w-auto"
+                    >
                       {submitLabel}
                     </Button>
                   )}
                 </div>
-              </>
+              </div>
             )}
           </DialogFooter>
         </DialogContent>

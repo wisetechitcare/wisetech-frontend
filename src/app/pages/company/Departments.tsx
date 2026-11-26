@@ -1,16 +1,19 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import { ActionIconButton, GlassDialog, GlassHeader, WtButton } from '@app/modules/common/components/ui';
+import { GlassDialog, GlassHeader, WtButton } from '@app/modules/common/components/ui';
 import { Box, Stack, CircularProgress } from '@mui/material';
 import { KTIcon } from '@metronic/helpers';
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
 import { Form, Formik, FormikValues, useFormikContext } from "formik";
-import { MRT_ColumnDef } from "material-react-table";
 import { ICompanyDepartment } from "@models/company";
 import { createNewDepartment, fetchAllDepartments, fetchCompanyOverview, fetchDepartmentById, updateDepartmentById } from "@services/company";
 import { successConfirmation } from "@utils/modal";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, SortableHeader, type ColumnDef } from "@/ds/patterns/data-table";
+import { DataTableExport } from "@/ds/patterns/data-table-export";
 import TextInput from "@app/modules/common/inputs/TextInput";
+import { Button } from "@/ds/ui/button";
+import { Pencil } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { hasPermission } from "@utils/authAbac";
@@ -59,12 +62,12 @@ function CompanyIdInitializer() {
 function Departments() {
     const [show, setShow] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [departments, setDepartments] = useState([]);
+    type DepartmentRow = ICompanyDepartment & { id: string; _count?: { Employees?: number } }
+    const [departments, setDepartments] = useState<DepartmentRow[]>([]);
     const [editMode, setEditMode] = useState(false);
     const [departmentId, setDepartmentId] = useState('');
     const [isReady, setIsReady] = useState(false); 
     const isAdmin = useSelector((state: RootState)=> state.auth.currentUser.isAdmin);
-    const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     useEffect(() => {
         if (isAdmin !== undefined) {
             setIsReady(true);
@@ -88,43 +91,57 @@ function Departments() {
         setEditMode(true);
     }
 
-    const columns = useMemo<MRT_ColumnDef<ICompanyDepartment>[]>(() => {
-        const cols: MRT_ColumnDef<ICompanyDepartment>[] = [
+    const columns = useMemo<ColumnDef<DepartmentRow>[]>(() => {
+        const cols: ColumnDef<DepartmentRow>[] = [
             {
                 accessorKey: "name",
-                header: "Name",
-                Cell: ({ renderedCellValue }: any) => <span>{renderedCellValue}</span>
+                meta: { label: "Name" },
+                header: ({ column }) => <SortableHeader column={column} title="Name" />,
             },
             {
                 accessorKey: "code",
-                header: "Code",
-                Cell: ({ renderedCellValue }: any) => <span>{renderedCellValue}</span>
+                meta: { label: "Code", wrap: false },
+                header: ({ column }) => <SortableHeader column={column} title="Code" />,
             },
             {
                 accessorKey: "description",
+                meta: { label: "Description", exportValue: (r) => r.description || "—" },
                 header: "Description",
-                Cell: ({ renderedCellValue }: any) => <span>{renderedCellValue || "-"}</span>
+                cell: ({ getValue }) => String(getValue() || "—"),
             },
             {
-                accessorKey: "employeeCount",
-                header: "Total Employees",
-                Cell: ({ row }: any) => {
-                    const employeeCount = row.original._count?.Employees || 0;
-                    return <span>{employeeCount}</span>;
-                }
+                id: "employeeCount",
+                accessorFn: (row) => row._count?.Employees ?? 0,
+                meta: { label: "Total Employees", exportType: "number", wrap: false },
+                header: ({ column }) => <SortableHeader column={column} title="Total Employees" />,
+                cell: ({ getValue }) => String(getValue() ?? 0),
             },
         ];
 
         if (hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.editOthers)) {
             cols.push({
-                accessorKey: "actions",
+                id: "actions",
+                meta: { label: "Actions", export: false, pin: "end", wrap: false },
+                enableSorting: false,
+                enableHiding: false,
                 header: "Actions",
-                Cell: ({ row }: any) => (
-                    <ActionIconButton
-                        iconName="pencil"
-                        title="Edit department"
-                        onClick={() => handleEditClick(row.original.id)}
-                    />
+                cell: ({ row }) => (
+                    <Tooltip>
+                        <TooltipTrigger
+                            render={
+                                <Button
+                                    type="button"
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    aria-label="Edit department"
+                                    onClick={() => handleEditClick(row.original.id)}
+                                />
+                            }
+                        >
+                            <Pencil aria-hidden />
+                        </TooltipTrigger>
+                        <TooltipContent>Edit department</TooltipContent>
+                    </Tooltip>
                 ),
             });
         }
@@ -204,22 +221,16 @@ function Departments() {
                   primaryAction={hasPermission(resourceNameMapWithCamelCase.department, permissionConstToUseWithHasPermission.create) ? { label: 'New Department', icon: 'bi-plus-lg', onClick: () => setShow(true), variant: 'primary' } : undefined}
                 >
                   <div style={{ marginTop: SP.md }}>
-                    <MaterialTable
+                    <DataTable
+                      caption="Departments"
                       columns={columns}
                       data={departments}
-                      tableName="Departments"
-                      employeeId={employeeId}
-                      muiTableProps={{
-                        sx: {
-                          '& .MuiTableCell-head': {
-                            backgroundColor: C.bgSection,
-                            fontWeight: 600,
-                            fontSize: '13px',
-                            color: C.textPrimary,
-                            fontFamily: FONT.body,
-                          },
-                        },
-                      }}
+                      getRowId={(r) => r.id}
+                      loading={loading}
+                      stateKey="company.departments"
+                      toolbar={(ctx) => (
+                        <DataTableExport columns={columns} ctx={ctx} filename="Departments" />
+                      )}
                     />
                   </div>
                 </ConfigSectionCard>

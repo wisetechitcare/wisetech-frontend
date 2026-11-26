@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable } from '@/ds/patterns/data-table';
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { getAllLeadStatus } from "@services/lead";
@@ -9,9 +9,7 @@ import { getAllClientContacts } from "@services/companies";
 import {
   ConfigSectionCard,
   C,
-  FONT,
   SP,
-  RADIUS,
 } from '@app/modules/configuration';
 import { formatCurrencyRounded } from '@utils/currency';
 
@@ -28,9 +26,6 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [statuses, setStatuses] = useState<any[]>([]);
-  const employeeId = useSelector(
-    (s: RootState) => s.auth?.currentUser?.id
-  );
   const companies = contact?.company;
 
 
@@ -55,12 +50,12 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
 
   const columns = [
     { accessorKey: "title", header: "Title" },
-    { accessorKey: "description", header: "Description", Cell: ({ cell }: any) => cell.getValue() || "-NA-" },
+    { accessorKey: "description", header: "Description", cell: ({ cell }: any) => cell.getValue() || "-NA-" },
   
     {
       accessorKey: "assignedToId",
       header: "Assigned To",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const employee = allEmplooyees?.find(
           (e: any) => e.employeeId === row.original.assignedToId
         );
@@ -68,21 +63,21 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
       },
     },
   
-    { accessorKey: "leadType", header: "Lead Type", Cell: ({ cell }: any) => cell.getValue() || "-NA-" },
-    { accessorKey: "leadSource", header: "Lead Source", Cell: ({ cell }: any) => cell.getValue() || "-NA-" },
+    { accessorKey: "leadType", header: "Lead Type", cell: ({ cell }: any) => cell.getValue() || "-NA-" },
+    { accessorKey: "leadSource", header: "Lead Source", cell: ({ cell }: any) => cell.getValue() || "-NA-" },
   
     // companyId → company object (not array)
     {
       accessorKey: "companyId",
       header: "Company",
-      Cell: () => companies?.companyName || "-NA-",
+      cell: () => companies?.companyName || "-NA-",
     },
   
     // statusId → lookup from statuses
     {
       accessorKey: "statusId",
       header: "Status",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const status = statuses?.find((s: any) => s.id === row.original.statusId);
         if (!status) return "-NA-";
         const hex = status.color?.startsWith("#") ? status.color : `#${status.color}`;
@@ -100,13 +95,13 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
       },
     },
   
-    { accessorKey: "priority", header: "Priority", Cell: ({ cell }: any) => cell.getValue() || "-NA-" },
+    { accessorKey: "priority", header: "Priority", cell: ({ cell }: any) => cell.getValue() || "-NA-" },
   
     // budget as INR
     {
       accessorKey: "budget",
       header: "Budget",
-      Cell: ({ cell }: { cell: any }) => {
+      cell: ({ cell }: { cell: any }) => {
         const amt = parseFloat(cell.getValue() ?? "");
         return isNaN(amt)
           ? "-NA-"
@@ -114,13 +109,13 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
       },
     },
   
-    { accessorKey: "notes", header: "Notes", Cell: ({ cell }: any) => cell.getValue() || "-NA-" },
+    { accessorKey: "notes", header: "Notes", cell: ({ cell }: any) => cell.getValue() || "-NA-" },
   
     // Dates
     {
       accessorKey: "inquiryDate",
       header: "Inquiry Date",
-      Cell: ({ cell }: { cell: any }) => {
+      cell: ({ cell }: { cell: any }) => {
         const d = cell.getValue() as string | null;
         return d ? dayjs(d).format("DD-MM-YYYY") : "-NA-";
       },
@@ -128,7 +123,7 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
     {
       accessorKey: "startDate",
       header: "Start Date",
-      Cell: ({ cell }: { cell: any }) => {
+      cell: ({ cell }: { cell: any }) => {
         const d = cell.getValue() as string | null;
         return d ? dayjs(d).format("DD-MM-YYYY") : "-NA-";
       },
@@ -136,7 +131,7 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
     {
       accessorKey: "endDate",
       header: "End Date",
-      Cell: ({ cell }: { cell: any }) => {
+      cell: ({ cell }: { cell: any }) => {
         const d = cell.getValue() as string | null;
         return d ? dayjs(d).format("DD-MM-YYYY") : "-NA-";
       },
@@ -146,7 +141,7 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
     {
       accessorKey: "contactId",
       header: "Contact",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const contact = contacts?.find((c: any) => c.id === row.original.contactId);
         return contact?.fullName || "-NA-";
       },
@@ -156,7 +151,7 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
     {
       accessorKey: "createdById",
       header: "Created By",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const employee = allEmplooyees?.find(
           (e: any) => e.employeeId === row.original.createdById
         );
@@ -169,7 +164,7 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
     {
       accessorKey: "updatedById",
       header: "Updated By",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const employee = allEmplooyees?.find(
           (e: any) => e.employeeId === row.original.updatedById
         );
@@ -194,69 +189,19 @@ const ContactLeadsOverview: React.FC<{ contact: any }> = ({ contact }) => {
         badge={{ label: `${leadCount}` }}
       >
         <div style={{ marginTop: SP.md }}>
-          <MaterialTable
+          <DataTable
+            caption="Contact Leads"
             data={contact?.leads || []}
             columns={columns}
-            tableName="Contact Leads"
-            employeeId={employeeId}
-            muiTableProps={{
-              sx: {
-                borderCollapse: "separate",
-                borderSpacing: "0 8px !important",
-                '& .MuiTableHead-root': {
-                  '& .MuiTableCell-root': {
-                    backgroundColor: C.bgSection,
-                    borderRadius: `${RADIUS.sm} ${RADIUS.sm} 0 0`,
-                    fontWeight: 600,
-                    fontSize: '13px',
-                    color: C.textPrimary,
-                    fontFamily: FONT.body,
-                    borderBottom: `1px solid ${C.border}`,
-                    padding: '12px 16px !important',
-                  },
-                },
-              },
-              muiTableBodyRowProps: ({ row }: any) => {
-                const status = statuses?.find((s: any) => s.id === row.original.statusId);
-                if (!status) return {};
-
-                const hex = status.color?.startsWith("#")
-                  ? status.color
-                  : `#${status.color}`;
-
-                return {
-                  sx: {
-                    cursor: "pointer",
-                    backgroundColor: `${hex}25`,
-                    color: C.textPrimary,
-                    padding: "8px !important",
-                    borderRadius: RADIUS.lg,
-                    border: `1px solid ${hex}40`,
-                    transition: 'all 0.2s ease',
-
-                    "& .MuiTableCell-root": {
-                      fontSize: "13px",
-                      fontFamily: FONT.body,
-                      fontWeight: "400",
-                      padding: "10px 14px !important",
-                      border: 'none',
-                      color: C.textPrimary,
-                    },
-
-                    "&:hover": {
-                      backgroundColor: `${hex}40`,
-                      boxShadow: `0 4px 12px ${hex}30`,
-                      border: `1px solid ${hex}60`,
-                      transform: 'translateY(-1px)',
-                      "& td": {
-                        color: C.textPrimary,
-                        fontWeight: 500,
-                      },
-                    },
-                  },
-                };
-              },
+            getRowId={(r: any) => r.id}
+            stateKey="crm.contactLeads"
+            groupableColumns={false}
+            rowTone={(r: any) => {
+              const status = statuses?.find((s: any) => s.id === r.statusId);
+              if (!status?.color) return undefined;
+              return status.color.startsWith("#") ? status.color : `#${status.color}`;
             }}
+            searchPlaceholder="Search leads…"
           />
         </div>
       </ConfigSectionCard>

@@ -1,8 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { MRT_ColumnDef } from 'material-react-table';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { Lock, Plus, RefreshCw, X } from 'lucide-react';
 import { usePermission } from '@hooks/usePermission';
-import { KTIcon } from '@metronic/helpers';
 
 import {
   fetchDelegations,
@@ -15,6 +13,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { ToneChip, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { Button } from '@/ds/ui/button';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
 
 type EmployeeOption = { id: string; name: string; employeeCode?: string | null };
 
@@ -276,12 +275,12 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
     }
   };
 
-  const columns = useMemo<MRT_ColumnDef<Delegation>[]>(() => [
+  const columns = useMemo<ColumnDef<Delegation>[]>(() => [
     {
       accessorKey: 'originalApprover',
       header: 'Original Approver',
       size: 180,
-      Cell: ({ row }) => (
+      cell: ({ row }) => (
         <span className='text-dark fw-semibold fs-6'>{empName(row.original.originalApprover)}</span>
       ),
     },
@@ -289,7 +288,7 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
       accessorKey: 'delegateTo',
       header: 'Delegate To',
       size: 180,
-      Cell: ({ row }) => (
+      cell: ({ row }) => (
         <span className='text-dark fw-semibold fs-6'>{empName(row.original.delegateTo)}</span>
       ),
     },
@@ -297,27 +296,27 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
       accessorKey: 'startDate',
       header: 'Start',
       size: 110,
-      Cell: ({ row }) => <span className='text-muted fs-7'>{formatDate(row.original.startDate)}</span>,
+      cell: ({ row }) => <span className='text-muted fs-7'>{formatDate(row.original.startDate)}</span>,
     },
     {
       accessorKey: 'endDate',
       header: 'End',
       size: 110,
-      Cell: ({ row }) => <span className='text-muted fs-7'>{formatDate(row.original.endDate)}</span>,
+      cell: ({ row }) => <span className='text-muted fs-7'>{formatDate(row.original.endDate)}</span>,
     },
     {
       accessorKey: 'reason',
       header: 'Reason',
       size: 220,
-      Cell: ({ row }) => (
+      cell: ({ row }) => (
         <span className='text-muted fs-7'>{row.original.reason || '—'}</span>
       ),
     },
     {
-      accessorKey: 'status',
+      id: 'status',
       header: 'Status',
       size: 110,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const d = row.original;
         const now = new Date();
         const inWindow = new Date(d.startDate) <= now && now <= new Date(d.endDate);
@@ -334,21 +333,22 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
       },
     },
     {
-      accessorKey: 'actions',
+      id: 'actions',
       header: 'Actions',
       size: 100,
       enableSorting: false,
-      Cell: ({ row }) => {
+      meta: { export: false, pin: 'end' },
+      cell: ({ row }) => {
         const d = row.original;
         if (!d.isActive) return null;
         const isCancelling = cancellingId === d.id;
         return (
-          <Button variant="tinted" size="sm" type="submit"
+          <Button variant="tinted" size="sm" type="button"
             className="[--tint:var(--cta-danger)]"
             disabled={isCancelling}
             onClick={() => handleCancel(d.id)}
           >
-            {isCancelling ? <span className='spinner-border spinner-border-sm' /> : <KTIcon iconName='cross' className='fs-6' />}
+            {isCancelling ? <span className='spinner-border spinner-border-sm' /> : <X className="size-4" aria-hidden />}
             Cancel
           </Button>
         );
@@ -360,7 +360,7 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
     return (
       <div className='card'>
         <div className='card-body d-flex flex-column align-items-center justify-content-center py-20'>
-          <KTIcon iconName='lock' className='fs-3x text-muted mb-4' />
+          <Lock className='mb-4 size-10 text-muted-foreground' aria-hidden />
           <span className='text-muted fs-6'>You do not have permission to manage delegations.</span>
         </div>
       </div>
@@ -371,26 +371,27 @@ function DelegationsTable({ mode }: DelegationsTableProps) {
     <>
       <div className='d-flex align-items-center justify-content-end pt-0 pb-4'>
         <div className='d-flex gap-2'>
-          <Button variant="tinted" size="sm" type="submit"
+          <Button variant="tinted" size="sm" type="button"
             onClick={load}
             disabled={loading}
           >
-            <KTIcon iconName='arrows-circle' className='fs-5' />
+            <RefreshCw className="size-4" aria-hidden />
             {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
-          {mode === 'my' && <Button size="sm" type="submit" onClick={() => setShowCreate(true)}>
-            <KTIcon iconName='plus' className='fs-5' />
+          {mode === 'my' && <Button size="sm" type="button" onClick={() => setShowCreate(true)}>
+            <Plus className="size-4" aria-hidden />
             New Delegation
           </Button>}
         </div>
       </div>
 
-      <MaterialTable
-        data={delegations}
+      <DataTable
+        caption="Delegations"
         columns={columns}
-        tableName='Delegations'
-        hideFilters={false}
-        hideExportCenter
+        data={delegations}
+        getRowId={(r) => r.id}
+        loading={loading}
+        stateKey="Delegations"
       />
 
       <CreateDelegationModal

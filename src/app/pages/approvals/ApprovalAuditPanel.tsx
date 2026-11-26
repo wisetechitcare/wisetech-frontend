@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSelector } from 'react-redux';
-import type { RootState } from '@redux/store';
 import { fetchApprovalAudit } from '@services/employee';
 import { usePermission } from '@hooks/usePermission';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
 
 interface AuditEntry {
   id: string;
@@ -36,30 +34,29 @@ function fmt(d: string) {
 
 function ApprovalAuditPanel({ instanceId }: Props) {
   const canAudit = usePermission('approvals.audit.all');
-  const currentUserId = useSelector((s: RootState) => s.auth?.currentUser?.id);
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   // Cells render exactly what the hand-written <table> rendered; the row data is
   // already flat (real dates/numbers/strings), so sort + search work on values.
-  const columns = useMemo(() => [
+  const columns = useMemo<ColumnDef<AuditEntry>[]>(() => [
     {
       accessorKey: 'createdAt',
       header: 'Time',
-      Cell: ({ cell }: any) => (
-        <span style={{ color: '#a1a5b7', whiteSpace: 'nowrap' }}>{fmt(cell.getValue())}</span>
+      cell: ({ cell }) => (
+        <span style={{ color: '#a1a5b7', whiteSpace: 'nowrap' }}>{fmt(cell.getValue() as string)}</span>
       ),
     },
     {
       accessorKey: 'actorName',
       header: 'Actor',
-      Cell: ({ cell }: any) => <span style={{ fontWeight: 600, color: '#181c32' }}>{cell.getValue()}</span>,
+      cell: ({ cell }) => <span style={{ fontWeight: 600, color: '#181c32' }}>{String(cell.getValue() ?? '')}</span>,
     },
     {
       accessorKey: 'action',
       header: 'Action',
-      Cell: ({ cell }: any) => {
+      cell: ({ cell }) => {
         const action = cell.getValue() as string;
         const s = ACTION_STYLE[action] ?? { bg: '#f5f5f5', color: '#a1a5b7' };
         return (
@@ -76,14 +73,14 @@ function ApprovalAuditPanel({ instanceId }: Props) {
     {
       accessorKey: 'level',
       header: 'Level',
-      Cell: ({ cell }: any) => (
+      cell: ({ cell }) => (
         <span style={{ color: '#3f4254' }}>{cell.getValue() != null ? `L${cell.getValue()}` : '—'}</span>
       ),
     },
     {
       accessorKey: 'comments',
       header: 'Notes',
-      Cell: ({ cell }: any) => {
+      cell: ({ cell }) => {
         const comments = cell.getValue() as string | null;
         return (
           <span style={{ color: '#a1a5b7', fontStyle: comments ? 'italic' : 'normal' }}>
@@ -146,14 +143,17 @@ function ApprovalAuditPanel({ instanceId }: Props) {
         Audit Trail
       </div>
 
-      <MaterialTable
-        tableName="ApprovalAudit"
-        employeeId={currentUserId}
-        data={logs}
+      <DataTable
+        caption="Approval Audit"
         columns={columns}
-        hidePagination
-        hideExportCenter
-        enableColumnActions={false}
+        data={logs}
+        getRowId={(r) => r.id}
+        stateKey="ApprovalAudit"
+        tools={false}
+        initialPageSize={100}
+        groupableColumns={false}
+        reorderableColumns={false}
+        pinnableColumns={false}
       />
     </div>
   );

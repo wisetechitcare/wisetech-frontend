@@ -7,7 +7,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { IncrementRecord } from '@services/incrementService';
 import { formatCurrencyDecimal } from '@utils/currency';
 import { T } from '@app/modules/common/components/ui/tokens';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { resourceNameMapWithCamelCase } from '@constants/statistics';
 import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 
@@ -28,7 +29,7 @@ const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, o
         {
             accessorKey: 'effectiveDate',
             header: 'Effective Date',
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <Typography sx={{ color: T.color.ink, fontWeight: 600, fontSize: '0.9rem' }}>
                     {dayjs(row.original.effectiveDate).format('DD MMM YYYY')}
                 </Typography>
@@ -37,7 +38,7 @@ const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, o
         {
             accessorKey: 'previousSalary',
             header: 'Previous Salary',
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <Typography sx={{ color: T.color.inkSoft, fontSize: '0.9rem', ...blurStyle }}>
                     {formatCurrencyDecimal(row.original.previousSalary)}
                 </Typography>
@@ -46,7 +47,7 @@ const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, o
         {
             accessorKey: 'newSalary',
             header: 'New Salary',
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <Typography sx={{ color: T.color.ink, fontWeight: 700, fontSize: '0.9rem', ...blurStyle }}>
                     {formatCurrencyDecimal(row.original.newSalary)}
                 </Typography>
@@ -55,7 +56,7 @@ const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, o
         {
             accessorKey: 'incrementAmount',
             header: 'Increment',
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ...blurStyle }}>
                     <Typography sx={{ color: T.color.success, fontWeight: 700, fontSize: '0.9rem' }}>
                         +{formatCurrencyDecimal(row.original.incrementAmount)}
@@ -75,7 +76,7 @@ const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, o
             accessorKey: 'actions',
             header: 'Actions',
             enableSorting: false,
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <Box>
                     <Tooltip title="View details">
                         <WtIconButton size="small" onClick={() => onView(row.original)} sx={{ color: T.color.inkSoft }}>
@@ -103,21 +104,17 @@ const IncrementTable = ({ data, loading, showSensitiveData, fromAdmin, onView, o
     ], [showSensitiveData, fromAdmin, onView, onEdit, onDelete]);
 
     return (
-        <MaterialTable
-            tableName="incrementHistory"
-            data={data}
-            columns={columns}
-            isLoading={loading}
-            resource={resourceNameMapWithCamelCase.increment}
-            viewOwn={!fromAdmin}
-            viewOthers={fromAdmin}
-            hideExportCenter
-            defaultSorting={[{ id: 'effectiveDate', desc: true }]}
-            muiTablePaperStyle={{
-                borderRadius: `${T.radius.lg}px`,
-                border: `1px solid ${T.color.line}`,
-                boxShadow: T.shadow.card,
-            }}
+        <DataTable
+          caption="Increment History"
+          columns={columns as any}
+          data={data}
+          getRowId={(r: any, i) => String(r.id ?? i)}
+          loading={loading}
+          initialSorting={[{ id: "effectiveDate", desc: true }]}
+          stateKey="salary.incrementHistory"
+          groupableColumns={false}
+          tools={false}
+          searchPlaceholder="Search…"
         />
     );
 };

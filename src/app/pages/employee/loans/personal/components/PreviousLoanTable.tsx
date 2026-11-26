@@ -1,11 +1,12 @@
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { LoanType, resourceNameMapWithCamelCase, Status } from '@constants/statistics';
 import { KTIcon } from '@metronic/helpers';
 import { RootState } from '@redux/store';
 import { fetchEmployeeLoans } from '@services/employee';
 import { getCompletionAmountOfLoanByLoanIdAndEndDate } from '@utils/statistics';
 import dayjs from 'dayjs';
-import { MRT_ColumnDef } from 'material-react-table';
+
 import React, { useEffect, useMemo, useState } from 'react'
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -48,63 +49,63 @@ function PreviousLoanTable({ completeLoanData }: { completeLoanData: any[] }) {
         getThePreviousLoansData()
     }, [completeLoanData])
 
-    const columns = useMemo<MRT_ColumnDef<any>[]>(
+    const columns = useMemo<ColumnDef<any>[]>(
         () => [
             {
                 accessorKey: "loanAmount",
                 header: "Loan Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "paidAmt",
                 header: "Paid Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "pendingAmt",
                 header: "Pending Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "status",
                 header: "Status",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "loanStartDate",
                 header: "Loan Start Date",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "loanEndDate",
                 header: "Loan End Date",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "loanType",
                 header: "Loan Type",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "loanDuration",
                 header: "Loan Duration",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ cell }) => {
+                cell: ({ cell }) => {
                     const duration = cell.getValue<number>();
                     return duration ? `${duration} Months` : "N/A";
                 }
@@ -114,7 +115,7 @@ function PreviousLoanTable({ completeLoanData }: { completeLoanData: any[] }) {
                 header: "Actions",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ row }: any) => {
+                cell: ({ row }: any) => {
                     //   const resEdit = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOwn, row?.original);
                     //   const resDelete = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
                     return (
@@ -131,26 +132,17 @@ function PreviousLoanTable({ completeLoanData }: { completeLoanData: any[] }) {
     );
 
     return (
-        <MaterialTable
-            columns={columns}
-            data={loanData}
-            muiTableProps={{
-                sx: {
-                    "& .MuiTableBody-root .MuiTableCell-root": {
-                        borderBottom: "none",
-                        paddingY: "5px",
-                    },
-                    "& .MuiTableBody-root .MuiTableRow-root": {
-                        // padding: '0px',
-                    },
-                },
-            }}
-            tableName="Previous Loan Data"
-            resource={resourceNameMapWithCamelCase.loan}
-            viewOwn={true}
-            viewOthers={true}
-            employeeId={employeeIdCurrent}
-        />
+        <DataTable
+        caption="Previous Loan Data"
+        columns={columns}
+        data={loanData}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.personal.previous"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
+      />
     )
 }
 

@@ -957,12 +957,11 @@ export const AddressSection: React.FC<LeadSectionsProps> = (props) => {
                           isRequired={false}
                         />
                       </Grid>
-                      {/* Field stays `zipCode` — that is what the save payload and the
-                          Yup schema read; only the label follows Indian usage. */}
+                      {/* Field stays `zipCode` in the payload; product label is Postal Code (SSOT). */}
                       <Grid item xs={12} md={6}>
                         <TextInput
                           formikField={`addresses.${index}.zipCode`}
-                          label="Pincode"
+                          label="Postal Code"
                           isRequired={false}
                         />
                       </Grid>

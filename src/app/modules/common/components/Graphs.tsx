@@ -26,8 +26,9 @@ import Identifiers from '../utils/Identifiers';
 import { ATTENDANCE_STATUS, LEAVE_STATUS, LeaveStatus, WORKING_METHOD_TYPE } from '@constants/attendance';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { CustomLeaves, IAttendance, IAttendanceRequests } from '@models/employee';
-import { MRT_ColumnDef } from 'material-react-table';
-import MaterialTable from './MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
+import { RowAction } from '@/ds/patterns/row-action';
 import { convertMinutesIntoHrMinFormat, convertToIST, convertToTime, markWeekendOrHoliday, markWeekendOrHolidayForReportsTable } from '@utils/statistics';
 import { useDispatch, useSelector } from 'react-redux';
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, Status, weekDays } from '@constants/statistics';
@@ -48,13 +49,13 @@ import { fetchAttendanceClassification } from '@services/employee';
 import { formatTimeString } from '@utils/date';
 import { toCalendarKey } from '@utils/calendarKey';
 import { AttendanceCorrectionDialog } from '@app/modules/common/components/attendance/AttendanceCorrectionDialog';
+import { Map as MapIcon, Pencil, Trash2 } from 'lucide-react';
 import { LEAVE_MANAGEMENT } from '@constants/configurations-key';
 import { fetchAppSettings } from '@redux/slices/appSettings';
 import { loadAllEmployeesIfNeeded } from '@redux/slices/allEmployees';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { useTimeFormat } from '@hooks/useTimeFormat';
 import { getTimeTokens } from '@utils/timeFormat';
-import { Button } from '@/ds/ui/button';
 import { SmartAvatar } from '@/ds/ui/smart-avatar';
 
 // Attendance records carry `formattedDate` as "DD/MM/YYYY" (IST). Convert to ISO "YYYY-MM-DD"
@@ -1547,20 +1548,20 @@ export const StatisticsTable = ({
         [attendance, allWeekends, allHolidays]
     );
 
-    // Don't slice data here - let MaterialTable handle pagination internally
+    // Don't slice data here - let DataTable handle pagination internally
     // when manualPagination is false, or handle it externally when true
     const paginatedData = useMemo(() => {
         return isWeekendOrHoliday;
     }, [isWeekendOrHoliday]);
 
-    const columns = useMemo<MRT_ColumnDef<IAttendance>[]>(() => [
+    const columns = useMemo<ColumnDef<any>[]>(() => [
         {
             accessorKey: "date",
             header: "Date",
             size: 150,
             minSize: 130,
             maxSize: 180,
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const date = row.original.date;
                 const day = row.original.day;
                 return (
@@ -1582,7 +1583,7 @@ export const StatisticsTable = ({
                 row.workingMethod,
                 row.checkInLocation
             ),
-            Cell: ({ row }: { row: any }) => {
+            cell: ({ row }) => {
                 const employee = row.original;
                 const checkIn = employee.checkIn;
                 const displayTime =
@@ -1651,7 +1652,7 @@ export const StatisticsTable = ({
                 row.checkoutWorkingMethod ?? row.checkoutWokringMethod,
                 row.checkOutLocation
             ),
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const employee = row.original;
                 const checkOut = employee.checkOut;
                 const checkoutMethod =
@@ -1671,8 +1672,8 @@ export const StatisticsTable = ({
                 const coords = resolveAttendanceCoordinates(
                     employee.id,
                     location,
-                    employee.checkOutLatitude,
-                    employee.checkOutLongitude,
+                    (employee as any).checkOutLatitude,
+                    (employee as any).checkOutLongitude,
                     false
                 );
 
@@ -1758,11 +1759,11 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row, renderedCellValue }: any) => (
+            cell: ({ row, getValue }) => (
                 <AttendanceDurationCell
-                    duration={renderedCellValue as string}
+                    duration={getValue() as string}
                     checkOut={row.original.checkOut}
-                    skipIncompleteHighlight={row.original.isWeekendOrHoliday}
+                    skipIncompleteHighlight={(row.original as any).isWeekendOrHoliday}
                 />
             ),
         },
@@ -1772,7 +1773,8 @@ export const StatisticsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row, renderedCellValue }: any) => {
+            cell: ({ row, getValue }) => {
+                const renderedCellValue = getValue() as string | null | undefined;
                 if (!renderedCellValue) return null;
 
                 const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND, RAISE_REQUEST, ADMIN_RAISE_REQUEST, ON_LEAVE, HOLIDAY, LEAVE_TYPE } = ATTENDANCE_STATUS;
@@ -1803,9 +1805,9 @@ export const StatisticsTable = ({
                 // e.g. "Present (Admin Raised: John Doe)". Colour still keys off the raw
                 // status value. Falls back to the plain label if the name isn't resolved
                 // (e.g. older requests raised before the admin id was captured).
-                let label = renderedCellValue as string;
+                let label = renderedCellValue;
                 if (renderedCellValue === ADMIN_RAISE_REQUEST) {
-                    const adminName = employeeNameMap.get(row?.original?.raisedById);
+                    const adminName = employeeNameMap.get((row.original as any)?.raisedById);
                     if (adminName) label = `Present (Admin Raised: ${adminName})`;
                 }
 
@@ -1870,12 +1872,13 @@ export const StatisticsTable = ({
         // },        
 
         ...(!fromAdmin ? [{
-            accessorKey: "actions",
+            id: "actions",
             header: "Actions",
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row }: any) => {
+            enableSorting: false,
+            cell: ({ row }: any) => {
                 const res = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.create);
                 /**
                  * TODAY only, deliberately. This table corrects the day in progress; a past
@@ -1884,94 +1887,66 @@ export const StatisticsTable = ({
                  * here too would be a second entry point to the same action.
                  */
                 const isPastDate = dayjs(row?.original?.date).isBefore(dayjs(), 'day');
-                return !(row?.original?.id == "-") && res && !isPastDate ?
-                    < Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit" onClick={() => raiseRequest(row?.original)} >
-                        <KTIcon iconName='pencil' className='fs-3' />
-                    </Button > : 'Not Allowed'
+                return !(row?.original?.id == "-") && res && !isPastDate ? (
+                    <RowAction label="Edit" size="icon-sm" onClick={() => raiseRequest(row.original)}>
+                        <Pencil className="size-4" aria-hidden />
+                    </RowAction>
+                ) : 'Not Allowed';
             },
-        }] : []),
+        } as ColumnDef<any>] : []),
     ], [location, lateCheckInThreshold, earlyCheckOutThreshold, allEmployeeThresholds, leaveConfiguration, backendLateDates, backendDatesReady]);
 
 
     return (
         <>
-            <MaterialTable
+            <DataTable
+                caption="Attendance Report"
                 columns={columns}
                 data={paginatedData}
-                employeeId={stableEmployeeId}
-                tableName="Report"
-                resource={resource}
-                viewOwn={viewOwn}
-                viewOthers={viewOthers}
-                checkOwnWithOthers={checkOwnWithOthers}
-                manualPagination={manualPagination}
-                rowCount={rowCount || isWeekendOrHoliday.length}
-                onPaginationChange={onPaginationChange}
-                paginationState={paginationState}
-                isLoading={isLoading}
-                muiTableProps={{
-                    muiTableBodyRowProps: ({ row }) => {
-                        const status = row.original?.status ?? "";
-                        const { ANNUAL_LEAVE, CASUAL_LEAVE, FLOATER_LEAVE, MATERNAL_LEAVE, SICK_LEAVE, UNPAID_LEAVE } = ATTENDANCE_STATUS.LEAVE_TYPE;
-                        const statusColors: Record<string, string> = {
-                            [ATTENDANCE_STATUS.PRESENT]: colorValuesForAttendanceCalendar?.presentColor || "#28a745",
-                            [ATTENDANCE_STATUS.ABSENT]: colorValuesForAttendanceCalendar?.absentColor || "#dc3545",
-                            [ATTENDANCE_STATUS.WEEKEND]: colorValuesForAttendanceCalendar?.weekendColor || "#6c757d",
-                            [ATTENDANCE_STATUS.WORKING_WEEKEND]: colorValuesForAttendanceCalendar?.workingWeekendColor || "#6610f2",
-                            [ATTENDANCE_STATUS.CHECK_OUT_MISSING]: missingColor?.missingCheckoutColor || '#ffff',
-                            [ATTENDANCE_STATUS.RAISE_REQUEST]: colorValuesForAttendanceCalendar?.markedPresentViaRequestRaisedColor || '#6610f2',
-                            [ATTENDANCE_STATUS.ADMIN_RAISE_REQUEST]: colorValuesForAttendanceCalendar?.adminRaisedRequestColor || '#F97316',
-                            [ATTENDANCE_STATUS.LEAVE]: colorValuesForAttendanceCalendar?.onLeaveColor || '#6610f2',
-                            [ATTENDANCE_STATUS.CHECK_IN_MISSING]: missingColor?.missingCheckoutColor || '#6610f2',
-                            // Singular keys (ATTENDANCE_STATUS.LEAVE_TYPE constants)
-                            [ANNUAL_LEAVE]: leaveTypesColor?.annualLeaveColor || "#2ECC71",
-                            [CASUAL_LEAVE]: leaveTypesColor?.casualLeaveColor || "#3498DB",
-                            [FLOATER_LEAVE]: leaveTypesColor?.floaterLeaveColor || "#F39C12",
-                            [SICK_LEAVE]: leaveTypesColor?.sickLeaveColor || "#E74C3C",
-                            [UNPAID_LEAVE]: leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
-                            [MATERNAL_LEAVE]: leaveTypesColor?.maternalLeaveColor || "#9B59B6",
-                            // Plural keys — DB stores "Annual Leaves", "Sick Leaves" etc. (with trailing 's').
-                            // Both singular and plural must be present so row background works regardless of source.
-                            'Annual Leaves': leaveTypesColor?.annualLeaveColor || "#2ECC71",
-                            'Casual Leaves': leaveTypesColor?.casualLeaveColor || "#3498DB",
-                            'Floater Leaves': leaveTypesColor?.floaterLeaveColor || "#F39C12",
-                            'Sick Leaves': leaveTypesColor?.sickLeaveColor || "#E74C3C",
-                            'Unpaid Leaves': leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
-                            'Maternal Leaves': leaveTypesColor?.maternalLeaveColor || "#9B59B6",
-                            [ATTENDANCE_STATUS.HOLIDAY]: colorValues?.holidayColor || "#28a745",
-                            [ATTENDANCE_STATUS.ON_LEAVE]: colorValuesForAttendanceCalendar?.onLeaveColor || "#dc3545",
-                        };
-
-                        // Tint all rows uniformly — 15% opacity of the status colour.
-                        // Previously CHECK_OUT_MISSING was forced to white, which broke
-                        // the visual rhythm. Now every status gets the same tint treatment.
-                        const bgColor = statusColors[status] || null;
-                        const backgroundColor = bgColor ? `${bgColor}22` : 'transparent';
-                        const borderColor = statusColors[status] ?? 'transparent';
-
-                        return {
-                            sx: {
-                                backgroundColor,
-                                borderLeft: `4px solid ${borderColor}`,
-                                '&:hover td': { backgroundColor: bgColor ? `${bgColor}3a !important` : '#F8FAFC' },
-                                transition: 'background-color 0.15s ease-in-out',
-                                '& .MuiTableCell-root': {
-                                    padding: '11px 16px',
-                                    verticalAlign: 'middle',
-                                    textAlign: 'left',
-                                    fontSize: '13px',
-                                    // Ensure text is readable on any tinted background
-                                    color: '#1e293b',
-                                },
-                                // "—" dashes that use the muted helper class
-                                '& .attendance-duration-cell__muted': {
-                                    color: '#64748b',
-                                    fontWeight: 500,
-                                },
-                            }
-                        };
+                getRowId={(r, i) => String((r as any).id ?? `${r.date}-${i}`)}
+                stateKey="Report"
+                loading={isLoading}
+                groupableColumns={false}
+                {...(manualPagination
+                    ? {
+                        rowCount: rowCount ?? isWeekendOrHoliday.length,
+                        pagination: paginationState,
+                        onPaginationChange,
                     }
+                    : {})}
+                rowTone={(row) => {
+                    const status = row?.status ?? "";
+                    const { ANNUAL_LEAVE, CASUAL_LEAVE, FLOATER_LEAVE, MATERNAL_LEAVE, SICK_LEAVE, UNPAID_LEAVE } = ATTENDANCE_STATUS.LEAVE_TYPE;
+                    const statusColors: Record<string, string> = {
+                        [ATTENDANCE_STATUS.PRESENT]: colorValuesForAttendanceCalendar?.presentColor || "#28a745",
+                        [ATTENDANCE_STATUS.ABSENT]: colorValuesForAttendanceCalendar?.absentColor || "#dc3545",
+                        [ATTENDANCE_STATUS.WEEKEND]: colorValuesForAttendanceCalendar?.weekendColor || "#6c757d",
+                        [ATTENDANCE_STATUS.WORKING_WEEKEND]: colorValuesForAttendanceCalendar?.workingWeekendColor || "#6610f2",
+                        [ATTENDANCE_STATUS.CHECK_OUT_MISSING]: missingColor?.missingCheckoutColor || '#ffff',
+                        [ATTENDANCE_STATUS.RAISE_REQUEST]: colorValuesForAttendanceCalendar?.markedPresentViaRequestRaisedColor || '#6610f2',
+                        [ATTENDANCE_STATUS.ADMIN_RAISE_REQUEST]: colorValuesForAttendanceCalendar?.adminRaisedRequestColor || '#F97316',
+                        [ATTENDANCE_STATUS.LEAVE]: colorValuesForAttendanceCalendar?.onLeaveColor || '#6610f2',
+                        [ATTENDANCE_STATUS.CHECK_IN_MISSING]: missingColor?.missingCheckoutColor || '#6610f2',
+                        [ANNUAL_LEAVE]: leaveTypesColor?.annualLeaveColor || "#2ECC71",
+                        [CASUAL_LEAVE]: leaveTypesColor?.casualLeaveColor || "#3498DB",
+                        [FLOATER_LEAVE]: leaveTypesColor?.floaterLeaveColor || "#F39C12",
+                        [SICK_LEAVE]: leaveTypesColor?.sickLeaveColor || "#E74C3C",
+                        [UNPAID_LEAVE]: leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
+                        [MATERNAL_LEAVE]: leaveTypesColor?.maternalLeaveColor || "#9B59B6",
+                        'Annual Leaves': leaveTypesColor?.annualLeaveColor || "#2ECC71",
+                        'Casual Leaves': leaveTypesColor?.casualLeaveColor || "#3498DB",
+                        'Floater Leaves': leaveTypesColor?.floaterLeaveColor || "#F39C12",
+                        'Sick Leaves': leaveTypesColor?.sickLeaveColor || "#E74C3C",
+                        'Unpaid Leaves': leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
+                        'Maternal Leaves': leaveTypesColor?.maternalLeaveColor || "#9B59B6",
+                        [ATTENDANCE_STATUS.HOLIDAY]: colorValues?.holidayColor || "#28a745",
+                        [ATTENDANCE_STATUS.ON_LEAVE]: colorValuesForAttendanceCalendar?.onLeaveColor || "#dc3545",
+                    };
+                    return statusColors[status];
                 }}
+                toolbar={(ctx) => (
+                    <DataTableExport columns={columns} ctx={ctx} filename="Attendance Report" />
+                )}
             />
 
             {/* The ONE correction form — the same one the calendar, the open-request
@@ -2151,14 +2126,13 @@ export const ReportsTable = ({
     }, [employeeDeatils?.companyId, employeeDeatils?.branchId]);
 
 
-    const columns = [
+    const columns: ColumnDef<any>[] = [
         {
             accessorKey: "date",
             header: "Date",
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
         },
         {
             accessorKey: "day",
@@ -2166,7 +2140,6 @@ export const ReportsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
         },
         {
             accessorKey: "remarks",
@@ -2174,7 +2147,6 @@ export const ReportsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
         },
         {
             accessorKey: "status",
@@ -2182,7 +2154,8 @@ export const ReportsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => {
+            cell: ({ getValue }) => {
+                const renderedCellValue = getValue();
                 let statusText = '';
                 let backgroundColor = '';
 
@@ -2204,7 +2177,7 @@ export const ReportsTable = ({
                         backgroundColor = '#F39C12';
                         break;
                     default:
-                        return renderedCellValue;
+                        return renderedCellValue as string | number | null | undefined;
                 }
 
                 return (
@@ -2233,7 +2206,7 @@ export const ReportsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row }: { row: any }) => {
+            cell: ({ row }) => {
                 const employee = row.original;
                 const checkIn = employee.checkIn;
                 const displayTime =
@@ -2277,7 +2250,7 @@ export const ReportsTable = ({
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row }: { row: any }) => {
+            cell: ({ row }) => {
                 const checkOut = row.original.checkOut;
                 const displayTime =
                     checkOut && checkOut !== '-NA-'
@@ -2298,7 +2271,7 @@ export const ReportsTable = ({
             minSize: 100,
             maxSize: 150,
             meta: { defaultVisible: true },
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const renderedCellValue = row.original.workingMethod;
                 const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;
 
@@ -2308,7 +2281,7 @@ export const ReportsTable = ({
                     [REMOTE]: worktypeColorValues?.remoteColor || "#2ecc71",
                 };
 
-                const getIdentifier = (text: string, color: string) => (
+                const getIdentifier = () => (
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span
                             style={{
@@ -2324,11 +2297,11 @@ export const ReportsTable = ({
 
                 switch (renderedCellValue) {
                     case OFFICE:
-                        return getIdentifier('OFFICE', 'working-method-office');
+                        return getIdentifier();
                     case ON_SITE:
-                        return getIdentifier('ON-SITE', 'working-method-on-site')
+                        return getIdentifier();
                     case REMOTE:
-                        return getIdentifier('REMOTE', 'working-method-remote');
+                        return getIdentifier();
                     default:
                         return renderedCellValue;
                 }
@@ -2340,7 +2313,7 @@ export const ReportsTable = ({
             size: 180,
             minSize: 150,
             maxSize: 220,
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const { status, approvedById, rejectedById } = row.original;
                 const isApproved = status === LeaveStatus.Approved;
                 const isRejected = status === LeaveStatus.Rejected;
@@ -2373,43 +2346,39 @@ export const ReportsTable = ({
             },
         },
         ...(!fromAdmin ? [{
-            accessorKey: "actions",
+            id: "actions",
             header: "Actions",
             size: 120,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row }: any) => {
+            enableSorting: false,
+            cell: ({ row }: any) => {
                 const deleteRes = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
                 const isApproved = row.original.status === Status.Approved || row.original.statusNumber === Status.Approved;
                 const isPending = row.original.status === LeaveStatus.ApprovalPending;
                 const editRes = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.editOwn, row?.original);
                 return (
-                    <>
-                        {editRes && !isApproved && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
-                            onClick={() => raiseRequest(row?.original)}
-                        >
-                            <KTIcon iconName='pencil' className='fs-3' />
-                        </Button>}
-                        {deleteRes && !isApproved && <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
-                            className="ms-2"
-                            onClick={() => deleteRequest(row?.original)}
-                        >
-                            <KTIcon iconName='trash' className='fs-3' />
-                        </Button>}
+                    <div className="flex gap-1">
+                        {editRes && !isApproved && (
+                            <RowAction label="Edit" size="icon-sm" onClick={() => raiseRequest(row.original)}>
+                                <Pencil className="size-4" aria-hidden />
+                            </RowAction>
+                        )}
+                        {deleteRes && !isApproved && (
+                            <RowAction label="Delete" size="icon-sm" tint="danger" onClick={() => deleteRequest(row.original)}>
+                                <Trash2 className="size-4" aria-hidden />
+                            </RowAction>
+                        )}
                         {isPending && row.original.hasApprovalInstance && (
-                            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Track Approval"
-                                className="ms-2"
-                                title='Track Approval'
-                                onClick={() => openTracker(row.original.id)}
-                            >
-                                <KTIcon iconName='map' className='fs-3' />
-                            </Button>
+                            <RowAction label="Track Approval" size="icon-sm" onClick={() => openTracker(row.original.id)}>
+                                <MapIcon className="size-4" aria-hidden />
+                            </RowAction>
                         )}
                         {((!editRes && !deleteRes) || isApproved) && !isPending && "Not Allowed"}
-                    </>
+                    </div>
                 );
             },
-        }] : []),
+        } as ColumnDef<any>] : []),
     ];
 
     const raiseRequest = (attendance: any) => setEditRow(attendance);
@@ -2428,20 +2397,24 @@ export const ReportsTable = ({
 
     return (
         <>
-            <MaterialTable
-                resource={resource}
-                viewOwn={viewOwn}
-                viewOthers={viewOthers}
+            <DataTable
+                caption="Attendance Requests"
                 columns={columns}
                 data={attendanceRequestWithIsHolidayorWeekend}
-                tableName="Request"
-                employeeId={employeeId}
-                checkOwnWithOthers={checkOwnWithOthers}
-                manualPagination={manualPagination}
-                rowCount={rowCount}
-                onPaginationChange={onPaginationChange}
-                paginationState={paginationState}
-                isLoading={isLoading}
+                getRowId={(r, i) => String(r.id ?? `${r.date}-${i}`)}
+                stateKey="Request"
+                loading={isLoading}
+                groupableColumns={false}
+                {...(manualPagination
+                    ? {
+                        rowCount,
+                        pagination: paginationState,
+                        onPaginationChange,
+                    }
+                    : {})}
+                toolbar={(ctx) => (
+                    <DataTableExport columns={columns} ctx={ctx} filename="Attendance Requests" />
+                )}
             />
 
             {/* The ONE correction form, in edit mode. The old modal was seeded with the

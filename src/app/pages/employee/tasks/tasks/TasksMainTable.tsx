@@ -1,11 +1,9 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
 import StatusBadge from "@app/modules/common/components/StatusBadge";
-import { KTIcon } from "@metronic/helpers";
 import { getAllTasks, deleteTask, getTasksByProjectId, getAllTasksWithMetrics } from "@services/tasks";
 import React, { useEffect, useState, useCallback } from "react";
 import TaskFormDialog, { taskRowToDialogTask } from "@pages/employee/tasks/components/TaskFormDialog";
 import { useLocation, useNavigate } from "react-router-dom";
-import { deleteConfirmation, successConfirmation } from "@utils/modal";
+import { deleteConfirmation } from "@utils/modal";
 import dayjs from "dayjs";
 import Loader from "@app/modules/common/utils/Loader";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
@@ -13,7 +11,9 @@ import Tooltip from "react-bootstrap/Tooltip";
 import { PATH_SEPARATOR } from "@utils/presetTaskHierarchy";
 import { getTimeTokens } from '@utils/timeFormat';
 import { canDelete } from '@utils/can';
-import { Button as KitButton } from '@/ds/ui/button';
+import { Pencil, Trash2 } from "lucide-react";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { RowAction } from '@/ds/patterns/row-action';
 import { WtButton } from '@app/modules/common/components/ui/buttons';
 
 interface Props {
@@ -92,21 +92,32 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         handleTaskModalClose();
     };
 
+    const handleDeleteTask = async (task: any) => {
+        try {
+            const sure = await deleteConfirmation("Task deleted.");
+            if (!sure) return;
+            await deleteTask(task.id);
+            fetchTasks();
+        } catch (error) {
+            console.error('Error deleting task:', error);
+        }
+    };
+
     if(isLoading){
         return <Loader />;
     }
 
-    const columns = [
+    const columns: ColumnDef<any>[] = [
         {
             accessorKey: "serialNumber",
             header: "Sr. No.",
-            Cell: ({ row }: any) => row.index + 1,
+            cell: ({ row }) => row.index + 1,
             enableSorting: false,
         },
         {
             accessorKey: "taskName",
             header: "Task Name",
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 // The name is the task's own name (the selected node's), exactly as stored.
                 const taskName = row?.original?.taskName || "N/A";
                 // Ancestors only, derived server-side from the configuration link. Empty
@@ -159,7 +170,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         {
             accessorKey: "taskDescription",
             header: "Description",
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const taskDescription = row?.original?.taskDescription || "N/A";
 
                 return (
@@ -189,12 +200,12 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         {
             accessorKey: "project",
             header: "Project",
-            Cell: ({ row }: any) => row?.original?.project?.title || "N/A",
+            cell: ({ row }) => row?.original?.project?.title || "N/A",
         },
         {
             accessorKey: "status",
             header: "Status",
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const status = row?.original?.status;
                 if (!status || !status.name) return "N/A";
                 return <StatusBadge label={status.name} color={status.color || '#6c757d'} />;
@@ -203,7 +214,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         {
             accessorKey: "priority",
             header: "Priority",
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const priority = row?.original?.priority;
                 if (!priority || !priority.name) return "N/A";
                 return <StatusBadge label={priority.name} color={priority.color || '#6c757d'} />;
@@ -212,18 +223,18 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         {
             accessorKey: "assignedTo",
             header: "Assigned To",
-            Cell: ({ row }: any) => row?.original?.assignedTo?.users?.firstName + " " + row?.original?.assignedTo?.users?.lastName || "N/A",
+            cell: ({ row }) => row?.original?.assignedTo?.users?.firstName + " " + row?.original?.assignedTo?.users?.lastName || "N/A",
         },
         {
             accessorKey: "createdBy",
             header: "Created By",
-            Cell: ({ row }: any) =>
+            cell: ({ row }) =>
                 row?.original?.createdBy?.users?.firstName + " " + row?.original?.createdBy?.users?.lastName || "N/A",
         },
         {
             accessorKey: "startDate",
             header: "Start Date",
-            Cell: ({ row }: any) =>
+            cell: ({ row }) =>
                 row?.original?.startDate
                     ? dayjs(row.original.startDate).format("DD-MM-YYYY") + " " + dayjs(row.original.startTime).format(getTimeTokens().TIME)
                     : "N/A",
@@ -231,7 +242,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         {
             accessorKey: "dueDate",
             header: "Due Date",
-            Cell: ({ row }: any) =>
+            cell: ({ row }) =>
                 row?.original?.dueDate
                     ? dayjs(row.original.dueDate).format("DD-MM-YYYY") + " " + dayjs(row.original.dueTime).format(getTimeTokens().TIME)
                     : "N/A",
@@ -239,7 +250,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         {
             accessorKey: "completionDate",
             header: "Completion Date",
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const isCompleted = row?.original?.status?.name?.toLowerCase() === 'completed';
                 if (!isCompleted) return "N/A";
 
@@ -252,7 +263,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         {
             accessorKey: "cost",
             header: "Cost",
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const billingType = row?.original?.billingType;
                 if (billingType !== "BILLABLE") return "N/A";
 
@@ -263,7 +274,7 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         {
             accessorKey: "Billable",
             header: "Billable",
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const billingType = row?.original?.billingType;
 
                 if (billingType === "BILLABLE") {
@@ -281,51 +292,30 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
         {
             accessorKey: "totalTimeLog",
             header: "Total Log Time",
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
                 const taskMetric = tasksMetrics.find(metric => metric.id === row?.original?.id);
                 return taskMetric?.metrics?.totalLogTimeFormatted || "N/A";
             },
         },
         {
-            accessorKey: "actions",
+            id: "actions",
             header: "Actions",
-            Cell: ({ row }: any) => (
-                <div className="d-flex gap-2">
-                    <KitButton variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
-                        onClick={e => {
-                            e.stopPropagation();
-                            handleEditTask(row.original);
-                        }}
-                    >
-                        <KTIcon iconName="pencil" className="fs-2" />
-                    </KitButton>
+            enableSorting: false,
+            meta: { export: false, pin: "end" },
+            cell: ({ row }) => (
+                <div className="flex gap-2">
+                    <RowAction label="Edit" onClick={() => handleEditTask(row.original)}>
+                        <Pencil className="size-4" aria-hidden />
+                    </RowAction>
                     {canDelete('tasks') && (
-                    <KitButton variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
-                        onClick={e => {
-                            e.stopPropagation();
-                            handleDeleteTask(row.original);
-                        }}
-                    >
-                        <KTIcon iconName="trash" className="fs-2" />
-                    </KitButton>
+                    <RowAction label="Delete" tint="danger" onClick={() => handleDeleteTask(row.original)}>
+                        <Trash2 className="size-4" aria-hidden />
+                    </RowAction>
                     )}
                 </div>
             ),
         },
     ];
-
-    const handleDeleteTask = async (task: any) => {
-        try {
-            const sure = await deleteConfirmation("Task deleted.");
-            if (!sure) return;
-            await deleteTask(task.id);
-            fetchTasks();
-        } catch (error) {
-            console.error('Error deleting task:', error);
-        }
-    };
-
-
 
     const handleClose = () => {
         setOpen(false);
@@ -378,77 +368,18 @@ const TasksMainTable: React.FC<Props> = ({projectId}) => {
                     icon={<PauseCircleIcon sx={{ color: "green", fontSize: 48, mr: 1 }} />} 
                   
                  /> */}
-                    <MaterialTable
+                    <DataTable
+                        caption="Tasks"
                         columns={columns}
                         data={tasks}
-                        tableName="TasksMain"
-                        muiTableProps={{
-                            sx: {
-                                borderCollapse: 'separate',
-                                borderSpacing: '0 20px !important', // 20px vertical spacing between rows
-                                m: 0,
-                                p: 0
-                            },
-
-                            muiTableBodyRowProps: ({ row }) => ({
-
-                                sx: {
-                                    cursor: 'pointer',
-                                    backgroundColor: `${row.original?.status?.color}30`,
-                                    padding: '10px !important',
-                                    m: 0,
-                                    p: 0,
-
-                                    '& .MuiTableCell-root': {
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        fontSize: '14px',
-                                        fontFamily: 'Inter',
-                                        fontWeight: '400',
-                                        padding: '8px 16px !important',
-                                        borderBottom: "2px solid white",
-                                        borderTop: "2px solid white",
-                                        // '&:hover': {
-                                        //     backgroundColor: `${row.original?.status?.color}99`,
-                                        //     '& td': {
-                                        //         color: 'black',
-                                        //     },
-                                        // },
-                                    },
-                                    '& .MuiTableCell-root:first-of-type': {
-                                        borderTopLeftRadius: '12px',
-                                        borderBottomLeftRadius: '12px',
-                                        borderLeft: "3px solid white"
-
-                                    },
-                                    '& .MuiTableCell-root:last-of-type': {
-                                        borderTopRightRadius: '12px',
-                                        borderBottomRightRadius: '12px',
-                                        borderRight: "3px solid white"
-                                    },
-                                    '&:hover': {
-                                        backgroundColor: `${row.original?.status?.color}99`,
-                                        '& td': {
-                                            color: 'black',
-                                        },
-                                    },
-                                },
-                                onClick: () => {
-                                    navigate(`/tasks/${row.original.id}`, {
-                                      state: { leadData: row.original.id },
-                                    });
-                                  },
-
-                            }),
-
+                        getRowId={(r, i) => String(r.id ?? i)}
+                        stateKey="TasksMain"
+                        onRowClick={(row) => {
+                            navigate(`/tasks/${row.id}`, {
+                                state: { leadData: row.id },
+                            });
                         }}
-                        muiTablePaperStyle={{
-                            sx: {
-                                m: 0,
-                                p: 0,
-                            },
-                        }}
+                        rowLabel={(row) => row.taskName || `Task ${row.id}`}
                     />
 
                 {/* The one task form. This screen used the older one, so a task opened from a

@@ -709,7 +709,7 @@ export const OnboardingWorkspace: React.FC<OnboardingWorkspaceProps> = (props) =
     // ── Address ── (present address; `state` was the wrong key and never rendered)
     push("City", v.addressInfo?.presentCity);
     push("State", v.addressInfo?.presentState);
-    push("Pin Code", v.addressInfo?.presentPostalCode);
+    push("Postal Code", v.addressInfo?.presentPostalCode);
 
     // ── Employee Information ──
     push("Branch", named(lookups.branch, v.branchId));

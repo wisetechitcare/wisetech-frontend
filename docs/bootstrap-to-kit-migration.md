@@ -175,7 +175,7 @@ Suggested order:
 1. Employee list / profile chrome still on Bootstrap  
 2. Calendar / public holiday admin — **started 2026-10-12**: `CalendarConfigForm` → `ConfigureFormDialog`; Add/Edit holiday shells on `PublicHolidayListTwo` / `RenameHoliday` → `GlassDialog`; weekends modal → `ConfigureFormDialog`; dead Bootstrap import removed from `Holidays.tsx`. Inner `PublicHoliday` / `Holiday` forms still legacy.  
 3. Announcements admin — **done 2026-10-16**: delete confirmation → kit `confirmDialog` (create/edit already `AnnouncementFormDialog` / `GlassDialog`); `Announcements.tsx` off `react-bootstrap`  
-4. Org masters (designation, employee types, onboarding docs) that use Bootstrap Modal / `CommonModal`
+4. Org masters — **Designation + EmployeeTypes + OnboardingDocs done 2026-11-26**: create/edit → v2 `@/ds` `FormDialog` + Field/Input (+ Switch where needed); off `UnsavedChangesModal`
 
 ### Phase 4 — Pay / Workforce deep screens
 

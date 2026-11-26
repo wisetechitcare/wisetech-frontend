@@ -6,9 +6,9 @@ import { toSortableTime, dateSortingFn } from "./dateSort";
  * Was dateSort.check.ts — a standalone script needing `esbuild … | node`, which meant
  * nobody ran it. Same assertions, now part of `pnpm test`.
  *
- * Why this exists: MRT's default `sortingFn: 'auto'` sorts a display string
- * alphanumerically. It chunks "30/07/2024" into [30, 7, 2024] and orders by DAY OF MONTH
- * first; "DD MMM YYYY" is worse, because the month sorts alphabetically (Apr, Aug, Dec…).
+ * Why this exists: string/"auto" sort orders display dates alphanumerically
+ * (day-of-month first; Apr/Aug/Dec for month names). Kit DataTable date columns
+ * need an explicit chronological `sortFn`.
  */
 
 const t = (v: unknown) => toSortableTime(v);

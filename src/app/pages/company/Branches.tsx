@@ -19,11 +19,9 @@ import { PageHeader } from '@/ds/patterns/page-header'
 import { SearchSelect } from '@/ds/patterns/search-select'
 import { LocationFields } from '@/ds/patterns/location-fields'
 import {
-  createNewTowns,
   fetchAllCountries,
   fetchAllCurrencies,
   fetchAllStates,
-  fetchAllTowns,
   fetchCountryName,
   fetchStateName,
 } from '@services/options'
@@ -36,7 +34,9 @@ import {
   deleteBranchById,
   promoteBranchToSubOrg,
 } from '@services/company'
-import { geocodeAddress } from '@services/geocoding'
+import { geocodeAddress, searchPlaces, toGeoPick } from '@services/geocoding'
+import { geoTimezoneOptions } from '@services/platformTenants'
+import { PROVISION_LIMITS as L } from '@constants/provisionColumnLimits'
 import { successConfirmation, errorConfirmation, genericConfirmation } from '@utils/modal'
 import BranchEmployeesModal from '@app/modules/common/components/BranchEmployeesModal'
 import BiometricDevicesModal from '@app/modules/common/components/BiometricDevicesModal'
@@ -70,27 +70,34 @@ const branchesBreadCrumb: Array<PageLink> = [
   },
 ]
 
-/** Match branches.address VARCHAR(300) — same limit as platform Create Tenant. */
-const BRANCH_ADDRESS_MAX = 300
+/** Same caps as platform Create Tenant HO — do not hardcode a twin. */
+const BRANCH_ADDRESS_MAX = L.branchAddress
 
 const branchSchema = Yup.object({
-  name: Yup.string().required().label('Branch Name'),
+  name: Yup.string()
+    .required()
+    .max(L.branchName, `Branch Name must be at most ${L.branchName} characters`)
+    .label('Branch Name'),
   address: Yup.string()
     .required()
     .max(BRANCH_ADDRESS_MAX, `Branch Address must be at most ${BRANCH_ADDRESS_MAX} characters`)
     .label('Branch Address'),
   cityId: Yup.string().required().label('City'),
-  countryId: Yup.string().required().label('Town'),
+  countryId: Yup.string().required().label('Country'),
   stateId: Yup.string().required().label('State'),
-  townId: Yup.string().required().label('Town'),
-  postalCode: Yup.string().required().max(10).label('Postal Code'),
+  /** Legacy FK — optional; locality lives in the address line (top-SaaS). */
+  townId: Yup.string().optional().nullable().label('Town'),
+  postalCode: Yup.string()
+    .required()
+    .max(L.postalCode, `Postal Code must be at most ${L.postalCode} characters`)
+    .label('Postal Code'),
   latitude: Yup.string().required().label('Latitude'),
   longitude: Yup.string().required().label('Longitude'),
-  currency: Yup.string().optional().label('Currency'),
+  currency: Yup.string().max(L.currency).optional().label('Currency'),
   companyId: Yup.string(),
   isActive: Yup.boolean(),
   showDateIn12HourFormat: Yup.string().optional(),
-  timezone: Yup.string().optional().label('Timezone'),
+  timezone: Yup.string().max(L.timezone).optional().label('Timezone'),
 })
 
 // Curated set of major IANA timezones — one representative per business hub /
@@ -156,7 +163,8 @@ let initialState = {
   longitude: '',
   currency: '',
   companyId: '',
-  isActive: false,
+  /** Matches DB @default(true) and create payload; create also forces true. */
+  isActive: true,
   showDateIn12HourFormat: 'inherit',
   timezone: '',
 }
@@ -269,7 +277,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
   const [statesOption, setStatesOptions] = useState<{ value: string; label: string }[]>([])
   const [selectedState, setSelectedState] = useState<Option | null>(null)
 
-  const [townsOption, setTownsOptions] = useState<{ value: string; label: string }[]>([])
 
   const [currenciesOption, setCurrenciesOptions] = useState<{ value: string; label: string }[]>([])
   const [isDeviceNotDesktop, setIsDeviceNotDesktop] = useState(false)
@@ -387,7 +394,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       longitude: '',
       currency: '',
       companyId: companyForNew,
-      isActive: false,
+      isActive: true,
       showDateIn12HourFormat: 'inherit',
       timezone: '',
     }
@@ -492,6 +499,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
         }
         await updateBranchById(branchId, {
           ...values,
+          townId: values.townId || null,
           latitude: Number(values.latitude),
           longitude: Number(values.longitude),
           showDateIn12HourFormat: toBranchTimeFormat(values.showDateIn12HourFormat),
@@ -505,6 +513,7 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       const payload = [
         {
           ...values,
+          townId: values.townId || null,
           latitude: Number(values.latitude),
           longitude: Number(values.longitude),
           showDateIn12HourFormat: toBranchTimeFormat(values.showDateIn12HourFormat),
@@ -588,7 +597,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       setListReady(true)
     }
 
-    fetchTowns()
     fetchData()
   }, [loading, companyId])
 
@@ -601,13 +609,11 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
   const resolveCountryTimezones = (iso2: string | null | undefined): { options: { value: string; label: string }[] | null; defaultZone: string | null } => {
     if (!iso2 || !countries) return { options: null, defaultZone: null }
     const country = (countries as any[]).find((c: any) => c.iso2 === iso2)
-    const zones = country?.timezones as { name: string; utcOffsetStr: string }[] | undefined
-    if (!zones || zones.length === 0) return { options: null, defaultZone: null }
-
-    const options = [...zones]
-      .sort((a, b) => a.utcOffsetStr.localeCompare(b.utcOffsetStr))
-      .map((z) => ({ value: z.name, label: `(UTC${z.utcOffsetStr}) ${z.name}` }))
-    const defaultZone: string | null = country?.defaultTimezone || zones[0].name
+    const zones = country?.timezones
+    const options = geoTimezoneOptions(zones)
+    if (!options.length) return { options: null, defaultZone: null }
+    const defaultZone: string | null =
+      (typeof country?.defaultTimezone === 'string' && country.defaultTimezone) || options[0].value
     return { options, defaultZone }
   }
 
@@ -650,16 +656,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
     }
   }
 
-  const fetchTowns = async () => {
-    const townsResponse = await fetchAllTowns()
-    const townsOptions = townsResponse.data.towns.map((town: any) => ({
-      value: town.id,
-      label: town.name,
-    }))
-    setTownsOptions(townsOptions)
-    return townsOptions as { value: string; label: string }[]
-  }
-
   const fetchCurrencies = async () => {
     try {
       const currenciesResponse = await fetchAllCurrencies()
@@ -670,18 +666,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
       })))
     } catch (error) {
       console.error('Error fetching currencies:', error)
-    }
-  }
-
-  /** Inline create from the Town field: save the town, reload the list, select it. */
-  const createTown = async (name: string, formikProps: FormikProps<typeof initialState>) => {
-    try {
-      await createNewTowns({ companyId: '', towns: [name] })
-      const fresh = await fetchTowns()
-      const created = fresh.find((t) => t.label.toLowerCase() === name.toLowerCase())
-      if (created) formikProps.setFieldValue('townId', created.value, true)
-    } catch (err: any) {
-      errorConfirmation(err?.response?.data?.message || `Couldn't add ${name}. Try again.`)
     }
   }
 
@@ -818,7 +802,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                     err('countryId') ||
                       err('stateId') ||
                       err('cityId') ||
-                      err('townId') ||
                       err('postalCode') ||
                       err('latitude') ||
                       err('longitude') ||
@@ -833,7 +816,13 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                   <FieldSet>
                     <FieldLegend>Branch details</FieldLegend>
                     <AutoGrid min={220} stretch>
-                      <BranchTextField form={formikProps} name="name" label="Branch name" required />
+                      <BranchTextField
+                        form={formikProps}
+                        name="name"
+                        label="Branch name"
+                        required
+                        maxLength={L.branchName}
+                      />
                       <SearchSelect
                         id="branch-companyId"
                         label="Organization"
@@ -864,30 +853,49 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                     <FieldDescription>Address and coordinates validate on-site attendance check-ins.</FieldDescription>
                     <LocationFields
                       cityMode="text"
+                      showTimezone
                       showCurrency
                       currencyMode="select"
                       currencyOptions={currenciesOption}
                       addressMaxLength={BRANCH_ADDRESS_MAX}
+                      postalCodeMaxLength={L.postalCode}
+                      timezoneOptions={(() => {
+                        const list = countryTimezoneOptions ?? TIMEZONE_OPTIONS
+                        const tz =
+                          typeof v.timezone === 'string'
+                            ? v.timezone
+                            : v.timezone && typeof v.timezone === 'object' && 'name' in (v.timezone as object)
+                              ? String((v.timezone as { name: string }).name)
+                              : ''
+                        return tz && !list.some((z) => z.value === tz)
+                          ? [{ value: tz, label: tz }, ...list]
+                          : list
+                      })()}
                       value={{
                         countryId: v.countryId,
                         stateId: v.stateId,
                         cityId: v.cityId,
-                        townId: v.townId,
                         postalCode: v.postalCode,
                         address: v.address,
                         latitude: v.latitude,
                         longitude: v.longitude,
+                        timezone:
+                          typeof v.timezone === 'string'
+                            ? v.timezone
+                            : v.timezone && typeof v.timezone === 'object' && 'name' in (v.timezone as object)
+                              ? String((v.timezone as { name: string }).name)
+                              : '',
                         currency: v.currency,
                       }}
                       errors={{
                         countryId: err('countryId'),
                         stateId: err('stateId'),
                         cityId: err('cityId'),
-                        townId: err('townId'),
                         postalCode: err('postalCode'),
                         address: err('address'),
                         latitude: err('latitude'),
                         longitude: err('longitude'),
+                        timezone: err('timezone'),
                       }}
                       countryOptions={countriesOption}
                       stateOptions={
@@ -895,7 +903,6 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                           ? [selectedState, ...statesOption]
                           : statesOption
                       }
-                      townOptions={townsOption}
                       reuseAddress={(orgAddressById[v.companyId] || '').trim().slice(0, BRANCH_ADDRESS_MAX)}
                       onReuseAddress={() => {
                         const orgAddr = (orgAddressById[v.companyId] || '').trim().slice(0, BRANCH_ADDRESS_MAX)
@@ -903,8 +910,24 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                         formikProps.setFieldValue('address', orgAddr, true)
                         formikProps.setFieldTouched('address', true, false)
                       }}
-                      onCreateTown={(name) => createTown(name, formikProps)}
-                      createTownLabel={(q) => `Add town “${q}”`}
+                      suggestAddress={async (query) => {
+                        const rows = await searchPlaces(query, 5)
+                        return rows.map((raw, i) => {
+                          const pick = toGeoPick(raw)
+                          return {
+                            id: String(raw?.place_id ?? `${pick.lat},${pick.lng},${i}`),
+                            label: pick.formatted || pick.street || query,
+                            address: (pick.street || pick.formatted || query).slice(0, BRANCH_ADDRESS_MAX),
+                            postalCode: pick.postcode || undefined,
+                            latitude: String(pick.lat),
+                            longitude: String(pick.lng),
+                            countryName: pick.country || undefined,
+                            stateName: pick.state || undefined,
+                            cityName: pick.city || undefined,
+                            locality: pick.locality || undefined,
+                          }
+                        })
+                      }}
                       geoBusy={geoStatus.busy}
                       geoMessage={geoStatus.message}
                       onGeocodeFromAddress={() => void fillCoordinatesFromAddress(formikProps)}
@@ -912,38 +935,54 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                       onChange={(patch) => {
                         if (patch.countryId !== undefined) {
                           const value = patch.countryId
+                          const countryChanged = value !== formikProps.values.countryId
                           formikProps.setFieldValue('countryId', value)
                           const option = countriesOption.find((c) => c.value === value) ?? null
                           setSelectedCountry(option)
-                          setSelectedState(null)
-                          formikProps.setFieldValue('stateId', '')
-                          formikProps.setFieldValue('cityId', '')
-                          setStatesOptions([])
+                          if (countryChanged) {
+                            setSelectedState(null)
+                            formikProps.setFieldValue('stateId', '')
+                            if (patch.cityId === undefined) formikProps.setFieldValue('cityId', '')
+                            setStatesOptions([])
+                          }
                           const { options: tzOptions, defaultZone } = resolveCountryTimezones(value)
                           setCountryTimezoneOptions(tzOptions)
-                          if (!timezoneManuallyEdited && defaultZone) {
+                          if (!timezoneManuallyEdited && defaultZone && patch.timezone === undefined) {
                             formikProps.setFieldValue('timezone', defaultZone)
                           }
                           const picked = geoCountries?.find((c) => c.iso2 === value)
                           if (picked?.currency) formikProps.setFieldValue('currency', picked.currency)
                         }
                         if (patch.stateId !== undefined) {
+                          const stateChanged = patch.stateId !== formikProps.values.stateId
                           formikProps.setFieldValue('stateId', patch.stateId)
                           const option =
                             statesOption.find((s) => s.value === patch.stateId) ||
                             (selectedState?.value === patch.stateId ? selectedState : null)
                           setSelectedState(option)
-                          formikProps.setFieldValue('cityId', '')
+                          if (stateChanged && patch.cityId === undefined) formikProps.setFieldValue('cityId', '')
                         }
                         if (patch.cityId !== undefined) formikProps.setFieldValue('cityId', patch.cityId)
-                        if (patch.townId !== undefined) formikProps.setFieldValue('townId', patch.townId)
                         if (patch.postalCode !== undefined) formikProps.setFieldValue('postalCode', patch.postalCode)
                         if (patch.address !== undefined) formikProps.setFieldValue('address', patch.address)
                         if (patch.latitude !== undefined) formikProps.setFieldValue('latitude', patch.latitude)
                         if (patch.longitude !== undefined) formikProps.setFieldValue('longitude', patch.longitude)
+                        if (patch.timezone !== undefined) {
+                          setTimezoneManuallyEdited(true)
+                          formikProps.setFieldValue('timezone', patch.timezone)
+                        }
                         if (patch.currency !== undefined) formikProps.setFieldValue('currency', patch.currency)
                       }}
                     />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="mt-2 px-3"
+                      onClick={() => detectBrowserTimezone(formikProps)}
+                    >
+                      <Clock data-icon="inline-start" aria-hidden /> Detect my timezone
+                    </Button>
                     {currencyDeviates && (
                       <Alert variant="warning" className="mt-4">
                         <TriangleAlert aria-hidden />
@@ -968,51 +1007,27 @@ function Branches({ companyId, embedded = false, hideHeading = false, editBranch
                 <section id="branch-preferences" className="scroll-mt-4">
                   <FieldSet>
                     <FieldLegend>Preferences</FieldLegend>
-                    <AutoGrid min={220} stretch>
-                      <div className="space-y-2">
-                        <SearchSelect
-                          id="branch-timezone"
-                          label="Timezone"
-                          value={v.timezone || null}
-                          onValueChange={(value) => {
-                            setTimezoneManuallyEdited(true)
-                            formikProps.setFieldValue('timezone', value ?? '')
-                          }}
-                          options={(() => {
-                            const list = countryTimezoneOptions ?? TIMEZONE_OPTIONS
-                            // A detected or saved zone outside the list still shows as chosen.
-                            return v.timezone && !list.some((z) => z.value === v.timezone)
-                              ? [{ value: v.timezone, label: v.timezone }, ...list]
-                              : list
-                          })()}
-                        />
-                        <Button type="button" size="sm" variant="ghost" className="px-3" onClick={() => detectBrowserTimezone(formikProps)}>
-                          <Clock data-icon="inline-start" aria-hidden /> Detect my timezone
-                        </Button>
-                      </div>
-
-                      {/* Three choices, not two. The format is a cascade (personal -> branch -> org
-                          -> 12h) and each layer only applies when the one above it has no opinion. A
-                          Yes/No control cannot say "no opinion". See utils/timeFormat.ts. A Select with the
-                          same floating label as Timezone, so the two controls share one top edge and height. */}
-                      <Field>
-                        <FieldLabel id="branch-time-format-label">Time format</FieldLabel>
-                        <Select
-                          items={TIME_FORMAT_OPTIONS}
-                          value={v.showDateIn12HourFormat}
-                          onValueChange={(next) => { if (next) formikProps.setFieldValue('showDateIn12HourFormat', next) }}
-                        >
-                          <SelectTrigger className="w-full" aria-labelledby="branch-time-format-label">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TIME_FORMAT_OPTIONS.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                    </AutoGrid>
+                    {/* Three choices, not two. The format is a cascade (personal -> branch -> org
+                        -> 12h) and each layer only applies when the one above it has no opinion. A
+                        Yes/No control cannot say "no opinion". See utils/timeFormat.ts.
+                        Timezone lives in LocationFields (same recipe as Create Tenant). */}
+                    <Field>
+                      <FieldLabel id="branch-time-format-label">Time format</FieldLabel>
+                      <Select
+                        items={TIME_FORMAT_OPTIONS}
+                        value={v.showDateIn12HourFormat}
+                        onValueChange={(next) => { if (next) formikProps.setFieldValue('showDateIn12HourFormat', next) }}
+                      >
+                        <SelectTrigger className="w-full" aria-labelledby="branch-time-format-label">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TIME_FORMAT_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
                   </FieldSet>
                 </section>
               </Form>

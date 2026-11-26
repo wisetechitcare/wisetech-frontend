@@ -1,7 +1,6 @@
-import { ILeaveBalance } from "@models/employee";
-import { MRT_ColumnDef } from "material-react-table";
 import { useCallback, useEffect, useMemo } from "react";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { ILeaveSummary, savePersonalLeavesSummary } from "@redux/slices/leaves";
@@ -38,37 +37,25 @@ function Balances() {
         remaining: leave.numberOfDays - leave.leaveTaken,
         used: leave.leaveTaken,
     }))
-    const columns = useMemo<MRT_ColumnDef<ILeaveBalance>[]>(() => [
-        {
-            accessorKey: "types",
-            header: "Types",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "total",
-            header: "Total",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "used",
-            header: "Used",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
-        {
-            accessorKey: "remaining",
-            header: "Remaining",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
-        },
+    const columns = useMemo<ColumnDef<{ types: string; total: number; used: number; remaining: number }, any>[]>(() => [
+        { accessorKey: "types", header: "Types" },
+        { accessorKey: "total", header: "Total", meta: { exportType: "number" } },
+        { accessorKey: "used", header: "Used", meta: { exportType: "number" } },
+        { accessorKey: "remaining", header: "Remaining", meta: { exportType: "number" } },
     ], []);
 
     return (
         <>
-            <MaterialTable
+            <DataTable
+                caption="Leave Balances"
                 columns={columns}
                 data={mappedData}
-                hideFilters={true}
-                hideExportCenter={true}
-                tableName="Leave Balances" employeeId={employeeIdCurrent}/>
+                getRowId={(_r, i) => String(i)}
+                stateKey="attendance.leaveBalances"
+                groupableColumns={false}
+                tools={false}
+                searchPlaceholder="Search balances…"
+            />
         </>
     );
 }

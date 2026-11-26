@@ -4,10 +4,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
 import { Progress } from "@/ds/ui/progress";
-import { toneAlpha, isHexColor, type SemanticTone } from "@app/modules/common/components/ui";
-import { tonePair } from "@app/theme/tokens";
 import { formatDate } from "@utils/dateFormats";
 import dayjs from "dayjs";
 import {TRACKER_SORT_KEYS, listBillingTracker,type BillingTrackerRow, type BillingTrackerParams, type BillingTrackerSort,
@@ -18,20 +16,13 @@ import { TrackerStatusCell } from "./TrackerStatusCell";
 import { DASH, Money, TotalLabel, usePoChip } from "../components/trackerKit";
 import { ACTION_COLUMN_WIDTH, TrackerActionsCell, useTrackerActions } from "./TrackerActions";
 
-/** The four chip columns sit centred, header and body alike. */
-const CENTRED = {
-  muiTableHeadCellProps: { align: "center" as const },
-  muiTableBodyCellProps: { align: "center" as const },
-};
-
 /**
  * The Billing Tracker — one row per PROJECT, including projects nothing has been billed against yet (a project with a
  * signed PO and no proforma is exactly the row Accounts needs to chase). Every money figure is summed from the
  * project's bills on the server.
  *
- * Runs on `MaterialTable`, the same engine and layout as Leads & Projects. Search, sorting and pagination are all
- * SERVER-side: the money columns are cross-table aggregates, and sorting them in the browser would reorder one page
- * while implying the whole list was ranked.
+ * Runs on kit `DataTable`. Search, sorting and pagination are all SERVER-side: the money columns are cross-table
+ * aggregates, and sorting them in the browser would reorder one page while implying the whole list was ranked.
  */
 
 /** Only these can be ordered in SQL; a header click on anything else is ignored. */
@@ -45,7 +36,7 @@ const EXPECTED_HINT =
   "What is still owed on issued bills whose due date falls in the current calendar month. " +
   "Money already received against them is not counted.";
 
-/** Column header with a tooltip. `Header` overrides the plain string in MaterialTable. */
+/** Column header with a tooltip. */
 const HintHeader: React.FC<{ title: string; hint: string }> = ({ title, hint }) => (
   <Tooltip>
     <TooltipTrigger render={<span className="inline-flex cursor-help items-center gap-1" />}>
@@ -117,7 +108,7 @@ const BillingTrackerPage: React.FC = () => {
   const totals = data?.totals;
   const { onNote, onTasks, dialogs } = useTrackerActions();
 
-  const columns = useMemo(
+  const columns = useMemo<ColumnDef<BillingTrackerRow, unknown>[]>(
     () => [
       {
         // The row's note and its tasks — first, like the Action column on Leads & Projects.
@@ -127,22 +118,22 @@ const BillingTrackerPage: React.FC = () => {
         size: ACTION_COLUMN_WIDTH,
         enableSorting: false,
         enableColumnFilter: false,
-        meta: { defaultVisible: true },
-        Cell: ({ row }: any) => (
-          <TrackerActionsCell row={row.original as BillingTrackerRow} onNote={onNote} onTasks={onTasks} />
+        meta: { defaultVisible: true, wrap: false },
+        cell: ({ row }) => (
+          <TrackerActionsCell row={row.original} onNote={onNote} onTasks={onTasks} />
         ),
       },
       {
         accessorKey: "projectStartDate",
         header: "Project Start Date",
         size: 150,
-        meta: { defaultVisible: true },
-        Footer: () => <TotalLabel />,
-        Cell: ({ cell }: any) => {
+        meta: { defaultVisible: true, wrap: false },
+        footer: () => <TotalLabel />,
+        cell: ({ cell }) => {
           try {
             const v = cell.getValue();
             if (!v) return DASH;
-            const date = dayjs(v);
+            const date = dayjs(v as string);
             return date.isValid() ? date.format("DD-MM-YYYY") : DASH;
           } catch {
             return DASH;
@@ -153,39 +144,36 @@ const BillingTrackerPage: React.FC = () => {
         accessorKey: "projectNumber",
         header: "Project No",
         size: 165,
-        Cell: ({ row }: any) => {
-          const project: BillingTrackerRow = row.original;
-          return (
-            <span className="block min-w-0 font-bold">{project.projectNumber ?? DASH}</span>
-          );
-        },
+        meta: { wrap: false },
+        cell: ({ row }) => (
+          <span className="block min-w-0 font-bold">{row.original.projectNumber ?? DASH}</span>
+        ),
       },
       {
         accessorKey: "projectName",
         header: "Project Name",
         size: 240,
-        Cell: ({ cell }: any) => cell.getValue() || DASH,
+        cell: ({ cell }) => (cell.getValue() as string) || DASH,
       },
       {
         accessorKey: "clientName",
         header: "Client Company",
         size: 180,
-        Cell: ({ cell }: any) => cell.getValue() || DASH,
+        cell: ({ cell }) => (cell.getValue() as string) || DASH,
       },
       {
         accessorKey: "handledByName",
         header: "Project Manager",
         size: 160,
-        Cell: ({ cell }: any) => cell.getValue() || DASH,
+        cell: ({ cell }) => (cell.getValue() as string) || DASH,
       },
       {
         accessorKey: "projectStatus",
         header: "Project Status",
         size: 150,
-        meta: { defaultVisible: true },
-        ...CENTRED,
-        Cell: ({ row }: any) => {
-          const st = row?.original?.projectStatus;
+        meta: { defaultVisible: true, align: "center", wrap: false },
+        cell: ({ row }) => {
+          const st = row.original.projectStatus;
           return st?.name ? <SolidChip label={st.name} color={st.color} /> : DASH;
         },
       },
@@ -195,8 +183,9 @@ const BillingTrackerPage: React.FC = () => {
         header: "Work Done",
         size: 190,
         enableSorting: false, // not a SQL column — a header click would reorder nothing
-        Cell: ({ row }: any) => {
-          const project: BillingTrackerRow = row.original;
+        meta: { exportType: "currency" },
+        cell: ({ row }) => {
+          const project = row.original;
           if (project.workDonePercent == null) return DASH;
           return (
             <div className="min-w-[150px]">
@@ -213,11 +202,10 @@ const BillingTrackerPage: React.FC = () => {
         // One column, not two: the stage always follows this status through the four bands, so
         // a separate Stage column repeated what this one already says.
         accessorKey: "paymentStatus",
-        header: "Bill Stage",
-        Header: () => <HintHeader title="Bill Stage" hint={STATUS_HINT} />,
+        header: () => <HintHeader title="Bill Stage" hint={STATUS_HINT} />,
         size: 195,
-        ...CENTRED,
-        Cell: ({ row }: any) => <TrackerStatusCell row={row.original as BillingTrackerRow} />,
+        meta: { label: "Bill Stage", align: "center", wrap: false },
+        cell: ({ row }) => <TrackerStatusCell row={row.original} />,
       },
       {
         accessorKey: "followUpManagerName",
@@ -225,63 +213,72 @@ const BillingTrackerPage: React.FC = () => {
         size: 160,
         // ponytail: no follow-up owner in the schema yet. Wire it to the row's
         // `followUpManagerName` the moment the column exists — nothing else changes.
-        Cell: ({ cell }: any) => cell.getValue() || DASH,
+        cell: ({ cell }) => (cell.getValue() as string) || DASH,
       },
       {
         accessorKey: "nextFollowUpDate",
         header: "Next Follow-up",
         size: 145,
-        Cell: ({ cell }: any) => (cell.getValue() ? formatDate(cell.getValue()) : DASH),
+        meta: { wrap: false },
+        cell: ({ cell }) => {
+          const v = cell.getValue() as string | null;
+          return v ? formatDate(v) : DASH;
+        },
       },
       {
         accessorKey: "poValue",
         header: "PO Value",
         size: 170,
+        meta: { exportType: "currency" },
         // The amount exists only once the PO is approved (the server sends null before that).
         // Until then the cell says where the PO stands — "PO Pending" — as a chip in the colour
         // configured for that status in Leads → Configure, the same source the lead form's
         // dropdown uses. A name with no configured colour gets the neutral chip.
-        Cell: ({ row }: any) => {
-          const project: BillingTrackerRow = row.original;
+        cell: ({ row }) => {
+          const project = row.original;
           if (project.poApproved) return <Money value={project.poValue} bold />;
           return poChip(project.poStatus);
         },
-        Footer: () => <Money value={totals?.poValue} bold />,
+        footer: () => <Money value={totals?.poValue} bold />,
       },
       {
         accessorKey: "totalBilled",
         header: "Total Billed",
         size: 150,
-        Cell: ({ cell }: any) => <Money value={cell.getValue()} bold />,
-        Footer: () => <Money value={totals?.totalBilled} bold />,
+        meta: { exportType: "currency" },
+        cell: ({ cell }) => <Money value={cell.getValue() as number} bold />,
+        footer: () => <Money value={totals?.totalBilled} bold />,
       },
       {
         accessorKey: "notBilledAmount",
         header: "Total Not Billed",
         size: 150,
-        Cell: ({ cell }: any) => <Money value={cell.getValue()} bold />,
-        Footer: () => <Money value={totals?.notBilledAmount} bold />,
+        meta: { exportType: "currency" },
+        cell: ({ cell }) => <Money value={cell.getValue() as number} bold />,
+        footer: () => <Money value={totals?.notBilledAmount} bold />,
       },
       {
         accessorKey: "receivedAmount",
         header: "Total Received",
         size: 150,
-        Cell: ({ cell }: any) => <Money value={cell.getValue()} tone="success" />,
-        Footer: () => <Money value={totals?.receivedAmount} tone="success" />,
+        meta: { exportType: "currency" },
+        cell: ({ cell }) => <Money value={cell.getValue() as number} tone="success" />,
+        footer: () => <Money value={totals?.receivedAmount} tone="success" />,
       },
       {
         accessorKey: "pendingAmount",
         header: "Total Pending",
         size: 165,
-        Footer: () => (
+        meta: { exportType: "currency" },
+        footer: () => (
           <Money
             value={totals?.pendingAmount}
             bold
             tone={totals?.pendingAmount && totals.pendingAmount > 0 ? "danger" : undefined}
           />
         ),
-        Cell: ({ row }: any) => {
-          const project: BillingTrackerRow = row.original;
+        cell: ({ row }) => {
+          const project = row.original;
           // Just the amount: the "% of PO" line under it was noise in a column of figures.
           return (
             <Money
@@ -296,29 +293,35 @@ const BillingTrackerPage: React.FC = () => {
         accessorKey: "lastPaymentAt",
         header: "Last Payment Date",
         size: 145,
-        Cell: ({ cell }: any) => (cell.getValue() ? formatDate(cell.getValue()) : DASH),
+        meta: { wrap: false },
+        cell: ({ cell }) => {
+          const v = cell.getValue() as string | null;
+          return v ? formatDate(v) : DASH;
+        },
       },
       {
         accessorKey: "lastPaymentAmount",
         header: "Last Payment Amount",
         size: 165,
-        Cell: ({ cell }: any) => <Money value={cell.getValue()} tone="success" />,
+        meta: { exportType: "currency" },
+        cell: ({ cell }) => <Money value={cell.getValue() as number} tone="success" />,
       },
       {
         // The latest issued bill's face value — the old Bill Amount column, renamed.
         id: "billAmount",
-        accessorFn: (row: BillingTrackerRow) => row.bill?.amount ?? null,
+        accessorFn: (row) => row.bill?.amount ?? null,
         header: "Current Bill Value",
         size: 165,
-        Cell: ({ cell }: any) => <Money value={cell.getValue()} />,
+        meta: { exportType: "currency" },
+        cell: ({ cell }) => <Money value={cell.getValue() as number | null} />,
       },
       {
         accessorKey: "expectedThisMonth",
-        header: "Expected Payment This Month",
-        Header: () => <HintHeader title="Expected Payment This Month" hint={EXPECTED_HINT} />,
+        header: () => <HintHeader title="Expected Payment This Month" hint={EXPECTED_HINT} />,
         size: 190,
-        Cell: ({ cell }: any) => <Money value={cell.getValue()} />,
-        Footer: () => <Money value={totals?.expectedThisMonth} bold />,
+        meta: { label: "Expected Payment This Month", exportType: "currency" },
+        cell: ({ cell }) => <Money value={cell.getValue() as number} />,
+        footer: () => <Money value={totals?.expectedThisMonth} bold />,
       },
     ],
     // onNote/onTasks only set page state; their identity changing doesn't change what a cell renders.
@@ -329,113 +332,44 @@ const BillingTrackerPage: React.FC = () => {
   return (
     <>
       {dialogs}
-      <MaterialTable
+      <DataTable
+        caption="Billing Tracker"
         data={projects}
         columns={columns}
+        getRowId={(r) => r.leadId}
         // V4: fresh prefs bucket — a saved column order outranks the code's, so
         // changed columns would never reach existing users.
-        tableName="BillingProjectOverviewV5"
-        isLoading={isLoading}
-        showColumnFooter={true}
+        stateKey="BillingProjectOverviewV5"
+        loading={isLoading}
         searchPlaceholder="Search project number, name or client…"
-        enableColumnSpecificSearch={true}
-        enableColumnResizing={true}
-        layoutMode="semantic"
-        defaultSorting={[{ id: "projectNumber", desc: true }]}
+        initialSorting={[{ id: "projectNumber", desc: true }]}
         // The server owns all three. `data` is one page, so any local pass would
         // search, sort and count only the rows already on screen.
-        manualFiltering={true}
-        onSearchChange={setSearch}
-        manualSorting={true}
+        globalFilter={search}
+        onGlobalFilterChange={setSearch}
+        sorting={sorting}
         onSortingChange={setSorting}
-        manualPagination={true}
         rowCount={total}
-        paginationState={pagination}
+        pagination={pagination}
         onPaginationChange={setPagination}
-        muiTableContainerProps={{ sx: { maxHeight: "700px", overflowX: "auto" } }}
-        muiTableProps={{
-          sx: {
-            // Separated rows with a 4px gutter — the Leads & Projects geometry.
-            borderCollapse: "separate",
-            borderSpacing: "0 4px !important",
-            minWidth: "2200px",
-          },
-          muiTableBodyRowProps: ({ row }: any) => {
-            const project: BillingTrackerRow = row.original;
-            // The left accent carries PO state, the fact that gates every money
-            // figure on the row — matching how the Leads table accents by status.
-            const accent = project.poApproved
-              ? "success.main"
-              : project.poStatus
-                ? "warning.main"
-                : "transparent";
-            /*
-             * The row carries its BILL STAGE as a tint — the same idea as the tint
-             * on the Leads & Projects table, pointed at the column this screen is
-             * actually about. Where a project stands with its billing is then
-             * readable across the whole row, not only in its own chip.
-             *
-             * The colour is the one configured for that stage in Billing →
-             * Configure, so recolouring a stage there recolours these rows too and
-             * the chip can never disagree with the row it sits on. A stage whose
-             * colour is a tone name resolves through the theme; a hex is used as
-             * picked. A project with no bill raised has no stage and stays plain,
-             * which is what separates "nothing to do here" from the rest.
-             *
-             * `toneAlpha` rather than the `${color}20` concatenation the Leads
-             * table uses: that silently produces "red20" and paints nothing when a
-             * colour is stored as a name, while this returns it untouched.
-             */
-            const stageTone = labels.tone(project.status);
-            const statusColor = stageTone
-              ? (isHexColor(stageTone) ? stageTone : tonePair(stageTone as SemanticTone).fg)
-              : null;
-
-            return {
-              // The PROJECT view (/project/:id), not the lead view — every row here is a
-              // project, and the lead path opens the same record with the lead tab set.
-              // A click inside the Action column (note, tasks) belongs to that control, not to the row.
-              onClick: (e: React.MouseEvent) => {
-                if ((e.target as Element).closest("[data-row-actions]")) return;
-                navigate(`/project/${project.leadId}?tab=billing`);
-              },
-              sx: {
-                cursor: "pointer",
-                // Tokens where there is no status colour: this table has to survive
-                // the dark theme, so the FALLBACK is never a hardcoded grey.
-                // 0.22, not the 0.12 this started at: the stage colours are already
-                // dark and desaturated (a deep green, a muted amber), so a tenth of
-                // one over white was a grey that read as "no colour" rather than as
-                // the stage. High enough to scan down the row, low enough to leave
-                // the chips and the figures on top of it the strongest thing there.
-                backgroundColor: statusColor ? toneAlpha(statusColor, 0.22) : "background.paper",
-                transition: "background-color 0.15s ease",
-                "&:hover": {
-                  backgroundColor: statusColor ? toneAlpha(statusColor, 0.32) : "action.hover",
-                },
-                "& .MuiTableCell-root": {
-                  fontSize: "13.5px",
-                  fontFamily: "Inter",
-                  fontWeight: 500,
-                  padding: "6px 10px !important",
-                  border: "none",
-                  color: "text.primary",
-                  whiteSpace: "nowrap",
-                  backgroundColor: "transparent",
-                },
-                "& .MuiTableCell-root:first-of-type": {
-                  borderTopLeftRadius: "12px",
-                  borderBottomLeftRadius: "12px",
-                  borderLeft: `3px solid`,
-                  borderLeftColor: accent,
-                },
-                "& .MuiTableCell-root:last-of-type": {
-                  borderTopRightRadius: "12px",
-                  borderBottomRightRadius: "12px",
-                },
-              },
-            };
-          },
+        virtualized
+        virtualMaxHeight="700px"
+        groupableColumns={false}
+        // The PROJECT view (/project/:id), not the lead view — every row here is a
+        // project, and the lead path opens the same record with the lead tab set.
+        // Clicks inside Action controls are skipped by DataTable's fromControl.
+        onRowClick={(project) => navigate(`/project/${project.leadId}?tab=billing`)}
+        rowLabel={(p) => p.projectNumber ?? p.projectName ?? "Open project"}
+        /*
+         * Soft tint + left edge from bill stage (Configure colour), falling back to PO state.
+         * Stage is what this sheet is about; PO accent remains when nothing has been billed yet.
+         */
+        rowTone={(project) => {
+          const stageTone = labels.tone(project.status);
+          if (stageTone) return stageTone;
+          if (project.poApproved) return "success";
+          if (project.poStatus) return "warning";
+          return undefined;
         }}
       />
     </>

@@ -3,8 +3,9 @@ import { getAllLoans } from "@services/company";
 import { approveLoanById, updateLoanById } from "@services/employee";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import {
   permissionConstToUseWithHasPermission,
   resourceNameMapWithCamelCase,
@@ -96,18 +97,18 @@ const LoanApplicationRequests: React.FC<MyComponentProps> = ({ resource, viewOth
     fetchAllLoan();
   };
 
-  const columns = useMemo<MRT_ColumnDef<ApplicationRequestData>[]>(() => {
-    const baseColumns: MRT_ColumnDef<ApplicationRequestData>[] = [
+  const columns = useMemo<ColumnDef<ApplicationRequestData>[]>(() => {
+    const baseColumns: ColumnDef<ApplicationRequestData>[] = [
       { accessorKey: "name", header: "Name" },
       {
         accessorKey: "loanAmount",
         header: "Loan Amount",
-        Cell: ({ renderedCellValue }:any) => formatNumber(renderedCellValue),
+        cell: ({ cell }:any) => formatNumber(cell.getValue()),
       },
       // {
       //   accessorKey: "startDate",
       //   header: "Start Date",
-      //   Cell: ({ cell }) =>
+      //   cell: ({ cell }) =>
       //     new Date(cell.getValue<string>()).toLocaleDateString("en-GB", {
       //       day: "numeric",
       //       month: "long",
@@ -117,7 +118,7 @@ const LoanApplicationRequests: React.FC<MyComponentProps> = ({ resource, viewOth
       // {
       //   accessorKey: "endDate",
       //   header: "End Date",
-      //   Cell: ({ cell }) =>
+      //   cell: ({ cell }) =>
       //     new Date(cell.getValue<string>()).toLocaleDateString("en-GB", {
       //       day: "numeric",
       //       month: "long",
@@ -128,7 +129,7 @@ const LoanApplicationRequests: React.FC<MyComponentProps> = ({ resource, viewOth
       { 
         accessorKey: "loanDuration", 
         header: "Loan Duration",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const duration = cell.getValue<number | null>();
           return duration ? `${duration} Months` : "N/A";
         }
@@ -139,7 +140,7 @@ const LoanApplicationRequests: React.FC<MyComponentProps> = ({ resource, viewOth
     baseColumns.push({
       accessorKey: "actions",
       header: "Actions",
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const allowEdit = hasPermission(
           resourceNameMapWithCamelCase.loan,
           permissionConstToUseWithHasPermission.editOthers
@@ -192,14 +193,16 @@ const LoanApplicationRequests: React.FC<MyComponentProps> = ({ resource, viewOth
   return (
     <div>
       <h3 className="pt-10 fw-bold">Loan Application Requests</h3>
-      <MaterialTable
+      <DataTable
+        caption="Application Requests"
+        columns={columns as any}
         data={applicationRequests}
-        columns={columns}
-        tableName="Application Requests"
-        resource={resource}
-        viewOthers={viewOthers}
-        viewOwn={viewOwn}
-        employeeId={employeeId}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.admin.applications"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
       />
     </div>
   );

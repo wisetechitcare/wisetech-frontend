@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { deleteClientBranch, getAllClientBranches, getClientBranchesByCompanyId } from "@services/lead";
 import CompaniesBranchForm from "./CompaniesBranchForm";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { isRowAction } from "../../crmListRowSx";
-import { MRT_ColumnDef } from "material-react-table";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
 import { KTIcon } from "@metronic/helpers";
 import { Button } from "@/ds/ui/button";
-import { RootState } from "@redux/store";
-import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import { fetchAllCountries, fetchAllStates, fetchAllCities } from "@services/options";
 import { deleteConfirmation } from "@utils/modal";
@@ -47,7 +43,6 @@ const CompaniesBranch = ({
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
-  const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const [countries, setCountries] = useState<any[]>([]);
   const [states, setStates] = useState<any[]>([]);
   const [cities, setCities] = useState<any[]>([]);
@@ -109,7 +104,7 @@ const CompaniesBranch = ({
   };
 
 
-  const columns = useMemo<MRT_ColumnDef<Branch, any>[]>(
+  const columns = useMemo<ColumnDef<Branch, any>[]>(
     () => [
       {
         accessorKey: "name",
@@ -118,7 +113,7 @@ const CompaniesBranch = ({
       {
         accessorKey: "contactId",
         header: "Contact Person",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <div className="d-flex align-items-center gap-2">
             <span>{contacts.find((contact) => contact.id === row.original.contactId)?.fullName}</span>
           </div>
@@ -135,7 +130,7 @@ const CompaniesBranch = ({
       {
         accessorKey: "createdAt",
         header: "Created",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <div className="d-flex align-items-center gap-2">
             <span>{dayjs(row.original.createdAt.split("T")[0]).format("DD-MM-YYYY")}</span>
           </div>
@@ -159,7 +154,7 @@ const CompaniesBranch = ({
       },
       {
         accessorKey: "zipCode",
-        header: "ZIP Code",
+        header: "Postal Code",
       },
       {
         accessorKey: "area",
@@ -168,7 +163,7 @@ const CompaniesBranch = ({
       ...(canWrite ? [{
         accessorKey: "actions",
         header: "Actions",
-        Cell: ({ row }: any) => (
+        cell: ({ row }: any) => (
           <div className="d-flex align-items-center gap-2">
             <Button
               variant="ghost"
@@ -204,24 +199,17 @@ const CompaniesBranch = ({
 
   return (
     <div className="p-4">
-      <MaterialTable
+      <DataTable
+        caption="Client Branches"
         columns={columns}
         data={branches}
-        tableName="ClientBranches"
-        employeeId={employeeIdCurrent}
-        resource="BRANCHES"
-        defaultSorting={[{ id: "name", desc: false }]}
-        viewOwn={true}
-        viewOthers={true}
-        checkOwnWithOthers={true}
-        muiTableProps={{
-          muiTableBodyRowProps: ({ row }: any) => ({
-            onClick: (e: React.MouseEvent) => {
-              if (!isRowAction(e)) handleEditBranch(row.original.id);
-            },
-            sx: { cursor: "pointer" },
-          }),
-        }}
+        getRowId={(r) => r.id}
+        initialSorting={[{ id: "name", desc: false }]}
+        stateKey="crm.clientBranches"
+        groupableColumns={false}
+        onRowClick={(r) => handleEditBranch(r.id)}
+        rowLabel={(r) => r.name || "Open branch"}
+        searchPlaceholder="Search branches…"
       />
 
       <CompaniesBranchForm

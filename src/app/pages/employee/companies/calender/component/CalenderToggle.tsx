@@ -5,7 +5,8 @@ import PeriodTabs from "@app/modules/common/components/PeriodTabs";
 import PeriodNavigator from "@app/modules/common/components/PeriodNavigator";
 import dayjs, { Dayjs } from 'dayjs';
 import { getUpcomingContactsBirthdays } from '@services/companies';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable } from '@/ds/patterns/data-table';
+
 import { Link } from 'react-router-dom';
 import { Button } from '@/ds/ui/button';
 import { googleCalenderIcons } from '@metronic/assets/sidepanelicons';
@@ -54,7 +55,7 @@ const CalenderToggle = () => {
             accessorKey: 'nextEventDate',
             header: 'Date',
             size: 150,
-            Cell: ({ row }: { row: any }) => {
+            cell: ({ row }: { row: any }) => {
                 const contact = row.original;
                 let actualDate;
 
@@ -79,7 +80,7 @@ const CalenderToggle = () => {
             accessorKey: 'type',
             header: 'Type',
             size: 150,
-            Cell: ({ row }: { row: any }) => {
+            cell: ({ row }: { row: any }) => {
                 const contact = row.original;
                 if (activeTab === 'anniversaries') {
                     return <span>Anniversary</span>;
@@ -96,7 +97,7 @@ const CalenderToggle = () => {
             accessorKey: 'name',
             header: 'Contact',
             size: 200,
-            Cell: ({ row }: { row: any }) => {
+            cell: ({ row }: { row: any }) => {
               const contact = row.original;
               return (
                 <Link to={`/contacts/${contact.id}`} style={{ color: '#1E3A8A' }}>
@@ -110,7 +111,7 @@ const CalenderToggle = () => {
           accessorKey: 'company',
           header: 'Company',
           size: 200,
-          Cell: ({ row }: { row: any }) => {
+          cell: ({ row }: { row: any }) => {
             const contact = row.original;
             return (
               <Link to={`/companies/${contact.companyId}`} style={{ color: '#1E3A8A' }}>
@@ -123,7 +124,7 @@ const CalenderToggle = () => {
             accessorKey: 'daysRemaining',
             header: 'Days Remaining',
             size: 200,
-            Cell: ({ row }: { row: any }) => {
+            cell: ({ row }: { row: any }) => {
               const contact = row.original;
               let daysRemaining;
 
@@ -143,7 +144,7 @@ const CalenderToggle = () => {
             accessorKey: 'actions',
             header: 'Actions',
             size: 120,
-            Cell: ({ row }: { row: any }) => {
+            cell: ({ row }: { row: any }) => {
               const contact = row.original;
 
               const handleGoogleCalendarSave = () => {
@@ -261,10 +262,14 @@ const CalenderToggle = () => {
             </div>
 
             <div className="tab-content mt-3">
-                <MaterialTable
-                data={filteredData}
-                columns={columns}
-                tableName="Calender Toggle"
+                <DataTable
+                  caption="Calendar Contacts"
+                  data={filteredData}
+                  columns={columns}
+                  getRowId={(r: any) => r.id}
+                  stateKey="crm.calendarContacts"
+                  groupableColumns={false}
+                  searchPlaceholder="Search contacts…"
                 />
             </div>
         </div>

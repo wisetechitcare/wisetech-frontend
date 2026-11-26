@@ -455,14 +455,14 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
       </div>
     </div>
 
-    {/* Row 3: Address Line 2, Zip Code */}
+    {/* Row 3: Address Line 2, Postal Code */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div className="min-w-0">
         <WtFieldFormik name="addressInfo.presentAddressLine2" label="Address Line 2" fullWidth />
       </div>
 
       <div className="min-w-0">
-        <WtFieldFormik name="addressInfo.presentPostalCode" label="Zip Code" fullWidth />
+        <WtFieldFormik name="addressInfo.presentPostalCode" label="Postal Code" fullWidth />
       </div>
     </div>
   </div>
@@ -600,14 +600,14 @@ function AddressInfo({ formikProps, softRequired = false }: { formikProps: any; 
       </div>
     </div>
 
-    {/* Row 3: Address Line 2, Zip Code */}
+    {/* Row 3: Address Line 2, Postal Code */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div className="min-w-0">
         <WtFieldFormik name="addressInfo.permanentAddressLine2" label="Address Line 2" fullWidth />
       </div>
 
       <div className="min-w-0">
-        <WtFieldFormik name="addressInfo.permanentPostalCode" label="Zip Code" fullWidth />
+        <WtFieldFormik name="addressInfo.permanentPostalCode" label="Postal Code" fullWidth />
       </div>
     </div>
   </div>

@@ -1,5 +1,6 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { InstallmentTypeEnum, LoanType, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, Status } from '@constants/statistics';
 import { KTIcon } from '@metronic/helpers';
@@ -10,7 +11,7 @@ import { errorConfirmation, successConfirmation } from '@utils/modal';
 import { formatNumber, getCompletionAmountOfLoanByLoanIdAndEndDate } from '@utils/statistics';
 import dayjs from 'dayjs';
 import { Form, Formik, useFormikContext } from 'formik';
-import { MRT_ColumnDef } from 'material-react-table';
+
 import React, { useEffect, useMemo, useState } from 'react'
 
 import { useSelector } from 'react-redux';
@@ -89,77 +90,77 @@ function PaymentChangeRequest({ completeLoanData }: { completeLoanData: any[] })
         getThePreviousLoansData()
     }, [completeLoanData])
 
-    const columns = useMemo<MRT_ColumnDef<any>[]>(
+    const columns = useMemo<ColumnDef<any>[]>(
         () => [
             {
                 accessorKey: "loanAmount",
                 header: "Loan Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "payment",
                 header: "Payment",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "installment",
                 header: "Installment",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "dueDate",
                 header: "Due Date",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "dueAmount",
                 header: "Due Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "payAmount",
                 header: "Pay Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "note",
                 header: "Request",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue || "-",
+                cell: ({ cell }: any) => cell.getValue() || "-",
             },
             // {
             //     accessorKey: "status",
             //     header: "status",
             //     enableSorting: false,
             //     enableColumnActions: false,
-            //     Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            //     cell: ({ cell }: any) => cell.getValue(),
             // },
             // {
             //     accessorKey: "note",
             //     header: "Note",
             //     enableSorting: false,
             //     enableColumnActions: false,
-            //     Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            //     cell: ({ cell }: any) => cell.getValue(),
             // },
             ...([{
                 accessorKey: "actions",
                 header: "Actions",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ row }: any) => {
+                cell: ({ row }: any) => {
                       const resEdit = hasPermission(resourceNameMapWithCamelCase.loanInstallment, permissionConstToUseWithHasPermission.editOwn, row?.original);
                       
                     //   const resDelete = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
@@ -191,26 +192,17 @@ function PaymentChangeRequest({ completeLoanData }: { completeLoanData: any[] })
 
     return (
         <>
-            <MaterialTable
-                columns={columns}
-                data={loanData}
-                muiTableProps={{
-                    sx: {
-                        "& .MuiTableBody-root .MuiTableCell-root": {
-                            borderBottom: "none",
-                            paddingY: "5px",
-                        },
-                        "& .MuiTableBody-root .MuiTableRow-root": {
-                            // padding: '0px',
-                        },
-                    },
-                }}
-                tableName="PaymentChangeRequest"
-                resource={resourceNameMapWithCamelCase.loan}
-                viewOwn={true}
-                viewOthers={true}
-                employeeId={employeeIdCurrent}
-            />
+            <DataTable
+        caption="Payment Change Request"
+        columns={columns}
+        data={loanData}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.personal.paymentChange"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
+      />
             <Modal size="lg" show={showSkipAndCustomPaymentModal} onHide={() => {
                 setShowSkipAndCustomPaymentModal(false)
                 setShowSkipForm(false)

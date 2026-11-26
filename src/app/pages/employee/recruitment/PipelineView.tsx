@@ -7,7 +7,7 @@ import {
 import { KTIcon } from "@metronic/helpers";
 import {
     ListHeader, GlassDialog, GlassHeader, WtButton, WtField, ToneChip, ActionIconButton, toast, WtEmptyState,
-    BoardListViewSwitch, confirmDialog, TableSelectionBar, type BoardListView,
+    BoardListViewSwitch, confirmDialog, type BoardListView,
 } from "@app/modules/common/components/ui";
 import { apiErrorMessage } from "@utils/apiError";
 import { canDelete, canSection } from "@utils/can";
@@ -22,7 +22,8 @@ import {
 import InterviewsPanel from "./InterviewsPanel";
 import OfferPanel from "./OfferPanel";
 import CandidateDrawer from "./CandidateDrawer";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { InlineNotice } from "@app/modules/common/components/ui";
 import { applicationColumns, applicantName, ScoreChip, WaitingChip } from "./applicationColumns";
 
@@ -385,14 +386,18 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                        preferences — none of which the previous markup had — and the columns
                        are the SAME definition the overview drill-downs use, so two views of
                        the same records cannot drift apart. */
-                <MaterialTable
-                    columns={listColumns}
+                <DataTable
+                    caption="Recruitment Pipeline"
+                    columns={listColumns as any}
                     data={applications}
-                    isLoading={isLoading}
-                    tableName="RecruitmentPipelineList"
-                    enableRowSelection={canRemove}
-                    renderSelectionActions={(selected: Application[]) => (
-                        <TableSelectionBar count={selected.length}>
+                    getRowId={(r) => r.id}
+                    loading={isLoading}
+                    stateKey="recruitment.pipeline"
+                    groupableColumns={false}
+                    selectable={canRemove}
+                    selectionActions={(rows) => {
+                        const selected = rows.map((r) => r.original);
+                        return (
                             <WtButton
                                 size="small"
                                 tone="danger"
@@ -410,16 +415,12 @@ const PipelineView = ({ companyId }: OrgScoped) => {
                             >
                                 Archive selected
                             </WtButton>
-                        </TableSelectionBar>
-                    )}
-                    // The whole row opens the candidate — the record that holds stage, interviews,
-                    // offer and convert — so the row is the target, not a 30px icon at its end.
-                    muiTableProps={{
-                        muiTableBodyRowProps: ({ row }: { row: { original: Application } }) => ({
-                            onClick: () => setOpenCandidate(row.original),
-                            sx: { cursor: "pointer" },
-                        }),
+                        );
                     }}
+                    // The whole row opens the candidate — stage, interviews, offer, convert.
+                    onRowClick={(r) => setOpenCandidate(r)}
+                    rowLabel={(r) => applicantName(r) || "Open application"}
+                    searchPlaceholder="Search applications…"
                 />
                 )}
                 </>

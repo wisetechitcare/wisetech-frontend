@@ -48,7 +48,6 @@ module.exports = [
   "src/app/modules/common/components/TimePickerField.tsx",
   "src/app/modules/common/components/attendance/AttendanceCorrectionDialog.tsx",
   "src/app/modules/common/components/attendance/AttendanceCorrectionForm.tsx",
-  "src/app/modules/common/components/table/ColumnsSheet.tsx",
   "src/app/modules/common/components/ui/ActionIconButton.tsx",
   "src/app/modules/common/components/ui/ClearFiltersButton.tsx",
   "src/app/modules/common/components/ui/ConfigColorChip.tsx",

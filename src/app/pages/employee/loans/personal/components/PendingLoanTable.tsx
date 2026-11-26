@@ -1,9 +1,10 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { KTIcon } from '@metronic/helpers';
 import { deleteLoanById } from '@services/employee';
 import dayjs from 'dayjs';
-import { MRT_ColumnDef } from 'material-react-table';
+
 import React, { useEffect, useMemo, useState } from 'react';
 
 import LoanApplicationForm from './LoanApplicationForm';
@@ -53,35 +54,35 @@ function PendingLoanTable({ completeLoanData, onLoanSubmited }: { completeLoanDa
     setModalVisible(true);
   };
 
-  const columns = useMemo<MRT_ColumnDef<any>[]>(
+  const columns = useMemo<ColumnDef<any>[]>(
     () => [
       {
         accessorKey: 'loanAmount',
         header: 'Loan Amount',
         enableSorting: false,
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+        cell: ({ cell }: any) => formatNumber(cell.getValue()),
       },
       {
         accessorKey: 'loanType',
         header: 'Loan Type',
         enableSorting: false,
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
+        cell: ({ cell }: any) => cell.getValue(),
       },
        // {
             //     accessorKey: "status",
             //     header: "Status",
             //     enableSorting: false,
             //     enableColumnActions: false,
-            //     Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            //     cell: ({ cell }: any) => cell.getValue(),
             // },
       {
         accessorKey: 'loanDuration',
         header: 'Loan Duration',
         enableSorting: false,
         enableColumnActions: false,
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const duration = cell.getValue<number>();
           return duration ? `${duration} Months` : 'N/A';
         },
@@ -91,14 +92,14 @@ function PendingLoanTable({ completeLoanData, onLoanSubmited }: { completeLoanDa
         header: 'Reason',
         enableSorting: false,
         enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
+        cell: ({ cell }: any) => cell.getValue(),
       },
       {
         accessorKey: 'actions',
         header: 'Actions',
         enableSorting: false,
         enableColumnActions: false,
-        Cell: ({ row }: any) => {
+        cell: ({ row }: any) => {
           const resEdit = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.editOwn, employeeId)
           const resDelete = hasPermission(resourceNameMapWithCamelCase.loan, permissionConstToUseWithHasPermission.deleteOwn, employeeId)
           return (
@@ -132,22 +133,16 @@ function PendingLoanTable({ completeLoanData, onLoanSubmited }: { completeLoanDa
 
   return (
     <>
-      <MaterialTable
+      <DataTable
+        caption="Pending Loan Data"
         columns={columns}
         data={loanData}
-        muiTableProps={{
-          sx: {
-            '& .MuiTableBody-root .MuiTableCell-root': {
-              borderBottom: 'none',
-              paddingY: '5px',
-            },
-          },
-        }}
-        tableName="Pending Loan Data"
-        resource={resourceNameMapWithCamelCase.loan}
-        viewOwn={true}
-        viewOthers={true}
-        employeeId={employeeId}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.personal.pending"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
       />
       <Modal show={modalVisible} onHide={() => setModalVisible(false)} centered>
         <Modal.Header closeButton>

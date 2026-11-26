@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Box, Stack, Typography } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import DrillDownDialog from "@app/modules/common/components/DrillDownDialog";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { InlineNotice, WtEmptyState } from "@app/modules/common/components/ui";
 import { queryKeys } from "@/lib/queryKeys";
 import { getApplications } from "@services/recruitment";
@@ -18,7 +19,7 @@ import { applicationColumns } from "./applicationColumns";
  * you can see WHICH four.
  *
  * Composed entirely from things that already existed — `DrillDownDialog` for the shell,
- * `MaterialTable` for the grid, `applicationColumns` for what a row looks like. The only
+ * Kit `DataTable` for the grid, `applicationColumns` for what a row looks like. The only
  * new code here is the query and the heading.
  *
  * ONE component for BOTH charts. Stage and source are two filters on the same list, so a
@@ -107,14 +108,19 @@ const ApplicationsDrillDown = ({ open, onClose, title, statusId, sourceId, compa
                         </Box>
                     )}
 
-                    <MaterialTable
-                        columns={columns}
+                    <DataTable
+                        caption={statusId ? "Recruitment By Stage" : "Recruitment By Source"}
+                        columns={columns as any}
                         data={rows}
-                        isLoading={isLoading}
+                        getRowId={(r) => r.id}
+                        loading={isLoading}
                         // Named per chart so a recruiter's column choices on the stage drill-down do
                         // not silently rearrange the source one.
-                        tableName={statusId ? "RecruitmentByStage" : "RecruitmentBySource"}
-                        muiTableContainerProps={{ sx: { maxHeight: "52vh" } }}
+                        stateKey={statusId ? "recruitment.byStage" : "recruitment.bySource"}
+                        groupableColumns={false}
+                        virtualized
+                        virtualMaxHeight="52vh"
+                        searchPlaceholder="Search applications…"
                     />
                 </>
             )}

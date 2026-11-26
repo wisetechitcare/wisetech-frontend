@@ -5,10 +5,11 @@ import { Box, Stack, Typography, CircularProgress, LinearProgress } from "@mui/m
 import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, GlassCard, WtButton, ActionIconButton, ToneChip,
-    toast, confirmDialog, TableSelectionBar, WtEmptyState, WtField, InlineNotice,
+    toast, confirmDialog, WtEmptyState, WtField, InlineNotice,
     CardsListViewSwitch, type CardsListView,
 } from "@app/modules/common/components/ui";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { queryKeys } from "@/lib/queryKeys";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import { COPY } from "./terms";
@@ -419,14 +420,18 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                 <>
                 {listChrome}
                 {mode === "list" ? (
-                    <MaterialTable
-                        columns={listColumns}
+                    <DataTable
+                        caption="Recruitment Candidates"
+                        columns={listColumns as any}
                         data={applicants}
-                        isLoading={isLoading}
-                        tableName="RecruitmentCandidatesList"
-                        enableRowSelection={canRemove}
-                        renderSelectionActions={(selected: Applicant[]) => (
-                            <TableSelectionBar count={selected.length}>
+                        getRowId={(r) => r.id}
+                        loading={isLoading}
+                        stateKey="recruitment.candidates"
+                        groupableColumns={false}
+                        selectable={canRemove}
+                        selectionActions={(rows) => {
+                            const selected = rows.map((r) => r.original);
+                            return (
                                 <WtButton
                                     size="small"
                                     tone="danger"
@@ -444,14 +449,11 @@ const CandidatesView = ({ companyId }: OrgScoped) => {
                                 >
                                     Archive selected
                                 </WtButton>
-                            </TableSelectionBar>
-                        )}
-                        muiTableProps={canWrite ? {
-                            muiTableBodyRowProps: ({ row }: { row: { original: Applicant } }) => ({
-                                onClick: () => openEdit(row.original),
-                                sx: { cursor: "pointer" },
-                            }),
-                        } : undefined}
+                            );
+                        }}
+                        onRowClick={canWrite ? (r) => openEdit(r) : undefined}
+                        rowLabel={(r) => `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || "Open candidate"}
+                        searchPlaceholder="Search candidates…"
                     />
                 ) : (
                 <AutoGrid min={320}>

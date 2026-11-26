@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Box, Typography } from "@mui/material";
-import type { MRT_ColumnDef } from "material-react-table";
+import type { ColumnDef } from '@/ds/patterns/data-table';
+
 import { ToneChip } from "@app/modules/common/components/ui";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
 import type { Applicant } from "@services/recruitment";
@@ -29,16 +30,16 @@ export interface CandidateColumnOptions {
 
 export function candidateColumns(
   opts: CandidateColumnOptions = {},
-): MRT_ColumnDef<Applicant>[] {
+): ColumnDef<Applicant>[] {
   const omit = new Set(opts.omit ?? []);
 
-  const columns: MRT_ColumnDef<Applicant>[] = [
+  const columns: ColumnDef<Applicant>[] = [
     {
       accessorFn: fullName,
       id: "name",
       header: "Candidate",
       size: 200,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const a = row.original;
         return (
           <Box>
@@ -73,7 +74,7 @@ export function candidateColumns(
       id: "experience",
       header: "Experience",
       size: 130,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const label = experienceLabel(row.original.totalExperienceMonths);
         return label ? (
           <ToneChip dense tone="neutral" label={label} />
@@ -87,7 +88,7 @@ export function candidateColumns(
       id: "ctc",
       header: "Expected CTC",
       size: 130,
-      Cell: ({ row }) =>
+      cell: ({ row }) =>
         row.original.expectedCtc != null ? (
           <ToneChip dense tone="brand" label={`${formatCurrencyCompact(Number(row.original.expectedCtc))} expected`} />
         ) : (
@@ -99,7 +100,7 @@ export function candidateColumns(
       id: "notice",
       header: "Notice",
       size: 130,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const d = row.original.noticePeriodDays;
         if (d == null) return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
         return (
@@ -115,6 +116,7 @@ export function candidateColumns(
       accessorFn: (a) => opts.sourceName?.(a.sourceId) ?? "—",
       id: "source",
       header: "Source",
+      meta: { label: "Source", facet: true },
       size: 130,
     },
     {
@@ -135,8 +137,8 @@ export function candidateColumns(
       maxSize: 200,
       enableColumnFilter: false,
       enableGlobalFilter: false,
-      Cell: ({ row }) => opts.actions!(row.original),
-    }) as MRT_ColumnDef<Applicant>);
+      cell: ({ row }) => opts.actions!(row.original),
+    }) as ColumnDef<Applicant>);
   }
 
   return kept;

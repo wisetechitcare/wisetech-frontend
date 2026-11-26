@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type SyntheticEvent,
 } from "react";
@@ -19,11 +20,11 @@ import {
   TextField,
   InputAdornment,
   Typography,
-  alpha,
-  useTheme,
 } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import { Button, buttonVariants } from "@/ds/ui/button";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
+import { DataTableExport } from "@/ds/patterns/data-table-export";
 import { toast } from "react-toastify";
 import { sortOptionsAlphabetically } from "@utils/sortUtils";
 import {
@@ -33,13 +34,11 @@ import {
 import { WtSelect } from "@app/modules/common/components/ui/WtSelect";
 import { apiErrorMessage } from "@utils/apiError";
 import { canDelete } from "@utils/can";
-import { MRT_ColumnDef } from "material-react-table";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@redux/store";
 import { loadAllEmployeesIfNeeded } from "@redux/slices/allEmployees";
 import { fetchAllEmployeesSelectedData } from "@services/employee";
 import { getClientContactById } from "@services/companies";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
 import {
   GlassDialog,
   GlassHeader,
@@ -116,6 +115,27 @@ const SKIP_REASON_OPTIONS: ConfigOption[] = [
   { id: "NOT_AVAILABLE", name: "Not available", color: "#ea580c" },
   { id: "DO_NOT_GIFT", name: "Do not gift", color: "#64748b" },
 ];
+
+/** Keeps parent bulk-edit state in sync with kit DataTable selection (no onSelectedRowsChange). */
+function SelectionBridge({
+  selected,
+  onChange,
+}: {
+  selected: CourtesyRecipient[];
+  onChange: (rows: CourtesyRecipient[]) => void;
+}) {
+  const prevKey = useRef("");
+  const key = selected
+    .map((r) => r.id)
+    .sort()
+    .join("|");
+  useEffect(() => {
+    if (prevKey.current === key) return;
+    prevKey.current = key;
+    onChange(selected);
+  }, [key, selected, onChange]);
+  return null;
+}
 
 /**
  * One person's quantity in the run's unit ("0.25" kg, "2" Box). Keeps what is typed and saves
@@ -395,7 +415,6 @@ function AssigneeSelect({
 }
 
 export default function DriveDetail() {
-  const theme = useTheme();
   const desk = useCourtesyDesk();
   const sensitive = useSensitiveData();
   const { driveId } = useParams<{ driveId: string }>();
@@ -406,9 +425,6 @@ export default function DriveDetail() {
   const { askText, dialog: promptDialog } = usePromptDialog();
   const dispatch = useDispatch<AppDispatch>();
   const employees = useSelector((s: RootState) => s.allEmployees.list);
-  const employeeId = useSelector(
-    (s: RootState) => s.employee.currentEmployee?.id,
-  );
 
   const deliveryStatuses = desk.config.deliveryStatuses;
   const giftRunStatuses = desk.config.giftRunStatuses;
@@ -620,11 +636,6 @@ export default function DriveDetail() {
     }));
   }, [drive, deliveryStatuses]);
 
-  const rowStatusTint = (statusId: string) => {
-    const c = deliveryStatusColor(desk.config, statusId);
-    return alpha(c, theme.palette.mode === "dark" ? 0.22 : 0.12);
-  };
-
   const linkedGroups = useMemo(
     () =>
       drive
@@ -743,19 +754,19 @@ export default function DriveDetail() {
     [tableRows],
   );
 
-  const columns = useMemo<MRT_ColumnDef<CourtesyRecipient>[]>(() => {
+  const columns = useMemo<ColumnDef<CourtesyRecipient>[]>(() => {
     const unitCost = Number(drive?.costPerGift);
     const hasCost = Number.isFinite(unitCost) && unitCost >= 0;
     return [
       {
         accessorKey: "fullName",
         header: "Person",
-        Footer: () => (
+        footer: () => (
           <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
             TOTAL
           </Typography>
         ),
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const r = row.original;
           const inactive = recipientIsInactive(r);
           const href =
@@ -858,7 +869,7 @@ export default function DriveDetail() {
       {
         accessorKey: "companyName",
         header: "Company",
-        Cell: ({ cell }) => cell.getValue<string>() || "—",
+        cell: ({ cell }) => cell.getValue<string>() || "—",
       },
       {
         id: "areaAddress",
@@ -870,21 +881,21 @@ export default function DriveDetail() {
         accessorKey: "phone",
         header: "Phone",
         size: 120,
-        Cell: ({ cell }) => cell.getValue<string>() || "—",
+        cell: ({ cell }) => cell.getValue<string>() || "—",
       },
       {
         id: "gender",
         header: "Gender",
         size: 100,
         accessorFn: (r) => recipientGender(r),
-        Cell: ({ row }) => recipientGender(row.original),
+        cell: ({ row }) => recipientGender(row.original),
       },
       {
         id: "designation",
         header: "Designation",
         size: 150,
         accessorFn: (r) => recipientDesignation(r),
-        Cell: ({ row }) => recipientDesignation(row.original),
+        cell: ({ row }) => recipientDesignation(row.original),
       },
       {
         accessorKey: "quantity",
@@ -895,7 +906,7 @@ export default function DriveDetail() {
             drive ? formatGiftQty(recipientQty(r.quantity), drive) : r.quantity,
         },
         // Typed in the run's unit (0.25 kg); stored as gifts. Saved on blur / Enter.
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <GiftQtyInput
             quantity={recipientQty(row.original.quantity)}
             drive={drive}
@@ -903,7 +914,7 @@ export default function DriveDetail() {
             onCommit={(quantity) => patchRecipient(row.original.id, { quantity })}
           />
         ),
-        Footer: () => (
+        footer: () => (
           <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
             {drive ? formatGiftQty(tableQuantityTotal, drive) : tableQuantityTotal.toLocaleString()}
           </Typography>
@@ -915,7 +926,7 @@ export default function DriveDetail() {
         size: 120,
         accessorFn: (r) =>
           hasCost ? unitCost * recipientQty(r.quantity) : 0,
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <Box
             component="span"
             className={sensitive.cls}
@@ -930,7 +941,7 @@ export default function DriveDetail() {
             )}
           </Box>
         ),
-        Footer: () => (
+        footer: () => (
           <Box
             component="span"
             className={sensitive.cls}
@@ -948,7 +959,7 @@ export default function DriveDetail() {
         accessorKey: "status",
         header: "Delivery status",
         size: 140,
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <SolidChipPickMenu
             valueId={row.original.status}
             heading="SET STATUS"
@@ -970,7 +981,7 @@ export default function DriveDetail() {
         accessorKey: "deliveredOn",
         header: "Delivery date",
         size: 150,
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <Box onClick={(e) => e.stopPropagation()}>
             <WtDateField
               disabled={!runEditable}
@@ -987,7 +998,7 @@ export default function DriveDetail() {
         accessorKey: "mode",
         header: "Mode",
         size: 130,
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <SolidChipPickMenu
             valueId={row.original.mode}
             heading="SET MODE"
@@ -1020,15 +1031,7 @@ export default function DriveDetail() {
         accessorKey: "assigneeName",
         header: "Assignee",
         size: 290,
-        grow: 1,
-        muiTableBodyCellProps: {
-          sx: {
-            whiteSpace: "normal",
-            overflow: "visible",
-            verticalAlign: "top",
-          },
-        },
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <AssigneeFieldSelect
             tableCell
             disabled={!runEditable}
@@ -1048,7 +1051,7 @@ export default function DriveDetail() {
       {
         accessorKey: "remark",
         header: "Remark",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <TextField
             size="small"
             disabled={!runEditable}
@@ -1068,7 +1071,7 @@ export default function DriveDetail() {
         id: "skipped",
         header: "Skip reason",
         size: 130,
-        Cell: ({ row }) =>
+        cell: ({ row }) =>
           row.original.status === "SKIPPED" ? (
             <SolidChipPickMenu
               valueId={row.original.skippedReason || "REFUSED"}
@@ -1745,46 +1748,37 @@ export default function DriveDetail() {
         }}
       />
 
-      <MaterialTable
+      <DataTable
         key={`Courtesy-Gift-Run-Recipients-${tableSelectionReset}`}
-        tableName="Courtesy-Gift-Run-Recipients"
-        // Export as the run's title; filtered to one of several groups → "Title (Group)".
-        exportName={
-          linkedGroups.length > 1 && linkedGroups.some((g) => g.id === filters.via)
-            ? `${drive.title} (${linkedGroups.find((g) => g.id === filters.via)!.name})`
-            : drive.title
-        }
+        caption="Gift Run Recipients"
         columns={columns}
         data={tableRows}
-        employeeId={employeeId}
-        enableFilters={false}
-        enableGrouping={false}
-        enableRowSelection={runEditable}
-        showColumnFooter
-        onSelectedRowsChange={setSelectedRows}
-        renderToolbarIconActions={() => (
-          <FilterSheetButton
-            count={activeFilterCount}
-            onClick={() => setFilterSheetOpen(true)}
-          />
-        )}
-        renderTopToolbarRightActions={
-          runEditable
-            ? () => <WtButton onClick={openAddPeople}>Add people</WtButton>
-            : undefined
-        }
-        muiTableProps={{
-          muiTableBodyRowProps: ({ row }) => ({
-            sx: {
-              backgroundColor: `${rowStatusTint(row.original.status)} !important`,
-              "&:hover": {
-                backgroundColor: `${alpha(
-                  deliveryStatusColor(desk.config, row.original.status),
-                  theme.palette.mode === "dark" ? 0.3 : 0.18,
-                )} !important`,
-              },
-            },
-          }),
+        getRowId={(r) => r.id}
+        stateKey="Courtesy-Gift-Run-Recipients"
+        groupableColumns={false}
+        selectable={runEditable}
+        rowTone={(r) => deliveryStatusColor(desk.config, r.status)}
+        rowLabel={(r) => r.fullName}
+        searchPlaceholder="Search recipients…"
+        toolbar={(ctx) => {
+          // Export as the run's title; filtered to one of several groups → "Title (Group)".
+          const exportName =
+            linkedGroups.length > 1 && linkedGroups.some((g) => g.id === filters.via)
+              ? `${drive.title} (${linkedGroups.find((g) => g.id === filters.via)!.name})`
+              : drive.title;
+          return (
+            <>
+              <SelectionBridge selected={ctx.selected} onChange={setSelectedRows} />
+              <FilterSheetButton
+                count={activeFilterCount}
+                onClick={() => setFilterSheetOpen(true)}
+              />
+              {runEditable ? (
+                <WtButton onClick={openAddPeople}>Add people</WtButton>
+              ) : null}
+              <DataTableExport columns={columns} ctx={ctx} filename={exportName} />
+            </>
+          );
         }}
       />
     </Box>

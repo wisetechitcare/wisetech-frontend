@@ -286,14 +286,13 @@ it from new files, and do not confuse its `DetailCard` with the barrel's.
 
 | Need | Use |
 |------|-----|
-| Any data table | **`MaterialTable`** (`@app/modules/common/components`) |
+| Any data table | **kit `DataTable`** (`@/ds/patterns/data-table`) |
 | Actions column | **`actionsColumn`** from `…/table/columns` (header defaults to **Actions**) |
 | Date column (chrono sort) | **`dateColumn`** from `…/table/columns` |
-| Row multi-select | `enableRowSelection` on `MaterialTable` |
-| Bulk CTA strip while rows selected | **`TableSelectionBar`** + `WtButton` via `renderSelectionActions` |
-| Sort / filter / export / fullscreen | Engine columns (`MRT_ColumnDef` in `useMemo`); actions column disables filters |
+| Row multi-select | `selectable` + `selectionActions` on `DataTable` |
+| Export | kit **`DataTableExport`** (`@/ds/patterns/data-table-export`) |
 
-**Never:** page-local `<Table>` / second MRT fork; hand-rolled "N selected" toolbars; blank `header: ""` on actions. Details: Neighbors section below + `NEIGHBORS_KIT_360`.
+**Never:** page-local `<Table>`; MaterialTable / MRT; blank `header: ""` on actions. Details: Neighbors section below + KitMap.
 
 ## Empty / loading / error
 
@@ -433,17 +432,15 @@ A salary is always the **full annual amount**. Never label a field in lakhs or L
 
 ## Neighbors — shared components OUTSIDE this folder
 
-**Rule zero applies one directory up too.** This index used to cover only `ui/`, and
-the most-used shared component in the entire codebase is not in `ui/`. A recruitment
-drill-down was built on a hand-written `<Table>` while `MaterialTable` sat one
-directory up. Searching the kit and finding nothing is exactly the failure this
-file exists to prevent — check **Neighbors** before writing a feature twin.
+**Rule zero applies one directory up too.** This index used to cover only `ui/`.
+Searching the kit and finding nothing is exactly the failure this file exists to
+prevent — check **Neighbors** and KitMap before writing a feature twin.
 
 They live in `@app/modules/common/components/` (one level up from `ui/`).
 
 | Need | Use | Never |
 |---|---|---|
-| **Any data table** | **`MaterialTable`** | a hand-written `<Table>`/`<TableHead>`/`<TableRow>` |
+| **Any data table** | **kit `DataTable`** (`@/ds/patterns/data-table`) | a hand-written `<Table>`/`<TableHead>`/`<TableRow>`; MaterialTable / MRT |
 | Tabbed page shell | `MaterialHeaderTab` | a bespoke `<Tabs>` row |
 | Date-period tabs / nav / filter | `PeriodTabs`, `PeriodNavigator`, `PeriodFilter` | a hand-rolled month stepper |
 | Export to Excel/CSV | `ExportButton` | a bespoke download handler |
@@ -459,12 +456,11 @@ They live in `@app/modules/common/components/` (one level up from `ui/`).
 | Hex filled status pill (legacy) | **`ToneChip solid`** (or thin alias `common/StatusBadge`) | a second pill component; Bootstrap `badge` |
 | Employee directory search (legacy) | **`EmployeePickerField`** — **freeze** `AllEmployeesSearchDropdown` (do not expand) | new call sites of `AllEmployeesSearchDropdown` |
 
-**`MaterialTable` is the one to remember.** It is a lazy boundary over a 2,500-line engine
-and brings sorting, per-column search, column show/hide, export, full-screen, and column
-preferences persisted per user. Any table written by hand starts without all of it, and the
-users of that screen quietly get a worse product than everyone else.
+**Kit `DataTable` is the one to remember** (`@/ds/patterns/data-table`). Sorting, search,
+column show/hide / pin / facets, export, full-screen, and `stateKey` prefs live there.
+Any table written by hand starts without all of it.
 
-Columns are `MRT_ColumnDef[]` in a `useMemo`. Two rules worth stating, because both have
+Columns are kit `ColumnDef[]` in a `useMemo`. Two rules worth stating, because both have
 been got wrong:
 
 - **Sort on the value, render what you like.** Give `accessorFn` the number or date and put

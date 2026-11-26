@@ -1,12 +1,10 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import apiErrorMessage from '@utils/apiError';
-import { MRT_ColumnDef, MRT_Row } from 'material-react-table';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { usePermission } from '@hooks/usePermission';
 import { useEventBus } from '@hooks/useEventBus';
 import { EVENT_KEYS } from '@constants/eventKeys';
-import { KTIcon } from '@metronic/helpers';
+import { Check, CircleHelp, Eye, Loader2, Lock, RefreshCw, X } from 'lucide-react';
 import { fetchPendingApprovals, fetchAllApprovalInstances, processApprovalAction, fetchReimbursementBatchById, decideLeaveSegment, processBatchRequestAction, bulkDecideApprovals } from '@services/employee';
 import { successConfirmation, errorConfirmation } from '@utils/modal';
 import { useSelector } from 'react-redux';
@@ -16,18 +14,18 @@ import { getSocket } from '@utils/socketClient';
 import ApprovalStatusTracker from '@pages/approvals/ApprovalStatusTracker';
 import { BatchDetailModal, fmtAmount } from '@pages/employee/reimbursement/shared/ReimbursementBatchShared';
 import dayjs from 'dayjs';
-import { WtButton } from '@app/modules/common/components/ui/buttons';
 import { getApprovalDomain, getApprovalDetail } from './domains/registry';
 // Direct module import (not the ui/ barrel) — the barrel drags glass/notifications into this
 // file's type+bundle graph for one chip.
 import { ToneChip } from '@app/modules/common/components/ui/chips';
-import { WtIconButton } from '@app/modules/common/components/ui/buttons';
 import { tonePair, type SemanticTone } from '@app/theme/tokens';
-import { CircularProgress } from '@mui/material';
 import { formatTime } from '@utils/dateFormats';
 import { currencyPrefix } from '@utils/currency';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 import { SmartAvatar } from '@/ds/ui/smart-avatar';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { RowAction } from '@/ds/patterns/row-action';
 
 // A single leave segment within a multi-segment (sandwich) group request — one LeaveTracker row.
 type LeaveSegment = {
@@ -572,12 +570,12 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     ? domainTypes.includes('reimbursement')
     : !domainTypes.includes('reimbursement');
 
-  const columns = useMemo<MRT_ColumnDef<ApprovalStep>[]>(() => [
+  const columns = useMemo<ColumnDef<DisplayStep>[]>(() => [
     {
-      accessorKey: 'requester',
+      id: 'requester',
       header: 'Requested By',
       size: 200,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const { employee } = row.original.instance;
         const { firstName, lastName } = employee.users;
         return (
@@ -590,11 +588,11 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
     },
     ...(isReimbursementFlow ? [
       {
-        accessorKey: 'totalRequests',
+        id: 'totalRequests',
         header: 'Total Requests',
         size: 130,
-        Cell: ({ row }: any) => {
-          const ds = row.original as DisplayStep;
+        cell: ({ row }: { row: { original: DisplayStep } }) => {
+          const ds = row.original;
           const d = ds.requestDetails as any;
           const count = d?.totalRequests;
           if (count == null) return <span className='text-muted fs-7'>—</span>;
@@ -626,19 +624,18 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             </div>
           );
         },
-      } as MRT_ColumnDef<ApprovalStep>,
+      } as ColumnDef<DisplayStep>,
       {
-        accessorKey: 'totalAmount',
+        id: 'totalAmount',
         header: 'Total Amount',
         size: 150,
-        Cell: ({ row }: any) => {
-          const ds = row.original as DisplayStep;
+        cell: ({ row }: { row: { original: DisplayStep } }) => {
+          const ds = row.original;
           const amount = ds.requestDetails?.totalAmount;
           if (amount == null) return <span className='text-muted fs-7'>—</span>;
           return <span className='text-dark fw-semibold fs-7'>{currencyPrefix()}{fmtAmount(amount)}</span>;
         },
-      } as MRT_ColumnDef<ApprovalStep>
-      
+      } as ColumnDef<DisplayStep>,
     ] : []),
     {
       // Ageing. Nothing in this module could answer "what has been sitting longest" — there was
@@ -647,12 +644,12 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       id: 'ageing',
       header: 'Waiting',
       size: 120,
-      accessorFn: (row: any) => {
+      accessorFn: (row) => {
         const submitted = row.requestDetails?.submittedAt ?? row.instance?.createdAt;
         return submitted ? dayjs().diff(dayjs(submitted), 'day') : -1;
       },
-      sortingFn: 'basic',
-      Cell: ({ row }: any) => {
+      sortFn: 'basic',
+      cell: ({ row }) => {
         const submitted = row.original.requestDetails?.submittedAt ?? row.original.instance?.createdAt;
         if (!submitted) return <span className='text-muted fs-7'>—</span>;
         const days = dayjs().diff(dayjs(submitted), 'day');
@@ -682,12 +679,12 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           </div>
         );
       },
-    } as MRT_ColumnDef<ApprovalStep>,
+    },
     {
-      accessorKey: 'workflowType',
+      id: 'workflowType',
       header: 'Type',
       size: 185,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const type = row.original.instance.workflowType;
         const subType = row.original.requestDetails?.subType;
         const segments = row.original.requestDetails?.segments;
@@ -742,10 +739,10 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       },
     },
     {
-      accessorKey: 'dates',
+      id: 'dates',
       header: 'Duration',
       size: 180,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const rd = row.original.requestDetails ?? {};
         const { dateFrom, dateTo, isHalfDay, halfDaySession } = rd;
 
@@ -811,10 +808,10 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       },
     },
     {
-      accessorKey: 'step',
+      id: 'step',
       header: 'Step',
       size: 90,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const { currentLevel, totalLevels } = row.original.instance;
         return (
           <ToneChip dense tone='brand' label={`${currentLevel} / ${totalLevels}`} />
@@ -822,19 +819,20 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
       },
     },
     {
-      accessorKey: 'createdAt',
+      id: 'createdAt',
       header: 'Submitted',
       size: 120,
-      Cell: ({ row }) => (
+      cell: ({ row }) => (
         <span className='text-muted fs-7'>{formatDate(row.original.instance.createdAt)}</span>
       ),
     },
     {
-      accessorKey: 'actions',
+      id: 'actions',
       header: 'Actions',
       size: 160,
       enableSorting: false,
-      Cell: ({ row }) => {
+      meta: { export: false, pin: 'end' },
+      cell: ({ row }) => {
         const step = row.original;
         const isProcessing = processingId === step.id;
 
@@ -874,6 +872,11 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           : awaiting === 0
             ? 'Nothing here needs your decision — open it to have a look'
             : `Approve the ${awaiting} request${awaiting === 1 ? '' : 's'} waiting for you`;
+        const rejectTitle = awaiting == null
+          ? 'Reject'
+          : awaiting === 0
+            ? 'Nothing here needs your decision'
+            : `Reject the ${awaiting} request${awaiting === 1 ? '' : 's'} waiting for you`;
 
         return (
           <div className='d-flex align-items-center gap-1 flex-wrap'>
@@ -886,54 +889,49 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
                 sx={{ width: '100%', mb: 0.5 }}
               />
             )}
-            <WtIconButton
-              color={tonePair('success').fg}
-              title={approveTitle}
+            <RowAction
+              label={approveTitle}
+              tint="success"
               disabled={isProcessing || awaiting === 0}
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); approve(step); }}
+              onClick={() => approve(step)}
             >
               {isProcessing
-                ? <CircularProgress size={14} sx={{ color: tonePair('success').fg }} />
-                : <KTIcon iconName='check' className='fs-4' />}
-            </WtIconButton>
+                ? <Loader2 className="size-4 animate-spin" aria-hidden />
+                : <Check className="size-4" aria-hidden />}
+            </RowAction>
             {/* Reimbursement only: it is the one domain with a NEEDS_INFO state and an endpoint
                 that writes it. Rendering the button where it cannot work would be worse than
                 not having it. */}
             {step.instance.workflowType === 'reimbursement' && (
-              <WtIconButton
-                color={tonePair('warning').fg}
-                title='Need more info — ask the employee a question without rejecting'
+              <RowAction
+                label="Need more info — ask the employee a question without rejecting"
                 disabled={isProcessing}
-                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setInfoTarget(step); }}
+                onClick={() => setInfoTarget(step)}
               >
-                <KTIcon iconName='question' className='fs-4' />
-              </WtIconButton>
+                <CircleHelp className="size-4" aria-hidden />
+              </RowAction>
             )}
-            <WtIconButton
-              color={tonePair('danger').fg}
-              title={awaiting == null ? 'Reject'
-                : awaiting === 0 ? 'Nothing here needs your decision'
-                  : `Reject the ${awaiting} request${awaiting === 1 ? '' : 's'} waiting for you`}
+            <RowAction
+              label={rejectTitle}
+              tint="danger"
               disabled={isProcessing || awaiting === 0}
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); setRejectTarget(step); }}
+              onClick={() => setRejectTarget(step)}
             >
-              <KTIcon iconName='cross' className='fs-4' />
-            </WtIconButton>
+              <X className="size-4" aria-hidden />
+            </RowAction>
             {/* Deciding request-by-request is the normal path for a mixed batch, so it gets a
                 button rather than being hidden behind a row click. */}
             {isReimbursementFlow && (
-              <WtIconButton
-                color={tonePair('brand').fg}
-                title='Open the submission and decide request by request'
+              <RowAction
+                label="Open the submission and decide request by request"
                 disabled={isProcessing}
-                onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation();
+                onClick={() => {
                   setBatchDetailId(step.instance.requestId);
                   setBatchDetailInstanceId(step.instance.id);
                 }}
               >
-                <KTIcon iconName='eye' className='fs-4' />
-              </WtIconButton>
+                <Eye className="size-4" aria-hidden />
+              </RowAction>
             )}
             {infoRequested.has(step.instance.id) && (
               <ToneChip
@@ -967,22 +965,13 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
   // Automates the repetitive part of approving; every item still goes through the normal
   // single-decision path server-side, so balances, arrears and chain advancement are
   // unchanged.
-  const [selectedSteps, setSelectedSteps] = useState<DisplayStep[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  // A batch may span any number of employees; the API sends each requester one summary
-  // email rather than one per decision, so a mixed selection is safe. Counting them only to
-  // tell the approver what they are about to affect.
-  const selectedEmployeeIds = useMemo(
-    () => [...new Set(selectedSteps.map((s) => s.instance?.employee?.id).filter(Boolean))],
-    [selectedSteps],
-  );
-
-  const runBulk = useCallback(async (action: 'approve' | 'reject') => {
-    if (bulkBusy || selectedSteps.length === 0) return;
+  const runBulk = useCallback(async (action: 'approve' | 'reject', selected: DisplayStep[], clear: () => void) => {
+    if (bulkBusy || selected.length === 0) return;
     setBulkBusy(true);
     try {
-      const ids = [...new Set(selectedSteps.map((s) => s.instance.id))];
+      const ids = [...new Set(selected.map((s) => s.instance.id))];
       const res = await bulkDecideApprovals(ids, action);
       const { decided = 0, failed = 0, results = [] } = res?.data ?? {};
       if (failed > 0) {
@@ -998,20 +987,20 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
           action === 'approve' ? 'Approved!' : 'Rejected',
         );
       }
-      setSelectedSteps([]);
+      clear();
       await load();
     } catch (err: any) {
       errorConfirmation(apiErrorMessage(err, 'Please try again.'));
     } finally {
       setBulkBusy(false);
     }
-  }, [bulkBusy, selectedSteps, load]);
+  }, [bulkBusy, load]);
 
   if (!canApprove) {
     return (
       <div className='card'>
         <div className='card-body d-flex flex-column align-items-center justify-content-center py-20'>
-          <KTIcon iconName='lock' className='fs-3x text-muted mb-4' />
+          <Lock className='mb-4 size-10 text-muted-foreground' aria-hidden />
           <span className='text-muted fs-6'>You do not have access to approvals.</span>
         </div>
       </div>
@@ -1036,53 +1025,67 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             >
               {t.label}
               {t.key === 'pending' && steps.length > 0 && activeTab === 'pending' && (
-                <span className='badge badge-circle badge-white ms-2 text-primary fw-bold'>{steps.length}</span>
+                <Badge variant="info-solid" className="ms-2">{steps.length}</Badge>
               )}
             </Button>
           ))}
         </div>
-        <Button variant="tinted" size="sm" type="submit" onClick={() => load(activeTab)} disabled={loading}>
-          <KTIcon iconName='arrows-circle' className='fs-5' />{loading ? 'Refreshing...' : 'Refresh'}
+        <Button variant="tinted" size="sm" type="button" onClick={() => load(activeTab)} disabled={loading}>
+          <RefreshCw className="size-4" aria-hidden />{loading ? 'Refreshing...' : 'Refresh'}
         </Button>
       </div>
 
-      <MaterialTable
-        data={displaySteps}
+      <DataTable
+        key={activeTab}
+        caption="Approvals"
         columns={columns}
-        tableName='Approvals'
-        hideFilters={false}
-        hideExportCenter
+        data={displaySteps}
+        getRowId={(r) => r._uid}
+        loading={loading}
+        stateKey="Approvals"
         // Selection only where a bulk decision is even possible: the pending tab, and only
         // for someone who may approve. Offering checkboxes on a history tab would be a
         // control that does nothing.
-        enableRowSelection={canApprove && activeTab === 'pending'}
-        onSelectedRowsChange={setSelectedSteps as any}
-        renderSelectionActions={(selected: any[]) => (
-          <div className='d-flex align-items-center gap-2'>
-            <span className='text-muted fs-7'>
-              {selected.length} selected{selectedEmployeeIds.length > 1 ? ` · ${selectedEmployeeIds.length} employees` : ''}
-            </span>
-            <Button variant="tinted" size="sm" type="submit"
-              className="[--tint:var(--cta-success)]"
-              disabled={bulkBusy}
-              onClick={() => runBulk('approve')}
-            >
-              {bulkBusy ? 'Working…' : 'Approve selected'}
-            </Button>
-            <Button variant="tinted" size="sm" type="submit"
-              className="[--tint:var(--cta-danger)]"
-              disabled={bulkBusy}
-              onClick={() => runBulk('reject')}
-            >
-              Reject selected
-            </Button>
-          </div>
-        )}
-        renderDetailPanel={({ row }: { row: MRT_Row<ApprovalStep> }) => (
+        selectable={canApprove && activeTab === 'pending'}
+        selectionActions={(rows, clear) => {
+          const selected = rows.map((r) => r.original);
+          // A batch may span any number of employees; the API sends each requester one summary
+          // email rather than one per decision, so a mixed selection is safe. Counting them only to
+          // tell the approver what they are about to affect.
+          const employeeCount = new Set(selected.map((s) => s.instance?.employee?.id).filter(Boolean)).size;
+          return (
+            <>
+              {employeeCount > 1 && (
+                <span className="text-sm text-muted-foreground">· {employeeCount} employees</span>
+              )}
+              <Button
+                variant="tinted"
+                size="sm"
+                type="button"
+                className="[--tint:var(--cta-success)]"
+                disabled={bulkBusy}
+                onClick={() => runBulk('approve', selected, clear)}
+              >
+                {bulkBusy ? 'Working…' : 'Approve selected'}
+              </Button>
+              <Button
+                variant="tinted"
+                size="sm"
+                type="button"
+                className="[--tint:var(--cta-danger)]"
+                disabled={bulkBusy}
+                onClick={() => runBulk('reject', selected, clear)}
+              >
+                Reject selected
+              </Button>
+            </>
+          );
+        }}
+        renderDetail={(row) => (
           <ExpandedDetail
-            instanceId={row.original.instance.id}
-            workflowType={row.original.instance.workflowType}
-            details={row.original.requestDetails}
+            instanceId={row.instance.id}
+            workflowType={row.instance.workflowType}
+            details={row.requestDetails}
             canDecide={canApprove && activeTab === 'pending'}
             onDecide={async (segmentId, decision) => {
               try {
@@ -1094,21 +1097,17 @@ function DomainApprovalQueue({ domainTypes, mode = 'include' }: DomainApprovalQu
             }}
           />
         )}
-        muiTableProps={{
-          muiTableBodyRowProps: ({ row }: any) => ({
-            onClick: () => {
-              const ds = row.original as DisplayStep;
-              // Each workflow opens its OWN canonical detail (registry) — leave → ApplyLeave,
-              // reimbursement → BatchDetailModal. A domain with no registered Detail (attendance,
-              // task, …) carries its detail in the expandable panel, so click toggles that.
-              if (getApprovalDetail(ds.instance.workflowType, (ds.instance as any).requestModel)) {
-                setDetailStep(ds);
-                return;
-              }
-              row.toggleExpanded?.();
-            },
-            sx: { cursor: 'pointer' },
-          }),
+        onRowClick={(ds) => {
+          // Each workflow opens its OWN canonical detail (registry) — leave → ApplyLeave,
+          // reimbursement → BatchDetailModal. A domain with no registered Detail (attendance,
+          // task, …) carries its detail in the expandable panel (chevron), so row click is a no-op.
+          if (getApprovalDetail(ds.instance.workflowType, (ds.instance as any).requestModel)) {
+            setDetailStep(ds);
+          }
+        }}
+        rowLabel={(ds) => {
+          const { firstName, lastName } = ds.instance.employee.users;
+          return `${firstName} ${lastName}`.trim() || 'Open approval';
         }}
       />
 

@@ -1,14 +1,12 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import type { RootState } from '@redux/store';
 import { AdminFolder } from '@models/media';
 import Loader from '@app/modules/common/utils/Loader';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { ToneChip } from '@app/modules/common/components/ui';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { Folder } from 'lucide-react';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
-import { pressableProps } from '@app/modules/common/components/ui/a11y';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 
 interface AdminFolderListProps {
   admins: AdminFolder[];
@@ -16,43 +14,43 @@ interface AdminFolderListProps {
 
 const AdminFolderList: React.FC<AdminFolderListProps> = ({ admins }) => {
   const navigate = useNavigate();
-  const currentUserId = useSelector((s: RootState) => s.auth?.currentUser?.id);
 
-  // `employeeCount` stays a number on the row so the column sorts numerically;
-  // the cells below render exactly what the hand-written <table> rendered.
-  const columns = useMemo(() => [
+  const columns = useMemo<ColumnDef<AdminFolder>[]>(() => [
     {
       accessorKey: 'name',
-      header: 'Admin Name',
-      Cell: ({ row }: any) => (
-        <div data-wt-control="row" {...pressableProps(() => navigate(`/company/media/${row.original.id}`))} className="cursor-pointer text-break" onClick={() => navigate(`/company/media/${row.original.id}`)}>
-          <div className="d-flex align-items-center">
-            <AppIcon name="folder" className="fs-2x fs-sm-2x text-primary me-2 me-sm-3" />
-            <div className="fw-bold text-gray-800 text-hover-primary fs-7 fs-sm-6">
-              {row.original.name}
-            </div>
-          </div>
-          {/* Mobile: Show employee count below name */}
-          <div className="d-md-none text-gray-500 fs-8 mt-1 ms-5 ps-2">
-            {row.original.employeeCount} employees
-          </div>
-        </div>
+      meta: { label: 'Admin Name' },
+      header: ({ column }) => <SortableHeader column={column} title="Admin Name" />,
+      cell: ({ row }) => (
+        <button
+          type="button"
+          className="flex min-w-0 items-center gap-2 text-left font-medium text-foreground hover:underline"
+          onClick={() => navigate(`/company/media/${row.original.id}`)}
+        >
+          <Folder className="size-5 shrink-0 text-primary" aria-hidden />
+          <span className="truncate">{row.original.name}</span>
+        </button>
       ),
     },
     {
       accessorKey: 'employeeCount',
-      header: 'Employees Created/Updated',
-      Cell: ({ cell }: any) => <span className="text-nowrap">{cell.getValue()} employees</span>,
+      meta: { label: 'Employees Created/Updated', exportType: 'number', wrap: false },
+      header: ({ column }) => <SortableHeader column={column} title="Employees Created/Updated" />,
+      cell: ({ getValue }) => `${String(getValue() ?? 0)} employees`,
     },
     {
-      accessorKey: 'actions',
+      id: 'actions',
+      meta: { label: 'Action', export: false, pin: 'end', wrap: false },
+      enableSorting: false,
+      enableHiding: false,
       header: 'Action',
-      Cell: ({ row }: any) => (
-        <Button variant="tinted" size="sm" type="submit"
+      cell: ({ row }) => (
+        <Button
+          type="button"
+          variant="tinted"
+          size="sm"
           onClick={() => navigate(`/company/media/${row.original.id}`)}
         >
-          <span className="d-none d-sm-inline">Open Folder</span>
-          <span className="d-inline d-sm-none">Open</span>
+          Open Folder
         </Button>
       ),
     },
@@ -61,30 +59,27 @@ const AdminFolderList: React.FC<AdminFolderListProps> = ({ admins }) => {
   if (!admins) return <Loader />;
 
   return (
-    <div className="card card-body px-3 px-sm-4 px-lg-9 py-5 py-md-8 m-2 m-sm-3 m-md-5 m-lg-8 shadow-sm">
-      {/* Header */}
-      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-4 gap-3">
-        <h4 className="fw-bold text-gray-800 mb-0 fs-5 fs-md-4">Admin Folders</h4>
-        <ToneChip dense tone="brand" label={`Total: ${admins?.length || 0}`} />
+    <div className="m-2 space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm sm:m-3 sm:p-6 md:m-5 lg:m-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h4 className="text-base font-semibold text-foreground">Admin Folders</h4>
+        <Badge variant="brand">Total: {admins.length}</Badge>
       </div>
 
-      {/* Empty State */}
-      {admins?.length === 0 ? (
-        <div className="text-center py-10">
-          <Loader />
-          <div className="text-gray-500 mt-3 fs-6">
-            No Admin Folders Found
-          </div>
+      {admins.length === 0 ? (
+        <div className="py-10 text-center text-sm text-muted-foreground">
+          No Admin Folders Found
         </div>
       ) : (
-        <MaterialTable
-          tableName="AdminFolders"
-          employeeId={currentUserId}
-          data={admins}
+        <DataTable
+          caption="Admin Folders"
           columns={columns}
-          hidePagination
-          hideExportCenter
-          enableColumnActions={false}
+          data={admins}
+          getRowId={(r) => r.id}
+          stateKey="company.adminFolders"
+          initialPageSize={25}
+          toolbar={(ctx) => (
+            <DataTableExport columns={columns} ctx={ctx} filename="Admin Folders" />
+          )}
         />
       )}
     </div>

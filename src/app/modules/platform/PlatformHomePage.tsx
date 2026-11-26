@@ -308,9 +308,7 @@ export default function PlatformHomePage() {
         size: 176,
         minSize: 168,
         cell: ({ row }) => (
-          <span className="block text-right tabular text-muted-foreground">
-            {formatWhen(row.original.inviteExpiresAt)}
-          </span>
+          <span className="text-muted-foreground">{formatWhen(row.original.inviteExpiresAt)}</span>
         ),
       },
       {
@@ -320,9 +318,7 @@ export default function PlatformHomePage() {
         size: 176,
         minSize: 168,
         cell: ({ row }) => (
-          <span className="block text-right tabular text-muted-foreground">
-            {formatWhen(row.original.lastLoginAt)}
-          </span>
+          <span className="text-muted-foreground">{formatWhen(row.original.lastLoginAt)}</span>
         ),
       },
       {

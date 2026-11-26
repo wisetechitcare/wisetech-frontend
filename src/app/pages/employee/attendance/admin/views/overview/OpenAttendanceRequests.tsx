@@ -1,6 +1,7 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import Loader from "@app/modules/common/utils/Loader";
 import ApprovalStatusTracker from "@app/pages/approvals/ApprovalStatusTracker";
@@ -166,7 +167,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
     const sortKey = sorting.length ? `${sorting[0].id}:${sorting[0].desc}` : '';
 
     // Search is server-side for exactly the reason sorting is. The table hands over the
-    // DEBOUNCED query (see MaterialTableImpl's onSearchChange), so this is one request per
+    // DEBOUNCED query (kit DataTable onGlobalFilterChange), so this is one request per
     // pause in typing, not one per keystroke.
     const [search, setSearch] = useState('');
 
@@ -251,7 +252,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
             size: 220,
             minSize: 180,
             maxSize: 280,
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <EmployeeIdentityCell
                     name={row.original.employeeName}
                     code={row.original.employeeCode}
@@ -265,7 +266,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
             size: 150,
             minSize: 130,
             maxSize: 190,
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <div className="d-flex flex-column">
                     <span className="fw-semibold text-gray-800">{row.original.date}</span>
                     {row.original.day ? (
@@ -286,7 +287,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
             size: 150,
             minSize: 140,
             maxSize: 220,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "status",
@@ -297,11 +298,11 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
             size: 175,
             minSize: 150,
             maxSize: 220,
-            Cell: ({ renderedCellValue }: any) => {
+            cell: ({ cell }: any) => {
                 let statusText = '';
                 let trio: Trio;
 
-                switch (renderedCellValue) {
+                switch (cell.getValue()) {
                     case LeaveStatus.ApprovalPending:
                         statusText = LEAVE_STATUS[0]; trio = TRIO.amber; break;
                     case LeaveStatus.Approved:
@@ -311,10 +312,10 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
                     case LeaveStatus.PendingHR:
                         statusText = 'Pending HR'; trio = TRIO.blue; break;
                     default:
-                        return renderedCellValue;
+                        return cell.getValue();
                 }
 
-                return <StatusBadge trio={trio} label={statusText} pulse={renderedCellValue === LeaveStatus.ApprovalPending} />;
+                return <StatusBadge trio={trio} label={statusText} pulse={cell.getValue() === LeaveStatus.ApprovalPending} />;
             }
         },
         {
@@ -323,7 +324,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const employee = row.original;
                 const isWeekendOrHoliday = employee.isWeekendOrHoliday;
                 const checkIn = employee.checkIn;
@@ -366,7 +367,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const checkOut = row.original.checkOut;
 
                 if (!checkOut || checkOut === '-NA-' || !allEmployeeThresholds) {
@@ -408,8 +409,8 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row }: any) => {
-                const renderedCellValue = row.original.workingMethod;
+            cell: ({ row }: any) => {
+                const workingMethod = row.original.workingMethod;
                 const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;
 
                 const colorMap: Record<string, string> = {
@@ -418,21 +419,21 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
                     [REMOTE]: worktypeColorValues?.remoteColor || "#2ecc71",
                 };
 
-                const getIdentifier = (text: string, color: string) => (
+                const getIdentifier = (text: string, _css: string) => (
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span
                             style={{
                                 width: "12px",
                                 height: "12px",
                                 borderRadius: "50%",
-                                backgroundColor: colorMap[renderedCellValue] || "#000"
+                                backgroundColor: colorMap[workingMethod] || "#000"
                             }}
                         ></span>
-                        {renderedCellValue}
+                        {text}
                     </div>
                 );
 
-                switch (renderedCellValue) {
+                switch (workingMethod) {
                     case OFFICE:
                         return getIdentifier('OFFICE', 'working-method-office');
                     case ON_SITE:
@@ -440,7 +441,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
                     case REMOTE:
                         return getIdentifier('REMOTE', 'working-method-remote');
                     default:
-                        return renderedCellValue;
+                        return workingMethod;
                 }
             }
         },
@@ -452,7 +453,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
             size: 180,
             minSize: 150,
             maxSize: 220,
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const { status, approvedById, rejectedById } = row.original;
                 const isApproved = status === LeaveStatus.Approved;
                 const isRejected = status === LeaveStatus.Rejected;
@@ -487,7 +488,7 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
             size: 120,
             minSize: 100,
             maxSize: 160,
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const isPending = row.original.status === LeaveStatus.ApprovalPending;
                 const permission = hasPermission(resourceNameMapWithCamelCase.attendanceRequest, permissionConstToUseWithHasPermission.editOthers, row.original);
                 return (
@@ -530,24 +531,22 @@ const OpenAttendanceRequests = ({ range = null, activeOnly = false }: OpenAttend
                 <IconBox icon="time" trio={TRIO.blue} size={44} fs="fs-1" />
                 <span className="font-bold text-[20px] text-slate-900">All Attendance Requests</span>
             </div>
-            <MaterialTable
-                resource={resourceNameMapWithCamelCase.attendanceRequest}
-                viewOwn={true}
-                viewOthers={true}
+            <DataTable
+                caption="All Attendance Requests"
                 columns={allColumns}
                 data={allIsWeekendOrHolidayDataWithAttendanceRequests}
-                tableName="All Attendance Requests"
-                employeeId={employeeIdCurrent}
-                persistPreferences={false}
-                manualPagination={true}
-                manualSorting={true}
-                manualFiltering={true}
-                onSearchChange={setSearch}
-                onSortingChange={setSorting}
+                getRowId={(r: any) => String(r.id)}
+                loading={dataLoading}
                 rowCount={allTotalRecords}
+                pagination={allPagination}
                 onPaginationChange={setAllPagination}
-                paginationState={allPagination}
-                isLoading={dataLoading}
+                sorting={sorting}
+                onSortingChange={setSorting}
+                globalFilter={search}
+                onGlobalFilterChange={setSearch}
+                stateKey="attendance.allAttendanceRequests"
+                groupableColumns={false}
+                searchPlaceholder="Search attendance requests…"
             />
 
 

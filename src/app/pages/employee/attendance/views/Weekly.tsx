@@ -3,9 +3,6 @@
 // import { IWeeklyAttendance } from "@models/employee";
 // import { useMemo, useState } from "react";
 // import { employeeWeeklyAttendanceData } from "../data";
-// import { MRT_ColumnDef } from "material-react-table";
-// import MaterialTable from "@app/modules/common/components/MaterialTable";
-
 // interface WeekDays {
 //     key: string;
 //     label: string;

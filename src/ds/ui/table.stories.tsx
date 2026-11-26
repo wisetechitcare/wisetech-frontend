@@ -9,7 +9,10 @@ const ROWS = [
   { name: 'Rohan Mehta', dept: 'Finance', status: ['warning', 'Late'], leave: 9.5 },
 ] as const
 
-/** Data table. Numbers are right-aligned with tabular figures; status uses badges. */
+/**
+ * Primitive table. Rows use horizontal hairlines only (no column grid) — the SaaS list pattern
+ * DataTable inherits. Numbers right-aligned with tabular figures; status uses badges.
+ */
 const meta = {
   title: 'Components/Table',
   component: Table,

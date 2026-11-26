@@ -1,9 +1,10 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import Identifiers from "@app/modules/common/utils/Identifiers";
 import { KTIcon } from "@metronic/helpers";
 import { WtIconButton, TRIO } from "@app/modules/common/components/ui/tw";
 import { ITodayAttendance } from "@models/employee";
-import { MRT_ColumnDef } from "material-react-table";
+
 import { useMemo, useState } from "react";
 import { employeeTodayAttendanceData } from "../data";
 import { useSelector } from "react-redux";
@@ -12,55 +13,55 @@ import { RootState } from "@redux/store";
 function Today() {
     const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const [tableData, setTableData] = useState<ITodayAttendance[]>(employeeTodayAttendanceData);
-    const columns = useMemo<MRT_ColumnDef<ITodayAttendance>[]>(() => [
+    const columns = useMemo<ColumnDef<ITodayAttendance>[]>(() => [
         {
             accessorKey: "id",
             header: "ID",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "name",
             header: "Name",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "date",
             header: "Date",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "day",
             header: "Day",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "checkIn",
             header: "Check-In",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "checkOut",
             header: "Check-Out",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "duration",
             header: "Duration",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "status",
             header: "Status",
-            Cell: ({ renderedCellValue }: any) => {
-                switch (renderedCellValue) {
+            cell: ({ cell }: any) => {
+                switch (cell.getValue()) {
                     case 'Present':
-                        return <Identifiers text={renderedCellValue} cssClass="present" />
+                        return <Identifiers text={cell.getValue()} cssClass="present" />
                     case 'Absent':
-                        return <Identifiers text={renderedCellValue} cssClass="absent" />
+                        return <Identifiers text={cell.getValue()} cssClass="absent" />
                     case 'Check in missing':
-                        return <Identifiers text={renderedCellValue} cssClass="check-in-out" />
+                        return <Identifiers text={cell.getValue()} cssClass="check-in-out" />
                     case 'Check out missing':
-                        return <Identifiers text={renderedCellValue} cssClass="check-in-out" />
+                        return <Identifiers text={cell.getValue()} cssClass="check-in-out" />
                     default:
                         return 'Weekend';
                 }
@@ -69,17 +70,17 @@ function Today() {
         {
             accessorKey: "work",
             header: "Work",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "location",
             header: "Location",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "actions",
             header: "Actions",
-            Cell: ({ row }: any) =>
+            cell: ({ row }: any) =>
                 <WtIconButton title="Edit" color={TRIO.blue.c} onClick={() => {}} size={34}>
                     <KTIcon iconName='pencil' className='fs-4' />
                 </WtIconButton>
@@ -88,10 +89,15 @@ function Today() {
 
     return (
         <>
-            <MaterialTable
+            <DataTable
+                caption="Today Attendance"
                 columns={columns}
                 data={tableData}
-                tableName="Today Attendance" employeeId={employeeIdCurrent}/>
+                getRowId={(_r, i) => String(i)}
+                stateKey="attendance.today"
+                groupableColumns={false}
+                searchPlaceholder="Search…"
+            />
         </>
     );
 }

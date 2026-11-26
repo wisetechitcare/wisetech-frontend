@@ -3,7 +3,8 @@ import { Dayjs } from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import SalarySummaryCard from "./SalarySummaryCard";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable } from '@/ds/patterns/data-table';
+
 import ExportButton from "@app/modules/common/components/ExportButton";
 import { useSalaryFilters, SalaryFilterToolbar, StatusFilter } from "./SalaryTableFilters";
 import { useSalaryMaster } from "@modules/payroll/hooks/useSalaryComponentNames";
@@ -307,11 +308,10 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
       {/* Employee Salary Table */}
       {/* No heading: the period tabs right above already say Monthly. */}
       <div className="mt-4">
-        <MaterialTable
-          renderTopToolbarRightActions={() => (
-            <SalaryFilterToolbar filters={filters} onStatusChange={onStatusFilterChange} />
-          )}
-          renderExportActions={() => (
+        <DataTable
+          caption="Monthly Salary"
+          filters={<SalaryFilterToolbar filters={filters} onStatusChange={onStatusFilterChange} />}
+          toolbar={() => (
             <ExportButton
               data={tableData}
               columns={exportColumns}
@@ -328,122 +328,122 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
             {
               accessorKey: "id",
               header: "ID",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A",
-              Footer: () => <span style={{ fontWeight: 900, color: '#1E3A8A', fontSize: '1.05rem', letterSpacing: '0.08em' }}>TOTAL</span>,
+              cell: ({ cell }: any) => cell.getValue() || "N/A",
+              footer: () => <span style={{ fontWeight: 900, color: '#1E3A8A', fontSize: '1.05rem', letterSpacing: '0.08em' }}>TOTAL</span>,
             },
             {
               accessorKey: "name",
               header: "Name",
               // Plain text, like every other cell. It used to be link-blue, which
               // promised a target of its own; the whole row opens the payroll dialog.
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A",
+              cell: ({ cell }: any) => cell.getValue() || "N/A",
             },
             {
               accessorKey: "subOrganization",
               header: "Sub Organization",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+              cell: ({ cell }: any) => cell.getValue() || "N/A"
             },
             {
               accessorKey: "department",
               header: "Department",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+              cell: ({ cell }: any) => cell.getValue() || "N/A"
             },
             {
               accessorKey: "branch",
               header: "Branch",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+              cell: ({ cell }: any) => cell.getValue() || "N/A"
             },
             {
               accessorKey: "basicSalary",
               header: "Basic Salary",
-              Cell: ({ renderedCellValue }: any) => {
-                if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `${currencyPrefix()}${Math.round(Number(renderedCellValue))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              cell: ({ cell }: any) => {
+                if (cell.getValue() === "-" || !cell.getValue()) return "-";
+                return `${currencyPrefix()}${Math.round(Number(cell.getValue()))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => fmtMoney(columnTotals.basicSalary),
+              footer: () => fmtMoney(columnTotals.basicSalary),
             },
             {
               accessorKey: "overTimeAmount",
               header: "Over Time Amount",
-              Cell: ({ renderedCellValue }: any) => {
-                if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `${currencyPrefix()}${Math.round(Number(renderedCellValue))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              cell: ({ cell }: any) => {
+                if (cell.getValue() === "-" || !cell.getValue()) return "-";
+                return `${currencyPrefix()}${Math.round(Number(cell.getValue()))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => fmtMoney(columnTotals.overTimeAmount),
+              footer: () => fmtMoney(columnTotals.overTimeAmount),
             },
             {
               accessorKey: "totalSalaryAfterAttendance",
               header: "Total Salary After Attendance Adjustments",
-              Cell: ({ renderedCellValue }: any) => {
-                if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `${currencyPrefix()}${Math.round(Number(renderedCellValue))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              cell: ({ cell }: any) => {
+                if (cell.getValue() === "-" || !cell.getValue()) return "-";
+                return `${currencyPrefix()}${Math.round(Number(cell.getValue()))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => fmtMoney(columnTotals.totalSalaryAfterAttendance),
+              footer: () => fmtMoney(columnTotals.totalSalaryAfterAttendance),
             },
             {
               accessorKey: "retention",
               header: "Retention",
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Math.round(Number(renderedCellValue));
+              cell: ({ cell }: any) => {
+                const val = Math.round(Number(cell.getValue()));
                 if (!val || val === 0) return "-";
                 return `${currencyPrefix()}${val.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => fmtMoney(columnTotals.retention),
+              footer: () => fmtMoney(columnTotals.retention),
             },
             {
               accessorKey: "professionalFees",
               header: tds1Name,
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Math.round(Number(renderedCellValue));
+              cell: ({ cell }: any) => {
+                const val = Math.round(Number(cell.getValue()));
                 if (!val || val === 0) return "-";
                 return `${currencyPrefix()}${val.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => fmtMoney(columnTotals.professionalFees),
+              footer: () => fmtMoney(columnTotals.professionalFees),
             },
             {
               accessorKey: "tds2",
               header: tds2Name,
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Math.round(Number(renderedCellValue));
+              cell: ({ cell }: any) => {
+                const val = Math.round(Number(cell.getValue()));
                 if (!val || val === 0) return "-";
                 return `${currencyPrefix()}${val.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => fmtMoney(columnTotals.tds2),
+              footer: () => fmtMoney(columnTotals.tds2),
             },
             {
               accessorKey: "professionalTax",
               header: "Prof. Tax",
-              Cell: ({ renderedCellValue }: any) => {
-                const val = Math.round(Number(renderedCellValue));
+              cell: ({ cell }: any) => {
+                const val = Math.round(Number(cell.getValue()));
                 if (!val || val === 0) return "-";
                 return `${currencyPrefix()}${val.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => fmtMoney(columnTotals.professionalTax),
+              footer: () => fmtMoney(columnTotals.professionalTax),
             },
             {
               accessorKey: "netAmount",
               header: "Net Payable",
-              Cell: ({ renderedCellValue }: any) => {
-                if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `${currencyPrefix()}${Math.round(Number(renderedCellValue))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              cell: ({ cell }: any) => {
+                if (cell.getValue() === "-" || !cell.getValue()) return "-";
+                return `${currencyPrefix()}${Math.round(Number(cell.getValue()))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => fmtMoney(columnTotals.netAmount),
+              footer: () => fmtMoney(columnTotals.netAmount),
             },
             {
               accessorKey: "amountPaid",
               header: "Paid",
-              Cell: ({ renderedCellValue }: any) => {
-                if (renderedCellValue === "-" || !renderedCellValue) return "-";
-                return `${currencyPrefix()}${Math.round(Number(renderedCellValue))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+              cell: ({ cell }: any) => {
+                if (cell.getValue() === "-" || !cell.getValue()) return "-";
+                return `${currencyPrefix()}${Math.round(Number(cell.getValue()))?.toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
               },
-              Footer: () => <span style={{ color: '#1d4ed8', fontWeight: 800 }}>{fmtMoney(columnTotals.amountPaid)}</span>,
+              footer: () => <span style={{ color: '#1d4ed8', fontWeight: 800 }}>{fmtMoney(columnTotals.amountPaid)}</span>,
             },
             {
               accessorKey: "dueAmount",
               header: "Due Amount",
-              Cell: ({ renderedCellValue }: any) => {
-                if (renderedCellValue === "-" || renderedCellValue === null || renderedCellValue === undefined) return "-";
-                const amount = Math.round(Number(renderedCellValue));
+              cell: ({ cell }: any) => {
+                if (cell.getValue() === "-" || cell.getValue() === null || cell.getValue() === undefined) return "-";
+                const amount = Math.round(Number(cell.getValue()));
                 if (amount < 0) {
                   return <span className="text-info fw-bold">Paid Extra ({currencyPrefix()}{Math.abs(amount).toLocaleString(getCurrencyLocale())})</span>;
                 } else if (amount > 0) {
@@ -452,7 +452,7 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
                   return <span className="text-success fw-bold">{currencyPrefix()}0</span>;
                 }
               },
-              Footer: () => {
+              footer: () => {
                 const t = Math.round(columnTotals.dueAmount);
                 const color = t > 0 ? '#dc2626' : t < 0 ? '#0369a1' : '#16a34a';
                 return <span style={{ color, fontWeight: 800 }}>{fmtMoney(t)}</span>;
@@ -461,58 +461,58 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
             {
               accessorKey: "totalWorkingTime",
               header: "Total Working Time",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
+              cell: ({ cell }: any) => cell.getValue() || "-"
             },
             {
               accessorKey: "workedTime",
               header: "Worked Time",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
+              cell: ({ cell }: any) => cell.getValue() || "-"
             },
             {
               accessorKey: "overTime",
               header: "Over Time",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
+              cell: ({ cell }: any) => cell.getValue() || "-"
             },
             {
               accessorKey: "remainingMinutes",
               header: "Remaining Time",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue || "-"
+              cell: ({ cell }: any) => cell.getValue() || "-"
             },
 
             {
               accessorKey: "totalDays",
               header: "Total Days",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+              cell: ({ cell }: any) => cell.getValue() ?? "0"
             },
             {
               accessorKey: "present",
               header: "Present",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+              cell: ({ cell }: any) => cell.getValue() ?? "0"
             },
             {
               accessorKey: "absent",
               header: "Absent",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+              cell: ({ cell }: any) => cell.getValue() ?? "0"
             },
             {
               accessorKey: "late",
               header: "Late",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+              cell: ({ cell }: any) => cell.getValue() ?? "0"
             },
             {
               accessorKey: "paidLeave",
               header: "Paid Leave",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+              cell: ({ cell }: any) => cell.getValue() ?? "0"
             },
             {
               accessorKey: "unpaidLeave",
               header: "Unpaid Leave",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+              cell: ({ cell }: any) => cell.getValue() ?? "0"
             },
             {
               accessorKey: "extraDay",
               header: "Extra day",
-              Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "0"
+              cell: ({ cell }: any) => cell.getValue() ?? "0"
             },
             {
               // No row carries a `payAction` field, so an accessorKey sorted every
@@ -523,9 +523,9 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
               accessorFn: (row: any) => PAY_ACTION_LABEL[payActionRank(row)],
               // Sort by how much is still owed, not alphabetically — "Paid ✓" would
               // otherwise land between "Pay" and "Pay Govt".
-              sortingFn: (a: any, b: any) => payActionRank(a.original) - payActionRank(b.original),
+              sortFn: (a: any, b: any) => payActionRank(a.original) - payActionRank(b.original),
               header: "Action",
-              Cell: ({ row }: any) => {
+              cell: ({ row }: any) => {
                 if (!row.original.employeeId) return "-";
                 const salaryDue = Math.round(Number(row.original.dueAmount) || 0);
                 const govtDue = Math.round(Number(row.original.govtPending) || 0);
@@ -581,24 +581,19 @@ const MonthlySalary: React.FC<MonthlySalaryProps> = ({ month, employeesData, isL
             },
           ]}
           data={tableData}
-          tableName="MonthlySalaryEmployeeData"
-          employeeId={employeeIdCurrent}
-          enableColumnSpecificSearch={true}
-          showColumnFooter={true}
           // Bound the table's own height so rows scroll *inside* the table (not the page),
           // which lets the already-enabled sticky header stay pinned while scrolling.
-          muiTableContainerProps={{ sx: { maxHeight: '60vh', overflowY: 'auto' } }}
-          muiTableProps={{
-            muiTableBodyRowProps: ({ row }: any) => ({
-              onClick: () => {
-                if (row.original.employeeId) {
-                  handleRowClick(row.original.employeeId, row.original.name, row.original.id);
-                }
-              },
-              sx: { cursor: row.original.employeeId ? 'pointer' : 'default' },
-            }),
+          onRowClick={(r: any) => {
+            if (r.employeeId) handleRowClick(r.employeeId, r.name, r.id);
           }}
-        />
+          rowLabel={(r: any) => r.name || "Open salary"}
+          stateKey="salary.monthly"
+          groupableColumns={false}
+          virtualized
+          virtualMaxHeight="60vh"
+          getRowId={(r: any) => String(r.employeeId ?? r.id)}
+          searchPlaceholder="Search…"
+          />
       </div>
 
       {/* Record Payroll Payout — opened in place by the Pay button */}

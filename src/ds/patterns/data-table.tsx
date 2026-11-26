@@ -1,7 +1,9 @@
 import * as React from "react"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   flexRender,
   useTable,
+  type ColumnFiltersState,
   type PaginationState,
   type RowSelectionState,
   type SortingState,
@@ -12,7 +14,16 @@ import {
   type RowData,
 } from "@tanstack/react-table"
 // TanStack Table v9: the features, row models and column types live in one place (shadcn's data-table guide).
-import { dataTableFeatures, type Column, type ColumnDef, type Header, type Row } from "./data-table-features"
+import {
+  columnAlignClass,
+  columnHAlign,
+  dataTableFeatures,
+  type Column,
+  type ColumnDef,
+  type DataTableColumnMeta,
+  type Header,
+  type Row,
+} from "./data-table-features"
 import { useLocale } from "react-aria-components"
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, GripVertical, ListFilter, Maximize2, Minimize2, RotateCcw, Rows3, Search } from "lucide-react"
 import { ColumnsPanel, type ColumnPin } from "./data-table-columns"
@@ -35,8 +46,16 @@ import { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, Tabl
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem } from "@/ds/ui/pagination"
 import { EmptyState } from "./empty-state"
 import { ToolButton } from "./tool-button"
+import {
+  DataTableActiveFilters,
+  DataTableFacets,
+  facetColumns,
+  facetFilterFn,
+} from "./data-table-facets"
 
 export type { ColumnDef, DataTableColumnMeta, RowData } from "./data-table-features"
+export { columnAlignClass, columnHAlign } from "./data-table-features"
+export type { FacetMeta } from "./data-table-facets"
 
 /** What a toolbar control (Export, a bulk menu) needs to act on exactly what the table is showing. */
 export type DataTableToolbarContext<T> = {
@@ -55,13 +74,17 @@ export type DataTableToolbarContext<T> = {
 export function SortableHeader<T extends RowData>({ column, title }: { column: Column<T, unknown>; title: string }) {
   const dir = column.getIsSorted()
   const Icon = dir === "asc" ? ArrowUp : dir === "desc" ? ArrowDown : ArrowUpDown
+  const align = columnHAlign(column.columnDef.meta as DataTableColumnMeta | undefined)
   return (
     <Button
       variant="ghost"
       size="sm"
       // The header's own type (heading-case: uppercase, letter-spacing; size, weight): a sortable column must
       // read exactly like its plain neighbours — the button only adds the arrow and the click.
-      className="-ml-2 h-8 px-2 font-[inherit] text-[length:inherit] tracking-[inherit] [text-transform:inherit]"
+      className={cn(
+        "h-8 px-2 font-[inherit] text-[length:inherit] tracking-[inherit] [text-transform:inherit]",
+        align === "right" ? "-mr-2 w-full justify-end" : "-ml-2",
+      )}
       onClick={() => column.toggleSorting(dir === "asc")}
     >
       {title}
@@ -69,6 +92,9 @@ export function SortableHeader<T extends RowData>({ column, title }: { column: C
     </Button>
   )
 }
+
+const metaOf = (column: { columnDef: { meta?: unknown } }) =>
+  column.columnDef.meta as DataTableColumnMeta | undefined
 
 /** A column's human name: `meta.label`, else its id. */
 const columnLabel = (c: { id: string; columnDef: { meta?: unknown } }) =>
@@ -218,7 +244,7 @@ function ResizeHandle<T extends RowData>({ header, label, naturalWidth }: { head
   )
 }
 
-/** What a table remembers for its viewer (`stateKey`): widths, hidden columns, density. Per-viewer convenience. */
+/** What a table remembers for its viewer (`stateKey`): layout + sort / page size / search. Per-viewer convenience. */
 type PinState = { start: string[]; end: string[] }
 type SavedTableState = {
   sizing?: ColumnSizingState
@@ -230,6 +256,12 @@ type SavedTableState = {
   pinning?: PinState
   /** Columns the viewer grouped rows by, outermost first (the live table remembered this too). */
   grouping?: GroupingState
+  /** Sort the viewer last chose (MaterialTable parity). */
+  sorting?: SortingState
+  /** Rows-per-page the viewer last chose. */
+  pageSize?: number
+  /** Global search box text. */
+  globalFilter?: string
 }
 const storageKey = (key: string) => `wt-table:${key}`
 function readTableState(key?: string): SavedTableState {
@@ -267,7 +299,14 @@ function pageList(current: number, count: number): Array<number | "gap"> {
 const fromControl = (target: EventTarget | null) =>
   target instanceof Element && !!target.closest("button, a, input, select, textarea, label, [role=menuitem], [role=checkbox], [data-slot=checkbox]")
 
-function selectColumn<T extends RowData>(): ColumnDef<T> {
+/** Shift-click range select (current page), like Gmail — live via ref so the column is not rebuilt each click. */
+type ShiftSelectHandle<T extends RowData> = {
+  shift: boolean
+  lastIndex: number | null
+  toggle: (row: Row<T>, on: boolean) => void
+}
+
+function selectColumn<T extends RowData>(live: React.RefObject<ShiftSelectHandle<T> | null>): ColumnDef<T> {
   return {
     id: SELECT_COLUMN_ID,
     enableSorting: false,
@@ -287,7 +326,14 @@ function selectColumn<T extends RowData>(): ColumnDef<T> {
         aria-label={`Select row ${row.index + 1}`}
         checked={row.getIsSelected()}
         disabled={!row.getCanSelect()}
-        onCheckedChange={(on) => row.toggleSelected(!!on)}
+        onPointerDown={(e) => {
+          if (live.current) live.current.shift = e.shiftKey
+        }}
+        onCheckedChange={(on) => {
+          const h = live.current
+          if (h) h.toggle(row, !!on)
+          else row.toggleSelected(!!on)
+        }}
       />
     ),
   }
@@ -318,6 +364,14 @@ export function DataTable<T extends RowData>({
   rowCount,
   pagination: controlledPagination,
   onPaginationChange,
+  /** Server sort: pass with `rowCount` + `onSortingChange` (MaterialTable `manualSorting`). */
+  sorting: controlledSorting,
+  onSortingChange: onSortingChangeProp,
+  /** Server search: pass with `rowCount` + `onGlobalFilterChange` (MaterialTable `manualFiltering`). */
+  globalFilter: controlledGlobalFilter,
+  onGlobalFilterChange: onGlobalFilterChangeProp,
+  columnFilters: controlledColumnFilters,
+  onColumnFiltersChange: onColumnFiltersChangeProp,
   minWidth = 720,
   initialSorting,
   onRowClick,
@@ -337,6 +391,14 @@ export function DataTable<T extends RowData>({
   tools = true,
   /** Vertical alignment of body cells. `top` keeps short cells with tall notes (MoM document view). */
   cellAlign = "middle",
+  /**
+   * Window long pages (MaterialTable `enableRowVirtualization`). Body scrolls inside `virtualMaxHeight`;
+   * only visible rows mount. Pair with a larger `initialPageSize` (or server paging) — useless on 10-row pages.
+   * Off with `rowReorder` (transform rows fight the drag engine).
+   */
+  virtualized = false,
+  /** Scrollport height when `virtualized` (MaterialTable used ~70vh). */
+  virtualMaxHeight = "70vh",
 }: {
   /** Names the table for assistive tech (rendered visually hidden). */
   caption: string
@@ -346,7 +408,7 @@ export function DataTable<T extends RowData>({
   getRowId?: (row: T, index: number) => string
   searchPlaceholder?: string
   selectable?: boolean
-  /** Bulk actions shown in the selection bar while rows are selected (live `TableSelectionBar`). */
+  /** Bulk actions shown in the selection bar while rows are selected. */
   selectionActions?: (rows: Row<T>[], clear: () => void, ctx: DataTableToolbarContext<T>) => React.ReactNode
   /** Extra controls in the toolbar (Filters button, export). A function receives the table's live state. */
   toolbar?: React.ReactNode | ((ctx: DataTableToolbarContext<T>) => React.ReactNode)
@@ -361,6 +423,17 @@ export function DataTable<T extends RowData>({
   rowCount?: number
   pagination?: PaginationState
   onPaginationChange?: (next: PaginationState) => void
+  sorting?: SortingState
+  onSortingChange?: (next: SortingState) => void
+  globalFilter?: string
+  onGlobalFilterChange?: (next: string) => void
+  /**
+   * Per-column TEXT filters (MaterialTable filter row). Normally off while `rowCount` is set (one page would
+   * mislead). Pass `onColumnFiltersChange` to keep the filter UI on a server-paged table — the parent can then
+   * load every matching row and clear `rowCount` (Leads hydrate pattern).
+   */
+  columnFilters?: ColumnFiltersState
+  onColumnFiltersChange?: (next: ColumnFiltersState) => void
   /** Columns keep at least this width (px); narrower screens scroll the table, not the page. */
   minWidth?: number
   /** The order rows open in, e.g. newest first: `[{ id: "date", desc: true }]`. */
@@ -385,10 +458,13 @@ export function DataTable<T extends RowData>({
    */
   resizableColumns?: boolean
   /**
-   * Remember this viewer's column widths, hidden columns and density for this table (localStorage). A stable,
+   * Remember this viewer's layout + sort / page size / search for this table (localStorage). A stable,
    * unique name per table, e.g. "reimbursement.inbox".
    */
   stateKey?: string
+  /** Row windowing for long pages — see prop default docs. */
+  virtualized?: boolean
+  virtualMaxHeight?: string | number
   /**
    * Rows can be dragged into a new order (a grip column; touch works too) or moved with ↑ / ↓ on the focused
    * grip — every move announced. `onReorder` receives the full order of row ids (give `getRowId`); persist it.
@@ -430,19 +506,50 @@ export function DataTable<T extends RowData>({
 }) {
   // The kit's locale (KitProvider) — the same grouping as every other number in v2.
   const { locale } = useLocale()
-  const [sorting, setSorting] = React.useState<SortingState>(initialSorting ?? [])
-  const [globalFilter, setGlobalFilter] = React.useState("")
-  // Read once per table: what this viewer chose last time (widths, hidden columns, density).
+  // Read once per table: what this viewer chose last time (layout + sort / page size / search).
   const saved = React.useMemo(() => readTableState(stateKey), [stateKey])
+  const [localSorting, setLocalSorting] = React.useState<SortingState>(() => saved.sorting ?? initialSorting ?? [])
+  const [localGlobalFilter, setLocalGlobalFilter] = React.useState(() => saved.globalFilter ?? "")
+  const [localColumnFilters, setLocalColumnFilters] = React.useState<ColumnFiltersState>([])
+  const sorting = controlledSorting ?? localSorting
+  const globalFilter = controlledGlobalFilter ?? localGlobalFilter
+  const columnFilters = controlledColumnFilters ?? localColumnFilters
+  const setSorting = React.useCallback(
+    (updater: SortingState | ((old: SortingState) => SortingState)) => {
+      const next = typeof updater === "function" ? updater(sorting) : updater
+      if (onSortingChangeProp) onSortingChangeProp(next)
+      else setLocalSorting(next)
+    },
+    [sorting, onSortingChangeProp],
+  )
+  const setGlobalFilter = React.useCallback(
+    (updater: string | ((old: string) => string)) => {
+      const next = typeof updater === "function" ? updater(globalFilter) : updater
+      if (onGlobalFilterChangeProp) onGlobalFilterChangeProp(next)
+      else setLocalGlobalFilter(next)
+    },
+    [globalFilter, onGlobalFilterChangeProp],
+  )
+  const setColumnFilters = React.useCallback(
+    (updater: ColumnFiltersState | ((old: ColumnFiltersState) => ColumnFiltersState)) => {
+      const next = typeof updater === "function" ? updater(columnFilters) : updater
+      if (onColumnFiltersChangeProp) onColumnFiltersChangeProp(next)
+      else setLocalColumnFilters(next)
+    },
+    [columnFilters, onColumnFiltersChangeProp],
+  )
   // Export-only columns are never shown; that wins over anything remembered.
-  const [columnVisibility, setColumnVisibility] = React.useState<ColumnVisibilityState>(() => ({
-    ...(saved.visibility ?? {}),
-    ...Object.fromEntries(
-      columns
-        .filter((c) => (c.meta as { exportOnly?: boolean } | undefined)?.exportOnly)
-        .map((c) => [c.id ?? String((c as { accessorKey?: unknown }).accessorKey), false]),
-    ),
-  }))
+  const [columnVisibility, setColumnVisibility] = React.useState<ColumnVisibilityState>(() => {
+    const fromMeta = Object.fromEntries(
+      columns.flatMap((c) => {
+        const id = c.id ?? String((c as { accessorKey?: unknown }).accessorKey)
+        const meta = c.meta as { exportOnly?: boolean; defaultVisible?: boolean } | undefined
+        if (meta?.exportOnly || meta?.defaultVisible === false) return [[id, false] as const]
+        return []
+      }),
+    )
+    return { ...fromMeta, ...(saved.visibility ?? {}) }
+  })
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   // Pins the columns ask for (`meta.pin`): the default, and what Reset layout returns to.
   const defaultPinning = React.useMemo<PinState>(() => {
@@ -466,20 +573,37 @@ export function DataTable<T extends RowData>({
   const headRefs = React.useRef(new Map<string, HTMLTableCellElement>())
   /** Each column's natural width, as first measured — what "reset" returns to. */
   const naturalWidths = React.useRef(new Map<string, number>())
-  const [localPagination, setLocalPagination] = React.useState<PaginationState>({ pageIndex: 0, pageSize: initialPageSize })
+  const [localPagination, setLocalPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: saved.pageSize && saved.pageSize > 0 ? saved.pageSize : initialPageSize,
+  })
   const server = rowCount !== undefined
   const pagination = controlledPagination ?? localPagination
+  const useVirtualRows = virtualized && !rowReorder
+  const scrollRef = React.useRef<HTMLDivElement>(null)
 
   // Unique per table: several tables share a page (My Reimbursements has three), so a fixed id collides.
   const rowsPerPageId = React.useId()
 
   const reorderLive = React.useRef<ReorderHandle | null>(null)
+  const shiftSelectLive = React.useRef<ShiftSelectHandle<T> | null>(null)
   const allColumns = React.useMemo(
     () => [
       ...(rowReorder ? [dragColumn<T>(reorderLive)] : []),
-      ...(selectable ? [selectColumn<T>()] : []),
+      ...(selectable ? [selectColumn<T>(shiftSelectLive)] : []),
       ...(renderDetail ? [expandColumn<T>()] : []),
-      ...columns.map((c) => (c.filterFn ? c : { ...c, filterFn: displayTextFilter<T>(c.meta) })),
+      ...columns.map((c) => {
+        if (c.filterFn) return c
+        const meta = c.meta as DataTableColumnMeta | undefined
+        if (meta?.facet) {
+          return {
+            ...c,
+            filterFn: ((row: Row<T>, columnId: string, value: unknown) =>
+              facetFilterFn(row, columnId, value, meta.exportValue)) as NonNullable<ColumnDef<T>["filterFn"]>,
+          }
+        }
+        return { ...c, filterFn: displayTextFilter<T>(c.meta) }
+      }),
     ],
     [rowReorder, selectable, renderDetail, columns],
   )
@@ -504,13 +628,14 @@ export function DataTable<T extends RowData>({
     data,
     columns: allColumns,
     getRowId,
-    state: { sorting, globalFilter, columnVisibility, rowSelection, pagination, columnOrder: effectiveOrder, columnPinning: effectivePinning, grouping: canGroupColumns ? grouping : [] },
+    state: { sorting, globalFilter, columnFilters, columnVisibility, rowSelection, pagination, columnOrder: effectiveOrder, columnPinning: effectivePinning, grouping: canGroupColumns ? grouping : [] },
     // Column sizing is OWNED by the table (v9): with an onColumnSizingChange the table stops writing its own
     // sizing and reads ours back a render late, so widths lagged behind the drag/keys. Start from what the
     // viewer saved; read the live value from table.state.
     initialState: { columnSizing: saved.sizing ?? {} },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnFiltersChange: setColumnFilters,
     onGroupingChange: setGrouping,
     enableGrouping: canGroupColumns,
     // The viewer's column layout stays as it is; a group row names its column, so nothing needs to move.
@@ -524,6 +649,9 @@ export function DataTable<T extends RowData>({
     },
     enableRowSelection: selectable ? (canSelectRow ? (row) => canSelectRow(row.original) : true) : false,
     manualPagination: server,
+    // When the server owns the page, it also owns sort + search — client models would only reshuffle one page.
+    manualSorting: server,
+    manualFiltering: server,
     rowCount,
     enableColumnResizing: resizableColumns,
     columnResizeMode: "onChange",
@@ -534,8 +662,45 @@ export function DataTable<T extends RowData>({
   const rows = table.getRowModel().rows
   const selected = table.getSelectedRowModel().rows
   const activeColumnFilters = (table.state.columnFilters ?? []).length
-  // Column filters filter what the table holds; on a server-paged table that is one page — misleading, so off.
-  const canFilterColumns = !server
+  // Column filters filter what the table holds; on a server-paged table that is one page — misleading, so off
+  // unless the parent opted in via `onColumnFiltersChange` (hydrate to client rows, then clear `rowCount`).
+  const canFilterColumns = !server || !!onColumnFiltersChangeProp
+
+  // Shift-click range select on the current page (Gmail-style). Assign each render — columns close over the ref.
+  if (selectable) {
+    const prev = shiftSelectLive.current
+    shiftSelectLive.current = {
+      shift: prev?.shift ?? false,
+      lastIndex: prev?.lastIndex ?? null,
+      toggle(row, on) {
+        const h = shiftSelectLive.current!
+        const pageRows = table.getRowModel().rows
+        if (h.shift && h.lastIndex != null) {
+          const a = Math.min(h.lastIndex, row.index)
+          const b = Math.max(h.lastIndex, row.index)
+          for (let i = a; i <= b; i++) pageRows[i]?.toggleSelected(on)
+        } else {
+          row.toggleSelected(on)
+        }
+        h.lastIndex = row.index
+        h.shift = false
+      },
+    }
+  }
+
+  const facets = React.useMemo(
+    () => (canFilterColumns ? facetColumns(table, data) : []),
+    // table identity is stable; columnFilters / data drive option + selection recompute via render
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- facet defs from columns + data only
+    [canFilterColumns, columns, data, table],
+  )
+
+  const rowVirtualizer = useVirtualizer({
+    count: useVirtualRows && !loading && !error && rows.length > 0 ? rows.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => (density === "compact" ? 40 : 52),
+    overscan: 10,
+  })
 
   /** Back to the table as designed: widths, hidden columns, density, sorting, column filters; forgets the saved layout. */
   const resetLayout = () => {
@@ -552,6 +717,8 @@ export function DataTable<T extends RowData>({
     setColumnOrder([])
     setUserPinning(null)
     setSorting(initialSorting ?? [])
+    setGlobalFilter("")
+    setLocalPagination({ pageIndex: 0, pageSize: initialPageSize })
     setGrouping([])
     table.resetColumnFilters()
     if (stateKey) {
@@ -609,9 +776,12 @@ export function DataTable<T extends RowData>({
       order: columnOrder.length ? columnOrder : undefined,
       pinning: userPinning ?? undefined,
       grouping: grouping.length ? grouping : undefined,
+      sorting: sorting.length ? sorting : undefined,
+      pageSize: pagination.pageSize,
+      globalFilter: globalFilter || undefined,
     }), 300)
     return () => window.clearTimeout(t)
-  }, [stateKey, columnSizing, columnVisibility, density, columnOrder, userPinning, grouping])
+  }, [stateKey, columnSizing, columnVisibility, density, columnOrder, userPinning, grouping, sorting, pagination.pageSize, globalFilter])
   // Fixed layout (drag to resize) once every visible column has a width — measured or remembered. Until then
   // the table lays out naturally, which is exactly what gets measured.
   const fixedLayout = resizableColumns && visibleIds.every((id) => columnSizing[id] !== undefined)
@@ -711,6 +881,18 @@ export function DataTable<T extends RowData>({
     const full = table.getAllLeafColumns().map((c) => c.id).filter((id) => !utilityIds.includes(id))
     setColumnOrder(mergeVisibleOrder(full, order))
   }
+  /** Keyboard path for column reorder (Columns panel Move Left / Right) — same order model as header drag. */
+  const moveColumnBy = (id: string, delta: -1 | 1) => {
+    if (!canDragColumns) return
+    const ids = [...movableColumnIds]
+    const from = ids.indexOf(id)
+    const to = from + delta
+    if (from < 0 || to < 0 || to >= ids.length) return
+    ids.splice(to, 0, ids.splice(from, 1)[0]!)
+    dropColumn(ids)
+    const col = table.getColumn(id)
+    setAnnouncement(`Moved ${col ? columnLabel(col) : id} to position ${to + 1} of ${ids.length}.`)
+  }
 
   // ── Grouping ───────────────────────────────────────────────────────────────
   const groupItems = canGroupColumns
@@ -754,6 +936,7 @@ export function DataTable<T extends RowData>({
 
   let body: React.ReactNode
   let rowsBody: ((sp?: SortableProps) => React.ReactNode) | null = null
+  let renderOneRow: ((row: (typeof rows)[number], sp?: SortableProps, measureRef?: (el: HTMLTableRowElement | null) => void) => React.ReactNode) | null = null
   if (loading) {
     body = Array.from({ length: Math.min(pagination.pageSize, 5) }, (_, i) => (
       <TableRow key={i}>
@@ -797,10 +980,10 @@ export function DataTable<T extends RowData>({
       </TableRow>
     )
   } else {
-    rowsBody = (sp) => rows.map((row) => {
+    renderOneRow = (row, sp, measureRef) => {
       if (row.getIsGrouped()) {
         return (
-          <TableRow key={row.id} data-slot="data-table-group" className="bg-muted/40 hover:bg-muted/60">
+          <TableRow key={row.id} ref={measureRef} data-slot="data-table-group" className="bg-muted/40 hover:bg-muted/60">
             <TableCell colSpan={visibleColumns} className={cn(cellPad, "px-2")}>{groupHeading(row)}</TableCell>
           </TableRow>
         )
@@ -813,6 +996,7 @@ export function DataTable<T extends RowData>({
         <React.Fragment key={row.id}>
           <TableRow
             {...drag}
+            ref={measureRef}
             data-state={row.getIsSelected() ? "selected" : undefined}
             data-tone={tone ? "" : undefined}
             style={tone || dragStyle ? { ...dragStyle, ...(tone ? toneStyle(tone) : {}) } : undefined}
@@ -842,6 +1026,7 @@ export function DataTable<T extends RowData>({
                   cellPad,
                   narrowCol(cell.column.id),
                   pinClass(cell.column),
+                  columnAlignClass(metaOf(cell.column)),
                   fixedLayout && ((cell.column.columnDef.meta as { wrap?: boolean } | undefined)?.wrap === false
                     ? "whitespace-nowrap"
                     : "whitespace-normal break-words"),
@@ -861,8 +1046,15 @@ export function DataTable<T extends RowData>({
           )}
         </React.Fragment>
       )
-    })
+    }
+    rowsBody = (sp) => rows.map((row) => renderOneRow!(row, sp))
   }
+
+  const virtualItems = useVirtualRows ? rowVirtualizer.getVirtualItems() : []
+  const padTop = virtualItems.length ? virtualItems[0]!.start : 0
+  const padBottom = virtualItems.length
+    ? rowVirtualizer.getTotalSize() - virtualItems[virtualItems.length - 1]!.end
+    : 0
 
   /** The frame, inside the row-drag surface when rows reorder. `cp`: the column-drag surface's props. */
   const framed = (cp?: SortableProps) =>
@@ -883,15 +1075,8 @@ export function DataTable<T extends RowData>({
       renderFrame(undefined, cp)
     )
 
-  const renderFrame = (sp?: SortableProps, cp?: SortableProps) => (
-      <Card
-        variant="panel"
-        className={cn(
-          "gap-0 overflow-x-auto py-0",
-          // With cards, the table frame steps aside on narrow widths (loading / empty / error still show here).
-          renderCard && !loading && !error && rows.length > 0 && "@max-[640px]/data-table:hidden",
-        )}
-      >
+  const renderFrame = (sp?: SortableProps, cp?: SortableProps) => {
+    const tableNode = (
         <Table
           // Fixed: columns take their widths and the table still fills its frame (extra space is shared out).
           style={fixedLayout ? { width: table.getTotalSize(), minWidth: `max(${minWidth}px, 100%)` } : { minWidth }}
@@ -926,7 +1111,13 @@ export function DataTable<T extends RowData>({
                       style={{ ...(movable ? { touchAction: "none" } : {}), ...withWidth(h.column, fixedLayout ? h.getSize() : undefined) }}
                       aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : h.column.getCanSort() ? "none" : undefined}
                       // `sticky` LAST: it also anchors the resize handle, and a later `relative` silently un-froze the header.
-                      className={cn(narrowCol(h.column.id), fixedLayout && "relative", movable && "cursor-grab active:cursor-grabbing", pinClass(h.column))}
+                      className={cn(
+                        narrowCol(h.column.id),
+                        fixedLayout && "relative",
+                        movable && "cursor-grab active:cursor-grabbing",
+                        pinClass(h.column),
+                        columnAlignClass(metaOf(h.column)),
+                      )}
                     >
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                       {fixedLayout && h.column.getCanResize() && !narrowCol(h.column.id) && (
@@ -963,7 +1154,33 @@ export function DataTable<T extends RowData>({
               </TableRow>
             )}
           </TableHeader>
-          <TableBody {...(sp?.listProps(ROWS_CONTAINER, !canDrag) ?? {})}>{body ?? rowsBody?.(sp)}</TableBody>
+          <TableBody {...(sp?.listProps(ROWS_CONTAINER, !canDrag) ?? {})}>
+            {body ?? (useVirtualRows && renderOneRow && virtualItems.length > 0 ? (
+              <>
+                {padTop > 0 ? (
+                  <tr aria-hidden="true">
+                    <td colSpan={visibleColumns} style={{ height: padTop, padding: 0, border: 0 }} />
+                  </tr>
+                ) : null}
+                {virtualItems.map((v) => {
+                  const row = rows[v.index]
+                  if (!row) return null
+                  return renderOneRow(row, sp, (el) => {
+                    if (!el) return
+                    el.dataset.index = String(v.index)
+                    rowVirtualizer.measureElement(el)
+                  })
+                })}
+                {padBottom > 0 ? (
+                  <tr aria-hidden="true">
+                    <td colSpan={visibleColumns} style={{ height: padBottom, padding: 0, border: 0 }} />
+                  </tr>
+                ) : null}
+              </>
+            ) : (
+              rowsBody?.(sp)
+            ))}
+          </TableBody>
           {hasFooter && rows.length > 0 && !loading && !error && (
             // The frozen cell paints `--row-bg` over the card colour; give the footer its own (TableFooter's
             // `bg-muted/50`), or the pinned TOTAL cell shows as a white patch in a grey row.
@@ -971,7 +1188,11 @@ export function DataTable<T extends RowData>({
               {table.getFooterGroups().map((fg) => (
                 <TableRow key={fg.id}>
                   {fg.headers.map((h) => (
-                    <TableCell key={h.id} style={pinStyle(h.column)} className={cn(cellPad, "font-semibold", narrowCol(h.column.id), pinClass(h.column))}>
+                    <TableCell
+                      key={h.id}
+                      style={pinStyle(h.column)}
+                      className={cn(cellPad, "font-semibold", narrowCol(h.column.id), pinClass(h.column), columnAlignClass(metaOf(h.column)))}
+                    >
                       {h.isPlaceholder ? null : flexRender(h.column.columnDef.footer, h.getContext())}
                     </TableCell>
                   ))}
@@ -980,8 +1201,32 @@ export function DataTable<T extends RowData>({
             </TableFooter>
           )}
         </Table>
+    )
+    return (
+      <Card
+        variant="panel"
+        className={cn(
+          "gap-0 py-0",
+          useVirtualRows ? "overflow-hidden" : "overflow-x-auto",
+          // With cards, the table frame steps aside on narrow widths (loading / empty / error still show here).
+          renderCard && !loading && !error && rows.length > 0 && "@max-[640px]/data-table:hidden",
+        )}
+      >
+        {useVirtualRows ? (
+          <div
+            ref={scrollRef}
+            className="overflow-auto"
+            style={{ maxHeight: virtualMaxHeight }}
+            data-slot="data-table-virtual-scroll"
+          >
+            {tableNode}
+          </div>
+        ) : (
+          tableNode
+        )}
       </Card>
-  )
+    )
+  }
 
   return (
     <div
@@ -1080,16 +1325,22 @@ export function DataTable<T extends RowData>({
                 </ToolButton>
                 {hideable.length > 0 && (
                   <ColumnsPanel
-                    items={hideable.map((c) => ({
-                      id: c.id,
-                      label: columnLabel(c),
-                      visible: c.getIsVisible(),
-                      pin: pins.start.includes(c.id) ? "start" : pins.end.includes(c.id) ? "end" : false,
-                    }))}
+                    items={hideable.map((c) => {
+                      const moveAt = movableColumnIds.indexOf(c.id)
+                      return {
+                        id: c.id,
+                        label: columnLabel(c),
+                        visible: c.getIsVisible(),
+                        pin: pins.start.includes(c.id) ? "start" : pins.end.includes(c.id) ? "end" : false,
+                        canMoveLeft: canDragColumns && moveAt > 0,
+                        canMoveRight: canDragColumns && moveAt >= 0 && moveAt < movableColumnIds.length - 1,
+                      }
+                    })}
                     onToggle={(id, on) => table.getColumn(id)?.toggleVisibility(on)}
                     onShowAll={() => setAllVisible(true)}
                     onHideAll={() => setAllVisible(false)}
                     onPin={pinColumn}
+                    onMove={canDragColumns ? moveColumnBy : undefined}
                     pinnable={pinnableColumns}
                     reorderable={reorderableColumns}
                   />
@@ -1111,6 +1362,18 @@ export function DataTable<T extends RowData>({
           </>
         )}
       </div>
+
+      {facets.length > 0 && selected.length === 0 && (
+        <DataTableFacets facets={facets} table={table} />
+      )}
+      {selected.length === 0 && (
+        <DataTableActiveFilters
+          table={table}
+          searchLabel={searchPlaceholder}
+          totalUnfiltered={server ? undefined : data.length}
+          filteredCount={records}
+        />
+      )}
 
       {renderCard && !loading && !error && rows.length > 0 && (
         <ul data-slot="data-table-cards" aria-label={caption} className="hidden gap-3 @max-[640px]/data-table:grid">
@@ -1149,7 +1412,18 @@ export function DataTable<T extends RowData>({
         <p data-slot="data-table-range" aria-live="polite" className="tabular">
           {total === 0
             ? "No rows"
-            : `${from}–${to} of ${new Intl.NumberFormat(locale).format(total)}${grouped ? ` · ${new Intl.NumberFormat(locale).format(records)} ${records === 1 ? "record" : "records"}` : ""}`}
+            : (() => {
+                const base = `${from}–${to} of ${new Intl.NumberFormat(locale).format(total)}`
+                const groupBit = grouped
+                  ? ` · ${new Intl.NumberFormat(locale).format(records)} ${records === 1 ? "record" : "records"}`
+                  : ""
+                const sort = sorting[0]
+                const sortCol = sort ? table.getColumn(sort.id) : undefined
+                const sortBit = sort
+                  ? ` · sorted by ${sortCol ? columnLabel(sortCol) : sort.id} ${sort.desc ? "↓" : "↑"}`
+                  : ""
+                return `${base}${groupBit}${sortBit}`
+              })()}
         </p>
         <div className="flex items-center gap-2">
           <span id={rowsPerPageId}>Rows per page</span>

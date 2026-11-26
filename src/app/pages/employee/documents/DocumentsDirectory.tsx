@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Typography } from "@mui/material";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
+import { DataTableExport } from "@/ds/patterns/data-table-export";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
 import { GlassCard, GlassSurface, ListHeader, StatusCyclePill, ToneChip } from "@app/modules/common/components/ui";
 import { formatDate } from "@utils/dateFormats";
@@ -25,12 +26,13 @@ const STATUS_OPTIONS = [
   { value: "all" as const, label: "All", color: "#1E3A8A" },
 ];
 
-const FILTER_ACTIVE_THEME = {
-  icon: "#3b82f6",
-  border: "#bfdbfe",
-  bg: "#eff6ff",
-  text: "#1e40af",
-  ring: "rgba(59, 130, 246, 0.12)",
+type DirectoryRow = DocumentsDirectoryEntry & {
+  employeeCodeText: string;
+  branchName: string;
+  subOrganizationName: string;
+  dateOfJoiningText: string;
+  lastAddedText: string;
+  statusText: string;
 };
 
 const StatTile: React.FC<{ label: string; value: React.ReactNode; icon: string; color: string; tint: string }> = ({
@@ -65,11 +67,10 @@ const StatTile: React.FC<{ label: string; value: React.ReactNode; icon: string; 
 /**
  * HR Documents — the landing list.
  *
- * Built on the shared `MaterialTable` rather than a hand-rolled table, the same as
- * the Employees and Salary screens. That is what brings column search, column
- * show/hide, sorting, pagination, export and fullscreen for free — and, more to the
- * point, means this list behaves identically to every other list in the app instead
- * of being a one-off that has to relearn all of it.
+ * Built on the kit DataTable, the same as the Employees and Salary screens. That is
+ * what brings column search, column show/hide, sorting, pagination, export and
+ * fullscreen for free — and means this list behaves identically to every other
+ * list in the app instead of being a one-off.
  */
 const DocumentsDirectory: React.FC = () => {
   const navigate = useNavigate();
@@ -169,12 +170,12 @@ const DocumentsDirectory: React.FC = () => {
   /**
    * Flattened for the table.
    *
-   * MaterialTable searches and sorts on the raw accessor value, so every column that
+   * DataTable searches and sorts on the raw accessor value, so every column that
    * a user might search has to be a plain string on the row — a nested `branch.name`
    * would be invisible to the column search.
    */
   const tableRows = useMemo(
-    () =>
+    (): DirectoryRow[] =>
       rows.map((row) => ({
         ...row,
         employeeCodeText: row.employeeCode || "—",
@@ -205,12 +206,12 @@ const DocumentsDirectory: React.FC = () => {
     [rows]
   );
 
-  const columns = useMemo(
+  const columns = useMemo<ColumnDef<DirectoryRow>[]>(
     () => [
       {
         accessorKey: "name",
         header: "Employee",
-        Cell: ({ row }: any) => (
+        cell: ({ row }) => (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
             <SmartAvatar
               name={row.original.name}
@@ -224,7 +225,10 @@ const DocumentsDirectory: React.FC = () => {
               <Box
                 component="button"
                 type="button"
-                onClick={() => navigate(`/employee/documents/${row.original.id}`)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/employee/documents/${row.original.id}`);
+                }}
                 sx={{
                   border: 0,
                   background: "none",
@@ -248,14 +252,18 @@ const DocumentsDirectory: React.FC = () => {
         ),
       },
       { accessorKey: "employeeCodeText", header: "Employee ID" },
-      { accessorKey: "jobProfile", header: "Job Profile", Cell: ({ renderedCellValue }: any) => renderedCellValue || "—" },
+      {
+        accessorKey: "jobProfile",
+        header: "Job Profile",
+        cell: ({ getValue }) => String(getValue() || "—"),
+      },
       { accessorKey: "subOrganizationName", header: "Sub Organization" },
       { accessorKey: "branchName", header: "Branch" },
       { accessorKey: "dateOfJoiningText", header: "Date Of Joining" },
       {
         accessorKey: "documentCount",
         header: "Documents",
-        Cell: ({ row }: any) => (
+        cell: ({ row }) => (
           <ToneChip
             label={String(row.original.documentCount)}
             tone={row.original.documentCount === 0 ? "warning" : "success"}
@@ -269,9 +277,9 @@ const DocumentsDirectory: React.FC = () => {
         // `createdAt` and the update path never touches it, so re-uploading a
         // document has never moved this date.
         header: "Last Added",
-        Cell: ({ renderedCellValue, row }: any) => (
+        cell: ({ getValue, row }) => (
           <Box component="span" sx={{ color: row.original.lastUpdatedAt ? "text.primary" : "text.disabled" }}>
-            {renderedCellValue}
+            {String(getValue() ?? "")}
           </Box>
         ),
       },
@@ -312,19 +320,20 @@ const DocumentsDirectory: React.FC = () => {
         </GlassCard>
       ) : (
         <Box sx={{ position: "relative", opacity: loading ? 0.5 : 1, transition: "opacity .15s ease" }}>
-          <MaterialTable
+          <DataTable
+            caption="Documents Directory"
             columns={columns}
             data={tableRows}
-            tableName="DocumentsDirectory"
-            enableColumnSpecificSearch
-            muiTableProps={{
-              // The row is the way into an employee's documents, so the whole row
-              // has to be clickable — not just the name.
-              muiTableBodyRowProps: (row: any) => ({
-                onClick: () => navigate(`/employee/documents/${row.row.original.id}`),
-                sx: { cursor: "pointer" },
-              }),
-            }}
+            getRowId={(r) => r.id}
+            stateKey="DocumentsDirectory"
+            loading={loading}
+            groupableColumns={false}
+            onRowClick={(row) => navigate(`/employee/documents/${row.id}`)}
+            rowLabel={(row) => row.name || "Open documents"}
+            searchPlaceholder="Search employees…"
+            toolbar={(ctx) => (
+              <DataTableExport columns={columns} ctx={ctx} filename="Documents Directory" />
+            )}
           />
         </Box>
       )}

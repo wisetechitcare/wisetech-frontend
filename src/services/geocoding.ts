@@ -1,14 +1,18 @@
 /**
- * Geocoding — the ONE place the app talks to a geocoder. Nominatim (OpenStreetMap): no key, no billing.
+ * Geocoding — the ONE place the app talks to a geocoder.
  *
- * Both keys this app carries are dead: VITE_APP_OPEN_CAGE_API_KEY returns "401 unknown API key" and
- * VITE_APP_GOOGLE_MAP_KEY returns REQUEST_DENIED (billing disabled). Nominatim asks for ≤1 request/sec —
- * callers debounce typing, and a pin drop or a button press is one call, so a form stays well inside that.
+ * **SSOT today: Nominatim (OpenStreetMap)** — no key, no billing. Funded upgrade later: Google Places /
+ * Mapbox / Loqate behind the same `searchPlaces` / `geocodeAddress` / `toGeoPick` surface so
+ * LocationFields typeahead does not rewrite when billing lands.
+ *
+ * Dead keys in env (do not revive without billing): VITE_APP_OPEN_CAGE_API_KEY (401), VITE_APP_GOOGLE_MAP_KEY
+ * (REQUEST_DENIED). Nominatim asks for ≤1 request/sec — debounce typeahead; progressive fallbacks sleep
+ * between candidates.
  *
  * Plain `fetch`, never the app's axios: that instance carries our JWT and treats any 401 as a session end,
  * so a geocoder rejecting a request would otherwise log the user out mid-form.
  *
- * Consumers: SmartLocationPicker (search + pin drop), Branches / Create Tenant ("Get coordinates from address").
+ * Consumers: LocationFields typeahead + Get Coordinates (Create Tenant / Branches), SmartLocationPicker.
  */
 
 export const NOMINATIM = 'https://nominatim.openstreetmap.org';

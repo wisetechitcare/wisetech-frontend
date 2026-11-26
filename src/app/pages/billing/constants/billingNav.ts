@@ -16,7 +16,7 @@ export interface BillingTabDef {
     /** Route segment under /billing. */
     path: string;
     title: string;
-    /** A Lucide component, the icon system MaterialHeaderTab and the kit share. */
+    /** A Lucide component (kit PageTabs / DynamicIcon). */
     icon: IconSource;
     /** Access-area key checked before the tab is shown. */
     accessKey: string;

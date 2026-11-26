@@ -17,7 +17,7 @@ import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 import { EmptyState } from '@/ds/patterns/empty-state';
 import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
-import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 
 type PeriodFilter = 'monthly' | 'yearly' | 'allTime';
 

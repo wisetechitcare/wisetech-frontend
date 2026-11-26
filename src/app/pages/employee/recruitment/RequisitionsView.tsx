@@ -4,11 +4,12 @@ import { Box, Stack, CircularProgress } from "@mui/material";
 import { KTIcon } from "@metronic/helpers";
 import {
     AutoGrid, ListHeader, EntityCard, WtButton, ActionIconButton, TRIO,
-    toast, confirmDialog, TableSelectionBar,
+    toast, confirmDialog,
     WtEmptyState, CardsListViewSwitch, type CardsListView,
     type EntityCardTag,
 } from "@app/modules/common/components/ui";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { queryKeys } from "@/lib/queryKeys";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import { COPY, TERMS } from "./terms";
@@ -190,14 +191,18 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                     onAction={openCreate}
                 />
             ) : mode === "list" ? (
-                <MaterialTable
-                    columns={listColumns}
+                <DataTable
+                    caption="Recruitment Roles"
+                    columns={listColumns as any}
                     data={requisitions}
-                    isLoading={isLoading}
-                    tableName="RecruitmentRolesList"
-                    enableRowSelection={canRemove}
-                    renderSelectionActions={(selected: JobRequisition[]) => (
-                        <TableSelectionBar count={selected.length}>
+                    getRowId={(r) => r.id}
+                    loading={isLoading}
+                    stateKey="recruitment.roles"
+                    groupableColumns={false}
+                    selectable={canRemove}
+                    selectionActions={(rows) => {
+                        const selected = rows.map((r) => r.original);
+                        return (
                             <WtButton
                                 size="small"
                                 tone="danger"
@@ -215,14 +220,11 @@ const RequisitionsView = ({ companyId }: OrgScoped) => {
                             >
                                 Archive selected
                             </WtButton>
-                        </TableSelectionBar>
-                    )}
-                    muiTableProps={canWrite ? {
-                        muiTableBodyRowProps: ({ row }: { row: { original: JobRequisition } }) => ({
-                            onClick: () => openEdit(row.original),
-                            sx: { cursor: "pointer" },
-                        }),
-                    } : undefined}
+                        );
+                    }}
+                    onRowClick={canWrite ? (r) => openEdit(r) : undefined}
+                    rowLabel={(r) => r.title || "Open role"}
+                    searchPlaceholder="Search roles…"
                 />
             ) : (
                 <AutoGrid min={320}>

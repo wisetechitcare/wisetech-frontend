@@ -1,11 +1,12 @@
 import { safeJsonParse } from '@utils/safeJson';
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon } from "@metronic/helpers";
 
 import { RootState } from "@redux/store";
 import { Form, Formik, FormikValues } from "formik";
-import { MRT_ColumnDef } from "material-react-table";
+
 import { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import * as Yup from "yup";
@@ -184,21 +185,21 @@ const GrossPayDistribution = () => {
       header: "Name",
       enableSorting: false,
       enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => renderedCellValue,
+      cell: ({ cell }: any) => cell.getValue(),
     },
     {
       accessorKey: "value",
       header: "Value",
       enableSorting: false,
       enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => `${renderedCellValue}`,
+      cell: ({ cell }: any) => `${ cell }`,
     },
     {
       accessorKey: "type",
       header: "Type",
       enableSorting: false,
       enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => `${renderedCellValue?.charAt(0)?.toUpperCase() + renderedCellValue?.slice(1)}`,
+      cell: ({ cell }: any) => `${cell.getValue()?.charAt(0)?.toUpperCase() + cell.getValue()?.slice(1)}`,
     },
     ...(canWrite
       ? [
@@ -212,7 +213,7 @@ const GrossPayDistribution = () => {
           muiTableBodyCellProps: {
             align: "right" as const,
           },
-          Cell: ({ row }: any) => {            
+          cell: ({ row }: any) => {            
             const resEdit = hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.editOthers);
             const resDelete = hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.deleteOthers);
             
@@ -301,32 +302,16 @@ const GrossPayDistribution = () => {
           </div>
         )}
       </div>
-      <MaterialTable
+      <DataTable
+        caption="Gross Pay Distribution"
         columns={columnsGrossPay}
         data={configurationTable}
-        hideFilters={true}
-        hideExportCenter={true}
-        enableBottomToolbar={false}
-        employeeId={employeeId}
-        muiTableHeadCellStyle={{
-          boxShadow: "none",
-          margin: "0px",
-        }}
-        muiTablePaperStyle={{
-          boxShadow: "none",
-        }}
-        muiTableProps={{
-          sx: {
-            "& .MuiTableBody-root .MuiTableCell-root": {
-              borderBottom: "none",
-              paddingY: "5px",
-            },
-            "& .MuiTableFooter-root	": {
-              display: "none",
-            },
-          },
-        }}
-        tableName="Gross Pay Distribution"
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="salary.grossPay"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
       />
       {grossPayDataError && (
         <div style={{

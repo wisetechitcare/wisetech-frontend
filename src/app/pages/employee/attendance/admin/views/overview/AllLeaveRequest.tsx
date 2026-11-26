@@ -1,8 +1,9 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import { fetchRolesAndPermissions } from "@redux/slices/rolesAndPermissions";
 import { RootState } from "@redux/store";
-import { MRT_ColumnDef } from "material-react-table";
+
 import { useEffect, useMemo, useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { KTIcon } from "@metronic/helpers";
@@ -156,7 +157,7 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
     const sortKey = sorting.length ? `${sorting[0].id}:${sorting[0].desc}` : '';
 
     // Search is server-side for exactly the reason sorting is. The table hands over the
-    // DEBOUNCED query (see MaterialTableImpl's onSearchChange), so this is one request per
+    // DEBOUNCED query (kit DataTable onGlobalFilterChange), so this is one request per
     // pause in typing, not one per keystroke.
     const [search, setSearch] = useState('');
 
@@ -216,14 +217,14 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         fetchColorAndStoreInSlice();
     }, []);
 
-    const columns = useMemo<MRT_ColumnDef<any>[]>(() => [
+    const columns = useMemo<ColumnDef<any>[]>(() => [
         {
             accessorKey: "name",
             header: "Employee",
             size: 220,
             minSize: 180,
             maxSize: 280,
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <EmployeeIdentityCell
                     name={row.original.name}
                     code={row.original.code}
@@ -234,12 +235,12 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         {
             accessorKey: "createdDate",
             header: "CreatedAt",
-            Cell: ({ renderedCellValue }: any) => formatDateFromISTString(renderedCellValue)
+            cell: ({ cell }: any) => formatDateFromISTString(cell.getValue())
         },
         {
             accessorKey: "date",
             header: "Leave Date",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "type",
@@ -248,14 +249,14 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
             // LEAVE_REQUEST_SPEC.sort (handlers/employees.ts). Leaving the header clickable meant a
             // full round trip that provably returned the same order — a wait that produces nothing.
             enableSorting: false,
-            Cell: ({ renderedCellValue }: any) => {
-                const c = getLeaveTypeColor(renderedCellValue);
+            cell: ({ cell }: any) => {
+                const c = getLeaveTypeColor(cell.getValue());
                 return (
                     <span
                         className="inline-block min-w-[60px] text-center font-bold text-[11px] px-2 py-1 rounded-full border"
                         style={{ color: c, backgroundColor: `${c}1a`, borderColor: `${c}3d` }}
                     >
-                        {renderedCellValue}
+                        {cell.getValue()}
                     </span>
                 );
             }
@@ -265,7 +266,7 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
             header: "Reason",
             // Not sortable server-side — see the note on "type".
             enableSorting: false,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "statusText",
@@ -275,7 +276,7 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
             // so status — the column an admin actually scans this table for — was the
             // one thing with no visual weight. Keyed off the numeric status, not the
             // label: matching on display strings breaks the moment one is reworded.
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const trio = LEAVE_STATUS_TRIO[row.original.statusNumber as LeaveStatus] ?? TRIO.slate;
                 return <StatusBadge trio={trio} label={row.original.statusText || '—'} />;
             }
@@ -291,7 +292,7 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
             // Lastname" plus the timestamp on one line each.
             size: 210,
             minSize: 180,
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const { statusNumber, approvedByName, rejectedByName, updatedAt } = row.original;
                 const isApproved = statusNumber === Status.Approved;
                 const isRejected = statusNumber === Status.Rejected;
@@ -333,7 +334,7 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
         {
             accessorKey: "actions",
             header: "Actions",
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const editRes = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.editOthers);
                 const deleteRes = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.deleteOthers);
                 const isApproved = row.original.statusText;
@@ -383,24 +384,22 @@ function AllLeaveRequest({ fromAdmin = false, range = null, activeOnly = false }
                 <IconBox icon="document" trio={TRIO.blue} size={44} fs="fs-1" />
                 <span className="font-bold text-[20px] text-slate-900">All Leave Requests</span>
             </div>
-            <MaterialTable
+            <DataTable
+                caption="All Leave Requests"
                 data={visibleLeaveRequests}
                 columns={columns}
-                tableName="All Leave Requests"
-                persistPreferences={false}
-                resource={resourceNameMapWithCamelCase.leave}
-                viewOthers={true}
-                viewOwn={true}
-                employeeId={employeeIdCurrent}
-                manualPagination={true}
-                manualSorting={true}
-                onSortingChange={setSorting}
-                manualFiltering={true}
-                onSearchChange={setSearch}
+                getRowId={(r: any) => String(r.id)}
+                loading={isLoading}
                 rowCount={totalRecords}
-                paginationState={pagination}
+                pagination={pagination}
                 onPaginationChange={setPagination}
-                isLoading={isLoading}
+                sorting={sorting}
+                onSortingChange={setSorting}
+                globalFilter={search}
+                onGlobalFilterChange={setSearch}
+                stateKey="attendance.allLeaveRequests"
+                groupableColumns={false}
+                searchPlaceholder="Search leave requests…"
             />
 
             {/* Approval-status tracker */}

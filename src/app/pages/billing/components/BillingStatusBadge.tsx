@@ -75,7 +75,7 @@ export const BillingStatusBadge: React.FC<{ status?: string | null; dense?: bool
 
 /**
  * A Billing code as the tint of the table cell it sits in, instead of a chip — the Leads table's convention
- * (`${statusColour}20`), applied per cell. The cell must be positioned; `trackerRowSx` does that for the trackers.
+ * (`${statusColour}20`), applied per cell. The root is `relative` so the absolute tint fills this cell content.
  * Colour alone carries no meaning to a screen reader, so the label is still there, visually hidden, and on hover.
  */
 export const BillingStatusTint: React.FC<{ status: string; children: React.ReactNode }> = ({ status, children }) => {
@@ -84,7 +84,8 @@ export const BillingStatusTint: React.FC<{ status: string; children: React.React
   const solid = isHexColor(colour) ? colour : tonePair(colour as SemanticTone).fg;
   const label = labels.label(status);
   return (
-    <>
+    // `relative` anchors the absolute tint — DataTable cells are not themselves positioned.
+    <div className="relative -m-3 min-h-[2.5rem] p-3">
       {/* The tint is a RUNTIME colour (Configure's tone or an admin's hex), so it travels as a CSS
           variable and Tailwind does the mixing — the same mechanism the kit's Badge `custom` uses.
           A static Tailwind class cannot express a value that only exists at render time. */}
@@ -98,7 +99,7 @@ export const BillingStatusTint: React.FC<{ status: string; children: React.React
         {/* `sr-only` IS the visually-hidden recipe this file used to spell out by hand. */}
         <span className="sr-only">{label}</span>
       </div>
-    </>
+    </div>
   );
 };
 

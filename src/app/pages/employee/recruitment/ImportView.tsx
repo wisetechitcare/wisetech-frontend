@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, Stack, Typography, CircularProgress } from "@mui/material";
-import type { MRT_ColumnDef } from "material-react-table";
 import { KTIcon } from "@metronic/helpers";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import {
     GlassCard, ListHeader, WtButton, WtField, ToneChip, toast, confirmDialog,
 } from "@app/modules/common/components/ui";
@@ -48,7 +48,7 @@ const rowName = (row: ImportPreview["preview"]["rows"][number]): string => {
  */
 type PreviewRow = ImportPreview["preview"]["rows"][number];
 
-const previewColumns: MRT_ColumnDef<PreviewRow>[] = [
+const previewColumns: ColumnDef<PreviewRow>[] = [
     {
         // Sorts on the BOOLEAN, so one click brings every blocked row together — which is
         // the question a preview exists to answer.
@@ -56,7 +56,7 @@ const previewColumns: MRT_ColumnDef<PreviewRow>[] = [
         id: "state",
         header: "State",
         size: 130,
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
             <Stack direction="row" spacing={0.75} alignItems="center">
                 <Box component="span" sx={{ display: "inline-flex", color: row.original.importable ? "success.main" : "error.main" }}>
                     <KTIcon iconName={row.original.importable ? "check-circle" : "cross-circle"} className="fs-4" />
@@ -70,7 +70,7 @@ const previewColumns: MRT_ColumnDef<PreviewRow>[] = [
         id: "row",
         header: "Row",
         size: 220,
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
             <Box sx={{ minWidth: 0 }}>
                 <Typography sx={{ fontWeight: 600, fontSize: 13, overflowWrap: "anywhere" }}>{rowName(row.original)}</Typography>
                 {row.original.mapped.sourceRef && (
@@ -95,7 +95,7 @@ const previewColumns: MRT_ColumnDef<PreviewRow>[] = [
         id: "issues",
         header: "Issues",
         size: 420,
-        Cell: ({ row }) =>
+        cell: ({ row }) =>
             row.original.issues.length === 0 ? (
                 <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>
             ) : (
@@ -348,11 +348,17 @@ const ImportView = () => {
                             {/* The shared engine, so HR can search sixty rows and filter to just the
                                 blocked ones instead of scrolling. A preview is exactly where
                                 that matters: the point of it is finding what will fail. */}
-                            <MaterialTable
-                                columns={previewColumns}
+                            <DataTable
+                                caption={`Import Preview ${sheet}`}
+                                columns={previewColumns as any}
                                 data={p.rows}
-                                tableName={`RecruitmentImportPreview-${sheet}`}
-                                muiTableContainerProps={{ sx: { maxHeight: 420 } }}
+                                getRowId={(_r, i) => String(i)}
+                                stateKey={`recruitment.importPreview.${sheet}`}
+                                groupableColumns={false}
+                                tools={false}
+                                virtualized
+                                virtualMaxHeight={420}
+                                searchPlaceholder="Search preview…"
                             />
                         </Box>
                     </GlassCard>

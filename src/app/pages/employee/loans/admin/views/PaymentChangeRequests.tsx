@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
 import { canSection } from "@utils/can";
@@ -133,20 +134,20 @@ const PaymentChangeRequests: React.FC<MyComponentProps> = ({
   }, [paymentChangeRequests]);
 
 
-  const columns = useMemo<MRT_ColumnDef<ChangeRequests>[]>(
+  const columns = useMemo<ColumnDef<ChangeRequests>[]>(
     () => [
       { accessorKey: "name", header: "Name" },
       {
         accessorKey: "loanAmount",
         header: "Loan Amount",
-        Cell: ({ renderedCellValue }:any) => formatNumber(renderedCellValue),
+        cell: ({ cell }:any) => formatNumber(cell.getValue()),
       },
       { accessorKey: "payment", header: "Payment" },
       { accessorKey: "installment", header: "Installment" },
       {
         accessorKey: "dueDate",
         header: "Due Date",
-        Cell: ({ cell }) =>
+        cell: ({ cell }) =>
           cell.getValue()
             ? new Date(cell.getValue<string>()).toLocaleDateString("en-GB", {
                 day: "numeric",
@@ -158,18 +159,18 @@ const PaymentChangeRequests: React.FC<MyComponentProps> = ({
       {
         accessorKey: "dueAmount",
         header: "Due Amount",
-        Cell: ({ renderedCellValue }:any) => formatNumber(renderedCellValue),
+        cell: ({ cell }:any) => formatNumber(cell.getValue()),
       },
       {
         accessorKey: "payAmount",
         header: "Pay Amount",
-        Cell: ({ renderedCellValue }:any) => formatNumber(renderedCellValue),
+        cell: ({ cell }:any) => formatNumber(cell.getValue()),
       },
       { accessorKey: "request", header: "Request Type" },
       {
         accessorKey: "status",
         header: "Status",
-        Cell: ({ cell }) =>
+        cell: ({ cell }) =>
           installmentStatusLabels[cell.getValue<number>()] ?? "Pending",
       },
       { accessorKey: "note", header: "Note" },
@@ -178,7 +179,7 @@ const PaymentChangeRequests: React.FC<MyComponentProps> = ({
             {
               accessorKey: "actions",
               header: "Actions",
-              Cell: ({ row }: { row: any }) => {
+              cell: ({ row }: { row: any }) => {
                 
                 const allowEdit = hasPermission(
                   resourceNameMapWithCamelCase.loanInstallment,
@@ -231,14 +232,16 @@ const PaymentChangeRequests: React.FC<MyComponentProps> = ({
   return (
     <div>
       <h3 className="pt-10 fw-bold">Payment Change Requests</h3>
-      <MaterialTable
+      <DataTable
+        caption="Payment Requests"
+        columns={columns as any}
         data={transformedData}
-        columns={columns}
-        tableName="Payment Requests"
-        resource={resource}
-        viewOthers={viewOthers}
-        viewOwn={viewOwn}
-        employeeId={employeeId}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.admin.paymentChanges"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
       />
     </div>
   );

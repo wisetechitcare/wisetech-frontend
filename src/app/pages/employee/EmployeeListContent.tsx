@@ -1,5 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useRef, type CSSProperties } from "react";
-import { Button } from "@/ds/ui/button";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useRememberedChoice } from "@/hooks/useRememberedChoice";
 import dayjs from "dayjs";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -13,7 +12,11 @@ import {
   type EmployeeListFilters,
   type FacetOption,
 } from "./employeeListParams";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
+import { DataTableExport } from "@/ds/patterns/data-table-export";
+import { RowAction } from "@/ds/patterns/row-action";
+import { WhatsAppIcon } from "@/ds/lib/icons/brandIcons";
+import { IdCard, Pencil } from "lucide-react";
 import { actionsColumn, dateColumn, employeeColumn } from "@app/modules/common/components/table/columns";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -24,18 +27,16 @@ import { fetchAllBranches } from "@services/company";
 import Loader from "@app/modules/common/utils/Loader";
 import { getEmployeeStatusString, calculateTotalExperience } from "@utils/employeeStatus";
 import { employeeGenderLabel } from "@utils/employeeGender";
-import { ToolbarFilterSelect } from "@app/modules/common/components/ui/ToolbarFilterSelect";
 import {
   ActionIconButton, AppIcon, AutoGrid, GlassSurface, Pager,
   StatusCyclePill, CardsTableViewSwitch, type CardsTableView,
-  WhatsAppIcon, riseInSx,
+  riseInSx,
 } from "@app/modules/common/components/ui";
 import { Box, InputAdornment, Stack, TextField, Typography } from "@mui/material";
 import { useDebounce } from "@metronic/helpers";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import EmployeeIdCardDialog from "./components/idcard/EmployeeIdCardDialog";
 import EmployeeCard from "./components/EmployeeCard";
-import { useStoredState } from "@app/hooks/useStoredState";
 
 type StatusType = "all" | "active" | "inactive";
 const VIEW_MODES = ["table", "cards"] as const satisfies ReadonlyArray<CardsTableView>;
@@ -228,7 +229,7 @@ const EmployeeListContent = () => {
   // Date Of Joining → Total Experience → Contact. Everything else starts
   // hidden (meta.defaultVisible: false) and stays available in the column
   // panel; users can still toggle any column, and their choice persists.
-  const baseColumns = useMemo(() => [
+  const baseColumns = useMemo<ColumnDef<any>[]>(() => [
     // Keeps id "users" so existing saved column layouts carry over unchanged.
     employeeColumn<any>({
       id: "users",
@@ -241,7 +242,7 @@ const EmployeeListContent = () => {
     {
       accessorKey: "departments",
       header: "Department",
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     dateColumn({ accessorKey: "dateOfJoining", header: "Date Of Joining" }),
     {
@@ -249,63 +250,59 @@ const EmployeeListContent = () => {
       // "Tenure", not "Total Experience": this counts time at WiseTech only.
       // Previous employers live in EmployeePreviousExperience and are NOT included.
       header: "Tenure",
-      sortingFn: (rowA: any, rowB: any) => {
+      sortFn: (rowA: any, rowB: any) => {
         const monthsA = parseExperienceToMonths(rowA.getValue("experience"));
         const monthsB = parseExperienceToMonths(rowB.getValue("experience"));
         return monthsA - monthsB;
       },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     {
       accessorKey: "companyPhoneNumber",
       header: "Company Phone Number",
-      Cell: ({ renderedCellValue }: any) => renderedCellValue ? <a href={`tel:${renderedCellValue}`}>{renderedCellValue}</a> : "N/A"
+      cell: ({ getValue }) => {
+        const value = getValue() as string | null | undefined;
+        return value ? <a href={`tel:${value}`}>{value}</a> : "N/A";
+      },
     },
     {
       accessorKey: "designations",
       header: "Designation",
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     {
       accessorKey: "companyEmailId",
       header: "Email Id",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue ? <a href={`mailto:${renderedCellValue}`}>{renderedCellValue}</a> : "N/A"
+      cell: ({ getValue }) => {
+        const value = getValue() as string | null | undefined;
+        return value ? <a href={`mailto:${value}`}>{value}</a> : "N/A";
+      },
     },
     {
       accessorKey: "branches",
       header: "Branch",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     {
       accessorKey: "subOrganization",
       header: "Sub Organization",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     {
       accessorKey: "payType",
       header: "Pay Type",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
   ], []);
 
   // Memoize admin columns — all hidden by default (toggle on via the column
   // panel); only the Actions column stays visible for admins.
-  const adminColumns = useMemo(() => [
+  const adminColumns = useMemo<ColumnDef<any>[]>(() => [
     dateColumn({ accessorKey: "createdAt", header: "Created On", meta: { defaultVisible: false } }),
-    // {
-    //   accessorKey: "dateOfReJoining",
-    //   header: "Date of Rejoining",
-    //   Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-    // },
-    // {
-    //   accessorKey: "dateOfReExit",
-    //   header: "Date of Re-leaving",
-    //   Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
-    // },
     {
       accessorKey: "employeeType",
       // Not sortable: the value is computed in the browser, so no SQL column
@@ -313,7 +310,7 @@ const EmployeeListContent = () => {
       enableSorting: false,
       header: "Type of Employee",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     {
       accessorKey: "employeeStatus",
@@ -322,25 +319,25 @@ const EmployeeListContent = () => {
       enableSorting: false,
       header: "Status",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     {
       accessorKey: "employeeCode",
       header: "Employee Code",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     {
       accessorKey: "gender",
       header: "Gender",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     {
       accessorKey: "maritalStatus",
       header: "Marital Status",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     {
       accessorKey: "mealPreference",
@@ -349,17 +346,15 @@ const EmployeeListContent = () => {
       enableSorting: false,
       header: "Meal preference",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
     dateColumn({ accessorKey: "dateOfExit", header: "Date Of Exit", meta: { defaultVisible: false } }),
     {
       accessorKey: "referredBy",
       header: "Referred By",
       meta: { defaultVisible: false },
-      Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A"
+      cell: ({ getValue }) => (getValue() as string) || "N/A",
     },
-    // No deps: these are all plain value renderers. The row actions moved out to
-    // `rowActionsColumn` below, and took the handlers with them.
   ], []);
 
   const canManageEmployees = usePermission('employees.manage.all');
@@ -458,11 +453,42 @@ const EmployeeListContent = () => {
   }, [handleEditClick, handleWhatsAppShare, handleGenerateIdCard, employeeId, canManageEmployees]);
 
   const rowActionsColumn = useMemo(() => actionsColumn({
-    Cell: ({ row }: any) =>
+    cell: ({ row }: any) => {
+      const employee = row.original;
+      const canEditOthers = canManageEmployees && hasPermission(
+        resourceNameMapWithCamelCase.employee,
+        permissionConstToUseWithHasPermission.editOthers,
+      );
+
+      if (canEditOthers) {
+        return (
+          <div className="flex gap-1">
+            <RowAction label="Edit Employee" size="icon-sm" onClick={() => handleEditClick(employee.id)}>
+              <Pencil className="size-4" aria-hidden />
+            </RowAction>
+            <RowAction label="Share on WhatsApp" size="icon-sm" tint="success" onClick={() => handleWhatsAppShare(employee)}>
+              <WhatsAppIcon size={16} aria-hidden />
+            </RowAction>
+            <RowAction label="Generate ID Card" size="icon-sm" onClick={() => handleGenerateIdCard(employee)}>
+              <IdCard className="size-4" aria-hidden />
+            </RowAction>
+          </div>
+        );
+      }
+
+      if (employee.id === employeeId) {
+        return (
+          <RowAction label="View My ID Card" size="icon-sm" onClick={() => handleGenerateIdCard(employee)}>
+            <IdCard className="size-4" aria-hidden />
+          </RowAction>
+        );
+      }
+
       // A dash, not "Not Allowed": on a colleague's row there is simply nothing to do
       // here, and phrasing it as a denial reads as an error the user should act on.
-      renderRowActions(row.original) ?? <Box component="span" sx={{ color: "text.disabled" }}>—</Box>,
-  }), [renderRowActions]);
+      return <span className="text-muted-foreground">—</span>;
+    },
+  }), [canManageEmployees, employeeId, handleEditClick, handleWhatsAppShare, handleGenerateIdCard]);
 
   const columns = useMemo(() =>
     canManageEmployees
@@ -791,38 +817,32 @@ const EmployeeListContent = () => {
       </Box>
     ) : (
     <div className="">
-      <MaterialTable
+      <DataTable
+        caption="Employees"
         columns={columns}
         data={displayedEmployees}
-        tableName="EmployeesV5"
-        employeeId={employeeId}
-        enableColumnSpecificSearch={true}
-        // Pilot for bulk actions. Selecting rows makes the existing Export button act on
-        // just those rows — read-only, so the pattern gets proven before anything that
-        // writes. No other prop needed; the engine handles the rest.
-        enableRowSelection={true}
+        getRowId={(r) => String(r.id)}
+        stateKey="EmployeesV5"
+        // Pilot for bulk actions. Selecting rows makes Export act on just those rows.
+        selectable
         // Server owns paging, sorting AND search. All three must move together: with any
         // one left client-side it would act on the single page the browser holds while
         // implying the whole result set.
-        manualPagination={true}
-        manualSorting={true}
-        manualFiltering={true}
         rowCount={totalRecords}
-        paginationState={pagination}
+        pagination={pagination}
         onPaginationChange={setPagination}
+        sorting={sorting}
         onSortingChange={setSorting}
-        onSearchChange={setSearch}
-        isLoading={dataLoading}
-        muiTableProps={{
-          muiTableBodyRowProps: ({ row }: any) => ({
-            onClick: (event: React.MouseEvent<HTMLElement>) => openEmployeeRow(row.original.id, event),
-            // Middle-click does not fire onClick anywhere; it fires auxclick.
-            onAuxClick: (event: React.MouseEvent<HTMLElement>) => {
-              if (event.button === 1) openEmployeeRow(row.original.id, event);
-            },
-            sx: { cursor: "pointer" },
-          }),
-        }}
+        globalFilter={search}
+        onGlobalFilterChange={setSearch}
+        loading={dataLoading}
+        groupableColumns={false}
+        searchPlaceholder="Search employees…"
+        onRowClick={(employee) => navigate(`/employees/${employee.id}`)}
+        rowLabel={(employee) => employee.users || "Open employee"}
+        toolbar={(ctx) => (
+          <DataTableExport columns={columns} ctx={ctx} filename="Employees" />
+        )}
       />
     </div>
     )}

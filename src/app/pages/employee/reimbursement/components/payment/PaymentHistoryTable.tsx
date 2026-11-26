@@ -7,7 +7,7 @@ import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-ta
 import { EmptyState } from '@/ds/patterns/empty-state';
 import { PersonCell } from '@/ds/patterns/person';
 import { SensitiveValue } from '@/ds/patterns/sensitive';
-import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 import { formatDate } from '@utils/dateFormats';
 import { formatMoney } from '../../utils/reimbursementFormat';
 import { PaymentBatchRow, PaymentRecord } from './paymentData';
@@ -129,6 +129,7 @@ export default function PaymentHistoryTable({
         },
         {
             accessorKey: 'status',
+            meta: { label: 'Payment Status', facet: true, exportValue: (r) => paymentLabel(r.status) },
             header: 'Payment Status',
             enableSorting: false,
             cell: ({ row }) => <PaymentStateBadge state={row.original.status} label={paymentLabel(row.original.status)} />,

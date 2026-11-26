@@ -132,7 +132,7 @@ export default defineConfig({
             'vendor-echarts': ['echarts', 'echarts-for-react', 'zrender'],
             'vendor-pdf': ['@react-pdf/renderer'],
             'vendor-forms': ['formik', 'react-hook-form', 'yup', 'zod'],
-            'vendor-table': ['material-react-table', 'react-table', '@tanstack/react-query'],
+            'vendor-table': ['@tanstack/react-table', 'react-table', '@tanstack/react-query'],
             'vendor-maps': ['leaflet', 'react-leaflet', '@react-google-maps/api', '@vis.gl/react-google-maps'],
             'vendor-calendar': ['@fullcalendar/react', '@fullcalendar/daygrid', '@fullcalendar/timegrid', '@fullcalendar/interaction', '@fullcalendar/multimonth'],
             'vendor-ui': ['framer-motion', 'react-select'],

@@ -259,15 +259,6 @@ export const usePoChip = () => {
   }, [colorByName]);
 };
 
-/** A clickable tracker row with a left accent in the colour of where it stands. */
-export const trackerRowSx = (accent: string | null) => ({
-  cursor: "pointer",
-  "& .MuiTableCell-root": { fontSize: "13px", padding: "8px 10px !important", whiteSpace: "nowrap" },
-  // A positioned cell, so `BillingStatusTint` can fill it. Pinned cells are already `sticky`, which also positions them.
-  "& .MuiTableCell-root:not([data-pinned='true'])": { position: "relative" },
-  "& .MuiTableCell-root:first-of-type": { borderLeft: "3px solid", borderLeftColor: accent ?? "transparent" },
-});
-
 /**
  * View, tile and project drill-down, kept in the URL so a filtered tracker is a link someone can be sent.
  * `docViews` are the screen's other views ("proformas", or "invoices" and "queue"); the projects view is the default.
@@ -290,12 +281,12 @@ export const useTrackerParams = <K extends string>(docViews: readonly string[], 
   return { view, focus, projectId, setParam };
 };
 
-/** Shared MaterialTable settings for both grains of both trackers. */
+/**
+ * Shared DataTable settings for both grains of both trackers.
+ * Footer row appears automatically when any column defines `footer`;
+ * pass `rowTone` + `onRowClick` per table for the left accent / navigation.
+ */
 export const TRACKER_TABLE = {
-  showColumnFooter: true,
-  enableColumnSpecificSearch: true,
-  enableColumnResizing: true,
-  layoutMode: "semantic" as const,
-  muiTableContainerProps: { sx: { maxHeight: "680px", overflowX: "auto" } },
-  muiTablePaperStyle: { boxShadow: "none", marginTop: 0 },
+  virtualized: true as const,
+  virtualMaxHeight: "680px",
 };

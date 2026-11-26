@@ -44,10 +44,19 @@ export interface DataTableColumnMeta<TData = any> {
   exportValue?: (row: TData) => unknown
   /** `false` keeps the column out of exports (a thumbnail, a button). */
   export?: boolean
-  /** How an export writes the value: money and counts as typed, right-aligned cells (default text). */
+  /**
+   * How an export writes the value — and how the on-screen column aligns:
+   * `number` / `currency` ⇒ right-aligned header + body + tabular figures (default text stays left).
+   * Dates and status stay text (left); do not mark them `number`.
+   */
   exportType?: "text" | "number" | "currency"
   /** Sum this column in the export's TOTAL row (number / currency columns). */
   exportTotal?: boolean
+  /**
+   * Explicit horizontal align. When omitted, `exportType` `number`/`currency` ⇒ right; everything else ⇒ left.
+   * Prefer `exportType` for counts/money so export and screen stay one rule.
+   */
+  align?: "left" | "center" | "right"
   /**
    * In the export only — never drawn in the table or offered in the Columns menu. For a value the screen already
    * shows inside another cell (an employee code under the name) that a spreadsheet still wants as its own column.
@@ -58,6 +67,34 @@ export interface DataTableColumnMeta<TData = any> {
    * counts, and other tokens that must stay on one line (pair with `size` / `minSize` so the column is wide enough).
    */
   wrap?: boolean
+  /**
+   * When `false`, the column starts hidden (Columns menu can show it). MaterialTable used the same flag on CRM lists.
+   */
+  defaultVisible?: boolean
+  /**
+   * Opt into the DataTable facet strip (multi-select chips for enum-like columns: status, branch, type).
+   * `true` derives unique values from client `data`; pass `{ options }` on server-paged tables.
+   */
+  facet?: boolean | {
+    options?: { value: string; label?: string }[]
+    /** Cap chips before truncation. Default 8. */
+    limit?: number
+  }
+}
+
+/** Resolve horizontal align from column meta (SSOT for DataTable head / body / footer). */
+export function columnHAlign(meta?: DataTableColumnMeta | null): "left" | "center" | "right" {
+  if (meta?.align) return meta.align
+  if (meta?.exportType === "number" || meta?.exportType === "currency") return "right"
+  return "left"
+}
+
+/** Tailwind classes for head/body/footer cells from {@link columnHAlign}. */
+export function columnAlignClass(meta?: DataTableColumnMeta | null): string | undefined {
+  const align = columnHAlign(meta)
+  if (align === "right") return "text-right tabular"
+  if (align === "center") return "text-center"
+  return undefined
 }
 
 /**

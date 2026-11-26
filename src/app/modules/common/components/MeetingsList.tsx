@@ -24,8 +24,9 @@ import { SmartAvatar } from '@/ds/ui/smart-avatar';
 // single assertion ran. chips.tsx itself imports only MUI and the theme tokens.
 // Same rule as AppIcon and SegmentedControl below — see ui/README.md.
 import { toneAlpha } from '@app/modules/common/components/ui/chips';
-import { MRT_ColumnDef } from 'material-react-table';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
+import { RowAction } from '@/ds/patterns/row-action';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { SegmentedControl } from '@app/modules/common/components/ui/SegmentedControl';
 import { AutoGrid } from '@app/modules/common/components/ui/AutoGrid';
@@ -34,6 +35,7 @@ import { getCurrencyLocale, currencyPrefix } from '@utils/currency';
 import { errorConfirmation } from '@utils/modal';
 import { Button } from '@/ds/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/ds/ui/tooltip';
+import { Bell, BookOpen, Pencil, RotateCcw, Timer, Trash2, XCircle } from 'lucide-react';
 
 /**
  * MeetingsList — the meetings surface, shared by the project (entity), contact and employee
@@ -2556,12 +2558,12 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
      * columns (not a bare accessorFn) so they carry a stable id — without one the table drops
      * them from its column order and renders them last, which is the opposite of the point.
      */
-    const tableColumns = useMemo<MRT_ColumnDef<MeetingRow>[]>(() => [
+    const tableColumns = useMemo<ColumnDef<MeetingRow>[]>(() => [
         {
             accessorKey: 'startDate',
             header: 'Date',
-            Cell: ({ row }: any) => {
-                const m = row.original as MeetingRow;
+            cell: ({ row }) => {
+                const m = row.original;
                 const upcoming = dayjs(m.startDate).isAfter(dayjs());
                 return (
                     <div>
@@ -2579,7 +2581,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
         },
         {
             id: 'time',
-            accessorFn: (m: MeetingRow) => `${dayjs(m.startDate).format(getTimeTokens().TIME)} - ${dayjs(m.endDate).format(getTimeTokens().TIME)}`,
+            accessorFn: (m) => `${dayjs(m.startDate).format(getTimeTokens().TIME)} - ${dayjs(m.endDate).format(getTimeTokens().TIME)}`,
             header: 'Time',
         },
         // Not on the project's own tab: every row there belongs to the project whose page
@@ -2592,8 +2594,8 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
             // table, and a header that names only one of them is the sort of small lie that
             // makes people distrust the rest of the row.
             header: 'Project',
-            Cell: ({ row }: any) => {
-                const m = row.original as MeetingRow;
+            cell: ({ row }: { row: { original: MeetingRow } }) => {
+                const m = row.original;
                 if (!m.projectName) return <span style={{ color: '#94A3B8' }}>Not linked</span>;
                 return (
                     <div>
@@ -2607,12 +2609,12 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                     </div>
                 );
             },
-        } as MRT_ColumnDef<MeetingRow>] : []),
+        } as ColumnDef<MeetingRow>] : []),
         {
             accessorKey: 'title',
             header: 'Meeting',
-            Cell: ({ row }: any) => {
-                const m = row.original as MeetingRow;
+            cell: ({ row }) => {
+                const m = row.original;
                 return (
                     <div>
                         <div style={{
@@ -2637,7 +2639,7 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
             id: 'mode',
             // The same sentence the cell prints, so search and sort agree with the eye — and
             // so a hybrid is findable by typing "hybrid" as well as by typing the address.
-            accessorFn: (m: MeetingRow) => meetingWhere(modeOfExisting(m), m.location),
+            accessorFn: (m) => meetingWhere(modeOfExisting(m), m.location),
             header: 'Mode',
             /**
              * ONE LINE, ellipsised — and still a link.
@@ -2655,136 +2657,95 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
              * panel keeps two lines, because there the row is as wide as the dialog.
              */
             size: MODE_COL_W,
-            Cell: ({ row }: any) => (
+            meta: { wrap: false },
+            cell: ({ row }) => (
                 // The max-width is doing the work, not the column width. This table lays out
                 // semantically, and in an auto-layout table a cell's width is a suggestion that
                 // un-wrappable content overrides — so the ellipsis needs a real bound on the
                 // block inside the cell, not just a size on the column.
                 <div style={{ maxWidth: MODE_COL_W, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {modeCell(row.original as MeetingRow)}
+                    {modeCell(row.original)}
                 </div>
             ),
         },
         { accessorKey: 'organizerName', header: 'Organizer' },
         {
             id: 'participants',
-            accessorFn: (m: MeetingRow) => (m.participantNames || []).join(', '),
+            accessorFn: (m) => (m.participantNames || []).join(', '),
             header: 'Team Members',
-            Cell: ({ row }: any) => namesCell((row.original as MeetingRow).participantNames),
+            cell: ({ row }) => namesCell(row.original.participantNames),
         },
         {
             id: 'externals',
-            accessorFn: (m: MeetingRow) => (m.externalParticipantNames || []).join(', '),
+            accessorFn: (m) => (m.externalParticipantNames || []).join(', '),
             header: 'External Participants',
-            Cell: ({ row }: any) => namesCell((row.original as MeetingRow).externalParticipantNames),
+            cell: ({ row }) => namesCell(row.original.externalParticipantNames),
         },
-        ...[{
+        {
             id: 'actions',
             header: 'Actions',
             enableSorting: false,
-            Cell: ({ row }: any) => {
-                const m = row.original as MeetingRow;
+            cell: ({ row }) => {
+                const m = row.original;
+                const blocked = !isCancelled(m) && (m.loggedMinutes ?? 0) > 0;
                 return (
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    <div className="flex gap-1">
                         {onRemind && !isHeld(m) && !isCancelled(m) && (
-                            <Button variant="ghost" size="icon-sm"
-                                type="button"
-                                onClick={() => onRemind(m)}
-                                title="Remind me before this meeting"
-                            >
-                                <AppIcon name="bi-bell" className="fs-5" />
-                            </Button>
+                            <RowAction label="Remind me before this meeting" size="icon-sm" onClick={() => onRemind(m)}>
+                                <Bell className="size-4" aria-hidden />
+                            </RowAction>
                         )}
                         {onLogTime && isHeld(m) && !isCancelled(m) && (
-                            <Button variant="ghost" size="icon-sm"
-                                type="button"
+                            <RowAction
+                                label={m.loggedMinutes ? 'Edit your logged time' : 'Log your time'}
+                                size="icon-sm"
                                 onClick={() => onLogTime(m)}
-                                title={m.loggedMinutes ? 'Edit your logged time' : 'Log your time'}
                             >
-                                <AppIcon name="bi-stopwatch" className="fs-5" />
-                            </Button>
+                                <Timer className="size-4" aria-hidden />
+                            </RowAction>
                         )}
                         {onEdit && !isCancelled(m) && viewerCanManage(m) && (
-                            <Button variant="ghost" size="icon-sm"
-                                type="button"
-                                onClick={() => requestEdit(m)}
-                                title="Edit meeting"
-                            >
-                                <AppIcon name="bi-pencil" className="fs-5" />
-                            </Button>
+                            <RowAction label="Edit meeting" size="icon-sm" onClick={() => requestEdit(m)}>
+                                <Pencil className="size-4" aria-hidden />
+                            </RowAction>
                         )}
                         {!isCancelled(m) && (
-                            <Button variant="ghost" size="icon-sm"
-                                type="button"
+                            <RowAction
+                                label="Open meeting detail (agenda and minutes)"
+                                size="icon-sm"
                                 onClick={() => navigate(`/employees/meetings/agenda?meeting=${m.id}`)}
-                                title="Open meeting detail (agenda and minutes)"
-                                aria-label="Open meeting detail (agenda and minutes)"
-                                style={{ color: '#0F766E' }}
                             >
-                                <AppIcon name="bi-journal-text" className="fs-5" />
-                            </Button>
+                                <BookOpen className="size-4" aria-hidden />
+                            </RowAction>
                         )}
-                        {onCancel && viewerCanManage(m) && (() => {
+                        {onCancel && viewerCanManage(m) && (
                             // The SAME rule the day card applies, because this is the same act
                             // through a different button. Leaving it only on the card would mean
                             // the table is where you go to do the thing the card refuses.
-                            const blocked = !isCancelled(m) && (m.loggedMinutes ?? 0) > 0;
-                            return (
-                                <Button variant="ghost" size="icon-sm"
-                                    type="button"
-                                    disabled={blocked}
-                                    onClick={blocked ? undefined : () => requestCancel({ id: m.id, cancelled: !isCancelled(m) })}
-                                    title={blocked
-                                        ? 'Time has been logged against this meeting, so it cannot be cancelled'
-                                        : (isCancelled(m) ? 'Restore meeting' : 'Cancel meeting')}
-                                >
-                                    <AppIcon name={isCancelled(m) ? 'bi-arrow-counterclockwise' : 'bi-x-circle'} className="fs-5" />
-                                </Button>
-                            );
-                        })()}
-                        {onDelete && (
-                            <Button variant="ghost" size="icon-sm"
-                                type="button"
-                                onClick={() => onDelete(m.id)}
-                                title="Delete meeting"
+                            <RowAction
+                                label={blocked
+                                    ? 'Time has been logged against this meeting, so it cannot be cancelled'
+                                    : (isCancelled(m) ? 'Restore meeting' : 'Cancel meeting')}
+                                size="icon-sm"
+                                disabled={blocked}
+                                onClick={() => requestCancel({ id: m.id, cancelled: !isCancelled(m) })}
                             >
-                                <AppIcon name="bi-trash" className="fs-5" />
-                            </Button>
+                                {isCancelled(m)
+                                    ? <RotateCcw className="size-4" aria-hidden />
+                                    : <XCircle className="size-4" aria-hidden />}
+                            </RowAction>
+                        )}
+                        {onDelete && (
+                            <RowAction label="Delete meeting" size="icon-sm" tint="danger" onClick={() => onDelete(m.id)}>
+                                <Trash2 className="size-4" aria-hidden />
+                            </RowAction>
                         )}
                     </div>
                 );
             },
-        } as MRT_ColumnDef<MeetingRow>],
+        },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [onDelete, onCancel, onEdit, onLogTime, onRemind, mode, openProject, requestEdit, viewerCanManage, navigate]);
-
-    /**
-     * A row that states its own outcome.
-     *
-     * The lifecycle was only ever readable from a badge beside the title — fine when you are
-     * already looking at that cell, useless when the question is "which of these forty went
-     * ahead". Tint plus a solid left edge is the treatment the rest of the product's tables
-     * already use for a status, so this list is scanned the same way the leads list is.
-     *
-     * Colour comes from the state's ONE configured value, through the same `lifecycleTone`
-     * the badge uses — so the tint behind an unlogged meeting is by construction the colour on
-     * its AWAITING TIMESHEETS tag, and recolouring the state in Calendar Configuration moves
-     * both. A SCHEDULED row returns nothing and stays white: it has no outcome yet, and
-     * tinting it would spend a colour saying "nothing has happened".
-     */
-    const rowTint = useCallback(({ row }: any) => {
-        const state = lifecycleOf(row.original as MeetingRow);
-        if (!state) return {};
-        const tone = lifecycleTone(stateColors[state]);
-        return {
-            sx: {
-                backgroundColor: tone.row,
-                '& td:first-of-type': { borderLeft: `4px solid ${tone.edge} !important` },
-                transition: 'background-color 0.12s ease',
-                '&:hover td': { backgroundColor: `${tone.rowHover} !important` },
-            },
-        };
-    }, [stateColors]);
+    ], [onDelete, onCancel, onEdit, onLogTime, onRemind, mode, openProject, requestEdit, viewerCanManage, navigate, stateColors]);
 
     const pickedList = byDay.get(picked) ?? [];
     const pickedHalves = splitHalves(pickedList);
@@ -2867,23 +2828,32 @@ const MeetingsList: React.FC<MeetingsListProps> = ({
                 // search, sorting, export and pagination already live here, and every other
                 // list in the product is read with those controls. A bespoke <table> looked
                 // right and quietly took all of them away.
-                <MaterialTable
+                <DataTable
                     // SEPARATE preference buckets, because the two variants are not the same
                     // table: the project column exists on one and not the other. Sharing one
                     // name made each mount reconcile against the other's column set and rewrite
                     // the saved order — which is why a newly added column came back stranded at
-                    // the far right instead of where it is defined. useTablePreferences warns
-                    // about exactly this, but only for tables mounted at the same time, and
-                    // these two never are.
-                    tableName={mode === 'project' ? 'Project Meetings' : 'My Meetings'}
+                    // the far right instead of where it is defined.
+                    caption="Meetings"
+                    stateKey={mode === 'project' ? 'Project Meetings' : 'My Meetings'}
                     columns={tableColumns}
                     data={meetings}
-                    enableColumnSpecificSearch
-                    // The placeholder stays the app's own "Search in All Columns". A bespoke
-                    // sentence here named four fields and still searched all of them, so it
-                    // was both longer than every other search box in the product and less
-                    // accurate than the generic text it replaced.
-                    muiTableProps={{ muiTableBodyRowProps: rowTint }}
+                    getRowId={(m) => String(m.id)}
+                    groupableColumns={false}
+                    // Colour comes from the state's ONE configured value — so the tint behind
+                    // an unlogged meeting matches its AWAITING TIMESHEETS tag. A SCHEDULED row
+                    // returns nothing and stays plain: it has no outcome yet.
+                    rowTone={(m) => {
+                        const state = lifecycleOf(m);
+                        return state ? stateColors[state] : undefined;
+                    }}
+                    toolbar={(ctx) => (
+                        <DataTableExport
+                            columns={tableColumns}
+                            ctx={ctx}
+                            filename={mode === 'project' ? 'Project Meetings' : 'My Meetings'}
+                        />
+                    )}
                 />
             ) : (
                 <div style={{ padding: isPhone ? 8 : 16, fontFamily: 'Inter' }}>

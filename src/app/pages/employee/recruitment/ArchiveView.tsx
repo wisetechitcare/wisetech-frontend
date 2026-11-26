@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Box, Stack, Typography } from "@mui/material";
 import {
-  ActionIconButton, FILTER_TONES, ListHeader, TableSelectionBar,
+  ActionIconButton, FILTER_TONES, ListHeader,
   WtButton, WtEmptyState, confirmDialog, toast,
 } from "@app/modules/common/components/ui";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { actionsColumn, dateColumn } from "@app/modules/common/components/table/columns";
 import { queryKeys } from "@/lib/queryKeys";
 import { apiErrorMessage } from "@utils/apiError";
@@ -125,7 +126,7 @@ const toCandidateRows = (rows: Applicant[]): ArchiveRow[] =>
 /**
  * Soft-deleted Roles / Adverts / Applications / Candidates.
  * Restore brings them back; Delete permanently cascades children (confirm always).
- * Uses kit SegmentedControl + MaterialTable selection + shared actionsColumn / dateColumn.
+ * Uses kit SegmentedControl + DataTable selection + shared actionsColumn / dateColumn.
  */
 const ArchiveView = ({ companyId }: OrgScoped) => {
   const canWrite = canSection("recruitment", "write");
@@ -268,24 +269,24 @@ const ArchiveView = ({ companyId }: OrgScoped) => {
             header: "Type",
             size: 120,
             accessorFn: (r: ArchiveRow) => KIND_LABEL[r.kind],
-            Cell: ({ row }: { row: { original: ArchiveRow } }) => KIND_LABEL[row.original.kind],
+            cell: ({ row }: { row: { original: ArchiveRow } }) => KIND_LABEL[row.original.kind],
           }]
         : []),
       {
         id: "title",
         header: "Title",
         accessorFn: (r: ArchiveRow) => r.title,
-        Cell: ({ row }: { row: { original: ArchiveRow } }) => row.original.title,
+        cell: ({ row }: { row: { original: ArchiveRow } }) => row.original.title,
       },
       {
         id: "detail",
         header: kind === "candidates" ? "Contact" : kind === "roles" ? "Ref" : "Detail",
         accessorFn: (r: ArchiveRow) => r.detail,
-        Cell: ({ row }: { row: { original: ArchiveRow } }) => row.original.detail,
+        cell: ({ row }: { row: { original: ArchiveRow } }) => row.original.detail,
       },
       dateColumn({ header: "Archived", accessorKey: "updatedAt", fallback: "—" }),
       ...(canWrite
-        ? [actionsColumn({ size: 100, Cell: ({ row }: { row: { original: ArchiveRow } }) => rowActions(row.original) })]
+        ? [actionsColumn({ size: 100, cell: ({ row }: { row: { original: ArchiveRow } }) => rowActions(row.original) })]
         : []),
     ];
     return cols;
@@ -336,35 +337,42 @@ const ArchiveView = ({ companyId }: OrgScoped) => {
             onAction={refetchAll}
           />
         ) : (
-          <MaterialTable
+          <DataTable
             key={`RecruitmentArchive-${kind}`}
-            columns={columns as never}
-            data={rows as never}
-            isLoading={isLoading}
-            tableName={`RecruitmentArchive-${kind}`}
-            enableRowSelection={canWrite}
-            renderSelectionActions={(selected: ArchiveRow[]) => (
-              <TableSelectionBar count={selected.length}>
-                <WtButton
-                  size="small"
-                  ghost
-                  disabled={busy}
-                  onClick={() => void confirmRestore(selected)}
-                >
-                  Restore selected
-                </WtButton>
-                {canRemove && (
-                <WtButton
-                  size="small"
-                  tone="danger"
-                  disabled={busy}
-                  onClick={() => void confirmPermanent(selected)}
-                >
-                  Delete permanently
-                </WtButton>
-                )}
-              </TableSelectionBar>
-            )}
+            caption={`Recruitment Archive ${kind}`}
+            columns={columns as any}
+            data={rows as any[]}
+            getRowId={(r: any) => String(r.id)}
+            loading={isLoading}
+            stateKey={`recruitment.archive.${kind}`}
+            groupableColumns={false}
+            selectable={canWrite}
+            selectionActions={(selRows) => {
+              const selected = selRows.map((r) => r.original as ArchiveRow);
+              return (
+                <>
+                  <WtButton
+                    size="small"
+                    ghost
+                    disabled={busy}
+                    onClick={() => void confirmRestore(selected)}
+                  >
+                    Restore selected
+                  </WtButton>
+                  {canRemove && (
+                    <WtButton
+                      size="small"
+                      tone="danger"
+                      disabled={busy}
+                      onClick={() => void confirmPermanent(selected)}
+                    >
+                      Delete permanently
+                    </WtButton>
+                  )}
+                </>
+              );
+            }}
+            searchPlaceholder="Search archive…"
           />
         )}
 

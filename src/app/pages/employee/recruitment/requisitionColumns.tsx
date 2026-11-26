@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Box, Typography } from "@mui/material";
-import type { MRT_ColumnDef } from "material-react-table";
+import type { ColumnDef } from '@/ds/patterns/data-table';
+
 import { ToneChip, type SemanticTone } from "@app/modules/common/components/ui";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
 import type { JobRequisition } from "@services/recruitment";
@@ -9,7 +10,7 @@ import { formatDate } from "@utils/dateFormats";
 
 /**
  * How a role (requisition) is shown in a table — defined once for Cards/List parity.
- * Same MaterialTable engine as Pipeline list and overview drill-downs.
+ * Same kit DataTable columns as Pipeline list and overview drill-downs.
  */
 
 export const stageOf = (r: JobRequisition): { label: string; tone: SemanticTone } =>
@@ -50,16 +51,16 @@ export interface RequisitionColumnOptions {
 
 export function requisitionColumns(
   opts: RequisitionColumnOptions = {},
-): MRT_ColumnDef<JobRequisition>[] {
+): ColumnDef<JobRequisition>[] {
   const omit = new Set(opts.omit ?? []);
 
-  const columns: MRT_ColumnDef<JobRequisition>[] = [
+  const columns: ColumnDef<JobRequisition>[] = [
     {
       accessorFn: (r) => r.title,
       id: "title",
       header: "Role",
       size: 220,
-      Cell: ({ row }) => (
+      cell: ({ row }) => (
         <Box>
           <Typography sx={{ fontSize: 13.5, fontWeight: 600 }}>{row.original.title}</Typography>
           {row.original.prefix ? (
@@ -78,8 +79,9 @@ export function requisitionColumns(
       accessorFn: (r) => stageOf(r).label,
       id: "status",
       header: "Status",
+      meta: { label: "Status", facet: true },
       size: 150,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const r = row.original;
         const meta = stageOf(r);
         return (
@@ -95,7 +97,7 @@ export function requisitionColumns(
       id: "filled",
       header: "Filled",
       size: 110,
-      Cell: ({ row }) => (
+      cell: ({ row }) => (
         <ToneChip
           dense
           tone="brand"
@@ -108,14 +110,16 @@ export function requisitionColumns(
         (r.branchId && opts.branchName?.(r.branchId)) || "—",
       id: "branch",
       header: "Branch",
+      meta: { label: "Branch", facet: true },
       size: 140,
     },
     {
       accessorFn: (r) => r.requisitionStage?.name ?? "—",
       id: "lifecycle",
       header: "Lifecycle",
+      meta: { label: "Lifecycle", facet: true },
       size: 140,
-      Cell: ({ row }) =>
+      cell: ({ row }) =>
         row.original.requisitionStage?.name ? (
           <ToneChip dense tone="indigo" label={row.original.requisitionStage.name} />
         ) : (
@@ -127,7 +131,7 @@ export function requisitionColumns(
       id: "ctc",
       header: "CTC",
       size: 160,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const label = ctcLabel(row.original.minCtc, row.original.maxCtc, row.original.currency);
         return label ? (
           <Typography sx={{ fontSize: 13 }}>{label}</Typography>
@@ -154,8 +158,8 @@ export function requisitionColumns(
       maxSize: 180,
       enableColumnFilter: false,
       enableGlobalFilter: false,
-      Cell: ({ row }) => opts.actions!(row.original),
-    }) as MRT_ColumnDef<JobRequisition>);
+      cell: ({ row }) => opts.actions!(row.original),
+    }) as ColumnDef<JobRequisition>);
   }
 
   return kept;

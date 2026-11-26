@@ -15,7 +15,7 @@ import { fetchAllEmployees } from '@services/employee';
 import { IReimbursementsFetch } from '@models/employee';
 import PeriodTabs from '@app/modules/common/components/PeriodTabs';
 import { PeriodNavigator } from '@/ds/patterns/period-navigator';
-import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 import { useOrgFilters, OrgFilterSheetButton } from '@app/modules/common/components/ui/OrgFilterToolbar';
 import { generateFiscalYearFromGivenYear } from '@utils/file';
 import { formatFiscalYearLabel } from '@utils/fiscalYearHelper';
@@ -73,13 +73,14 @@ const text = (v: string) => (v && v !== 'N/A' ? v : NO_VALUE);
  * A money cell in its status colour (the charts' colours), right-aligned and tabular. `dashZero`: the
  * columns that used to print "-" for nothing (approved, paid, remaining, rejected) still do.
  */
+/** Align comes from DataTable `meta.exportType` (number/currency → right); cells only style tone. */
 const money = (value: number, tone?: string, dashZero = false) => (
-  <span className={cn('tabular block text-right', value ? cn('font-semibold', tone) : 'text-muted-foreground')}>
+  <span className={cn(value ? cn('font-semibold', tone) : 'text-muted-foreground')}>
     {dashZero && !value ? NO_VALUE : formatMoney(value)}
   </span>
 );
 const count = (value: number, tone?: string, dashZero = false) => (
-  <span className={cn('tabular block text-right', value ? cn('font-semibold', tone) : 'text-muted-foreground')}>
+  <span className={cn(value ? cn('font-semibold', tone) : 'text-muted-foreground')}>
     {dashZero && !value ? NO_VALUE : value}
   </span>
 );

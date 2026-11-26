@@ -1,5 +1,3 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import ExportButton from "@app/modules/common/components/ExportButton";
 import TimePeriodSelector from "@app/modules/common/components/TimePeriodSelector";
 import { PeriodMode } from "@/constants/common";
 import {
@@ -9,13 +7,12 @@ import {
   TextField,
   InputAdornment,
 } from "@mui/material";
-import { getRowBackgroundColor } from "@app/modules/common/design-tokens";
 import { getAllLeadsComplete } from "@services/leads";
 import {
   saveLeadPeriodPreference,
   getLeadPeriodPreference,
 } from "@services/users";
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef, type CSSProperties } from "react";
 import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
 import { useNavigate } from "react-router-dom";
 import { getAllLeadStatus } from "@services/lead";
@@ -43,6 +40,9 @@ import { EVENT_KEYS } from "@constants/eventKeys";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { Button } from "@/ds/ui/button";
+import { Badge } from "@/ds/ui/badge";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
+import { DataTableExport } from "@/ds/patterns/data-table-export";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -301,29 +301,13 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   const [projectServices, setProjectServices] = useState<any[]>([]);
   const [projectSubcategories, setProjectSubcategories] = useState<any[]>([]);
   const [projectCategories, setProjectCategories] = useState<any[]>([]);
-  const [rawLeadsDatas, setRawLeadsDatas] = useState<any[]>([]);
   const [showBulkImport, setShowBulkImport] = useState(false);
 
-  // ── Column visibility & selective fetching ──────────────────────────────────
-  const visibleColumnsRef = useRef<string[] | null>(null);
-  const lastFieldsKeyRef = useRef<string | null>(null);
-  const firstVisibilityEmissionRef = useRef(true);
-  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  // True once the first fetch settles. Background refetches (event bus, column
-  // visibility changes) must NOT swap the table for the full-page loader:
-  // unmounting MaterialTable resets its preference state, and the remount
-  // re-emits visible columns → another refetch → an endless refresh loop.
+  // Kit DataTable has no onVisibleColumnsChange — always fetch the full lead
+  // shape (no sparse per-visible-column refetch).
+  // True once the first fetch settles. Background refetches must NOT swap the
+  // table for the full-page loader (keeps prefs / scroll intact).
   const hasLoadedOnceRef = useRef(false);
-
-  // Clean up refetch timer on unmount
-  useEffect(() => {
-    return () => {
-      if (columnsRefetchTimerRef.current)
-        clearTimeout(columnsRefetchTimerRef.current);
-    };
-  }, []);
 
   // ── Date mode ────────────────────────────────────────────────────────────────
   const [alignment, setAlignment] = useState<PeriodMode>(PeriodMode.MONTHLY);
@@ -364,9 +348,6 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
   // ── Redux ────────────────────────────────────────────────────────────────────
   const allemployees = useSelector(
     (state: RootState) => state.allEmployees?.list,
-  );
-  const currentEmployeeId = useSelector(
-    (state: RootState) => state.employee?.currentEmployee?.id,
   );
 
   const NA_OPTION = { employeeId: "__NA__", employeeName: "N/A", avatar: "" };
@@ -601,7 +582,6 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           entityScope === "project" || receivedOnly ? "projects" : undefined,
         );
         const leadsData = leadsResponse?.data?.data?.leads || [];
-        setRawLeadsDatas(leadsData);
 
         const [
           servicesRes,
@@ -862,35 +842,6 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     [isDrillDown, entityScope, receivedOnly],
   );
 
-  const handleVisibleColumnsChange = useCallback(
-    (keys: string[]) => {
-      // Drill-downs never do the per-column sparse refetch — it would drop the
-      // filter fields from the rows and desync the table count from the chart.
-      if (isDrillDown) return;
-      visibleColumnsRef.current = keys;
-      const key = [...keys].sort().join(",");
-
-      // First emission: record baseline, don't refetch
-      if (firstVisibilityEmissionRef.current) {
-        firstVisibilityEmissionRef.current = false;
-        lastFieldsKeyRef.current = key;
-        return;
-      }
-
-      // No change detected
-      if (key === lastFieldsKeyRef.current) return;
-      lastFieldsKeyRef.current = key;
-
-      // Debounce refetch
-      if (columnsRefetchTimerRef.current)
-        clearTimeout(columnsRefetchTimerRef.current);
-      columnsRefetchTimerRef.current = setTimeout(() => {
-        fetchAllData(keys);
-      }, 500);
-    },
-    [fetchAllData, isDrillDown],
-  );
-
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
@@ -961,38 +912,28 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       ]),
     [drillScopeProject, drillContextKey],
   );
-  // Distinct pref bucket per (scope, drilled-dimension) so each drill keeps its own
-  // lean defaults and never overwrites the full-page `EntityTable_*` preferences.
-  const drillTableName = `EntityDrill_${entityScope}_${drillContextKey ?? "base"}`;
-
   // ── Columns ──────────────────────────────────────────────────────────────────
-  const columns = useMemo(() => {
-    const base: any[] = [
+  const columns = useMemo((): ColumnDef<any, any>[] => {
+    const base: ColumnDef<any, any>[] = [
       {
         accessorKey: "inquiryDate",
         header: "Inquiry Date",
+        meta: { label: "Inquiry Date" },
         size: 150,
-        sortingFn: dateSortingFn,
-        Cell: ({ cell }: { cell: any }) => {
+        sortFn: dateSortingFn,
+        cell: ({ cell }) => {
           const v = cell.getValue();
-          return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+          return v ? dayjs(v as string).format("DD-MM-YYYY") : "N/A";
         },
       },
       {
         accessorKey: "prefix",
         header: "Inquiry Id",
+        meta: { label: "Inquiry Id" },
         size: 220,
         minSize: 220,
-        enableEditing: false,
-        Cell: ({ row }: { row: any }) => (
-          <span
-            className="cursor-pointer"
-            style={{
-              fontWeight: "600",
-              fontSize: "14.5px",
-              whiteSpace: "nowrap",
-            }}
-          >
+        cell: ({ row }) => (
+          <span className="cursor-pointer whitespace-nowrap text-[14.5px] font-semibold">
             {row?.original?.prefix || "N/A"}
           </span>
         ),
@@ -1000,13 +941,14 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       {
         accessorKey: "projectName",
         header: "Name",
+        meta: { label: "Name" },
         size: 360,
         minSize: 360,
-        Cell: ({ cell }: { cell: any }) => {
+        cell: ({ cell }) => {
           const v = cell.getValue();
           return (
-            <span style={{ whiteSpace: "nowrap" }}>
-              {typeof v === "object" ? JSON.stringify(v) : v || "N/A"}
+            <span className="whitespace-nowrap">
+              {typeof v === "object" ? JSON.stringify(v) : (v as string) || "N/A"}
             </span>
           );
         },
@@ -1015,22 +957,22 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       // lead view is 100% leads, so the column would be noise there. A drill-down is
       // always single-scope too, so it's excluded there as well.
       ...(view === "all" && !isDrillDown
-        ? [
+        ? ([
             {
               accessorKey: "isProject",
               header: "Stage",
+              meta: { label: "Stage" },
               size: 170,
-              Cell: ({ row }: { row: any }) => (
-                <StageBadge row={row.original} />
-              ),
+              cell: ({ row }) => <StageBadge row={row.original} />,
             },
-          ]
+          ] as ColumnDef<any, any>[])
         : []),
       {
         accessorKey: "totalCost",
         header: "Total Cost",
+        meta: { label: "Total Cost", exportType: "currency", exportTotal: true },
         size: 120,
-        Cell: ({ cell }: { cell: any }) => {
+        cell: ({ cell }) => {
           const v = cell.getValue();
           return v !== undefined
             ? `${currencyPrefix()}${Number(v).toLocaleString()}`
@@ -1040,18 +982,20 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       {
         accessorKey: "client",
         header: "Client",
+        meta: { label: "Client" },
         size: 150,
-        Cell: ({ cell }: { cell: any }) => {
-          const v = cell.getValue();
+        cell: ({ cell }) => {
+          const v = cell.getValue() as any;
           return typeof v === "object" ? v.name || "N/A" : v || "N/A";
         },
       },
       {
         accessorKey: "contact",
         header: "Contact",
+        meta: { label: "Contact" },
         size: 150,
-        Cell: ({ cell }: { cell: any }) => {
-          const v = cell.getValue();
+        cell: ({ cell }) => {
+          const v = cell.getValue() as any;
           return typeof v === "object"
             ? v.name || v.email || "N/A"
             : v || "N/A";
@@ -1060,6 +1004,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       {
         accessorKey: "service",
         header: "Service",
+        meta: { label: "Service" },
         size: 150,
         accessorFn: (row: any) => {
           const ids: string[] = row.serviceIds?.length
@@ -1072,7 +1017,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             .filter(Boolean)
             .join(", ");
         },
-        Cell: ({ row }: { row: any }) => {
+        cell: ({ row }) => {
           const ids: string[] = row.original?.serviceIds?.length
             ? row.original.serviceIds
             : row.original?.service
@@ -1087,6 +1032,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       {
         accessorKey: "category",
         header: "Category",
+        meta: { label: "Category" },
         size: 150,
         // All-Columns / Category search must match display names (e.g. "MOEF"), not UUIDs.
         accessorFn: (row: any) => {
@@ -1100,7 +1046,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             .filter(Boolean)
             .join(", ");
         },
-        Cell: ({ row }: { row: any }) => {
+        cell: ({ row }) => {
           const ids: string[] = row.original?.categoryIds?.length
             ? row.original.categoryIds
             : row.original?.category
@@ -1115,6 +1061,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       {
         accessorKey: "subCategory",
         header: "Sub Category",
+        meta: { label: "Sub Category" },
         size: 150,
         accessorFn: (row: any) => {
           const ids: string[] = row.subCategoryIds?.length
@@ -1129,7 +1076,7 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
             .filter(Boolean)
             .join(", ");
         },
-        Cell: ({ row }: { row: any }) => {
+        cell: ({ row }) => {
           const ids: string[] = row.original?.subCategoryIds?.length
             ? row.original.subCategoryIds
             : row.original?.subCategory
@@ -1146,53 +1093,68 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       // Hide Lead Status column when viewing team projects (only show project details)
       ...(teamId
         ? []
-        : [
+        : ([
             {
               accessorKey: "status",
               header: "Lead Status",
+              meta: {
+                label: "Lead Status",
+                exportValue: (row: any) => row?.status?.name || "",
+              },
               size: 130,
               accessorFn: (row: any) => row?.status?.name || "",
-              Cell: ({ row }: any) => {
+              cell: ({ row }) => {
                 const st = row?.original?.status;
-                // Kit's StatusPill — same badge as the MoM register's status.
-                return st?.name ? <StatusPill label={st.name} color={st.color} /> : "N/A";
+                return st?.name ? (
+                  <StatusPill label={st.name} color={st.color} />
+                ) : (
+                  "N/A"
+                );
               },
             },
-          ]),
+          ] as ColumnDef<any, any>[])),
       // Hide Assigned To when viewing team projects (only show project details)
       ...(teamId
         ? []
-        : [
+        : ([
             {
               accessorKey: "assignedTo",
               header: "Assigned To",
+              meta: {
+                label: "Assigned To",
+                exportValue: (row: any) =>
+                  allemployees?.find((e: any) => e.employeeId === row.assignedTo)
+                    ?.employeeName || "",
+              },
               size: 150,
-              Cell: ({ cell }: { cell: any }) =>
+              cell: ({ cell }) =>
                 allemployees?.find((e: any) => e.employeeId === cell.getValue())
                   ?.employeeName || "N/A",
             },
-          ]),
+          ] as ColumnDef<any, any>[])),
     ];
 
     // Lead-pipeline-only columns: hidden in project views to avoid clutter.
-    const leadOnly: any[] = projectColumnsActive
+    const leadOnly: ColumnDef<any, any>[] = projectColumnsActive
       ? []
       : [
           {
             accessorKey: "receivedDate",
             header: "Received Date",
+            meta: { label: "Received Date" },
             size: 150,
-            sortingFn: dateSortingFn,
-            Cell: ({ cell }: { cell: any }) => {
+            sortFn: dateSortingFn,
+            cell: ({ cell }) => {
               const v = cell.getValue();
-              return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+              return v ? dayjs(v as string).format("DD-MM-YYYY") : "N/A";
             },
           },
           {
             accessorKey: "poStatus",
             header: "PO Status",
+            meta: { label: "PO Status" },
             size: 130,
-            Cell: ({ row }: any) => {
+            cell: ({ row }) => {
               const poStatus = row?.original?.poStatus;
               if (!row?.original?.isProject || !poStatus)
                 return <span>N/A</span>;
@@ -1209,20 +1171,22 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           {
             accessorKey: "leadSource",
             header: "Source",
+            meta: { label: "Source" },
             size: 140,
-            Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+            cell: ({ cell }) => (cell.getValue() as string) || "N/A",
           },
         ];
 
     // Project columns: revealed only when the active view contains projects.
-    const projectCols: any[] = projectColumnsActive
+    const projectCols: ColumnDef<any, any>[] = projectColumnsActive
       ? [
           {
             accessorKey: "projectPrefix",
             header: "Project Number",
+            meta: { label: "Project Number" },
             size: 220,
-            Cell: ({ row }: { row: any }) => (
-              <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
+            cell: ({ row }) => (
+              <span className="whitespace-nowrap font-semibold">
                 {row.original.projectPrefix || "N/A"}
               </span>
             ),
@@ -1230,34 +1194,24 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           {
             accessorKey: "projectStatus",
             header: "Project Status",
+            meta: {
+              label: "Project Status",
+              exportValue: (row: any) => row?.projectStatus?.name || "",
+            },
             size: 150,
-            Cell: ({ row }: any) => {
+            accessorFn: (row: any) => row?.projectStatus?.name || "",
+            cell: ({ row }) => {
               const st = row?.original?.projectStatus;
               return st?.name ? (
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    backgroundColor: st.color || "#64748B",
-                    borderRadius: "6px",
-                    padding: "4px 10px 4px 8px",
-                  }}
+                <Badge
+                  variant="custom"
+                  dot
+                  style={
+                    { "--tone": st.color || "#64748B" } as CSSProperties
+                  }
                 >
-                  <div
-                    style={{
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "50%",
-                      backgroundColor: "#fff",
-                    }}
-                  />
-                  <span
-                    style={{ fontSize: "12px", fontWeight: 600, color: "#fff" }}
-                  >
-                    {st.name}
-                  </span>
-                </div>
+                  {st.name}
+                </Badge>
               ) : (
                 "N/A"
               );
@@ -1266,27 +1220,30 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           {
             accessorKey: "projectStartDate",
             header: "Start Date",
+            meta: { label: "Start Date" },
             size: 140,
-            sortingFn: dateSortingFn,
-            Cell: ({ cell }: { cell: any }) => {
+            sortFn: dateSortingFn,
+            cell: ({ cell }) => {
               const v = cell.getValue();
-              return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
+              return v ? dayjs(v as string).format("DD-MM-YYYY") : "N/A";
             },
           },
           {
             accessorKey: "projectEndDate",
             header: "Expected Closure",
+            meta: { label: "Expected Closure" },
             size: 150,
-            sortingFn: dateSortingFn,
-            Cell: ({ row }: { row: any }) => {
+            sortFn: dateSortingFn,
+            cell: ({ row }) => {
               const v = row.original.projectEndDate;
               if (!v) return "N/A";
               return (
                 <span
-                  style={{
-                    color: row.original.isDelayed ? "#D92D20" : undefined,
-                    fontWeight: row.original.isDelayed ? 600 : undefined,
-                  }}
+                  className={
+                    row.original.isDelayed
+                      ? "font-semibold text-destructive"
+                      : undefined
+                  }
                 >
                   {dayjs(v).format("DD-MM-YYYY")}
                   {row.original.isDelayed ? " ⚠" : ""}
@@ -1297,42 +1254,53 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           {
             accessorKey: "projectManagerId",
             header: "Project Manager",
+            meta: {
+              label: "Project Manager",
+              exportValue: (row: any) => pmNames(row) || "",
+            },
             size: 160,
             // Sort/group on the resolved names so the column orders alphabetically
             // rather than by the raw manager UUIDs.
             accessorFn: (row: any) => pmNames(row) || "",
-            Cell: ({ row }: { row: any }) => pmNames(row.original) || "N/A",
+            cell: ({ row }) => pmNames(row.original) || "N/A",
           },
           // Hide Team column when viewing team projects
           ...(teamId
             ? []
-            : [
+            : ([
                 {
                   accessorKey: "projectTeamName",
                   header: "Team",
+                  meta: { label: "Team" },
                   size: 140,
-                  Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+                  cell: ({ cell }) => (cell.getValue() as string) || "N/A",
                 },
-              ]),
+              ] as ColumnDef<any, any>[])),
           // Hide Project Cost column when viewing team projects
           ...(teamId
             ? []
-            : [
+            : ([
                 {
                   accessorKey: "projectCost",
                   header: "Project Cost",
+                  meta: {
+                    label: "Project Cost",
+                    exportType: "currency",
+                    exportTotal: true,
+                  },
                   size: 130,
-                  Cell: ({ cell }: { cell: any }) =>
+                  cell: ({ cell }) =>
                     cell.getValue()
                       ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}`
                       : `${currencyPrefix()}0`,
                 },
-              ]),
+              ] as ColumnDef<any, any>[])),
           {
             accessorKey: "projectRate",
             header: "Rate",
+            meta: { label: "Rate", exportType: "currency" },
             size: 110,
-            Cell: ({ cell }: { cell: any }) =>
+            cell: ({ cell }) =>
               cell.getValue()
                 ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}`
                 : "N/A",
@@ -1340,55 +1308,71 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
           {
             accessorKey: "duration",
             header: "Timeline",
+            meta: { label: "Timeline" },
             size: 120,
-            Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+            cell: ({ cell }) => (cell.getValue() as string) || "N/A",
           },
         ]
       : [];
 
-    const tail: any[] = [
+    const tail: ColumnDef<any, any>[] = [
       {
         accessorKey: "createdAt",
         header: "Created Date",
+        meta: { label: "Created Date" },
         size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
+        cell: ({ cell }) =>
+          cell.getValue()
+            ? dayjs(cell.getValue() as string).format("DD-MM-YYYY")
+            : "N/A",
       },
       {
         accessorKey: "updatedAt",
         header: "Updated Date",
+        meta: { label: "Updated Date" },
         size: 150,
-        Cell: ({ cell }: { cell: any }) =>
-          cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
+        cell: ({ cell }) =>
+          cell.getValue()
+            ? dayjs(cell.getValue() as string).format("DD-MM-YYYY")
+            : "N/A",
       },
       {
         accessorKey: "country",
         header: "Country",
+        meta: { label: "Country" },
         size: 120,
-        Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => (cell.getValue() as string) || "N/A",
       },
       {
         accessorKey: "state",
         header: "State",
+        meta: { label: "State" },
         size: 120,
-        Cell: ({ row }: { row: any }) => row.original.state || "N/A",
+        cell: ({ row }) => row.original.state || "N/A",
       },
       {
         accessorKey: "city",
         header: "City",
+        meta: { label: "City" },
         size: 120,
-        Cell: ({ row }: { row: any }) => row.original.city || "N/A",
+        cell: ({ row }) => row.original.city || "N/A",
       },
       {
         accessorKey: "area",
         header: "Area",
+        meta: { label: "Area" },
         size: 120,
-        Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+        cell: ({ cell }) => (cell.getValue() as string | number) || "N/A",
       },
     ];
 
     const assembled = [...base, ...leadOnly, ...projectCols, ...tail].filter(
-      (col: any) => moneyAllowed(col.accessorKey),
+      (col) =>
+        moneyAllowed(
+          String(
+            ("accessorKey" in col && col.accessorKey) || col.id || "",
+          ),
+        ),
     );
 
     // Full-page table: every column visible by default (user toggles via the menu).
@@ -1407,13 +1391,18 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
       ...drillVisibleKeys,
     ]);
 
-    return assembled.map((col: any) => ({
-      ...col,
-      meta: {
-        ...(col.meta || {}),
-        defaultVisible: essentialDrillColumns.has(col.accessorKey),
-      },
-    }));
+    return assembled.map((col) => {
+      const key = String(
+        ("accessorKey" in col && col.accessorKey) || col.id || "",
+      );
+      return {
+        ...col,
+        meta: {
+          ...(col.meta || {}),
+          defaultVisible: essentialDrillColumns.has(key),
+        },
+      };
+    });
   }, [
     view,
     projectColumnsActive,
@@ -1423,170 +1412,9 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     projectCategories,
     projectSubcategories,
     allemployees,
-    rawLeadsDatas,
+    teamId,
+    pmNames,
   ]);
-
-  // ── Export columns (adapt to view) ───────────────────────────────────────────
-  const exportColumns = useMemo(() => {
-    const base = [
-      { key: "inquiryDate", header: "Inquiry Date", type: "text" as const },
-      { key: "prefix", header: "Inquiry ID", type: "text" as const },
-      { key: "projectName", header: "Name", type: "text" as const },
-      {
-        meta: { defaultVisible: false },
-        key: "totalCost",
-        header: "Total Cost",
-        type: "currency" as const,
-        showTotal: true,
-      },
-      {
-        meta: { defaultVisible: false },
-        key: "client",
-        header: "Client",
-        type: "text" as const,
-      },
-      {
-        meta: { defaultVisible: false },
-        key: "contact",
-        header: "Contact",
-        type: "text" as const,
-      },
-      {
-        meta: { defaultVisible: false },
-        key: "service",
-        header: "Service",
-        type: "text" as const,
-      },
-      {
-        meta: { defaultVisible: false },
-        key: "category",
-        header: "Category",
-        type: "text" as const,
-      },
-      {
-        meta: { defaultVisible: false },
-        key: "subCategory",
-        header: "Sub Category",
-        type: "text" as const,
-      },
-      {
-        key: "status",
-        header: "Lead Status",
-        type: "text" as const,
-        format: (val: any) => val?.name || String(val || ""),
-      },
-      { key: "assignedTo", header: "Assigned To", type: "text" as const },
-    ];
-    const projectPart = projectColumnsActive
-      ? [
-          {
-            meta: { defaultVisible: false },
-            key: "projectPrefix",
-            header: "Project Number",
-            type: "text" as const,
-          },
-          {
-            key: "projectStatus",
-            header: "Project Status",
-            type: "text" as const,
-            format: (val: any) => val?.name || String(val || ""),
-          },
-          {
-            meta: { defaultVisible: false },
-            key: "projectStartDate",
-            header: "Start Date",
-            type: "text" as const,
-          },
-          {
-            meta: { defaultVisible: false },
-            key: "projectEndDate",
-            header: "Expected Closure",
-            type: "text" as const,
-          },
-          {
-            meta: { defaultVisible: false },
-            key: "projectCost",
-            header: "Project Cost",
-            type: "currency" as const,
-            showTotal: true,
-          },
-          {
-            meta: { defaultVisible: false },
-            key: "projectRate",
-            header: "Rate",
-            type: "currency" as const,
-          },
-          // Export the resolved manager names (all of them), not the raw ids.
-          {
-            meta: { defaultVisible: false },
-            key: "projectManagerIds",
-            header: "Project Manager",
-            type: "text" as const,
-            format: (_val: any, row: any) => pmNames(row),
-          },
-          {
-            meta: { defaultVisible: false },
-            key: "projectTeamName",
-            header: "Team",
-            type: "text" as const,
-          },
-        ]
-      : [
-          {
-            meta: { defaultVisible: false },
-            key: "receivedDate",
-            header: "Received Date",
-            type: "text" as const,
-          },
-          {
-            meta: { defaultVisible: false },
-            key: "poStatus",
-            header: "PO Status",
-            type: "text" as const,
-          },
-          {
-            meta: { defaultVisible: false },
-            key: "leadSource",
-            header: "Source",
-            type: "text" as const,
-          },
-        ];
-    const tail = [
-      {
-        meta: { defaultVisible: false },
-        key: "country",
-        header: "Country",
-        type: "text" as const,
-      },
-      {
-        meta: { defaultVisible: false },
-        key: "state",
-        header: "State",
-        type: "text" as const,
-      },
-      {
-        meta: { defaultVisible: false },
-        key: "city",
-        header: "City",
-        type: "text" as const,
-      },
-      {
-        meta: { defaultVisible: false },
-        key: "area",
-        header: "Area",
-        type: "text" as const,
-      },
-      {
-        meta: { defaultVisible: false },
-        key: "createdAt",
-        header: "Created Date",
-        type: "text" as const,
-      },
-    ];
-    return [...base, ...projectPart, ...tail].filter((col) =>
-      moneyAllowed(col.key),
-    );
-  }, [projectColumnsActive]);
 
   // Full-page loader only for the very first load; background refetches keep
   // the table mounted (see hasLoadedOnceRef above).
@@ -2054,17 +1882,8 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
     0,
   );
 
-  // ── Shared styles ─────────────────────────────────────────────────────────────
   // Matches the table toolbar beside it (kit 'sm' select = 34px).
   const FILTER_HEIGHT = "34px";
-
-  // Row tint: project phase wins for project rows, lead-status color otherwise.
-  const rowBackground = (row: any) => {
-    const statusColor = row?.isProject
-      ? row?.projectStatus?.color
-      : row?.status?.color;
-    return statusColor ? `${statusColor}20` : "#F1F5F9";
-  };
 
   // ── Drill-down heading: the clicked slice + a single scope word. A drill-down
   //    is one domain only, so it reads "Leads" OR "Projects" — never the unified
@@ -2553,144 +2372,44 @@ const EntityTablePage: React.FC<EntityTablePageProps> = ({
         )}
       </Box>
 
-      <MaterialTable
+      <DataTable
+        caption={projectColumnsActive ? "Projects" : "Leads & Projects"}
         columns={columns}
-        data={quickFilteredData}
-        tableName={
+        data={quickFilteredData ?? []}
+        getRowId={(r) => r.id}
+        // Drill-downs are ephemeral curated views — no stateKey so each open
+        // uses meta.defaultVisible instead of a stale EntityDrill_* bucket.
+        stateKey={
           isDrillDown
-            ? drillTableName
+            ? undefined
             : `EntityTable_${projectColumnsActive ? "projects" : "pipeline"}`
         }
-        defaultSorting={[{ id: "inquiryDate", desc: true }]}
-        renderExportActions={() => (
-          <ExportButton
-            data={quickFilteredData}
-            columns={exportColumns}
+        initialSorting={[{ id: "inquiryDate", desc: true }]}
+        onRowClick={(row) => {
+          // Project views → project lens; Leads view → lead lens; in "All"
+          // the row itself decides (mixed pipeline).
+          const asProject =
+            projectColumnsActive ||
+            (view === "all" && isProjectEntity(row));
+          navigate(`${asProject ? "/project" : "/leads"}/${row.id}`);
+        }}
+        rowLabel={(row) => row.projectName || row.prefix || "Open record"}
+        rowTone={(row) =>
+          (row?.isProject
+            ? row?.projectStatus?.color
+            : row?.status?.color) || undefined
+        }
+        groupableColumns={false}
+        toolbar={(ctx) => (
+          <DataTableExport
+            columns={columns}
+            ctx={ctx}
             filename={projectColumnsActive ? "projects" : "leads-projects"}
             title="Leads & Projects"
             subtitle="Unified pipeline — inquiries and live projects"
             sheetName={projectColumnsActive ? "Projects" : "Pipeline"}
-            showTotals
-            totalLabel="TOTAL"
-            disabled={!quickFilteredData?.length}
           />
         )}
-        employeeId={currentEmployeeId}
-        resource="LEADS"
-        viewOwn={true}
-        viewOthers={true}
-        checkOwnWithOthers={true}
-        onVisibleColumnsChange={handleVisibleColumnsChange}
-        // Drill-down modals are ephemeral, curated views: never persist their column
-        // prefs, so each open renders the meta.defaultVisible set instead of a stale,
-        // per-slice EntityDrill_* bucket that could hide most columns. The full-page
-        // table keeps persistence (default true).
-        persistPreferences={!isDrillDown}
-        enableColumnResizing={true}
-        layoutMode="semantic"
-        muiTableContainerProps={{
-          sx: { maxHeight: "700px", overflowX: "auto" },
-        }}
-        muiTableProps={{
-          sx: {
-            borderCollapse: "separate",
-            borderSpacing: isDrillDown ? "0 0 !important" : "0 4px !important",
-            minWidth: isDrillDown ? "100%" : "1600px",
-            width: isDrillDown ? "100%" : undefined,
-            tableLayout: isDrillDown ? "auto" : undefined,
-          },
-          muiTableBodyRowProps: ({ row }: any) => {
-            // Status color drives the drill-down row: a light tint background + a solid
-            // left accent, so "Received" (green) / "Not Received" (red) / "Pending"
-            // (yellow) read at a glance, matching the colored status badges.
-            const drillStatusColor = isDrillDown
-              ? (row.original?.isProject
-                  ? row.original?.projectStatus?.color
-                  : row.original?.status?.color) || null
-              : null;
-            return {
-              sx: {
-                cursor: "pointer",
-                backgroundColor: isDrillDown
-                  ? drillStatusColor
-                    ? `${drillStatusColor}14`
-                    : "#ffffff"
-                  : rowBackground(row.original),
-                transition: "background-color 0.15s ease",
-                borderBottom: isDrillDown ? "1px solid #EEF1F5" : "none",
-                "& .MuiTableCell-root": {
-                  fontSize: isDrillDown ? "13px" : "15.5px",
-                  fontFamily: "Inter",
-                  fontWeight: isDrillDown ? "400" : "500",
-                  padding: isDrillDown
-                    ? "12px 14px !important"
-                    : "4px 8px !important",
-                  border: "none",
-                  color: "#374151",
-                  whiteSpace: "nowrap",
-                  backgroundColor: "transparent",
-                },
-                ...(isDrillDown
-                  ? {
-                      "& .MuiTableCell-root:first-of-type": {
-                        borderLeft: drillStatusColor
-                          ? `3px solid ${drillStatusColor} !important`
-                          : "3px solid transparent !important",
-                      },
-                    }
-                  : {
-                      "& .MuiTableCell-root:first-of-type": {
-                        borderTopLeftRadius: "12px",
-                        borderBottomLeftRadius: "12px",
-                        borderLeft: row.original?.isProject
-                          ? `3px solid ${PHASE_THEMES[row.original.entityPhase as keyof typeof PHASE_THEMES]?.fg || "#1E3A8A"} !important`
-                          : "3px solid transparent !important",
-                        transition: "border-color 0.2s ease-in-out !important",
-                      },
-                      "& .MuiTableCell-root:last-of-type": {
-                        borderTopRightRadius: "12px",
-                        borderBottomRightRadius: "12px",
-                      },
-                    }),
-                "&:hover": {
-                  backgroundColor: isDrillDown
-                    ? `${drillStatusColor ? `${drillStatusColor}26` : "#F3F4F6"} !important`
-                    : "#F8FAFC !important",
-                  ...(isDrillDown
-                    ? {}
-                    : {
-                        transform: "translateY(-2px)",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                      }),
-                  "& .MuiTableCell-root": {
-                    backgroundColor: "transparent !important",
-                  },
-                  ...(isDrillDown
-                    ? {}
-                    : {
-                        "& .MuiTableCell-root:first-of-type": {
-                          borderLeftColor: `${row.original?.status?.color || "#1E3A8A"} !important`,
-                        },
-                      }),
-                },
-              },
-              onClick: () => {
-                // The path IS the entry context (see the /project/:id route). The
-                // project views open the project lens; the Leads view opens the
-                // lead lens; in "All" the row itself decides, since that view
-                // deliberately mixes the two. Previously every view navigated to
-                // /leads/:id, so a project opened from the Projects view showed
-                // the lead page with the project tabs stripped out.
-                const asProject =
-                  projectColumnsActive ||
-                  (view === "all" && isProjectEntity(row.original));
-                navigate(
-                  `${asProject ? "/project" : "/leads"}/${row.original.id}`,
-                );
-              },
-            };
-          },
-        }}
       />
 
       {formValues && (

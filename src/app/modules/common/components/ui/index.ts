@@ -210,16 +210,13 @@ export { choiceIsOn, WtChoice } from './WtChoice';
 export { WtChoiceField } from './WtChoiceField';
 export type { ChoiceVariant, WtChoiceOption, WtChoiceProps } from './WtChoice';
 export type { WtChoiceFieldProps } from './WtChoiceField';
-// MaterialTable `renderSelectionActions` strip — "{n} selected" + bulk CTAs (WtButton).
-export { TableSelectionBar } from './TableSelectionBar';
-export type { TableSelectionBarProps } from './TableSelectionBar';
 export { ToolbarFilterSelect, FILTER_TONES } from './ToolbarFilterSelect';
 export type { ToolbarFilterSelectProps, FilterSelectTheme } from './ToolbarFilterSelect';
 export { OrgFilterToolbar, useOrgFilters } from './OrgFilterToolbar';
 export type { OrgFilterState, OrgFilterableRow, EmployeeStatusFilter } from './OrgFilterToolbar';
 export { hoverLiftSx, pressableSx, riseInSx, disclosureSx, DISCLOSURE, MOTION_KEYFRAMES } from './motion';
-// Numbered pager for views that page server-side WITHOUT MaterialTable (card grids,
-// tiles). The table draws its own footer; everything else uses this.
+// Numbered pager for views that page server-side WITHOUT DataTable (card grids,
+// tiles). DataTable draws its own footer; everything else uses this.
 export { Pager } from './Pager';
 export type { PagerProps } from './Pager';
 export { pageWindow, ELLIPSIS } from './pageWindow';

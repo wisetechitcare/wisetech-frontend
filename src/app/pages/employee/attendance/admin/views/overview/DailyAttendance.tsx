@@ -1,6 +1,7 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import EmployeeIdentityCell from "@app/modules/common/components/EmployeeIdentityCell";
 import AttendanceStatusBadge from "@app/modules/common/components/AttendanceStatusBadge";
 import AttendanceCheckCell, {
@@ -22,12 +23,12 @@ import { fetchAllEmployees, fetchAllEmployeesAttendance, fetchAllEmployeesAttend
 import { employeeIdSet } from "@utils/activeEmployee";
 import { getWeekDay, formatTime, formatTime24Hour, convertToTimeZone, findTimeDifference, formatTimeString, MUMBAI_TZ } from "@utils/date";
 import dayjs, { Dayjs } from "dayjs";
-import { MRT_ColumnDef } from "material-react-table";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAttendanceRealtime } from "@hooks/useAttendanceRealtime";
 import { useDispatch, useSelector } from "react-redux";
 import { WorkingMethod as ModelWorkingMethod } from '@models/employee';
-import { onSiteAndHolidayWeekendSettingsOnOffName, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { onSiteAndHolidayWeekendSettingsOnOffName } from "@constants/statistics";
 import { fetchAddressDetails } from "@services/location";
 import { fetchAllPublicHolidays, fetchCompanyOverview, fetchConfiguration } from "@services/company";
 import { DISABLE_LAUNCH_DEDUCTION_TIME_KEY, LEAVE_MANAGEMENT } from "@constants/configurations-key";
@@ -284,7 +285,6 @@ const LocationCell = ({ latitude, longitude, location }: { latitude?: number, lo
 function DailyAttendance({ date }: DailyAttendanceProps) {
     const { filterIds } = useTeamFilter();
     const dispatch = useDispatch();
-    const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
     // Subscribes this screen to the resolved 12/24h format so it re-renders when the
     // preference changes. Replaces a selector that read the raw branch flag and was
     // never actually used to decide anything. See utils/timeFormat.ts.
@@ -493,13 +493,13 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             : activeOnly;
     }, [mergedAttendanceData, employeesAttendance, getAllWeekends, allHolidays, filterIds, activeEmployeeIds]);
 
-    const columns = useMemo<MRT_ColumnDef<IEmployeesAttendance>[]>(() => [
+    const columns = useMemo<ColumnDef<IEmployeesAttendance>[]>(() => [
         {
             id: "employee",
             header: "Employee",
             size: 220,
             accessorFn: (row) => `${row.name} ${row.code}`,
-            Cell: ({ row }) => (
+            cell: ({ row }) => (
                 <EmployeeIdentityCell
                     name={row.original.name}
                     code={row.original.code}
@@ -517,7 +517,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 typeof row.workingMethod === 'object' ? (row.workingMethod as any)?.type : row.workingMethod,
                 row.checkInLocation
             ),
-            Cell: ({ row }) => {
+            cell: ({ row }) => {
                 const employee = row.original;
                 const checkIn = employee.checkIn;
                 const workingMethodValue = typeof employee?.workingMethod === 'object'
@@ -592,7 +592,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                     : row.checkoutWorkingMethod,
                 row.checkOutLocation
             ),
-            Cell: ({ row }) => {
+            cell: ({ row }) => {
                 const employee = row.original;
                 const checkOut = employee.checkOut;
                 const displayTime =
@@ -638,7 +638,7 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             header: "Duration",
             size: 120,
             minSize: 80,
-            Cell: ({ row }) => (
+            cell: ({ row }) => (
                 <AttendanceDurationCell
                     duration={row.original.duration}
                     checkOut={row.original.checkOut}
@@ -651,14 +651,14 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
             header: "Status",
             size: 140,
             minSize: 120,
-            Cell: ({ row }) => <StatusBadge status={row.original.status} />
+            cell: ({ row }) => <StatusBadge status={row.original.status} />
         },
 
         // {
         //     accessorKey: "location",
         //     header: "Location",
         //     size: 200,
-        //     Cell: ({ row }) => {
+        //     cell: ({ row }) => {
         //         if (row.original.workingMethod === WORKING_METHOD_TYPE.ON_SITE) {
         //             return <LocationCell latitude={row.original.latitude} longitude={row.original.longitude} location={row.original.location}/>;
         //         }
@@ -823,78 +823,44 @@ function DailyAttendance({ date }: DailyAttendanceProps) {
                 </div> */}
             </div>
 
-            <MaterialTable
-                columns={columns}
+            <DataTable
+                caption="Daily Attendance"
+                columns={columns as any}
                 data={finalAttendanceData}
-                tableName="Daily Attendance"
-                muiTableProps={{
-                    muiTableBodyRowProps: ({ row }) => {
-                        const status = row.original?.status ?? "";
-                        const { ANNUAL_LEAVE, CASUAL_LEAVE, FLOATER_LEAVE, MATERNAL_LEAVE, SICK_LEAVE, UNPAID_LEAVE } = ATTENDANCE_STATUS.LEAVE_TYPE;
-                        const statusColors: Record<string, string> = {
-                            [ATTENDANCE_STATUS.PRESENT]: attendanceCalendarColor?.presentColor || "#28a745",
-                            [ATTENDANCE_STATUS.ABSENT]: attendanceCalendarColor?.absentColor || "#dc3545",
-                            [ATTENDANCE_STATUS.WEEKEND]: attendanceCalendarColor?.weekendColor || "#6c757d",
-                            [ATTENDANCE_STATUS.WORKING_WEEKEND]: attendanceCalendarColor?.workingWeekendColor || "#6610f2",
-                            [ATTENDANCE_STATUS.CHECK_OUT_MISSING]: missingColor?.missingCheckoutColor || '#ffff',
-                            [ATTENDANCE_STATUS.RAISE_REQUEST]: attendanceCalendarColor?.markedPresentViaRequestRaisedColor || '#6610f2',
-                            [ATTENDANCE_STATUS.LEAVE]: attendanceCalendarColor?.onLeaveColor || '#6610f2',
-                            [ATTENDANCE_STATUS.CHECK_IN_MISSING]: missingColor?.missingCheckoutColor || '#6610f2',
-                            // Singular keys (ATTENDANCE_STATUS.LEAVE_TYPE constants)
-                            [ANNUAL_LEAVE]: leaveTypesColor?.annualLeaveColor || "#2ECC71",
-                            [CASUAL_LEAVE]: leaveTypesColor?.casualLeaveColor || "#3498DB",
-                            [FLOATER_LEAVE]: leaveTypesColor?.floaterLeaveColor || "#F39C12",
-                            [SICK_LEAVE]: leaveTypesColor?.sickLeaveColor || "#E74C3C",
-                            [UNPAID_LEAVE]: leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
-                            [MATERNAL_LEAVE]: leaveTypesColor?.maternalLeaveColor || "#9B59B6",
-                            // Plural keys — DB stores "Annual Leaves", "Sick Leaves" etc. (with trailing 's').
-                            // Both singular and plural must be present so row background works regardless of source.
-                            'Annual Leaves': leaveTypesColor?.annualLeaveColor || "#2ECC71",
-                            'Casual Leaves': leaveTypesColor?.casualLeaveColor || "#3498DB",
-                            'Floater Leaves': leaveTypesColor?.floaterLeaveColor || "#F39C12",
-                            'Sick Leaves': leaveTypesColor?.sickLeaveColor || "#E74C3C",
-                            'Unpaid Leaves': leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
-                            'Maternal Leaves': leaveTypesColor?.maternalLeaveColor || "#9B59B6",
-                            [ATTENDANCE_STATUS.ON_LEAVE]: attendanceCalendarColor.onLeaveColor || "#dc3545",
-                            [ATTENDANCE_STATUS.HOLIDAY]: colorValues?.holidayColor || "#28a745",
-                        };
-
-                        // Get background color based on status (subtle tint at 15% opacity)
-                        const bgColor = statusColors[status] || "#ffffff";
-                        const backgroundColor = status === ATTENDANCE_STATUS.CHECK_OUT_MISSING ? '#ffffff' : `${bgColor}26`;
-
-                        return {
-                            sx: {
-                                backgroundColor,
-                                borderLeft: `4px solid ${statusColors[status] ?? "transparent"}`,
-                                '&:hover': { backgroundColor: `${bgColor}40` },
-                                color: "#333",
-                                transition: 'background-color 0.15s ease-in-out',
-                                // Ensure consistent cell padding and alignment
-                                '& .MuiTableCell-root': {
-                                    padding: '12px 16px',
-                                    verticalAlign: 'middle',
-                                    textAlign: 'left',
-                                    fontSize: '13px',
-                                    color: '#334155',
-                                },
-                                // Align status column to center
-                                '& .MuiTableCell-root:nth-child(3)': {
-                                    textAlign: 'center',
-                                },
-                            }
-                        };
-                    }
+                getRowId={(r: any) => String(r.employeeId ?? r.id)}
+                stateKey="attendance.daily"
+                groupableColumns={false}
+                reorderableColumns={false}
+                rowTone={(r) => {
+                    const status = r?.status ?? "";
+                    const { ANNUAL_LEAVE, CASUAL_LEAVE, FLOATER_LEAVE, MATERNAL_LEAVE, SICK_LEAVE, UNPAID_LEAVE } = ATTENDANCE_STATUS.LEAVE_TYPE;
+                    const statusColors: Record<string, string> = {
+                        [ATTENDANCE_STATUS.PRESENT]: attendanceCalendarColor?.presentColor || "#28a745",
+                        [ATTENDANCE_STATUS.ABSENT]: attendanceCalendarColor?.absentColor || "#dc3545",
+                        [ATTENDANCE_STATUS.WEEKEND]: attendanceCalendarColor?.weekendColor || "#6c757d",
+                        [ATTENDANCE_STATUS.WORKING_WEEKEND]: attendanceCalendarColor?.workingWeekendColor || "#6610f2",
+                        [ATTENDANCE_STATUS.CHECK_OUT_MISSING]: missingColor?.missingCheckoutColor || "#ffff",
+                        [ATTENDANCE_STATUS.RAISE_REQUEST]: attendanceCalendarColor?.markedPresentViaRequestRaisedColor || "#6610f2",
+                        [ATTENDANCE_STATUS.LEAVE]: attendanceCalendarColor?.onLeaveColor || "#6610f2",
+                        [ATTENDANCE_STATUS.CHECK_IN_MISSING]: missingColor?.missingCheckoutColor || "#6610f2",
+                        [ANNUAL_LEAVE]: leaveTypesColor?.annualLeaveColor || "#2ECC71",
+                        [CASUAL_LEAVE]: leaveTypesColor?.casualLeaveColor || "#3498DB",
+                        [FLOATER_LEAVE]: leaveTypesColor?.floaterLeaveColor || "#F39C12",
+                        [SICK_LEAVE]: leaveTypesColor?.sickLeaveColor || "#E74C3C",
+                        [UNPAID_LEAVE]: leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
+                        [MATERNAL_LEAVE]: leaveTypesColor?.maternalLeaveColor || "#9B59B6",
+                        "Annual Leaves": leaveTypesColor?.annualLeaveColor || "#2ECC71",
+                        "Casual Leaves": leaveTypesColor?.casualLeaveColor || "#3498DB",
+                        "Floater Leaves": leaveTypesColor?.floaterLeaveColor || "#F39C12",
+                        "Sick Leaves": leaveTypesColor?.sickLeaveColor || "#E74C3C",
+                        "Unpaid Leaves": leaveTypesColor?.unpaidLeaveColor || "#95A5A6",
+                        "Maternal Leaves": leaveTypesColor?.maternalLeaveColor || "#9B59B6",
+                        [ATTENDANCE_STATUS.ON_LEAVE]: attendanceCalendarColor?.onLeaveColor || "#dc3545",
+                        [ATTENDANCE_STATUS.HOLIDAY]: colorValues?.holidayColor || "#28a745",
+                    };
+                    return statusColors[status];
                 }}
-                resource={resourceNameMapWithCamelCase.attendanceReport}
-                viewOwn={true}
-                viewOthers={true}
-                employeeId={employeeIdCurrent}
-                checkOwnWithOthers={true}
-                manualPagination={false}
-                // Fixed curated column order (Employee, Check-In, Check-Out, Duration,
-                // Status) — don't persist a per-user order that can strand columns.
-                persistPreferences={false}
+                searchPlaceholder="Search attendance…"
             />
         </>
     );

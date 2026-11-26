@@ -1,15 +1,14 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import type { RootState } from '@redux/store';
 import { Employee, AdminFolder } from '@models/media';
 import { formatJoiningDate } from '@utils/media.utils';
 import MediaBreadcrumb from './MediaBreadcrumb';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { ToneChip } from '@app/modules/common/components/ui';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 import { pressableProps } from '@app/modules/common/components/ui/a11y';
+import { Folder } from 'lucide-react';
 
 interface EmployeeListProps {
     adminId: string;
@@ -20,7 +19,6 @@ interface EmployeeListProps {
 
 const EmployeeList: React.FC<EmployeeListProps> = ({ adminId, adminName, adminEmployees, admins }) => {
     const navigate = useNavigate();
-    const currentUserId = useSelector((s: RootState) => s.auth?.currentUser?.id);
 
     const breadcrumbItems = [
         { label: 'Back to All Admins', path: '/company/media' },
@@ -37,18 +35,18 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ adminId, adminName, adminEm
         [adminEmployees],
     );
 
-    const columns = useMemo(() => [
+    const columns = useMemo<ColumnDef<(typeof rows)[number]>[]>(() => [
         {
             accessorKey: 'employeeName',
             header: 'Employee Name',
-            Cell: ({ row }: any) => (
+            cell: ({ row }) => (
                 <>
                     <div data-wt-control="row" {...pressableProps(() => navigate(`/company/media/${adminId}/${row.original.id}`))}
                         className="d-flex align-items-center cursor-pointer"
                         onClick={() => navigate(`/company/media/${adminId}/${row.original.id}`)}
                     >
-                        <span className="icon-wrapper">
-                            <AppIcon name="folder" className="fs-2x text-primary me-2 me-sm-3 me-md-4" />
+                        <span className="icon-wrapper me-2 me-sm-3 me-md-4 text-primary">
+                            <Folder className="size-6" aria-hidden />
                         </span>
                         <div className="text-gray-800 text-hover-primary fs-7 fs-sm-6 text-break">
                             {row.original.employeeName}
@@ -65,18 +63,19 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ adminId, adminName, adminEm
         {
             accessorKey: 'employeeCode',
             header: 'Employee Code',
-            Cell: ({ cell }: any) => <span className="fs-7">{cell.getValue() || '-'}</span>,
+            cell: ({ getValue }) => <span className="fs-7">{(getValue() as string) || '-'}</span>,
         },
         {
             accessorKey: 'dateOfJoining',
             header: 'Joined On',
-            Cell: ({ cell }: any) => <span className="fs-7">{formatJoiningDate(cell.getValue())}</span>,
+            cell: ({ getValue }) => <span className="fs-7">{formatJoiningDate(getValue() as string)}</span>,
         },
         {
-            accessorKey: 'actions',
+            id: 'actions',
             header: 'Action',
-            Cell: ({ row }: any) => (
-                <Button variant="tinted" size="sm" type="submit"
+            enableSorting: false,
+            cell: ({ row }) => (
+                <Button variant="tinted" size="sm"
                     onClick={() => navigate(`/company/media/${adminId}/${row.original.id}`)}
                 >
                     <span className="d-none d-sm-inline">View Documents</span>
@@ -93,15 +92,12 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ adminId, adminName, adminEm
 
             {/* Table header */}
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 my-2 mb-4">
-                <ToneChip
-                    dense
-                    tone="brand"
-                    label={`Employees Created/Updated by ${admins.find((a) => a.id === adminId)?.name || 'Admin'}`}
-                    sx={{ height: 'auto', maxWidth: '100%', '& .MuiChip-label': { whiteSpace: 'normal', py: 0.5 } }}
-                />
-                <div className="badge badge-lg badge-primary fs-8 fs-sm-7">
-                    <span id="kt_file_manager_items_counter" className="px-2">{adminEmployees?.length} employees</span>
-                </div>
+                <Badge variant="brand" className="h-auto max-w-full whitespace-normal py-1 text-left">
+                    Employees Created/Updated by {admins.find((a) => a.id === adminId)?.name || 'Admin'}
+                </Badge>
+                <Badge id="kt_file_manager_items_counter" variant="brand">
+                    {adminEmployees?.length} employees
+                </Badge>
             </div>
 
             {/* Table */}
@@ -110,11 +106,16 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ adminId, adminName, adminEm
                     <div className="fs-6">No Employees Found</div>
                 </div>
             ) : (
-                <MaterialTable
-                    tableName="MediaAdminEmployees"
-                    employeeId={currentUserId}
+                <DataTable
+                    caption="Media Admin Employees"
+                    stateKey="MediaAdminEmployees"
                     data={rows}
                     columns={columns}
+                    getRowId={(r) => String(r.id)}
+                    groupableColumns={false}
+                    toolbar={(ctx) => (
+                        <DataTableExport columns={columns} ctx={ctx} filename="Media Admin Employees" />
+                    )}
                 />
             )}
         </div>

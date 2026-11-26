@@ -45,7 +45,7 @@ import { Badge } from '@/ds/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
 import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
 import { usePermittedRows } from '@app/modules/common/components/table/usePermittedRows';
-import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 
 // Sentinel batch id for reimbursements that have no batch (batch_id = NULL).
 // These are legacy/imported records that were never submitted through the
@@ -235,7 +235,7 @@ function SubmissionDetailModal({
       {
         id: 'status',
         accessorFn: (r: any) => lineStatusLabel(resolveStatusNum(r.status)),
-        meta: { label: 'Status' },
+        meta: { label: 'Status', facet: true },
         header: 'Status',
         cell: ({ row }) => {
           // A questioned line said "Pending", so the one row the employee had to act on looked exactly like the
@@ -897,7 +897,7 @@ function SubmissionsTable({
       },
       {
         accessorKey: '_status',
-        meta: { label: 'Approval status', exportValue: (r: any) => approvalLabel(r._status) },
+        meta: { label: 'Approval status', facet: true, exportValue: (r: any) => approvalLabel(r._status) },
         header: 'Approval Status',
         cell: ({ row }) => {
           const s = row.original._status as number;
@@ -932,7 +932,7 @@ function SubmissionsTable({
       },
       {
         accessorKey: '_paymentStatus',
-        meta: { label: 'Payment status', exportValue: (r: any) => paymentLabel(r._paymentStatus) ?? 'N/A' },
+        meta: { label: 'Payment status', facet: true, exportValue: (r: any) => paymentLabel(r._paymentStatus) ?? 'N/A' },
         header: 'Payment Status',
         cell: ({ row }) => {
           // Driven by whether anything in the row is approved, not by the row's own

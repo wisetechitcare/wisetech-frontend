@@ -1019,7 +1019,7 @@ const LeadOverview = ({ lead }: { lead: any }) => {
             <InfoRow label="Locality" value={lead?.additionalDetails?.locality || "-"} />
             <InfoRow label="City" value={lead?.additionalDetails?.city || "-"} />
             <InfoRow label="State" value={lead?.additionalDetails?.state || "-"} />
-            <InfoRow label="Zip Code" value={lead?.additionalDetails?.zipCode || "-"} />
+            <InfoRow label="Postal Code" value={lead?.additionalDetails?.zipCode || "-"} />
             <InfoRow label="Country" value={lead?.additionalDetails?.country || "-"} />
             {lead?.additionalDetails?.latitude && lead?.additionalDetails?.longitude && (
               <div

@@ -1,10 +1,8 @@
 import React, { useMemo } from "react";
 import { Container } from "react-bootstrap";
-import { useSelector } from "react-redux";
-import type { RootState } from "@redux/store";
 import { sortKpiFactors } from "@utils/kpiSort";
 import { formatHours, formatWeightageUnit, isHourUnit } from "@app/pages/employee/kpis/common/kpiUtils";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
 import { ToneChip } from "@app/modules/common/components/ui";
 
 interface Factor {
@@ -28,30 +26,28 @@ interface KpiStatisticsTableProps {
 }
 
 const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
-  const currentUserId = useSelector((s: RootState) => s.auth?.currentUser?.id);
-
   // Every module renders the same five columns, so the model is built once.
   // Numbers stay numbers on the row (weightage/value/score) so sorting is numeric;
-  // the Cell renderers reproduce the old markup exactly.
-  const columns = useMemo(() => [
+  // the cell renderers reproduce the old markup exactly.
+  const columns = useMemo<ColumnDef<Factor>[]>(() => [
     {
       accessorKey: "factor",
       header: "Factor",
-      Cell: ({ cell }: any) => (
+      cell: ({ cell }) => (
         <span className="text-dark fw-bolder text-hover-primary mb-1 fs-6">{cell.getValue() || "-"}</span>
       ),
     },
     {
       accessorKey: "calculatedFrom",
       header: "Calculation Context",
-      Cell: ({ cell }: any) => (
+      cell: ({ cell }) => (
         <span className="text-muted fw-bold d-block fs-7">{cell.getValue() || "N/A"}</span>
       ),
     },
     {
       accessorKey: "weightage",
       header: "Weightage",
-      Cell: ({ row }: any) => (
+      cell: ({ row }) => (
         <span className="text-dark fw-bold fs-7">
           {formatWeightageUnit(Number(row.original?.weightage ?? 0), row.original?.unit)}
         </span>
@@ -60,7 +56,7 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
     {
       accessorKey: "value",
       header: "Value",
-      Cell: ({ row }: any) => {
+      cell: ({ row }) => {
         const value = Number(row.original?.value) || 0;
         const unit = row.original?.unit;
         return (
@@ -78,7 +74,7 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
     {
       accessorKey: "score",
       header: "Score",
-      Cell: ({ cell }: any) => {
+      cell: ({ cell }) => {
         const score = Number(cell.getValue()) || 0;
         return (
           <ToneChip
@@ -125,6 +121,7 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
           {sortedData.map((module, moduleIndex) => {
             const factors = Array.isArray(module?.factors) ? module.factors : [];
             const totalScore = Number(module?.totalScore) || 0;
+            const tableData = sortKpiFactors(factors, (f: Factor) => f.factor);
 
             return (
               <div key={moduleIndex} className="card shadow-none mb-10" style={{ border: "1px solid #EFF2F5", borderRadius: "12px" }}>
@@ -149,14 +146,16 @@ const KpiStatisticsTable: React.FC<KpiStatisticsTableProps> = ({ data }) => {
                       No data available for this module.
                     </div>
                   ) : (
-                    <MaterialTable
-                      tableName="KpiStatistics"
-                      employeeId={currentUserId}
-                      data={sortKpiFactors(factors, (f: Factor) => f.factor)}
+                    <DataTable
+                      caption={`${module?.moduleName || "Other"} KPI factors`}
                       columns={columns}
-                      hidePagination
-                      hideExportCenter
-                      enableColumnActions={false}
+                      data={tableData}
+                      getRowId={(r, i) => `${module?.moduleName ?? "module"}-${r.factor}-${i}`}
+                      stateKey="KpiStatistics"
+                      tools={false}
+                      groupableColumns={false}
+                      initialPageSize={Math.max(tableData.length, 10)}
+                      searchPlaceholder="Search factors…"
                     />
                   )}
                 </div>

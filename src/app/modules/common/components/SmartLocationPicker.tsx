@@ -134,7 +134,7 @@ export const SmartLocationPicker: React.FC<SmartLocationPickerProps> = ({ lat, l
            *
            * A building-level match returns that element's own `postcode` tag, and OSM
            * tags those sparsely and inconsistently — so two clicks a street apart in
-           * one locality can come back with different PIN codes, or one with none.
+           * one locality can come back with different Postal Codes, or one with none.
            * The suburb/locality boundary carries a single code for the whole area,
            * which is the one a form actually wants.
            *

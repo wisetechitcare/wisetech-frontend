@@ -1,23 +1,14 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Box,
-  Stack,
-  Typography,
-  alpha,
-  useTheme,
-} from "@mui/material";
-import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
-import { MRT_ColumnDef } from "material-react-table";
-import { useSelector } from "react-redux";
-import type { RootState } from "@redux/store";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { Box, Stack, Typography } from "@mui/material";
+import { Archive, ArchiveRestore, Copy, Gift, Pencil, Trash2 } from "lucide-react";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
+import { DataTableExport } from "@/ds/patterns/data-table-export";
+import { RowAction } from "@/ds/patterns/row-action";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { SolidChip } from "@app/modules/common/components/ui/SolidChip";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
 import {
-  ActionIconButton,
-  AppIcon,
   FilterSheet,
   FilterSheetButton,
   FormSection,
@@ -27,7 +18,6 @@ import {
   useConfirmDialog,
   usePromptDialog,
 } from "@app/modules/common/components/ui";
-import { T } from "@app/modules/common/components/ui/tokens";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
 import { canDelete } from "@utils/can";
@@ -50,14 +40,10 @@ type GroupStatusScope = "ACTIVE" | "ARCHIVED" | "ALL";
 const EMPTY_FILTERS: { status: GroupStatusScope } = { status: "ACTIVE" };
 
 export default function PeopleGroupsList() {
-  const theme = useTheme();
   useCourtesyDesk();
   const navigate = useNavigate();
   const { ask, dialog: confirmDialog } = useConfirmDialog();
   const { askText, dialog: promptDialog } = usePromptDialog();
-  const employeeId = useSelector(
-    (s: RootState) => s.employee.currentEmployee?.id,
-  );
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const statusScope = filters.status;
@@ -78,17 +64,12 @@ export default function PeopleGroupsList() {
         ? allGroups.filter((g) => parseGroupStatus(g.status) === "ARCHIVED")
         : allGroups.filter((g) => parseGroupStatus(g.status) === "ACTIVE");
 
-  const rowStatusTint = (status: unknown) => {
-    const c = groupStatusColor(parseGroupStatus(status));
-    return alpha(c, theme.palette.mode === "dark" ? 0.22 : 0.12);
-  };
-
-  const columns = useMemo<MRT_ColumnDef<PeopleGroup>[]>(
+  const columns = useMemo<ColumnDef<PeopleGroup>[]>(
     () => [
       {
         accessorKey: "name",
         header: "Group name",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <Box>
             <Typography fontWeight={700}>{row.original.name}</Typography>
             <Typography variant="caption" color="text.secondary" fontSize={11}>
@@ -112,13 +93,13 @@ export default function PeopleGroupsList() {
       {
         accessorKey: "notes",
         header: "Notes",
-        Cell: ({ cell }) => cell.getValue<string>() || "—",
+        cell: ({ cell }) => cell.getValue<string>() || "—",
       },
       {
         accessorKey: "status",
         header: "Status",
         size: 120,
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const status = parseGroupStatus(row.original.status);
           return (
             <SolidChip
@@ -130,29 +111,20 @@ export default function PeopleGroupsList() {
       },
       actionsColumn({
         size: 168,
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const g = row.original;
           return (
-            <Stack
-              direction="row"
-              spacing={0.75}
-              alignItems="center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ActionIconButton
-                iconName="pencil"
-                title="Edit group"
-                size="sm"
-                tone="indigo"
-                onClick={() =>
-                  navigate(`${GIFT_MANAGEMENT_BASE}/groups/${g.id}`)
-                }
-              />
-              <ActionIconButton
-                iconName="copy"
-                title="Clone group"
-                size="sm"
-                tone="brand"
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <RowAction
+                label="Edit group"
+                size="icon-sm"
+                onClick={() => navigate(`${GIFT_MANAGEMENT_BASE}/groups/${g.id}`)}
+              >
+                <Pencil className="size-4" aria-hidden />
+              </RowAction>
+              <RowAction
+                label="Clone group"
+                size="icon-sm"
                 onClick={() => {
                   void askText({
                     title: "Clone group",
@@ -175,13 +147,14 @@ export default function PeopleGroupsList() {
                       );
                   });
                 }}
-              />
+              >
+                <Copy className="size-4" aria-hidden />
+              </RowAction>
               {g.status === "ACTIVE" ? canDelete("gift-management") && (
-                <ActionIconButton
-                  icon={<ArchiveOutlinedIcon sx={{ fontSize: 18 }} />}
-                  title="Archive group"
-                  size="sm"
-                  tone="danger"
+                <RowAction
+                  label="Archive group"
+                  size="icon-sm"
+                  tint="danger"
                   onClick={() => {
                     void ask({
                       variant: "delete",
@@ -200,19 +173,15 @@ export default function PeopleGroupsList() {
                         );
                     });
                   }}
-                />
+                >
+                  <Archive className="size-4" aria-hidden />
+                </RowAction>
               ) : (
                 <>
-                  <ActionIconButton
-                    icon={
-                      <AppIcon
-                        name="bi-arrow-counterclockwise"
-                        className="fs-6"
-                      />
-                    }
-                    title="Restore group"
-                    size="sm"
-                    tone="success"
+                  <RowAction
+                    label="Restore group"
+                    size="icon-sm"
+                    tint="success"
                     onClick={() =>
                       void unarchiveGroupToApi(g.id)
                         .then(() => toast.success("Group restored."))
@@ -222,17 +191,18 @@ export default function PeopleGroupsList() {
                           ),
                         )
                     }
-                  />
+                  >
+                    <ArchiveRestore className="size-4" aria-hidden />
+                  </RowAction>
                   {canDelete("gift-management") && (
-                  <ActionIconButton
-                    iconName="trash"
-                    title={
+                  <RowAction
+                    label={
                       (runCountByGroup.get(g.id) || 0) > 0
                         ? `Delete ${runCountByGroup.get(g.id)} linked Gift Run(s) first`
                         : "Delete group permanently"
                     }
-                    size="sm"
-                    tone="danger"
+                    size="icon-sm"
+                    tint="danger"
                     disabled={(runCountByGroup.get(g.id) || 0) > 0}
                     onClick={() => {
                       void ask({
@@ -252,22 +222,24 @@ export default function PeopleGroupsList() {
                           );
                       });
                     }}
-                  />
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </RowAction>
                   )}
                 </>
               )}
-              <ActionIconButton
-                icon={<AppIcon name="bi-gift" className="fs-6" />}
-                title="New gift run"
-                size="sm"
-                tone="brand"
+              <RowAction
+                label="New gift run"
+                size="icon-sm"
                 onClick={() =>
                   navigate(
                     `${GIFT_MANAGEMENT_BASE}/drives?new=1&groupId=${encodeURIComponent(g.id)}`,
                   )
                 }
-              />
-            </Stack>
+              >
+                <Gift className="size-4" aria-hidden />
+              </RowAction>
+            </div>
           );
         },
       }),
@@ -302,48 +274,26 @@ export default function PeopleGroupsList() {
         </PremiumButton>
       </Stack>
 
-      <MaterialTable
-        tableName="Gift-Management-People-Groups"
+      <DataTable
+        caption="People Groups"
         columns={columns}
         data={groups}
-        employeeId={employeeId}
-        enableFilters={false}
-        enableGrouping={false}
-        enableStatusColorCoding={false}
-        renderToolbarIconActions={() => (
-          <FilterSheetButton
-            count={countActiveFilters(filters, EMPTY_FILTERS)}
-            onClick={() => setFilterSheetOpen(true)}
-          />
+        getRowId={(r) => r.id}
+        stateKey="Gift-Management-People-Groups"
+        groupableColumns={false}
+        onRowClick={(g) => navigate(`${GIFT_MANAGEMENT_BASE}/groups/${g.id}`)}
+        rowLabel={(g) => g.name}
+        rowTone={(g) => groupStatusColor(parseGroupStatus(g.status))}
+        searchPlaceholder="Search groups…"
+        toolbar={(ctx) => (
+          <>
+            <FilterSheetButton
+              count={countActiveFilters(filters, EMPTY_FILTERS)}
+              onClick={() => setFilterSheetOpen(true)}
+            />
+            <DataTableExport columns={columns} ctx={ctx} filename="People Groups" />
+          </>
         )}
-        muiTablePaperStyle={{
-          borderRadius: `${T.radius.lg}px`,
-          border: `1px solid ${T.color.line}`,
-          boxShadow: T.shadow.card,
-        }}
-        muiTableProps={{
-          muiTableBodyRowProps: ({ row }) => {
-            const status = parseGroupStatus(row.original.status);
-            const base = groupStatusColor(status);
-            return {
-              onClick: () =>
-                navigate(`${GIFT_MANAGEMENT_BASE}/groups/${row.original.id}`),
-              sx: {
-                cursor: "pointer",
-                backgroundColor: `${rowStatusTint(status)} !important`,
-                "& td:first-of-type": {
-                  borderLeft: `4px solid ${base} !important`,
-                },
-                "&:hover": {
-                  backgroundColor: `${alpha(
-                    base,
-                    theme.palette.mode === "dark" ? 0.3 : 0.18,
-                  )} !important`,
-                },
-              },
-            };
-          },
-        }}
       />
 
       <FilterSheet

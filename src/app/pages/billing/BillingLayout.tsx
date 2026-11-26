@@ -1,27 +1,24 @@
 import React, { useMemo } from "react";
 import { Navigate, Outlet, useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { PageTitle } from "@metronic/layout/core";
-import MaterialHeaderTab, { type TabItem } from "@app/modules/common/components/MaterialHeaderTab";
+import { PageTabs, type PageTabItem } from "@/ds/patterns/page-tabs";
 import ModuleOrgFilter from "@app/modules/common/components/ModuleOrgFilter";
 import { useOrgScope, toCompanyIdParam } from "@/hooks/useOrgScope";
 import { BILLING_BASE, BILLING_TABS, activeBillingTabIndex, billingDefaultPath, canOpenBillingTab } from "./constants/billingNav";
 
 /**
- * Billing module shell — sidebar → Billing → horizontal header tabs → page.
- *
- * Reuses the app's existing `MaterialHeaderTab` (the same sticky gradient tab bar the
- * approvals and attendance screens use) rather than inventing a bar for this module, so
- * Billing looks and behaves like everything else.
+ * Billing module shell — sidebar → Billing → kit PageTabs → page.
  *
  * ROUTE-DRIVEN, not state-driven: every tab is a real route, so a Billing page can be
- * linked to, bookmarked and back-buttoned. `MaterialHeaderTab` renders whichever tab is
- * selected, so each tab's `component` is the SAME `<Outlet />` — the router decides what
- * actually renders, and the tab bar only moves the URL.
+ * linked to, bookmarked and back-buttoned. The tab bar only moves the URL; `<Outlet />`
+ * renders the matched child once under the bar (same pattern as the old MaterialHeaderTab
+ * host, without mounting an outlet per tab).
  *
  * The organization filter lives HERE, in the tab bar, as it does on Recruitment: one control
- * for the whole module, so the Billing Tracker and the Invoice Tracker always show the same
- * organization instead of each carrying a filter of its own. Pages read it with
- * `useBillingOrgId()`.
+ * for the whole module. Pages read it with `useBillingOrgId()`.
+ *
+ * `PageTitle` stays — it is the app-wide breadcrumb context (same as Reimbursement / Org Profile),
+ * not a Metronic visual chrome.
  */
 
 interface BillingOutletContext {
@@ -56,19 +53,20 @@ const BillingLayout: React.FC = () => {
 
   const activeIndex = activeBillingTabIndex(location.pathname, tabs);
 
-  const tabItems: TabItem[] = tabs.map((tab) => ({
-    title: tab.title,
-    icon: tab.icon,
-    component: <Outlet context={outletContext} />,
-  }));
-
   // Bare /billing, or a tab the user can't see → send them to their first allowed tab.
   if (activeIndex === -1) {
     return <Navigate to={billingDefaultPath(canOpenBillingTab)} replace />;
   }
 
   const activeTitle = tabs[activeIndex]?.title ?? "Billing";
-  const scoped = !UNSCOPED_PATHS.has(tabs[activeIndex]?.path);
+  const activePath = tabs[activeIndex]?.path;
+  const scoped = !UNSCOPED_PATHS.has(activePath);
+
+  const pageTabs: PageTabItem[] = tabs.map((tab) => ({
+    value: tab.path,
+    label: tab.title,
+    icon: tab.icon,
+  }));
 
   return (
     <>
@@ -77,17 +75,22 @@ const BillingLayout: React.FC = () => {
         {activeTitle}
       </PageTitle>
 
-      <MaterialHeaderTab
+      <PageTabs
+        className="min-[992px]:[--page-tabs-offset:74px]"
+        items={pageTabs}
+        value={activePath}
+        onValueChange={(path) => navigate(`${BILLING_BASE}/${path}`)}
         headerAction={
           scoped ? (
             <ModuleOrgFilter scopeId={scopeId} setScopeId={setScopeId} selectOptions={selectOptions} hasChoice={hasChoice} />
           ) : undefined
         }
-        tabItems={tabItems}
-        activeTab={activeIndex}
-        onTabChange={(index) => navigate(`${BILLING_BASE}/${tabs[index].path}`)}
-        hideScrollButtons
       />
+
+      {/* Same gutter PageTabs uses when it hosts `content` panels. */}
+      <div className="px-3 pt-3 sm:px-5 sm:pt-7 lg:px-9">
+        <Outlet context={outletContext} />
+      </div>
     </>
   );
 };

@@ -4,7 +4,8 @@ import { Card } from 'react-bootstrap';
 import dayjs from 'dayjs';
 import './upcomingContactsBirthdays.css';
 import { FormControl, Select, MenuItem, SelectChangeEvent } from '@mui/material';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable } from '@/ds/patterns/data-table';
+
 
 interface ContactBirthday {
   id: string;
@@ -67,7 +68,7 @@ const filterDataHandler = (e: SelectChangeEvent<string>) => {
       {
         accessorKey: 'company',
         header: 'Company',
-        Cell: ({ row }: any) => (
+        cell: ({ row }: any) => (
           <div className="company-cell">
             {row.original.companyLogo && (
               <img
@@ -84,7 +85,7 @@ const filterDataHandler = (e: SelectChangeEvent<string>) => {
       {
         accessorKey: 'dateOfBirth',
         header: isAnniversary ? 'Anniversary' : 'Birthday',
-        Cell: ({ cell }: any) => (isAnniversary ? 0 : formatBirthday(cell.getValue())),
+        cell: ({ cell }: any) => (isAnniversary ? 0 : formatBirthday(cell.getValue())),
       },
     ],
     [isAnniversary],
@@ -133,13 +134,16 @@ const filterDataHandler = (e: SelectChangeEvent<string>) => {
         </Card.Title>
 
         {rows.length > 0 ? (
-          <MaterialTable
-            tableName="UpcomingContactsBirthdays"
+          <DataTable
+            caption="Upcoming Contacts Birthdays"
             data={rows}
             columns={columns}
-            hidePagination
-            hideExportCenter
-            enableColumnActions={false}
+            getRowId={(r: any) => r.id}
+            stateKey="crm.upcomingBirthdays"
+            groupableColumns={false}
+            tools={false}
+            initialPageSize={100}
+            searchPlaceholder="Search…"
           />
         ) : (
           <div style={{ textAlign: 'center' }}>No upcoming birthdays</div>

@@ -50,7 +50,8 @@ export type ProvisionTenantPayload = {
     countryId: string
     stateId: string
     cityId: string
-    townId: string
+    /** Optional — town master retired; locality lives in address. */
+    townId?: string | null
     postalCode: string
     address: string
     latitude: number
@@ -110,6 +111,30 @@ export async function getPlatformTenant(id: string): Promise<PlatformTenantDetai
   return unwrap<{ tenant: PlatformTenantDetail }>(data).tenant
 }
 
+export type ProvisionAvailabilitySlot = {
+  available: boolean
+  message?: string
+  code?: string
+  usedByOrgName?: string
+  resumable?: boolean
+}
+
+export type ProvisionAvailability = {
+  organizationName?: ProvisionAvailabilitySlot
+  workEmail?: ProvisionAvailabilitySlot
+  personalEmail?: ProvisionAvailabilitySlot
+}
+
+/** Create-wizard live uniqueness — call on Owner / org blur and before Next. */
+export async function checkPlatformTenantAvailability(q: {
+  organizationName?: string
+  workEmail?: string
+  personalEmail?: string
+}): Promise<ProvisionAvailability> {
+  const { data } = await client.get('/api/platform/tenants/availability', { params: q })
+  return unwrap<{ availability: ProvisionAvailability }>(data).availability
+}
+
 export async function createPlatformTenant(payload: ProvisionTenantPayload): Promise<ProvisionTenantResult> {
   const { data } = await client.post('/api/platform/tenants', payload)
   return unwrap<{ result: ProvisionTenantResult }>(data).result
@@ -160,13 +185,41 @@ async function geoData<T>(path: string): Promise<T> {
   return data as T
 }
 
+/** Country timezone row from geo packs — API may send IANA strings or offset objects. */
+export type GeoTimezone = string | { name: string; utcOffsetStr?: string }
+
 export type GeoCountry = {
   id?: string | number
   name: string
   iso2: string
   currency?: string
   defaultTimezone?: string
-  timezones?: string[]
+  timezones?: GeoTimezone[]
+}
+
+/** SearchSelect options — always string labels (objects crash React when rendered as children). */
+export function geoTimezoneOptions(zones: GeoTimezone[] | undefined, fallback?: string): { value: string; label: string }[] {
+  const list = zones?.length ? [...zones] : fallback ? [fallback] : []
+  list.sort((a, b) => {
+    const ao = typeof a === 'object' && a && typeof a.utcOffsetStr === 'string' ? a.utcOffsetStr : ''
+    const bo = typeof b === 'object' && b && typeof b.utcOffsetStr === 'string' ? b.utcOffsetStr : ''
+    if (ao || bo) return ao.localeCompare(bo)
+    const an = typeof a === 'string' ? a : a?.name ?? ''
+    const bn = typeof b === 'string' ? b : b?.name ?? ''
+    return an.localeCompare(bn)
+  })
+  return list
+    .map((z) => {
+      if (typeof z === 'string') {
+        const name = z.trim()
+        return name ? { value: name, label: name } : null
+      }
+      const name = typeof z?.name === 'string' ? z.name.trim() : ''
+      if (!name) return null
+      const offset = typeof z.utcOffsetStr === 'string' && z.utcOffsetStr ? `(UTC${z.utcOffsetStr}) ` : ''
+      return { value: name, label: `${offset}${name}` }
+    })
+    .filter((x): x is { value: string; label: string } => x != null)
 }
 
 export type GeoState = { id?: string | number; name: string; iso2?: string }

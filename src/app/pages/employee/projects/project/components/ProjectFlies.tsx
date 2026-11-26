@@ -1,19 +1,25 @@
 import { RootState } from "@redux/store";
 import { fetchEmployeeMediaByUserId } from "@services/employee";
 import { getAllProjectDataForOverviewById } from "@services/projects";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSelector } from "react-redux";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { KTIcon } from "@metronic/helpers";
-import { Button } from '@/ds/ui/button';
+import { Eye } from "lucide-react";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { RowAction } from '@/ds/patterns/row-action';
+
+type ProjectMediaRow = {
+  fileName?: string;
+  size?: string | number;
+  createdAt?: string;
+  media?: string;
+  path?: string;
+  status?: { color?: string };
+};
 
 const ProjectFiles = ({ projectId }: { projectId: string }) => {
-  const [projectData, setProjectData] = useState<any[]>([]);
+  const [projectData, setProjectData] = useState<ProjectMediaRow[]>([]);
   const userId = useSelector(
     (state: RootState) => state?.employee?.currentEmployee?.userId
-  );
-  const employeeId = useSelector(
-    (state: RootState) => state?.employee?.currentEmployee?.id
   );
 
   const fetchProjectData = async () => {
@@ -21,13 +27,13 @@ const ProjectFiles = ({ projectId }: { projectId: string }) => {
 
     try {
       const projectResponse = await getAllProjectDataForOverviewById(projectId);
-    
+
       const projectDocuments = projectResponse?.projectDataById?.documents;
 
       const { data: { media }} = await fetchEmployeeMediaByUserId(userId);
 
       let projectMediaUrls: any[]= [];
-      
+
       if (typeof projectDocuments === 'string') {
         projectMediaUrls = [projectDocuments];
       } else if (Array.isArray(projectDocuments)) {
@@ -53,91 +59,59 @@ const ProjectFiles = ({ projectId }: { projectId: string }) => {
     window.open(document, "_blank");
   };
 
-
-  const columns = [
-    {
-      accessorKey: "fileName", 
-      header: "File Name",
-      Cell: ({ row }: any) => (
-        <span
-          style={{ color: "#333", textDecoration: "none" }}
-        >
-          {row.original.fileName}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "size", 
-      header: "Size",
-    },
-    {
-      accessorKey: "createdAt", 
-      header: "Uploaded At",
-      Cell: ({ row }: any) => (
-        <span>{new Date(row.original.createdAt).toLocaleString()}</span>
-      ),
-    },
-    {
-      id: "actions", 
-      header: "Actions",
-      Cell: ({ row }: any) => (
-        <div style={{ display: "flex", gap: "8px" }}>
-          <Button variant="ghost" size="icon-sm" type="submit" aria-label="View" className="w-[20px]" onClick={() => handleViewDocument(row?.original?.media || row?.original?.path)}>          
-              {<KTIcon iconName='eye' className='fs-1' />}
-          </Button>,
-        </div>
-      ),
-    },
-  ];
+  const columns = useMemo<ColumnDef<ProjectMediaRow>[]>(
+    () => [
+      {
+        accessorKey: "fileName",
+        header: "File Name",
+        cell: ({ row }) => (
+          <span className="text-foreground">{row.original.fileName}</span>
+        ),
+      },
+      {
+        accessorKey: "size",
+        header: "Size",
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Uploaded At",
+        cell: ({ row }) => (
+          <span>
+            {row.original.createdAt
+              ? new Date(row.original.createdAt).toLocaleString()
+              : "—"}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        enableSorting: false,
+        meta: { export: false, pin: "end" },
+        cell: ({ row }) => (
+          <RowAction
+            label="View"
+            onClick={() =>
+              handleViewDocument(row.original.media || row.original.path || "")
+            }
+          >
+            <Eye className="size-4" />
+          </RowAction>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div>
       <h3 className="mb-2">Project Files</h3>
-      <MaterialTable
-        data={projectData || []}
+      <DataTable
+        caption="Project Media"
         columns={columns}
-        employeeId={employeeId}
-        tableName="ProjectMedia"
-        muiTableProps={{
-          sx: {
-            borderCollapse: "separate",
-            borderSpacing: "0 8px !important",
-          },
-          muiTableBodyRowProps: ({ row }) => ({
-            sx: {
-              cursor: "pointer",
-              backgroundColor: `${row.original?.status?.color}20`,
-              padding: "10px !important",
-              "& .MuiTableCell-root": {
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                fontSize: "14px",
-                fontFamily: "Inter",
-                fontWeight: "400",
-                padding: "8px 16px !important",
-                borderBottom: "2px solid white",
-                borderTop: "2px solid white",
-              },
-              "& .MuiTableCell-root:first-of-type": {
-                borderTopLeftRadius: "12px",
-                borderBottomLeftRadius: "12px",
-                borderLeft: "3px solid white",
-              },
-              "& .MuiTableCell-root:last-of-type": {
-                borderTopRightRadius: "12px",
-                borderBottomRightRadius: "12px",
-                borderRight: "3px solid white",
-              },
-              "&:hover": {
-                backgroundColor: `${row.original?.status?.color}99`,
-                "& td": {
-                  color: "black",
-                },
-              },
-            },
-          }),
-        }}
+        data={projectData || []}
+        getRowId={(r, i) => String(r.path || r.media || r.fileName || i)}
+        stateKey="ProjectMedia"
       />
     </div>
   );

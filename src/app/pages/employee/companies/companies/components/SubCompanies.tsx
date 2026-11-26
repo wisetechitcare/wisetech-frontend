@@ -2,13 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchSubCompaniesByCompanyId, deleteSubCompany } from "@services/company";
 import SubCompanyForm from "./SubCompanryForm";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { isRowAction } from "../../crmListRowSx";
-import { MRT_ColumnDef } from "material-react-table";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
 import { KTIcon } from "@metronic/helpers";
 import { Button } from "@/ds/ui/button";
-import { RootState } from "@redux/store";
-import { useSelector } from "react-redux";
 import dayjs from "dayjs";
 import { deleteConfirmation } from "@utils/modal";
 import { canDelete, canSection } from "@utils/can";
@@ -76,7 +72,6 @@ const SubCompanies = ({
   const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingSubCompanyId, setEditingSubCompanyId] = useState<string | null>(null);
-  const employeeIdCurrent = useSelector((state: RootState) => state.employee.currentEmployee.id);
 
   const fetchSubCompanies = async () => {
     try {
@@ -144,12 +139,12 @@ const SubCompanies = ({
     }
   };
 
-  const columns = useMemo<MRT_ColumnDef<SubCompany, any>[]>(
+  const columns = useMemo<ColumnDef<SubCompany, any>[]>(
     () => [
         {
         accessorKey: "logo",
         header: "Logo",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <div style={{ width: "50px", height: "50px", display: "flex", alignItems: "center", justifyContent: "center" }}>
             {row.original.logo ? (
               <img
@@ -193,21 +188,21 @@ const SubCompanies = ({
       {
         accessorKey: "subCompanyName",
         header: "Name",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <span>{row.original.subCompanyName || "N/A"}</span>
         ),
       },
       {
         accessorKey: "subCompanyType",
         header: "Company Type",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <span>{row.original.subCompanyType?.name || "N/A"}</span>
         ),
       },
       {
         accessorKey: "status",
         header: "Status",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <ToneChip
             dense
             tone={row.original.status === "ACTIVE" ? "success" : "danger"}
@@ -218,21 +213,21 @@ const SubCompanies = ({
       {
         accessorKey: "email",
         header: "Email",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <span>{row.original.email || "N/A"}</span>
         ),
       },
       {
         accessorKey: "phone",
         header: "Phone",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <span>{row.original.phone || "N/A"}</span>
         ),
       },
       // {
       //   accessorKey: "overallRating",
       //   header: "Rating",
-      //   Cell: ({ row }) => (
+      //   cell: ({ row }) => (
       //     <div className="d-flex align-items-center gap-1">
       //       <KTIcon iconName="star" className="fs-6 text-warning" />
       //       <span>{row.original.overallRating || "0"}</span>
@@ -242,7 +237,7 @@ const SubCompanies = ({
       {
         accessorKey: "createdAt",
         header: "Created",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <div className="d-flex align-items-center gap-2">
             <span>{dayjs(row.original.createdAt.split("T")[0]).format("DD-MM-YYYY")}</span>
           </div>
@@ -251,35 +246,35 @@ const SubCompanies = ({
       {
         accessorKey: "address",
         header: "Address",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <span>{row.original.address || "N/A"}</span>
         ),
       },
       {
         accessorKey: "country",
         header: "Country",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <span>{row.original.country || "N/A"}</span>
         ),
       },
       {
         accessorKey: "state",
         header: "State",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <span>{row.original.state || "N/A"}</span>
         ),
       },
       {
         accessorKey: "city",
         header: "City",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <span>{row.original.city || "N/A"}</span>
         ),
       },
       {
         accessorKey: "blacklisted",
         header: "Blacklisted",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <ToneChip
             dense
             tone={row.original.blacklisted ? "danger" : "success"}
@@ -290,7 +285,7 @@ const SubCompanies = ({
       ...(canWrite ? [{
         accessorKey: "actions",
         header: "Actions",
-        Cell: ({ row }: any) => (
+        cell: ({ row }: any) => (
           <div className="d-flex align-items-center gap-2">
             <Button
               variant="ghost"
@@ -327,24 +322,17 @@ const SubCompanies = ({
 
   return (
     <div className="p-4">
-      <MaterialTable
+      <DataTable
+        caption="Sub Companies"
         columns={columns}
         data={subCompanies}
-        tableName="SubCompanies"
-        employeeId={employeeIdCurrent}
-        resource="SUB_COMPANIES"
-        defaultSorting={[{ id: "subCompanyName", desc: false }]}
-        viewOwn={true}
-        viewOthers={true}
-        checkOwnWithOthers={true}
-        muiTableProps={{
-          muiTableBodyRowProps: ({ row }: any) => ({
-            onClick: (e: React.MouseEvent) => {
-              if (!isRowAction(e)) handleEditSubCompany(row.original.id);
-            },
-            sx: { cursor: "pointer" },
-          }),
-        }}
+        getRowId={(r) => r.id}
+        initialSorting={[{ id: "subCompanyName", desc: false }]}
+        stateKey="crm.subCompanies"
+        groupableColumns={false}
+        onRowClick={(r) => handleEditSubCompany(r.id)}
+        rowLabel={(r) => r.subCompanyName || "Open sub-company"}
+        searchPlaceholder="Search sub-companies…"
       />
 
       <SubCompanyForm

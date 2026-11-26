@@ -9,7 +9,7 @@ import {
 export { countActiveFilters };
 
 /**
- * Filter trigger for a table's right-side icon group (MaterialTable's `renderToolbarIconActions`) — the kit
+ * Filter trigger for a table toolbar / icon group — the kit
  * button's icon-only form; the count rides on a badge and the button tints while filters are applied.
  */
 export function FilterSheetButton({ count, onClick }: { count: number; onClick: () => void }) {

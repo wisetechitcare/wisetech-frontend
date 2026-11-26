@@ -1,23 +1,20 @@
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import MaterialTable from "@app/modules/common/components/MaterialTable";
 import { useMemo, useState, useEffect, useCallback } from "react";
-import { MRT_ColumnDef } from "material-react-table";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
+import { DataTableExport } from "@/ds/patterns/data-table-export";
+import { RowAction } from "@/ds/patterns/row-action";
+import { Pencil, Trash2 } from "lucide-react";
 import {
-  deletePublicHolidayById,
   fetchCompanyOverview,
   fetchHolidays,
   fetchPublicHolidays,
-  updatePublicHolidayById,
   deleteHolidayById,
 } from "@services/company";
 import dayjs from "dayjs";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "@redux/store";
 import { usePermission } from "@hooks/usePermission";
 import { KTIcon } from "@metronic/helpers";
 import {
   errorConfirmation,
-  successConfirmation,
   deleteConfirmation,
 } from "@utils/modal";
 import { IPublicHolidayUpdate } from "@models/company";
@@ -27,11 +24,12 @@ import {
   resourceNameMapWithCamelCase,
 } from "@constants/statistics";
 import eventBus from "../../../../../utils/EventBus";
-import { ConfigSectionCard, KEYFRAMES } from "@app/modules/configuration";
+import { KEYFRAMES } from "@app/modules/configuration";
 import Holiday from "@pages/company/Holiday";
 import { Box } from "@mui/material";
 import { GlassDialog, PlainDialogHeader } from "@app/modules/common/components/ui";
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
+import { Badge } from '@/ds/ui/badge';
 import { Button } from '@/ds/ui/button';
 
 // Interface for the transformed holiday data displayed in the table
@@ -65,12 +63,8 @@ interface RawHolidayData {
 }
 
 function RenameHoliday({ getNotification }: { getNotification?: any }) {
-  const dispatch = useDispatch();
-
   // Redux selectors
   const isAdmin = usePermission('settings.manage.all');
-
-  const employeeIdCurrent = useSelector((state: RootState) => state.employee?.currentEmployee?.id);
 
   // State management
   const [refetch, setRefetch] = useState<boolean>(false);
@@ -284,15 +278,15 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
   }, []);
 
   // Define table columns
-  const columns = useMemo<MRT_ColumnDef<PublicHoliday>[]>(
+  const columns = useMemo<ColumnDef<PublicHoliday>[]>(
     () => [
       {
         accessorKey: "name",
         header: "Holiday Name",
         size: 250,
-        Cell: ({ renderedCellValue }) => (
+        cell: ({ getValue }) => (
           <span style={{ fontWeight: 600, color: '#1B2230' }}>
-            {renderedCellValue}
+            {String(getValue() ?? "")}
           </span>
         ),
       },
@@ -300,19 +294,20 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
         accessorKey: "date",
         header: "Date",
         size: 150,
-        Cell: ({ renderedCellValue }) => renderedCellValue || "-",
+        cell: ({ getValue }) => String(getValue() || "-"),
       },
       {
         accessorKey: "day",
         header: "Day",
         size: 150,
-        Cell: ({ renderedCellValue }) => renderedCellValue || "-",
+        cell: ({ getValue }) => String(getValue() || "-"),
       },
       {
         accessorKey: "repeatsOn",
         header: "Repeats On",
         size: 160,
-        Cell: ({ renderedCellValue, row }) => {
+        cell: ({ getValue, row }) => {
+          const renderedCellValue = getValue();
           if (renderedCellValue) {
             return (
               <span style={{
@@ -323,7 +318,7 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
                 fontSize: '12px',
                 fontWeight: 600,
               }}>
-                {renderedCellValue} · every year
+                {String(renderedCellValue)} · every year
               </span>
             );
           }
@@ -350,7 +345,8 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
         accessorKey: "type",
         header: "Type",
         size: 150,
-        Cell: ({ renderedCellValue }) => {
+        cell: ({ getValue }) => {
+          const renderedCellValue = getValue();
           const isFixed = renderedCellValue === 'Fixed';
           return (
             <span style={{
@@ -361,7 +357,7 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
               fontSize: '12px',
               fontWeight: 600,
             }}>
-              {renderedCellValue}
+              {String(renderedCellValue ?? "")}
             </span>
           );
         }
@@ -369,11 +365,12 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
       ...(isAdmin
         ? [
             {
-              accessorKey: "actions" as keyof PublicHoliday,
+              id: "actions",
               header: "Actions",
               size: 120,
               enableSorting: false,
-              Cell: ({ row }: { row: { original: PublicHoliday } }) => {
+              meta: { export: false, pin: "end" as const },
+              cell: ({ row }: { row: { original: PublicHoliday } }) => {
                 const allowEdit = hasPermission(
                   resourceNameMapWithCamelCase.holiday,
                   permissionConstToUseWithHasPermission.editOthers
@@ -388,35 +385,32 @@ function RenameHoliday({ getNotification }: { getNotification?: any }) {
                 }
 
                 return (
-                  <div>
+                  <div className="flex gap-1">
                     {allowEdit && (
-                      <Button
-                        variant="ghost"
+                      <RowAction
+                        label="Edit Holiday"
                         size="icon-sm"
-                        onClick={() => handleEdit(row.original)}
-                        title="Edit Holiday"
-                        aria-label="Edit Holiday"
                         disabled={loading}
+                        onClick={() => handleEdit(row.original)}
                       >
-                        <KTIcon iconName="pencil" className="fs-4" />
-                      </Button>
+                        <Pencil className="size-4" aria-hidden />
+                      </RowAction>
                     )}
                     {allowDelete && (
-                      <Button
-                        variant="ghost"
+                      <RowAction
+                        label="Delete Holiday"
                         size="icon-sm"
-                        onClick={() => handleDelete(row.original)}
-                        title="Delete Holiday"
-                        aria-label="Delete Holiday"
+                        tint="danger"
                         disabled={loading}
+                        onClick={() => handleDelete(row.original)}
                       >
-                        <KTIcon iconName="trash" className="fs-4" />
-                      </Button>
+                        <Trash2 className="size-4" aria-hidden />
+                      </RowAction>
                     )}
                   </div>
                 );
               },
-            } as MRT_ColumnDef<PublicHoliday>,
+            } as ColumnDef<PublicHoliday>,
           ]
         : []),
     ],
@@ -469,18 +463,6 @@ const PREMIUM_TABLE_CSS = `
     font-size: 22px;
     flex-shrink: 0;
   }
-  .prem-badge {
-    background: #F4F6FB;
-    color: #1E3A8A;
-    border-radius: 20px;
-    padding: 2px 8px;
-    font-size: 11px;
-    font-weight: 700;
-    margin-left: 8px;
-    display: inline-block;
-    vertical-align: middle;
-  }
-  
   /* Overrides for MaterialTable to look more premium */
   .prem-table-container .MuiPaper-root {
     box-shadow: none !important;
@@ -545,7 +527,7 @@ const PREMIUM_TABLE_CSS = `
             <div>
               <h2 style={{ fontWeight: 700, fontSize: '18px', color: '#1B2230', margin: '0 0 4px 0', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center' }}>
                 Public Holidays
-                <span className="prem-badge">{holidays.length}</span>
+                <Badge variant="info-solid" className="ms-2 align-middle">{holidays.length}</Badge>
               </h2>
               <p style={{ fontSize: '13.5px', color: '#5A6573', margin: 0, fontWeight: 400 }}>
                 Rename holidays as they appear on the company calendar
@@ -563,19 +545,19 @@ const PREMIUM_TABLE_CSS = `
           </div>
         </div>
 
-        <div style={{ position: 'relative' }}>
-          {(loading && holidays.length === 0) && (
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.7)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span className="spinner-border text-primary" />
-            </div>
+        <DataTable
+          caption="Public Holidays List"
+          columns={columns}
+          data={[...holidays].sort((a, b) => a.name.localeCompare(b.name))}
+          getRowId={(r) => r.id}
+          stateKey="Public Holidays List"
+          loading={loading && holidays.length === 0}
+          groupableColumns={false}
+          searchPlaceholder="Search holidays…"
+          toolbar={(ctx) => (
+            <DataTableExport columns={columns} ctx={ctx} filename="Public Holidays" />
           )}
-          <MaterialTable
-            columns={columns}
-            data={[...holidays].sort((a, b) => a.name.localeCompare(b.name))}
-            tableName="Public Holidays List"
-            employeeId={employeeIdCurrent}
-          />
-        </div>
+        />
       </div>
 
       {/* Edit Holiday — same name/type/status/color fields as Add (shared <Holiday> form). */}

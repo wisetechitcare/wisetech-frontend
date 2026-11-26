@@ -1,4 +1,4 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable } from '@/ds/patterns/data-table';
 import ExportButton from "@app/modules/common/components/ExportButton";
 import TimePeriodSelector from "@app/modules/common/components/TimePeriodSelector";
 import { PeriodMode } from "@/constants/common";
@@ -74,8 +74,6 @@ import LeadActionPicker from "./LeadActionPicker";
 import MeetingDialog from "@pages/employee/MeetingDialog";
 import {
   LeadStatusPill,
-  leadRowSx,
-  leadTableSx,
   UNASSIGNED_ORG_LABEL,
 } from "./leadTableStyle";
 import { getCurrencyLocale, currencyPrefix } from "@utils/currency";
@@ -932,7 +930,7 @@ const LeadNewLead: React.FC = () => {
            * when both are absent.
            */
           // Reminders and meetings are the viewer's own, so Read on Leads is enough (the page needs it).
-          Cell: ({ row }: any) => {
+          cell: ({ row }: any) => {
             const lead = row.original;
             const hasReminder = !!lead?.reminder;
             const hasMeeting = !!lead?.hasMeeting;
@@ -1004,7 +1002,7 @@ const LeadNewLead: React.FC = () => {
           // returns a single string child, which is what the table's search highlighter
           // clones through — wrapping it in a container to append the note would silently
           // stop the project name highlighting on every search.
-          Cell: ({ row }: { row: any }) => (
+          cell: ({ row }: { row: any }) => (
             <ReminderCell
               lead={row.original}
               onSaved={(reminder) =>
@@ -1017,7 +1015,7 @@ const LeadNewLead: React.FC = () => {
           accessorKey: "inquiryDate",
           header: "Inquiry Date",
           size: 140,
-          Cell: ({ cell }: { cell: any }) => {
+          cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
           },
@@ -1028,7 +1026,7 @@ const LeadNewLead: React.FC = () => {
           size: 180,
           minSize: 160,
           enableEditing: false,
-          Cell: ({ row }: { row: any }) => (
+          cell: ({ row }: { row: any }) => (
             <span
               className="cursor-pointer"
               style={{
@@ -1046,7 +1044,7 @@ const LeadNewLead: React.FC = () => {
           header: "Project Name",
           size: 320,
           minSize: 240,
-          Cell: ({ cell }: { cell: any }) => {
+          cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return (
               // Wraps inside the column: a nowrap span in a fixed-width cell spilled past the
@@ -1064,7 +1062,7 @@ const LeadNewLead: React.FC = () => {
           header: "Total Cost",
           size: 130,
           meta: { defaultVisible: false },
-          Cell: ({ cell }: { cell: any }) => {
+          cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return v !== undefined
               ? `${currencyPrefix()}${Number(v).toLocaleString()}`
@@ -1080,7 +1078,7 @@ const LeadNewLead: React.FC = () => {
             filterText: (r: any) =>
               (typeof r.client === "object" ? r.client?.name : r.client) || "",
           },
-          Cell: ({ cell }: { cell: any }) => {
+          cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return typeof v === "object" ? v.name || "N/A" : v || "N/A";
           },
@@ -1093,7 +1091,7 @@ const LeadNewLead: React.FC = () => {
             filterText: (r: any) => r.organization || UNASSIGNED_ORG_LABEL,
           },
           size: 170,
-          Cell: ({ cell }: { cell: any }) => {
+          cell: ({ cell }: { cell: any }) => {
             const name = cell.getValue() as string;
             const isUnassigned = !name || name === UNASSIGNED_ORG_LABEL;
             return (
@@ -1117,7 +1115,7 @@ const LeadNewLead: React.FC = () => {
             defaultVisible: false,
             filterText: (r: any) => serviceMap.get(r.service) || "",
           },
-          Cell: ({ cell }: { cell: any }) =>
+          cell: ({ cell }: { cell: any }) =>
             serviceMap.get(cell.getValue()) || "N/A",
         },
         {
@@ -1128,7 +1126,7 @@ const LeadNewLead: React.FC = () => {
             defaultVisible: false,
             filterText: (r: any) => categoryMap.get(r.category) || "",
           },
-          Cell: ({ cell }: { cell: any }) =>
+          cell: ({ cell }: { cell: any }) =>
             categoryMap.get(cell.getValue()) || "N/A",
         },
         {
@@ -1139,7 +1137,7 @@ const LeadNewLead: React.FC = () => {
             defaultVisible: false,
             filterText: (r: any) => subCategoryMap.get(r.subCategory) || "",
           },
-          Cell: ({ cell }: { cell: any }) =>
+          cell: ({ cell }: { cell: any }) =>
             subCategoryMap.get(cell.getValue()) || "N/A",
         },
         {
@@ -1148,7 +1146,7 @@ const LeadNewLead: React.FC = () => {
           // The filter dropdown lists what the cell shows (MaterialTable meta.filterText).
           meta: { filterText: (r: any) => r.status?.name || "" },
           size: 150,
-          Cell: ({ row }: any) => (
+          cell: ({ row }: any) => (
             <LeadStatusPill status={row?.original?.status} />
           ),
         },
@@ -1157,7 +1155,7 @@ const LeadNewLead: React.FC = () => {
           header: "Received Date",
           size: 150,
           meta: { defaultVisible: false },
-          Cell: ({ cell }: { cell: any }) => {
+          cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
           },
@@ -1170,7 +1168,7 @@ const LeadNewLead: React.FC = () => {
             defaultVisible: false,
             filterText: (r: any) => r.poStatus || "",
           },
-          Cell: ({ row }: any) => {
+          cell: ({ row }: any) => {
             const poStatus = row?.original?.poStatus;
             if (!row?.original?.status?.isProjectTrigger || !poStatus)
               return <span>N/A</span>;
@@ -1186,7 +1184,7 @@ const LeadNewLead: React.FC = () => {
           // The filter dropdown lists what the cell shows (MaterialTable meta.filterText).
           meta: { filterText: (r: any) => employeeMap.get(r.assignedTo) || "" },
           size: 160,
-          Cell: ({ cell }: { cell: any }) =>
+          cell: ({ cell }: { cell: any }) =>
             employeeMap.get(cell.getValue()) || "N/A",
         },
         {
@@ -1194,7 +1192,7 @@ const LeadNewLead: React.FC = () => {
           header: "Date",
           size: 120,
           meta: { defaultVisible: false },
-          Cell: ({ cell }: { cell: any }) => {
+          cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return v ? dayjs(v).format("DD-MM-YYYY") : "N/A";
           },
@@ -1206,14 +1204,14 @@ const LeadNewLead: React.FC = () => {
           header: "Duration",
           size: 120,
           meta: { defaultVisible: false },
-          Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+          cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
         },
         {
           accessorKey: "contact",
           header: "Contact",
           size: 160,
           meta: { defaultVisible: false },
-          Cell: ({ cell }: { cell: any }) => {
+          cell: ({ cell }: { cell: any }) => {
             const v = cell.getValue();
             return typeof v === "object"
               ? v.name || v.email || "N/A"
@@ -1225,7 +1223,7 @@ const LeadNewLead: React.FC = () => {
           header: "Created Date",
           size: 150,
           meta: { defaultVisible: false },
-          Cell: ({ cell }: { cell: any }) =>
+          cell: ({ cell }: { cell: any }) =>
             cell.getValue()
               ? dayjs(cell.getValue()).format("DD-MM-YYYY")
               : "N/A",
@@ -1238,7 +1236,7 @@ const LeadNewLead: React.FC = () => {
             defaultVisible: false,
             filterText: (r: any) => employeeMap.get(r.createdBy) || "",
           },
-          Cell: ({ cell }: { cell: any }) =>
+          cell: ({ cell }: { cell: any }) =>
             employeeMap.get(cell.getValue()) || "N/A",
         },
         {
@@ -1249,7 +1247,7 @@ const LeadNewLead: React.FC = () => {
             defaultVisible: false,
             filterText: (r: any) => employeeMap.get(r.updatedBy) || "",
           },
-          Cell: ({ cell }: { cell: any }) =>
+          cell: ({ cell }: { cell: any }) =>
             employeeMap.get(cell.getValue()) || "N/A",
         },
         {
@@ -1260,14 +1258,14 @@ const LeadNewLead: React.FC = () => {
             defaultVisible: false,
             filterText: (r: any) => r.country || "",
           },
-          Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+          cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
         },
         {
           accessorKey: "city",
           header: "City",
           size: 110,
           meta: { defaultVisible: false, filterText: (r: any) => r.city || "" },
-          Cell: ({ row }: { row: any }) => row.original.city || "N/A",
+          cell: ({ row }: { row: any }) => row.original.city || "N/A",
         },
         {
           accessorKey: "state",
@@ -1277,7 +1275,7 @@ const LeadNewLead: React.FC = () => {
             defaultVisible: false,
             filterText: (r: any) => r.state || "",
           },
-          Cell: ({ row }: { row: any }) => row.original.state || "N/A",
+          cell: ({ row }: { row: any }) => row.original.state || "N/A",
         },
         {
           accessorKey: "area",
@@ -1286,7 +1284,7 @@ const LeadNewLead: React.FC = () => {
           header: "Area",
           size: 120,
           meta: { defaultVisible: false },
-          Cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
+          cell: ({ cell }: { cell: any }) => cell.getValue() || "N/A",
         },
         {
           accessorKey: "cost",
@@ -1295,7 +1293,7 @@ const LeadNewLead: React.FC = () => {
           header: "Cost",
           size: 120,
           meta: { defaultVisible: false },
-          Cell: ({ cell }: { cell: any }) =>
+          cell: ({ cell }: { cell: any }) =>
             cell.getValue()
               ? `${currencyPrefix()}${Number(cell.getValue()).toLocaleString()}`
               : `${currencyPrefix()}0`,
@@ -1308,7 +1306,7 @@ const LeadNewLead: React.FC = () => {
           size: 200,
           // "File Location in Computer" in the form = Company Type + Company. The lead stores
           // those as IDs, so resolve them to names; fall back to the free-text path.
-          Cell: ({ row }: { row: any }) => {
+          cell: ({ row }: { row: any }) => {
             const path = row?.original?.fileLocation;
             // Names resolved by the server; the raw value when it is already a name / unmapped.
             const company =
@@ -1751,74 +1749,54 @@ const LeadNewLead: React.FC = () => {
         )}
       </Box>
 
-      {/* MaterialTable opens with a shared `pt-6` (24px) gutter; tightened here, same as
-          Projects. `!important` because Bootstrap's own `.pt-6` utility carries it. */}
-      <Box sx={{ "& > .pt-6": { paddingTop: "8px !important" } }}>
-        <MaterialTable
-          columns={columns}
-          data={localMode ? allRows! : tableData}
-          tableName="LeadsTablesMainV2"
-          defaultSorting={[{ id: "inquiryDate", desc: true }]}
-          // Normally the server owns paging, sorting and search — all three together, or one
-          // would act on the single page the browser holds while implying every lead. While a
-          // column filter is set the table holds EVERY matching lead (see columnFiltering), so
-          // it filters, sorts and pages them itself.
-          manualPagination={!localMode}
-          manualSorting={!localMode}
-          manualFiltering={!localMode}
-          rowCount={localMode ? undefined : totalRecords}
-          paginationState={localMode ? undefined : pagination}
-          onPaginationChange={localMode ? undefined : setPagination}
-          onSortingChange={setSorting}
-          onSearchChange={setSearch}
-          isLoading={pageLoading || allRowsLoading}
-          onColumnFiltersChange={setColumnFilters}
-          // Grouping would act on one page only.
-          enableGrouping={false}
-          renderExportActions={() => (
-            <ExportButton
-              data={tableData}
-              // Every lead matching the filters, not just this page.
-              getData={fetchAllRows}
-              columns={leadsExportColumns}
-              filename="leads-management"
-              title="Leads Management"
-              subtitle="Inquiry-wise leads, costs, and status"
-              sheetName="Leads"
-              showTotals
-              totalLabel="TOTAL"
-              disabled={!totalRecords}
-            />
-          )}
-          employeeId={currentEmployeeId}
-          resource="LEADS"
-          viewOwn={true}
-          viewOthers={true}
-          checkOwnWithOthers={true}
-          enableColumnResizing={true}
-          layoutMode="semantic"
-          // Only the rows in view are rendered, so 1000 rows per page costs what ~20 do.
-          // Switches MRT to grid layout; the 700px maxHeight below is the viewport it windows.
-          enableRowVirtualization
-          muiTableContainerProps={{
-            sx: { maxHeight: "700px", overflowX: "auto" },
-          }}
-          muiTableProps={{
-            // Precise column widths: `fixed` makes each column exactly its `size`
-            // (no stretching to fill), and `max-content` sizes the table to the sum
-            // of the columns so there's no forced dead space. Horizontal scroll kicks
-            // in via the container's overflowX when the columns exceed the viewport.
-            sx: leadTableSx,
-            muiTableBodyRowProps: ({ row }: any) => ({
-              sx: leadRowSx(row.original?.status?.color),
-              onClick: () =>
-                navigate(`/leads/${row.original.id}`, {
-                  state: { leadData: row.original.id },
-                }),
-            }),
-          }}
-        />
-      </Box>
+      <DataTable
+        caption="Leads"
+        columns={columns}
+        data={localMode ? allRows! : tableData}
+        getRowId={(r: any) => r.id}
+        loading={pageLoading || allRowsLoading}
+        // Normally the server owns paging, sorting and search. While a column filter is set
+        // the table holds EVERY matching lead (see columnFiltering), so omit rowCount and
+        // let the kit filter / sort / page locally.
+        {...(localMode
+          ? {}
+          : {
+              rowCount: totalRecords,
+              pagination,
+              onPaginationChange: setPagination,
+            })}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        globalFilter={search}
+        onGlobalFilterChange={setSearch}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={setColumnFilters}
+        virtualized
+        virtualMaxHeight={700}
+        initialPageSize={pagination.pageSize}
+        groupableColumns={false}
+        stateKey="crm.leads"
+        rowTone={(r: any) => r?.status?.color || undefined}
+        onRowClick={(r: any) =>
+          navigate(`/leads/${r.id}`, { state: { leadData: r.id } })
+        }
+        rowLabel={(r: any) => r?.name || r?.companyName || "Open lead"}
+        searchPlaceholder="Search leads…"
+        toolbar={() => (
+          <ExportButton
+            data={tableData}
+            getData={fetchAllRows}
+            columns={leadsExportColumns}
+            filename="leads-management"
+            title="Leads Management"
+            subtitle="Inquiry-wise leads, costs, and status"
+            sheetName="Leads"
+            showTotals
+            totalLabel="TOTAL"
+            disabled={!totalRecords}
+          />
+        )}
+      />
 
       <SelectLeadOrganizationDialog
         open={showOrgPicker}

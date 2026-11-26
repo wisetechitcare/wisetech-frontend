@@ -1,20 +1,30 @@
-import MaterialTable from '@app/modules/common/components/MaterialTable'
 import { useEffect, useMemo, useState } from 'react'
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useSelector } from 'react-redux';
 import { RootState } from '@redux/store';
 import { fetchCurrentEmployeeByEmpId, fetchEmployeeMediaByUserId } from '@services/employee';
 import dayjs from 'dayjs';
 import { useParams } from 'react-router-dom';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { ToneChip } from '@app/modules/common/components/ui';
 import { Button } from '@/ds/ui/button';
-import { WtIconButton } from '@app/modules/common/components/ui/buttons';
+import { Badge } from '@/ds/ui/badge';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
+import { RowAction } from '@/ds/patterns/row-action';
+import { Eye, Folder, File } from 'lucide-react';
+
+type DocRow = {
+    isFolder: boolean;
+    name: string;
+    size: string;
+    uploaded: string;
+    fileUrl?: string;
+    folderName?: string;
+    id?: string;
+};
 
 function EmployeeDocumentTable({message1='No Documents Uploaded By User', message2='Documents Uploaded By User'}:{message1?: string, message2?: string}) {
     const { employeeId } = useParams();
     const reduxEmployeeId = useSelector((state: RootState) => state.employee.currentEmployee?.id);
-    const currentUserId = useSelector((state: RootState) => state.auth?.currentUser?.id);
     const currentEmployeeId = employeeId || reduxEmployeeId;
     const [userId, setUserId] = useState();
     const status = useSelector((state: RootState) => state.employee.currentEmployee?.dateOfExit) ? 'Terminated' : 'Active';
@@ -186,7 +196,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
     // ── One shared table for both levels of the browser: folders at the root, files
     //    inside a folder. Rows carry real values (a raw ISO date, a numeric file count)
     //    so sorting and per-column search work on those, not on the rendered cells.
-    const rows = useMemo(
+    const rows = useMemo<DocRow[]>(
         () => (currentFolder
             ? displayItems.map((document) => ({
                 isFolder: false,
@@ -194,6 +204,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                 size: document?.size || '-',
                 uploaded: document?.created || '',
                 fileUrl: document?.fileUrl,
+                id: (document as any)?.id,
             }))
             : folders.map((folder) => ({
                 isFolder: true,
@@ -201,19 +212,20 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                 size: `${folder.count} files`,
                 uploaded: '',
                 folderName: folder.name,
+                id: folder.name,
             }))),
         [currentFolder, displayItems, folders],
     );
 
-    const columns = useMemo(() => [
+    const columns = useMemo<ColumnDef<DocRow>[]>(() => [
         {
             accessorKey: 'name',
             header: 'Name',
-            Cell: ({ row }: any) => (
-                <div className="d-flex align-items-center">
-                    <span className="icon-wrapper">
-                        <AppIcon name={row.original.isFolder ? 'folder' : 'file'} className="fs-2x text-primary me-4" />
-                    </span>
+            cell: ({ row }) => (
+                <div className="d-flex align-items-center gap-3">
+                    {row.original.isFolder
+                        ? <Folder className="size-6 text-primary shrink-0" aria-hidden />
+                        : <File className="size-6 text-primary shrink-0" aria-hidden />}
                     <span className={row.original.isFolder ? 'fw-bold' : undefined}>{row.original.name}</span>
                 </div>
             ),
@@ -222,22 +234,29 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
         {
             accessorKey: 'uploaded',
             header: 'Uploaded On',
-            Cell: ({ cell }: any) => (cell.getValue() ? dayjs(cell.getValue()).format('D MMM, YYYY') : '-'),
+            cell: ({ getValue }) => {
+                const value = getValue() as string;
+                return value ? dayjs(value).format('D MMM, YYYY') : '-';
+            },
         },
         {
-            accessorKey: 'actions',
+            id: 'actions',
             header: 'Actions',
             enableSorting: false,
-            Cell: ({ row }: any) => (row.original.isFolder ? (
+            cell: ({ row }) => (row.original.isFolder ? (
                 <AppIcon name="right" className="fs-3 text-gray-500" />
             ) : (
-                <div className="d-flex justify-content-center">
-                    <a href={`${row.original.fileUrl}`} target="_blank" rel="noreferrer">
-                        <WtIconButton size="medium">
-                            <VisibilityIcon />
-                        </WtIconButton>
-                    </a>
-                </div>
+                <RowAction
+                    label="View document"
+                    size="icon-sm"
+                    onClick={() => {
+                        if (row.original.fileUrl) {
+                            window.open(row.original.fileUrl, '_blank', 'noopener,noreferrer');
+                        }
+                    }}
+                >
+                    <Eye className="size-4" aria-hidden />
+                </RowAction>
             )),
         },
     ], []);
@@ -247,7 +266,7 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
             <div className="card card-body">
                 {/* Breadcrumb Navigation */}
                 <div className="d-flex align-items-center gap-2 mb-5">
-                    <Button variant="outline" size="sm" type="submit"
+                    <Button variant="outline" size="sm"
                         onClick={() => setCurrentFolder(null)}
                         disabled={!currentFolder}
                     >
@@ -260,16 +279,12 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                 </div>
 
                 <div className="d-flex flex-stack my-2">
-                    <ToneChip
-                        dense
-                        tone="brand"
-                        label={currentFolder ? currentFolderData?.label : message2}
-                    />
-                    <div className="badge badge-lg badge-primary">
-                        <span id="kt_file_manager_items_counter">
-                            {currentFolder ? displayItems.length : folders.length} {currentFolder ? 'files' : 'folders'}
-                        </span>
-                    </div>
+                    <Badge variant="brand">
+                        {currentFolder ? currentFolderData?.label : message2}
+                    </Badge>
+                    <Badge id="kt_file_manager_items_counter" variant="brand">
+                        {currentFolder ? displayItems.length : folders.length} {currentFolder ? 'files' : 'folders'}
+                    </Badge>
                 </div>
                 {rows.length === 0 ? (
                     <div className="text-center py-5">
@@ -277,20 +292,22 @@ function EmployeeDocumentTable({message1='No Documents Uploaded By User', messag
                         <div>{currentFolder ? 'No files in this folder' : message1}</div>
                     </div>
                 ) : (
-                    <MaterialTable
-                        tableName="EmployeeDocuments"
-                        employeeId={currentUserId}
+                    <DataTable
+                        caption="Employee Documents"
+                        stateKey="EmployeeDocuments"
                         data={rows}
                         columns={columns}
-                        muiTableProps={{
-                            // A folder row still opens the folder it names, as it did before.
-                            muiTableBodyRowProps: ({ row }: any) => (row.original.isFolder
-                                ? { onClick: () => setCurrentFolder(row.original.folderName), sx: { cursor: 'pointer' } }
-                                : {}),
+                        getRowId={(r, i) => String(r.id ?? `${r.name}-${i}`)}
+                        groupableColumns={false}
+                        onRowClick={(row) => {
+                            if (row.isFolder && row.folderName) setCurrentFolder(row.folderName);
                         }}
+                        rowLabel={(row) => row.name}
+                        toolbar={(ctx) => (
+                            <DataTableExport columns={columns} ctx={ctx} filename="Employee Documents" />
+                        )}
                     />
                 )}
-                {/*end::Table*/}
             </div>
 
         </>

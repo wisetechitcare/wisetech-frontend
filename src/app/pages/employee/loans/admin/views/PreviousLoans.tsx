@@ -1,7 +1,8 @@
 import React, { useMemo, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { RootState } from "@redux/store";
 import { usePermission } from "@hooks/usePermission";
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -87,24 +88,24 @@ const PreviousLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewO
   }, [previousLoans, endDates]);
 
   // 3. Define columns
-  const columns = useMemo<MRT_ColumnDef<LoanSummary>[]>(
+  const columns = useMemo<ColumnDef<LoanSummary>[]>(
     () => [
       { accessorKey: "name", header: "Name" },
       {
         accessorKey: "loanAmount",
         header: "Loan Amt",
-        Cell: ({ renderedCellValue }:any) => formatNumber(renderedCellValue),
+        cell: ({ cell }:any) => formatNumber(cell.getValue()),
       },
       {
         accessorKey: "paidAmount",
         header: "Paid Amt",
-        Cell: ({ renderedCellValue }:any) => formatNumber(renderedCellValue),
+        cell: ({ cell }:any) => formatNumber(cell.getValue()),
       },
       { accessorKey: "status", header: "Status" },
       {
         accessorKey: "startDate",
         header: "Start Date",
-        Cell: ({ cell }) =>
+        cell: ({ cell }) =>
           new Date(cell.getValue<string>()).toLocaleDateString("en-GB", {
             day: "numeric",
             month: "long",
@@ -114,7 +115,7 @@ const PreviousLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewO
       {
         accessorKey: "endDate",
         header: "End Date",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const val = cell.getValue<string>();
           return val === "N/A"
             ? "N/A"
@@ -129,7 +130,7 @@ const PreviousLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewO
       {
         accessorKey: "loanDuration",
         header: "Duration",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const duration = cell.getValue<number>();
           return duration ? `${duration} Months` : "N/A";
         },
@@ -139,7 +140,7 @@ const PreviousLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewO
             {
               accessorKey: "actions",
               header: "Actions",
-              Cell: ({ row }: { row: any }) => (
+              cell: ({ row }: { row: any }) => (
                 <div style={commonButtonStyle}>
                   <Link to={`${row?.original?.id}`}>View</Link>
                 </div>
@@ -161,14 +162,16 @@ const PreviousLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewO
   return (
     <div>
       <h3 className="pt-10 fw-bold">Previous Loans</h3>
-      <MaterialTable
+      <DataTable
+        caption="Previous Loans"
+        columns={columns as any}
         data={transformedLoans}
-        columns={columns}
-        tableName="Previous Loans"
-        resource={resource}
-        viewOthers={viewOthers}
-        viewOwn={viewOwn}
-        employeeId={employeeIdCurrent}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.admin.previous"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
       />
     </div>
   );

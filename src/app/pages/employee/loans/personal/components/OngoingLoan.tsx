@@ -1,11 +1,12 @@
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { InstallmentTypeEnum, LoanType, resourceNameMapWithCamelCase, Status } from '@constants/statistics';
 import { KTIcon } from '@metronic/helpers';
 import { RootState } from '@redux/store';
 import { fetchEmployeeLoans } from '@services/employee';
 import { formatNumber, getCompletionAmountOfLoanByLoanIdAndEndDate } from '@utils/statistics';
 import dayjs from 'dayjs';
-import { MRT_ColumnDef } from 'material-react-table';
+
 import React, { useEffect, useMemo, useState } from 'react'
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -49,64 +50,64 @@ function OngoingLoan({ completeLoanData, resource, viewOthers, viewOwn }: { comp
         getThePreviousLoansData()
     }, [completeLoanData])
 
-    const columns = useMemo<MRT_ColumnDef<any>[]>(
+    const columns = useMemo<ColumnDef<any>[]>(
         () => [
             {
                 accessorKey: "loanAmount",
                 header: "Loan Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ cell }: any) => formatNumber(cell.getValue()),
             },
             {
                 accessorKey: "paidAmt",
                 header: "Paid Amt.",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ cell }: any) => formatNumber(cell.getValue()),
             },
             {
                 accessorKey: "pendingAmt",
                 header: "Pending Amt.",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ cell }: any) => formatNumber(cell.getValue()),
             },
             {
                 accessorKey: "loanStartDate",
                 header: "Loan Start Date",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "loanEndDate",
                 header: "Loan End Date",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "loanType",
                 header: "Loan Type",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "installment",
                 header: "Installment",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "loanDuration",
                 header: "Loan Duration",
                 enableSorting: false,
                 enableColumnActions: false,
-                // Cell: ({ renderedCellValue }: any) => renderedCellValue,
-                Cell: ({ cell }) => {
+                // cell: ({ cell }: any) => cell.getValue(),
+                cell: ({ cell }) => {
                     const duration = cell.getValue<number | null>();
                     return duration ? `${duration} Months` : "N/A";
                   }
@@ -116,7 +117,7 @@ function OngoingLoan({ completeLoanData, resource, viewOthers, viewOwn }: { comp
                 header: "Actions",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ row }: any) => {
+                cell: ({ row }: any) => {
                     //   const resEdit = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOwn, row?.original);
                     //   const resDelete = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
                     return (
@@ -134,26 +135,17 @@ function OngoingLoan({ completeLoanData, resource, viewOthers, viewOwn }: { comp
     );
 
     return (
-        <MaterialTable
-            columns={columns}
-            data={loanData}
-            muiTableProps={{
-                sx: {
-                    "& .MuiTableBody-root .MuiTableCell-root": {
-                        borderBottom: "none",
-                        paddingY: "5px",
-                    },
-                    "& .MuiTableBody-root .MuiTableRow-root": {
-                        // padding: '0px',
-                    },
-                },
-            }}
-            tableName="Ongoing Loan Data"
-            resource={resource}
-            viewOwn={viewOwn}
-            viewOthers={viewOthers}
-            employeeId={employeeIdCurrent}
-        />
+        <DataTable
+        caption="Ongoing Loan Data"
+        columns={columns}
+        data={loanData}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.personal.ongoing"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
+      />
     )
 }
 

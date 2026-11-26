@@ -9,8 +9,8 @@ import Towns from './Towns';
  * on Employees → Configure, where an admin setting the form up is already looking —
  * having them here meant editing an onboarding dropdown from a different module.
  *
- * Towns stays because onboarding never reads it: it fills the required Town field on a
- * BRANCH, and onboarding only picks the finished branch.
+ * Towns stays as an optional legacy catalog. Create Tenant / LocationFields / Branches no
+ * longer require a Town FK — locality belongs in the address line.
  *
  * One section left, so no tab strip — it would be a single tab pointing at itself.
  */

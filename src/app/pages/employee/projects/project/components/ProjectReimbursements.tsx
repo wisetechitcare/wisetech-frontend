@@ -1,17 +1,16 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
-import { MRT_ColumnDef } from "material-react-table";
-import { KTIcon } from "@metronic/helpers";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { IReimbursements, IReimbursementsFetch } from "@models/employee";
+import { Eye, FileX, FileText, ExternalLink, X, Receipt } from "lucide-react";
+import { IReimbursementsFetch } from "@models/employee";
 import { fetchReimbursementsByProjectId } from "@services/employee";
 import { useEventBus } from "@hooks/useEventBus";
 import { Box, Paper, Stack, Typography } from "@mui/material";
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
 import { ToneChip } from '@app/modules/common/components/ui';
 import type { SemanticTone } from '@app/theme/tokens';
 import { getCurrencyLocale } from '@utils/currency';
 import { Button, buttonVariants } from '@/ds/ui/button';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { RowAction } from '@/ds/patterns/row-action';
 
 // ---------------------------------------------------------------------------
 // DocumentPreviewModal
@@ -64,7 +63,7 @@ function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
         {/* Header bar */}
         <div className="d-flex align-items-center justify-content-between px-4 py-3 border-bottom bg-light flex-shrink-0">
           <div className="d-flex align-items-center gap-2 text-gray-700 fw-semibold fs-7 text-truncate">
-            <KTIcon iconName="document" className="fs-4 text-primary" />
+            <FileText className="size-4 text-primary" aria-hidden />
             <span className="text-truncate" style={{ maxWidth: 560 }}>
               {url.split("/").pop()?.split("?")[0] ?? "Document"}
             </span>
@@ -78,15 +77,15 @@ function DocumentPreviewModal({ url, onClose }: DocumentPreviewModalProps) {
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
               title="Open in new tab"
             >
-              <KTIcon iconName="exit-right-corner" className="fs-5" />
+              <ExternalLink className="size-4" aria-hidden />
               <span className="d-none d-sm-inline">Open in tab</span>
             </a>
 
-            <Button variant="outline" size="icon-sm" type="submit" aria-label="Close preview (Esc)"
+            <Button variant="outline" size="icon-sm" type="button" aria-label="Close preview (Esc)"
               onClick={onClose}
               title="Close preview (Esc)"
             >
-              <KTIcon iconName="cross" className="fs-2" />
+              <X className="size-4" aria-hidden />
             </Button>
           </div>
         </div>
@@ -221,100 +220,66 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
   const fmtAmount = (n: number) =>
     Math.round(n).toLocaleString(getCurrencyLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  const columns = useMemo<MRT_ColumnDef<IReimbursements>[]>(
+  const columns = useMemo<ColumnDef<IReimbursementsFetch>[]>(
     () => [
-      {
-        accessorKey: "expenseDate",
-        header: "Date",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "day",
-        header: "Day",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
-      {
-        accessorKey: "name",
-        header: "Name",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
+      { accessorKey: "expenseDate", header: "Date" },
+      { accessorKey: "day", header: "Day" },
+      { accessorKey: "name", header: "Name" },
       {
         accessorKey: "description",
         header: "Note",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue || "N/A",
+        cell: ({ getValue }) => (getValue() as string) || "N/A",
       },
       {
         accessorKey: "fromLocation",
         header: "From Location",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "N/A",
+        cell: ({ getValue }) => (getValue() as string) ?? "N/A",
       },
       {
         accessorKey: "toLocation",
         header: "To Location",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue ?? "N/A",
+        cell: ({ getValue }) => (getValue() as string) ?? "N/A",
       },
-      {
-        accessorKey: "type",
-        header: "Type",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
-      },
+      { accessorKey: "type", header: "Type" },
       {
         accessorKey: "amount",
         header: "Amount",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => renderedCellValue,
+        meta: { exportType: "currency" },
       },
       {
         accessorKey: "status",
         header: "Status",
-        enableSorting: true,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => {
+        cell: ({ getValue }) => {
+          const value = getValue() as string;
           const toneMap: Record<string, SemanticTone> = {
             Approved: "success",
             Rejected: "danger",
             Pending: "warning",
           };
-          const tone = toneMap[renderedCellValue as string] ?? "neutral";
-          return (
-            <ToneChip dense tone={tone} label={String(renderedCellValue ?? "")} />
-          );
+          const tone = toneMap[value] ?? "neutral";
+          return <ToneChip dense tone={tone} label={String(value ?? "")} />;
         },
       },
       {
         accessorKey: "document",
         header: "Document",
         enableSorting: false,
-        enableColumnActions: false,
-        Cell: ({ renderedCellValue }: any) => (
-          <Button variant="ghost" size="icon-sm" type="submit" aria-label="View"
-            className="w-[20px]"
-            onClick={() => handleViewDocument(renderedCellValue)}
-            disabled={!renderedCellValue}
-            title={renderedCellValue ? "Preview document" : "No document attached"}
-          >
-            {renderedCellValue ? (
-              <KTIcon iconName="eye" className="fs-3" />
-            ) : (
-              <AppIcon name="bi-file-earmark-x" className="fs-3 text-danger" />
-            )}
-          </Button>
-        ),
+        meta: { export: false },
+        cell: ({ getValue }) => {
+          const url = getValue() as string | null | undefined;
+          if (!url) {
+            return (
+              <span className="inline-flex text-destructive" title="No document attached" aria-label="No document attached">
+                <FileX className="size-4" aria-hidden />
+              </span>
+            );
+          }
+          return (
+            <RowAction label="Preview document" onClick={() => handleViewDocument(url)}>
+              <Eye className="size-4" />
+            </RowAction>
+          );
+        },
       },
     ],
     [handleViewDocument]
@@ -339,7 +304,7 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
         className="d-flex flex-column align-items-center justify-content-center text-center"
         style={{ minHeight: "300px" }}
       >
-        <AppIcon name="bi-receipt" className="fs-2x text-muted mb-4" style={{ fontSize: "3rem" }} />
+        <Receipt className="mb-4 size-12 text-muted-foreground" aria-hidden />
         <h4 className="text-muted fw-semibold mb-2">No Reimbursements Found</h4>
         <p className="text-gray-500 fs-6 mb-0">
           No reimbursements have been linked to this project yet.
@@ -478,23 +443,13 @@ function ProjectReimbursements({ projectId }: ProjectReimbursementsProps) {
         ))}
       </div>
 
-      <MaterialTable
+      <DataTable
+        caption="Project Reimbursements"
         columns={columns}
         data={reimbursementData}
-        muiTableProps={{
-          sx: {
-            "& .MuiTableBody-root .MuiTableCell-root": {
-              borderBottom: "none",
-              paddingY: "5px",
-            },
-          },
-        }}
-        tableName="Project Reimbursements"
-        resource=""
-        viewOwn={false}
-        viewOthers={true}
-        checkOwnWithOthers={false}
-        employeeId=""
+        getRowId={(r, i) => String((r as unknown as { id?: string }).id ?? i)}
+        loading={loading}
+        stateKey="ProjectReimbursements"
       />
 
       {/* In-app document preview modal */}

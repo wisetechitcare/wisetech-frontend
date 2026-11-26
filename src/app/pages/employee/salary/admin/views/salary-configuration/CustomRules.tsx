@@ -1,7 +1,8 @@
 import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import {
   safeJsonParse } from '@utils/safeJson';
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import TextInput from "@app/modules/common/inputs/TextInput";
 import { KTIcon,
   toAbsoluteUrl } from "@metronic/helpers";
@@ -13,7 +14,7 @@ import { Button } from "@/ds/ui/button";
 import { WtCloseButton } from "@app/modules/common/components/ui/tw/WtCloseButton";
 import { RootState } from "@redux/store";
 import { Form, Formik, FormikValues } from "formik";
-import { MRT_ColumnDef } from "material-react-table";
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import * as Yup from "yup";
@@ -145,28 +146,28 @@ function CustomRules() {
       header: "Type",
       enableSorting: false,
       enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => `${renderedCellValue?.charAt(0)?.toUpperCase() + renderedCellValue?.slice(1)}`,
+      cell: ({ cell }: any) => `${cell.getValue()?.charAt(0)?.toUpperCase() + cell.getValue()?.slice(1)}`,
     },
     {
       accessorKey: "name",
       header: "Name",
       enableSorting: false,
       enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => renderedCellValue,
+      cell: ({ cell }: any) => cell.getValue(),
     },
     {
       accessorKey: "period",
       header: "Period",
       enableSorting: false,
       enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => Number(renderedCellValue) >1 ? `${renderedCellValue} days` : `${renderedCellValue} day`,
+      cell: ({ cell }: any) => Number(cell.getValue()) >1 ? `${ cell } days` : `${ cell } day`,
     },
     {
       accessorKey: "deduction_amount",
       header: "Deduction Amount",
       enableSorting: false,
       enableColumnActions: false,
-      Cell: ({ renderedCellValue }: any) => `${renderedCellValue}% of daily salary`,
+      cell: ({ cell }: any) => `${ cell }% of daily salary`,
     },
     ...(canWrite
       ? [
@@ -180,7 +181,7 @@ function CustomRules() {
           muiTableBodyCellProps: {
             align: "right" as const,
           },
-          Cell: ({ row }: any) => {
+          cell: ({ row }: any) => {
             const resEdit = hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.editOthers);
             return  (
               <div className="flex items-center justify-center space-x-4">
@@ -232,30 +233,16 @@ function CustomRules() {
           </p>
         </div>
       </div>
-      <MaterialTable
+      <DataTable
+        caption="ecustom Rules Schema"
         columns={columnsCustomRules}
-        hideFilters={true}
         data={configurationTable}
-        hideExportCenter={true}
-        employeeId={employeeId}
-        enableBottomToolbar={false}
-        muiTableHeadCellStyle={{
-          boxShadow: "none",
-          margin: "0px",
-        }}
-        muiTablePaperStyle={{
-          boxShadow: "none",
-        }}
-        muiTableProps={{
-          sx: {
-            "& .MuiTableBody-root .MuiTableCell-root": {
-              borderBottom: "none",
-              paddingY: "5px",
-            },
-            "& .MuiTableBody-root .MuiTableRow-root": {},
-          },
-        }}
-        tableName="ecustomRulesSchema"
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="salary.customRules"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
       />
 
       {(hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.create) && hasPermission(resourceNameMapWithCamelCase.salary, permissionConstToUseWithHasPermission.readOthers)) && <div

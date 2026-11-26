@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable } from '@/ds/patterns/data-table';
+
 import AnalyticsTab from "@app/modules/common/components/AnalyticsTab";
 import { ToneChip } from "@app/modules/common/components/ui";
 
@@ -41,7 +42,7 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
     {
       accessorKey: "referenceType",
       header: "Type",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <ToneChip
           dense
           tone={row.original.referenceType === "INTERNAL" ? "brand" : "success"}
@@ -52,7 +53,7 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
     {
       accessorKey: "refName",
       header: "Reference Name",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const c = (row.original as ReferredCompanyReference).company;
         if (!c) return <span className="text-muted">—</span>;
         return (
@@ -69,7 +70,7 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
     {
       accessorKey: "contactPhone",
       header: "Phone",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const c = (row.original as ReferredCompanyReference).company;
         return c?.phone ? <span>{c.phone}</span> : <span className="text-muted">—</span>;
       },
@@ -77,7 +78,7 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
     {
       accessorKey: "contactEmail",
       header: "Email",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const c = (row.original as ReferredCompanyReference).company;
         return c?.email ? <span>{c.email}</span> : <span className="text-muted">—</span>;
       },
@@ -85,7 +86,7 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
     {
       accessorKey: "companyType",
       header: "Company Type",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const c = (row.original as ReferredCompanyReference).company;
         return <span>{c?.companyType?.name || <span className="text-muted">—</span>}</span>;
       },
@@ -93,7 +94,7 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
     {
       accessorKey: "status",
       header: "Status",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const status = (row.original as ReferredCompanyReference).company?.status;
         const active = status === "ACTIVE";
         return (
@@ -117,12 +118,17 @@ const CompanyReferences: React.FC<{ referredCompanies?: ReferredCompanyReference
       storageKey="companyReferencesPeriodMode"
     >
       {(filtered) => (
-        <MaterialTable
+        <DataTable
+          caption="Company References"
           data={filtered}
           columns={columns}
-          tableName="company-references"
-          hidePagination={true}
-          muiTableProps={{ sx: { minWidth: 600 } }}
+          getRowId={(r: any) => r.id}
+          stateKey="crm.companyReferences"
+          groupableColumns={false}
+          tools={false}
+          initialPageSize={100}
+          minWidth={600}
+          searchPlaceholder="Search references…"
         />
       )}
     </AnalyticsTab>

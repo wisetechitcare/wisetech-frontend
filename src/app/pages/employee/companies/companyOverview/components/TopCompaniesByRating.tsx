@@ -1,6 +1,6 @@
 import { getAllRatingFactors, getTopCompaniesByAllRatingFactors, getTopCompaniesByRatingFactor } from '@services/companies'
 import React, { useEffect, useState } from 'react'
-import MaterialTable from '@app/modules/common/components/MaterialTable'
+import { DataTable } from '@/ds/patterns/data-table';
 import { FormControl, Select, MenuItem, SelectChangeEvent } from '@mui/material'
 
 interface RatingFactor {
@@ -95,7 +95,7 @@ function TopCompaniesByRating({startDate, endDate}: {startDate?: string; endDate
         {
             accessorKey: 'serialNumber',
             header: 'S.No',
-            Cell: ({ row }: { row: any }) => {
+            cell: ({ row }: { row: any }) => {
                 return row.index + 1;
             },
             size: 80,
@@ -108,7 +108,7 @@ function TopCompaniesByRating({startDate, endDate}: {startDate?: string; endDate
         {
             accessorKey: 'companyType',
             header: 'Type',
-            Cell: ({ cell }: { cell: any }) => {
+            cell: ({ cell }: { cell: any }) => {
                 const companyType = cell.getValue();
                 return companyType ? companyType.name : '';
             },
@@ -127,7 +127,7 @@ function TopCompaniesByRating({startDate, endDate}: {startDate?: string; endDate
         {
             accessorKey: 'averageRating',
             header: 'Rating',
-            Cell: ({ cell }: { cell: any }) => {
+            cell: ({ cell }: { cell: any }) => {
                 const rating = cell.getValue() as number;
                 return (
                     <div className="d-flex align-items-center">
@@ -195,14 +195,16 @@ function TopCompaniesByRating({startDate, endDate}: {startDate?: string; endDate
                         </div>
                     </div>
                 ) : (
-                    <MaterialTable
+                    <DataTable
+                        caption="Top Companies by Rating"
                         data={topCompaniesByRating}
                         columns={columns}
-                        tableName="top-companies-by-rating"
-                        hideFilters={true}
-                        hideExportCenter={true}
-                        enableBottomToolbar={false}
-                        muiTablePaperStyle={{ boxShadow: 'none' }}
+                        getRowId={(r) => r.id}
+                        stateKey="crm.topCompaniesByRating"
+                        groupableColumns={false}
+                        tools={false}
+                        initialPageSize={100}
+                        searchPlaceholder="Search companies…"
                     />
                 )}
             </div>

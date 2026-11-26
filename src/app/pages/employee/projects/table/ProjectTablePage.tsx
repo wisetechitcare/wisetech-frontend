@@ -1,5 +1,3 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import ExportButton from "@app/modules/common/components/ExportButton";
 import TimePeriodSelector from "@app/modules/common/components/TimePeriodSelector";
 import { PeriodMode } from "@/constants/common";
 import { Box, useTheme, useMediaQuery } from "@mui/material";
@@ -12,7 +10,6 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTableFilters } from "@app/hooks/useTableFilters";
 import { projectManagerIds } from "@app/pages/employee/entity/detail/entityViewModel";
-import { flexibleTextMatch, searchAcrossFields } from "@app/utils/robustSearch";
 import Loader from "@app/modules/common/utils/Loader";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
@@ -23,20 +20,13 @@ import {
   getAllProjectSubcategories,
   getAllProjectStatuses,
 } from "@services/projects";
-import {
-  fetchAllCountries,
-  fetchAllStates,
-  fetchAllCities,
-} from "@services/options";
-import { getRowBackgroundColor } from "@app/modules/common/design-tokens";
+import { fetchAllCountries } from "@services/options";
 import { AppDispatch, RootState } from "@redux/store";
 import { useDispatch, useSelector } from "react-redux";
-import eventBus from "@utils/EventBus";
 import { canViewCommercial } from "@utils/can";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
 import { fetchAllEmployeesAsync } from "@redux/slices/allEmployees";
-import { KTIcon } from "@metronic/helpers";
 import { Check, ImageOff, MapPinOff } from "lucide-react";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -53,10 +43,10 @@ import {
   categoryIdsOf,
   serviceIdsOf,
   subCategoryIdsOf,
-  projectTableProps,
 } from "./ProjectListTable";
 import PeriodNavigationButtons from "@pages/employee/leads/table/PeriodNavigationButtons";
-import { Button } from "@/ds/ui/button";
+import { DataTable } from "@/ds/patterns/data-table";
+import { DataTableExport } from "@/ds/patterns/data-table-export";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -86,30 +76,15 @@ const ProjectTablePage = () => {
   const [tableData, setTableData] = useState<any[]>([]);
   const [projectStatuses, setProjectStatuses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  // True once the first fetch settles. Background refetches (event bus, column
-  // visibility changes) must NOT swap the table for the full-page loader:
-  // unmounting MaterialTable resets its preference state, and the remount
-  // re-emits visible columns → another refetch → an endless refresh loop.
+  // True once the first fetch settles. Background refetches (event bus) must NOT
+  // swap the table for the full-page loader.
   const hasLoadedOnceRef = useRef(false);
   const [projectServices, setProjectServices] = useState<any[]>([]);
   const [projectCategories, setProjectCategories] = useState<any[]>([]);
   const [projectSubcategories, setProjectSubcategories] = useState<any[]>([]);
 
-  // ── Column visibility & selective fetching ──────────────────────────────────
-  const visibleColumnsRef = useRef<string[] | null>(null);
-  const lastFieldsKeyRef = useRef<string | null>(null);
-  const firstVisibilityEmissionRef = useRef(true);
-  const columnsRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-
-  // Clean up refetch timer on unmount
-  useEffect(() => {
-    return () => {
-      if (columnsRefetchTimerRef.current)
-        clearTimeout(columnsRefetchTimerRef.current);
-    };
-  }, []);
+  // Kit DataTable does not expose onVisibleColumnsChange yet — fetch the full
+  // project payload once (and on event-bus refresh) instead of field-selective refetch.
 
   const [alignment, setAlignment] = useState<PeriodMode>(PeriodMode.MONTHLY);
   // Filters sync with URL params — persist across navigation without page reload
@@ -152,9 +127,6 @@ const ProjectTablePage = () => {
 
   const allemployees = useSelector(
     (state: RootState) => state.allEmployees?.list,
-  );
-  const currentEmployeeId = useSelector(
-    (state: RootState) => state.employee?.currentEmployee?.id,
   );
 
   // Every manager id on a row (roster first, primary-only as fallback). "N/A" is
@@ -494,32 +466,6 @@ const ProjectTablePage = () => {
     }
   }, []);
 
-  const handleVisibleColumnsChange = useCallback(
-    (keys: string[]) => {
-      visibleColumnsRef.current = keys;
-      const key = [...keys].sort().join(",");
-
-      // First emission: record baseline, don't refetch
-      if (firstVisibilityEmissionRef.current) {
-        firstVisibilityEmissionRef.current = false;
-        lastFieldsKeyRef.current = key;
-        return;
-      }
-
-      // No change detected
-      if (key === lastFieldsKeyRef.current) return;
-      lastFieldsKeyRef.current = key;
-
-      // Debounce refetch
-      if (columnsRefetchTimerRef.current)
-        clearTimeout(columnsRefetchTimerRef.current);
-      columnsRefetchTimerRef.current = setTimeout(() => {
-        fetchAllData(keys);
-      }, 500);
-    },
-    [fetchAllData],
-  );
-
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
@@ -545,68 +491,6 @@ const ProjectTablePage = () => {
         pmNames,
       }),
     [projectServices, projectCategories, projectSubcategories, pmNames],
-  );
-
-  const exportColumns = useMemo(
-    () =>
-      [
-        {
-          key: "projectPrefix",
-          header: "Project Number",
-          type: "text" as const,
-        },
-        { key: "projectName", header: "Project Name", type: "text" as const },
-        { key: "client", header: "Client Company", type: "text" as const },
-        { key: "contact", header: "Contact", type: "text" as const },
-        { key: "category", header: "Category", type: "text" as const },
-        { key: "subCategory", header: "Subcategory", type: "text" as const },
-        {
-          key: "projectStatus",
-          header: "Project Status",
-          type: "text" as const,
-          format: (val: any) => val?.name || String(val || ""),
-        },
-        { key: "poStatus", header: "PO Status", type: "text" as const },
-        {
-          key: "projectStartDate",
-          header: "Start Date",
-          type: "text" as const,
-        },
-        { key: "projectEndDate", header: "End Date", type: "text" as const },
-        {
-          key: "projectCost",
-          header: "Budget",
-          type: "currency" as const,
-          showTotal: true,
-        },
-        {
-          key: "totalCost",
-          header: "Cost",
-          type: "currency" as const,
-          showTotal: true,
-        },
-        {
-          key: "projectArea",
-          header: "Area (SFT)",
-          type: "number" as const,
-          showTotal: true,
-        },
-        { key: "projectRate", header: "Rate", type: "currency" as const },
-        // Export the resolved manager names (all of them), not the raw ids.
-        {
-          key: "projectManagerId",
-          header: "Project Manager",
-          type: "text" as const,
-          format: (_val: any, row: any) => pmNames(row),
-        },
-        { key: "projectTeamName", header: "Team", type: "text" as const },
-        { key: "service", header: "Service", type: "text" as const },
-      ].filter(
-        (c) =>
-          canViewCommercial("projects") ||
-          !["projectCost", "totalCost", "projectRate"].includes(c.key),
-      ),
-    [allemployees],
   );
 
   // Full-page loader only for the very first load; background refetches keep
@@ -1012,44 +896,35 @@ const ProjectTablePage = () => {
         </div>
       </Box>
 
-      {/* MaterialTable opens with a shared `pt-6` (24px) gutter. Tightened for this page
-          only — Leads uses the same component and keeps its spacing. `!important`
-          because Bootstrap's own `.pt-6` utility carries it. */}
-      <Box sx={{ "& > .pt-6": { paddingTop: "8px !important" } }}>
-        <MaterialTable
-          columns={columns}
-          data={quickFilteredData}
-          // V4: fresh prefs bucket — saved sorts from V3 overrode the Start Date
-          // desc default, leaving the list in effectively random order. Bumping
-          // discards them so latest-start-date-first applies for everyone.
-          tableName="ProjectTableV4"
-          defaultSorting={[{ id: "projectStartDate", desc: true }]}
-          renderExportActions={() => (
-            <ExportButton
-              data={quickFilteredData}
-              columns={exportColumns}
-              filename="projects"
-              title="Projects"
-              subtitle="Project Management & Execution"
-              sheetName="Projects"
-              showTotals
-              totalLabel="TOTAL"
-              disabled={!quickFilteredData?.length}
-            />
-          )}
-          employeeId={currentEmployeeId}
-          resource="PROJECTS"
-          viewOwn={true}
-          viewOthers={true}
-          checkOwnWithOthers={true}
-          onVisibleColumnsChange={handleVisibleColumnsChange}
-          {...projectTableProps((row) =>
-            navigate(
-              `/project/${row.id}${showMissingProjectView ? "/gallery" : ""}`,
-            ),
-          )}
-        />
-      </Box>
+      <DataTable
+        caption="Projects"
+        columns={columns}
+        data={quickFilteredData}
+        getRowId={(r) => r.id}
+        // V4: fresh prefs bucket — saved sorts from V3 overrode the Start Date
+        // desc default, leaving the list in effectively random order. Bumping
+        // discards them so latest-start-date-first applies for everyone.
+        stateKey="ProjectTableV4"
+        initialSorting={[{ id: "projectStartDate", desc: true }]}
+        onRowClick={(row) =>
+          navigate(
+            `/project/${row.id}${showMissingProjectView ? "/gallery" : ""}`,
+          )
+        }
+        rowLabel={(row) => row.projectName || "Open project"}
+        searchPlaceholder="Search projects…"
+        groupableColumns={false}
+        toolbar={(ctx) => (
+          <DataTableExport
+            columns={columns}
+            ctx={ctx}
+            filename="projects"
+            title="Projects"
+            subtitle="Project Management & Execution"
+            sheetName="Projects"
+          />
+        )}
+      />
     </>
   );
 };

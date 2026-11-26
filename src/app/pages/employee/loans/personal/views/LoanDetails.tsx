@@ -8,8 +8,9 @@ import InstallmentAndPayment from '../components/InstallmentAndPayment';
 
 import { InstallmentTypeEnum, LoanType, LoanTypeVal, permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase, Status } from '@constants/statistics';
 import dayjs from 'dayjs';
-import { MRT_ColumnDef } from 'material-react-table';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { Form, Formik, useFormikContext } from 'formik';
 import TextInput from '@app/modules/common/inputs/TextInput';
 import { errorConfirmation, successConfirmation } from '@utils/modal';
@@ -208,49 +209,49 @@ function LoanDetails() {
         };
     }, [completeInstallmentData, completeLoanData])
 
-    const columns = useMemo<MRT_ColumnDef<any>[]>(
+    const columns = useMemo<ColumnDef<any>[]>(
         () => [
             {
                 accessorKey: "name",
                 header: "Name",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ renderedCellValue }: any) => renderedCellValue,
             },
             {
                 accessorKey: "dueDate",
                 header: "Due Date",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ renderedCellValue }: any) => renderedCellValue,
             },
             {
                 accessorKey: "paymentAmount",
                 header: "Payment Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
             },
             {
                 accessorKey: "paidAmount",
                 header: "Paid Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
             },
             {
                 accessorKey: "status",
                 header: "Status",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ renderedCellValue }: any) => renderedCellValue,
             },
             ...([{
                 accessorKey: "actions",
                 header: "Actions",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ row }: any) => {                      
+                cell: ({ row }: any) => {                      
                       const resEdit = hasPermission(resourceNameMapWithCamelCase.loanInstallment, permissionConstToUseWithHasPermission.editOwn, row?.original);
                     //   const resDelete = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
                     return (
@@ -287,63 +288,63 @@ function LoanDetails() {
         []
     );
 
-    const columns2 = useMemo<MRT_ColumnDef<any>[]>(
+    const columns2 = useMemo<ColumnDef<any>[]>(
         () => [
             {
                 accessorKey: "loanAmount",
                 header: "Loan Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
             },
             {
                 accessorKey: "payment",
                 header: "Payment",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
             },
             {
                 accessorKey: "installment",
                 header: "Installment",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
             },
             {
                 accessorKey: "dueDate",
                 header: "Due Date",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ renderedCellValue }: any) => renderedCellValue,
             },
             {
                 accessorKey: "dueAmount",
                 header: "Due Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
+                cell: ({ renderedCellValue }: any) => formatNumber(renderedCellValue),
             },
             {
                 accessorKey: "request",
                 header: "Request",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ renderedCellValue }: any) => renderedCellValue,
             },
             {
                 accessorKey: "note",
                 header: "Note",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ renderedCellValue }: any) => renderedCellValue,
             },
             {
                 accessorKey: "actions",
                 header: "Actions",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ row }: any) => {
+                cell: ({ row }: any) => {
                     return (
                         <div className="flex items-center justify-center space-x-4">
                             <p className='text-primary cursor-pointer' onClick={() => {
@@ -456,49 +457,27 @@ function LoanDetails() {
         <div className="d-flex justify-content-between align-items-center py-3 px-2 mt-4">
           <h3 className="fs-5 fs-md-4 fw-bold">Installment And Payments</h3>
         </div>
-        <MaterialTable
+        <DataTable
+          caption="Loan Detail Installments"
           columns={columns}
           data={loanData}
-          muiTableProps={{
-            sx: {
-              "& .MuiTableBody-root .MuiTableCell-root": {
-                borderBottom: "none",
-                paddingY: "5px",
-              },
-              "& .MuiTableBody-root .MuiTableRow-root": {
-                // padding: '0px',
-              },
-            },
-          }}
-          tableName="LoanDetailInstallments"
-          employeeId={employeeIdCurrent}
-          // resource={loanData}
-          // viewOwn={viewOwn}
-          // viewOthers={viewOthers}
+          getRowId={(r: any) => String(r.id ?? r.installmentId)}
+          stateKey="loans.detail.installments"
+          groupableColumns={false}
+          searchPlaceholder="Search installments…"
         />
 
         <div className="d-flex justify-content-between align-items-center py-3 px-2 mt-4">
           <h3 className="fs-5 fs-md-4 fw-bold">Payment Change Request</h3>
         </div>
-        <MaterialTable
+        <DataTable
+          caption="Loan Detail Payment Changes"
           columns={columns2}
           data={paymentChangeData}
-          muiTableProps={{
-            sx: {
-              "& .MuiTableBody-root .MuiTableCell-root": {
-                borderBottom: "none",
-                paddingY: "5px",
-              },
-              "& .MuiTableBody-root .MuiTableRow-root": {
-                // padding: '0px',
-              },
-            },
-          }}
-          tableName="LoanDetailPaymentChanges"
-          employeeId={employeeIdCurrent}
-          // resource={loanData}
-          // viewOwn={viewOwn}
-          // viewOthers={viewOthers}
+          getRowId={(r: any) => String(r.id)}
+          stateKey="loans.detail.paymentChanges"
+          groupableColumns={false}
+          searchPlaceholder="Search requests…"
         />
 
         <Modal

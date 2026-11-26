@@ -1,10 +1,9 @@
 import { safeJsonParse } from '@utils/safeJson';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
 import { Box, CircularProgress, Stack, Typography } from "@mui/material";
 import { Button, buttonVariants } from "@/ds/ui/button";
-import { MRT_ColumnDef } from "material-react-table";
 import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
 import { IAttendanceRequests } from "@models/employee";
 import { RootState } from "@redux/store";
@@ -373,35 +372,24 @@ const PendingRequestsTable = () => {
   };
 
   // Attendance columns
-  const attendanceColumns = useMemo<MRT_ColumnDef<any>[]>(
+  const attendanceColumns = useMemo<ColumnDef<any>[]>(
     () => [
       {
         accessorKey: "date",
         header: "Date",
-        size: 100,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
+        size: 100,      },
       {
         accessorKey: "day",
         header: "Day",
-        size: 80,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
+        size: 80,      },
       {
         accessorKey: "employeeName",
         header: "Employee Name",
-        size: 120,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
+        size: 120,      },
       {
         accessorKey: "checkIn",
         header: "Check-In",
-        size: 90,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }: any) => {
+        size: 90,        cell: ({ row }: any) => {
           const employee = row.original;
           const checkIn = employee.checkIn;
           if (!checkIn || checkIn === '-NA-' || !employeeThresholds) {
@@ -434,9 +422,7 @@ const PendingRequestsTable = () => {
       {
         accessorKey: "checkOut",
         header: "Check-Out",
-        size: 90,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }: any) => {
+        size: 90,        cell: ({ row }: any) => {
           const employee = row.original;
           const checkOut = employee.checkOut;
           if (!checkOut || checkOut === '-NA-' || !earlyCheckOutThreshold) {
@@ -468,16 +454,11 @@ const PendingRequestsTable = () => {
       {
         accessorKey: "remarks",
         header: "Remarks",
-        size: 150,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
+        size: 150,      },
       {
         accessorKey: "actions",
         header: "Actions",
-        size: 100,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }: any) => {
+        size: 100,        cell: ({ row }: any) => {
           const isPending = row.original.status === LeaveStatus.ApprovalPending;
           if (!isPending) return null;
           const canAct = actionableApprovals.has(row.original.id);
@@ -540,35 +521,24 @@ const PendingRequestsTable = () => {
   );
 
   // Leave columns
-  const leaveColumns = useMemo<MRT_ColumnDef<any>[]>(
+  const leaveColumns = useMemo<ColumnDef<any>[]>(
     () => [
       {
         accessorKey: "date",
         header: "Leave Date",
-        size: 120,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
+        size: 120,      },
       {
         accessorKey: "name",
         header: "Employee Name",
-        size: 120,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
+        size: 120,      },
       {
         accessorKey: "code",
         header: "Employee Code",
-        size: 100,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
+        size: 100,      },
       {
         accessorKey: "type",
         header: "Leave Type",
-        size: 120,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ renderedCellValue }: any) => (
+        size: 120,        cell: ({ renderedCellValue }: any) => (
           <ToneChip
             dense
             solid
@@ -580,16 +550,11 @@ const PendingRequestsTable = () => {
       {
         accessorKey: "remark",
         header: "Reason",
-        size: 200,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        muiTableBodyCellProps: { sx: { fontSize: "14px", color: "#000" } },
-      },
+        size: 200,      },
       {
         accessorKey: "actions",
         header: "Actions",
-        size: 100,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }: any) => {
+        size: 100,        cell: ({ row }: any) => {
           const isPending = row.original.status === LeaveStatus.ApprovalPending;
           if (!isPending) return null;
           const canAct = actionableApprovals.has(row.original.id);
@@ -657,14 +622,12 @@ const PendingRequestsTable = () => {
   );
 
   // Reimbursement batch columns (same as Approval → Reimbursement)
-  const reimbursementColumns = useMemo<MRT_ColumnDef<BatchRow>[]>(
+  const reimbursementColumns = useMemo<ColumnDef<any>[]>(
     () => [
       {
         accessorKey: 'employeeName',
         header: 'Employee Name',
-        size: 200,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }) => {
+        size: 200,        cell: ({ row }) => {
           const { firstName, lastName } = row.original.employee?.users || {};
           const fullName = [firstName, lastName].filter(Boolean).join(' ');
           return (
@@ -684,17 +647,13 @@ const PendingRequestsTable = () => {
       {
         accessorKey: 'totalAmount',
         header: `Total Amount (${getCurrencySymbol()})`,
-        size: 150,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }) => <span className='text-dark fs-7'>{currencyPrefix()}{fmtAmount(row.original.totalAmount)}</span>,
+        size: 150,        cell: ({ row }) => <span className='text-dark fs-7'>{currencyPrefix()}{fmtAmount(row.original.totalAmount)}</span>,
         Footer: () => <span className='text-dark fw-bold fs-7'>{currencyPrefix()}{fmtAmount(reimbursementTotal)}</span>,
       },
       {
         accessorKey: 'totalRequests',
         header: 'Total Requests',
-        size: 130,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }) => (
+        size: 130,        cell: ({ row }) => (
           <Button
             variant='link'
             size='xs'
@@ -709,18 +668,14 @@ const PendingRequestsTable = () => {
       {
         accessorKey: 'submittedAt',
         header: 'Submitted On',
-        size: 140,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }) => <span className='fs-7'>{fmtDate(row.original.submittedAt)}</span>,
+        size: 140,        cell: ({ row }) => <span className='fs-7'>{fmtDate(row.original.submittedAt)}</span>,
       },
       {
         accessorKey: 'actions',
         header: 'Action',
         size: 160,
         enableSorting: false,
-        enableColumnActions: false,
-        muiTableHeadCellProps: { sx: { color: "#7a8597", fontSize: "14px", fontWeight: 400 } },
-        Cell: ({ row }: any) => {
+        enableColumnActions: false,        cell: ({ row }: any) => {
           const r = row.original as BatchRow;
           const isActionable = actionableApprovals.has(r.id);
           const isProcessing = batchProcessingId === r.id;
@@ -914,112 +869,59 @@ const PendingRequestsTable = () => {
         className="table-container"
       >
         {activeTab === "attendance" && (
-          <MaterialTable
+          <DataTable
+            caption="Pending Attendance Requests"
             columns={attendanceColumns}
             data={markWeekendOrHoliday(attendanceRequests.filter((req: any) => req.status === LeaveStatus.ApprovalPending), getAllWeekends, allHolidays)}
-            tableName="PendingAttendanceRequests"
-            isLoading={isLoading}
-            hideFilters={true}
-            hideExportCenter={true}
-            hidePagination={true}
-            // hidePagination renders EVERY pending row, and this queue is unbounded —
-            // it grows with the approver's backlog. Virtualization only works inside a
-            // height-bounded scroller (MRT virtualizes against the container viewport),
-            // so the maxHeight is load-bearing, not cosmetic: without it the container
-            // grows to fit all rows and the virtualizer has nothing to window against.
-            muiTableContainerProps={{ sx: { maxHeight: 440 } }}
-            enableRowVirtualization={true}
-            enableSorting={false}
-            enableColumnActions={false}
-            enableFilters={false}
-            enableGrouping={false}
-            enableColumnDragging={false}
-            enableColumnResizing={false}
-            enableColumnPinning={false}
-            enableExpandAll={false}
-            enableHiding={false}
-            enableFullScreenToggle={false}
-            muiTableProps={{
-              sx: {
-                "& .MuiTableHead-root .MuiTableRow-root .MuiTableCell-root": { backgroundColor: "transparent", borderBottom: "none" },
-                "& .MuiTableBody-root .MuiTableRow-root:hover": { backgroundColor: "rgba(0, 0, 0, 0.02)" },
-                "& .MuiTableBody-root .MuiTableRow-root .MuiTableCell-root": { borderBottom: "none", padding: "12px" },
-              },
-            }}
-            muiTablePaperStyle={{ sx: { boxShadow: "none", border: "none" } }}
+            getRowId={(r: any) => String(r.id)}
+            loading={isLoading}
+            virtualized
+            virtualMaxHeight={440}
+            initialPageSize={500}
+            tools={false}
+            groupableColumns={false}
+            reorderableColumns={false}
+            pinnableColumns={false}
+            resizableColumns={false}
+            stateKey="dashboard.pending.attendance"
           />
         )}
 
         {activeTab === "leaves" && (
-          <MaterialTable
+          <DataTable
+            caption="Pending Leave Requests"
             columns={leaveColumns}
             data={openLeaveRequestsFromRedux}
-            tableName="PendingLeaveRequests"
-            isLoading={isLoading}
-            hideFilters={true}
-            hideExportCenter={true}
-            hidePagination={true}
-            // See PendingAttendanceRequests above — the maxHeight is what makes the
-            // virtualizer effective, not decoration.
-            muiTableContainerProps={{ sx: { maxHeight: 440 } }}
-            enableRowVirtualization={true}
-            enableSorting={false}
-            enableColumnActions={false}
-            enableFilters={false}
-            enableGrouping={false}
-            enableColumnDragging={false}
-            enableColumnResizing={false}
-            enableColumnPinning={false}
-            enableExpandAll={false}
-            enableHiding={false}
-            enableFullScreenToggle={false}
-            muiTableProps={{
-              sx: {
-                "& .MuiTableHead-root .MuiTableRow-root .MuiTableCell-root": { backgroundColor: "transparent", borderBottom: "none" },
-                "& .MuiTableBody-root .MuiTableRow-root:hover": { backgroundColor: "rgba(0, 0, 0, 0.02)" },
-                "& .MuiTableBody-root .MuiTableRow-root .MuiTableCell-root": { borderBottom: "none", padding: "12px" },
-              },
-            }}
-            muiTablePaperStyle={{ sx: { boxShadow: "none", border: "none" } }}
+            getRowId={(r: any) => String(r.id)}
+            loading={isLoading}
+            virtualized
+            virtualMaxHeight={440}
+            initialPageSize={500}
+            tools={false}
+            groupableColumns={false}
+            reorderableColumns={false}
+            pinnableColumns={false}
+            resizableColumns={false}
+            stateKey="dashboard.pending.leaves"
           />
         )}
 
         {activeTab === "reimbursements" && (
-          <MaterialTable
+          <DataTable
+            caption="Pending Reimbursement Batches"
             columns={reimbursementColumns}
             data={reimbursementBatches}
-            tableName="PendingReimbursementBatches"
-            isLoading={isLoading}
-            hideFilters={true}
-            hideExportCenter={false}
-            hidePagination={true}
-            showColumnFooter={true}
-            // Inbox is small. Row virtualization + sticky column footer was painting an
-            // empty body while Footer still showed TOTAL (data loaded, rows not).
-            muiTableContainerProps={{ sx: { maxHeight: 440 } }}
-            enableRowVirtualization={false}
-            enableSorting={false}
-            enableColumnActions={false}
-            enableFilters={false}
-            enableGrouping={false}
-            enableColumnDragging={false}
-            enableColumnResizing={false}
-            enableColumnPinning={false}
-            enableExpandAll={false}
-            enableHiding={false}
-            enableFullScreenToggle={false}
-            muiTableProps={{
-              sx: {
-                "& .MuiTableHead-root .MuiTableRow-root .MuiTableCell-root": { backgroundColor: "transparent", borderBottom: "none" },
-                "& .MuiTableBody-root .MuiTableRow-root:hover": { backgroundColor: "rgba(0, 0, 0, 0.02)" },
-                "& .MuiTableBody-root .MuiTableRow-root .MuiTableCell-root": { borderBottom: "none", padding: "12px" },
-              },
-              muiTableBodyRowProps: ({ row }: any) => ({
-                onClick: () => openBatchDetail(row.original),
-                sx: { cursor: 'pointer' },
-              }),
-            }}
-            muiTablePaperStyle={{ sx: { boxShadow: "none", border: "none" } }}
+            getRowId={(r: any) => String(r.id)}
+            loading={isLoading}
+            virtualMaxHeight={440}
+            initialPageSize={500}
+            tools={false}
+            groupableColumns={false}
+            reorderableColumns={false}
+            pinnableColumns={false}
+            resizableColumns={false}
+            stateKey="dashboard.pending.reimbursements"
+            onRowClick={(row) => openBatchDetail(row)}
           />
         )}
       </div>

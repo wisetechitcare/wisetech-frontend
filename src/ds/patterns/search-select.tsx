@@ -1,6 +1,6 @@
-import * as React from "react";
-import { cn } from "@/ds/lib/utils";
-import { Button } from "@/ds/ui/button";
+import * as React from "react"
+import { cn } from "@/ds/lib/utils"
+import { Button } from "@/ds/ui/button"
 import {
   Combobox,
   ComboboxContent,
@@ -8,35 +8,54 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
-} from "@/ds/ui/combobox";
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/ds/ui/field";
+} from "@/ds/ui/combobox"
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/ds/ui/field"
 
 export type SearchSelectOption = {
-  value: string;
-  label: string;
+  value: string
+  label: string
   /** An icon element, or an image URL (e.g. a category's uploaded icon). */
-  icon?: React.ReactNode;
-  disabled?: boolean;
-};
+  icon?: React.ReactNode
+  disabled?: boolean
+}
 
-const byValue = (a: SearchSelectOption, b: SearchSelectOption) =>
-  a.value === b.value;
+const byValue = (a: SearchSelectOption, b: SearchSelectOption) => a.value === b.value
+
+/**
+ * Geo packs sometimes hand `{ name, utcOffsetStr }` where a string label/value was expected.
+ * Rendering that object as a React child crashes the route — coerce here so one bad caller
+ * cannot take down Create Tenant / Branches.
+ */
+function coerceOptionText(raw: unknown): string {
+  if (typeof raw === "string") return raw
+  if (raw && typeof raw === "object") {
+    const o = raw as { name?: unknown; utcOffsetStr?: unknown; label?: unknown; value?: unknown }
+    if (typeof o.name === "string" && o.name.trim()) {
+      const offset =
+        typeof o.utcOffsetStr === "string" && o.utcOffsetStr ? `(UTC${o.utcOffsetStr}) ` : ""
+      return `${offset}${o.name.trim()}`
+    }
+    if (typeof o.label === "string") return o.label
+    if (typeof o.value === "string") return o.value
+  }
+  if (raw == null) return ""
+  return String(raw)
+}
+
+function coerceOptionValue(raw: unknown): string {
+  if (typeof raw === "string") return raw
+  if (raw && typeof raw === "object") {
+    const o = raw as { name?: unknown; value?: unknown }
+    if (typeof o.name === "string" && o.name.trim()) return o.name.trim()
+    if (typeof o.value === "string") return o.value
+  }
+  if (raw == null) return ""
+  return String(raw)
+}
 
 function OptionIcon({ icon }: { icon: React.ReactNode }) {
-  if (typeof icon === "string")
-    return (
-      <img
-        src={icon}
-        alt=""
-        aria-hidden
-        className="size-5 shrink-0 object-contain"
-      />
-    );
-  return (
-    <span aria-hidden className="inline-flex shrink-0 [&_svg]:size-4">
-      {icon}
-    </span>
-  );
+  if (typeof icon === "string") return <img src={icon} alt="" aria-hidden className="size-5 shrink-0 object-contain" />
+  return <span aria-hidden className="inline-flex shrink-0 [&_svg]:size-4">{icon}</span>
 }
 
 /**
@@ -66,86 +85,91 @@ export function SearchSelect({
   createLabel = (q: string) => `Add “${q}”`,
   className,
 }: {
-  id: string;
-  label: string;
-  value: string | null | undefined;
-  onValueChange: (
-    value: string | null,
-    option: SearchSelectOption | null,
-  ) => void;
-  options: SearchSelectOption[];
-  placeholder?: string;
-  emptyText?: string;
-  hint?: React.ReactNode;
+  id: string
+  label: string
+  value: string | null | undefined
+  onValueChange: (value: string | null, option: SearchSelectOption | null) => void
+  options: SearchSelectOption[]
+  placeholder?: string
+  emptyText?: string
+  hint?: React.ReactNode
   /** Shown under the field, linked to the input and announced; also turns the field red. */
-  error?: React.ReactNode;
-  required?: boolean;
-  disabled?: boolean;
-  clearable?: boolean;
-  onBlur?: () => void;
+  error?: React.ReactNode
+  required?: boolean
+  disabled?: boolean
+  clearable?: boolean
+  onBlur?: () => void
   /**
    * Rows rendered at once. A long list (hundreds of projects) is searched, not scrolled: rendering every
    * row costs a render per keystroke for rows nobody reads, so the list shows the first `limit` matches and
    * says how to reach the rest.
    */
-  limit?: number;
+  limit?: number
   /**
    * Inline create (the Combobox InlineCreate recipe): when the typed text matches nothing, the list offers
    * to add it. The caller creates the record, adds it to `options` and selects it (only the caller knows the
    * new value). May return a promise; the button is disabled until it settles.
    */
-  onCreate?: (label: string) => void | Promise<void>;
+  onCreate?: (label: string) => void | Promise<void>
   /** Text of the create button. Default: Add “…”. */
-  createLabel?: (query: string) => string;
-  className?: string;
+  createLabel?: (query: string) => string
+  className?: string
 }) {
-  const hintId = hint ? `${id}-hint` : undefined;
-  const errorId = error ? `${id}-error` : undefined;
+  const hintId = hint ? `${id}-hint` : undefined
+  const errorId = error ? `${id}-error` : undefined
+  const safeOptions = React.useMemo(
+    () =>
+      (options as unknown[]).map((raw) => {
+        const o = (raw && typeof raw === "object" ? raw : {}) as SearchSelectOption & {
+          name?: string
+          utcOffsetStr?: string
+        }
+        // Callers sometimes pass geo timezone rows `{ name, utcOffsetStr }` as options.
+        const value = coerceOptionValue(o.value ?? o)
+        const label = coerceOptionText(o.label ?? o)
+        return {
+          value,
+          label,
+          icon: o.icon,
+          disabled: o.disabled,
+        } satisfies SearchSelectOption
+      }),
+    [options],
+  )
   const selected = React.useMemo(
-    () => options.find((o) => o.value === value) ?? null,
-    [options, value],
-  );
+    () => safeOptions.find((o) => o.value === value) ?? null,
+    [safeOptions, value],
+  )
   // The same match Base UI applies (case-insensitive "contains" on the label), so the note's count is true.
-  const [query, setQuery] = React.useState("");
-  const [creating, setCreating] = React.useState(false);
-  const typed = query.trim();
+  const [query, setQuery] = React.useState("")
+  const [creating, setCreating] = React.useState(false)
+  const typed = query.trim()
   const canCreate =
-    !!onCreate &&
-    !!typed &&
-    !options.some((o) => o.label.toLowerCase() === typed.toLowerCase());
+    !!onCreate && !!typed && !safeOptions.some((o) => o.label.toLowerCase() === typed.toLowerCase())
   async function create() {
-    if (!onCreate || !canCreate || creating) return;
-    setCreating(true);
+    if (!onCreate || !canCreate || creating) return
+    setCreating(true)
     try {
-      await onCreate(typed);
+      await onCreate(typed)
     } finally {
-      setCreating(false);
+      setCreating(false)
     }
   }
   const matches = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q || q === selected?.label.toLowerCase()) return options.length;
-    return options.reduce(
-      (n, o) => (o.label.toLowerCase().includes(q) ? n + 1 : n),
-      0,
-    );
-  }, [options, query, selected]);
+    const q = query.trim().toLowerCase()
+    if (!q || q === selected?.label.toLowerCase()) return safeOptions.length
+    return safeOptions.reduce((n, o) => (o.label.toLowerCase().includes(q) ? n + 1 : n), 0)
+  }, [safeOptions, query, selected])
 
   return (
-    <Field
-      data-invalid={error ? true : undefined}
-      data-disabled={disabled || undefined}
-      className={className}
-    >
+    <Field data-invalid={error ? true : undefined} data-disabled={disabled || undefined} className={className}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Combobox
-        items={options}
+        items={safeOptions}
         value={selected}
-        onValueChange={(next: SearchSelectOption | null) =>
-          onValueChange(next?.value ?? null, next ?? null)
-        }
-        itemToStringLabel={(o: SearchSelectOption) => o.label}
-        itemToStringValue={(o: SearchSelectOption) => o.value}
+        onValueChange={(next: SearchSelectOption | null) => onValueChange(next?.value ?? null, next ?? null)}
+        itemToStringLabel={(o: SearchSelectOption) => coerceOptionText(o.label)}
+        itemToStringValue={(o: SearchSelectOption) => coerceOptionValue(o.value)}
         isItemEqualToValue={byValue}
         disabled={disabled}
         required={required}
@@ -159,29 +183,23 @@ export function SearchSelect({
           showClear={clearable && !!selected && !disabled}
           aria-invalid={error ? true : undefined}
           aria-required={required || undefined}
-          aria-describedby={
-            [errorId, hintId].filter(Boolean).join(" ") || undefined
-          }
+          aria-describedby={[errorId, hintId].filter(Boolean).join(" ") || undefined}
           onBlur={onBlur}
           title={selected?.label}
           // An input is one line, so a long chosen value ("WT/PROJECT/26-27/742 - 5th Floor Criti Care Hospital
           // at Kurla") would be cut. At rest the box shows the value as wrapped text and grows to fit; on focus
           // that copy hides and the real input is back, one line, for searching. The input stays in place
           // (transparent) underneath, so a click anywhere in the box still lands on it.
-          className={
-            selected
-              ? cn(
-                  "h-auto min-h-10",
-                  "[&:not(:focus-within)_[data-slot=input-group-control]]:absolute [&:not(:focus-within)_[data-slot=input-group-control]]:inset-0 [&:not(:focus-within)_[data-slot=input-group-control]]:text-transparent",
-                )
-              : undefined
-          }
+          className={selected ? cn(
+            "h-auto min-h-10",
+            "[&:not(:focus-within)_[data-slot=input-group-control]]:absolute [&:not(:focus-within)_[data-slot=input-group-control]]:inset-0 [&:not(:focus-within)_[data-slot=input-group-control]]:text-transparent",
+          ) : undefined}
         >
           {selected && (
             <span
               aria-hidden
               data-slot="search-select-value"
-              className="pointer-events-none order-first flex-1 py-2 pr-2 pl-3 text-base wrap-break-words whitespace-normal md:text-sm [:focus-within>&]:hidden"
+              className="pointer-events-none order-first flex-1 py-2 pr-2 pl-3 text-base break-words whitespace-normal md:text-sm [:focus-within>&]:hidden"
             >
               {selected.label}
             </span>
@@ -190,13 +208,7 @@ export function SearchSelect({
         <ComboboxContent>
           <ComboboxEmpty>
             {canCreate ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="w-full justify-start"
-                disabled={creating}
-                onClick={() => void create()}
-              >
+              <Button size="sm" variant="ghost" className="w-full justify-start" disabled={creating} onClick={() => void create()}>
                 + {createLabel(typed)}
               </Button>
             ) : (
@@ -208,9 +220,7 @@ export function SearchSelect({
               <ComboboxItem key={o.value} value={o} disabled={o.disabled}>
                 {o.icon != null && <OptionIcon icon={o.icon} />}
                 {/* Wraps: a long project or company name is read in full, never cut to "WT/PROJECT/26…". */}
-                <span className="min-w-0 flex-1 wrap-break-words whitespace-normal">
-                  {o.label}
-                </span>
+                <span className="min-w-0 flex-1 break-words whitespace-normal">{coerceOptionText(o.label)}</span>
               </ComboboxItem>
             )}
           </ComboboxList>
@@ -221,11 +231,7 @@ export function SearchSelect({
           )}
         </ComboboxContent>
       </Combobox>
-      {error ? (
-        <FieldError id={errorId}>{error}</FieldError>
-      ) : hint ? (
-        <FieldDescription id={hintId}>{hint}</FieldDescription>
-      ) : null}
+      {error ? <FieldError id={errorId}>{error}</FieldError> : hint ? <FieldDescription id={hintId}>{hint}</FieldDescription> : null}
     </Field>
-  );
+  )
 }

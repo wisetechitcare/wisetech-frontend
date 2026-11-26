@@ -1,26 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Box,
-  Stack,
-  Typography,
-  alpha,
-  useTheme,
-} from "@mui/material";
-import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
-import UnarchiveOutlinedIcon from "@mui/icons-material/UnarchiveOutlined";
+import { Box, Stack, Typography } from "@mui/material";
+import { Archive, ArchiveRestore, Copy, Gift, Pencil, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { apiErrorMessage } from "@utils/apiError";
 import { canDelete } from "@utils/can";
-import { MRT_ColumnDef } from "material-react-table";
-import { useSelector } from "react-redux";
-import type { RootState } from "@redux/store";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
+import { DataTableExport } from "@/ds/patterns/data-table-export";
+import { RowAction } from "@/ds/patterns/row-action";
 import PremiumButton from "@app/modules/common/components/PremiumButton";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
 import {
-  ActionIconButton,
-  AppIcon,
   FilterSheet,
   FilterSheetButton,
   FormSection,
@@ -58,7 +48,6 @@ import {
   DriveEditModal,
   isGiftRunEditable,
 } from "./DriveCreate";
-import { T } from "@app/modules/common/components/ui/tokens";
 import GroupsChip from "./GroupsChip";
 
 const giftCount = (r: CourtesyDrive) =>
@@ -67,7 +56,6 @@ const giftCount = (r: CourtesyDrive) =>
 const EMPTY_FILTERS = { occasion: "ALL", status: "ALL", group: "ALL" };
 
 export default function DrivesList() {
-  const theme = useTheme();
   const desk = useCourtesyDesk();
   const navigate = useNavigate();
   const sensitive = useSensitiveData();
@@ -80,9 +68,6 @@ export default function DrivesList() {
   const [fromDrive, setFromDrive] = useState<CourtesyDrive | null>(null);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const employeeId = useSelector(
-    (s: RootState) => s.employee.currentEmployee?.id,
-  );
 
   useEffect(() => {
     if (searchParams.get("new") !== "1") return;
@@ -135,15 +120,15 @@ export default function DrivesList() {
     [filteredDrives],
   );
 
-  const columns = useMemo<MRT_ColumnDef<CourtesyDrive>[]>(
+  const columns = useMemo<ColumnDef<CourtesyDrive>[]>(
     () => [
       {
         accessorKey: "title",
         header: "Title",
-        Cell: ({ cell }) => (
+        cell: ({ cell }) => (
           <Typography fontWeight={700}>{cell.getValue<string>()}</Typography>
         ),
-        Footer: () => (
+        footer: () => (
           <Typography fontWeight={800} sx={{ fontSize: "0.8rem" }}>
             TOTAL
           </Typography>
@@ -154,7 +139,7 @@ export default function DrivesList() {
         id: "occasion",
         header: "Occasion",
         accessorFn: (r) => occasionLabel(desk.config, r.occasionType),
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const o = desk.config.occasions.find(
             (x) => x.id === row.original.occasionType,
           );
@@ -170,7 +155,7 @@ export default function DrivesList() {
       {
         accessorKey: "sourceGroupName",
         header: "Groups",
-        Cell: ({ row }) => <GroupsChip drive={row.original} />,
+        cell: ({ row }) => <GroupsChip drive={row.original} />,
       },
       { accessorKey: "driveDate", header: "Date", size: 110 },
       {
@@ -179,7 +164,7 @@ export default function DrivesList() {
         size: 120,
         // Value (sort / filter) stays the gift count; the cell adds the run's configured unit.
         accessorFn: giftCount,
-        Cell: ({ row, cell }) => formatGiftQty(cell.getValue<number>(), row.original),
+        cell: ({ row, cell }) => formatGiftQty(cell.getValue<number>(), row.original),
         meta: { exportValue: (r: CourtesyDrive) => formatGiftQty(giftCount(r), r) },
       },
       {
@@ -187,7 +172,7 @@ export default function DrivesList() {
         header: "Amount",
         size: 120,
         accessorFn: (r) => giftRunTotalAmount(r),
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <Box
             component="span"
             className={sensitive.cls}
@@ -200,7 +185,7 @@ export default function DrivesList() {
             {formatCurrencyCompact(giftRunTotalAmount(row.original))}
           </Box>
         ),
-        Footer: () => (
+        footer: () => (
           <Box
             component="span"
             className={sensitive.cls}
@@ -218,7 +203,7 @@ export default function DrivesList() {
         accessorKey: "status",
         header: "Gift Run status",
         size: 150,
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const s = giftRunStatuses.find((x) => x.id === row.original.status);
           return (
             <SolidChip
@@ -232,37 +217,30 @@ export default function DrivesList() {
       },
       actionsColumn({
         size: 200,
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const d = row.original;
           const archived = d.status === "ARCHIVED";
           return (
-            <Stack
-              direction="row"
-              spacing={0.75}
-              alignItems="center"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
               {isGiftRunEditable(d.status) ? (
-                <ActionIconButton
-                  iconName="pencil"
-                  title={`Edit ${GIFT_RUN_LABEL}`}
-                  size="sm"
-                  tone="indigo"
+                <RowAction
+                  label={`Edit ${GIFT_RUN_LABEL}`}
+                  size="icon-sm"
                   onClick={() => setEditDrive(d)}
-                />
+                >
+                  <Pencil className="size-4" aria-hidden />
+                </RowAction>
               ) : null}
-              <ActionIconButton
-                icon={<AppIcon name="bi-gift" className="fs-6" />}
-                title={`Add ${GIFT_RUN_LABEL} (people from this run)`}
-                size="sm"
-                tone="brand"
+              <RowAction
+                label={`Add ${GIFT_RUN_LABEL} (people from this run)`}
+                size="icon-sm"
                 onClick={() => openCreateFromDrive(d)}
-              />
-              <ActionIconButton
-                iconName="copy"
-                title={`Clone ${GIFT_RUN_LABEL}`}
-                size="sm"
-                tone="brand"
+              >
+                <Gift className="size-4" aria-hidden />
+              </RowAction>
+              <RowAction
+                label={`Clone ${GIFT_RUN_LABEL}`}
+                size="icon-sm"
                 onClick={() => {
                   void askText({
                     title: `Clone ${GIFT_RUN_LABEL}`,
@@ -285,14 +263,15 @@ export default function DrivesList() {
                       );
                   });
                 }}
-              />
+              >
+                <Copy className="size-4" aria-hidden />
+              </RowAction>
               {archived ? (
                 <>
-                  <ActionIconButton
-                    icon={<UnarchiveOutlinedIcon sx={{ fontSize: 18 }} />}
-                    title={`Unarchive ${GIFT_RUN_LABEL}`}
-                    size="sm"
-                    tone="success"
+                  <RowAction
+                    label={`Unarchive ${GIFT_RUN_LABEL}`}
+                    size="icon-sm"
+                    tint="success"
                     onClick={() => {
                       void ask({
                         variant: "confirm",
@@ -313,13 +292,14 @@ export default function DrivesList() {
                           );
                       });
                     }}
-                  />
+                  >
+                    <ArchiveRestore className="size-4" aria-hidden />
+                  </RowAction>
                   {canDelete("gift-management") && (
-                  <ActionIconButton
-                    iconName="trash"
-                    title={`Delete ${GIFT_RUN_LABEL}`}
-                    size="sm"
-                    tone="danger"
+                  <RowAction
+                    label={`Delete ${GIFT_RUN_LABEL}`}
+                    size="icon-sm"
+                    tint="danger"
                     onClick={() => {
                       void ask({
                         variant: "delete",
@@ -340,15 +320,16 @@ export default function DrivesList() {
                           );
                       });
                     }}
-                  />
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </RowAction>
                   )}
                 </>
               ) : canDelete("gift-management") && (
-                <ActionIconButton
-                  icon={<ArchiveOutlinedIcon sx={{ fontSize: 18 }} />}
-                  title={`Archive ${GIFT_RUN_LABEL}`}
-                  size="sm"
-                  tone="danger"
+                <RowAction
+                  label={`Archive ${GIFT_RUN_LABEL}`}
+                  size="icon-sm"
+                  tint="danger"
                   onClick={() => {
                     void ask({
                       variant: "delete",
@@ -369,9 +350,11 @@ export default function DrivesList() {
                         );
                     });
                   }}
-                />
+                >
+                  <Archive className="size-4" aria-hidden />
+                </RowAction>
               )}
-            </Stack>
+            </div>
           );
         },
       }),
@@ -386,11 +369,6 @@ export default function DrivesList() {
       sensitive.cls,
     ],
   );
-
-  const rowStatusTint = (statusId: string) => {
-    const c = giftRunStatusColor(desk.config, statusId);
-    return alpha(c, theme.palette.mode === "dark" ? 0.22 : 0.12);
-  };
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -418,49 +396,26 @@ export default function DrivesList() {
         </Stack>
       </Stack>
 
-      <MaterialTable
-        tableName="Courtesy-Gift-Runs"
+      <DataTable
+        caption={GIFT_RUN_LABEL_PLURAL}
         columns={columns}
         data={filteredDrives}
-        employeeId={employeeId}
-        enableFilters={false}
-        enableGrouping={false}
-        enableStatusColorCoding={false}
-        showColumnFooter
-        renderToolbarIconActions={() => (
-          <FilterSheetButton
-            count={countActiveFilters(filters, EMPTY_FILTERS)}
-            onClick={() => setFilterSheetOpen(true)}
-          />
+        getRowId={(r) => r.id}
+        stateKey="Courtesy-Gift-Runs"
+        groupableColumns={false}
+        onRowClick={(d) => navigate(`${GIFT_MANAGEMENT_BASE}/drives/${d.id}`)}
+        rowLabel={(d) => d.title}
+        rowTone={(d) => giftRunStatusColor(desk.config, String(d.status || ""))}
+        searchPlaceholder={`Search ${GIFT_RUN_LABEL_PLURAL}…`}
+        toolbar={(ctx) => (
+          <>
+            <FilterSheetButton
+              count={countActiveFilters(filters, EMPTY_FILTERS)}
+              onClick={() => setFilterSheetOpen(true)}
+            />
+            <DataTableExport columns={columns} ctx={ctx} filename={GIFT_RUN_LABEL_PLURAL} />
+          </>
         )}
-        muiTablePaperStyle={{
-          borderRadius: `${T.radius.lg}px`,
-          border: `1px solid ${T.color.line}`,
-          boxShadow: T.shadow.card,
-        }}
-        muiTableProps={{
-          muiTableBodyRowProps: ({ row }) => {
-            const statusId = String(row.original.status || "");
-            const base = giftRunStatusColor(desk.config, statusId);
-            return {
-              onClick: () =>
-                navigate(`${GIFT_MANAGEMENT_BASE}/drives/${row.original.id}`),
-              sx: {
-                cursor: "pointer",
-                backgroundColor: `${rowStatusTint(statusId)} !important`,
-                "& td:first-of-type": {
-                  borderLeft: `4px solid ${base} !important`,
-                },
-                "&:hover": {
-                  backgroundColor: `${alpha(
-                    base,
-                    theme.palette.mode === "dark" ? 0.3 : 0.18,
-                  )} !important`,
-                },
-              },
-            };
-          },
-        }}
       />
 
       <FilterSheet

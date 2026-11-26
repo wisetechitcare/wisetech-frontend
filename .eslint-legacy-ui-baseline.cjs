@@ -90,8 +90,6 @@ module.exports = [
   "src/app/modules/common/components/attendance/AttendanceCorrectionDialog.tsx",
   "src/app/modules/common/components/attendance/AttendanceCorrectionForm.tsx",
   "src/app/modules/common/components/attendance/AttendanceRequestFields.tsx",
-  "src/app/modules/common/components/table/ColumnsSheet.tsx",
-  "src/app/modules/common/components/table/SortIcons.tsx",
   "src/app/modules/common/components/ui/AutoGrid.tsx",
   "src/app/modules/common/components/ui/ConfigColorChip.tsx",
   "src/app/modules/common/components/ui/ConfigureFormDialog.tsx",

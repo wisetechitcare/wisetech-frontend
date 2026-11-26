@@ -1,30 +1,34 @@
-import { ActionIconButton, UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
-import { Form, Formik, FormikValues } from "formik";
+import { Form, Formik } from "formik";
+import { Briefcase, Pencil } from "lucide-react";
+import { toast } from "sonner";
 
-import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import TextInput from "@app/modules/common/inputs/TextInput";
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import { Alert, AlertDescription } from '@/ds/ui/alert';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field';
+import { Input } from '@/ds/ui/input';
 import { createDesignation, fetchDesignations, updateDesignationById } from "@services/options";
-import { successConfirmation } from '@utils/modal';
 import { ICompanyDesignation } from "@models/company";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
 import { fetchCompanyOverview } from "@services/company";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { hasPermission } from "@utils/authAbac";
+import { apiErrorMessage } from "@utils/apiError";
 import {
   ConfigPageLayout,
   ConfigSectionCard,
   C,
-  FONT,
-  SP,
-  RADIUS,
   KEYFRAMES,
 } from '@app/modules/configuration';
 import { Button } from '@/ds/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
+
+const FORM_ID = 'designation-form';
 
 const designationSchema = Yup.object({
     role: Yup.string().required().label('Designation Name'),
@@ -42,6 +46,8 @@ interface Designation {
     id: string;
     role: string;
     comanyId: string;
+    companyId?: string;
+    _count?: { Employees?: number };
 }
 
 function Designations() {
@@ -50,12 +56,11 @@ function Designations() {
     const [editMode, setEditMode] = useState(false);
     const [designationId, setDesignationId] = useState('')
     const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
     const [initialValues, setInitialValues] = useState<ICompanyDesignation>(initialState);
     const isAdmin = useSelector((state: RootState) => state.auth.currentUser.isAdmin);
     const [companyId, setCompanyId] = useState<string>('');
-    const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
-
-
     useEffect(() => {
         const loadDesignations = async () => {
             setLoading(true);
@@ -85,8 +90,9 @@ function Designations() {
 
     const handleEditClick = (id: string) => {
         setDesignationId(id);
-        const designation: any = data.find(des => des.id === id);
+        const designation = data.find(des => des.id === id);
         if (designation) {
+            setFormError(null);
             setInitialValues({
                 role: designation.role,
                 companyId: designation.companyId,
@@ -99,34 +105,47 @@ function Designations() {
         }
     };
 
-    const columns = useMemo<MRT_ColumnDef<Designation>[]>(
+    const columns = useMemo<ColumnDef<Designation>[]>(
         () => {
-            const cols: MRT_ColumnDef<Designation>[] = [
+            const cols: ColumnDef<Designation>[] = [
                 {
                     accessorKey: "role",
-                    header: "Designation Name",
-                    Cell: ({ renderedCellValue }) => renderedCellValue
+                    meta: { label: "Designation Name" },
+                    header: ({ column }) => <SortableHeader column={column} title="Designation Name" />,
                 },
                 {
-                    accessorKey: "employeeCount",
-                    header: "Total Employees",
-                    Cell: ({ row }: any) => {
-                        const employeeCount = row.original._count?.Employees || 0;
-                        return <span>{employeeCount}</span>;
-                    }
+                    id: "employeeCount",
+                    accessorFn: (row) => row._count?.Employees ?? 0,
+                    meta: { label: "Total Employees", exportType: "number", wrap: false },
+                    header: ({ column }) => <SortableHeader column={column} title="Total Employees" />,
+                    cell: ({ getValue }) => String(getValue() ?? 0),
                 },
             ];
 
             if (hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.editOthers)) {
                 cols.push({
-                    accessorKey: "actions",
+                    id: "actions",
+                    meta: { label: "Actions", export: false, pin: "end", wrap: false },
+                    enableSorting: false,
+                    enableHiding: false,
                     header: "Actions",
-                    Cell: ({ row }: any) => (
-                        <ActionIconButton
-                            iconName="pencil"
-                            title="Edit job profile"
-                            onClick={() => handleEditClick(row.original.id)}
-                        />
+                    cell: ({ row }) => (
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        size="icon-sm"
+                                        variant="ghost"
+                                        aria-label="Edit job profile"
+                                        onClick={() => handleEditClick(row.original.id)}
+                                    />
+                                }
+                            >
+                                <Pencil aria-hidden />
+                            </TooltipTrigger>
+                            <TooltipContent>Edit job profile</TooltipContent>
+                        </Tooltip>
                     ),
                 });
             }
@@ -141,32 +160,40 @@ function Designations() {
         setEditMode(false);
         setInitialValues(initialState);
         setDesignationId("");
+        setFormError(null);
     };
 
-    const handleSubmit = async (values: any, actions: FormikValues) => {
+    const openCreate = () => {
+        setFormError(null);
+        setEditMode(false);
+        setInitialValues(initialState);
+        setDesignationId("");
+        setShowModal(true);
+    };
+
+    const handleSubmit = async (values: ICompanyDesignation) => {
+        setFormError(null);
+        setSaving(true);
         try {
-            setLoading(true);
             if (editMode) {
                 await updateDesignationById(designationId, values);
-                setLoading(false);
-                successConfirmation('Designation updated.');
-                setShowModal(false);
-                setEditMode(false);
-                // Refresh data
+                toast.success('Designation updated');
+                handleClose();
                 const { data: { designations = [] } = {} } = await fetchDesignations();
                 setData(designations);
                 return;
             }
             const payload = [{ isActive: true, companyId: companyId, role: values.role }];
             await createDesignation(payload);
-            setLoading(false);
-            successConfirmation('Designation created.');
-            setShowModal(false);
-            // Refresh data
+            toast.success('Designation created');
+            handleClose();
             const { data: { designations = [] } = {} } = await fetchDesignations();
             setData(designations);
-        } catch (err) {
-            setLoading(false);
+        } catch (err: unknown) {
+            const action = editMode ? 'update' : 'create';
+            setFormError(apiErrorMessage(err, `Failed to ${action} designation`));
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -182,84 +209,81 @@ function Designations() {
                   iconColor="primary"
                   badge={{ label: `${data.length}`, color: C.primary, bg: C.primaryLight }}
                   loading={loading}
-                  primaryAction={hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.create) ? { label: 'New Designation', icon: 'bi-plus-lg', onClick: () => setShowModal(true), variant: 'primary' } : undefined}
+                  primaryAction={hasPermission(resourceNameMapWithCamelCase.designation, permissionConstToUseWithHasPermission.create) ? { label: 'New Designation', icon: 'bi-plus-lg', onClick: openCreate, variant: 'primary' } : undefined}
                 >
-                  <div style={{ marginTop: SP.md }}>
-                    <MaterialTable
+                  <div className="mt-4">
+                    <DataTable
+                      caption="Designations"
                       columns={columns}
                       data={data}
-                      tableName="Designations"
-                      employeeId={employeeId}
-                      muiTableProps={{
-                        sx: {
-                          '& .MuiTableCell-head': {
-                            backgroundColor: C.bgSection,
-                            fontWeight: 600,
-                            fontSize: '13px',
-                            color: C.textPrimary,
-                            fontFamily: FONT.body,
-                          },
-                        },
-                      }}
+                      getRowId={(r) => r.id}
+                      loading={loading}
+                      stateKey="company.designations"
+                      toolbar={(ctx) => (
+                        <DataTableExport columns={columns} ctx={ctx} filename="Designations" />
+                      )}
                     />
                   </div>
                 </ConfigSectionCard>
               )}
             </ConfigPageLayout>
 
-            <Modal show={showModal} onHide={handleClose} centered backdropClassName="modal-backdrop-blur">
-                <Modal.Header closeButton style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
-                    <Modal.Title style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '16px', color: C.textPrimary }}>
-                        {editMode ? 'Edit Designation' : 'Create New Designation'}
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body style={{ padding: SP.lg }}>
-                    <Formik initialValues={initialValues} onSubmit={handleSubmit} validationSchema={designationSchema}>
-                        {(formikProps) => (
-                            <Form>
-                                <div style={{ marginBottom: SP.lg }}>
-                                    <TextInput
-                                        isRequired={true}
-                                        label="Designation Name"
-                                        formikField="role"
-                                    />
-                                </div>
-
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SP.md, paddingTop: SP.lg }}>
-                                  <Button variant="outline"
-                                    type='button'
-                                    onClick={handleClose}
-                                  >
-                                    Cancel
-                                  </Button>
-                                    <Button
-                                      type='submit'
-                                      disabled={loading || !formikProps.isValid}
-                                    >
-                                        {!loading && (editMode ? 'Update Designation' : 'Create Designation')}
-                                        {loading && (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', border: `2px solid rgba(255,255,255,0.3)`, borderTopColor: '#fff', animation: 'spin 0.6s linear infinite' }} />
-                                                Please wait...
-                                            </span>
-                                        )}
-                                    </Button>
-                                </div>
-                            </Form>
-                        )}
-                    </Formik>
-                </Modal.Body>
-            </Modal>
-
-            <style>{`
-              @keyframes spin {
-                to { transform: rotate(360deg); }
-              }
-              .modal-backdrop-blur {
-                background-color: rgba(0, 0, 0, 0.2);
-                backdrop-filter: blur(2px);
-              }
-            `}</style>
+            <Formik
+              initialValues={initialValues}
+              onSubmit={handleSubmit}
+              validationSchema={designationSchema}
+              enableReinitialize
+            >
+              {(fk) => {
+                const roleError =
+                  (fk.touched.role || fk.submitCount > 0)
+                    ? (fk.errors.role as string | undefined)
+                    : undefined;
+                return (
+                  <FormDialog
+                    open={showModal}
+                    onOpenChange={(open) => { if (!open) handleClose(); }}
+                    title={editMode ? 'Edit Designation' : 'New Designation'}
+                    description="Job title used across employee profiles and pickers"
+                    icon={<Briefcase aria-hidden />}
+                    size="sm"
+                    formId={FORM_ID}
+                    submitLabel={editMode ? 'Update Designation' : 'Create Designation'}
+                    submitting={saving}
+                    dirty={fk.dirty}
+                  >
+                    <Form id={FORM_ID} noValidate className="space-y-4">
+                      {formError ? (
+                        <Alert variant="destructive" role="alert">
+                          <AlertDescription>{formError}</AlertDescription>
+                        </Alert>
+                      ) : null}
+                      <FieldGroup>
+                        <Field data-invalid={roleError ? true : undefined}>
+                          <FieldLabel htmlFor="designation-role">Designation Name</FieldLabel>
+                          <Input
+                            id="designation-role"
+                            name="role"
+                            required
+                            autoFocus
+                            placeholder="Enter designation name"
+                            disabled={saving}
+                            value={fk.values.role}
+                            onChange={fk.handleChange}
+                            onBlur={fk.handleBlur}
+                            aria-invalid={roleError ? true : undefined}
+                            aria-describedby={roleError ? 'designation-role-error' : undefined}
+                          />
+                          {roleError ? (
+                            <FieldError id="designation-role-error">{roleError}</FieldError>
+                          ) : null}
+                        </Field>
+                      </FieldGroup>
+                    </Form>
+                  </FormDialog>
+                );
+              }}
+            </Formik>
         </>
     );
 }

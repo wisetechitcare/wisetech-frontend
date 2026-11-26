@@ -15,7 +15,7 @@ import { getAllTeams, getAllTeamsMember } from '@services/projects';
 import { EmptyState } from '../widgets';
 import { employeeNameById, fmtDate, DASH } from '../entityViewModel';
 import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
 import { canSection } from '@utils/can';
 import { Button } from '@/ds/ui/button';
 import { SmartAvatar } from '@/ds/ui/smart-avatar';
@@ -37,14 +37,6 @@ import { SmartAvatar } from '@/ds/ui/smart-avatar';
  */
 
 // ── small shared bits ─────────────────────────────────────────────────────────
-
-const th: React.CSSProperties = {
-  fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase',
-  letterSpacing: 0.5, padding: '10px 12px', borderBottom: '1px solid #EEF2F6', textAlign: 'left', whiteSpace: 'nowrap',
-};
-const td: React.CSSProperties = { padding: '11px 12px', borderBottom: '1px solid #F4F6F9', fontSize: 13, color: '#475569', whiteSpace: 'nowrap' };
-const tdName: React.CSSProperties = { ...td, fontWeight: 700, color: '#1E293B', whiteSpace: 'nowrap' };
-
 
 const managerBadge = (isPrimary: boolean): React.CSSProperties => ({
   display: 'inline-flex', alignItems: 'center', fontFamily: 'Inter', fontSize: 10.5,
@@ -106,40 +98,6 @@ const managersPayload = (ids: string[], members: any[]) => {
  * both the value and the "Select date" placeholder were clipped mid-word.
  */
 const COL = { employee: 180, date: 152, status: 112, manager: 150, action: 32 };
-
-// The team tables sit INSIDE a card already — drop the table's own card chrome so they
-// read as the card's body, not a second card nested in it.
-// `main.css` styles EVERY table card, header and cell with `!important` (rounded bordered
-// paper, grey header band, column rules), so these overrides need `!important` AND the
-// `&&&` specificity to outrank those global selectors — scoped to these two tables only.
-const FLUSH_TABLE_PAPER = {
-  '&&&': { boxShadow: 'none !important', border: 'none !important', borderRadius: '0 !important', backgroundColor: 'transparent' },
-};
-// …and wear this section's own `th` / `td` look (flat labels, hairline row AND column
-// dividers) instead of the table's grey header band, so the card reads as one piece.
-const COLUMN_RULE = '1px solid #EEF2F6 !important';
-const FLUSH_TABLE_HEAD = {
-  '&&&': {
-    ...th, letterSpacing: '0.5px', minHeight: 0,
-    backgroundColor: 'transparent !important',
-    borderBottom: `${th.borderBottom} !important`,
-    borderRight: COLUMN_RULE,
-  },
-  '&&&:last-of-type': { borderRight: 'none !important' },
-  '&&&:hover': { backgroundColor: 'transparent !important', color: th.color },
-};
-const FLUSH_TABLE_ROWS = {
-  muiTableBodyRowProps: () => ({
-    sx: {
-      '& .MuiTableCell-root': {
-        ...td, minHeight: 0,
-        borderBottom: `${td.borderBottom} !important`,
-        borderRight: COLUMN_RULE,
-      },
-      '& .MuiTableCell-root:last-of-type': { borderRight: 'none !important' },
-    },
-  }),
-};
 
 // Roster ordering: active members first, inactive below (stable within each group).
 // Used for the read-mode table and the Change-Team review list so the split is visible.
@@ -462,13 +420,12 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
   const persisted = ex.internalRosterSet === true || internal.length > 0;
   const displayMembers: any[] = persisted ? internal : teamRoster;
 
-  // ── The two rosters are MaterialTable now, like every other list in the app, so they
-  //    get sorting, per-column search, column show/hide and saved column preferences that
+  // ── The two rosters use kit DataTable, like every other list in the app, so they
+  //    get sorting, search, column show/hide and saved column preferences that
   //    the hand-written <table> never had. Cells render exactly what they rendered before.
-  const currentUserId = useSelector((st: RootState) => st.auth?.currentUser?.id);
 
   // Flattened so the table can sort and search on real values rather than on JSX.
-  // Default order is employee name A→Z; MaterialTable defaultSorting matches, and the
+  // Default order is employee name A→Z; DataTable initialSorting matches, and the
   // user can re-sort from the column headers.
   const internalRows = useMemo(
     () => displayMembers.map((m: any) => {
@@ -489,7 +446,7 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
     {
       accessorKey: 'employeeName',
       header: 'Employee',
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <SmartAvatar src={empAvatar(row.original.employeeId)} name={row.original.employeeName === DASH ? null : row.original.employeeName} seed={row.original.employeeId} size="xs" decorative />
           {row.original.employeeId ? (
@@ -500,19 +457,19 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
         </div>
       ),
     },
-    { accessorKey: 'startDate', header: 'Start Date', Cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
-    { accessorKey: 'endDate', header: 'End Date', Cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
+    { accessorKey: 'startDate', header: 'Start Date', cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
+    { accessorKey: 'endDate', header: 'End Date', cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
     {
       accessorKey: 'status',
       header: 'Status',
-      Cell: ({ cell }: any) => (
+      cell: ({ cell }: any) => (
         <DetailStatusBadge status={cell.getValue()} color={cell.getValue() === 'Active' ? '#16a34a' : '#94A3B8'} />
       ),
     },
     {
       accessorKey: 'managerLabel',
       header: 'Manager',
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const label = row.original.managerLabel;
         if (label === DASH) return DASH;
         // A PAST manager reads as history, not as a current role.
@@ -522,13 +479,13 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
         return <span style={managerBadge(label === 'Primary Manager')}>{label}</span>;
       },
     },
-  ], [allEmployees]);
+  ] as ColumnDef<any, any>[], [allEmployees]);
 
   const externalColumns = useMemo(() => [
     {
       accessorKey: 'name',
       header: 'Company / Client',
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <SmartAvatar src={row.original.companyAvatar} name={row.original.name === DASH ? null : row.original.name} seed={row.original.companyId || row.original.name} size="xs" fit="contain" decorative />
           {row.original.companyId ? (
@@ -539,13 +496,13 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
         </div>
       ),
     },
-    { accessorKey: 'type', header: 'Type', Cell: ({ cell }: any) => cell.getValue() || DASH },
-    { accessorKey: 'services', header: 'Service', Cell: ({ cell }: any) => cell.getValue() || DASH },
-    { accessorKey: 'subServices', header: 'Sub Service', Cell: ({ cell }: any) => cell.getValue() || DASH },
+    { accessorKey: 'type', header: 'Type', cell: ({ cell }: any) => cell.getValue() || DASH },
+    { accessorKey: 'services', header: 'Service', cell: ({ cell }: any) => cell.getValue() || DASH },
+    { accessorKey: 'subServices', header: 'Sub Service', cell: ({ cell }: any) => cell.getValue() || DASH },
     {
       accessorKey: 'contact',
       header: 'Contact',
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {row.original.contact && row.original.contact !== DASH && (
             <SmartAvatar src={row.original.contactAvatar} name={row.original.contact} seed={row.original.contactId || row.original.contact} size="xs" decorative />
@@ -556,31 +513,31 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
         </div>
       ),
     },
-    { accessorKey: 'designation', header: 'Designation', Cell: ({ cell }: any) => cell.getValue() || DASH },
+    { accessorKey: 'designation', header: 'Designation', cell: ({ cell }: any) => cell.getValue() || DASH },
     {
       accessorKey: 'email',
       header: 'Email',
-      Cell: ({ row }: any) => (row.original.email
+      cell: ({ row }: any) => (row.original.email
         ? <a href={`mailto:${row.original.email}`} style={{ color: '#1E293B', textDecoration: 'none', fontWeight: 500, fontSize: 13, fontFamily: 'Inter, sans-serif' }}>{row.original.email}</a>
         : DASH),
     },
     {
       accessorKey: 'phone',
       header: 'Phone',
-      Cell: ({ row }: any) => (row.original.phone
+      cell: ({ row }: any) => (row.original.phone
         ? <a href={`tel:${String(row.original.phone).replace(/\s+/g, '')}`} style={{ color: '#1E293B', textDecoration: 'none', fontWeight: 500, fontSize: 13, fontFamily: 'Inter, sans-serif' }}>{row.original.phone}</a>
         : DASH),
     },
-    { accessorKey: 'startDate', header: 'Start Date', Cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
-    { accessorKey: 'endDate', header: 'End Date', Cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
+    { accessorKey: 'startDate', header: 'Start Date', cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
+    { accessorKey: 'endDate', header: 'End Date', cell: ({ cell }: any) => (cell.getValue() ? fmtDate(cell.getValue()) : DASH) },
     {
       accessorKey: 'isActive',
       header: 'Status',
-      Cell: ({ cell }: any) => (
+      cell: ({ cell }: any) => (
         <DetailStatusBadge status={cell.getValue() ? 'Active' : 'Inactive'} color={cell.getValue() ? '#16a34a' : '#94A3B8'} />
       ),
     },
-  ], []);
+  ] as ColumnDef<any, any>[], []);
 
   // ── External roster = the project's OWN stakeholders (projectExternalTeams),
   //    editable here with the SAME cascading dropdowns the lead form uses:
@@ -915,22 +872,17 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                         <span>Showing the <strong>{team?.name}</strong>. Click <strong>Edit</strong> to set each member's start/end dates &amp; status, then Save to start tracking.</span>
                       </div>
                     )}
-                    <MaterialTable
+                    <DataTable
                       // V2: default Employee A→Z; clears any old unsorted prefs.
-                      tableName="ProjectInternalTeamV2"
-                      hideFilters
-                      enableBottomToolbar={false}
-                      muiTablePaperStyle={FLUSH_TABLE_PAPER}
-                      muiTableHeadCellStyle={FLUSH_TABLE_HEAD}
-                      muiTableProps={FLUSH_TABLE_ROWS}
-                      enableStatusColorCoding={false}
-                      employeeId={currentUserId}
+                      caption="Internal Team"
+                      stateKey="ProjectInternalTeamV2"
                       data={internalRows}
                       columns={internalColumns}
-                      defaultSorting={[{ id: 'employeeName', desc: false }]}
-                      hidePagination
-                      hideExportCenter
-                      enableColumnActions={false}
+                      getRowId={(r, i) => String(r.id || r.employeeId || i)}
+                      initialSorting={[{ id: 'employeeName', desc: false }]}
+                      initialPageSize={100}
+                      tools={false}
+                      groupableColumns={false}
                     />
                   </div>
                 );
@@ -1213,22 +1165,17 @@ const TeamsSection: React.FC<{ lead: any }> = ({ lead }) => {
                 return stakeholders.length === 0 ? (
                   <EmptyState icon="bi bi-buildings" title="No external stakeholders" message="Click Edit to link the client — Company Type, Company, Sub Company and Contact Person — just like the lead form." />
                 ) : (
-                  <MaterialTable
+                  <DataTable
                     // V2: default Company / Client A→Z; clears any old unsorted prefs.
-                    tableName="ProjectExternalTeamV2"
-                    hideFilters
-                    enableBottomToolbar={false}
-                    muiTablePaperStyle={FLUSH_TABLE_PAPER}
-                    muiTableHeadCellStyle={FLUSH_TABLE_HEAD}
-                    muiTableProps={FLUSH_TABLE_ROWS}
-                    enableStatusColorCoding={false}
-                    employeeId={currentUserId}
+                    caption="External Team"
+                    stateKey="ProjectExternalTeamV2"
                     data={stakeholders}
                     columns={externalColumns}
-                    defaultSorting={[{ id: 'name', desc: false }]}
-                    hidePagination
-                    hideExportCenter
-                    enableColumnActions={false}
+                    getRowId={(r, i) => String(r.companyId || r.contactId || r.name || i)}
+                    initialSorting={[{ id: 'name', desc: false }]}
+                    initialPageSize={100}
+                    tools={false}
+                    groupableColumns={false}
                   />
                 );
               }

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import type { Meta, StoryObj } from '@storybook/react-vite'
+import type { Meta } from '@storybook/react-vite'
 import { expect, fn, userEvent } from 'storybook/test'
 import { LocationFields, type LocationFieldsValue } from './location-fields'
 
@@ -16,16 +16,11 @@ const CITIES = [
   { value: 'Mumbai', label: 'Mumbai' },
   { value: 'Pune', label: 'Pune' },
 ]
-const TOWNS = [
-  { value: 't1', label: 'Andheri' },
-  { value: 't2', label: 'Bandra' },
-]
 
 const EMPTY: LocationFieldsValue = {
   countryId: 'IN',
   stateId: '',
   cityId: '',
-  townId: '',
   postalCode: '',
   address: '',
   latitude: '',
@@ -48,8 +43,10 @@ function Demo() {
         countryOptions={COUNTRIES}
         stateOptions={STATES}
         cityOptions={CITIES}
-        townOptions={TOWNS}
-        timezoneOptions={[{ value: 'Asia/Kolkata', label: 'Asia/Kolkata' }]}
+        timezoneOptions={[
+          { value: 'Asia/Kolkata', label: '(UTC+05:30) Asia/Kolkata' },
+          { value: 'Asia/Dubai', label: '(UTC+04:00) Asia/Dubai' },
+        ]}
         showTimezone
         showCurrency
         reuseAddress="12 Example Road, Andheri West, Mumbai 400053"
@@ -60,6 +57,20 @@ function Demo() {
             address: '12 Example Road, Andheri West, Mumbai 400053',
           }))
         }
+        suggestAddress={async (query) => [
+          {
+            id: 'demo-1',
+            label: `${query} — Mumbai, Maharashtra, India`,
+            address: query,
+            postalCode: '400053',
+            latitude: '19.1197',
+            longitude: '72.8468',
+            countryName: 'India',
+            stateName: 'Maharashtra',
+            cityName: 'Mumbai',
+            locality: 'Andheri',
+          },
+        ]}
         geoMessage={geoMessage}
         onGeocodeFromAddress={() => {
           setValue((v) => ({ ...v, latitude: '19.1197', longitude: '72.8468' }))
@@ -78,28 +89,70 @@ const meta = {
   title: 'Patterns/Location Fields',
   component: LocationFields,
   parameters: { layout: 'fullscreen' },
-  args: {
-    value: EMPTY,
-    onChange: fn(),
-    countryOptions: COUNTRIES,
-    stateOptions: STATES,
-    cityOptions: CITIES,
-    townOptions: TOWNS,
-  },
-  render: () => <Demo />,
 } satisfies Meta<typeof LocationFields>
 
 export default meta
-type Story = StoryObj<typeof meta>
 
-/** Head-office / branch location: searchable geo, address reuse, coordinate helpers. */
-export const HeadOffice: Story = {
-  play: async ({ canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Use Registered Address' }))
-    await expect(canvas.getByLabelText('Branch Address')).toHaveValue(
-      '12 Example Road, Andheri West, Mumbai 400053',
-    )
-    await userEvent.click(canvas.getByRole('button', { name: 'Get Coordinates From Address' }))
-    await expect(canvas.getByLabelText('Latitude')).toHaveValue('19.1197')
+/** Create Tenant / Branches recipe — typeahead + timezone string labels (no Town). */
+export const CreateTenantRecipe = {
+  render: () => <Demo />,
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    const address = canvasElement.querySelector('#loc-address') as HTMLTextAreaElement
+    expect(address).toBeTruthy()
+    await userEvent.clear(address)
+    await userEvent.type(address, 'FC Road Pune')
+    const tz = canvasElement.querySelector('#loc-timezone')
+    expect(tz).toBeTruthy()
+  },
+}
+
+export const Interactive = {
+  render: () => <Demo />,
+  args: {
+    onGeocodeFromAddress: fn(),
+  },
+}
+
+function RegisteredAddressDemo() {
+  const [address, setAddress] = React.useState('12 Example Road, Andheri West')
+  return (
+    <div className="max-w-2xl p-4">
+      <LocationFields
+        registeredAddressOnly
+        addressLabel="Organization Address"
+        addressMaxLength={300}
+        value={{
+          countryId: '',
+          stateId: '',
+          cityId: '',
+          postalCode: '',
+          address,
+          latitude: '',
+          longitude: '',
+        }}
+        onChange={(patch) => {
+          if (patch.address !== undefined) setAddress(patch.address)
+        }}
+        suggestAddress={async (query) => [
+          {
+            id: 'demo-reg-1',
+            label: `${query} — Mumbai, Maharashtra, India`,
+            address: query,
+            latitude: '19.1197',
+            longitude: '72.8468',
+          },
+        ]}
+      />
+    </div>
+  )
+}
+
+/** Sub-org create recipe — registered address only (no country / coords cascade). */
+export const RegisteredAddressOnly = {
+  render: () => <RegisteredAddressDemo />,
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    expect(canvasElement.querySelector('#loc-address')).toBeTruthy()
+    expect(canvasElement.querySelector('#loc-country')).toBeNull()
+    expect(canvasElement.querySelector('#loc-timezone')).toBeNull()
   },
 }

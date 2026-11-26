@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
 import { Link } from "react-router-dom";
 import { formatNumber } from "@utils/statistics";
@@ -59,7 +60,7 @@ const OngoingLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewOw
   
 
   // Table columns
-  const columns = useMemo<MRT_ColumnDef<LoanSummary>[]>(
+  const columns = useMemo<ColumnDef<LoanSummary>[]>(
     () => [
       {
         accessorKey: "name",
@@ -68,22 +69,22 @@ const OngoingLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewOw
       {
         accessorKey: "loanAmount",
         header: "Loan Amount",
-        Cell: ({ renderedCellValue }:any) => formatNumber(renderedCellValue),
+        cell: ({ cell }:any) => formatNumber(cell.getValue()),
       },
       {
         accessorKey: "collectedAmount",
         header: "Collected Amount",
-        Cell: ({ renderedCellValue }:any) => formatNumber(renderedCellValue),
+        cell: ({ cell }:any) => formatNumber(cell.getValue()),
       },
       {
         accessorKey: "pendingAmount",
         header: "Pending Amount",
-        Cell: ({ renderedCellValue }:any) => formatNumber(renderedCellValue),
+        cell: ({ cell }:any) => formatNumber(cell.getValue()),
       },
       {
         accessorKey: "startDate",
         header: "Start Date",
-        Cell: ({ cell }) =>
+        cell: ({ cell }) =>
           new Date(cell.getValue<string>()).toLocaleDateString("en-GB", {
             day: "numeric",
             month: "long",
@@ -93,7 +94,7 @@ const OngoingLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewOw
       {
         accessorKey: "endDate",
         header: "End Date",
-        Cell: ({ cell }) =>
+        cell: ({ cell }) =>
           new Date(cell.getValue<string>()).toLocaleDateString("en-GB", {
             day: "numeric",
             month: "long",
@@ -107,7 +108,7 @@ const OngoingLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewOw
       {
         accessorKey: "loanDuration",
         header: "loan Duration",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const duration = cell.getValue<number | null>();
           return duration ? `${duration} Months` : "N/A";
         }
@@ -122,7 +123,7 @@ const OngoingLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewOw
             {
               accessorKey: "actions",
               header: "Actions",
-              Cell: ({ row }: { row: any }) => (
+              cell: ({ row }: { row: any }) => (
                 <div style={commonButtonStyle}>
                   <Link to={`${row?.original?.id}`}>
                     {" "}
@@ -147,14 +148,16 @@ const OngoingLoans: React.FC<MyComponentProps> = ({ resource, viewOthers, viewOw
   return (
     <div>
       <h3 className="pt-10 fw-bold">Ongoing Loans</h3>
-      <MaterialTable
+      <DataTable
+        caption="Ongoing Loans"
+        columns={columns as any}
         data={tableData}
-        columns={columns}
-        tableName="Ongoing Loans"
-        resource={resource}
-        viewOthers={viewOthers}
-        viewOwn={viewOwn}
-        employeeId={employeeIdCurrent}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.admin.ongoing"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
       />
     </div>
   );

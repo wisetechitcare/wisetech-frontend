@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Box, Typography } from "@mui/material";
-import type { MRT_ColumnDef } from "material-react-table";
+import type { ColumnDef } from '@/ds/patterns/data-table';
+
 import { ToneChip } from "@app/modules/common/components/ui";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
 import type { JobPosting } from "@services/recruitment";
@@ -16,16 +17,16 @@ export interface PostingColumnOptions {
 
 export function postingColumns(
   opts: PostingColumnOptions = {},
-): MRT_ColumnDef<JobPosting>[] {
+): ColumnDef<JobPosting>[] {
   const omit = new Set(opts.omit ?? []);
 
-  const columns: MRT_ColumnDef<JobPosting>[] = [
+  const columns: ColumnDef<JobPosting>[] = [
     {
       accessorFn: (p) => p.title,
       id: "title",
       header: "Advert",
       size: 220,
-      Cell: ({ row }) => (
+      cell: ({ row }) => (
         <Box>
           <Typography sx={{ fontSize: 13.5, fontWeight: 600 }}>{row.original.title}</Typography>
           {row.original.requisition?.prefix ? (
@@ -46,8 +47,9 @@ export function postingColumns(
       accessorFn: (p) => (p.isPublished ? "Published" : "Draft"),
       id: "status",
       header: "Status",
+      meta: { label: "Status", facet: true },
       size: 120,
-      Cell: ({ row }) => (
+      cell: ({ row }) => (
         <ToneChip
           tone={row.original.isPublished ? "success" : "warning"}
           label={row.original.isPublished ? "Published" : "Draft"}
@@ -60,7 +62,7 @@ export function postingColumns(
       id: "location",
       header: "Location",
       size: 140,
-      Cell: ({ row }) => {
+      cell: ({ row }) => {
         const p = row.original;
         if (!p.location && !p.isRemote) {
           return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
@@ -76,6 +78,7 @@ export function postingColumns(
     {
       accessorFn: (p) => p.employmentType ?? "—",
       id: "type",
+      meta: { label: "Type", facet: true },
       header: "Type",
       size: 120,
     },
@@ -84,7 +87,7 @@ export function postingColumns(
       id: "salary",
       header: "Salary",
       size: 110,
-      Cell: ({ row }) =>
+      cell: ({ row }) =>
         row.original.showSalary ? (
           <ToneChip dense tone="success" label="Salary shown" />
         ) : (
@@ -103,8 +106,8 @@ export function postingColumns(
       maxSize: 200,
       enableColumnFilter: false,
       enableGlobalFilter: false,
-      Cell: ({ row }) => opts.actions!(row.original),
-    }) as MRT_ColumnDef<JobPosting>);
+      cell: ({ row }) => opts.actions!(row.original),
+    }) as ColumnDef<JobPosting>);
   }
 
   return kept;

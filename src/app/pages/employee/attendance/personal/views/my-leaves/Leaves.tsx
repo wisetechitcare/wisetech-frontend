@@ -1,7 +1,8 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { KTIcon } from "@metronic/helpers";
 import { useEffect, useMemo, useState } from "react";
-import { MRT_ColumnDef } from "material-react-table";
+
 import { ILeaves } from "@models/employee";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@redux/store";
@@ -30,16 +31,16 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
     useEffect(() => {
         fetchColorAndStoreInSlice();
     }, []);
-    const columns = useMemo<MRT_ColumnDef<GroupedLeaveRequest>[]>(() => [
+    const columns = useMemo<ColumnDef<GroupedLeaveRequest>[]>(() => [
         {
             accessorKey: 'createdAt',
             header: 'Created At',
-            Cell: ({ renderedCellValue }: any) => formatDateFromISTString(renderedCellValue)
+            cell: ({ cell }: any) => formatDateFromISTString(cell.getValue())
         },
         {
             accessorKey: "dateFrom",
             header: "Leave Date",
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const g = row.original as GroupedLeaveRequest;
                 if (!g.dateFrom) return <span className='text-muted fs-7'>-</span>;
                 const from = dayjs(g.dateFrom), to = dayjs(g.dateTo || g.dateFrom);
@@ -55,7 +56,7 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
         {
             accessorKey: "totalDays",
             header: "Total Days",
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const g = row.original as GroupedLeaveRequest;
                 if (g.isHalfDay && !g.isGroup) {
                     const session = String(g.halfDaySession || '').toUpperCase();
@@ -67,7 +68,7 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
         {
             accessorKey: "subType",
             header: "Type",
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const g = row.original as GroupedLeaveRequest;
                 // Single request → show its REAL leave type (old/existing data displays unchanged).
                 if (!g.isGroup) return <LeaveSegmentChips singleType={g.segments[0]?.leaveType ?? g.subType} />;
@@ -83,12 +84,12 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
         {
             accessorKey: "reason",
             header: "Remark",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "status",
             header: "Status",
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const g = row.original as GroupedLeaveRequest;
                 const isApproved = g.status === Status.Approved;
                 const isRejected = g.status === Status.Rejected;
@@ -100,7 +101,7 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
         {
             accessorKey: "approvedByName",
             header: "Approved / Rejected By",
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const g = row.original as GroupedLeaveRequest;
                 const isApproved = g.status === Status.Approved;
                 const isRejected = g.status === Status.Rejected;
@@ -127,7 +128,7 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
             ? [{
                 accessorKey: "actions",
                 header: "Actions",
-                Cell: ({ row }: any) => {
+                cell: ({ row }: any) => {
                     const g = row.original as GroupedLeaveRequest;
                     const editRes = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.editOwn);
                     const deleteRes = hasPermission(resourceNameMapWithCamelCase.leave, permissionConstToUseWithHasPermission.deleteOwn);
@@ -287,21 +288,17 @@ function Leaves({ fromAdmin = false, resource, viewOwn=false, viewOthers=false, 
 
     return (
         <>
-            <MaterialTable
+            <DataTable
+                caption="Leaves"
                 columns={columns}
                 data={filteredGroups}
-                tableName="Leaves"
-                resource={fromAdmin ? "" : resource}
-                viewOwn={viewOwn}
-                viewOthers={viewOthers}
-                employeeId={employeeIdCurrent}
-                isLoading={isFetchingLeaves || !datesReady}
-                muiTableProps={{
-                    muiTableBodyRowProps: ({ row }: any) => (fromAdmin ? {} : {
-                        onClick: () => { setDetailGroup(row.original as GroupedLeaveRequest); setDetailMode('view'); },
-                        sx: { cursor: 'pointer' },
-                    }),
-                }}
+                getRowId={(r) => r.groupId}
+                loading={isFetchingLeaves || !datesReady}
+                stateKey="attendance.leaves"
+                groupableColumns={false}
+                onRowClick={fromAdmin ? undefined : (r) => { setDetailGroup(r as GroupedLeaveRequest); setDetailMode('view'); }}
+                rowLabel={(r: any) => r.leaveType || 'Open leave'}
+                searchPlaceholder="Search leaves…"
             />
 
             <GlassDialog

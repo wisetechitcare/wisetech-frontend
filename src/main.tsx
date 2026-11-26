@@ -14,6 +14,8 @@ import { splashLogoSrc } from '@utils/splashBrand'
 configureWeekStart()
 
 import { createRoot } from 'react-dom/client'
+// Registers app ExportButton for kit DataTableExport (toast + currency).
+import '@app/modules/common/components/table/DataTableExport'
 // Axios
 import axios from 'axios'
 import { Chart, registerables } from 'chart.js'

@@ -85,7 +85,7 @@ const Overview = ({ company }: OverviewProps) => {
           <DetailRow label="City" value={company.city || DASH} />
           <DetailRow label="State" value={company.state || DASH} />
           <DetailRow label="Country" value={company.country || DASH} />
-          <DetailRow label="ZIP Code" value={company.zipCode || DASH} isLast={!coords} />
+          <DetailRow label="Postal Code" value={company.zipCode || DASH} isLast={!coords} />
           {coords && <DetailRow label="Location" value={<DetailMapLink lat={coords.lat} lng={coords.lng} />} isLast />}
         </DetailCard>
 

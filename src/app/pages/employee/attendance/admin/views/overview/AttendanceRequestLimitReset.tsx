@@ -6,7 +6,8 @@ import {
   approveAttendanceRequestLimitReset,
   rejectAttendanceRequestLimitReset,
 } from "@services/employee";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import { KTIcon } from "@metronic/helpers";
@@ -164,7 +165,7 @@ function AttendanceRequestLimitReset() {
     {
       accessorKey: "currentLimit",
       header: "Current Limit",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <div >
           {row.original.currentLimit}
         </div>
@@ -173,14 +174,14 @@ function AttendanceRequestLimitReset() {
     {
       accessorKey: "createdAt",
       header: "Requested At",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <span>{dayjs(row.original.createdAt).format(`DD MMM YYYY ${getTimeTokens().TIME}`)}</span>
       ),
     },
     {
       accessorKey: "status",
       header: "Status",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <ToneChip
           dense
           tone={getStatusTone(row.original.status)}
@@ -194,7 +195,7 @@ function AttendanceRequestLimitReset() {
       header: "Actions",
       enableSorting: false,
       enableColumnFilter: false,
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const permission = hasPermission(resourceNameMapWithCamelCase.attendanceRequestLimit, permissionConstToUseWithHasPermission.editOthers, row.original);
 
         return (
@@ -253,14 +254,15 @@ function AttendanceRequestLimitReset() {
             <AppIcon name="bi-question-circle" className="ms-2" style={{ fontSize: '1rem', cursor: 'pointer' }} />
           </Tooltip>
         </h3>
-        <MaterialTable
-          resource={resourceNameMapWithCamelCase.attendanceRequestLimit}
+        <DataTable
+          caption="Pending Limit Reset Requests"
           columns={columns}
           data={requests}
-          tableName="Pending Limit Reset Requests"
-          isLoading={loading}
-          viewOthers={true}
-          viewOwn={true}
+          getRowId={(r: any) => String(r.id)}
+          loading={loading}
+          stateKey="attendance.limitReset"
+          groupableColumns={false}
+          searchPlaceholder="Search requests…"
         />
     </div>
   );

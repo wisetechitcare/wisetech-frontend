@@ -4,7 +4,7 @@ import { cn } from '@/ds/lib/utils';
 import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
 import { EmptyState } from '@/ds/patterns/empty-state';
 import { SectionHeader } from '@/ds/patterns/section-header';
-import { DataTableExport } from '@app/modules/common/components/table/DataTableExport';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 import { IReimbursementsFetch } from '@models/employee';
 import { summariseReimbursements } from '../../utils/reimbursementSummary';
 import { formatMoney, NO_VALUE, projectTitle } from '../../utils/reimbursementFormat';
@@ -48,11 +48,11 @@ interface ByProjectProps {
 /** Rows with no project at all are their own bucket, not hidden — 80% of history has none. */
 const UNASSIGNED = '__unassigned__';
 
-/** A money cell in its status colour (the charts' colours), right-aligned and tabular. */
+/** Tone only — DataTable `meta.exportType` owns right-align + tabular. */
 const money = (value: number, tone?: string) => (
-    <span className={cn('tabular block text-right font-semibold', tone)}>{formatMoney(value)}</span>
+    <span className={cn('font-semibold', tone)}>{formatMoney(value)}</span>
 );
-const count = (value: number) => <span className="tabular block text-right">{value}</span>;
+const count = (value: number) => <span>{value}</span>;
 
 function ByProject({ rows, loading, periodLabel }: ByProjectProps) {
     const rollups = useMemo<ProjectRollup[]>(() => {

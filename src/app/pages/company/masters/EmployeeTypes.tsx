@@ -1,29 +1,30 @@
-import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { resolveActiveOrgId } from '@utils/activeOrg';
-import React from 'react'
 import { useEffect, useMemo, useState } from "react";
 import * as Yup from 'yup';
-import { Form, Formik, FormikValues } from "formik";
+import { Form, Formik } from "formik";
+import { IdCard, Pencil, Plus } from 'lucide-react';
+import { toast } from "sonner";
 
-import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import TextInput from "@app/modules/common/inputs/TextInput";
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import { Alert, AlertDescription } from '@/ds/ui/alert';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field';
+import { Input } from '@/ds/ui/input';
+import { Button } from '@/ds/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 import { createNewEmployeeType, fetchEmployeeTypes, updateEmployeeTypeById } from "@services/options";
-import { successConfirmation } from '@utils/modal';
-import { useSelector } from "react-redux";
-import { RootState } from "@redux/store";
 import { fetchCompanyOverview } from "@services/company";
 import { canSection } from "@utils/can";
+import { apiErrorMessage } from "@utils/apiError";
 import {
   ConfigPageLayout,
   ConfigSectionCard,
   C,
-  FONT,
-  SP,
   KEYFRAMES,
 } from '@app/modules/configuration';
-import { AppIcon } from '@app/modules/common/components/ui/AppIcon';
-import { Button } from '@/ds/ui/button';
+
+const FORM_ID = 'employee-type-form';
 
 const employeeTypeSchema = Yup.object({
     employeeType: Yup.string().required().label('Employee Type'),
@@ -40,6 +41,7 @@ interface IEmployeeType {
     id: string;
     employeeType: string;
     companyId: string;
+    _count?: { Employees?: number };
 }
 
 interface IEmployeeTypeResponse {
@@ -53,12 +55,12 @@ function EmployeeTypes() {
   const [data, setData] = useState<IEmployeeType[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [initialValues, setInitialValues] = useState<IEmployeeType>(initialState);
   const canWrite = canSection("settings", "write");
   const [companyId, setCompanyId] = useState<string>('');
-  const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
   const [refresh, setRefresh] = useState(false)
-
 
   useEffect(() => {
       const loadEmployeeTypes = async () => {
@@ -75,7 +77,6 @@ function EmployeeTypes() {
               if (!currCompanyId) {
                   const { data: { companyOverview } } = await fetchCompanyOverview();
                   currCompanyId = (resolveActiveOrgId(companyOverview) ?? '');
-                  // console.log("currCompanyId", currCompanyId);     
               }
               setCompanyId(currCompanyId);
 
@@ -89,8 +90,9 @@ function EmployeeTypes() {
   }, [refresh]);
 
   const handleEditClick = (id: string) => {
-      const employeeTypeData: any = data.find(des => des.id === id);
+      const employeeTypeData = data.find(des => des.id === id);
       if (employeeTypeData) {
+          setFormError(null);
           setInitialValues({
               id: employeeTypeData.id,
               employeeType: employeeTypeData.employeeType,
@@ -101,37 +103,47 @@ function EmployeeTypes() {
       }
   };
 
-  const columns = useMemo<MRT_ColumnDef<IEmployeeType>[]>(
+  const columns = useMemo<ColumnDef<IEmployeeType>[]>(
       () => {
-          const cols: MRT_ColumnDef<IEmployeeType>[] = [
+          const cols: ColumnDef<IEmployeeType>[] = [
               {
                   accessorKey: "employeeType",
-                  header: "Employee Type",
-                  Cell: ({ renderedCellValue }) => renderedCellValue
+                  meta: { label: "Employee Type" },
+                  header: ({ column }) => <SortableHeader column={column} title="Employee Type" />,
               },
               {
-                  accessorKey: "employeeCount",
-                  header: "Total Employees",
-                  Cell: ({ row }: any) => {
-                      const employeeCount = row.original?._count?.Employees || 0;
-                      return <span>{employeeCount}</span>;
-                  }
+                  id: "employeeCount",
+                  accessorFn: (row) => row._count?.Employees ?? 0,
+                  meta: { label: "Total Employees", exportType: "number", wrap: false },
+                  header: ({ column }) => <SortableHeader column={column} title="Total Employees" />,
+                  cell: ({ getValue }) => String(getValue() ?? 0),
               },
           ];
 
           if (canWrite) {
               cols.push({
-                  accessorKey: "actions",
+                  id: "actions",
+                  meta: { label: "Actions", export: false, pin: "end", wrap: false },
+                  enableSorting: false,
+                  enableHiding: false,
                   header: "Actions",
-                  Cell: ({ row }: any) => (
-                      <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label="Edit employee type"
-                          onClick={() => handleEditClick(row.original.id)}
-                      >
-                          <AppIcon name="bi-pencil" className="fs-4" />
-                      </Button>
+                  cell: ({ row }) => (
+                      <Tooltip>
+                          <TooltipTrigger
+                              render={
+                                  <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      aria-label="Edit employee type"
+                                      onClick={() => handleEditClick(row.original.id)}
+                                  />
+                              }
+                          >
+                              <Pencil aria-hidden />
+                          </TooltipTrigger>
+                          <TooltipContent>Edit employee type</TooltipContent>
+                      </Tooltip>
                   ),
               });
           }
@@ -145,29 +157,37 @@ function EmployeeTypes() {
       setShowModal(false);
       setEditMode(false);
       setInitialValues(initialState);
+      setFormError(null);
   };
 
-  const handleSubmit = async (values: any, actions: FormikValues) => {
+  const openCreate = () => {
+      setFormError(null);
+      setEditMode(false);
+      setInitialValues(initialState);
+      setShowModal(true);
+  };
+
+  const handleSubmit = async (values: IEmployeeType) => {
+      setFormError(null);
+      setSaving(true);
       try {
-          setLoading(true);
           if (editMode) {
               await updateEmployeeTypeById(values);
-              setLoading(false);
-              successConfirmation('Employee Type updated.');
-              setShowModal(false);
-              setEditMode(false);
+              toast.success('Employee Type updated');
+              handleClose();
+              setRefresh(prev => !prev);
               return;
           }
           const payload = { companyId: companyId, employeeTypes: [values.employeeType] };
           await createNewEmployeeType(payload);
-          setLoading(false);
-          successConfirmation('Employee Type created.');
-          setShowModal(false);
-      } catch (err) {
-          setLoading(false);
-      } finally {
+          toast.success('Employee Type created');
+          handleClose();
           setRefresh(prev => !prev);
-          setInitialValues(initialState);
+      } catch (err: unknown) {
+          const action = editMode ? 'update' : 'create';
+          setFormError(apiErrorMessage(err, `Failed to ${action} employee type`));
+      } finally {
+          setSaving(false);
       }
   };
 
@@ -177,10 +197,8 @@ function EmployeeTypes() {
             <ConfigPageLayout
               actions={
                 canWrite ? (
-                  <Button variant="default" size="sm" onClick={() => setShowModal(true)}>
-                    <span data-icon="inline-start" className="inline-flex">
-                      <AppIcon name="bi-plus-lg" className="fs-6" />
-                    </span>
+                  <Button type="button" variant="default" size="sm" onClick={openCreate}>
+                    <Plus data-icon="inline-start" aria-hidden />
                     New Employee Type
                   </Button>
                 ) : null
@@ -191,78 +209,81 @@ function EmployeeTypes() {
                 description="View and manage all employee types configured in your organization"
                 icon="bi-person-badge"
                 iconColor="green"
-                badge={{ label: `${data.length}`, color: '#16a34a', bg: C.successLight }}
+                badge={{ label: `${data.length}`, color: C.success, bg: C.successLight }}
                 loading={loading}
               >
-                <div style={{ marginTop: SP.md }}>
-                  <MaterialTable
+                <div className="mt-4">
+                  <DataTable
+                    caption="Employee Types"
                     columns={columns}
                     data={data}
-                    tableName="EmployeeTypes"
-                    employeeId={employeeId}
-                    muiTableProps={{
-                      sx: {
-                        '& .MuiTableCell-head': {
-                          backgroundColor: C.bgSection,
-                          fontWeight: 600,
-                          fontSize: '13px',
-                          color: C.textPrimary,
-                          fontFamily: FONT.body,
-                        },
-                      },
-                    }}
+                    getRowId={(r) => r.id}
+                    loading={loading}
+                    stateKey="company.employeeTypes"
+                    toolbar={(ctx) => (
+                      <DataTableExport columns={columns} ctx={ctx} filename="Employee Types" />
+                    )}
                   />
                 </div>
               </ConfigSectionCard>
             </ConfigPageLayout>
 
-            <Modal show={showModal} onHide={handleClose} centered backdropClassName="modal-backdrop-blur">
-                <Modal.Header closeButton style={{ borderBottom: `1px solid ${C.border}`, padding: `${SP.md} ${SP.lg}` }}>
-                    <Modal.Title style={{ fontFamily: FONT.body, fontWeight: 600, fontSize: '16px', color: C.textPrimary }}>
-                        {editMode ? 'Edit Employee Type' : 'Create New Employee Type'}
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body style={{ padding: SP.lg }}>
-                    <Formik initialValues={initialValues} onSubmit={handleSubmit} validationSchema={employeeTypeSchema}>
-                        {(formikProps) => (
-                            <Form>
-                                <div style={{ marginBottom: SP.lg }}>
-                                    <TextInput
-                                        isRequired={true}
-                                        label="Employee Type"
-                                        formikField="employeeType"
-                                    />
-                                </div>
-
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SP.md, paddingTop: SP.lg }}>
-                                  <Button type="button" variant="outline" size="sm" onClick={handleClose}>
-                                    Cancel
-                                  </Button>
-                                    <Button
-                                      type="submit"
-                                      variant="default"
-                                      size="sm"
-                                      disabled={loading || !formikProps.isValid}
-                                      loading={loading}
-                                    >
-                                        {editMode ? 'Update Employee Type' : 'Create Employee Type'}
-                                    </Button>
-                                </div>
-                            </Form>
-                        )}
-                    </Formik>
-                </Modal.Body>
-            </Modal>
-
-            <style>{`
-              @keyframes spin {
-                to { transform: rotate(360deg); }
-              }
-              .modal-backdrop-blur {
-                background-color: rgba(0, 0, 0, 0.2);
-                backdrop-filter: blur(2px);
-              }
-            `}</style>
+            <Formik
+              initialValues={initialValues}
+              onSubmit={handleSubmit}
+              validationSchema={employeeTypeSchema}
+              enableReinitialize
+            >
+              {(fk) => {
+                const typeError =
+                  (fk.touched.employeeType || fk.submitCount > 0)
+                    ? (fk.errors.employeeType as string | undefined)
+                    : undefined;
+                return (
+                  <FormDialog
+                    open={showModal}
+                    onOpenChange={(open) => { if (!open) handleClose(); }}
+                    title={editMode ? 'Edit Employee Type' : 'New Employee Type'}
+                    description="Classification used on employee profiles and filters"
+                    icon={<IdCard aria-hidden />}
+                    size="sm"
+                    formId={FORM_ID}
+                    submitLabel={editMode ? 'Update Employee Type' : 'Create Employee Type'}
+                    submitting={saving}
+                    dirty={fk.dirty}
+                  >
+                    <Form id={FORM_ID} noValidate className="space-y-4">
+                      {formError ? (
+                        <Alert variant="destructive" role="alert">
+                          <AlertDescription>{formError}</AlertDescription>
+                        </Alert>
+                      ) : null}
+                      <FieldGroup>
+                        <Field data-invalid={typeError ? true : undefined}>
+                          <FieldLabel htmlFor="employee-type-name">Employee Type</FieldLabel>
+                          <Input
+                            id="employee-type-name"
+                            name="employeeType"
+                            required
+                            autoFocus
+                            placeholder="Enter employee type"
+                            disabled={saving}
+                            value={fk.values.employeeType}
+                            onChange={fk.handleChange}
+                            onBlur={fk.handleBlur}
+                            aria-invalid={typeError ? true : undefined}
+                            aria-describedby={typeError ? 'employee-type-name-error' : undefined}
+                          />
+                          {typeError ? (
+                            <FieldError id="employee-type-name-error">{typeError}</FieldError>
+                          ) : null}
+                        </Field>
+                      </FieldGroup>
+                    </Form>
+                  </FormDialog>
+                );
+              }}
+            </Formik>
         </>
     );
 }

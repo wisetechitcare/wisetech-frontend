@@ -1,11 +1,9 @@
 import React from "react";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable } from '@/ds/patterns/data-table';
 import dayjs from "dayjs";
 import { formatCurrencyDecimal } from "@utils/currency";
 import {
   LeadStatusPill,
-  leadRowSx,
-  leadTableSx,
   UNASSIGNED_ORG_LABEL,
 } from "@app/pages/employee/leads/lead/leadTableStyle";
 import { canViewCommercial } from "@utils/can";
@@ -55,25 +53,25 @@ const CompanyLeadReferences: React.FC<{
       header: "Inquiry Date",
       size: 140,
       accessorFn: (r: LeadReferral) => r.lead?.inquiryDate || r.lead?.createdAt || "",
-      Cell: ({ cell }: any) => (cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A"),
+      cell: ({ cell }: any) => (cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A"),
     },
     {
       accessorKey: "lead.prefix",
       header: "Inquiry Id",
       size: 180,
-      Cell: ({ cell }: any) => <span style={{ fontWeight: 600, fontSize: "14.5px" }}>{cell.getValue() || "N/A"}</span>,
+      cell: ({ cell }: any) => <span style={{ fontWeight: 600, fontSize: "14.5px" }}>{cell.getValue() || "N/A"}</span>,
     },
     {
       accessorKey: "lead.title",
       header: "Project Name",
       size: 320,
-      Cell: ({ cell }: any) => cell.getValue() || "Untitled lead",
+      cell: ({ cell }: any) => cell.getValue() || "Untitled lead",
     },
     {
       accessorKey: "referralType.name",
       header: "Referral Type",
       size: 140,
-      Cell: ({ cell }: any) => cell.getValue() || "N/A",
+      cell: ({ cell }: any) => cell.getValue() || "N/A",
     },
     ...(showReferredBy
       ? [
@@ -90,7 +88,7 @@ const CompanyLeadReferences: React.FC<{
       accessorKey: "lead.status.name",
       header: "Lead Status",
       size: 150,
-      Cell: ({ row }: any) => <LeadStatusPill status={row.original.lead?.status} />,
+      cell: ({ row }: any) => <LeadStatusPill status={row.original.lead?.status} />,
     },
     ...(canViewCommercial('crm.leads') ? [{
       id: "totalCost",
@@ -101,7 +99,7 @@ const CompanyLeadReferences: React.FC<{
       // `formatCurrencyDecimal`, not a hardcoded glyph: the symbol follows the BRANCH, so a ₹ here
       // shows the wrong currency to every tenant that is not on INR — and it also skips the lakh/crore
       // grouping that `toLocaleString()` has no way to know about.
-      Cell: ({ cell }: any) => formatCurrencyDecimal(Number(cell.getValue())),
+      cell: ({ cell }: any) => formatCurrencyDecimal(Number(cell.getValue())),
     }] : []),
     {
       id: "organization",
@@ -118,28 +116,25 @@ const CompanyLeadReferences: React.FC<{
   ];
 
   return (
-    <MaterialTable
+    <DataTable
+      caption={tableName}
       data={referrals}
       columns={columns}
-      tableName={tableName}
-      hidePagination={true}
-      defaultSorting={[{ id: "inquiryDate", desc: true }]}
-      layoutMode="semantic"
-      muiTableContainerProps={{ sx: { overflowX: "auto" } }}
-      muiTableProps={{
-        sx: leadTableSx,
-        muiTableBodyRowProps: ({ row }: any) => {
-          const lead = row.original?.lead;
-          const isProject = !!lead?.status?.isProjectTrigger;
-          const open = canOpen(lead?.id, isProject);
-          return {
-            // Every referral is listed; only this person's own leads / projects open.
-            sx: { ...leadRowSx(lead?.status?.color), ...(open ? {} : { cursor: "not-allowed" }) },
-            title: open ? undefined : `You're not authorized to open this ${isProject ? "project" : "lead"}`,
-            onClick: () => openRecord(lead?.id, isProject, `/leads/${lead?.id}`),
-          };
-        },
+      getRowId={(r) => r.id}
+      initialSorting={[{ id: "inquiryDate", desc: true }]}
+      stateKey={`crm.leadReferences.${tableName}`}
+      groupableColumns={false}
+      tools={false}
+      initialPageSize={100}
+      rowTone={(r) => r.lead?.status?.color || undefined}
+      onRowClick={(r) => {
+        const lead = r.lead;
+        const isProject = !!(lead?.status as { isProjectTrigger?: boolean } | null | undefined)?.isProjectTrigger;
+        if (!canOpen(lead?.id, isProject)) return;
+        openRecord(lead?.id, isProject, `/leads/${lead?.id}`);
       }}
+      rowLabel={(r) => r.lead?.title || r.lead?.prefix || "Open lead"}
+      searchPlaceholder="Search referrals…"
     />
   );
 };

@@ -1,23 +1,30 @@
-import { UnsavedChangesModal as Modal } from '@app/modules/common/components/ui';
 import { resolveActiveOrgId } from '@utils/activeOrg';
 import { useEffect, useMemo, useState } from "react";
-import { Form, Formik, FormikValues } from "formik";
+import * as Yup from 'yup';
+import { Form, Formik } from "formik";
+import { FileText, Pencil, Plus } from 'lucide-react';
+import { toast } from "sonner";
 
-import { MRT_ColumnDef } from "material-react-table";
-import { KTIcon } from "@metronic/helpers";
 import { PageLink, PageTitle } from "@metronic/layout/core";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import TextInput from "@app/modules/common/inputs/TextInput";
 import { PageHeadingTitle } from "@metronic/layout/components/header/page-title/PageHeadingTitle";
 import { fetchOnboardingDocs, createOnboardingDocs, updateOnboardingDocs } from "@services/options";
-import { successConfirmation } from '@utils/modal';
-import { useSelector } from "react-redux";
-import { RootState } from "@redux/store";
 import { fetchCompanyOverview } from "@services/company";
 import { hasPermission } from "@utils/authAbac";
 import { canSection } from "@utils/can";
+import { apiErrorMessage } from "@utils/apiError";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
+import { FormDialog } from '@/ds/patterns/form-dialog';
+import { Alert, AlertDescription } from '@/ds/ui/alert';
+import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field';
+import { Input } from '@/ds/ui/input';
+import { Switch } from '@/ds/ui/switch';
 import { Button } from '@/ds/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ds/ui/tooltip';
+import { DataTable, SortableHeader, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
+import { Badge } from '@/ds/ui/badge';
+
+const FORM_ID = 'onboarding-doc-form';
 
 const onboardingDocs: Array<PageLink> = [
     { title: 'Company', path: '#', isSeparator: false, isActive: false },
@@ -33,11 +40,25 @@ interface Onboarding {
     createdAt: string;
 }
 
-const defaultInitialValues = {
+interface OnboardingFormValues {
+    companyId: string;
+    fieldName: string;
+    isEnabled: boolean;
+    hasIdentityNumber: boolean;
+}
+
+const onboardingSchema = Yup.object({
+    fieldName: Yup.string().required().label('File Name'),
+    companyId: Yup.string(),
+    isEnabled: Yup.boolean(),
+    hasIdentityNumber: Yup.boolean(),
+});
+
+const defaultInitialValues: OnboardingFormValues = {
     companyId: "",
     fieldName: "",
-    isEnabled: true, // Default enabled
-    hasIdentityNumber: true, // Default false
+    isEnabled: true,
+    hasIdentityNumber: true,
 };
 
 function OnBoardingDocs() {
@@ -46,9 +67,10 @@ function OnBoardingDocs() {
     const [editMode, setEditMode] = useState(false);
     const [documentId, setDocumentId] = useState('');
     const [loading, setLoading] = useState(false);
-    const [initialValues, setInitialValues] = useState(defaultInitialValues);
+    const [saving, setSaving] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
+    const [initialValues, setInitialValues] = useState<OnboardingFormValues>(defaultInitialValues);
     const canWrite = canSection("users", "write");
-    const employeeId = useSelector((state: RootState) => state.employee.currentEmployee.id);
     const [companyId, setCompanyId] = useState<string>('');
 
     useEffect(() => {
@@ -83,6 +105,7 @@ function OnBoardingDocs() {
         setDocumentId(id);
         const document = data.find(doc => doc.id === id);
         if (document) {
+            setFormError(null);
             setInitialValues({
                 companyId: document.companyId,
                 fieldName: document.fieldName,
@@ -95,49 +118,99 @@ function OnBoardingDocs() {
     };
 
     const handleShowModal = () => {
+        setFormError(null);
         setInitialValues({ ...defaultInitialValues, companyId });
         setEditMode(false);
+        setDocumentId("");
         setShowModal(true);
     };
 
-    const columns = useMemo<MRT_ColumnDef<Onboarding>[]>(() => [
-        {
-            accessorKey: "fieldName",
-            header: "File Name",
-            Cell: ({ row }) => row.original.fieldName,
-        },
-        {
-            accessorKey: "isEnabled",
-            header: "Is Enabled",
-            Cell: ({ row }) => (row.original.isEnabled ? "Yes" : "No"),
-        },
-        ...(canWrite
-            ? [{
-                accessorKey: "actions",
+    const columns = useMemo<ColumnDef<Onboarding>[]>(() => {
+        const cols: ColumnDef<Onboarding>[] = [
+            {
+                accessorKey: "fieldName",
+                meta: { label: "File Name" },
+                header: ({ column }) => <SortableHeader column={column} title="File Name" />,
+            },
+            {
+                accessorKey: "isEnabled",
+                meta: {
+                    label: "Is Enabled",
+                    wrap: false,
+                    exportValue: (r) => (r.isEnabled ? "Yes" : "No"),
+                },
+                header: "Is Enabled",
+                cell: ({ row }) => (
+                    <Badge variant={row.original.isEnabled ? "success" : "neutral"} dot>
+                        {row.original.isEnabled ? "Yes" : "No"}
+                    </Badge>
+                ),
+            },
+        ];
+        if (canWrite) {
+            cols.push({
+                id: "actions",
+                meta: { label: "Actions", export: false, pin: "end", wrap: false },
+                enableSorting: false,
+                enableHiding: false,
                 header: "Actions",
-                Cell: ({ row }: any) => {
-                    return (hasPermission(resourceNameMapWithCamelCase.onboardingDocument, permissionConstToUseWithHasPermission.editOthers) ?
-                        <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
-                            onClick={() => handleEditClick(row.original.id)}
-                        >
-                            <KTIcon iconName='pencil' className='fs-3' />
-                        </Button> : "Not Allowed"
-                    );
-                }
-            }]
-            : []),
-    ], [data]);
+                cell: ({ row }) =>
+                    hasPermission(
+                        resourceNameMapWithCamelCase.onboardingDocument,
+                        permissionConstToUseWithHasPermission.editOthers,
+                    ) ? (
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label="Edit"
+                                        onClick={() => handleEditClick(row.original.id)}
+                                    />
+                                }
+                            >
+                                <Pencil aria-hidden />
+                            </TooltipTrigger>
+                            <TooltipContent>Edit</TooltipContent>
+                        </Tooltip>
+                    ) : (
+                        <span className="text-muted-foreground">Not Allowed</span>
+                    ),
+            });
+        }
+        return cols;
+    }, [canWrite, data]);
 
     const handleClose = () => {
         setShowModal(false);
         setEditMode(false);
         setInitialValues(defaultInitialValues);
         setDocumentId("");
+        setFormError(null);
     };
 
-    const handleSubmit = async (values: any) => {
+    const handleSubmit = async (values: OnboardingFormValues) => {
+        setFormError(null);
+        setSaving(true);
         try {
-            setLoading(true);
+            if (editMode) {
+                const payload = {
+                    id: documentId,
+                    fieldName: values.fieldName,
+                    isEnabled: values.isEnabled,
+                    hasIdentityNumber: values.hasIdentityNumber,
+                };
+                await updateOnboardingDocs(documentId, payload);
+                setData(prevData =>
+                    prevData.map(doc => doc.id === documentId ? { ...doc, ...payload } : doc)
+                );
+                toast.success('Onboarding document updated');
+                handleClose();
+                return;
+            }
+
             const payload = {
                 companyId,
                 documents: [{
@@ -146,115 +219,128 @@ function OnBoardingDocs() {
                     hasIdentityNumber: values.hasIdentityNumber,
                 }]
             };
-
             await createOnboardingDocs(payload);
-            setData(prevData => [...prevData, values]);
-            successConfirmation("Onboarding document created.");
-            setShowModal(false);
-            setEditMode(false);
-        } catch (err) {
-            console.error("Error creating document:", err);
+            setData(prevData => [...prevData, {
+                ...values,
+                id: '',
+                companyId,
+                createdAt: new Date().toISOString(),
+            }]);
+            toast.success('Onboarding document created');
+            handleClose();
+        } catch (err: unknown) {
+            const action = editMode ? 'update' : 'create';
+            setFormError(apiErrorMessage(err, `Failed to ${action} onboarding document`));
         } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleUpdate = async (values: any) => {
-        try {
-            setLoading(true);
-            const payload = {
-                id: documentId,
-                fieldName: values.fieldName,
-                isEnabled: values.isEnabled,
-                hasIdentityNumber: values.hasIdentityNumber,
-            };
-
-            await updateOnboardingDocs(documentId, payload);
-            setData(prevData =>
-                prevData.map(doc => doc.id === documentId ? { ...doc, ...payload } : doc)
-            );
-            successConfirmation("Onboarding document updated.");
-            setShowModal(false);
-            setEditMode(false);
-        } catch (err) {
-            console.error("Error updating document:", err);
-        } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
     return (
         <>
-            <div className="d-flex flex-wrap justify-content-between align-items-center px-lg-9 px-4 py-5">
+            <div className="flex flex-wrap items-center justify-between px-4 py-5 lg:px-9">
                 <PageTitle breadcrumbs={onboardingDocs}>Onboarding Documents</PageTitle>
-                <div className="d-flex align-items-center justify-content-between w-100">
+                <div className="flex w-full items-center justify-between">
                     <PageHeadingTitle />
                     <div>
                         {canWrite && hasPermission(resourceNameMapWithCamelCase.onboardingDocument, permissionConstToUseWithHasPermission.create) && (
-                            <div className='card-toolbar text-end'>
-                                <Button variant="tinted" size="sm" type="submit" onClick={handleShowModal}>
-                                    <KTIcon iconName='plus' className='fs-3' />
-                                    New Onboarding Document
-                                </Button>
-                            </div>
+                            <Button type="button" variant="tinted" size="sm" onClick={handleShowModal}>
+                                <Plus data-icon="inline-start" aria-hidden />
+                                New Onboarding Document
+                            </Button>
                         )}
                     </div>
                 </div>
             </div>
-            <div className="px-lg-9 px-4 ">
+            <div className="px-4 lg:px-9">
                 {
                     hasPermission(resourceNameMapWithCamelCase.onboardingDocument, permissionConstToUseWithHasPermission.readOthers) &&
-                    <MaterialTable columns={columns} data={data} tableName="Onboarding Documents" employeeId={employeeId} />
+                    <DataTable
+                        caption="Onboarding Documents"
+                        columns={columns}
+                        data={data}
+                        getRowId={(r) => r.id}
+                        loading={loading}
+                        stateKey="company.onboardingDocs"
+                        toolbar={(ctx) => (
+                            <DataTableExport columns={columns} ctx={ctx} filename="Onboarding Documents" />
+                        )}
+                    />
                 }
             </div>
-            <Modal show={showModal} onHide={handleClose} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>{editMode ? 'Edit' : 'Create'} Onboarding Document</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Formik
-                        initialValues={initialValues}
-                        onSubmit={editMode ? handleUpdate : handleSubmit}
-                    >
-                        {(formikProps) => (
-                            <Form>
-                                <div className="row">
-                                    <div className="col-lg-12">
-                                        <TextInput
-                                            isRequired={true}
-                                            label="File Name"
-                                            formikField="fieldName"
-                                        />
-                                    </div>
-                                    <div className="col-lg-12">
-                                        <div className="form-check form-switch">
-                                            <input
-                                                type="checkbox"
-                                                name="isEnabled"
-                                                className="form-check-input"
-                                                checked={formikProps.values.isEnabled}
-                                                onChange={formikProps.handleChange}
-                                            />
-                                            <label className="col-from-label required fw-bold fs-6">
-                                                Is Enabled
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div className='des-flex justify-content-end pt-20'>
-                                    <Button type='submit' disabled={loading}>
-                                        {loading ? 'Saving...' : 'Save Changes'}
-                                    </Button>
-                                    <Button variant="outline" type='button' className="ms-2" onClick={handleClose}>
-                                        Cancel
-                                    </Button>
-                                </div>
+            <Formik
+                initialValues={initialValues}
+                onSubmit={handleSubmit}
+                validationSchema={onboardingSchema}
+                enableReinitialize
+            >
+                {(fk) => {
+                    const nameError =
+                        (fk.touched.fieldName || fk.submitCount > 0)
+                            ? (fk.errors.fieldName as string | undefined)
+                            : undefined;
+                    return (
+                        <FormDialog
+                            open={showModal}
+                            onOpenChange={(open) => { if (!open) handleClose(); }}
+                            title={editMode ? 'Edit Onboarding Document' : 'New Onboarding Document'}
+                            description="Document type requested during employee onboarding"
+                            icon={<FileText aria-hidden />}
+                            size="sm"
+                            formId={FORM_ID}
+                            submitLabel={editMode ? 'Update Document' : 'Create Document'}
+                            submitting={saving}
+                            dirty={fk.dirty}
+                        >
+                            <Form id={FORM_ID} noValidate className="space-y-4">
+                                {formError ? (
+                                    <Alert variant="destructive" role="alert">
+                                        <AlertDescription>{formError}</AlertDescription>
+                                    </Alert>
+                                ) : null}
+                                <FieldGroup>
+                                    <Field data-invalid={nameError ? true : undefined}>
+                                        <FieldLabel htmlFor="onboarding-field-name">File Name</FieldLabel>
+                                        <Input
+                                            id="onboarding-field-name"
+                                            name="fieldName"
+                                            required
+                                            autoFocus
+                                            placeholder="Enter document name"
+                                            disabled={saving}
+                                            value={fk.values.fieldName}
+                                            onChange={fk.handleChange}
+                                            onBlur={fk.handleBlur}
+                                            aria-invalid={nameError ? true : undefined}
+                                            aria-describedby={nameError ? 'onboarding-field-name-error' : undefined}
+                                        />
+                                        {nameError ? (
+                                            <FieldError id="onboarding-field-name-error">{nameError}</FieldError>
+                                        ) : null}
+                                    </Field>
+                                    <Field orientation="horizontal">
+                                        <FieldContent>
+                                            <FieldLabel htmlFor="onboarding-is-enabled">Enabled</FieldLabel>
+                                            <FieldDescription>
+                                                When off, this document is hidden from onboarding checklists.
+                                            </FieldDescription>
+                                        </FieldContent>
+                                        <Switch
+                                            id="onboarding-is-enabled"
+                                            checked={fk.values.isEnabled}
+                                            disabled={saving}
+                                            onCheckedChange={(checked) => {
+                                                void fk.setFieldValue('isEnabled', checked);
+                                            }}
+                                        />
+                                    </Field>
+                                </FieldGroup>
                             </Form>
-                        )}
-                    </Formik>
-                </Modal.Body>
-            </Modal>
+                        </FormDialog>
+                    );
+                }}
+            </Formik>
         </>
     );
 }

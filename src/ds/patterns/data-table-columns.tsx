@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ArrowLeftToLine, ArrowRightToLine, Eye } from "lucide-react"
+import { ArrowLeft, ArrowLeftToLine, ArrowRight, ArrowRightToLine, Eye } from "lucide-react"
 import { cn } from "@/ds/lib/utils"
 import { Button } from "@/ds/ui/button"
 import { Label } from "@/ds/ui/label"
@@ -16,12 +16,16 @@ export interface ColumnsPanelItem {
   label: string
   visible: boolean
   pin: ColumnPin
+  /** Among unpinned visible columns: can move left / right (keyboard path for header drag). */
+  canMoveLeft?: boolean
+  canMoveRight?: boolean
 }
 
-/** A small on/off pin tool with its own tooltip (the table's ToolButton recipe, row size). */
-function PinButton({ label, pressed, onClick, children }: {
+/** A small icon tool with its own tooltip (pin / move — table ToolButton recipe, row size). */
+function IconToolButton({ label, pressed = false, disabled, onClick, children }: {
   label: string
-  pressed: boolean
+  pressed?: boolean
+  disabled?: boolean
   onClick: () => void
   children: React.ReactNode
 }) {
@@ -33,7 +37,8 @@ function PinButton({ label, pressed, onClick, children }: {
             variant={pressed ? "tinted" : "ghost"}
             size="icon-xs"
             aria-label={label}
-            aria-pressed={pressed}
+            aria-pressed={pressed || undefined}
+            disabled={disabled}
             onClick={onClick}
             className={cn(!pressed && "text-muted-foreground")}
           />
@@ -48,12 +53,12 @@ function PinButton({ label, pressed, onClick, children }: {
 
 /**
  * The DataTable's "Show or hide columns" tool: one row per column — a switch to show it, two pins to keep it at the
- * left or right edge — and Hide All / Show All underneath.
+ * left or right edge, Move Left / Right when reorderable — and Hide All / Show All underneath.
  *
  * Switches, not menu checkboxes: each row is a setting that applies the moment it flips and the panel stays open
  * for the next one (a menu closes per pick). The LAST visible column cannot be switched off and Hide All keeps the
  * first one — a table with no columns shows nothing and offers no way back but this panel. Column ORDER is changed
- * by dragging a header in the table itself; the list follows that order.
+ * by dragging a header in the table itself, or with Move Left / Right here (keyboard path).
  */
 export function ColumnsPanel({
   items,
@@ -61,6 +66,7 @@ export function ColumnsPanel({
   onShowAll,
   onHideAll,
   onPin,
+  onMove,
   pinnable = true,
   reorderable = true,
 }: {
@@ -69,14 +75,20 @@ export function ColumnsPanel({
   onShowAll: () => void
   onHideAll: () => void
   onPin: (id: string, pin: ColumnPin) => void
+  /** Swap a movable column one step left (−1) or right (+1). */
+  onMove?: (id: string, delta: -1 | 1) => void
   pinnable?: boolean
   reorderable?: boolean
 }) {
   const baseId = React.useId()
   const visibleCount = items.filter((i) => i.visible).length
   const hint = reorderable && pinnable
-    ? "Drag a header to reorder; pin a column to keep it in view."
-    : reorderable ? "Drag a header to reorder." : pinnable ? "Pin a column to keep it in view." : null
+    ? "Drag a header to reorder, or use Move Left / Right; pin a column to keep it in view."
+    : reorderable
+      ? "Drag a header to reorder, or use Move Left / Right."
+      : pinnable
+        ? "Pin a column to keep it in view."
+        : null
   return (
     <Popover>
       {/* A tooltip like every other table tool: the Tooltip and Popover triggers compose onto one Button. */}
@@ -95,6 +107,7 @@ export function ColumnsPanel({
           {items.map((c) => {
             const id = `${baseId}-${c.id}`
             const onlyOne = c.visible && visibleCount <= 1
+            const showMove = reorderable && onMove && (c.canMoveLeft || c.canMoveRight)
             return (
               <li key={c.id} data-slot="columns-panel-item" className="flex min-h-9 items-center gap-2.5 rounded-lg px-2 hover:bg-muted/60">
                 <Switch
@@ -107,22 +120,40 @@ export function ColumnsPanel({
                 <Label htmlFor={id} className={cn("min-w-0 flex-1 truncate font-normal", !c.visible && "text-muted-foreground")}>
                   {c.label}
                 </Label>
+                {showMove && (
+                  <span className="flex shrink-0 items-center gap-0.5">
+                    <IconToolButton
+                      label={`Move ${c.label} left`}
+                      disabled={!c.canMoveLeft}
+                      onClick={() => onMove(c.id, -1)}
+                    >
+                      <ArrowLeft aria-hidden />
+                    </IconToolButton>
+                    <IconToolButton
+                      label={`Move ${c.label} right`}
+                      disabled={!c.canMoveRight}
+                      onClick={() => onMove(c.id, 1)}
+                    >
+                      <ArrowRight aria-hidden />
+                    </IconToolButton>
+                  </span>
+                )}
                 {pinnable && (
                   <span className="flex shrink-0 items-center gap-0.5">
-                    <PinButton
+                    <IconToolButton
                       label={c.pin === "start" ? `Unpin ${c.label}` : `Pin ${c.label} to the left`}
                       pressed={c.pin === "start"}
                       onClick={() => onPin(c.id, c.pin === "start" ? false : "start")}
                     >
                       <ArrowLeftToLine aria-hidden />
-                    </PinButton>
-                    <PinButton
+                    </IconToolButton>
+                    <IconToolButton
                       label={c.pin === "end" ? `Unpin ${c.label}` : `Pin ${c.label} to the right`}
                       pressed={c.pin === "end"}
                       onClick={() => onPin(c.id, c.pin === "end" ? false : "end")}
                     >
                       <ArrowRightToLine aria-hidden />
-                    </PinButton>
+                    </IconToolButton>
                   </span>
                 )}
               </li>

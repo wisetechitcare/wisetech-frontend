@@ -3,13 +3,15 @@
  * Shown only to HR/admin users (gated in OverviewView.tsx).
  * Displays all attendance requests at status=4 (PendingHR) — manager approved, awaiting HR final sign-off.
  */
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { LeaveStatus } from "@constants/attendance";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { KTIcon } from "@metronic/helpers";
 // Tailwind UI kit (tw/) — the re-platformed glass design system, zero MUI.
 import { WtIconButton, Spinner, TRIO } from "@app/modules/common/components/ui/tw";
 import { ToneChip } from "@app/modules/common/components/ui";
+import { Badge } from "@/ds/ui/badge";
 import { IAttendanceRequests } from "@models/employee";
 import { RootState } from "@redux/store";
 import { fetchCompanyOverview } from "@services/company";
@@ -120,31 +122,31 @@ function HRPendingAttendanceRequests() {
             accessorKey: 'date',
             header: 'Date',
             size: 110,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            cell: ({ cell }: any) => cell.getValue(),
         },
         {
             accessorKey: 'employeeName',
             header: 'Employee',
             size: 130,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            cell: ({ cell }: any) => cell.getValue(),
         },
         {
             accessorKey: 'employeeCode',
             header: 'Emp Code',
             size: 100,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            cell: ({ cell }: any) => cell.getValue(),
         },
         {
             accessorKey: 'checkIn',
             header: 'Check-In',
             size: 100,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            cell: ({ cell }: any) => cell.getValue(),
         },
         {
             accessorKey: 'checkOut',
             header: 'Check-Out',
             size: 100,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            cell: ({ cell }: any) => cell.getValue(),
         },
         {
             accessorKey: 'remarks',
@@ -153,13 +155,13 @@ function HRPendingAttendanceRequests() {
             // plus the sort icon on one line.
             size: 150,
             minSize: 140,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            cell: ({ cell }: any) => cell.getValue(),
         },
         {
             accessorKey: 'status',
             header: 'Stage',
             size: 170,
-            Cell: () => (
+            cell: () => (
                 <ToneChip dense tone="warning" label="⏳ Pending HR Approval" />
             ),
         },
@@ -167,7 +169,7 @@ function HRPendingAttendanceRequests() {
             accessorKey: 'actions',
             header: 'HR Action',
             size: 110,
-            Cell: ({ row }: any) => (
+            cell: ({ row }: any) => (
                 <>
                     <WtIconButton
                         color={TRIO.green.c}
@@ -204,25 +206,21 @@ function HRPendingAttendanceRequests() {
         <>
             <h3 className="pt-8 fw-bold">
                 Pending HR Approval
-                <span
-                    className="badge ms-2 fs-7"
-                    style={{ backgroundColor: '#F39C12', color: 'white' }}
-                >
+                <Badge variant="warning-solid" className="ms-2 align-middle">
                     {requests.length}
-                </span>
+                </Badge>
             </h3>
             <p className="text-muted fs-7 mb-4">
                 These attendance requests cleared manager review and require your final sign-off.
             </p>
-            <MaterialTable
+            <DataTable
+                caption="HR Pending Attendance Approvals"
                 data={requests}
                 columns={columns}
-                hideFilters={false}
-                tableName="HR Pending Attendance Approvals"
-                resource={resourceNameMapWithCamelCase.attendanceRequest}
-                viewOthers={true}
-                viewOwn={false}
-                employeeId={employeeIdCurrent}
+                getRowId={(r: any) => String(r.id)}
+                stateKey="attendance.hrPendingAttendance"
+                groupableColumns={false}
+                searchPlaceholder="Search attendance requests…"
             />
         </>
     );

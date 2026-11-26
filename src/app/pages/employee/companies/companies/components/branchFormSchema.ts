@@ -24,7 +24,7 @@ export const BRANCH_BUILTIN_SECTIONS: BuiltinSection[] = [
     { id: "state", input: "select", label: "State", ...ADDRESS },
     { id: "city", input: "select", label: "City", ...ADDRESS },
     { id: "area", input: "text", label: "Locality", ...ADDRESS },
-    { id: "zipCode", input: "text", label: "Pincode", ...ADDRESS },
+    { id: "zipCode", input: "text", label: "Postal Code", ...ADDRESS },
     { id: "address", input: "text", label: "Formatted Address", ...ADDRESS },
     { id: "latitude", input: "coordinate", label: "Latitude", ...ADDRESS },
     { id: "longitude", input: "coordinate", label: "Longitude", ...ADDRESS },

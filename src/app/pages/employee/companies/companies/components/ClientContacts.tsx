@@ -5,11 +5,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/ds/ui/button";
 import ClientContactsForm from "../../contacts/components/ClientContactsForm";
 import { getClientContactsByCompanyId, deleteClientContact } from "@services/companies";
-import { crmListRowSx, CRM_FORMER_COLOR } from "../../crmListRowSx";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { useSelector } from "react-redux";
-import { RootState } from "@redux/store";
-import { MRT_ColumnDef } from "material-react-table";
+import { CRM_FORMER_COLOR } from "../../crmListRowSx";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
 import { deleteConfirmation } from "@utils/modal";
 import { canDelete, canSection } from "@utils/can";
 import { getAllClientBranches } from "@services/lead";
@@ -27,7 +24,6 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
   // People who worked here and moved on — read-only, their current company owns them now.
   const [formerContacts, setFormerContacts] = useState<any[]>([]);
   const [allBranches, setAllBranches] = useState<any[]>([]);
-  const employeeId = useSelector((state: RootState) => state.auth.currentUser?.id);
 
   const fetchClientContacts = async () => {
     try {
@@ -98,12 +94,12 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
     [contacts, formerContacts],
   );
 
-  const columns = useMemo<MRT_ColumnDef<any, any>[]>(
+  const columns = useMemo<ColumnDef<any, any>[]>(
     () => [
       {
         accessorKey: "profile",
         header: "Profile",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <SmartAvatar
             name={row.original.fullName}
             id={row.original.id}
@@ -117,7 +113,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
       {
         accessorKey: "fullName",
         header: "Full Name",
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           // nowrap + no shrink: squeezed flex children wrapped one letter per line.
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, whiteSpace: "nowrap", "& > *": { flexShrink: 0 } }}>
             <Link
@@ -136,7 +132,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
       {
         accessorKey: "branch",
         header: "Branch",
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const { branch } = row.original;
           // A former contact's branch is their new employer's — say where they went instead.
           if (row.original.__former) {
@@ -171,7 +167,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
       {
         accessorKey: "dateOfBirth",
         header: "Date of Birth",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const date = cell.getValue() as string;
           // A birthday saved without its year shows as day + month only.
           return date ? (isYearless(date) ? formatBirthday(date) : new Date(date).toLocaleDateString()) : '';
@@ -180,7 +176,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
       {
         accessorKey: "address",
         header: "Address",
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const { address, city, state, country, zipCode } = row.original;
           return [address, city, state, country, zipCode].filter(Boolean).join(', ');
         },
@@ -193,7 +189,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         accessorKey: "actions",
         header: "Actions",
         // A former contact is edited from their current company, not from here.
-        Cell: ({ row }: any) => row.original.__former ? null : (
+        cell: ({ row }: any) => row.original.__former ? null : (
           <div className="d-flex align-items-center gap-2">
             <ActionIconButton iconName="pencil" title="Edit" size="sm" onClick={() => handleEditClick(row.original.id)} />
             {canDelete("crm.contacts") && <ActionIconButton iconName="trash" title="Delete" size="sm" tone="danger" onClick={() => handleDelete(row.original)} />}
@@ -201,7 +197,7 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
         ),
       }] : []),
     ],
-    [allBranches, contacts, employeeId, canWrite]
+    [allBranches, contacts, canWrite]
   );
 
   return (
@@ -214,21 +210,22 @@ const ClientContacts = ({ companyId }: { companyId: string }) => {
       </div>
       )}
 
-      <MaterialTable
+      <DataTable
+        caption="Client Contacts"
         columns={columns}
         data={rows}
-        employeeId={employeeId}
-        tableName="Client Contacts"
-        resource="CLIENT_CONTACTS"
-        viewOwn={true}
-        viewOthers={true}
-        checkOwnWithOthers={true}
-        defaultSorting={[{ id: "fullName", desc: false }]}
-        muiTableProps={{
-          muiTableBodyRowProps: ({ row }) => ({
-            sx: crmListRowSx(row.original.isContactActive !== false, { former: !!row.original.__former }),
-          }),
-        }}
+        getRowId={(r: any) => r.id}
+        initialSorting={[{ id: "fullName", desc: false }]}
+        stateKey="crm.companyContacts"
+        groupableColumns={false}
+        rowTone={(r: any) =>
+          r.__former
+            ? CRM_FORMER_COLOR
+            : r.isContactActive === false
+              ? "neutral"
+              : "success"
+        }
+        searchPlaceholder="Search contacts…"
       />
 
       {/* Form for adding new contacts */}

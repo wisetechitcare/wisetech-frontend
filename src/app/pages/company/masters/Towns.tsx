@@ -14,7 +14,8 @@ interface ITown {
 }
 
 /**
- * Towns — the list a branch's required Town field picks from.
+ * Towns — optional legacy catalog. Branch / Create Tenant HO no longer require a Town
+ * pick (locality lives in the address line); this list remains for historical rows.
  *
  * A town is one name, so it is a tile, not a table row (Master List `layout="grid"`). One field does both
  * jobs — type to filter, and when nothing matches exactly, Enter (or Add town) creates it; a town already in

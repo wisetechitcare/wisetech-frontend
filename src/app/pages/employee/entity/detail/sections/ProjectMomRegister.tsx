@@ -1,34 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { Menu, MenuItem, Typography, darken, lighten, useTheme } from '@mui/material';
-import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
-import type { RootState } from '@redux/store';
+import { Menu, MenuItem } from '@mui/material';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 import { DetailCard } from '@app/modules/detail-page/DetailPageComponents';
-import MaterialTable from '@app/modules/common/components/MaterialTable';
 import { StatusPill, toast, type WtSelectOption } from '@app/modules/common/components/ui';
 import { EmptyState } from '@/ds/patterns/empty-state';
-import { CircleAlert, NotebookText } from 'lucide-react';
+import { ChevronDown, CircleAlert, NotebookText } from 'lucide-react';
 import { formatDate } from '@utils/dateFormats';
 import { getProjectMomRegister, updateAgendaItem, type MomRegisterRow } from '@services/meetingAgendaMom';
 import { useAgendaStatusOptions } from '@app/pages/employee/meetings/useAgendaStatusOptions';
 import { DASH } from '../entityViewModel';
 import { daysOpen } from './momDays';
-
-/**
- * Opaque row shades from a status colour — opaque so cells can simply inherit them and pinned
- * columns match. Light: mixed toward white; dark: toward black. Null when the colour is missing or
- * not something MUI can parse (it throws), so a bad Configure value leaves a plain row, not a crash.
- */
-const rowTint = (c: string | null | undefined, dark: boolean) => {
-    if (!c) return null;
-    try {
-        return dark
-            ? { base: darken(c, 0.78), hover: darken(c, 0.66), accent: c }
-            : { base: lighten(c, 0.88), hover: lighten(c, 0.8), accent: c };
-    } catch {
-        return null;
-    }
-};
 
 /**
  * The project's MoM register — every Minutes-of-Meeting line across its meetings, one row each.
@@ -37,8 +19,6 @@ const rowTint = (c: string | null | undefined, dark: boolean) => {
 const ProjectMomRegister: React.FC<{ projectId: string; reloadToken?: number; canEdit?: boolean }> = ({
     projectId, reloadToken, canEdit = false,
 }) => {
-    const currentUserId = useSelector((s: RootState) => s.auth?.currentUser?.id);
-    const dark = useTheme().palette.mode === 'dark';
     const [rows, setRows] = useState<MomRegisterRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -90,30 +70,30 @@ const ProjectMomRegister: React.FC<{ projectId: string; reloadToken?: number; ca
             id: 'meetingDate',
             header: 'Date',
             accessorFn: (r: MomRegisterRow) => r.meetingDate,
-            Cell: ({ row }: any) => formatDate(row.original.meetingDate),
+            cell: ({ row }: any) => formatDate(row.original.meetingDate),
             size: 110,
         },
         { accessorKey: 'momNo', header: 'MoM No', size: 90 },
-        { accessorKey: 'purpose', header: 'Purpose', Cell: ({ cell }: any) => cell.getValue() || DASH },
+        { accessorKey: 'purpose', header: 'Purpose', cell: ({ cell }: any) => cell.getValue() || DASH },
         {
             accessorKey: 'description',
             header: 'Agenda item',
-            Cell: ({ cell }: any) => <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{cell.getValue()}</Typography>,
+            cell: ({ cell }: any) => <span className="text-[13px] font-semibold">{cell.getValue()}</span>,
         },
-        { accessorKey: 'note', header: 'Note', Cell: ({ cell }: any) => cell.getValue() || DASH },
-        { accessorKey: 'assignee', header: 'Assignee', Cell: ({ cell }: any) => cell.getValue() || DASH },
+        { accessorKey: 'note', header: 'Note', cell: ({ cell }: any) => cell.getValue() || DASH },
+        { accessorKey: 'assignee', header: 'Assignee', cell: ({ cell }: any) => cell.getValue() || DASH },
         {
             id: 'openDate',
             header: 'Open date',
             accessorFn: (r: MomRegisterRow) => r.openDate,
-            Cell: ({ row }: any) => formatDate(row.original.openDate),
+            cell: ({ row }: any) => formatDate(row.original.openDate),
             size: 110,
         },
         {
             id: 'closeDate',
             header: 'Close date',
             accessorFn: (r: MomRegisterRow) => r.closeDate ?? '',
-            Cell: ({ row }: any) => formatDate(row.original.closeDate),
+            cell: ({ row }: any) => formatDate(row.original.closeDate),
             size: 110,
         },
         {
@@ -127,7 +107,7 @@ const ProjectMomRegister: React.FC<{ projectId: string; reloadToken?: number; ca
             accessorKey: 'statusLabel',
             header: 'Status',
             // The Leads table's badge (kit StatusPill). Editable → the pill itself opens the status menu.
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const r: MomRegisterRow = row.original;
                 const editable = canEdit && statusOptions.length > 0;
                 return (
@@ -136,7 +116,7 @@ const ProjectMomRegister: React.FC<{ projectId: string; reloadToken?: number; ca
                         color={r.statusColor}
                         disabled={busyId === r.id}
                         onClick={editable ? (e) => setMenu({ anchor: e.currentTarget, row: r }) : undefined}
-                        endIcon={editable ? <ExpandMoreRounded sx={{ fontSize: 16 }} /> : undefined}
+                        endIcon={editable ? <ChevronDown aria-hidden className="size-4" /> : undefined}
                         aria-label={editable ? `Status: ${r.statusLabel}. Change status of ${r.description}` : undefined}
                         aria-haspopup={editable ? 'menu' : undefined}
                     />
@@ -144,7 +124,7 @@ const ProjectMomRegister: React.FC<{ projectId: string; reloadToken?: number; ca
             },
             size: 150,
         },
-    ], [canEdit, statusOptions, busyId]);
+    ] as ColumnDef<MomRegisterRow, any>[], [canEdit, statusOptions, busyId]);
 
     return (
         <DetailCard
@@ -166,39 +146,20 @@ const ProjectMomRegister: React.FC<{ projectId: string; reloadToken?: number; ca
                     description="Lines converted into a meeting's Minutes of Meeting appear here, one row each."
                 />
             ) : (
-                <MaterialTable
-                    tableName="ProjectMomRegister"
-                    employeeId={currentUserId}
+                <DataTable
+                    caption="Minutes of Meeting Register"
+                    stateKey="ProjectMomRegister"
                     data={rows}
                     columns={columns}
-                    isLoading={loading}
-                    defaultSorting={[{ id: 'meetingDate', desc: true }]}
-                    exportName="mom-register"
-                    enableColumnResizing
-                    layoutMode="semantic"
-                    muiTableContainerProps={{ sx: { maxHeight: 600, overflowX: 'auto' } }}
-                    // Same look as the Leads table: a light shade of the status colour + a solid left accent.
-                    //
-                    // The ROW holds one OPAQUE shade and every cell inherits it. Three rules fight a
-                    // hovered row — main.css `tr:hover td { #F8FAFC !important }` (0,3,2), the engine's
-                    // `&:hover td`, and MRT's grey `td:after` overlay — so the selectors below are tripled
-                    // (`&&&` → 0,4,x) to outrank all of them. Cell transitions are off: a cell easing
-                    // toward #F8FAFC is what left hovered cells stuck white.
-                    muiTableProps={{
-                        muiTableBodyRowProps: ({ row }: any) => {
-                            const tint = rowTint(row.original?.statusColor, dark);
-                            if (!tint) return {};
-                            return {
-                                sx: {
-                                    '&&&': { backgroundColor: `${tint.base} !important` },
-                                    '&&&:hover': { backgroundColor: `${tint.hover} !important` },
-                                    '&&& td.MuiTableCell-body': { backgroundColor: 'inherit !important', transition: 'none' },
-                                    '&&&:hover td:after': { backgroundColor: 'transparent' },
-                                    '&&& td.MuiTableCell-body:first-of-type': { borderLeft: `3px solid ${tint.accent} !important` },
-                                },
-                            };
-                        },
-                    }}
+                    getRowId={(r) => r.id}
+                    loading={loading}
+                    initialSorting={[{ id: 'meetingDate', desc: true }]}
+                    rowTone={(r) => r.statusColor || undefined}
+                    virtualized
+                    virtualMaxHeight={600}
+                    toolbar={(ctx) => (
+                        <DataTableExport columns={columns} ctx={ctx} filename="mom-register" />
+                    )}
                 />
             )}
 

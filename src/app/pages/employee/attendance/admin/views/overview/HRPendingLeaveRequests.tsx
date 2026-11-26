@@ -3,7 +3,8 @@
  * Shown only to HR/admin users (gated in OverviewView.tsx).
  * Displays all leaves at status=4 (PendingHR) — Team Lead approved, awaiting HR final sign-off.
  */
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { LeaveStatus } from "@constants/attendance";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
 import { formatDateFromISTString } from "@utils/statistics";
@@ -105,38 +106,38 @@ function HRPendingLeaveRequests() {
             accessorKey: "createdDate",
             header: "Submitted",
             size: 100,
-            Cell: ({ renderedCellValue }: any) => formatDateFromISTString(renderedCellValue),
+            cell: ({ cell }: any) => formatDateFromISTString(cell.getValue()),
         },
         {
             accessorKey: "date",
             header: "Leave Date",
             size: 120,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            cell: ({ cell }: any) => cell.getValue(),
         },
         {
             accessorKey: "name",
             header: "Employee",
             size: 130,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            cell: ({ cell }: any) => cell.getValue(),
         },
         {
             accessorKey: "code",
             header: "Emp Code",
             size: 100,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            cell: ({ cell }: any) => cell.getValue(),
         },
         {
             accessorKey: "type",
             header: "Leave Type",
             size: 130,
-            Cell: ({ renderedCellValue }: any) => {
-                const c = getLeaveTypeColor(renderedCellValue);
+            cell: ({ cell }: any) => {
+                const c = getLeaveTypeColor(cell.getValue());
                 return (
                     <span
                         className="inline-block min-w-[70px] text-center font-bold text-[11px] px-2 py-1 rounded-full border"
                         style={{ color: c, backgroundColor: `${c}1a`, borderColor: `${c}3d` }}
                     >
-                        {renderedCellValue}
+                        {cell.getValue()}
                     </span>
                 );
             },
@@ -145,19 +146,19 @@ function HRPendingLeaveRequests() {
             accessorKey: "remark",
             header: "Reason",
             size: 130,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue,
+            cell: ({ cell }: any) => cell.getValue(),
         },
         {
             accessorKey: "status",
             header: "Stage",
             size: 170,
-            Cell: () => <StatusBadge trio={TRIO.amber} label="Pending HR Approval" pulse title="Awaiting HR final sign-off" />,
+            cell: () => <StatusBadge trio={TRIO.amber} label="Pending HR Approval" pulse title="Awaiting HR final sign-off" />,
         },
         {
             accessorKey: "actions",
             header: "HR Action",
             size: 110,
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
                 const busy = processingRowId === row.original.id;
                 return (
                     <div className="flex gap-1.5">
@@ -213,15 +214,14 @@ function HRPendingLeaveRequests() {
                     </p>
                 </div>
             </div>
-            <MaterialTable
+            <DataTable
+                caption="HR Pending Approvals"
                 data={hrPendingLeaves}
                 columns={columns}
-                hideFilters={false}
-                tableName="HR Pending Approvals"
-                resource={resourceNameMapWithCamelCase.leave}
-                viewOthers={true}
-                viewOwn={false}
-                employeeId={employeeIdCurrent}
+                getRowId={(r: any) => String(r.id)}
+                stateKey="attendance.hrPendingLeaves"
+                groupableColumns={false}
+                searchPlaceholder="Search leave requests…"
             />
         </>
     );

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, MenuItem, Stack, TextField, Typography } from "@mui/material";
-import { Button, buttonVariants } from "@/ds/ui/button";
-import { KTIcon } from "@metronic/helpers";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { Pencil, Trash2 } from "lucide-react";
+import { buttonVariants } from "@/ds/ui/button";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
+import { RowAction } from "@/ds/patterns/row-action";
 import { getTaskList, getAllTasksWithMetrics, getAvailableProjects, deleteTask } from "@services/tasks";
 import { WtTooltip, confirmDialog } from "@app/modules/common/components/ui";
 import dayjs from "dayjs";
@@ -119,18 +120,17 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
     }
   };
 
-  // Column definitions for tasks table
-  const columns = [
+  const columns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: "serialNumber",
       header: "Sr. No.",
-      Cell: ({ row }: any) => row.index + 1,
+      cell: ({ row }) => row.index + 1,
       enableSorting: false,
     },
     {
       accessorKey: "taskName",
       header: "Task Name",
-      Cell: ({ row }: any) => {
+      cell: ({ row }) => {
         const taskName = row?.original?.taskName || "N/A";
 
         return (
@@ -153,7 +153,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
     {
       accessorKey: "taskDescription",
       header: "Description",
-      Cell: ({ row }: any) => {
+      cell: ({ row }) => {
         const taskDescription = row?.original?.taskDescription || "N/A";
 
         return (
@@ -176,12 +176,12 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
     {
       accessorKey: "project",
       header: "Project",
-      Cell: ({ row }: any) => row?.original?.project?.title || "N/A",
+      cell: ({ row }) => row?.original?.project?.title || "N/A",
     },
     {
       accessorKey: "status",
       header: "Status",
-      Cell: ({ row }: any) => {
+      cell: ({ row }) => {
         const status = row?.original?.status;
         if (!status || !status.name) return "N/A";
 
@@ -207,7 +207,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
     {
       accessorKey: "priority",
       header: "Priority",
-      Cell: ({ row }: any) => {
+      cell: ({ row }) => {
         const priority = row?.original?.priority;
         if (!priority || !priority.name) return "N/A";
 
@@ -233,18 +233,18 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
     {
       accessorKey: "assignedTo",
       header: "Assigned To",
-      Cell: ({ row }: any) => row?.original?.assignedTo?.users?.firstName + " " + row?.original?.assignedTo?.users?.lastName || "N/A",
+      cell: ({ row }) => row?.original?.assignedTo?.users?.firstName + " " + row?.original?.assignedTo?.users?.lastName || "N/A",
     },
     {
       accessorKey: "createdBy",
       header: "Created By",
-      Cell: ({ row }: any) =>
+      cell: ({ row }) =>
         row?.original?.createdBy?.users?.firstName + " " + row?.original?.createdBy?.users?.lastName || "N/A",
     },
     {
       accessorKey: "startDate",
       header: "Start Date",
-      Cell: ({ row }: any) =>
+      cell: ({ row }) =>
         row?.original?.startDate
           ? dayjs(row.original.startDate).format("DD-MM-YYYY") + " " + dayjs(row.original.startTime).format(getTimeTokens().TIME)
           : "N/A",
@@ -252,7 +252,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
     {
       accessorKey: "dueDate",
       header: "Due Date",
-      Cell: ({ row }: any) =>
+      cell: ({ row }) =>
         row?.original?.dueDate
           ? dayjs(row.original.dueDate).format("DD-MM-YYYY") + " " + dayjs(row.original.dueTime).format(getTimeTokens().TIME)
           : "N/A",
@@ -260,7 +260,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
     {
       accessorKey: "completionDate",
       header: "Completion Date",
-      Cell: ({ row }: any) => {
+      cell: ({ row }) => {
         const isCompleted = row?.original?.status?.name?.toLowerCase() === 'completed';
         if (!isCompleted) return "N/A";
 
@@ -273,7 +273,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
     {
       accessorKey: "cost",
       header: "Cost",
-      Cell: ({ row }: any) => {
+      cell: ({ row }) => {
         const billingType = row?.original?.billingType;
         if (billingType !== "BILLABLE") return "N/A";
 
@@ -284,7 +284,7 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
     {
       accessorKey: "Billable",
       header: "Billable",
-      Cell: ({ row }: any) => {
+      cell: ({ row }) => {
         const billingType = row?.original?.billingType;
 
         if (billingType === "BILLABLE") {
@@ -333,15 +333,17 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
     {
       accessorKey: "totalTimeLog",
       header: "Total Log Time",
-      Cell: ({ row }: any) => {
+      cell: ({ row }) => {
         const taskMetric = tasksMetrics.find(metric => metric.id === row?.original?.id);
         return taskMetric?.metrics?.totalLogTimeFormatted || "N/A";
       },
     },
     {
-      accessorKey: "actions",
+      id: "actions",
       header: "Actions",
-      Cell: ({ row }: any) => {
+      enableSorting: false,
+      meta: { export: false, pin: "end" },
+      cell: ({ row }) => {
         // Write on Tasks, the same as on the Tasks page. Which tasks you may touch is the server's call.
         const hasEditPermission = canSection("tasks", "write");
         const hasDeletePermission = canDelete("tasks");
@@ -351,38 +353,22 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
         }
 
         return (
-          <div className="d-flex gap-2">
+          <div className="flex gap-2">
             {hasEditPermission && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Edit task"
-                onClick={e => {
-                  e.stopPropagation();
-                  onEditTask(row.original);
-                }}
-              >
-                <KTIcon iconName="pencil" className="fs-2" />
-              </Button>
+              <RowAction label="Edit task" onClick={() => onEditTask(row.original)}>
+                <Pencil className="size-4" aria-hidden />
+              </RowAction>
             )}
             {hasDeletePermission && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Delete task"
-                onClick={e => {
-                  e.stopPropagation();
-                  handleDeleteTask(row.original);
-                }}
-              >
-                <KTIcon iconName="trash" className="fs-2" />
-              </Button>
+              <RowAction label="Delete task" tint="danger" onClick={() => handleDeleteTask(row.original)}>
+                <Trash2 className="size-4" aria-hidden />
+              </RowAction>
             )}
           </div>
         );
       },
     },
-  ];
+  ], [tasksMetrics, onEditTask]);
 
   return (
     <div className="card border-0 rounded-3 mb-5" style={{ boxShadow: '8px 8px 16px 0px rgba(0,0,0,0.04)' }}>
@@ -477,62 +463,14 @@ const DashboardTasks = ({ onNewTaskClick, onEditTask }: DashboardTasksProps) => 
           </Stack>
         </Stack>
 
-        <MaterialTable
+        <DataTable
+          caption="Dashboard Tasks"
           columns={columns}
           data={tasks}
-          tableName="DashboardTasks"
-          muiTableProps={{
-            sx: {
-              borderCollapse: 'separate',
-              borderSpacing: '0 20px !important',
-              m: 0,
-              p: 0
-            },
-
-            muiTableBodyRowProps: ({ row }) => ({
-              sx: {
-                cursor: 'pointer',
-                backgroundColor: `${row.original?.status?.color}30`,
-                padding: '10px !important',
-                m: 0,
-                p: 0,
-
-                '& .MuiTableCell-root': {
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  fontSize: '14px',
-                  fontFamily: 'Inter',
-                  fontWeight: '400',
-                  padding: '8px 16px !important',
-                  borderBottom: "2px solid white",
-                  borderTop: "2px solid white",
-                },
-                '& .MuiTableCell-root:first-of-type': {
-                  borderTopLeftRadius: '12px',
-                  borderBottomLeftRadius: '12px',
-                  borderLeft: "3px solid white"
-                },
-                '& .MuiTableCell-root:last-of-type': {
-                  borderTopRightRadius: '12px',
-                  borderBottomRightRadius: '12px',
-                  borderRight: "3px solid white"
-                },
-                '&:hover': {
-                  backgroundColor: `${row.original?.status?.color}99`,
-                  '& td': {
-                    color: 'black',
-                  },
-                },
-              },
-            }),
-          }}
-          muiTablePaperStyle={{
-            sx: {
-              m: 0,
-              p: 0,
-            },
-          }}
+          getRowId={(r, i) => String(r.id ?? i)}
+          loading={isLoadingTasks}
+          stateKey="DashboardTasks"
+          rowTone={(row) => row?.status?.color}
         />
       </div>
     </div>

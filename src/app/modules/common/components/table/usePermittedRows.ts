@@ -39,8 +39,7 @@ export function filterPermittedRows<T extends { employeeId?: unknown }>(data: T[
 }
 
 /**
- * React binding of {@link filterPermittedRows}. Shared by the live MaterialTable and every screen that moved
- * to the design system's DataTable, so the permission rule exists once.
+ * React binding of {@link filterPermittedRows} for kit DataTable screens — one ABAC rule, reused.
  */
 export function usePermittedRows<T extends { employeeId?: unknown }>(data: T[], opts: RowPermissionOptions): T[] {
   const { resource, viewOthers, viewOwn, checkOwnWithOthers } = opts;

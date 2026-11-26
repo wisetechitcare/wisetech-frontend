@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { MRT_ColumnDef } from "material-react-table";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { resourceNameMapWithCamelCase } from "@constants/statistics";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -61,13 +62,13 @@ const InstallmentPayments: React.FC<InstallmentPaymentsProps> = ({
     })
   });
 
-  const columns = useMemo<MRT_ColumnDef<InstallmentPayment>[]>(
+  const columns = useMemo<ColumnDef<InstallmentPayment>[]>(
     () => [
       { accessorKey: "name", header: "Name" },
       {
         accessorKey: "loanAmount",
         header: "Loan Amount",
-        Cell: ({ cell }) =>
+        cell: ({ cell }) =>
           `${getCurrencySymbol()} ${cell.getValue<number>()?.toLocaleString() || "0"}`,
       },
       { accessorKey: "installment", header: "Installment" },
@@ -75,7 +76,7 @@ const InstallmentPayments: React.FC<InstallmentPaymentsProps> = ({
       {
         accessorKey: "dueDate",
         header: "Due Date",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const raw = cell.getValue<string>();
           return raw
             ? new Date(raw).toLocaleDateString("en-GB", {
@@ -89,25 +90,25 @@ const InstallmentPayments: React.FC<InstallmentPaymentsProps> = ({
       {
         accessorKey: "billDue",
         header: "Bill Due",
-        Cell: ({ cell }) =>
+        cell: ({ cell }) =>
           `${getCurrencySymbol()} ${cell.getValue<number>()?.toLocaleString() || "0"}`,
       },
       {
         accessorKey: "previousDue",
         header: "Previous Due",
-        Cell: ({ cell }) =>
+        cell: ({ cell }) =>
           `${getCurrencySymbol()} ${cell.getValue<number>()?.toLocaleString() || "0"}`,
       },
       {
         accessorKey: "dueThisMonth",
         header: "Due This Month",
-        Cell: ({ cell }) =>
+        cell: ({ cell }) =>
           `${getCurrencySymbol()} ${cell.getValue<number>()?.toLocaleString() || "0"}`,
       },
       {
         accessorKey: "paidAmount",
         header: "Paid Amount",
-        Cell: ({ cell }) =>
+        cell: ({ cell }) =>
           `${getCurrencySymbol()} ${cell.getValue<number>()?.toLocaleString() || "0"}`,
       },
       { accessorKey: "status", header: "Status" },
@@ -116,7 +117,7 @@ const InstallmentPayments: React.FC<InstallmentPaymentsProps> = ({
             {
               accessorKey: "actions",
               header: "Actions",
-              Cell: ({ row }: any) => <Button variant="outline" size="sm" onClick={() => navigate(`/finance/loans/admin/loan-details/${row.original.id}`)}>View Details</Button>,
+              cell: ({ row }: any) => <Button variant="outline" size="sm" onClick={() => navigate(`/finance/loans/admin/loan-details/${row.original.id}`)}>View Details</Button>,
             },
           ]
         : []),
@@ -134,14 +135,16 @@ const InstallmentPayments: React.FC<InstallmentPaymentsProps> = ({
   return (
     <div>
       <h3 className="pt-10 fw-bold">Installment Payments</h3>
-      <MaterialTable
+      <DataTable
+        caption="Installment and Payments"
+        columns={columns as any}
         data={tableData}
-        columns={columns}
-        tableName="Installment and Payments"
-        resource={resource}
-        viewOthers={viewOthers}
-        viewOwn={viewOwn}
-        employeeId={employeeIdCurrent}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.admin.installments"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
       />
     </div>
   );

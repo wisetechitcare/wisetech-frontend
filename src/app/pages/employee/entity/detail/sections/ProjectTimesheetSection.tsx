@@ -1,16 +1,15 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSelector } from "react-redux";
 import dayjs from "dayjs";
-import { Box, Stack, Tooltip } from "@mui/material";
-import { KTIcon } from "@metronic/helpers";
-import type { RootState } from "@redux/store";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { Stack } from "@mui/material";
+import { CheckSquare, Eye, FileText, Paperclip, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
 import { DetailCard, DetailSummaryBar } from "@app/modules/detail-page/DetailPageComponents";
 import { C, FONT, RADIUS } from "@app/modules/configuration/ConfigDesignSystem";
 import {
   SegmentedControl, WtButton, WtEmptyState, WtIconButton, confirmDialog, toast, toneAlpha, tonePair,
 } from "@app/modules/common/components/ui";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ds/ui/tooltip";
 import { deleteTimeSheetById, getAllTimeSheetWithCostByProjectId } from "@services/tasks";
 import { useEventBus } from "@hooks/useEventBus";
 import { EVENT_KEYS } from "@constants/eventKeys";
@@ -70,34 +69,12 @@ const Pill: React.FC<{ fg: string; children: React.ReactNode }> = ({ fg, childre
   </span>
 );
 
-// The table sits flush in the card: no second paper, hairline rows (main.css styles every
-// table card with !important, hence the `&&&` + !important — same as the Teams tab).
-const FLUSH_PAPER = {
-  "&&&": { boxShadow: "none !important", border: "none !important", borderRadius: "0 !important", backgroundColor: "transparent" },
-};
-const FLUSH_HEAD = {
-  "&&&": {
-    fontFamily: FONT.body, fontSize: 12, fontWeight: 600, color: C.textSecondary,
-    backgroundColor: "transparent !important", borderBottom: `1px solid ${C.border} !important`,
-  },
-};
-const FLUSH_ROWS = {
-  muiTableBodyRowProps: () => ({
-    sx: {
-      cursor: "pointer",
-      "& .MuiTableCell-root": { fontFamily: FONT.body, fontSize: 13.5, borderBottom: `1px solid ${C.border} !important` },
-      "&:hover .MuiTableCell-root": { backgroundColor: `${toneAlpha(C.primary, 0.03)} !important` },
-    },
-  }),
-};
-
 /**
  * Project → Timesheet. Every hour logged on the project — the same card-and-summary layout as
  * Deliverables, with the logs in the app's table engine. A row opens the entry itself: what was
  * done and the files it produced, which open in the page rather than a new tab.
  */
 const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId }) => {
-  const currentUserId = useSelector((s: RootState) => s.employee?.currentEmployee?.id);
   const [filter, setFilter] = useState<Filter>("all");
   const [viewing, setViewing] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null | undefined>(undefined); // undefined = closed, null = new
@@ -136,7 +113,7 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
       accessorKey: "serialNo",
       header: "#",
       size: 60,
-      Cell: ({ row }: { row: { original: LogRow } }) => (
+      cell: ({ row }: { row: { original: LogRow } }) => (
         <span style={{ fontWeight: 700, color: C.textSecondary }}>{row.original.serialNo ?? "—"}</span>
       ),
     },
@@ -144,14 +121,19 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
       accessorKey: "taskName",
       header: "Task",
       size: 220,
-      Cell: ({ row }: { row: { original: LogRow } }) => (
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
-          <Box sx={{ color: row.original.isMeeting ? C.purple : C.primary, lineHeight: 0, flexShrink: 0 }}>
-            <KTIcon iconName={row.original.isMeeting ? "people" : "check-square"} className="fs-4" />
-          </Box>
+      cell: ({ row }: { row: { original: LogRow } }) => (
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className="inline-flex shrink-0 leading-none"
+            style={{ color: row.original.isMeeting ? C.purple : C.primary }}
+          >
+            {row.original.isMeeting
+              ? <Users aria-hidden className="size-4" />
+              : <CheckSquare aria-hidden className="size-4" />}
+          </span>
           <span style={{ fontWeight: 600, color: C.textPrimary }}>{row.original.taskName}</span>
           {row.original.isRunning && <Pill fg={SUCCESS}>● Running</Pill>}
-        </Stack>
+        </div>
       ),
     },
     {
@@ -159,21 +141,21 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
       header: "Logged by",
       size: 180,
       accessorFn: (r: LogRow) => `${r.original?.employee?.users?.firstName ?? ""} ${r.original?.employee?.users?.lastName ?? ""}`,
-      Cell: ({ row }: { row: { original: LogRow } }) => <AssigneeAvatar employee={row.original.original?.employee} size={28} showName />,
+      cell: ({ row }: { row: { original: LogRow } }) => <AssigneeAvatar employee={row.original.original?.employee} size={28} showName />,
     },
     {
       id: "date",
       header: "Date",
       size: 120,
       accessorFn: (r: LogRow) => r.startTime,
-      Cell: ({ row }: { row: { original: LogRow } }) => formatDate(row.original.startTime),
+      cell: ({ row }: { row: { original: LogRow } }) => formatDate(row.original.startTime),
     },
     {
       id: "window",
       header: "Time",
       size: 170,
       accessorFn: (r: LogRow) => r.startTime,
-      Cell: ({ row }: { row: { original: LogRow } }) => (
+      cell: ({ row }: { row: { original: LogRow } }) => (
         <span style={{ color: C.textSecondary }}>
           {clock(row.original.startTime)} <span style={{ color: C.textMuted }}>→</span> {row.original.isRunning ? "now" : clock(row.original.endTime)}
         </span>
@@ -184,21 +166,21 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
       header: "Logged",
       size: 100,
       accessorFn: (r: LogRow) => seconds(r),
-      Cell: ({ row }: { row: { original: LogRow } }) => <Pill fg={BRAND}>{duration(seconds(row.original))}</Pill>,
+      cell: ({ row }: { row: { original: LogRow } }) => <Pill fg={BRAND}>{duration(seconds(row.original))}</Pill>,
     },
     {
       id: "billable",
       header: "Billable",
       size: 110,
       accessorFn: (r: LogRow) => (r.billable ? 1 : 0),
-      Cell: ({ row }: { row: { original: LogRow } }) =>
+      cell: ({ row }: { row: { original: LogRow } }) =>
         row.original.billable ? <Pill fg={SUCCESS}>Billable</Pill> : <Pill fg={C.textSecondary}>Non-billable</Pill>,
     },
     {
       accessorKey: "cost",
       header: "Cost",
       size: 100,
-      Cell: ({ row }: { row: { original: LogRow } }) => (
+      cell: ({ row }: { row: { original: LogRow } }) => (
         <span style={{ fontWeight: 700, color: row.original.cost > 0 ? C.textPrimary : C.textMuted }}>{row.original.costFormatted}</span>
       ),
     },
@@ -209,23 +191,26 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
       enableSorting: false,
       accessorFn: (r: LogRow) => (r.attachments?.length ?? 0),
       // What the person wrote and attached — the part the old table never showed.
-      Cell: ({ row }: { row: { original: LogRow } }) => {
+      cell: ({ row }: { row: { original: LogRow } }) => {
         const files = row.original.attachments?.length ?? 0;
         if (!row.original.description && !files) return <span style={{ color: C.textMuted }}>—</span>;
         return (
-          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ color: C.textSecondary }}>
+          <div className="flex items-center gap-3" style={{ color: C.textSecondary }}>
             {row.original.description && (
-              <Tooltip title={row.original.description}>
-                <Box sx={{ lineHeight: 0 }}><KTIcon iconName="note-2" className="fs-4" /></Box>
+              <Tooltip>
+                <TooltipTrigger render={<span className="inline-flex leading-none" />}>
+                  <FileText aria-hidden className="size-4" />
+                </TooltipTrigger>
+                <TooltipContent>{row.original.description}</TooltipContent>
               </Tooltip>
             )}
             {files > 0 && (
-              <Stack direction="row" spacing={0.25} alignItems="center">
-                <KTIcon iconName="paper-clip" className="fs-4" />
+              <span className="inline-flex items-center gap-0.5">
+                <Paperclip aria-hidden className="size-4" />
                 <span style={{ fontSize: 12.5, fontWeight: 700 }}>{files}</span>
-              </Stack>
+              </span>
             )}
-          </Stack>
+          </div>
         );
       },
     },
@@ -234,24 +219,24 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
       header: "",
       size: 120,
       enableSorting: false,
-      Cell: ({ row }: { row: { original: LogRow } }) => (
-        <Stack direction="row" spacing={0.5} justifyContent="flex-end" onClick={(e) => e.stopPropagation()}>
+      cell: ({ row }: { row: { original: LogRow } }) => (
+        <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
           <WtIconButton title="View" onClick={() => setViewing(row.original.id)} sx={{ width: 30, height: 30, borderRadius: "8px" }}>
-            <KTIcon iconName="eye" className="fs-6" />
+            <Eye aria-hidden className="size-3.5" />
           </WtIconButton>
           <WtIconButton title="Edit" onClick={() => setEditing(row.original.id)} sx={{ width: 30, height: 30, borderRadius: "8px" }}>
-            <KTIcon iconName="pencil" className="fs-6" />
+            <Pencil aria-hidden className="size-3.5" />
           </WtIconButton>
           {canDelete("timesheets.employees") && (
           <WtIconButton title="Delete" color="#C0392B" onClick={() => void remove(row.original)} sx={{ width: 30, height: 30, borderRadius: "8px" }}>
-            <KTIcon iconName="trash" className="fs-6" />
+            <Trash2 aria-hidden className="size-3.5" />
           </WtIconButton>
           )}
-        </Stack>
+        </div>
       ),
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], []);
+  ] as ColumnDef<LogRow, any>[], []);
 
   return (
     <div>
@@ -280,7 +265,7 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
                 { value: "nonBillable", label: "Non-billable", count: logs.filter((l) => !l.billable).length },
               ]}
             />
-            <WtButton size="small" onClick={() => setEditing(null)} startIcon={<KTIcon iconName="plus" className="fs-6" />}>
+            <WtButton size="small" onClick={() => setEditing(null)} startIcon={<Plus aria-hidden className="size-3.5" />}>
               Add Log
             </WtButton>
           </Stack>
@@ -292,25 +277,17 @@ const ProjectTimesheetSection: React.FC<{ projectId: string }> = ({ projectId })
         ) : !query.isLoading && logs.length === 0 ? (
           <WtEmptyState title="No time logged yet" hint="Time from the task timer or Add Log shows up here." actionLabel="Add Log" onAction={() => setEditing(null)} />
         ) : (
-          <MaterialTable
-            tableName="ProjectTimesheetLogs"
-            employeeId={currentUserId}
+          <DataTable
+            caption="Project Time Logs"
+            stateKey="ProjectTimesheetLogs"
             data={shown}
             columns={columns as any}
-            isLoading={query.isLoading}
-            hideFilters
-            hideExportCenter
-            enableColumnActions={false}
-            enableStatusColorCoding={false}
-            muiTablePaperStyle={FLUSH_PAPER}
-            muiTableHeadCellStyle={FLUSH_HEAD}
-            muiTableProps={{
-              ...FLUSH_ROWS,
-              muiTableBodyRowProps: ({ row }: { row: { original: LogRow } }) => ({
-                ...FLUSH_ROWS.muiTableBodyRowProps(),
-                onClick: () => setViewing(row.original.id),
-              }),
-            }}
+            getRowId={(r) => r.id}
+            loading={query.isLoading}
+            tools={false}
+            groupableColumns={false}
+            onRowClick={(r) => setViewing(r.id)}
+            rowLabel={(r) => r.taskName || "Open time log"}
           />
         )}
       </DetailCard>

@@ -30,11 +30,11 @@ export interface ViewModeOption<T extends string> {
 export const VIEW_MODE_ICONS = {
   /** Card / tile / grid collection (also file-explorer “grid”). */
   cards: 'bi-grid-3x3-gap-fill',
-  /** Dense list / MaterialTable / “list” layout. */
+  /** Dense list / DataTable / “list” layout. */
   list: 'bi-list-ul',
   /** Kanban / pipeline / board columns. */
   board: 'bi-kanban',
-  /** Spreadsheet-style table (file explorer). Not MaterialTable — that uses `list`. */
+  /** Spreadsheet-style table (file explorer). Not DataTable — that uses `list`. */
   table: 'bi-table',
   /** Extra-dense rows (file explorer compact). Distinct from bulleted `list`. */
   compact: 'bi-list',
@@ -50,7 +50,7 @@ export const DMS_VIEW_OPTIONS = [
 
 export type DmsViewMode = (typeof DMS_VIEW_OPTIONS)[number]['value'];
 
-/** Cards ↔ List — roles, adverts, candidates, any AutoGrid ↔ MaterialTable page. */
+/** Cards ↔ List — roles, adverts, candidates, any AutoGrid ↔ DataTable page. */
 export const CARDS_LIST_VIEW_OPTIONS = [
   { value: 'cards' as const, icon: VIEW_MODE_ICONS.cards, label: 'Cards' },
   { value: 'list' as const, icon: VIEW_MODE_ICONS.list, label: 'List' },

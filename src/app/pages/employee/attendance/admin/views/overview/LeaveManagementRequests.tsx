@@ -8,7 +8,8 @@ import {
   updateLeaveManagement,
   revokeLeaveManagement,
 } from "@services/employee";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import UnsettledLeaversPanel from "./UnsettledLeaversPanel";
 import ConvertForEmployeeButton from "./ConvertForEmployeeButton";
 import dayjs from "dayjs";
@@ -222,7 +223,7 @@ function LeaveManagementRequests() {
     {
       accessorKey: "employee",
       header: "Employee",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const employee = row.original.employee;
         if (employee && employee.users) {
           return `${employee.users.firstName} ${employee.users.lastName} (${employee.employeeCode || 'N/A'})`;
@@ -234,7 +235,7 @@ function LeaveManagementRequests() {
     {
       accessorKey: "managementTypeText",
       header: "Type",
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const trio = row.original.managementType === LEAVE_MANAGEMENT_TYPE.CASH ? TRIO.blue : TRIO.purple;
         return <StatusBadge trio={trio} label={row.original.managementTypeText || '-NA-'} />;
       },
@@ -242,14 +243,14 @@ function LeaveManagementRequests() {
     {
       accessorKey: "leaveCount",
       header: "Total Leaves",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <span style={{ fontWeight: '600' }}>{row.original.leaveCount || '-NA-'}</span>
       ),
     },
     {
       accessorKey: "leaveTypeDetails",
       header: "Leave Breakdown",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <span style={{ fontSize: '12px' }}>
           {row.original.leaveTypeDetails || '-NA-'}
         </span>
@@ -258,7 +259,7 @@ function LeaveManagementRequests() {
     {
       accessorKey: "totalAmount",
       header: "Amount",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <span style={{ fontWeight: row.original.totalAmount ? '600' : 'normal' }}>
           {row.original.totalAmount ? `${currencyPrefix()}${Number(row.original.totalAmount).toLocaleString()}` : '-NA-'}
         </span>
@@ -267,14 +268,14 @@ function LeaveManagementRequests() {
     {
       accessorKey: "createdAt",
       header: "Requested At",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <span>{dayjs(row.original.createdAt).format(`DD MMM YYYY ${getTimeTokens().TIME}`)}</span>
       ),
     },
     {
       accessorKey: "status",
       header: "Status",
-      Cell: ({ row }: any) => (
+      cell: ({ row }: any) => (
         <StatusBadge trio={getStatusTrio(row.original.status)} label={getStatusText(row.original.status)} pulse={row.original.status === 0} />
       ),
     },
@@ -283,7 +284,7 @@ function LeaveManagementRequests() {
       header: "Actions",
       enableSorting: false,
       enableColumnFilter: false,
-      Cell: ({ row }: any) => {
+      cell: ({ row }: any) => {
         const permission = hasPermission(
           resourceNameMapWithCamelCase.leaveCashTransfer,
           permissionConstToUseWithHasPermission.editOthers,
@@ -357,14 +358,15 @@ function LeaveManagementRequests() {
           <IconBox icon={<CurrencySymbol />} trio={TRIO.purple} size={44} fs="fs-1" />
           <span className="font-bold text-[20px] text-slate-900">Pending Leave Management Requests</span>
         </div>
-        <MaterialTable
+        <DataTable
+          caption="Pending Leave Management Requests"
           columns={columns}
           data={visibleRequests}
-          tableName="Pending Leave Management Requests"
-          isLoading={loading}
-          viewOthers={true}
-          viewOwn={true}
-          resource={resourceNameMapWithCamelCase.leaveCashTransfer}
+          getRowId={(r: any) => String(r.id)}
+          loading={loading}
+          stateKey="attendance.leaveManagement"
+          groupableColumns={false}
+          searchPlaceholder="Search requests…"
         />
       </div>
       )}

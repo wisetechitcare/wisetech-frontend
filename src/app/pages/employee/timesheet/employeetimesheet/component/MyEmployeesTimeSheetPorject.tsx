@@ -1,6 +1,5 @@
-﻿import MaterialTable from "@app/modules/common/components/MaterialTable";
-import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
-import { KTIcon, toAbsoluteUrl } from "@metronic/helpers";
+﻿import { LEAVE_MANAGEMENT } from "@constants/configurations-key";
+import { KTIcon } from "@metronic/helpers";
 import { Box, Stack, Typography } from "@mui/material";
 import { SmartAvatar } from "@/ds/ui/smart-avatar";
 import { RootState } from "@redux/store";
@@ -14,7 +13,6 @@ import { SubjectCell, DurationCell } from "../../components/TimeLogCells";
 import dayjs, { Dayjs } from "dayjs";
 import { memo, useCallback, useEffect, useState, useMemo } from "react";
 import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import {
   deleteTimeSheetById,
   getAllTimeSheetsByStartDateEndDate,
@@ -30,7 +28,9 @@ import { usePermission } from "@hooks/usePermission";
 import TimeLogDetailDialog from "../../components/TimeLogDetailDialog";
 import NewTimeLogForm from "../../employeetimesheet/component/NewTimeLogForm";
 import { getTimeTokens } from '@utils/timeFormat';
-import { Button } from '@/ds/ui/button';
+import { Pencil, Trash2 } from "lucide-react";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { RowAction } from '@/ds/patterns/row-action';
 
 const MyEmployeesTimeSheetPorject = ({
   startDate,
@@ -57,7 +57,6 @@ const MyEmployeesTimeSheetPorject = ({
   const [openTimeSheet, setOpenTimeSheet] = useState(false);
   const [selectedTimeSheet, setSelectedTimeSheet] = useState<any>(null);
 
-  const navigate = useNavigate();
   /**
    * Who may see labour cost.
    *
@@ -184,13 +183,13 @@ const MyEmployeesTimeSheetPorject = ({
   const startDates = startDate?.format("YYYY-MM-DD");
   const endDates = endDate?.format("YYYY-MM-DD");
 
-  const columns = useMemo(
+  const columns = useMemo<ColumnDef<any>[]>(
     () => [
       {
         accessorKey: "id",
         header: "ID",
         size: 80,
-        Cell: ({ row }: any) => row.index + 1,
+        cell: ({ row }) => row.index + 1,
       },
       {
         // "Task Name" was the wrong question: a day is tasks AND meetings, and every meeting
@@ -198,7 +197,7 @@ const MyEmployeesTimeSheetPorject = ({
         header: "Logged against",
         accessorKey: "subjectName",
         size: 220,
-        Cell: ({ row }: any) => (
+        cell: ({ row }) => (
           <SubjectCell
             entry={row.original?.original}
             onOpen={() => setOpenLogId(row.original?.id ?? null)}
@@ -209,7 +208,7 @@ const MyEmployeesTimeSheetPorject = ({
         header: "Employee",
         accessorKey: "employeeName",
         size: 200,
-        Cell: ({ row }: any) => (
+        cell: ({ row }) => (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
             <SmartAvatar
               name={row.original?.employeeName}
@@ -228,31 +227,31 @@ const MyEmployeesTimeSheetPorject = ({
         header: "Time logged",
         accessorKey: "totalLogTime",
         size: 150,
-        Cell: ({ row }: any) => <DurationCell entry={row.original?.original} />,
+        cell: ({ row }) => <DurationCell entry={row.original?.original} />,
       },
       {
         header: "Start Time",
         accessorKey: "startTime",
         size: 150,
-        Cell: ({ cell }: any) =>
+        cell: ({ cell }) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
+            ? dayjs(cell.getValue() as string).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
         header: "End Time",
         accessorKey: "endTime",
         size: 150,
-        Cell: ({ cell }: any) =>
+        cell: ({ cell }) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
+            ? dayjs(cell.getValue() as string).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
         header: "Billable",
         accessorKey: "billable",
         size: 100,
-        Cell: ({ cell }: any) => (cell.getValue() ? "Yes" : "No"),
+        cell: ({ cell }) => (cell.getValue() ? "Yes" : "No"),
       },
       // Labour cost is derived from internal SALARY data. It is a manager's figure, not the
       // employee's own — an ordinary person reading their timesheet should not be able to
@@ -274,48 +273,40 @@ const MyEmployeesTimeSheetPorject = ({
         header: "Created At",
         accessorKey: "createdAt",
         size: 150,
-        Cell: ({ cell }: any) =>
+        cell: ({ cell }) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
+            ? dayjs(cell.getValue() as string).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
         header: "Last Edited At",
         accessorKey: "updatedAt",
         size: 150,
-        Cell: ({ cell }: any) =>
+        cell: ({ cell }) =>
           cell.getValue()
-            ? dayjs(cell.getValue()).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
+            ? dayjs(cell.getValue() as string).format(`DD-MM-YYYY ${getTimeTokens().TIME}`)
             : "-",
       },
       {
-        accessorKey: "action",
+        id: "actions",
         header: "Actions",
-        Cell: ({ row }: any) => (
-          <div className="d-flex gap-2">
-            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditTimeSheet(row?.original);
-              }}
-            >
-              <KTIcon iconName="pencil" className="fs-2" />
-            </Button>
+        enableSorting: false,
+        meta: { export: false, pin: "end" },
+        cell: ({ row }) => (
+          <div className="flex gap-2">
+            <RowAction label="Edit" onClick={() => handleEditTimeSheet(row.original)}>
+              <Pencil className="size-4" aria-hidden />
+            </RowAction>
             {canDelete("timesheets.employees") && (
-            <Button variant="ghost" size="icon-sm" type="submit" aria-label="Delete"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteTimeSheet(row?.original);
-              }}
-            >
-              <KTIcon iconName="trash" className="fs-2" />
-            </Button>
+              <RowAction label="Delete" tint="danger" onClick={() => handleDeleteTimeSheet(row.original)}>
+                <Trash2 className="size-4" aria-hidden />
+              </RowAction>
             )}
           </div>
         ),
       },
     ],
-    [handleEditTimeSheet, handleDeleteTimeSheet, navigate]
+    [handleEditTimeSheet, handleDeleteTimeSheet, canSeeCost]
   );
 
   /**
@@ -381,55 +372,12 @@ const MyEmployeesTimeSheetPorject = ({
               )}
             </Box>
           </Stack>
-            <MaterialTable
+            <DataTable
+              caption="Team time logs"
               columns={columns}
               data={tableData}
-              tableName="TimeSheetsAdmin"
-              employeeId={employeeId}
-              viewOwn={true}
-              viewOthers={true}
-              checkOwnWithOthers={true}
-              muiTableProps={{
-                sx: {
-                  borderCollapse: "separate",
-                  borderSpacing: "0 20px !important",
-                },
-                muiTableBodyRowProps: ({ row, cell }) => ({
-                  sx: {
-                    cursor: "pointer",
-                    backgroundColor: `${row.original?.status?.color}20`,
-                    padding: "10px !important",
-
-                    "& .MuiTableCell-root": {
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      fontSize: "14px",
-                      fontFamily: "Inter",
-                      fontWeight: "400",
-                      padding: "8px 16px !important",
-                      borderBottom: "2px solid white",
-                      borderTop: "2px solid white",
-                    },
-                    "& .MuiTableCell-root:first-of-type": {
-                      borderTopLeftRadius: "12px",
-                      borderBottomLeftRadius: "12px",
-                      borderLeft: "3px solid white",
-                    },
-                    "& .MuiTableCell-root:last-of-type": {
-                      borderTopRightRadius: "12px",
-                      borderBottomRightRadius: "12px",
-                      borderRight: "3px solid white",
-                    },
-                    "&:hover": {
-                      backgroundColor: `${row.original?.status?.color}99`,
-                      "& td": {
-                        color: "black",
-                      },
-                    },
-                  },
-                }),
-              }}
+              getRowId={(r, i) => String(r.id ?? i)}
+              stateKey="TimeSheetsAdmin"
             />
         </Box>
       </Box>

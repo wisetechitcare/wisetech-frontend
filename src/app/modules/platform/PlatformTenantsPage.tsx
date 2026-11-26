@@ -127,9 +127,7 @@ export default function PlatformTenantsPage() {
         header: 'Branches',
         size: 104,
         minSize: 96,
-        cell: ({ getValue }) => (
-          <span className="block text-right tabular">{String(getValue())}</span>
-        ),
+        cell: ({ getValue }) => String(getValue()),
       },
       {
         accessorKey: 'employeeCount',
@@ -137,9 +135,7 @@ export default function PlatformTenantsPage() {
         header: 'People',
         size: 104,
         minSize: 96,
-        cell: ({ getValue }) => (
-          <span className="block text-right tabular">{String(getValue())}</span>
-        ),
+        cell: ({ getValue }) => String(getValue()),
       },
       {
         accessorKey: 'createdAt',
@@ -147,10 +143,9 @@ export default function PlatformTenantsPage() {
         header: 'Created',
         size: 124,
         minSize: 118,
+        // Dates stay left (text), not right — only counts/money use exportType number/currency.
         cell: ({ getValue }) => (
-          <span className="block text-right tabular text-muted-foreground">
-            {formatDate(String(getValue()))}
-          </span>
+          <span className="text-muted-foreground">{formatDate(String(getValue()))}</span>
         ),
       },
     ],

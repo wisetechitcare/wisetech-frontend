@@ -1,5 +1,6 @@
 import { safeJsonParse } from '@utils/safeJson';
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { parseWorkingDays } from "@utils/workingDays";
 import { LeaveStatus, LeaveTypes } from "@constants/attendance";
 import { permissionConstToUseWithHasPermission, resourceNameMapWithCamelCase } from "@constants/statistics";
@@ -262,7 +263,7 @@ function OpenLeaveRequests() {
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => formatDateFromISTString(renderedCellValue),
+            cell: ({ cell }: any) => formatDateFromISTString(cell.getValue()),
         },
         {
             accessorKey: "date",
@@ -270,7 +271,7 @@ function OpenLeaveRequests() {
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "name",
@@ -278,7 +279,7 @@ function OpenLeaveRequests() {
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "code",
@@ -286,7 +287,7 @@ function OpenLeaveRequests() {
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "type",
@@ -294,14 +295,14 @@ function OpenLeaveRequests() {
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => {
-                const c = getLeaveTypeColor(renderedCellValue);
+            cell: ({ cell }: any) => {
+                const c = getLeaveTypeColor(cell.getValue());
                 return (
                     <span
                         className="inline-block min-w-[60px] text-center font-bold text-[11px] px-2 py-1 rounded-full border"
                         style={{ color: c, backgroundColor: `${c}1a`, borderColor: `${c}3d` }}
                     >
-                        {renderedCellValue}
+                        {cell.getValue()}
                     </span>
                 );
             }
@@ -312,7 +313,7 @@ function OpenLeaveRequests() {
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         ({
             accessorKey: "actions",
@@ -320,7 +321,7 @@ function OpenLeaveRequests() {
             size: 100,
             minSize: 100,
             maxSize: 150,
-            Cell: ({ row }: any) => {
+            cell: ({ row }: any) => {
               const isReportingManager = row.original.reportsToId === employeeId;
 
               if (!isReportingManager) {
@@ -395,15 +396,14 @@ function OpenLeaveRequests() {
                 <IconBox icon="document" trio={TRIO.blue} size={44} fs="fs-1" />
                 <span className="font-bold text-[20px] text-slate-900">Open Leave Requests</span>
             </div>
-            <MaterialTable
+            <DataTable
+                caption="Open Leave Requests"
                 data={openLeaveRequests}
                 columns={columns}
-                hideFilters={false}
-                tableName="Open Leave Requests"
-                resource={resourceNameMapWithCamelCase.leave}
-                viewOthers={true}
-                viewOwn={true}
-                employeeId={employeeIdCurrent}
+                getRowId={(r: any) => String(r.id)}
+                stateKey="attendance.openLeaveRequests"
+                groupableColumns={false}
+                searchPlaceholder="Search leave requests…"
             />
         </>
     );

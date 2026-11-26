@@ -34,6 +34,12 @@ Decided in **ADR-001** (`docs/DESIGN_SYSTEM_DECISION.md`).
   (Stat Card is the benchmark), so titles share one left edge. In a list row the icon or avatar leads on the
   left, where the eye scans. In a dialog header it leads too — the top-right corner belongs to Close.
 - **Status is never colour alone.** Badges carry text (and a dot); trends carry an arrow.
+- **Table columns align by kind.** Text, status and dates stay left; counts and money are
+  right-aligned with tabular figures (header and body together). Kit `DataTable` applies this from
+  `meta.exportType` (`number` / `currency`) or optional `meta.align` — do not hand-roll `text-right`
+  per screen.
+- **Table rows separate with hairlines, not a grid.** Horizontal rules only (stronger than the global
+  `--border` wash so long lists stay scannable). No vertical column lines — that reads as a spreadsheet.
 
 ## Where we differ from stock shadcn
 

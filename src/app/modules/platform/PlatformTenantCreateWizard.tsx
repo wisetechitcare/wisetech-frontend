@@ -1,37 +1,49 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { parseDate, type DateValue } from '@internationalized/date'
-import { Building2 } from 'lucide-react'
+import { Building2, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, LoaderCircle, Mail } from 'lucide-react'
 import { Button } from '@/ds/ui/button'
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/ds/ui/field'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/ds/ui/field'
 import { Input } from '@/ds/ui/input'
 import { Textarea } from '@/ds/ui/textarea'
 import { Checkbox } from '@/ds/ui/checkbox'
+import { Switch } from '@/ds/ui/switch'
 import { Alert, AlertDescription, AlertTitle } from '@/ds/ui/alert'
 import { Label } from '@/ds/ui/label'
 import { DatePicker } from '@/ds/ui/date-picker'
-import { FormDialog } from '@/ds/patterns/form-dialog'
+import { FormDialog, FormDialogActions } from '@/ds/patterns/form-dialog'
 import { Stepper } from '@/ds/patterns/stepper'
 import { DescriptionList } from '@/ds/patterns/description-list'
 import { LocationFields } from '@/ds/patterns/location-fields'
 import { SearchSelect } from '@/ds/patterns/search-select'
-import { geocodeAddress } from '@services/geocoding'
+import { geocodeAddress, searchPlaces, toGeoPick } from '@services/geocoding'
 import {
+  checkPlatformTenantAvailability,
   createPlatformTenant,
+  geoTimezoneOptions,
   platformGeoCities,
   platformGeoCountries,
   platformGeoStates,
-  platformTowns,
   type GeoCity,
   type GeoCountry,
   type GeoState,
-  type GeoTown,
+  type ProvisionAvailabilitySlot,
   type ProvisionTenantPayload,
 } from '@services/platformTenants'
 import { fetchPlatformPlans, type PlatformCommercialPlan } from '@services/platformSettings'
 import { optionalPacksFromFlags, type OptionalPacks } from '@constants/platformPlans'
 import { PROVISION_LIMITS as L } from '@constants/provisionColumnLimits'
+import { EMAIL_FORMAT, checkEmailDomain } from '@utils/emailDomain'
 import { platformApiErrorInfo, platformCreateFieldStep } from './platformApiError'
+
+type OwnerField = 'firstName' | 'lastName' | 'workEmail' | 'personalEmail' | 'dob'
 
 const FALLBACK_PACKS: OptionalPacks = {
   workforce: true,
@@ -87,17 +99,20 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
   const [countries, setCountries] = useState<GeoCountry[]>([])
   const [states, setStates] = useState<GeoState[]>([])
   const [cities, setCities] = useState<GeoCity[]>([])
-  const [towns, setTowns] = useState<GeoTown[]>([])
   const [countryIso, setCountryIso] = useState('IN')
   const [stateIso, setStateIso] = useState('')
   const [cityId, setCityId] = useState('')
-  const [townId, setTownId] = useState('')
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [workEmail, setWorkEmail] = useState('')
   const [personalEmail, setPersonalEmail] = useState('')
   const [dob, setDob] = useState<DateValue | null>(null)
+  const [ownerErrors, setOwnerErrors] = useState<Partial<Record<OwnerField, string>>>({})
+  /** Live uniqueness from GET /availability — idle until blur / Next. */
+  const [workEmailAvail, setWorkEmailAvail] = useState<ProvisionAvailabilitySlot | null>(null)
+  const [workEmailChecking, setWorkEmailChecking] = useState(false)
+  const [orgNameAvail, setOrgNameAvail] = useState<ProvisionAvailabilitySlot | null>(null)
 
   const dirty =
     orgName.trim() !== '' ||
@@ -117,9 +132,6 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
         if (india?.defaultTimezone) setTimezone(india.defaultTimezone)
       })
       .catch(() => setCountries([]))
-    void platformTowns()
-      .then(setTowns)
-      .catch(() => setTowns([]))
   }, [open])
 
   useEffect(() => {
@@ -192,11 +204,9 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
     () => cities.map((c) => ({ value: String(c.name), label: c.name })),
     [cities],
   )
-  const townItems = useMemo(() => towns.map((t) => ({ value: t.id, label: t.name })), [towns])
   const timezoneItems = useMemo(() => {
     const c = countries.find((x) => x.iso2 === countryIso)
-    const zones = c?.timezones?.length ? c.timezones : [timezone]
-    return zones.map((z) => ({ value: z, label: z }))
+    return geoTimezoneOptions(c?.timezones, timezone)
   }, [countries, countryIso, timezone])
 
   const planItems = useMemo(
@@ -220,6 +230,23 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
   const recoveryUsesWork =
     !personalEmailTrimmed && workEmailTrimmed.length > 0 && workEmailTrimmed.length <= L.personalEmail
   const resolvedRecoveryEmail = personalEmailTrimmed || (recoveryUsesWork ? workEmailTrimmed : '')
+  const setupMailRecipients = useMemo(() => {
+    const list: string[] = []
+    if (workEmailTrimmed && EMAIL_FORMAT.test(workEmailTrimmed)) list.push(workEmailTrimmed)
+    if (
+      personalEmailTrimmed &&
+      EMAIL_FORMAT.test(personalEmailTrimmed) &&
+      personalEmailTrimmed.toLowerCase() !== workEmailTrimmed.toLowerCase()
+    ) {
+      list.push(personalEmailTrimmed)
+    }
+    return list
+  }, [workEmailTrimmed, personalEmailTrimmed])
+  const setupMailReviewValue = sendMail
+    ? setupMailRecipients.length
+      ? `Yes → ${setupMailRecipients.join(' · ')}`
+      : 'Yes — add a valid work email first'
+    : 'No — invite Owner later from the tenant list'
 
   const completed = useMemo(() => {
     const map: Record<number, boolean> = {}
@@ -257,12 +284,15 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
     setCountryIso('IN')
     setStateIso('')
     setCityId('')
-    setTownId('')
     setFirstName('')
     setLastName('')
     setWorkEmail('')
     setPersonalEmail('')
     setDob(null)
+    setOwnerErrors({})
+    setWorkEmailAvail(null)
+    setWorkEmailChecking(false)
+    setOrgNameAvail(null)
   }
 
   function handleOpenChange(next: boolean) {
@@ -284,7 +314,6 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
         countryId: countryIso,
         stateId: stateIso,
         cityId,
-        townId,
         postalCode: postalCode.trim(),
         address: hoAddress.trim(),
         latitude: Number(latitude),
@@ -327,7 +356,6 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
         !countryIso ||
         !stateIso ||
         !cityId ||
-        !townId ||
         !postalCode.trim() ||
         !timezone.trim() ||
         !currency.trim()
@@ -363,36 +391,114 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
       return null
     }
     if (step === 2) {
-      if (!firstName.trim() || !lastName.trim() || !workEmailTrimmed || !dob) {
-        return { message: 'Complete first name, last name, work email, and date of birth.' }
+      const errs: Partial<Record<OwnerField, string>> = {}
+      if (!firstName.trim()) errs.firstName = 'First name is required.'
+      else if (firstName.trim().length > L.ownerFirstName) {
+        errs.firstName = `First name must be at most ${L.ownerFirstName} characters.`
       }
-      if (firstName.trim().length > L.ownerFirstName) {
-        return {
-          message: `First name must be at most ${L.ownerFirstName} characters.`,
-          field: 'owner.firstName',
+      if (!lastName.trim()) errs.lastName = 'Last name is required.'
+      else if (lastName.trim().length > L.ownerLastName) {
+        errs.lastName = `Last name must be at most ${L.ownerLastName} characters.`
+      }
+      if (!workEmailTrimmed) errs.workEmail = 'Work email is required.'
+      else if (!EMAIL_FORMAT.test(workEmailTrimmed)) {
+        errs.workEmail = 'Enter a valid work email (name@company.com).'
+      } else if (workEmailTrimmed.length > L.workEmail) {
+        errs.workEmail = `Work email must be at most ${L.workEmail} characters.`
+      }
+      if (personalEmailTrimmed) {
+        if (!EMAIL_FORMAT.test(personalEmailTrimmed)) {
+          errs.personalEmail = 'Enter a valid recovery email (name@company.com).'
+        } else if (personalEmailTrimmed.length > L.personalEmail) {
+          errs.personalEmail = `Recovery email must be at most ${L.personalEmail} characters.`
         }
+      } else if (workEmailTrimmed.length > L.personalEmail) {
+        errs.personalEmail = `Recovery email is required when work email exceeds ${L.personalEmail} characters.`
       }
-      if (lastName.trim().length > L.ownerLastName) {
-        return { message: `Last name must be at most ${L.ownerLastName} characters.`, field: 'owner.lastName' }
-      }
-      if (workEmailTrimmed.length > L.workEmail) {
-        return { message: `Work email must be at most ${L.workEmail} characters.`, field: 'owner.workEmail' }
-      }
-      if (personalEmailTrimmed.length > L.personalEmail) {
-        return {
-          message: `Recovery email must be at most ${L.personalEmail} characters.`,
-          field: 'owner.personalEmail',
-        }
-      }
-      if (!personalEmailTrimmed && workEmailTrimmed.length > L.personalEmail) {
-        return {
-          message: `Recovery email is required when work email exceeds ${L.personalEmail} characters.`,
-          field: 'owner.personalEmail',
-        }
-      }
+      if (!dob) errs.dob = 'Date of birth is required.'
+      setOwnerErrors(errs)
+      const order: OwnerField[] = ['firstName', 'lastName', 'workEmail', 'personalEmail', 'dob']
+      const firstKey = order.find((k) => errs[k])
+      if (firstKey) return { message: errs[firstKey]!, field: `owner.${firstKey}` }
       return null
     }
     return null
+  }
+
+  function clearOwnerError(field: OwnerField) {
+    setOwnerErrors((prev) => {
+      if (!prev[field]) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
+
+  async function verifyOwnerEmail(kind: 'workEmail' | 'personalEmail', value: string) {
+    const trimmed = value.trim()
+    if (!trimmed) return
+    if (!EMAIL_FORMAT.test(trimmed)) {
+      setOwnerErrors((prev) => ({
+        ...prev,
+        [kind]:
+          kind === 'workEmail'
+            ? 'Enter a valid work email (name@company.com).'
+            : 'Enter a valid recovery email (name@company.com).',
+      }))
+      if (kind === 'workEmail') setWorkEmailAvail(null)
+      return
+    }
+    clearOwnerError(kind)
+    await checkEmailDomain(trimmed)
+    if (kind === 'workEmail') {
+      setWorkEmailChecking(true)
+      try {
+        const avail = await checkPlatformTenantAvailability({
+          workEmail: trimmed,
+          organizationName: orgName.trim() || undefined,
+        })
+        const slot = avail.workEmail ?? null
+        setWorkEmailAvail(slot)
+        if (slot && !slot.available) {
+          setOwnerErrors((prev) => ({
+            ...prev,
+            workEmail: slot.message || 'This work email is already used.',
+          }))
+        }
+      } catch {
+        setWorkEmailAvail(null)
+      } finally {
+        setWorkEmailChecking(false)
+      }
+    } else {
+      try {
+        const avail = await checkPlatformTenantAvailability({ personalEmail: trimmed })
+        const slot = avail.personalEmail
+        if (slot && !slot.available) {
+          setOwnerErrors((prev) => ({
+            ...prev,
+            personalEmail: slot.message || 'This recovery email is already used.',
+          }))
+        }
+      } catch {
+        /* format already OK — create will re-check */
+      }
+    }
+  }
+
+  async function verifyOrgNameAvailability(name: string): Promise<string | null> {
+    const trimmed = name.trim()
+    if (!trimmed) return null
+    try {
+      const avail = await checkPlatformTenantAvailability({ organizationName: trimmed })
+      const slot = avail.organizationName ?? null
+      setOrgNameAvail(slot)
+      if (slot && !slot.available) return slot.message || 'Organization name is already taken.'
+      return null
+    } catch {
+      setOrgNameAvail(null)
+      return null
+    }
   }
 
   async function fillCoordinatesFromAddress() {
@@ -449,7 +555,7 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
     )
   }
 
-  function onNext() {
+  async function onNext() {
     setError(null)
     setFieldError(null)
     const problem = validateStep()
@@ -458,8 +564,46 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
       setFieldError(problem.field ?? null)
       return
     }
-    if (step === 0 && !hoAddress.trim() && orgAddress.trim()) {
-      setHoAddress(orgAddress.trim().slice(0, L.branchAddress))
+    if (step === 0) {
+      const orgConflict = await verifyOrgNameAvailability(orgName)
+      if (orgConflict) {
+        setError(orgConflict)
+        setFieldError('organization.name')
+        return
+      }
+      if (!hoAddress.trim() && orgAddress.trim()) {
+        setHoAddress(orgAddress.trim().slice(0, L.branchAddress))
+      }
+    }
+    if (step === 2) {
+      // Live uniqueness on this step (not Review) — same rules as provision ConflictError.
+      setWorkEmailChecking(true)
+      try {
+        const fresh = await checkPlatformTenantAvailability({
+          workEmail: workEmailTrimmed,
+          organizationName: orgName.trim() || undefined,
+          ...(personalEmailTrimmed ? { personalEmail: personalEmailTrimmed } : {}),
+        })
+        if (fresh.workEmail) setWorkEmailAvail(fresh.workEmail)
+        if (fresh.workEmail && !fresh.workEmail.available) {
+          const msg = fresh.workEmail.message || 'This work email is already used.'
+          setOwnerErrors((prev) => ({ ...prev, workEmail: msg }))
+          setError(msg)
+          setFieldError('owner.workEmail')
+          return
+        }
+        if (fresh.personalEmail && !fresh.personalEmail.available) {
+          const msg = fresh.personalEmail.message || 'This recovery email is already used.'
+          setOwnerErrors((prev) => ({ ...prev, personalEmail: msg }))
+          setError(msg)
+          setFieldError('owner.personalEmail')
+          return
+        }
+      } catch {
+        /* network — create will re-check */
+      } finally {
+        setWorkEmailChecking(false)
+      }
     }
     setStep((s) => Math.min(3, s + 1) as Step)
   }
@@ -485,6 +629,11 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
       const info = platformApiErrorInfo(err)
       setError(info.message)
       setFieldError(info.field ?? null)
+      if (info.field === 'owner.workEmail') {
+        setOwnerErrors((prev) => ({ ...prev, workEmail: info.message }))
+      } else if (info.field === 'owner.personalEmail') {
+        setOwnerErrors((prev) => ({ ...prev, personalEmail: info.message }))
+      }
       const jump = platformCreateFieldStep(info.field)
       if (jump !== null) setStep(jump)
       toast.error(info.message)
@@ -508,36 +657,40 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
       submitting={busy}
       subheader={<Stepper steps={[...WIZARD_STEPS]} activeStep={step} completed={completed} />}
       footer={(requestClose) => (
-        <>
-          <Button type="button" variant="ghost" disabled={busy} onClick={requestClose}>
-            Cancel
-          </Button>
-          <div className="flex gap-2">
-            {step > 0 ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => {
-                  setError(null)
-                  setFieldError(null)
-                  setStep((s) => Math.max(0, s - 1) as Step)
-                }}
-              >
-                Back
-              </Button>
-            ) : null}
-            {last ? (
-              <Button type="button" disabled={busy} loading={busy} onClick={() => void onCreate()}>
-                Create Tenant
-              </Button>
-            ) : (
-              <Button type="button" disabled={busy} onClick={onNext}>
-                Next
-              </Button>
-            )}
-          </div>
-        </>
+        <FormDialogActions onCancel={requestClose} disabled={busy}>
+          {step > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setError(null)
+                setFieldError(null)
+                setStep((s) => Math.max(0, s - 1) as Step)
+              }}
+            >
+              <ChevronLeft data-icon="inline-start" aria-hidden />
+              Back
+            </Button>
+          ) : null}
+          {last ? (
+            <Button
+              type="button"
+              disabled={busy}
+              loading={busy}
+              className="w-full sm:min-w-36 sm:w-auto"
+              onClick={() => void onCreate()}
+            >
+              Create Tenant
+            </Button>
+          ) : (
+            <Button type="button" disabled={busy} className="w-full sm:min-w-28 sm:w-auto" onClick={onNext}>
+              Next
+              <ChevronRight data-icon="inline-end" aria-hidden />
+            </Button>
+          )}
+        </FormDialogActions>
       )}
     >
       <div className="space-y-5">
@@ -632,10 +785,6 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
                 </Label>
               ))}
             </fieldset>
-            <Label className="flex items-center gap-3 font-normal">
-              <Checkbox checked={sendMail} onCheckedChange={(v) => setSendMail(v === true)} />
-              Send Owner password-setup email
-            </Label>
           </FieldGroup>
         ) : null}
 
@@ -662,7 +811,6 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
                 countryId: countryIso,
                 stateId: stateIso,
                 cityId,
-                townId,
                 postalCode,
                 address: hoAddress,
                 latitude,
@@ -674,18 +822,20 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
                 if (patch.countryId !== undefined) {
                   const iso = patch.countryId
                   setCountryIso(iso)
-                  setStateIso('')
-                  setCityId('')
+                  // Only clear dependents when the country actually changes.
+                  if (iso !== countryIso) {
+                    setStateIso('')
+                    setCityId('')
+                  }
                   const c = countries.find((x) => x.iso2 === iso)
                   if (c?.currency) setCurrency(c.currency)
-                  if (c?.defaultTimezone) setTimezone(c.defaultTimezone)
+                  if (c?.defaultTimezone && !patch.timezone) setTimezone(c.defaultTimezone)
                 }
                 if (patch.stateId !== undefined) {
                   setStateIso(patch.stateId)
-                  setCityId('')
+                  if (patch.cityId === undefined && patch.stateId !== stateIso) setCityId('')
                 }
                 if (patch.cityId !== undefined) setCityId(patch.cityId)
-                if (patch.townId !== undefined) setTownId(patch.townId)
                 if (patch.postalCode !== undefined) setPostalCode(patch.postalCode)
                 if (patch.address !== undefined) {
                   setHoAddress(patch.address)
@@ -699,7 +849,6 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
               countryOptions={countryItems}
               stateOptions={stateItems}
               cityOptions={cityItems}
-              townOptions={townItems}
               timezoneOptions={timezoneItems}
               showTimezone
               showCurrency
@@ -714,6 +863,24 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
                 setHoAddress(next)
                 if (fieldError === 'headOffice.address') setFieldError(null)
               }}
+              suggestAddress={async (query) => {
+                const rows = await searchPlaces(query, 5)
+                return rows.map((raw, i) => {
+                  const pick = toGeoPick(raw)
+                  return {
+                    id: String(raw?.place_id ?? `${pick.lat},${pick.lng},${i}`),
+                    label: pick.formatted || pick.street || query,
+                    address: (pick.street || pick.formatted || query).slice(0, L.branchAddress),
+                    postalCode: pick.postcode || undefined,
+                    latitude: String(pick.lat),
+                    longitude: String(pick.lng),
+                    countryName: pick.country || undefined,
+                    stateName: pick.state || undefined,
+                    cityName: pick.city || undefined,
+                    locality: pick.locality || undefined,
+                  }
+                })
+              }}
               geoBusy={geoBusy}
               geoMessage={geoMessage}
               onGeocodeFromAddress={() => void fillCoordinatesFromAddress()}
@@ -725,7 +892,11 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
         {step === 2 ? (
           <FieldGroup className="gap-5">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field data-invalid={fieldError === 'owner.firstName' || undefined}>
+              <Field
+                data-invalid={
+                  ownerErrors.firstName || fieldError === 'owner.firstName' ? true : undefined
+                }
+              >
                 <FieldLabel htmlFor="ct-fn">First Name</FieldLabel>
                 <Input
                   id="ct-fn"
@@ -733,10 +904,19 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
                   required
                   maxLength={L.ownerFirstName}
                   value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  aria-invalid={ownerErrors.firstName ? true : undefined}
+                  onChange={(e) => {
+                    setFirstName(e.target.value)
+                    clearOwnerError('firstName')
+                  }}
                 />
+                {ownerErrors.firstName ? <FieldError>{ownerErrors.firstName}</FieldError> : null}
               </Field>
-              <Field data-invalid={fieldError === 'owner.lastName' || undefined}>
+              <Field
+                data-invalid={
+                  ownerErrors.lastName || fieldError === 'owner.lastName' ? true : undefined
+                }
+              >
                 <FieldLabel htmlFor="ct-ln">Last Name</FieldLabel>
                 <Input
                   id="ct-ln"
@@ -744,32 +924,94 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
                   required
                   maxLength={L.ownerLastName}
                   value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  aria-invalid={ownerErrors.lastName ? true : undefined}
+                  onChange={(e) => {
+                    setLastName(e.target.value)
+                    clearOwnerError('lastName')
+                  }}
                 />
+                {ownerErrors.lastName ? <FieldError>{ownerErrors.lastName}</FieldError> : null}
               </Field>
             </div>
-            <Field data-invalid={fieldError === 'owner.workEmail' || undefined}>
+            <Field
+              data-invalid={
+                ownerErrors.workEmail || fieldError === 'owner.workEmail' ? true : undefined
+              }
+            >
               <FieldLabel htmlFor="ct-work">Work Email</FieldLabel>
               <Input
                 id="ct-work"
                 type="email"
                 size="lg"
                 required
+                autoComplete="email"
                 maxLength={L.workEmail}
                 value={workEmail}
-                onChange={(e) => setWorkEmail(e.target.value)}
+                aria-invalid={ownerErrors.workEmail ? true : undefined}
+                onChange={(e) => {
+                  setWorkEmail(e.target.value)
+                  clearOwnerError('workEmail')
+                  setWorkEmailAvail(null)
+                }}
+                onBlur={() => void verifyOwnerEmail('workEmail', workEmail)}
               />
-              <FieldDescription>Sign-in identity (max {L.workEmail} characters).</FieldDescription>
+              <FieldDescription>
+                Sign-in identity (max {L.workEmail} characters). Availability is checked when you leave
+                the field.
+              </FieldDescription>
+              {workEmailChecking ? (
+                <FieldDescription className="flex items-center gap-1.5">
+                  <LoaderCircle className="size-3.5 shrink-0 animate-spin" aria-hidden />
+                  Checking whether this email is free…
+                </FieldDescription>
+              ) : null}
+              {!workEmailChecking && workEmailAvail?.available === true && !workEmailAvail.resumable ? (
+                <FieldDescription className="flex items-center gap-1.5">
+                  <CheckCircle2 className="size-3.5 shrink-0 text-success-foreground" aria-hidden />
+                  Available for a new tenant.
+                </FieldDescription>
+              ) : null}
+              {!workEmailChecking && workEmailAvail?.resumable ? (
+                <FieldDescription className="flex items-center gap-1.5">
+                  <CheckCircle2 className="size-3.5 shrink-0 text-info-foreground" aria-hidden />
+                  {workEmailAvail.message || 'Will resume an interrupted provision.'}
+                </FieldDescription>
+              ) : null}
+              {!workEmailChecking && workEmailAvail && !workEmailAvail.available ? (
+                <Alert variant="warning" className="mt-1">
+                  <CircleAlert aria-hidden />
+                  <AlertTitle>Work Email Taken</AlertTitle>
+                  <AlertDescription>
+                    {workEmailAvail.message ||
+                      'This address already belongs to another employee. Use a different work email.'}
+                  </AlertDescription>
+                </Alert>
+              ) : ownerErrors.workEmail ? (
+                <FieldError>{ownerErrors.workEmail}</FieldError>
+              ) : null}
             </Field>
-            <Field data-invalid={fieldError === 'owner.personalEmail' || undefined}>
+            <Field
+              data-invalid={
+                ownerErrors.personalEmail || fieldError === 'owner.personalEmail' ? true : undefined
+              }
+            >
               <FieldLabel htmlFor="ct-personal">Recovery Email</FieldLabel>
               <Input
                 id="ct-personal"
                 type="email"
                 size="lg"
+                autoComplete="email"
                 maxLength={L.personalEmail}
                 value={personalEmail}
-                onChange={(e) => setPersonalEmail(e.target.value)}
+                aria-invalid={ownerErrors.personalEmail ? true : undefined}
+                onChange={(e) => {
+                  setPersonalEmail(e.target.value)
+                  clearOwnerError('personalEmail')
+                }}
+                onBlur={() => {
+                  if (personalEmail.trim()) void verifyOwnerEmail('personalEmail', personalEmail)
+                  else clearOwnerError('personalEmail')
+                }}
                 placeholder={
                   workEmailTrimmed.length > L.personalEmail
                     ? 'Required — work email is too long to reuse'
@@ -778,18 +1020,59 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
               />
               <FieldDescription>
                 Max {L.personalEmail} characters.
-                {recoveryUsesWork ? ' Setup mail will go to the work address only.' : null}
+                {recoveryUsesWork ? ' Blank reuses the work address for recovery + setup mail.' : null}
               </FieldDescription>
-              {fieldError === 'owner.personalEmail' && error ? <FieldError>{error}</FieldError> : null}
+              {ownerErrors.personalEmail ? <FieldError>{ownerErrors.personalEmail}</FieldError> : null}
             </Field>
             <DatePicker
               label="Date Of Birth"
               isRequired
               value={dob}
-              onChange={(d) => setDob(d)}
+              onChange={(d) => {
+                setDob(d)
+                clearOwnerError('dob')
+              }}
               placeholderValue={parseDate('1990-01-01')}
               description="Open the calendar, then click the month title to jump by month or year."
+              errorMessage={ownerErrors.dob}
             />
+            <Field orientation="horizontal">
+              <FieldContent>
+                <FieldLabel htmlFor="ct-send-mail">Send Password-Setup Email</FieldLabel>
+                <FieldDescription>
+                  {sendMail
+                    ? setupMailRecipients.length
+                      ? `Will send to ${setupMailRecipients.join(' and ')} after create.`
+                      : 'Turned on — enter a valid work email so we know where to send it.'
+                    : 'Off — tenant is created without mail; resend later from the tenant list.'}
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                id="ct-send-mail"
+                checked={sendMail}
+                onCheckedChange={(on) => setSendMail(on === true)}
+              />
+            </Field>
+            {sendMail && setupMailRecipients.length > 0 ? (
+              <Alert variant="info">
+                <Mail aria-hidden />
+                <AlertTitle>Setup Mail Ready</AlertTitle>
+                <AlertDescription>
+                  Password-setup links go to {setupMailRecipients.join(' · ')}. Work email stays the
+                  sign-in identity even when recovery differs.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {!sendMail ? (
+              <Alert variant="warning">
+                <Mail aria-hidden />
+                <AlertTitle>No Setup Mail</AlertTitle>
+                <AlertDescription>
+                  Owner will not receive a password link on create. Use Resend Setup from the tenant
+                  detail when you are ready.
+                </AlertDescription>
+              </Alert>
+            ) : null}
           </FieldGroup>
         ) : null}
 
@@ -815,7 +1098,7 @@ export function PlatformTenantCreateWizard({ open, onOpenChange, onCreated }: Pl
                 label: 'Recovery',
                 value: resolvedRecoveryEmail || '—',
               },
-              { label: 'Setup mail', value: sendMail ? 'Yes' : 'No' },
+              { label: 'Setup mail', value: setupMailReviewValue, wide: true },
             ]}
           />
         ) : null}

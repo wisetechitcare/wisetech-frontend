@@ -41,11 +41,12 @@ Frontend does **not** enforce multi-tenant isolation — the API does. Still nev
 - Control density SSOT: **`WT_CONTROL_HEIGHT` = 40** (default / rows), **`WT_CONTROL_HEIGHT_MD` = 44** (spacious). **`WtField` / `WtDateField` default `size="sm"`** (40px). Opt into `size="md"` for spacious dialog forms. **`WtButton` defaults to compact, flat accent at 40px**; opt into `size="medium"` for 44px. Never invent per-screen `sx={{ height }}` or patch label `fontSize` (breaks the notch).
 - Dialog chrome: **`FormSection` + `FORM_SPACE`** for form cards; **`GlassDialog preset="form"|"workspace"`** instead of hand-rolled `maxHeight`; **`GlassDialogActions`** for Cancel/Save footers (SSOT); **`SettingsSection`** (accent settings, optional `count`) vs **`WtFormSection`** (long nav forms).
 - Toggles / checkboxes: **`WtSwitch` / `WtCheckbox`** (labelled: `WtSwitchField` / `WtCheckboxField` / `WtControlLabel`). Checkbox look is themed globally on `MuiCheckbox`; still prefer the kit helpers for `size` / `tone`.
-- Tables → shared table engine (`MaterialTableImpl` / kit), not a one-off `<Table>`.
+- Tables → kit `DataTable` (`src/ds/patterns/data-table`) only. Never a one-off `<Table>` or MaterialTable.
 - Chips (status **and** meta) → **`ToneChip`** / `StatusBadge` only — no private `MetaPill`.
 - List cards → **`GlassCard`** + capped **`AutoGrid`** (default max ~400; `stretch` opt-in only).
 - MUI = product controls; Tailwind = layout/utilities on shared tokens. Do not grow a parallel TW form kit (`ui/tw` stays narrow).
 - Details: `.cursor/rules/ui-design-system.mdc` and the kit README.
+- **Address field label SSOT:** UI says **Postal Code** (kit `LocationFields` and every form/table). Keep API/DB keys as `postalCode` / legacy `zipCode`. Never label the field Pin Code / ZIP for product copy — optional hint: “for India use the 6-digit PIN.”
 
 ESLint bans many legacy Bootstrap/native patterns; the UI baseline ratchet must only shrink.
 

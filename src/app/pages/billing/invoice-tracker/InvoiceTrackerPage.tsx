@@ -8,7 +8,7 @@ import { Progress } from "@/ds/ui/progress";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/ds/ui/dropdown-menu";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from "@/ds/patterns/data-table";
 import { TRIO, toast } from "@app/modules/common/components/ui";
 import { formatCurrencyDecimal } from "@utils/currency";
 import { formatDate } from "@utils/dateFormats";
@@ -20,7 +20,7 @@ import { useBillingOrgId } from "../BillingLayout";
 import { BillingStatusBadge, ProjectFilterBanner } from "../components";
 import {
   DASH, DueCell, Money, NumberDate, StateCounts, StatusChips, TRACKER_TABLE, TotalLabel, TrackerToolbar,
-  sumOf, trackerRowSx, usePoChip, useTrackerParams, type TrackerTile,
+  sumOf, usePoChip, useTrackerParams, type TrackerTile,
 } from "../components/trackerKit";
 
 /**
@@ -155,28 +155,32 @@ const InvoiceTrackerPage: React.FC = () => {
   const projectBilling = (leadId: string) => navigate(`/project/${leadId}?tab=billing`);
 
   // ── Projects view ─────────────────────────────────────────────────────────
-  const projectColumns = useMemo(() => [
+  const projectColumns = useMemo<ColumnDef<InvoiceTrackerProject, unknown>[]>(() => [
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.projectNumber ?? "", id: "projectNumber", header: "Project No", size: 170,
-      Footer: TotalLabel,
-      Cell: ({ row }: any) => <span className="text-[length:inherit] font-bold">{row.original.projectNumber ?? DASH}</span>,
+      accessorFn: (p) => p.projectNumber ?? "", id: "projectNumber", header: "Project No", size: 170,
+      meta: { wrap: false },
+      footer: () => <TotalLabel />,
+      cell: ({ row }) => <span className="text-[length:inherit] font-bold">{row.original.projectNumber ?? DASH}</span>,
     },
-    { accessorFn: (p: InvoiceTrackerProject) => p.projectName ?? DASH, id: "projectName", header: "Project Name", size: 240 },
-    { accessorFn: (p: InvoiceTrackerProject) => p.clientName ?? DASH, id: "clientName", header: "Client Company", size: 180 },
-    { accessorFn: (p: InvoiceTrackerProject) => p.managerName ?? DASH, id: "managerName", header: "Project Manager", size: 160 },
+    { accessorFn: (p) => p.projectName ?? DASH, id: "projectName", header: "Project Name", size: 240 },
+    { accessorFn: (p) => p.clientName ?? DASH, id: "clientName", header: "Client Company", size: 180 },
+    { accessorFn: (p) => p.managerName ?? DASH, id: "managerName", header: "Project Manager", size: 160 },
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.poStatus ?? "", id: "poStatus", header: "PO", size: 140,
-      Cell: ({ row }: any) => poChip(row.original.poStatus),
-    },
-    {
-      accessorFn: (p: InvoiceTrackerProject) => p.billedAmount ?? 0, id: "billedAmount", header: "Billed", size: 150,
-      Cell: ({ row }: any) => <Money value={row.original.billedAmount} bold muted={!row.original.billedAmount} />,
-      Footer: () => <Money value={sumOf(projects, (p) => p.billedAmount)} bold />,
+      accessorFn: (p) => p.poStatus ?? "", id: "poStatus", header: "PO", size: 140,
+      meta: { wrap: false },
+      cell: ({ row }) => poChip(row.original.poStatus),
     },
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.invoicedAmount ?? 0, id: "invoicedAmount", header: "Invoiced", size: 190,
-      Cell: ({ row }: any) => {
-        const p: InvoiceTrackerProject = row.original;
+      accessorFn: (p) => p.billedAmount ?? 0, id: "billedAmount", header: "Billed", size: 150,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => <Money value={row.original.billedAmount} bold muted={!row.original.billedAmount} />,
+      footer: () => <Money value={sumOf(projects, (p) => p.billedAmount)} bold />,
+    },
+    {
+      accessorFn: (p) => p.invoicedAmount ?? 0, id: "invoicedAmount", header: "Invoiced", size: 190,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => {
+        const p = row.original;
         return (
           <div className="min-w-[150px]">
             <div className="mb-[3px] flex flex-row justify-between">
@@ -189,12 +193,13 @@ const InvoiceTrackerPage: React.FC = () => {
           </div>
         );
       },
-      Footer: () => <Money value={sumOf(projects, (p) => p.invoicedAmount)} bold />,
+      footer: () => <Money value={sumOf(projects, (p) => p.invoicedAmount)} bold />,
     },
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.notInvoicedAmount ?? 0, id: "notInvoicedAmount", header: "To Invoice", size: 170,
-      Cell: ({ row }: any) => {
-        const p: InvoiceTrackerProject = row.original;
+      accessorFn: (p) => p.notInvoicedAmount ?? 0, id: "notInvoicedAmount", header: "To Invoice", size: 170,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => {
+        const p = row.original;
         if (!p.notInvoicedCount) return <Money value={0} muted />;
         return (
           <div>
@@ -210,21 +215,23 @@ const InvoiceTrackerPage: React.FC = () => {
           </div>
         );
       },
-      Footer: () => <Money value={sumOf(projects, (p) => p.notInvoicedAmount)} bold />,
+      footer: () => <Money value={sumOf(projects, (p) => p.notInvoicedAmount)} bold />,
     },
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.counts?.total ?? 0, id: "invoices", header: "Tax Invoices", size: 260,
-      Cell: ({ row }: any) => (row.original.counts ? <StateCounts counts={row.original.counts} tiles={STAGE_TILES} /> : null),
+      accessorFn: (p) => p.counts?.total ?? 0, id: "invoices", header: "Tax Invoices", size: 260,
+      cell: ({ row }) => (row.original.counts ? <StateCounts counts={row.original.counts} tiles={STAGE_TILES} /> : null),
     },
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
-      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
-      Footer: () => <Money value={sumOf(projects, (p) => p.receivedAmount)} bold tone="success" />,
+      accessorFn: (p) => p.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
+      footer: () => <Money value={sumOf(projects, (p) => p.receivedAmount)} bold tone="success" />,
     },
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 160,
-      Cell: ({ row }: any) => {
-        const p: InvoiceTrackerProject = row.original;
+      accessorFn: (p) => p.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 160,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => {
+        const p = row.original;
         return (
           <div>
             <Money value={p.outstandingAmount} bold tone={p.outstandingAmount > 0 ? "danger" : undefined} muted={!p.outstandingAmount} />
@@ -236,42 +243,47 @@ const InvoiceTrackerPage: React.FC = () => {
           </div>
         );
       },
-      Footer: () => <Money value={sumOf(projects, (p) => p.outstandingAmount)} bold tone="danger" />,
+      footer: () => <Money value={sumOf(projects, (p) => p.outstandingAmount)} bold tone="danger" />,
     },
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.tdsPendingAmount ?? 0, id: "tdsPendingAmount", header: "TDS Not Deposited", size: 160,
-      Cell: ({ row }: any) => <Money value={row.original.tdsPendingAmount} tone={row.original.tdsPendingAmount > 0 ? TRIO.amber.c : undefined} muted={!row.original.tdsPendingAmount} />,
-      Footer: () => <Money value={sumOf(projects, (p) => p.tdsPendingAmount)} bold />,
+      accessorFn: (p) => p.tdsPendingAmount ?? 0, id: "tdsPendingAmount", header: "TDS Not Deposited", size: 160,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => <Money value={row.original.tdsPendingAmount} tone={row.original.tdsPendingAmount > 0 ? TRIO.amber.c : undefined} muted={!row.original.tdsPendingAmount} />,
+      footer: () => <Money value={sumOf(projects, (p) => p.tdsPendingAmount)} bold />,
     },
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.nextDueDate ?? "", id: "nextDueDate", header: "Next Due", size: 130,
-      Cell: ({ row }: any) => (row.original.nextDueDate ? formatDate(row.original.nextDueDate) : DASH),
+      accessorFn: (p) => p.nextDueDate ?? "", id: "nextDueDate", header: "Next Due", size: 130,
+      meta: { wrap: false },
+      cell: ({ row }) => (row.original.nextDueDate ? formatDate(row.original.nextDueDate) : DASH),
     },
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.lastInvoice?.date ?? "", id: "lastInvoice", header: "Latest Invoice", size: 190,
-      Cell: ({ row }: any) => {
-        const last = (row.original as InvoiceTrackerProject).lastInvoice;
+      accessorFn: (p) => p.lastInvoice?.date ?? "", id: "lastInvoice", header: "Latest Invoice", size: 190,
+      meta: { wrap: false },
+      cell: ({ row }) => {
+        const last = row.original.lastInvoice;
         return last ? <NumberDate number={last.number} date={last.date} /> : DASH;
       },
     },
     {
-      accessorFn: (p: InvoiceTrackerProject) => p.contractValue ?? -1, id: "contractValue", header: "Contract Value", size: 150,
-      Cell: ({ row }: any) => <Money value={row.original.contractValue} />,
+      accessorFn: (p) => p.contractValue ?? -1, id: "contractValue", header: "Contract Value", size: 150,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => <Money value={row.original.contractValue} />,
       // Totals count projects in billing only — see `inBilling`.
-      Footer: () => <Money value={sumOf(projects, (p) => (p.inBilling ? p.contractValue : 0))} bold />,
+      footer: () => <Money value={sumOf(projects, (p) => (p.inBilling ? p.contractValue : 0))} bold />,
     },
-    { accessorFn: (p: InvoiceTrackerProject) => p.followUpManagerName ?? DASH, id: "followUpManagerName", header: "Follow-up Manager", size: 170 },
-    { accessorFn: (p: InvoiceTrackerProject) => p.organizationName ?? DASH, id: "organizationName", header: "Organization", size: 220 },
+    { accessorFn: (p) => p.followUpManagerName ?? DASH, id: "followUpManagerName", header: "Follow-up Manager", size: 170 },
+    { accessorFn: (p) => p.organizationName ?? DASH, id: "organizationName", header: "Organization", size: 220 },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [projects, poChip]);
 
   // ── Invoices view ─────────────────────────────────────────────────────────
-  const invoiceColumns = useMemo(() => [
+  const invoiceColumns = useMemo<ColumnDef<InvoiceTrackerRow, unknown>[]>(() => [
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.invoiceNumber ?? "", id: "invoiceNumber", header: "Invoice No", size: 200,
-      Footer: TotalLabel,
-      Cell: ({ row }: any) => {
-        const r: InvoiceTrackerRow = row.original;
+      accessorFn: (r) => r.invoiceNumber ?? "", id: "invoiceNumber", header: "Invoice No", size: 200,
+      meta: { wrap: false },
+      footer: () => <TotalLabel />,
+      cell: ({ row }) => {
+        const r = row.original;
         return (
           <div>
             <p className="text-[length:inherit] font-bold">{r.invoiceNumber ?? DASH}</p>
@@ -283,45 +295,50 @@ const InvoiceTrackerPage: React.FC = () => {
       },
     },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.invoiceDate ?? "", id: "invoiceDate", header: "Date", size: 120,
-      Cell: ({ row }: any) => (row.original.invoiceDate ? formatDate(row.original.invoiceDate) : DASH),
+      accessorFn: (r) => r.invoiceDate ?? "", id: "invoiceDate", header: "Date", size: 120,
+      meta: { wrap: false },
+      cell: ({ row }) => (row.original.invoiceDate ? formatDate(row.original.invoiceDate) : DASH),
     },
-    { accessorFn: (r: InvoiceTrackerRow) => r.projectNumber ?? DASH, id: "projectNumber", header: "Project No", size: 170 },
-    { accessorFn: (r: InvoiceTrackerRow) => r.projectName ?? DASH, id: "projectName", header: "Project Name", size: 220 },
-    { accessorFn: (r: InvoiceTrackerRow) => r.clientName ?? DASH, id: "clientName", header: "Client Company", size: 170 },
-    { accessorFn: (r: InvoiceTrackerRow) => r.stageName ?? DASH, id: "stageName", header: "Stage", size: 160 },
+    { accessorFn: (r) => r.projectNumber ?? DASH, id: "projectNumber", header: "Project No", size: 170, meta: { wrap: false } },
+    { accessorFn: (r) => r.projectName ?? DASH, id: "projectName", header: "Project Name", size: 220 },
+    { accessorFn: (r) => r.clientName ?? DASH, id: "clientName", header: "Client Company", size: 170 },
+    { accessorFn: (r) => r.stageName ?? DASH, id: "stageName", header: "Stage", size: 160 },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.state ?? "", id: "state", header: "Status", size: 150,
-      muiTableHeadCellProps: { align: "center" as const }, muiTableBodyCellProps: { align: "center" as const },
-      Cell: ({ row }: any) => {
+      accessorFn: (r) => r.state ?? "", id: "state", header: "Status", size: 150,
+      meta: { align: "center", wrap: false },
+      cell: ({ row }) => {
         const tile = TILES.find((t) => t.key === row.original.state);
         return tile ? <StateCounts counts={{ total: 1, [tile.key]: 1 }} tiles={[tile]} /> : null;
       },
     },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.amount ?? 0, id: "amount", header: "Taxable", size: 140,
-      Cell: ({ row }: any) => <Money value={row.original.amount} />,
-      Footer: () => <Money value={sumOf(invoices, (r) => r.amount)} bold />,
+      accessorFn: (r) => r.amount ?? 0, id: "amount", header: "Taxable", size: 140,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => <Money value={row.original.amount} />,
+      footer: () => <Money value={sumOf(invoices, (r) => r.amount)} bold />,
     },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.gstAmount ?? 0, id: "gstAmount", header: "GST", size: 130,
-      Cell: ({ row }: any) => (
+      accessorFn: (r) => r.gstAmount ?? 0, id: "gstAmount", header: "GST", size: 130,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => (
         <div>
           <Money value={row.original.gstAmount} />
           {row.original.gstRate > 0 && <p className="text-[11px] text-muted-foreground">{row.original.gstRate}%</p>}
         </div>
       ),
-      Footer: () => <Money value={sumOf(invoices, (r) => r.gstAmount)} bold />,
+      footer: () => <Money value={sumOf(invoices, (r) => r.gstAmount)} bold />,
     },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.totalAmount ?? 0, id: "totalAmount", header: "Invoice Value", size: 150,
-      Cell: ({ row }: any) => <Money value={row.original.totalAmount} bold />,
-      Footer: () => <Money value={sumOf(invoices, (r) => r.totalAmount)} bold />,
+      accessorFn: (r) => r.totalAmount ?? 0, id: "totalAmount", header: "Invoice Value", size: 150,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => <Money value={row.original.totalAmount} bold />,
+      footer: () => <Money value={sumOf(invoices, (r) => r.totalAmount)} bold />,
     },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.tdsAmount ?? 0, id: "tdsAmount", header: "TDS", size: 140,
-      Cell: ({ row }: any) => {
-        const r: InvoiceTrackerRow = row.original;
+      accessorFn: (r) => r.tdsAmount ?? 0, id: "tdsAmount", header: "TDS", size: 140,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => {
+        const r = row.original;
         return (
           <div>
             <Money value={r.tdsAmount} muted={!r.tdsAmount} />
@@ -333,37 +350,43 @@ const InvoiceTrackerPage: React.FC = () => {
           </div>
         );
       },
-      Footer: () => <Money value={sumOf(invoices, (r) => r.tdsAmount)} bold />,
+      footer: () => <Money value={sumOf(invoices, (r) => r.tdsAmount)} bold />,
     },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
-      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
-      Footer: () => <Money value={sumOf(invoices, (r) => r.receivedAmount)} bold tone="success" />,
+      accessorFn: (r) => r.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 140,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
+      footer: () => <Money value={sumOf(invoices, (r) => r.receivedAmount)} bold tone="success" />,
     },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 140,
-      Cell: ({ row }: any) => (
+      accessorFn: (r) => r.outstandingAmount ?? 0, id: "outstandingAmount", header: "Outstanding", size: 140,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => (
         <Money value={row.original.outstandingAmount} bold tone={row.original.outstandingAmount > 0 ? "danger" : undefined} muted={!row.original.outstandingAmount} />
       ),
-      Footer: () => <Money value={sumOf(invoices, (r) => r.outstandingAmount)} bold tone="danger" />,
+      footer: () => <Money value={sumOf(invoices, (r) => r.outstandingAmount)} bold tone="danger" />,
     },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.dueDate ?? "", id: "dueDate", header: "Due Date", size: 140,
-      Cell: ({ row }: any) => <DueCell date={row.original.state === "DRAFT" ? null : row.original.dueDate} overdueDays={row.original.overdueDays ?? 0} />,
+      accessorFn: (r) => r.dueDate ?? "", id: "dueDate", header: "Due Date", size: 140,
+      meta: { wrap: false },
+      cell: ({ row }) => <DueCell date={row.original.state === "DRAFT" ? null : row.original.dueDate} overdueDays={row.original.overdueDays ?? 0} />,
     },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.lastPaymentAt ?? "", id: "lastPaymentAt", header: "Last Payment", size: 130,
-      Cell: ({ row }: any) => (row.original.lastPaymentAt ? formatDate(row.original.lastPaymentAt) : DASH),
+      accessorFn: (r) => r.lastPaymentAt ?? "", id: "lastPaymentAt", header: "Last Payment", size: 130,
+      meta: { wrap: false },
+      cell: ({ row }) => (row.original.lastPaymentAt ? formatDate(row.original.lastPaymentAt) : DASH),
     },
     {
-      accessorFn: (r: InvoiceTrackerRow) => r.stageCode ?? r.documentStatus ?? "", id: "documentStatus", header: "Document", size: 130,
-      muiTableHeadCellProps: { align: "center" as const }, muiTableBodyCellProps: { align: "center" as const },
-      Cell: ({ row }: any) => <BillingStatusBadge status={row.original.stageCode ?? row.original.documentStatus} />,
+      accessorFn: (r) => r.stageCode ?? r.documentStatus ?? "", id: "documentStatus", header: "Document", size: 130,
+      meta: { align: "center", wrap: false },
+      cell: ({ row }) => <BillingStatusBadge status={row.original.stageCode ?? row.original.documentStatus} />,
     },
     {
       accessorKey: "billId", header: "", size: 64, enableSorting: false, enableColumnFilter: false,
-      Cell: ({ row }: any) => {
-        const r: InvoiceTrackerRow = row.original;
+      enableHiding: false,
+      meta: { wrap: false },
+      cell: ({ row }) => {
+        const r = row.original;
         if (!r.billId) return null;
         return (
           /* Not a control: it exists only to keep the row's own click from firing when the
@@ -404,24 +427,25 @@ const InvoiceTrackerPage: React.FC = () => {
   ], [invoices]);
 
   // ── To-invoice view: the queue ────────────────────────────────────────────
-  const queueColumns = useMemo(() => [
+  const queueColumns = useMemo<ColumnDef<UninvoicedBill, unknown>[]>(() => [
     {
-      accessorFn: (b: UninvoicedBill) => b.proformaNumber ?? "", id: "proformaNumber", header: "Billed On", size: 200,
-      Footer: TotalLabel,
-      Cell: ({ row }: any) => (
+      accessorFn: (b) => b.proformaNumber ?? "", id: "proformaNumber", header: "Billed On", size: 200,
+      meta: { wrap: false },
+      footer: () => <TotalLabel />,
+      cell: ({ row }) => (
         <div>
           <p className="text-[length:inherit] font-bold">{row.original.proformaNumber ?? DASH}</p>
           <p className="text-[11px] text-muted-foreground">Proforma</p>
         </div>
       ),
     },
-    { accessorFn: (b: UninvoicedBill) => b.projectNumber ?? DASH, id: "projectNumber", header: "Project No", size: 170 },
-    { accessorFn: (b: UninvoicedBill) => b.projectName ?? DASH, id: "projectName", header: "Project Name", size: 240 },
-    { accessorFn: (b: UninvoicedBill) => b.clientName ?? DASH, id: "clientName", header: "Client Company", size: 180 },
-    { accessorFn: (b: UninvoicedBill) => b.stageName ?? DASH, id: "stageName", header: "Stage", size: 180 },
+    { accessorFn: (b) => b.projectNumber ?? DASH, id: "projectNumber", header: "Project No", size: 170, meta: { wrap: false } },
+    { accessorFn: (b) => b.projectName ?? DASH, id: "projectName", header: "Project Name", size: 240 },
+    { accessorFn: (b) => b.clientName ?? DASH, id: "clientName", header: "Client Company", size: 180 },
+    { accessorFn: (b) => b.stageName ?? DASH, id: "stageName", header: "Stage", size: 180 },
     {
-      accessorFn: (b: UninvoicedBill) => (b.paid ? 1 : 0), id: "paid", header: "Invoice", size: 170,
-      Cell: ({ row }: any) => {
+      accessorFn: (b) => (b.paid ? 1 : 0), id: "paid", header: "Invoice", size: 170,
+      cell: ({ row }) => {
         if (row.original.billId === undefined) return null;
         const tile = TILES.find((t) => t.key === (row.original.paid ? "INVOICE_DUE" : "TO_INVOICE"))!;
         return (
@@ -432,14 +456,16 @@ const InvoiceTrackerPage: React.FC = () => {
       },
     },
     {
-      accessorFn: (b: UninvoicedBill) => b.totalAmount ?? 0, id: "totalAmount", header: "Bill Value", size: 150,
-      Cell: ({ row }: any) => <Money value={row.original.totalAmount} bold />,
-      Footer: () => <Money value={sumOf(queue, (b) => b.totalAmount)} bold />,
+      accessorFn: (b) => b.totalAmount ?? 0, id: "totalAmount", header: "Bill Value", size: 150,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => <Money value={row.original.totalAmount} bold />,
+      footer: () => <Money value={sumOf(queue, (b) => b.totalAmount)} bold />,
     },
     {
-      accessorFn: (b: UninvoicedBill) => b.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 150,
-      Cell: ({ row }: any) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
-      Footer: () => <Money value={sumOf(queue, (b) => b.receivedAmount)} bold tone="success" />,
+      accessorFn: (b) => b.receivedAmount ?? 0, id: "receivedAmount", header: "Received", size: 150,
+      meta: { exportType: "currency" },
+      cell: ({ row }) => <Money value={row.original.receivedAmount} tone="success" muted={!row.original.receivedAmount} />,
+      footer: () => <Money value={sumOf(queue, (b) => b.receivedAmount)} bold tone="success" />,
     },
   ], [queue]);
 
@@ -473,66 +499,63 @@ const InvoiceTrackerPage: React.FC = () => {
       </TrackerToolbar>
 
       {view === "projects" && (
-        <MaterialTable
+        <DataTable
           key="projects"
           {...TRACKER_TABLE}
+          caption="Tax Invoice Tracker · Projects"
           data={projects}
           columns={projectColumns}
-          tableName="InvoiceTrackerProjects"
-          isLoading={isLoading}
+          getRowId={(p) => p.leadId}
+          stateKey="InvoiceTrackerProjects"
+          loading={isLoading}
           searchPlaceholder="Search project, client or manager…"
-          muiTableProps={{
-            sx: { minWidth: "2600px" },
-            muiTableBodyRowProps: ({ row }: any) => {
-              const p: InvoiceTrackerProject = row.original;
-              const accent = p.counts?.overdue ? TRIO.rose.c
-                : p.invoiceDueCount ? TRIO.amber.c
-                  : p.counts?.total ? TRIO.purple.c : null;
-              return { onClick: () => p.leadId && projectBilling(p.leadId), sx: trackerRowSx(accent) };
-            },
-          }}
+          minWidth={2600}
+          onRowClick={(p) => { if (p.leadId) projectBilling(p.leadId); }}
+          rowLabel={(p) => p.projectNumber ?? p.projectName ?? "Open project"}
+          rowTone={(p) =>
+            p.counts?.overdue ? TRIO.rose.c
+              : p.invoiceDueCount ? TRIO.amber.c
+                : p.counts?.total ? TRIO.purple.c : undefined
+          }
         />
       )}
       {view === "invoices" && (
-        <MaterialTable
+        <DataTable
           key="invoices"
           {...TRACKER_TABLE}
+          caption="Tax Invoice Tracker · Invoices"
           data={invoices}
           columns={invoiceColumns}
-          tableName="InvoiceTrackerInvoices"
-          isLoading={isLoading}
+          getRowId={(r) => r.billId}
+          stateKey="InvoiceTrackerInvoices"
+          loading={isLoading}
           searchPlaceholder="Search invoice, project, client or stage…"
-          muiTableProps={{
-            sx: { minWidth: "2500px" },
-            muiTableBodyRowProps: ({ row }: any) => {
-              const r: InvoiceTrackerRow = row.original;
-              if (!r.billId) return { sx: trackerRowSx(null) };
-              const tile = TILES.find((t) => t.key === (r.overdueDays > 0 ? "OVERDUE" : r.state));
-              return { onClick: () => navigate(invoicePath(r)), sx: trackerRowSx(tile?.trio.c ?? null) };
-            },
+          minWidth={2500}
+          onRowClick={(r) => { if (r.billId) navigate(invoicePath(r)); }}
+          rowLabel={(r) => r.invoiceNumber ?? r.billNumber ?? "Open invoice"}
+          rowTone={(r) => {
+            if (!r.billId) return undefined;
+            const tile = TILES.find((t) => t.key === (r.overdueDays > 0 ? "OVERDUE" : r.state));
+            return tile?.trio.c;
           }}
         />
       )}
       {view === "queue" && (
-        <MaterialTable
+        <DataTable
           key="queue"
           {...TRACKER_TABLE}
+          caption="Tax Invoice Tracker · To Invoice"
           data={queue}
           columns={queueColumns}
-          tableName="InvoiceTrackerQueue"
-          isLoading={isLoading}
+          getRowId={(b) => b.billId}
+          stateKey="InvoiceTrackerQueue"
+          loading={isLoading}
           searchPlaceholder="Search proforma, project, client or stage…"
-          muiTableProps={{
-            sx: { minWidth: "1400px" },
-            muiTableBodyRowProps: ({ row }: any) => {
-              const b: UninvoicedBill = row.original;
-              // The invoice is raised from the project's Billing tab, so that is where the row goes.
-              return {
-                onClick: () => b.leadId && projectBilling(b.leadId),
-                sx: trackerRowSx(b.paid ? TRIO.amber.c : TRIO.slate.c),
-              };
-            },
-          }}
+          minWidth={1400}
+          // The invoice is raised from the project's Billing tab, so that is where the row goes.
+          onRowClick={(b) => { if (b.leadId) projectBilling(b.leadId); }}
+          rowLabel={(b) => b.proformaNumber ?? b.projectNumber ?? "Open bill"}
+          rowTone={(b) => (b.paid ? TRIO.amber.c : TRIO.slate.c)}
         />
       )}
     </div>

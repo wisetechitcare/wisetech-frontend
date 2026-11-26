@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Box, Typography } from "@mui/material";
-import type { MRT_ColumnDef } from "material-react-table";
 import { ConfigSectionCard } from "@app/modules/configuration";
 import { WtEmptyState } from "@app/modules/common/components/ui";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { queryKeys } from "@/lib/queryKeys";
 import { apiErrorMessage } from "@utils/apiError";
 import { useDepartmentDesignations } from "@/hooks/useDepartmentDesignations";
@@ -98,7 +98,7 @@ const RubricComparisonSection = () => {
         });
     }, [reqQ.data, tmplQ.data, designations]);
 
-    const columns = useMemo((): MRT_ColumnDef<RubricRow>[] => [
+    const columns = useMemo((): ColumnDef<RubricRow>[] => [
         { accessorKey: "role", header: "Open role", size: 220 },
         { accessorKey: "designation", header: "Designation", size: 140 },
         { accessorKey: "templateName", header: "Scorecard", size: 160 },
@@ -107,7 +107,7 @@ const RubricComparisonSection = () => {
             accessorKey: "criteria",
             header: "Criteria (weights)",
             size: 360,
-            Cell: ({ cell }) => (
+            cell: ({ cell }) => (
                 <Typography sx={{ fontSize: 12.5, lineHeight: 1.45, whiteSpace: "normal" }}>
                     {String(cell.getValue() ?? "")}
                 </Typography>
@@ -140,11 +140,16 @@ const RubricComparisonSection = () => {
                 />
             ) : (
                 <Box>
-                    <MaterialTable
-                        columns={columns}
+                    <DataTable
+                        caption="Recruitment Rubric Compare"
+                        columns={columns as any}
                         data={rows}
-                        isLoading={isLoading}
-                        tableName="RecruitmentRubricCompare"
+                        getRowId={(r: any, i) => String(r.id ?? r.factor ?? i)}
+                        loading={isLoading}
+                        stateKey="recruitment.rubricCompare"
+                        groupableColumns={false}
+                        tools={false}
+                        searchPlaceholder="Search factors…"
                     />
                 </Box>
             )}

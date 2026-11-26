@@ -276,9 +276,7 @@ export default function PlatformSupportPage() {
         header: 'Duration',
         size: 100,
         minSize: 96,
-        cell: ({ getValue }) => (
-          <span className="block text-right tabular">{String(getValue())} min</span>
-        ),
+        cell: ({ getValue }) => `${String(getValue())} min`,
       },
       {
         accessorKey: 'expiresAt',
@@ -287,9 +285,7 @@ export default function PlatformSupportPage() {
         size: 176,
         minSize: 168,
         cell: ({ row }) => (
-          <span className="block text-right tabular text-muted-foreground">
-            {formatWhen(row.original.expiresAt)}
-          </span>
+          <span className="text-muted-foreground">{formatWhen(row.original.expiresAt)}</span>
         ),
       },
       {
@@ -299,9 +295,7 @@ export default function PlatformSupportPage() {
         size: 176,
         minSize: 168,
         cell: ({ row }) => (
-          <span className="block text-right tabular text-muted-foreground">
-            {formatWhen(row.original.createdAt)}
-          </span>
+          <span className="text-muted-foreground">{formatWhen(row.original.createdAt)}</span>
         ),
       },
       {

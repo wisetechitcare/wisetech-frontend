@@ -80,10 +80,9 @@ Format: **what** — evidence (file / screen) — suggested fix.
   column preferences. — Convert the adapters (each is a KitMap row); `src/app/pages/billing` can only join
   `MUI_FREE_ROOTS` after the Data Table swap, which is last by design.
 
-- **`BillingLayout` still uses Metronic `PageTitle` and `MaterialHeaderTab`** (2026-11-20) — neither lint rule
-  flags it, because `PageTitle` is the app-wide breadcrumb *context* rather than a styled component, and
-  `MaterialHeaderTab` is a shared component (Approvals and Attendance use the same bar). KitMap maps the bar to
-  Components/Tabs (`line`). — Both belong to the app-shell wave, not to a per-module pass.
+- ~~**`BillingLayout` still uses Metronic `PageTitle` and `MaterialHeaderTab`**~~ **Partial (2026-11-26):**
+  tab bar → kit `PageTabs`. `PageTitle` kept as app-wide breadcrumb context (same as Reimbursement /
+  Org Profile). Full Metronic breadcrumb retirement stays with the app-shell wave.
 
 - **Tax-rate "retired" rail changed shade** (2026-11-20) — `TaxRateSections` painted its retired-row rail
   `#cbd5e1` (Tailwind slate-300), which has no token equivalent; it now takes the SSOT's `inkFaint` (`#97A1AF`),
@@ -92,20 +91,18 @@ Format: **what** — evidence (file / screen) — suggested fix.
   which parses six hex digits and returns its input untouched on failure — a `var(--token)` would paint a
   fully-opaque fill instead of a 16% hover tint. — The indirection dies with the Master List move.
 
-- **Column reorder has no keyboard path yet** — kit `DataTable` (`src/ds/patterns/data-table.tsx`): headers move
-  by pointer drag only, while rows move with ↑ / ↓ on a focused grip. Suggested: Move Left / Move Right in the
-  Columns panel (`data-table-columns.tsx`), announced like the row moves.
+- ~~**Column reorder has no keyboard path yet**~~ **Done (2026-11-26):** Columns panel Move Left / Right
+  (`data-table-columns.tsx`), announced on the table live region like row ↑ / ↓.
 
-- **Kit DataTable: sort, page size and search text are not remembered** — `stateKey` persists column
-  visibility, order, pin and width only; the legacy `MaterialTable` also kept sort, rows-per-page and the search box
-  between visits, so every kit table (Payment History, Payment Queue, Submissions) now opens on its defaults.
-  — Persist `sorting`, `pageSize` and `globalFilter` under the same `stateKey`. (found 2026-11-13)
+- ~~**Kit DataTable: sort, page size and search text are not remembered**~~ **Done (2026-11-26):**
+  `stateKey` already writes `sorting`, `pageSize` and `globalFilter` with layout (see `SavedTableState` /
+  `writeTableState` in `data-table.tsx`). Story coverage extended under RemembersWidths / remount.
 
-- **Kit DataTable: faceted filters and nested sub-rows are not built** — per-column TEXT filters exist (the
-  "Show column filters" tool adds a filter row; checked 2026-11-17), but shadcn's examples (ui.shadcn.com
-  data-table, shadcn.io "Data Table with Filters" / "Expandable Sub-Rows") also show a status/category dropdown per
-  column and nested sub-rows. — Add `facets` and `getSubRows` when the first screen needs them, not before.
-  (found 2026-11-09, narrowed 2026-11-17)
+- ~~**Kit DataTable: faceted filters**~~ **Done (2026-11-26):** `meta.facet` multi-select chips, active-filter
+  chips + Clear all, range line names the sort, shift-click range select; `employeeColumn` defaults
+  `meta.pin: "start"`, `actionsColumn` defaults `pin: "end"`.
+- **Kit DataTable: nested sub-rows are not built** — expandable nested rows (`getSubRows`) are not.
+  — Add `getSubRows` when the first screen needs them. (found 2026-11-09, narrowed 2026-11-26)
 
 - ~~**`ExportButton` (14 users) still draws an MUI menu and MUI icons**~~ **Already fixed (checked 2026-11-17):**
   `ExportButton` renders the kit `DropdownMenu` + lucide icons and reaches no legacy UI
@@ -128,8 +125,8 @@ Format: **what** — evidence (file / screen) — suggested fix.
   `group-data-horizontal/tabs:*`, but the Base UI root sets `data-orientation="horizontal"`, not
   `data-horizontal`, so the `::after` is zero-sized. Reimbursement → Payment uses the default (pill) variant
   until this is fixed. — Key the variants on `data-[orientation=horizontal]`, with a story test.
-- **Shared table in dark mode** — `MaterialTableImpl`'s header row and search box stay light, and numeric
-  cells read dim on dark rows (visible in the reimbursement payment baselines). Due with the `DataTable` swap.
+- ~~**Shared table in dark mode**~~ **Superseded (2026-11-26):** MaterialTable removed; kit DataTable owns
+  light/dark via tokens. Re-check reimbursement payment tables visually if any residual contrast issues.
 
 - **One calendar for the whole app** — today: MUI X pickers (`WtDateField`, 20 files), `FiscalYearRangeField`,
   Apply Leave's `LeaveCalendar`, FullCalendar, flatpickr, plus the v2 kit Calendar. Decided 2026-10-28:
@@ -174,16 +171,11 @@ Format: **what** — evidence (file / screen) — suggested fix.
   own border, 8px corners, 11px text), `CsvUploadStep` / `MatchReviewTable` (danger text colour),
   `AddAnotherBtn` (dashed). They win over the kit by design, so they are not pills. — Replace each with a
   kit variant (`outline` / `destructive`, or a new tinted variant if approve/reject needs one) and drop the sx.
-- **Data Table must reach MaterialTable parity before the swap** — status checked against the code 2026-11-17
-  (the Kit Map's gap table had gone stale and is corrected with it). BUILT in the kit Data Table: per-column text
-  filters, column pinning, column drag, full screen, resizing, expandable rows (`renderDetail`), saved column
-  preferences (`stateKey`: widths, hidden, order, pins, density) and export (`table/DataTableExport` in the
-  `toolbar` slot, as every Reimbursement table does) and grouping ("Group rows" tool, 2026-11-17). STILL MISSING: row virtualisation (5 screens) and remembering sort / page size / search (entry above). —
-  Build virtualisation before the first long-list screen moves.
-- **`DataTableExport` lives outside the kit** — `app/modules/common/components/table/DataTableExport.tsx` (9 users)
-  is the Data Table's export, but sits in the legacy `components/` tree, against the rule that shared UI lives in
-  `src/ds`. It depends on `ExportButton` (app toast + currency utils). — Move both into `src/ds/patterns` with a story,
-  injecting the currency/toast deps. (found 2026-11-17)
+- ~~**Data Table MaterialTable parity**~~ **Done (2026-11-26)** — Waves A–H complete;
+  `MaterialTable` / `MaterialTableImpl` and `material-react-table` removed. Plan:
+  `summary/plans/2026-11-26-materialtable-datatable-waves.md`.
+- **`DataTableExport` kit move (done 2026-11-26)** — `src/ds/patterns/data-table-export.tsx` +
+  `registerDataTableExportButton`; thin adapter under `components/table` still wires ExportButton.
 - **Legacy `ui/ConfirmDialog.tsx` still draws its own GlassDialog** — used by `IdleLogoutGuard`,
   `ConfirmDiscardDialog`, `useConfirmDialog` and `usePromptDialog`, while `DialogServiceHost` (every
   `showDialog` / `errorConfirmation` call) already renders the kit Confirm Dialog. — Turn it into a thin adapter

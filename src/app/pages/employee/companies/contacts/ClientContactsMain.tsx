@@ -1,10 +1,11 @@
 import React from "react";
 import { formatBirthday, isYearless } from "@utils/birthday";
 import SmartAvatar from "@app/modules/common/components/SmartAvatar";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+import { DataTableExport } from '@/ds/patterns/data-table-export';
 import { useSelector } from "react-redux";
 import { RootState } from "@redux/store";
-import { MRT_ColumnDef } from "material-react-table";
+
 import { KTIcon } from "@metronic/helpers";
 import { deleteConfirmation } from "@utils/modal";
 import { deleteClientContact, getAllClientContacts } from "@services/companies";
@@ -21,7 +22,6 @@ import GoogleContactsImportDialog from "./components/GoogleContactsImportDialog"
 import { toContactFormPrefill, type ContactFormPrefill, type GoogleContactCandidate } from "./components/googleContactPrefill";
 import { useServerPagination } from "@hooks/useServerPagination";
 import { fetchAllPages } from "@utils/fetchAllPages";
-import { crmListRowSx } from "../crmListRowSx";
 import { Button } from '@/ds/ui/button';
 
 /**
@@ -252,14 +252,14 @@ const ClientContactsMain = ({
     deleteContact();
   };
 
-  const columns = useMemo<MRT_ColumnDef<any, any>[]>(
+  const columns = useMemo<ColumnDef<any, any>[]>(
     () => {
-      const columnsList: MRT_ColumnDef<any, any>[] = [
+      const columnsList: ColumnDef<any, any>[] = [
         {
           accessorKey: "profile",
           header: "Profile",
           enableSorting: false,
-        Cell: ({ row }) => (
+        cell: ({ row }) => (
           <SmartAvatar
             name={row.original.fullName}
             id={row.original.id}
@@ -273,7 +273,7 @@ const ClientContactsMain = ({
       {
         accessorKey: "fullName",
         header: "Full Name",
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const { id } = row.original;
           // The company in brackets next to the name, as in the Company Name column.
           const companyName = companyLabel(row.original);
@@ -304,19 +304,19 @@ const ClientContactsMain = ({
         accessorKey: "companyName",
         header: "Company Name",
         accessorFn: (row: any) => companyLabel(row) || "NA",
-        Cell: ({ cell }) => cell.getValue<string>(),
+        cell: ({ cell }) => cell.getValue<string>(),
       },
       {
         accessorKey: "branch",
         header: "Branch",
         enableSorting: false,
         accessorFn: (row: any) => branchMap.get(row.branch) || "NA",
-        Cell: ({ cell }) => cell.getValue<string>(),
+        cell: ({ cell }) => cell.getValue<string>(),
       },
       {
         accessorKey: "roleInCompany",
         header: "Role in Company",
-        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+        cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "services",
@@ -330,32 +330,32 @@ const ClientContactsMain = ({
             .map((m: any) => m?.service?.name)
             .filter(Boolean)
             .join(", "),
-        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+        cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "email",
         header: "Email",
-        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+        cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "phone",
         header: "Phone",
-        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+        cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "phone2",
         header: "Alternate Phone",
-        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+        cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "gender",
         header: "Gender",
-        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+        cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "dateOfBirth",
         header: "Date of Birth",
-        Cell: ({ cell }) => {
+        cell: ({ cell }) => {
           const date = cell.getValue() as string;
           // A birthday saved without its year shows as day + month only.
           return date ? (isYearless(date) ? formatBirthday(date) : new Date(date).toLocaleDateString()) : "NA";
@@ -364,7 +364,7 @@ const ClientContactsMain = ({
       {
         accessorKey: "address",
         header: "Address",
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const { address, city, state, country, zipCode } = row.original;
           const parts = [address, city, state, country, zipCode].filter(
             Boolean,
@@ -375,38 +375,38 @@ const ClientContactsMain = ({
       {
         accessorKey: "note",
         header: "Note",
-        Cell: ({ cell }) => cell.getValue<string>() || "NA",
+        cell: ({ cell }) => cell.getValue<string>() || "NA",
       },
       {
         accessorKey: "createdAt",
         header: "Created Date",
         meta: { defaultVisible: false },
-        Cell: ({ cell }: any) =>
+        cell: ({ cell }: any) =>
           cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
       },
       {
         accessorKey: "createdById",
         header: "Created By",
         meta: { defaultVisible: false },
-        Cell: ({ row }: any) => employeeNameMap.get(row.original.createdById) || "N/A",
+        cell: ({ row }: any) => employeeNameMap.get(row.original.createdById) || "N/A",
       },
       {
         accessorKey: "updatedAt",
         header: "Last Edited Date",
         meta: { defaultVisible: false },
-        Cell: ({ cell }: any) =>
+        cell: ({ cell }: any) =>
           cell.getValue() ? dayjs(cell.getValue()).format("DD-MM-YYYY") : "N/A",
       },
       {
         accessorKey: "updatedById",
         header: "Last Edited By",
         meta: { defaultVisible: false },
-        Cell: ({ row }: any) => employeeNameMap.get(row.original.updatedById) || "N/A",
+        cell: ({ row }: any) => employeeNameMap.get(row.original.updatedById) || "N/A",
       },
       {
         accessorKey: "actions",
         header: "Actions",
-        Cell: ({ row }) => {
+        cell: ({ row }) => {
           const handleWhatsAppShare = () => {
             const contact = row.original;
             const companyName = companyLabel(contact) || "Unknown Company";
@@ -521,41 +521,30 @@ ${contact.note ? `📝 Note: ${contact.note}` : ""}`;
           )}
         </div>
       </div>
-      <MaterialTable
+      <DataTable<any>
+        caption={isDrillDown ? drillTableName : "Client Contacts"}
         columns={columns}
         data={contacts}
-        tableName={isDrillDown ? drillTableName : "Client-Contacts"}
-        resource="CLIENT_CONTACTS"
-        viewOwn={true}
-        viewOthers={true}
-        checkOwnWithOthers={true}
-        employeeId={employeeId}
-        defaultSorting={[{ id: "fullName", desc: false }]}
-        // The server owns paging, sorting and search — all three together, or one of them
-        // would act on the single page the browser holds while implying the whole list.
-        manualPagination
-        manualSorting
-        manualFiltering
+        getRowId={(r) => r.id}
+        loading={isLoading}
         rowCount={totalRecords}
-        paginationState={pagination}
+        pagination={pagination}
         onPaginationChange={setPagination}
+        sorting={sorting}
         onSortingChange={setSorting}
-        onSearchChange={setSearch}
-        fetchAllRows={fetchAllRows}
-        isLoading={isLoading}
-        // Per-column filters and grouping would act on one page only.
-        enableFilters={false}
-        enableGrouping={false}
-        // Only the rows in view are rendered, so 1000 rows per page costs what ~20 do.
-        enableRowVirtualization
-        muiTableProps={{
-
-          muiTableBodyRowProps: ({ row }) => ({
-            // Active (default) → soft green; Inactive → soft slate. Driven by
-            // isContactActive (set from Contact Status name on save), same as the avatar dot.
-            sx: crmListRowSx(row.original.isContactActive !== false),
-          }),
-        }}
+        globalFilter={search}
+        onGlobalFilterChange={setSearch}
+        virtualized
+        virtualMaxHeight="70vh"
+        initialPageSize={pagination.pageSize}
+        groupableColumns={false}
+        stateKey={isDrillDown ? `crm.contacts.${drillTableName}` : "crm.contacts"}
+        // Active → soft success edge; inactive → muted (was crmListRowSx on MRT).
+        rowTone={(r) => (r.isContactActive === false ? "neutral" : "success")}
+        searchPlaceholder="Search contacts…"
+        toolbar={(ctx) => (
+          <DataTableExport columns={columns} ctx={ctx} filename="Client Contacts" />
+        )}
       />
       <ClientContactsForm
         show={showModal}

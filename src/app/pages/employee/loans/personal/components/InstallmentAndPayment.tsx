@@ -1,6 +1,7 @@
-import MaterialTable from '@app/modules/common/components/MaterialTable';
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import dayjs from 'dayjs';
-import { MRT_ColumnDef } from 'material-react-table';
+
 import React, { useEffect, useMemo, useState } from 'react'
 import { formatNumber } from '@utils/statistics';
 import { RootState } from '@redux/store';
@@ -38,28 +39,28 @@ function InstallmentAndPayment({ completeInstallmentData, completeLoanData }: { 
         getThePreviousLoansData()
     }, [completeInstallmentData])
 
-    const columns = useMemo<MRT_ColumnDef<any>[]>(
+    const columns = useMemo<ColumnDef<any>[]>(
         () => [
             {
                 accessorKey: "name",
                 header: "Name",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "dueDate",
                 header: "Due Date",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             {
                 accessorKey: "paymentAmount",
                 header: "Payment Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({value}:any) => {
+                cell: ({value}:any) => {
                     return formatNumber(value)
                 }
             },
@@ -68,7 +69,7 @@ function InstallmentAndPayment({ completeInstallmentData, completeLoanData }: { 
                 header: "Paid Amount",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({value}:any) => {
+                cell: ({value}:any) => {
                     return formatNumber(value)
                 },
             },
@@ -77,14 +78,14 @@ function InstallmentAndPayment({ completeInstallmentData, completeLoanData }: { 
                 header: "Status",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ renderedCellValue }: any) => renderedCellValue,
+                cell: ({ cell }: any) => cell.getValue(),
             },
             ...([{
                 accessorKey: "actions",
                 header: "Actions",
                 enableSorting: false,
                 enableColumnActions: false,
-                Cell: ({ row }: any) => {
+                cell: ({ row }: any) => {
                     //   const resEdit = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.editOwn, row?.original);
                     //   const resDelete = hasPermission(resourceNameMapWithCamelCase.reimbursement, permissionConstToUseWithHasPermission.deleteOwn, row?.original);
                     return (
@@ -105,26 +106,17 @@ function InstallmentAndPayment({ completeInstallmentData, completeLoanData }: { 
             <div className="d-flex justify-content-between align-items-center m-md-3 p-5 p-md-10 p-lg-2">
                 <h3 style={{ fontSize: "19px", fontWeight: "bolder" }}>Installment And Payments</h3>
             </div>
-            <MaterialTable
-                columns={columns}
-                data={loanData}
-                muiTableProps={{
-                    sx: {
-                        "& .MuiTableBody-root .MuiTableCell-root": {
-                            borderBottom: "none",
-                            paddingY: "5px",
-                        },
-                        "& .MuiTableBody-root .MuiTableRow-root": {
-                            // padding: '0px',
-                        },
-                    },
-                }}
-                tableName="LoanInstallmentsAndPayments"
-            // resource={loanData}
-            // viewOwn={viewOwn}
-            // viewOthers={viewOthers}
-            employeeId={employeeIdCurrent}
-            />
+            <DataTable
+        caption="Loan Installments And Payments"
+        columns={columns}
+        data={loanData}
+        getRowId={(r: any, i) => String(r.id ?? r.loanId ?? r.employeeId ?? i)}
+        
+        
+        stateKey="loans.personal.installments"
+        groupableColumns={false}
+        searchPlaceholder="Search…"
+      />
         </>
     )
 }

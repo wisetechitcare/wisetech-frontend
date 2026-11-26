@@ -42,7 +42,8 @@ import { canSection } from "@utils/can";
 import { useRootOrgNames } from "@hooks/useRootOrgNames";
 import locationIcon from "@metronic/assets/sidepanelicons/location_11383462.png";
 import PeriodFilter from "@app/modules/common/components/PeriodFilter";
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 // Alias the shared vocabulary rather than re-declaring it — a local copy silently
 // drifts from StatDetailModal's menu the moment an option is added there.
 type SortOption = StatSortOption;
@@ -118,7 +119,7 @@ const LEAVE_COLUMNS = [
   {
     accessorKey: "employeeName",
     header: "Employee",
-    Cell: ({ row }: any) => (
+    cell: ({ row }: any) => (
       <div className="d-flex align-items-center">
         <SmartAvatar
           src={row.original.avatarSrc}
@@ -141,14 +142,14 @@ const LEAVE_COLUMNS = [
   {
     accessorKey: "leaveType",
     header: "Leave Type",
-    Cell: ({ cell }: any) => (
+    cell: ({ cell }: any) => (
       <ToneChip dense tone="warning" label={String(cell.getValue() ?? "")} />
     ),
   },
   {
     accessorKey: "duration",
     header: "Duration",
-    Cell: ({ cell }: any) => (
+    cell: ({ cell }: any) => (
       <div className="d-flex align-items-center">
         <AppIcon name="bi-calendar3" className="me-2" />
         {cell.getValue()}
@@ -158,7 +159,7 @@ const LEAVE_COLUMNS = [
   {
     accessorKey: "reason",
     header: "Reason",
-    Cell: ({ cell }: any) =>
+    cell: ({ cell }: any) =>
       cell.getValue() ? (
         <div
           className="text-truncate"
@@ -724,14 +725,16 @@ const DashboardDailyAttendanceOverview = () => {
           });
 
           return (
-            <MaterialTable
-              tableName="DashboardEmployeesOnLeave"
-              employeeId={currentUserId}
+            <DataTable
+              caption="Employees on Leave"
               data={leaveRows}
               columns={LEAVE_COLUMNS}
-              hidePagination
-              hideExportCenter
-              enableColumnActions={false}
+              getRowId={(r: any) => String(r.id ?? r.employeeId)}
+              stateKey="dashboard.employeesOnLeave"
+              groupableColumns={false}
+              tools={false}
+              initialPageSize={100}
+              searchPlaceholder="Search…"
             />
           );
 

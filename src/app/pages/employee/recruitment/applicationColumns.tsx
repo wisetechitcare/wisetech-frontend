@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Box, Typography } from "@mui/material";
-import type { MRT_ColumnDef } from "material-react-table";
+import type { ColumnDef } from '@/ds/patterns/data-table';
+
 import { ToneChip } from "@app/modules/common/components/ui";
 import { actionsColumn } from "@app/modules/common/components/table/columns";
 import { SCORE_BAND_META, SCORE_FACTORS, type Application, type ScoreBand } from "@services/recruitment";
@@ -15,9 +16,8 @@ import { formatDate } from "@utils/dateFormats";
  * number in one and a band in the other, and neither could sort on the value it displayed.
  * Anything added to one would have to be remembered for the other.
  *
- * Every consumer feeds these to the shared `MaterialTable`, which is what brings sorting,
- * per-column search, show/hide, export and per-user column preferences. A hand-rolled
- * `<Table>` has none of that.
+ * Every consumer feeds these to kit `DataTable` (sorting, search, show/hide, export,
+ * `stateKey` prefs). Never a hand-rolled `<Table>`.
  */
 
 /** The full name, or a dash — never a stray space from a missing surname. */
@@ -80,10 +80,10 @@ export interface ApplicationColumnOptions {
     omit?: ("ref" | "position" | "stage" | "waiting" | "score" | "source" | "applied")[];
 }
 
-export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_ColumnDef<Application>[] {
+export function applicationColumns(opts: ApplicationColumnOptions = {}): ColumnDef<Application>[] {
     const omit = new Set(opts.omit ?? []);
 
-    const columns: MRT_ColumnDef<Application>[] = [
+    const columns: ColumnDef<Application>[] = [
         {
             accessorFn: (a) => a.prefix ?? "—",
             id: "ref",
@@ -95,7 +95,7 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
             id: "candidate",
             header: "Candidate",
             size: 200,
-            Cell: ({ row }) => (
+            cell: ({ row }) => (
                 <Box>
                     <Typography sx={{ fontSize: 13.5, fontWeight: 600 }}>{applicantName(row.original)}</Typography>
                     {row.original.applicant?.phone && (
@@ -114,8 +114,9 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
             accessorFn: (a) => a.status?.name ?? "—",
             id: "stage",
             header: "Stage",
+            meta: { label: "Stage", facet: true },
             size: 140,
-            Cell: ({ row }) => (
+            cell: ({ row }) => (
                 <ToneChip tone="brand" color={row.original.status?.color ?? undefined} label={row.original.status?.name ?? "—"} dense />
             ),
         },
@@ -126,7 +127,7 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
             id: "waiting",
             header: "Waiting",
             size: 130,
-            Cell: ({ row }) => {
+            cell: ({ row }) => {
                 const a = row.original;
                 // A hired or rejected application carries no band: it is finished, not waiting.
                 if (!a.stageAgeBand) return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
@@ -138,7 +139,7 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
             id: "score",
             header: "Score",
             size: 150,
-            Cell: ({ row }) => {
+            cell: ({ row }) => {
                 const a = row.original;
                 if ((a.aiScore ?? a.ruleScore) == null) return <Typography sx={{ fontSize: 12.5, color: "text.disabled" }}>—</Typography>;
                 return <ScoreChip application={a} />;
@@ -168,8 +169,8 @@ export function applicationColumns(opts: ApplicationColumnOptions = {}): MRT_Col
             // Buttons are not data: sorting, filtering and exporting them is meaningless.
             enableColumnFilter: false,
             enableGlobalFilter: false,
-            Cell: ({ row }) => opts.actions!(row.original),
-        }) as MRT_ColumnDef<Application>);
+            cell: ({ row }) => opts.actions!(row.original),
+        }) as ColumnDef<Application>);
     }
 
     return kept;

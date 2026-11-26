@@ -639,17 +639,17 @@ const newEmployeeWizardSchema = [
       permanentCountry: optionalString().label("Country"),
       permanentState: optionalString().label("State"),
       permanentCity: optionalString().label("City"),
-      permanentPostalCode: optionalString().label("Zip Code")
-        .min(4, "Zip Code must be at least 4 characters").max(16, "Zip Code must be at most 16 characters")
-        .matches(employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"], "Zip Code can only contain numeric characters"),
+      permanentPostalCode: optionalString().label("Postal Code")
+        .min(4, "Postal Code must be at least 4 characters").max(16, "Postal Code must be at most 16 characters")
+        .matches(employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"], "Postal Code can only contain numeric characters"),
       presentAddressLine1: Yup.string().required().label("Address").max(150, "Address must be at most 150 characters"),
       presentAddressLine2: optionalString().label("Address Line 2").max(150, "Address Line 2 must be at most 150 characters"),
       presentCountry: optionalString().label("Country"),
       presentState: optionalString().label("State"),
       presentCity: optionalString().label("City"),
-      presentPostalCode: optionalString().label("Zip Code")
-        .min(4, "Zip Code must be at least 4 characters").max(16, "Zip Code must be at most 16 characters")
-        .matches(employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"], "Zip Code can only contain numeric characters"),
+      presentPostalCode: optionalString().label("Postal Code")
+        .min(4, "Postal Code must be at least 4 characters").max(16, "Postal Code must be at most 16 characters")
+        .matches(employeeOnBardingFormRegexes["addressInfo.permanentPostalCode"], "Postal Code can only contain numeric characters"),
     }).required(),
   }),
   Yup.object({

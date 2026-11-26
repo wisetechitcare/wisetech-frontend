@@ -1,7 +1,8 @@
-import MaterialTable from "@app/modules/common/components/MaterialTable";
+import { DataTable, type ColumnDef } from '@/ds/patterns/data-table';
+
 import { PageLink, PageTitle } from "@metronic/layout/core";
 import { IAttendance } from "@models/employee";
-import { MRT_ColumnDef } from "material-react-table";
+
 import { useEffect, useMemo, useState } from "react";
 import { KTIcon } from "@metronic/helpers";
 import Identifiers from "@app/modules/common/utils/Identifiers";
@@ -43,71 +44,71 @@ function PersonalAttendance() {
             activeMonth: attendance.activeMonth,
         }
     });
-    const columns = useMemo<MRT_ColumnDef<IAttendance>[]>(() => [
+    const columns = useMemo<ColumnDef<IAttendance>[]>(() => [
         {
             accessorKey: "date",
             header: "Date",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "day",
             header: "Day",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "checkIn",
             header: "Check-In",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "checkOut",
             header: "Check-Out",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
         {
             accessorKey: "duration",
             header: "Duration",
-            Cell: ({ renderedCellValue }: any) => renderedCellValue
+            cell: ({ cell }: any) => cell.getValue()
         },
 
         {
             accessorKey: "status",
             header: "Status",
-            Cell: ({ renderedCellValue }: any) => {
+            cell: ({ cell }: any) => {
                 const { PRESENT, ABSENT, CHECK_IN_MISSING, CHECK_OUT_MISSING, LEAVE, WEEKEND, WORKING_WEEKEND } = ATTENDANCE_STATUS;
-                switch (renderedCellValue) {
+                switch (cell.getValue()) {
                     case PRESENT:
-                        return <Identifiers text={renderedCellValue} cssClass="present" />
+                        return <Identifiers text={cell.getValue()} cssClass="present" />
                     case ABSENT:
-                        return <Identifiers text={renderedCellValue} cssClass="absent" />
+                        return <Identifiers text={cell.getValue()} cssClass="absent" />
                     case CHECK_IN_MISSING:
-                        return <Identifiers text={renderedCellValue} cssClass="check-in-out" />
+                        return <Identifiers text={cell.getValue()} cssClass="check-in-out" />
                     case CHECK_OUT_MISSING:
-                        return <Identifiers text={renderedCellValue} cssClass="check-in-out" />
+                        return <Identifiers text={cell.getValue()} cssClass="check-in-out" />
                     case LEAVE:
-                        return <Identifiers text={renderedCellValue} cssClass="leave" />
+                        return <Identifiers text={cell.getValue()} cssClass="leave" />
                     case WEEKEND:
-                        return <Identifiers text={renderedCellValue} cssClass="weekend" />
+                        return <Identifiers text={cell.getValue()} cssClass="weekend" />
                     case WORKING_WEEKEND:
-                        return <Identifiers text={renderedCellValue} cssClass="working-weekend" />
+                        return <Identifiers text={cell.getValue()} cssClass="working-weekend" />
                 }
             }
         },
         {
             accessorKey: "workingMethod",
             header: "Work",
-            Cell: ({ renderedCellValue }: any) => {
+            cell: ({ cell }: any) => {
 
                 const { OFFICE, ON_SITE, REMOTE } = WORKING_METHOD_TYPE;
-                switch (renderedCellValue) {
+                switch (cell.getValue()) {
                     case OFFICE:
-                        return <Identifiers text={renderedCellValue} cssClass="working-method-office" />
+                        return <Identifiers text={cell.getValue()} cssClass="working-method-office" />
                     case ON_SITE:
-                        return <Identifiers text={renderedCellValue} cssClass="working-method-on-site" />
+                        return <Identifiers text={cell.getValue()} cssClass="working-method-on-site" />
                     case REMOTE:
-                        return <Identifiers text={renderedCellValue} cssClass="working-method-remote" />
+                        return <Identifiers text={cell.getValue()} cssClass="working-method-remote" />
                     default:
-                        return renderedCellValue;
+                        return cell.getValue();
                 }
             }
         },
@@ -115,7 +116,7 @@ function PersonalAttendance() {
             ? [{
                 accessorKey: "actions",
                 header: "Actions",
-                Cell: ({ row }: any) => (
+                cell: ({ row }: any) => (
                     <Button variant="ghost" size="icon-sm" type="submit" aria-label="Edit"
                     >
                         <KTIcon iconName='pencil' className='fs-3' />
@@ -146,10 +147,15 @@ function PersonalAttendance() {
         <>
             <PageTitle breadcrumbs={newAttendanceWizardBreadcrumb}>Attendance & Leaves</PageTitle>
             <h3 className='pt-5 fw-bold font-barlow'>My Attendance</h3>
-            <MaterialTable
-                columns={columns}
+            <DataTable
+                caption="Attendance"
+                columns={columns as any}
                 data={attendance}
-                tableName="Attendance" employeeId={employeeIdCurrent}/>
+                getRowId={(r: any) => String(r.id ?? r.date)}
+                stateKey="attendance.personal"
+                groupableColumns={false}
+                searchPlaceholder="Search attendance…"
+            />
         </>
     );
 }
