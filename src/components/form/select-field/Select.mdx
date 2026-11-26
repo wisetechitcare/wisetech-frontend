@@ -1,0 +1,32 @@
+import { Meta, Canvas, Controls } from "@storybook/addon-docs/blocks";
+
+import * as SelectFieldStories from "./SelectField.stories";
+import * as ComboboxFieldStories from "../combobox-field/ComboboxField.stories";
+
+<Meta title="Forms/Select/Docs" />
+
+# Select
+
+| Variation | Role | Search | Selection |
+| --- | --- | --- | --- |
+| **Select Field** | Short / searchable single list | Optional | Single |
+| **Combobox Field** | Searchable list | Yes | Multiple (chips) |
+
+Both use the same **pill** control shape (`rounded-4xl`) as Input and Person Picker.
+
+## Select Field
+
+<Canvas of={SelectFieldStories.Default} />
+<Controls of={SelectFieldStories.Default} />
+
+<Canvas of={SelectFieldStories.Searchable} />
+<Canvas of={SelectFieldStories.Invalid} />
+<Canvas of={SelectFieldStories.Disabled} />
+
+## Combobox Field
+
+<Canvas of={ComboboxFieldStories.Default} />
+<Controls of={ComboboxFieldStories.Default} />
+
+<Canvas of={ComboboxFieldStories.Invalid} />
+<Canvas of={ComboboxFieldStories.Disabled} />

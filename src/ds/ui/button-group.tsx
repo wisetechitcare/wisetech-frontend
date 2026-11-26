@@ -1,38 +1,66 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
+
+import { Separator } from "./separator"
+
 import { cn } from "cn"
 
-import { Separator } from "@/ds/ui/separator"
+/** `JOINED`: outlined buttons fused into one pill. `TRAY`: one outline around ghost buttons that keep their shape. */
+export enum ButtonGroupVariant {
+  JOINED = "joined",
+  TRAY = "tray",
+}
+
+export enum ButtonGroupOrientation {
+  HORIZONTAL = "horizontal",
+  VERTICAL = "vertical",
+}
 
 const buttonGroupVariants = cva(
   "flex w-fit items-stretch *:focus-visible:relative *:focus-visible:z-10 has-[>[data-slot=button-group]]:gap-2 has-[select[aria-hidden=true]:last-child]:[&>[data-slot=select-trigger]:last-of-type]:rounded-r-4xl [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1",
   {
     variants: {
+      variant: {
+        [ButtonGroupVariant.JOINED]: "",
+        [ButtonGroupVariant.TRAY]: "rounded-4xl ring-1 ring-border",
+      },
       orientation: {
-        horizontal:
-          "*:data-slot:rounded-r-none [&>[data-slot]:not(:has(~[data-slot]))]:rounded-r-4xl! [&>[data-slot]~[data-slot]]:rounded-l-none [&>[data-slot]~[data-slot]]:border-l-0",
-        vertical:
-          "flex-col *:data-slot:rounded-b-none [&>[data-slot]:not(:has(~[data-slot]))]:rounded-b-4xl! [&>[data-slot]~[data-slot]]:rounded-t-none [&>[data-slot]~[data-slot]]:border-t-0",
+        [ButtonGroupOrientation.HORIZONTAL]: "",
+        [ButtonGroupOrientation.VERTICAL]: "flex-col",
       },
     },
+    compoundVariants: [
+      {
+        variant: ButtonGroupVariant.JOINED,
+        orientation: ButtonGroupOrientation.HORIZONTAL,
+        className:
+          "*:data-slot:rounded-r-none [&>[data-slot]:not(:has(~[data-slot]))]:rounded-r-4xl! [&>[data-slot]~[data-slot]]:rounded-l-none [&>[data-slot]~[data-slot]]:border-l-0",
+      },
+      {
+        variant: ButtonGroupVariant.JOINED,
+        orientation: ButtonGroupOrientation.VERTICAL,
+        className:
+          "*:data-slot:rounded-b-none [&>[data-slot]:not(:has(~[data-slot]))]:rounded-b-4xl! [&>[data-slot]~[data-slot]]:rounded-t-none [&>[data-slot]~[data-slot]]:border-t-0",
+      },
+    ],
     defaultVariants: {
-      orientation: "horizontal",
+      variant: ButtonGroupVariant.JOINED,
+      orientation: ButtonGroupOrientation.HORIZONTAL,
     },
   }
 )
 
-function ButtonGroup({
-  className,
-  orientation,
-  ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof buttonGroupVariants>) {
+interface ButtonGroupProps extends React.ComponentProps<"div">, VariantProps<typeof buttonGroupVariants> {}
+
+function ButtonGroup({ className, variant, orientation, ...props }: ButtonGroupProps) {
   return (
     <div
       role="group"
       data-slot="button-group"
+      data-variant={variant}
       data-orientation={orientation}
-      className={cn(buttonGroupVariants({ orientation }), className)}
+      className={cn(buttonGroupVariants({ variant, orientation }), className)}
       {...props}
     />
   )
@@ -63,7 +91,7 @@ function ButtonGroupText({
 
 function ButtonGroupSeparator({
   className,
-  orientation = "vertical",
+  orientation = ButtonGroupOrientation.VERTICAL,
   ...props
 }: React.ComponentProps<typeof Separator>) {
   return (

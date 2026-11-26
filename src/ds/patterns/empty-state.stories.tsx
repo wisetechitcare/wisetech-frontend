@@ -8,7 +8,7 @@ const onAdd = fn()
 
 /** Every empty view says what it is and what to do next — never just "No data". */
 const meta = {
-  title: 'Patterns/Empty State',
+  title: 'Feedback & Overlays/Empty State',
   component: EmptyState,
   args: {
     icon: <UserPlus aria-hidden />,

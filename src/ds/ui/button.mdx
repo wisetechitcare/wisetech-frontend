@@ -1,5 +1,5 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
-import * as ButtonStories from './button.stories';
+import * as ButtonStories from './Button.stories';
 
 <Meta of={ButtonStories} />
 
@@ -39,6 +39,15 @@ rules: `docs/BUTTONS.md`.
 
 <Canvas of={ButtonStories.Sizes} />
 <Canvas of={ButtonStories.IconSizes} />
+
+## Tool group
+
+Toolbar icons that belong together (a table's filters, density, columns, reset, full screen) sit in one
+`ButtonGroup variant="tray"` from `src/ds/ui/button-group.tsx`: a single outline around `ghost` icon buttons, no
+dividers, a round highlight on hover. An on/off tool (filters, density, full screen) turns `tinted` and sets
+`aria-pressed` while it is ON; one-off actions stay `ghost`. Each icon button still needs its `aria-label`.
+
+<Canvas of={ButtonStories.ToolGroup} />
 
 ## Icons, loading, disabled
 

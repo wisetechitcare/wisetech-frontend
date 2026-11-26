@@ -6,7 +6,7 @@ import { CheckIcon, MinusIcon } from 'lucide-react';
 /**
  * WtCheckbox — the ONE canonical checkbox for the whole app.
  *
- * Same shape as the design-system checkbox (src/ds/ui/checkbox.tsx, Storybook "Components/Checkbox"):
+ * Same shape as the design-system checkbox (src/ds/ui/checkbox.tsx; form stories: Forms/Choice/Checkbox Field):
  * 22px tile, 7px radius, 2px muted border, `--primary` fill + 16px lucide check (stroke 3). Applied app-wide via
  * MUI theme `MuiCheckbox` defaultProps in `wisetechTheme.ts`, so a raw `<Checkbox>` matches too.
  * Raw `<input type="checkbox">` gets the same look from main.css; the toggle bounce for both comes

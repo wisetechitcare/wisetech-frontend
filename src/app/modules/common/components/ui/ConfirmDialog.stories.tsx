@@ -63,7 +63,7 @@ const openDialogAndCompareFooterButtons: Story['play'] = async ({ canvas }) => {
  * - Two buttons always split the footer 50/50. Form modals use the same footer (`GlassDialogActions`).
  */
 const meta = {
-  title: 'Components/Modal',
+  title: 'Feedback & Overlays/Modal/Confirm Dialog',
   component: ConfirmDialog,
   decorators: [
     (Story, { globals }) => {

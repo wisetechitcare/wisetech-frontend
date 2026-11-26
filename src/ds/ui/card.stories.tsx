@@ -15,7 +15,7 @@ import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader,
  * and Bootstrap `.card`. (Hover Preview is a popover, not a card.)
  */
 const meta = {
-  title: 'Components/Card',
+  title: 'Components/Cards/Card',
   component: Card,
   decorators: [(Story) => <div className="max-w-md"><Story /></div>],
 } satisfies Meta<typeof Card>

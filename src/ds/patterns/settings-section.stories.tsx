@@ -12,7 +12,7 @@ import { SettingsRow, SettingsSection } from './settings-section'
  * `SettingsSection`.
  */
 const meta = {
-  title: 'Patterns/Settings Section',
+  title: 'Components/Cards/Settings Section',
   component: SettingsSection,
   args: { title: 'Attendance', description: 'How check-in and lateness are judged', icon: <Clock />, tone: 'green', count: 3 },
   render: (args) => (

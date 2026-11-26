@@ -1,10 +1,11 @@
 /**
  * App-wide light/dark surface kit — the shared language for M3 picker sheets,
- * popovers, and accent washes.
+ * MUI X poppers, and accent washes.
  *
  * Consume from `makeWisetechTheme` (MUI component overrides) AND from custom
- * dialogs (`TimePickerField`, `FiscalYearRangeField`) so both paths paint from
- * one source. Dark values resolve through {@link GH_DARK}; light through the
+ * M3 dialogs such as `TimePickerField` so both paths paint from one source.
+ * Fiscal year editing uses the kit `DateRangePicker` popover (not these sheet /
+ * scrim helpers). Dark values resolve through {@link GH_DARK}; light through the
  * active MUI palette / kit tokens.
  */
 import { alpha, type CSSObject, type Theme } from '@mui/material/styles';

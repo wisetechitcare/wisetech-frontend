@@ -17,7 +17,8 @@ import { sheetSx } from './surfaces';
  * the frosted-glass dark material.
  *
  * Surfaces / pickers: {@link sheetSx} + {@link muiXPickerComponents} — same light/dark sheet
- * language as the M3 fiscal + time dialogs, applied to every MUI X calendar popper.
+ * language as the M3 time dialog (`TimePickerField`), applied to every MUI X calendar popper.
+ * Fiscal year uses the kit `DateRangePicker` popover, not this MUI sheet chrome.
  *
  * NOTE: applied through <ThemeProvider> only (no <CssBaseline/>) so it does not disturb the
  * Metronic/Bootstrap global styles used by the rest of the app.

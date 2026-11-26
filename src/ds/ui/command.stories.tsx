@@ -16,7 +16,7 @@ const onRun = fn()
 
 /** The command palette (Ctrl K in the app shell): search people, pages and actions. */
 const meta = {
-  title: 'Components/Command',
+  title: 'Navigation/Command',
   component: Command,
   render: (args) => (
     <Command {...args} className="w-96 rounded-xl border shadow-md">

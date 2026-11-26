@@ -13,7 +13,7 @@ const onShare = fn()
  * Card, one look). With `href` the whole tile is a link; its own buttons stay clickable.
  */
 const meta = {
-  title: 'Patterns/Entity Card',
+  title: 'Components/Cards/Entity Card',
   component: EntityCard,
   args: {
     title: 'Senior MEP Engineer',
