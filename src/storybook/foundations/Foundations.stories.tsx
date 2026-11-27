@@ -1,40 +1,31 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { expect } from 'storybook/test'
 
-import { CategoryHues, ColourRoles, Foundations, Motion, RadiusElevation, SpacingDensity, StatusColours, TypeScale, TypesetArticle } from './Foundations'
+import { Colours, Motion, RadiusShadow, TypeScale } from './Foundations'
 
-/** Design tokens of Visual Language v2 — every value lives in `src/ds/styles/globals.css`. */
+/** Design tokens of Visual Language v2 — every value lives in `src/ds/styles/tokens.css`. */
 const meta = {
   title: 'Foundations/Tokens',
-  component: Foundations,
   parameters: { layout: 'padded' },
-} satisfies Meta<typeof Foundations>
+} satisfies Meta
 
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** Every foundation on one page. */
-export const AllFoundations: Story = {}
+/** Colour roles (the brand role follows each tenant's Appearance setting), status colours and category hues, in both themes. */
+export const Colors: Story = { render: () => <Colours /> }
 
-/** Colour roles components use — the brand role follows each tenant's Appearance setting. */
-export const ColourRolesStory: Story = { name: 'Colour roles', render: () => <ColourRoles /> }
+/** Inter on Tailwind's built-in type scale; numbers use tabular figures. */
+export const Typography: Story = { render: () => <TypeScale /> }
 
-/** One status set: solid, soft fill and readable text, in both themes. */
-export const StatusStory: Story = { name: 'Status colours', render: () => <StatusColours /> }
+/** The rounded-* scale with each step's real size, read from the browser; shadows are Tailwind's own. */
+export const RadiusAndShadow: Story = {
+  name: 'Radius & shadow',
+  render: () => <RadiusShadow />,
+  play: async ({ canvas }) => {
+    await expect(await canvas.findAllByText(/^\d+(\.\d+)?px$/)).toHaveLength(7)
+  },
+}
 
-/** Eight identity hues for categories (leave types, departments, modules) — never a status. */
-export const CategoryHuesStory: Story = { name: 'Category hues', render: () => <CategoryHues /> }
-
-/** Inter, five roles; numbers use tabular figures. */
-export const TypeScaleStory: Story = { name: 'Type scale', render: () => <TypeScale /> }
-
-/** Rendered markdown in the typeset-article preset: headings, lists, table, code, quote — no classes on the content. */
-export const TypesetStory: Story = { name: 'Typeset (article)', render: () => <TypesetArticle /> }
-
-/** shadcn's radius scale and shadows. */
-export const RadiusElevationStory: Story = { name: 'Radius & shadow', render: () => <RadiusElevation /> }
-
-/** 4-point spacing; switch Density in the toolbar to see the compact scale. */
-export const SpacingStory: Story = { name: 'Spacing & density', render: () => <SpacingDensity /> }
-
-/** Easing by direction (enter / exit / move) and duration by size; hover a row to run its curve. */
+/** Easing by direction (enter / move, plus the button spring) and duration by size; hover a row to run its curve. */
 export const MotionStory: Story = { name: 'Motion', render: () => <Motion /> }
