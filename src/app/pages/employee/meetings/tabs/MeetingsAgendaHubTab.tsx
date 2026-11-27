@@ -68,6 +68,7 @@ import MomAttendees, { type MomAttendee } from '../MomAttendees';
 import TaskPathSelect, { buildTaskPathOptions } from '../../tasks/components/TaskPathSelect';
 import { usePresetTasks } from '../../tasks/useTaskQueries';
 import { useProjectDeliverables } from '../../tasks/useProjectDeliverables';
+import { AgendaRowsEditor, agendaRowsPayload, blankAgendaRow, type AgendaRow } from '../AgendaRowsEditor';
 import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
 import type { PresetTask } from '../../tasks/taskDomain';
 import { getProjectTeam } from '@services/tasks';
@@ -109,6 +110,8 @@ type HubMeeting = {
   purposeCodes?: string[];
   purposeLabels?: string[];
   projectId?: string | null;
+  projectName?: string | null;
+  projectNumber?: string | null;
   description?: string | null;
   agendaCount: number;
   hasAgenda: boolean;
@@ -290,16 +293,28 @@ export default function MeetingsAgendaHubTab() {
 
   /**
    * Cap for the meetings list / detail scrollports — not a min-height on the hub itself
-   * (that left a blank band under short Overview content). Measured to the footer.
+   * (that left a blank band under short Overview content). Fills to the viewport bottom;
+   * the page footer sits below the fold rather than reserving an empty band.
    */
-  const [hubHeight, setHubHeight] = useState('calc(100vh - 220px)');
+  const [hubHeight, setHubHeight] = useState('calc(100vh - 160px)');
   const hubEl = useRef<HTMLDivElement | null>(null);
   const fitHub = useCallback(() => {
     const el = hubEl.current;
     if (!el) return;
     const top = el.getBoundingClientRect().top + window.scrollY;
-    const footer = document.getElementById('kt_footer')?.offsetHeight ?? 0;
-    setHubHeight(`${Math.max(420, Math.floor(window.innerHeight - top - footer))}px`);
+    setHubHeight(`${Math.max(420, Math.floor(window.innerHeight - top))}px`);
+  }, []);
+  // The hub scrolls inside itself, so the page's 88px scroll-to-top band (main.css) and the
+  // footer are just empty space under it — dropped only while the hub is open.
+  useEffect(() => {
+    const container = document.getElementById('kt_content_container');
+    const footer = document.getElementById('kt_footer');
+    container?.style.setProperty('padding-bottom', '0', 'important');
+    if (footer) footer.style.display = 'none';
+    return () => {
+      container?.style.removeProperty('padding-bottom');
+      if (footer) footer.style.removeProperty('display');
+    };
   }, []);
   const hubRef = useCallback((el: HTMLDivElement | null) => {
     hubEl.current = el;
@@ -540,8 +555,7 @@ export default function MeetingsAgendaHubTab() {
         // Height follows content — no viewport min-height (that painted empty space under Overview).
         borderTop: `1px solid ${C.line}`,
         bgcolor: C.page,
-        position: 'relative',
-      }}
+        position: 'relative',      }}
     >
       {error && (
         <Alert
@@ -998,13 +1012,31 @@ function MeetingListCard({
         >
           {m.title}
         </Typography>
-        <Stack direction="row" alignItems="center" gap={0.5} sx={{ mt: 0.35 }}>
+        {m.projectName && (
+          <Typography
+            title={[m.projectNumber, m.projectName].filter(Boolean).join(' — ')}
+            // Wraps to 2 lines max; time + place share one line below to keep the card height.
+            sx={{
+              fontSize: 11.5,
+              fontWeight: 600,
+              lineHeight: 1.35,
+              color: C.blue,
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              wordBreak: 'break-word',
+            }}
+          >
+            {[m.projectNumber, m.projectName].filter(Boolean).join(' — ')}
+          </Typography>
+        )}
+        <Stack direction="row" alignItems="center" gap={0.5} sx={{ mt: 0.35, minWidth: 0 }}>
           <AccessTimeRounded sx={{ fontSize: 13, color: C.mute }} />
-          <Typography sx={{ fontSize: 11.5, color: C.mute }}>
+          <Typography sx={{ fontSize: 11.5, color: C.mute, whiteSpace: 'nowrap' }}>
             {fmtTime(m.startDate)}–{fmtTime(m.endDate)}
           </Typography>
-        </Stack>
-        <Stack direction="row" alignItems="center" gap={0.5} sx={{ mt: 0.2 }}>
+          <Box component="span" sx={{ color: C.mute, fontSize: 11.5, mx: 0.25 }}>·</Box>
           {m.isOnline || m.meetingLink ? (
             <VideocamOutlined sx={{ fontSize: 13, color: C.mute }} />
           ) : (
@@ -2497,7 +2529,7 @@ function MomPanel({
                   className="w-full border-dashed font-semibold"
                 >
                   <Plus data-icon="inline-start" />
-                  Add agenda
+                  Add Minutes Of Meeting
                 </Button>
               </div>
             )}
@@ -2587,7 +2619,7 @@ function AgendaPanel({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
-  const [selectedAgenda, setSelectedAgenda] = useState<Array<{ id: string; label: string }>>([]);
+  const [selectedAgenda, setSelectedAgenda] = useState<AgendaRow[]>([]);
 
   // Ticks start from what is already in the MoM, so converting again never drops items silently.
   const savedKey = items.filter((it: any) => it.inMom).map((it: any) => it.id).join('|');
@@ -2626,25 +2658,18 @@ function AgendaPanel({
   const projectId = meeting?.projectId || null;
   const { options: agendaOptions, loading: agendaOptionsLoading } = useAgendaTaskOptions(projectId);
 
+  // Topics already on this meeting aren't offered again.
   const agendaPickerOptions = useMemo(() => {
-    const takenIds = new Set(selectedAgenda.map((a) => a.id));
-    const takenLabels = new Set([
-      ...selectedAgenda.map((a) => a.label),
-      ...items.map((i) => String(i.description || '')),
-    ]);
-    return agendaOptions.filter((o) => !takenIds.has(o.id) && !takenLabels.has(o.name));
-  }, [agendaOptions, selectedAgenda, items]);
+    const onMeeting = new Set(items.map((i) => String(i.description || '')));
+    return agendaOptions.filter((o) => !onMeeting.has(o.name));
+  }, [agendaOptions, items]);
 
-  const agendaPickerKey = selectedAgenda.map((a) => a.id).join('|') || 'empty';
+  const payloads = agendaRowsPayload(selectedAgenda);
 
   const submit = async () => {
-    if (!selectedAgenda.length) return;
+    if (!payloads.length) return;
     setSaving(true);
     try {
-      const payloads = selectedAgenda.map((item) => ({
-        description: item.label,
-        itemMode: 'DISCUSSION',
-      }));
       if (payloads.length === 1) {
         await createAgendaItem(meetingId, payloads[0]);
       } else {
@@ -2730,7 +2755,10 @@ function AgendaPanel({
             <Button
               type="button"
               size="sm"
-              onClick={() => setOpen(true)}
+              onClick={() => {
+                setSelectedAgenda([blankAgendaRow()]);
+                setOpen(true);
+              }}
               aria-label="Add agenda items"
               className={items.length ? 'min-[600px]:whitespace-normal' : 'ml-auto min-[600px]:ml-0 min-[600px]:whitespace-normal'}
             >
@@ -2783,7 +2811,8 @@ function AgendaPanel({
                     </Box>
                   )}
                   <Box component="th" sx={{ width: 36 }}>#</Box>
-                  <Box component="th">Agenda item</Box>
+                  <Box component="th" sx={{ width: '30%' }}>Agenda item</Box>
+                  <Box component="th">Description</Box>
                   {canEdit && <Box component="th" sx={{ width: 44 }} />}
                 </Box>
               </Box>
@@ -2815,6 +2844,9 @@ function AgendaPanel({
                         )}
                       </Stack>
                     </Box>
+                    <Box component="td" sx={{ whiteSpace: 'pre-wrap', color: item.remarks ? C.ink : C.mute }}>
+                      {item.remarks || '—'}
+                    </Box>
                     {canEdit && (
                       <Box component="td" sx={{ textAlign: 'center' }}>
                         <ActionIconButton
@@ -2834,56 +2866,18 @@ function AgendaPanel({
         )}
       </Box>
 
-      <Dialog open={open} onClose={() => !saving && setOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={open} onClose={() => !saving && setOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>Add agenda items</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            {selectedAgenda.length > 0 && (
-              <Stack direction="row" flexWrap="wrap" gap={0.75}>
-                {selectedAgenda.map((item) => (
-                  <Chip
-                    key={item.id}
-                    label={item.label}
-                    size="small"
-                    onDelete={
-                      saving
-                        ? undefined
-                        : () => setSelectedAgenda((prev) => prev.filter((a) => a.id !== item.id))
-                    }
-                    sx={{
-                      maxWidth: '100%',
-                      height: 'auto',
-                      py: 0.5,
-                      '& .MuiChip-label': { whiteSpace: 'normal' },
-                    }}
-                  />
-                ))}
-              </Stack>
-            )}
-            <TaskPathSelect
-              key={agendaPickerKey}
-              value=""
+          <div className="mt-2">
+            <AgendaRowsEditor
+              rows={selectedAgenda}
+              onChange={setSelectedAgenda}
               options={agendaPickerOptions}
-              onChange={(opt) => {
-                if (!opt) return;
-                setSelectedAgenda((prev) => (
-                  prev.some((a) => a.id === opt.id)
-                    ? prev
-                    : [...prev, { id: opt.id, label: opt.name }]
-                ));
-              }}
-              label="Agenda item"
-              placeholder={projectId
-                ? 'Search this project’s deliverable tasks…'
-                : 'Search, e.g. electrical load sheet'}
               loading={agendaOptionsLoading}
-              helperText={
-                selectedAgenda.length
-                  ? `${selectedAgenda.length} selected — pick more from the list`
-                  : 'Pick one or more agenda items.'
-              }
+              disabled={saving}
             />
-          </Stack>
+          </div>
         </DialogContent>
         <DialogActions>
           <Button
@@ -2901,14 +2895,14 @@ function AgendaPanel({
           <Button
             type="button"
             size="sm"
-            disabled={selectedAgenda.length === 0}
+            disabled={payloads.length === 0}
             loading={saving}
             onClick={submit}
           >
             {saving
               ? 'Saving…'
-              : selectedAgenda.length > 1
-                ? `Add ${selectedAgenda.length}`
+              : payloads.length > 1
+                ? `Add ${payloads.length}`
                 : 'Add'}
           </Button>
         </DialogActions>
