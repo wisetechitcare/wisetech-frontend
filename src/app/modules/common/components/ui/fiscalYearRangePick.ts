@@ -10,6 +10,8 @@ export type FiscalCalendarRangeDraft = {
   bound: FiscalRangeBound;
 };
 
+export const EMPTY_FISCAL_DRAFT: FiscalCalendarRangeDraft = { from: null, to: null, bound: 'start' };
+
 /**
  * Apply one day click to a fiscal range draft.
  * Restart when there is no start, or both ends are set and the user is not editing End.
@@ -18,7 +20,7 @@ export const applyFiscalCalendarDayPick = (
   draft: FiscalCalendarRangeDraft,
   day: CalendarDate,
 ): FiscalCalendarRangeDraft => {
-  const restart = !draft.from || (Boolean(draft.from && draft.to) && draft.bound !== 'end');
+  const restart = !draft.from || (draft.to !== null && draft.bound !== 'end');
   if (restart) {
     return { from: day, to: null, bound: 'end' };
   }

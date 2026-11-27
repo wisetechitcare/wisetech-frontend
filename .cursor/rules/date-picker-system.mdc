@@ -9,7 +9,9 @@ alwaysApply: false
 ## Architecture (do not reinvent)
 
 - **Calendar engine:** `src/ds/ui/calendar.tsx` (`Calendar` / `RangeCalendar`, `@internationalized/date`)
-- **Fields:** `src/ds/ui/date-picker.tsx` → `DatePicker` (single) + `DateRangePicker` (range)
+- **Fields:** `src/ds/ui/date-picker.tsx` → `DatePicker` (single) + `DateRangePicker` (range), CalendarDate values
+- **ISO fields (default for forms):** `src/ds/ui/date-picker-field.tsx` → `DatePickerField` (`"YYYY-MM-DD"`) + `DateRangePickerField` (`{ start, end }`); helpers in `src/ds/lib/iso-date.ts`
+- **Shared defaults:** Monday week lives in the calendar engine (`firstDayOfWeek`); pickers hide outside-month days by default (`hideOutsideDays`); never hard-code either in a picker
 - **Display segments:** `src/ds/ui/date-field.tsx` → company `YYYY.MM.DD`
 - **Fiscal product adapter:** `FiscalYearRangeField` wraps kit `DateRangePicker`; wire `"YYYY-MM-DD to YYYY-MM-DD"` via `@utils/fiscalYearRange`
 - **Parallel MUI stack:** `WtDateField` / `PlainDatePicker` / overview raw MUI — leave alone unless explicitly asked

@@ -2,10 +2,11 @@
 
 import * as React from "react"
 import { cn } from "cn"
-import { CalendarDaysIcon } from "lucide-react"
+import { CalendarDaysIcon, XIcon } from "lucide-react"
 import {
   Button,
   DatePicker as AriaDatePicker,
+  DatePickerStateContext,
   DateRangePicker as AriaDateRangePicker,
   DateRangePickerStateContext,
   Dialog,
@@ -21,7 +22,7 @@ import {
 
 import { AriaInputGroup, FieldChrome, type FieldChromeProps } from "@/ds/ui/aria-field"
 import { Button as KitButton, buttonVariants } from "@/ds/ui/button"
-import { Calendar, RangeCalendar } from "@/ds/ui/calendar"
+import { Calendar, RangeCalendar, type FirstDayOfWeek } from "@/ds/ui/calendar"
 import { DateInput, DisplayDateLocale, DISPLAY_DATE_SEPARATOR } from "@/ds/ui/date-field"
 import { fieldVariants } from "@/ds/ui/field"
 import { popoverSurfaceClassName } from "@/ds/ui/popover"
@@ -38,6 +39,30 @@ function PickerTrigger() {
     >
       <CalendarDaysIcon />
     </Button>
+  )
+}
+
+/** Empties the field. Reads whichever picker it sits in; hidden while there is nothing to clear. */
+function PickerClearButton() {
+  const single = React.useContext(DatePickerStateContext)
+  const range = React.useContext(DateRangePickerStateContext)
+  const hasValue = single ? single.value != null : Boolean(range?.value?.start || range?.value?.end)
+  if (!hasValue) return null
+  return (
+    <KitButton
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      data-slot="date-picker-clear"
+      aria-label="Clear"
+      className="text-muted-foreground"
+      onClick={() => {
+        if (single) single.setValue(null)
+        else range?.setValue(null)
+      }}
+    >
+      <XIcon />
+    </KitButton>
   )
 }
 
@@ -66,25 +91,49 @@ function PickerPopover({
   )
 }
 
+/** Calendar settings shared by every picker: single, range and the fiscal-year field. */
+type PickerCalendarOptions = {
+  /** First day of the week. Default Monday (the calendar engine's default). */
+  firstDayOfWeek?: FirstDayOfWeek
+  /** Hide adjacent-month days; the week grid keeps its shape. Default true in pickers. */
+  hideOutsideDays?: boolean
+  /** Show the weekend columns. Default true; false removes them from the grid. */
+  showWeekends?: boolean
+  /** Let the calendar title open the month and year grids. Default true. */
+  showMonthYearSelect?: boolean
+  /** Calendar grid locale (month names, day labels). Defaults to the app locale. */
+  calendarLocale?: string
+  /** Show a clear button in the field while it holds a value. */
+  isClearable?: boolean
+}
+
+const PICKER_HIDES_OUTSIDE_DAYS = true
+
+const NO_WEEKENDS_POPOVER_CLASS = "w-60"
+
+type KitDatePickerProps<T extends DateValue> = DatePickerProps<T> & FieldChromeProps & PickerCalendarOptions
+
 // Values are @internationalized/date CalendarDate (a calendar day, no time zone). Cross the API
 // boundary with value.toString() → 'YYYY-MM-DD'; a JS Date round-trip shifts days across IST/UTC.
 // onChange fires per keystroke as in DateField (a typed year emits 0002-… first): act on blur or
-// submit. The DateInput is flex-1 so a click in the pill's empty part lands on a segment; on the
+// submit, or use DatePickerField, which takes and returns ISO strings and holds partial years back.
+// The DateInput is flex-1 so a click in the pill's empty part lands on a segment; on the
 // bare Group React Aria would focus its last tabbable element, the calendar button.
-type CalendarPopoverExtras = {
-  /** Hide adjacent-month days in the popover calendar. Default keeps muted outside days. */
-  hideOutsideDays?: boolean
-}
-
 function DatePicker<T extends DateValue>({
   label,
   description,
   errorMessage,
   className,
-  hideOutsideDays,
+  firstDayOfWeek,
+  hideOutsideDays = PICKER_HIDES_OUTSIDE_DAYS,
+  showWeekends,
+  showMonthYearSelect,
+  calendarLocale,
+  isClearable = false,
   ...props
-}: DatePickerProps<T> & FieldChromeProps & CalendarPopoverExtras) {
+}: KitDatePickerProps<T>) {
   const { locale } = useLocale()
+  const canClear = isClearable && !props.isDisabled && !props.isReadOnly
   return (
     <DisplayDateLocale>
     <AriaDatePicker
@@ -102,13 +151,20 @@ function DatePicker<T extends DateValue>({
         <AriaInputGroup>
           <Group data-slot="date-picker-group" className="flex h-full w-full min-w-0 items-center">
             <DateInput className="flex-1" literal={DISPLAY_DATE_SEPARATOR} />
+            {canClear && <PickerClearButton />}
             <PickerTrigger />
           </Group>
         </AriaInputGroup>
       </FieldChrome>
-      <PickerPopover>
-        <I18nProvider locale={locale}>
-          <Calendar firstDayOfWeek="mon" hideOutsideDays={hideOutsideDays} />
+      <PickerPopover className={showWeekends === false ? NO_WEEKENDS_POPOVER_CLASS : undefined}>
+        <I18nProvider locale={calendarLocale ?? locale}>
+          <Calendar
+            className="w-full max-w-full p-0"
+            firstDayOfWeek={firstDayOfWeek}
+            hideOutsideDays={hideOutsideDays}
+            showWeekends={showWeekends}
+            showMonthYearSelect={showMonthYearSelect}
+          />
         </I18nProvider>
       </PickerPopover>
     </AriaDatePicker>
@@ -124,16 +180,15 @@ type DateRangePreset = {
   title?: string
 }
 
-type DateRangePickerExtras = CalendarPopoverExtras & {
+type DateRangePickerExtras = PickerCalendarOptions & {
   presets?: DateRangePreset[]
-  /** Calendar grid locale (weekday order / month names). Defaults to the app locale. */
-  calendarLocale?: string
   /**
    * Keep the popover open after day picks and show Cancel / OK.
-   * Leave-style ranges leave this off (close on complete selection).
+   * Leave-style ranges leave this off (close on complete selection). This picker still reports every
+   * pick through onChange; DateRangePickerField holds them as a draft that Cancel discards.
    */
   confirmSelection?: boolean
-  /** When false, preset clicks set the value but leave the popover open. Default true. */
+  /** When false, preset clicks set the value but leave the popover open. Default: close unless confirming. */
   closeOnPresetSelect?: boolean
   /** Optional chrome above the calendar / body (hints, bound toggles). */
   popoverHeader?: React.ReactNode
@@ -148,6 +203,8 @@ type DateRangePickerExtras = CalendarPopoverExtras & {
   /** Called before the popover closes when the user presses Cancel. */
   onCancel?: () => void
 }
+
+type KitDateRangePickerProps<T extends DateValue> = DateRangePickerProps<T> & FieldChromeProps & DateRangePickerExtras
 
 /**
  * WiseTech: quick ranges in the popover, below the calendar. Picking one sets the whole range through the
@@ -229,7 +286,6 @@ function RangeConfirmFooter({
           size="sm"
           disabled={!canConfirm}
           onClick={() => {
-            if (!canConfirm) return
             onConfirm?.()
             state.close()
           }}
@@ -247,10 +303,14 @@ function DateRangePicker<T extends DateValue>({
   errorMessage,
   className,
   presets,
+  firstDayOfWeek,
+  hideOutsideDays = PICKER_HIDES_OUTSIDE_DAYS,
+  showWeekends,
+  showMonthYearSelect,
   calendarLocale,
-  hideOutsideDays,
+  isClearable = false,
   confirmSelection = false,
-  closeOnPresetSelect = true,
+  closeOnPresetSelect = !confirmSelection,
   popoverHeader,
   popoverBody,
   popoverFooterStart,
@@ -259,10 +319,10 @@ function DateRangePicker<T extends DateValue>({
   onCancel,
   shouldCloseOnSelect,
   ...props
-}: DateRangePickerProps<T> & FieldChromeProps & DateRangePickerExtras) {
+}: KitDateRangePickerProps<T>) {
   const { locale } = useLocale()
-  const gridLocale = calendarLocale ?? locale
   const keepOpen = confirmSelection || shouldCloseOnSelect === false
+  const canClear = isClearable && !props.isDisabled && !props.isReadOnly
 
   return (
     <DisplayDateLocale>
@@ -289,21 +349,24 @@ function DateRangePicker<T extends DateValue>({
               –
             </span>
             <DateInput slot="end" className="min-w-0 flex-1 ps-1" literal={DISPLAY_DATE_SEPARATOR} />
+            {canClear && <PickerClearButton />}
             <PickerTrigger />
           </Group>
         </AriaInputGroup>
       </FieldChrome>
-      <PickerPopover>
+      <PickerPopover className={showWeekends === false ? NO_WEEKENDS_POPOVER_CLASS : undefined}>
         {popoverHeader ? <div className="min-w-0">{popoverHeader}</div> : null}
         <div className="min-w-0">
           {popoverBody !== undefined ? (
             popoverBody
           ) : (
-            <I18nProvider locale={gridLocale}>
+            <I18nProvider locale={calendarLocale ?? locale}>
               <RangeCalendar
                 className="w-full max-w-full p-0"
-                firstDayOfWeek="mon"
+                firstDayOfWeek={firstDayOfWeek}
                 hideOutsideDays={hideOutsideDays}
+                showWeekends={showWeekends}
+                showMonthYearSelect={showMonthYearSelect}
               />
             </I18nProvider>
           )}
@@ -330,4 +393,11 @@ function DateRangePicker<T extends DateValue>({
   )
 }
 
-export { DatePicker, DateRangePicker, type DateRangePreset }
+export {
+  DatePicker,
+  DateRangePicker,
+  type DateRangePreset,
+  type KitDatePickerProps,
+  type KitDateRangePickerProps,
+  type PickerCalendarOptions,
+}

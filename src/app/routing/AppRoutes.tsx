@@ -21,6 +21,7 @@ import GoogleContactsCallback from '@pages/employee/companies/contacts/component
 import ShareRedirect from '@pages/share/ShareRedirect'
 import { App } from '../App'
 import { Spinner } from '@/ds/ui/spinner'
+import { DatePickerTestPage } from '@app/dev-preview/DatePickerTestPage' // TEMP: remove with dev/date-picker route
 
 const { BASE_URL } = import.meta.env
 
@@ -127,6 +128,8 @@ const router = createBrowserRouter(
       {/* Platform console — separate cookie/session; must sit before the tenant catch-all.
           Kill switch: VITE_PLATFORM_CONSOLE_ENABLED=false. Host gate: VITE_PLATFORM_HOST. */}
       <Route path="platform/*" element={<PlatformConsoleRoute />} />
+      {/* TEMP: manual DatePicker test page, public. Remove with DatePickerTestPage. */}
+      <Route path="dev/date-picker" element={<DatePickerTestPage />} />
       <Route path="/*" element={<ProtectedRoute />} />
     </Route>,
   ),

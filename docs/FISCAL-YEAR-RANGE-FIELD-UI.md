@@ -12,9 +12,10 @@
 | `src/app/modules/common/components/ui/fiscalYearRangePick.ts`       | Day-click selection state machine (`CalendarDate` + dayjs tests)     |
 | `src/ds/ui/date-picker.tsx`                                         | Kit `DateRangePicker` (pill field, popover, presets, Cancel/OK)      |
 | `src/ds/ui/calendar.tsx`                                            | Shared calendar / range grid engine                                  |
-| `src/utils/fiscalYearRange.ts`                                      | Wire format, parse/compose, configurable fiscal start month          |
+| `src/utils/fiscalYearRange.ts`                                      | Wire format, parse/compose, wire ↔ `CalendarDate` range, fiscal start month |
 | `src/utils/dateFormats.ts`                                          | `DISPLAY` (`YYYY.MM.DD`) vs `WIRE` (`YYYY-MM-DD`)                    |
-| `src/app/modules/common/components/ui/FiscalYearRangeField.test.ts` | Unit tests for pick logic, conversion, presets                       |
+| `src/app/modules/common/components/ui/FiscalYearRangeField.test.ts` | Unit tests for pick logic and presets                                |
+| `src/utils/fiscalYearRange.test.ts`                                 | Unit tests for parsing, conversion, defaults, leap years             |
 
 **Runtime context:** Edit Organization Profile → Basic Information → **Fiscal Year** (and other call sites below).
 
@@ -91,7 +92,7 @@ Human-readable range elsewhere (tables, summaries) uses `formatFiscalYearRange` 
 | Step hint (keyboard)  | `Type dates as YYYY.MM.DD or 1 Apr 2026`                             |
 | Presets               | Fiscal preset chip(s) in the confirm footer (see §7)                 |
 | Mode toggle           | `popoverFooterStart` — calendar ↔ keyboard                           |
-| Calendar locale       | `en-GB` (Monday-first week)                                          |
+| Calendar locale       | App locale; override with `calendarLocale`                           |
 
 Closing: Cancel, outside click / Esc (discard draft), or OK (commit) → `onBlur` for Formik touched.
 
@@ -134,8 +135,9 @@ Active bound drives the pick machine and which keyboard field is conceptually fo
 | ------------------- | ----------------------------------------------------------------------------- |
 | Library             | Kit `RangeCalendar` (`@/ds/ui/calendar`) inside kit `DateRangePicker` popover |
 | Values              | `@internationalized/date` `CalendarDate`                                      |
-| Outside-month days  | Shown muted by default (`hideOutsideDays` left unset)                         |
-| Week start          | Monday (`calendarLocale="en-GB"`, calendar `firstDayOfWeek="mon"`)            |
+| Outside-month days  | Hidden by default, as in every kit picker; `hideOutsideDays={false}` shows them |
+| Week start          | Monday, the calendar engine's default; override with `firstDayOfWeek`         |
+| Bounds              | ISO `minValue` / `maxValue` / `isDateUnavailable`; OK stays disabled outside  |
 | Picker value        | Incomplete end painted as same-day anchor so hover-preview still works        |
 | Draft until OK      | Calendar / preset changes stay in draft while the popover is open             |
 
@@ -153,7 +155,7 @@ Visual model comes from the **kit** range calendar: solid endpoints + continuous
 
 ### 5.4 Day-click state machine (`applyFiscalCalendarDayPick`)
 
-Pure function in `fiscalYearRangePick.ts` (CalendarDate). Dayjs twin `applyFiscalRangeDayPick` remains for tests / legacy.
+Pure function in `fiscalYearRangePick.ts` (CalendarDate).
 
 | Situation                                                    | Result                                                          |
 | ------------------------------------------------------------ | --------------------------------------------------------------- |
@@ -180,7 +182,7 @@ Important UX implications:
 | Rule              | Detail                                                                                                        |
 | ----------------- | ------------------------------------------------------------------------------------------------------------- |
 | OK enabled when   | Both draft ends exist **and** end is not before start (`canConfirm`)                                          |
-| On OK             | Dates ordered chronologically; written as ISO via `composeOrderedFiscalYearRange`                             |
+| On OK             | Dates ordered chronologically; written as ISO via `fiscalStringFromRange`                                     |
 | Cancel / dismiss  | Discard draft to open-snapshot; no `onChange`                                                                 |
 
 Segment typing on the **closed** kit field can commit a complete valid range immediately (popover closed path).
@@ -285,12 +287,12 @@ interface FiscalYearRangeFieldProps {
 | Open session (`openRef`)      | Popover open; draft isolated until OK / discard      |
 | `mode`                        | `'calendar'` \| `'keyboard'`                         |
 | `bound`                       | `'start'` \| `'end'` — which side is being edited    |
-| `draftFrom` / `draftTo`       | `CalendarDate` drafts (not committed until OK)       |
-| `textFrom` / `textTo`         | Keyboard field strings                               |
+| `draft` (`from` / `to` / `bound`) | `CalendarDate` drafts (not committed until OK) + active bound; mirrored in `draftRef` |
+| `text` (`start` / `end`)      | Keyboard field strings                               |
 | `presets`                     | Built from `fiscalStartMonth` / `fiscalPresetLabel`  |
 | Snapshot (`snapshotRef`)      | Value at open — restore target on Cancel / dismiss   |
 
-On open: seed from current `value`; force calendar mode; bound = start (or end if from exists without to); rebuild presets.
+On open: seed from current `value` (a stored value is either a full range or empty); force calendar mode; bound = start.
 
 ---
 
@@ -340,8 +342,9 @@ On open: seed from current `value`; force calendar mode; bound = start (or end i
 | `splitFiscalYearRange`       | Parse stored → `{ from, to }` ISO                                 |
 | `composeFiscalYearRange` / `composeOrderedFiscalYearRange` | Join wire dates (ordered on write)        |
 | `toCanonicalFiscalYearRange` | Normalize legacy / year-pair strings                              |
+| `fiscalRangeFromString` / `fiscalStringFromRange` | Stored string ↔ kit `CalendarDate` range     |
+| `parseFiscalCalendarDate`    | Strict ISO → `CalendarDate` (rejects impossible days)             |
 | `formatFiscalYearRange`      | People-facing dotted span                                         |
-| `convertFiscalYearToDates`   | Flatpickr-era `Date[]` bridge                                     |
 | `fiscalYearSegment.ts`       | Prefix / numbering segment formatting (separate from this picker) |
 | `fiscalYearHelper.ts`        | Display labels like `FY …` on other screens                       |
 
