@@ -41,6 +41,8 @@ interface Props {
     error?: boolean;
     helperText?: React.ReactNode;
     autoFocus?: boolean;
+    /** Long picks wrap onto more lines instead of being cut off. */
+    wrap?: boolean;
     /** Popper placement rules from the host dialog (e.g. `popperInside`). */
     slotProps?: AutocompleteProps<TaskPathOption, false, false, false>['slotProps'];
 }
@@ -53,7 +55,7 @@ interface Props {
  */
 const TaskPathSelect: React.FC<Props> = ({
     value, options, onChange, label = 'Project task', placeholder = 'Search, e.g. electrical load sheet',
-    required, disabled, loading, error, helperText, autoFocus, slotProps,
+    required, disabled, loading, error, helperText, autoFocus, slotProps, wrap,
 }) => {
     const selected = useMemo(() => options.find((o) => o.id === value) ?? null, [options, value]);
     return (
@@ -78,6 +80,7 @@ const TaskPathSelect: React.FC<Props> = ({
                     label={label}
                     size="small"
                     autoFocus={autoFocus}
+                    multiline={wrap}
                     required={required}
                     error={error}
                     placeholder={placeholder}

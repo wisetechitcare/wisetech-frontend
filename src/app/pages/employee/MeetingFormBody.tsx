@@ -17,7 +17,7 @@ import { getAllProjects } from '@services/projects';
 // permissions and offered ones they are not really on.
 import { getMeetingProjects } from '@services/employee';
 import { getLeadById } from '@services/leadService';
-import { getCompanyMeetingPurposes, createCompanyMeetingPurpose } from '@services/meetingAgendaMom';
+import { getCompanyMeetingPurposes, createCompanyMeetingPurpose, createAgendaItemsBulk } from '@services/meetingAgendaMom';
 import { openingRange, type SelectedDateTimeInfo } from './meetingOpening';
 import {
     MEETING_KINDS, MEETING_KIND_META, kindOfExisting, validateMeetingKind, type MeetingKind,
@@ -27,6 +27,7 @@ import {
     type MeetingMode,
 } from './meetingModes';
 import { SegmentedControl, WtDateField, WtSwitch, toast } from '@app/modules/common/components/ui';
+import { AgendaRowsEditor, agendaRowsPayload, isAgendaTask, type AgendaRow } from './meetings/AgendaRowsEditor';
 import { ContactPicker, projectContactOptions } from '@app/modules/common/components/ui/ContactPicker';
 import { useDropdownBoundary } from '@app/modules/common/components/ui/dropdownBoundary';
 import { TimePickerField } from '@app/modules/common/components/TimePickerField';
@@ -37,7 +38,7 @@ import { joinAddress } from './meetingAddress';
 import { projectNumberOf } from './entity/entityUtils';
 import { TITLE_MAX_CHARS, AGENDA_MAX_WORDS, countWords } from './meetingLimits';
 import { getPresetSubtreeIds } from '@utils/presetTaskHierarchy';
-import TaskPathSelect, { buildTaskPathOptions } from './tasks/components/TaskPathSelect';
+import { buildTaskPathOptions } from './tasks/components/TaskPathSelect';
 import { usePresetTasks } from './tasks/useTaskQueries';
 import { useProjectDeliverables } from './tasks/useProjectDeliverables';
 import type { PresetTask } from './tasks/taskDomain';
@@ -217,8 +218,8 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const [endDate, setEndDate] = useState(opening.end);
         const [description, setDescription] = useState('');
         /** Agenda picks from Task Configure presets — free text is only the joined labels. */
-        const [agendaOpen, setAgendaOpen] = useState(() => Boolean(editing?.description?.trim()));
-        const [agendaItems, setAgendaItems] = useState<Array<{ id: string; label: string }>>([]);
+        // `remarks` is the MoM line's "Description" — saved onto the agenda item on create.
+        const [agendaItems, setAgendaItems] = useState<AgendaRow[]>([]);
 
         const [companyTypes, setCompanyTypes] = useState<any[]>([]);
         const [companies, setCompanies] = useState<any[]>([]);
@@ -256,7 +257,6 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             setTitle(editing.title || '');
             const lines = (editing.description || '').split('\n').map((s) => s.trim()).filter(Boolean);
             setAgendaItems(lines.map((label, i) => ({ id: `legacy:${i}`, label })));
-            setAgendaOpen(lines.length > 0);
             setMode(modeOfExisting(editing));
             setMeetingLink(editing.meetingLink || '');
             setLocation(editing.location || '');
@@ -744,17 +744,13 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
         const fromDeliverables = !!projectId && deliverableTaskIds.length > 0;
         const agendaOptions = useMemo(() => {
             if (!fromDeliverables) return buildTaskPathOptions(presets);
-            const only = new Set(agendaItems.map((a) => a.id).filter((id) => !id.startsWith('legacy:')));
+            const only = new Set(agendaItems.map((a) => a.id).filter(isAgendaTask));
             deliverableTaskIds.forEach((id) => getPresetSubtreeIds(presets, id).forEach((n) => only.add(n)));
             return buildTaskPathOptions(presets, only);
         }, [presets, fromDeliverables, deliverableTaskIds, agendaItems]);
-        const agendaPickerOptions = useMemo(
-            () => agendaOptions.filter((o) => !agendaItems.some((a) => a.id === o.id)),
-            [agendaOptions, agendaItems],
-        );
 
         useEffect(() => {
-            setDescription(agendaItems.map((a) => a.label).join('\n'));
+            setDescription(agendaItems.map((a) => a.label).filter(Boolean).join('\n'));
         }, [agendaItems]);
 
         // Remap free-text agenda lines onto configure nodes once the tree is loaded.
@@ -767,7 +763,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     const hit = agendaOptions.find((o) => o.name === item.label);
                     if (!hit) return item;
                     changed = true;
-                    return { id: hit.id, label: hit.name };
+                    return { ...item, id: hit.id, label: hit.name };
                 });
                 return changed ? next : prev;
             });
@@ -778,7 +774,7 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
             if (!fromDeliverables || !agendaOptions.length) return;
             const allowed = new Set(agendaOptions.map((o) => o.id));
             setAgendaItems((prev) => {
-                const next = prev.filter((a) => a.id.startsWith('legacy:') || allowed.has(a.id));
+                const next = prev.filter((a) => !isAgendaTask(a.id) || allowed.has(a.id));
                 return next.length === prev.length ? prev : next;
             });
         }, [fromDeliverables, agendaOptions, projectId]);
@@ -927,6 +923,16 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                     const response = await createMeetings(payload);
                     if (response?.statusCode !== 201) { setError('Failed to create meeting'); return false; }
                     if (reminders.length && response?.data?.id) await saveReminders(response.data.id);
+                    // Same rows the Agenda tab writes, so they show up there ready for MoM.
+                    const agendaPayload = agendaRowsPayload(agendaItems);
+                    if (agendaPayload.length && response?.data?.id) {
+                        try {
+                            await createAgendaItemsBulk(response.data.id, agendaPayload);
+                        } catch (e) {
+                            console.error('Meeting saved, but its agenda items were not', e);
+                            toast({ icon: 'error', title: 'Agenda not saved', text: 'Meeting created, but add the agenda items from the Agenda tab.' });
+                        }
+                    }
                     // The calendar listens for this to drop the new meeting onto the grid without
                     // a refetch — kept from the old form, since its listener is still there.
                     document.dispatchEvent(new CustomEvent('meetingAdded', { detail: response.data }));
@@ -1443,59 +1449,21 @@ export const MeetingFormBody = forwardRef<MeetingFormBodyHandle, MeetingFormBody
                 </Grid>
 
                 <L text="Agenda" icon="notepad-edit" trio={TRIO.cyan} />
-                {!agendaOpen && agendaItems.length === 0 ? (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="mb-2 self-start font-bold"
-                        onClick={() => setAgendaOpen(true)}
-                    >
-                        <span data-icon="inline-start" className="inline-flex">
-                            <KTIcon iconName="plus" className="fs-6" />
-                        </span>
-                        Add Agenda
-                    </Button>
-                ) : (
-                    <Box sx={{ mb: 1 }}>
-                        {agendaItems.length > 0 && (
-                            <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.25 }}>
-                                {agendaItems.map((item) => (
-                                    <Chip
-                                        key={item.id}
-                                        label={item.label}
-                                        size="small"
-                                        onDelete={() => setAgendaItems((prev) => prev.filter((a) => a.id !== item.id))}
-                                        sx={{ maxWidth: '100%', height: 'auto', py: 0.5, '& .MuiChip-label': { whiteSpace: 'normal' } }}
-                                    />
-                                ))}
-                            </Stack>
-                        )}
-                        <TaskPathSelect
-                            value=""
-                            options={agendaPickerOptions}
-                            onChange={(opt) => {
-                                if (!opt) return;
-                                setAgendaItems((prev) => (
-                                    prev.some((a) => a.id === opt.id) ? prev : [...prev, { id: opt.id, label: opt.name }]
-                                ));
-                            }}
-                            label="Agenda item"
-                            placeholder={projectId
-                                ? 'Search this project’s deliverable tasks…'
-                                : 'Search, e.g. electrical load sheet'}
-                            loading={presetsQuery.isLoading || (!!projectId && deliverables.isFetching)}
-                            error={agendaWords > AGENDA_MAX_WORDS}
-                            helperText={agendaWords > AGENDA_MAX_WORDS * 0.75
-                                ? `${agendaWords} / ${AGENDA_MAX_WORDS} words`
-                                : (projectId && fromDeliverables
-                                    ? 'Only tasks on this project’s deliverables.'
-                                    : projectId
-                                        ? 'No deliverable tasks on this project yet — showing the full catalogue.'
-                                        : 'Optional. Pick from Tasks → Project Tasks.')}
-                            slotProps={dropdown.slotProps}
-                        />
-                    </Box>
+                <div className="mb-1">
+                    <AgendaRowsEditor
+                        rows={agendaItems}
+                        onChange={setAgendaItems}
+                        options={agendaOptions}
+                        loading={presetsQuery.isLoading || (!!projectId && deliverables.isFetching)}
+                        // An edit manages descriptions in the Agenda tab.
+                        showDescription={!editing}
+                        slotProps={dropdown.slotProps}
+                    />
+                </div>
+                {agendaWords > AGENDA_MAX_WORDS * 0.75 && (
+                    <p className={agendaWords > AGENDA_MAX_WORDS ? 'mb-2 text-xs text-destructive' : 'mb-2 text-xs text-muted-foreground'}>
+                        {agendaWords} / {AGENDA_MAX_WORDS} words
+                    </p>
                 )}
 
                 {/* ── the two things that happen after you save ──
