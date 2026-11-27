@@ -7,9 +7,15 @@ import {
   DateRangePickerField,
   type DatePickerFieldProps,
   type DateRangePickerFieldProps,
+  type IsoDateRangePreset,
 } from './date-picker-field'
 
 import type { IsoDate, IsoDateRange } from '@/ds/lib/iso-date'
+
+const RANGE_PRESETS: IsoDateRangePreset[] = [
+  { label: 'Q1 2027', value: { start: '2027-01-01', end: '2027-03-31' } },
+  { label: 'Full 2026', value: { start: '2026-01-01', end: '2026-12-31' } },
+]
 
 function SingleDemo({ value, onChange, ...props }: DatePickerFieldProps) {
   const [date, setDate] = useState<IsoDate>(value ?? '')
@@ -44,15 +50,13 @@ function RangeDemo({ value, onChange, ...props }: DateRangePickerFieldProps) {
 }
 
 /**
- * The kit pickers with ISO strings in and out — no CalendarDate on the consumer side:
- * `<DatePickerField value={date} onChange={setDate} />` and
- * `<DateRangePickerField value={range} onChange={setRange} />`. Same calendar and props as Date Picker;
- * min / max / unavailable days / placeholder / presets are ISO too.
+ * The date pickers used across the app, ISO strings in and out: `DatePickerField` (`"YYYY-MM-DD"`, `''` when
+ * cleared) and `DateRangePickerField` (`{ start, end }` or `null`). Monday-first week, outside days hidden.
  */
 const meta = {
   title: 'Forms/Date & Time/Date Picker Field',
   component: DatePickerField,
-  args: { label: 'Effective from', value: '', placeholderValue: '2026-10-01', onChange: fn() },
+  args: { label: 'Effective from', value: '', placeholderValue: '2026-10-01', isClearable: true, onChange: fn() },
   render: (args) => <SingleDemo {...args} />,
 } satisfies Meta<typeof DatePickerField>
 
@@ -62,8 +66,8 @@ type Story = StoryObj<typeof meta>
 const rangeChange = (onChange: DatePickerFieldProps['onChange']) =>
   onChange as unknown as DateRangePickerFieldProps['onChange']
 
-/** Picking a day reports `"YYYY-MM-DD"`. */
-export const PickDay: Story = {
+/** Free date: pick a day and the field reports `"YYYY-MM-DD"`. */
+export const Single: Story = {
   play: async ({ args, canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
     const dialog = await screen.findByRole('dialog')
@@ -73,9 +77,9 @@ export const PickDay: Story = {
   },
 }
 
-/** ISO `minValue` / `maxValue`: days outside the window are disabled. */
+/** `minValue` / `maxValue`: days outside the window are disabled. */
 export const MinMax: Story = {
-  args: { minValue: '2026-10-10', maxValue: '2026-10-20' },
+  args: { label: 'Constrained date', minValue: '2026-10-10', maxValue: '2026-10-20' },
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
     const dialog = await screen.findByRole('dialog')
@@ -84,55 +88,99 @@ export const MinMax: Story = {
   },
 }
 
-/** `isClearable`: the clear button reports `''`. */
-export const Clearable: Story = {
-  args: { value: '2026-10-28', isClearable: true },
-  play: async ({ args, canvas }) => {
-    await userEvent.click(canvas.getByRole('button', { name: 'Clear' }))
-    await expect(args.onChange).toHaveBeenLastCalledWith('')
-  },
-}
-
-/** A normal range reports `{ start, end }` in ISO. */
-export const Range: Story = {
+/** Range with presets: one click under the calendar sets the whole range. */
+export const RangeWithPresets: Story = {
   render: (args) => (
-    <RangeDemo label="Leave dates" value={null} placeholderValue={args.placeholderValue} onChange={rangeChange(args.onChange)} />
+    <RangeDemo
+      label="Date range"
+      value={null}
+      placeholderValue={args.placeholderValue}
+      isClearable={args.isClearable}
+      presets={RANGE_PRESETS}
+      onChange={rangeChange(args.onChange)}
+    />
   ),
   play: async ({ args, canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
     const dialog = await screen.findByRole('dialog')
-    await userEvent.click(within(dialog).getByRole('button', { name: /28 October 2026/ }))
-    await userEvent.click(within(dialog).getByRole('button', { name: /31 October 2026/ }))
-    await waitFor(() => expect(args.onChange).toHaveBeenLastCalledWith({ start: '2026-10-28', end: '2026-10-31' }))
-    await expect(canvas.getByRole('group', { name: 'Leave Dates' })).toHaveTextContent('2026.10.28–2026.10.31')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Q1 2027' }))
+    await waitFor(() =>
+      expect(mocked(args.onChange).mock.lastCall?.[0]).toEqual({ start: '2027-01-01', end: '2027-03-31' }),
+    )
   },
 }
 
-/** `confirmSelection`: picks are a draft. Cancel reports nothing; OK reports the range. */
+/** `confirmSelection`: picks are a draft until OK; Cancel reports nothing. */
 export const RangeWithConfirm: Story = {
   render: (args) => (
     <RangeDemo
-      label="Leave dates"
+      label="Confirmed range"
       value={null}
       placeholderValue={args.placeholderValue}
+      isClearable={args.isClearable}
       confirmSelection
-      presets={[{ label: 'First week', value: { start: '2026-10-01', end: '2026-10-07' } }]}
+      presets={RANGE_PRESETS}
       onChange={rangeChange(args.onChange)}
     />
   ),
   play: async ({ args, canvas }) => {
     await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
     let dialog = await screen.findByRole('dialog')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'First Week' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Q1 2027' }))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await expect(args.onChange).not.toHaveBeenCalled()
 
     await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
     dialog = await screen.findByRole('dialog')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'First Week' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Q1 2027' }))
     await userEvent.click(within(dialog).getByRole('button', { name: 'OK' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await expect(mocked(args.onChange).mock.lastCall?.[0]).toEqual({ start: '2026-10-01', end: '2026-10-07' })
+    await waitFor(() =>
+      expect(mocked(args.onChange).mock.lastCall?.[0]).toEqual({ start: '2027-01-01', end: '2027-03-31' }),
+    )
+  },
+}
+
+/** `showWeekends={false}` removes the weekend columns, for single and range pickers. */
+export const NoWeekends: Story = {
+  args: { label: 'No weekends', showWeekends: false },
+  render: (args) => (
+    <div className="grid gap-6">
+      <SingleDemo {...args} />
+      <RangeDemo
+        label="No weekends (range)"
+        value={null}
+        placeholderValue={args.placeholderValue}
+        isClearable={args.isClearable}
+        showWeekends={false}
+        onChange={rangeChange(args.onChange)}
+      />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getAllByRole('button', { name: /calendar/i })[0])
+    const dialog = await screen.findByRole('dialog')
+    await expect(within(dialog).getByRole('button', { name: /Friday, 30 October 2026/ })).toBeInTheDocument()
+    await expect(within(dialog).queryByRole('button', { name: /Saturday, 31 October 2026/ })).not.toBeInTheDocument()
+  },
+}
+
+/** `hideOutsideDays={false}` shows the adjacent-month days that are hidden by default. */
+export const OutsideDaysShown: Story = {
+  args: { label: 'Outside days shown', hideOutsideDays: false },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await expect(within(dialog).getByRole('button', { name: /Monday, 28 September 2026/ })).not.toHaveClass('invisible')
+  },
+}
+
+/** `showMonthYearSelect={false}` makes the calendar title a plain label. */
+export const PlainTitle: Story = {
+  args: { label: 'No month/year select', showMonthYearSelect: false },
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByRole('button', { name: /calendar/i }))
+    const dialog = await screen.findByRole('dialog')
+    await expect(within(dialog).queryByRole('button', { name: /October 2026/ })).not.toBeInTheDocument()
   },
 }

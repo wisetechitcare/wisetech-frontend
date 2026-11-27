@@ -109,6 +109,8 @@ type PickerCalendarOptions = {
 
 const PICKER_HIDES_OUTSIDE_DAYS = true
 
+const NO_WEEKENDS_POPOVER_CLASS = "w-60"
+
 type KitDatePickerProps<T extends DateValue> = DatePickerProps<T> & FieldChromeProps & PickerCalendarOptions
 
 // Values are @internationalized/date CalendarDate (a calendar day, no time zone). Cross the API
@@ -154,7 +156,7 @@ function DatePicker<T extends DateValue>({
           </Group>
         </AriaInputGroup>
       </FieldChrome>
-      <PickerPopover>
+      <PickerPopover className={showWeekends === false ? NO_WEEKENDS_POPOVER_CLASS : undefined}>
         <I18nProvider locale={calendarLocale ?? locale}>
           <Calendar
             className="w-full max-w-full p-0"
@@ -352,7 +354,7 @@ function DateRangePicker<T extends DateValue>({
           </Group>
         </AriaInputGroup>
       </FieldChrome>
-      <PickerPopover>
+      <PickerPopover className={showWeekends === false ? NO_WEEKENDS_POPOVER_CLASS : undefined}>
         {popoverHeader ? <div className="min-w-0">{popoverHeader}</div> : null}
         <div className="min-w-0">
           {popoverBody !== undefined ? (

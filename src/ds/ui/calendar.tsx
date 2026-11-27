@@ -1,15 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { endOfMonth, endOfYear, isWeekend, startOfWeek } from "@internationalized/date";
+import {
+  endOfMonth,
+  endOfYear,
+  isWeekend,
+  startOfWeek,
+} from "@internationalized/date";
 import { cva } from "class-variance-authority";
 import { cn } from "cn";
-import {
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronUpIcon,
-} from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { motion } from "motion/react";
 import {
   Button,
@@ -29,40 +29,12 @@ import {
   type RangeCalendarProps,
 } from "react-aria-components";
 
-import { toneStyle, type Tone } from "@/ds/lib/tone";
+import { toneStyle } from "@/ds/lib/tone";
 import { buttonVariants } from "@/ds/ui/button";
+import { CalendarLegend, type DayState } from "@/ds/ui/calendar-legend";
+import { CalendarTitleButton } from "@/ds/ui/calendar-title-button";
 
-/**
- * THE calendar engine. Every calendar in the kit — Calendar, RangeCalendar, DatePicker, DateRangePicker,
- * the Fiscal Year picker, the Apply Leave month — renders this one grid and only adds its own parts:
- *
- * - `getDayState(date)` decorates days: a `tone` (any kit status, category hue or hex), a dashed `pattern`
- *   (e.g. team off), a corner `marker` (e.g. sandwich-unpaid) and a `label` (the tooltip). The engine knows
- *   nothing about leave, holidays or payroll — consumers map their rules to tones.
- * - The title is a button: days → month grid → year grid, so a far month or year is two clicks, not twenty.
- * - Month changes and view switches move smoothly (Motion; nothing moves under reduced motion).
- * - `rangeStyle`: "band" (default) — a continuous tinted band between the ends; "outline" — days keep their
- *   own tone and the range ends get a strong ring (Apply Leave, where the tone IS the information).
- * - `size`: "default" (compact pickers) or "lg" (roomy tiles for a full-screen planner).
- * - `granularity` (Calendar only): "day" (default), "month" or "year". The jump grids then COMMIT instead of
- *   drilling down: a month picker opens on the month grid and a click selects the 1st of that month; a year
- *   picker is the year grid alone. Months/years wholly outside minValue/maxValue are disabled.
- * - `hideOutsideDays`: when true, days from adjacent months stay in the grid for layout but are invisible
- *   and non-interactive. Default false here; the pickers default it to true.
- * - `firstDayOfWeek`: defaults to Monday (the app-wide week) for every calendar and picker.
- * - `showWeekends`: default true. When false the weekend columns (per locale) are removed from the grid.
- * - `showMonthYearSelect`: default true. When false the title is a plain label and the month/year grids are
- *   not reachable (a month/year `granularity` calendar always keeps them, they ARE its picker).
- *
- * Values are @internationalized/date CalendarDate (a calendar day, no time zone). Cross the API boundary with
- * value.toString() → 'YYYY-MM-DD'; a JS Date round-trip shifts days across IST/UTC.
- */
-export type DayState = {
-  tone?: Tone | (string & {});
-  pattern?: "solid" | "dashed";
-  marker?: boolean;
-  label?: string;
-};
+export type { DayState };
 
 type EngineProps = {
   numberOfMonths?: number;
@@ -122,7 +94,9 @@ const calendarClassName =
   "group/calendar w-fit bg-background p-3 [--cell-radius:var(--radius-4xl)] [--cell-size:--spacing(8)] [--range-edge:inset_0_1px_0_var(--primary),inset_0_-1px_0_var(--primary)] data-[size=lg]:w-full data-[size=lg]:[--cell-radius:var(--radius-xl)] data-[size=lg]:[--cell-size:--spacing(11)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent";
 
 export type CalendarGranularity = "day" | "month" | "year";
-export type FirstDayOfWeek = NonNullable<CalendarProps<DateValue>["firstDayOfWeek"]>;
+export type FirstDayOfWeek = NonNullable<
+  CalendarProps<DateValue>["firstDayOfWeek"]
+>;
 const DEFAULT_FIRST_DAY_OF_WEEK: FirstDayOfWeek = "mon";
 
 function Calendar<
@@ -257,7 +231,10 @@ function CalendarInner({
   const monthFormatters = React.useMemo(
     () => ({
       long: new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }),
-      short: new Intl.DateTimeFormat(locale, { month: "short", timeZone: "UTC" }),
+      short: new Intl.DateTimeFormat(locale, {
+        month: "short",
+        timeZone: "UTC",
+      }),
     }),
     [locale],
   );
@@ -266,7 +243,7 @@ function CalendarInner({
   const [view, setViewState] = React.useState<View>(floor);
   // Only a view the user SWITCHED to scales in; the view a picker opens on just appears (its popover
   // already animates, and a second entrance on mount would read as lag).
-  const [switched, setSwitched] = React.useState(false);
+  const [switched, setSwitched] = React.useState<boolean>(false);
   const setView = (next: View) => {
     setSwitched(true);
     setViewState(next);
@@ -290,8 +267,7 @@ function CalendarInner({
   // In a month/year picker the highlighted tile is the VALUE; in a day calendar it is the focused month.
   const raw = !isRange && floor !== "days" ? single?.value : null;
   // React Aria types `value` as `T | T[] | null` (multiple selection); month/year pickers are single-value.
-  const picked =
-    raw && !Array.isArray(raw) ? (raw as DateValue) : null;
+  const picked = raw && !Array.isArray(raw) ? (raw as DateValue) : null;
   const { minValue, maxValue } = state;
   // A period is pickable unless it lies wholly outside [minValue, maxValue].
   const outOfRange = (start: DateValue, end: DateValue) =>
@@ -320,7 +296,8 @@ function CalendarInner({
   };
 
   // Jump views (months / years) replace the day grid; one month only — a multi-month range keeps plain titles.
-  const canJump = numberOfMonths === 1 && (showMonthYearSelect || floor !== "days");
+  const canJump =
+    numberOfMonths === 1 && (showMonthYearSelect || floor !== "days");
   const weekStart = startOfWeek(focused, locale, firstDayOfWeek);
   // Grid columns (1-7) that fall on a weekend in this locale and week start.
   const hiddenColumns = showWeekends
@@ -328,11 +305,6 @@ function CalendarInner({
     : Array.from({ length: 7 }, (_, i) => i + 1).filter((column) =>
         isWeekend(weekStart.add({ days: column - 1 }), locale),
       );
-  const nextView: Record<View, View> = {
-    days: "months",
-    months: "years",
-    years: floor,
-  };
   // A year picker has nowhere above its grid to go: the title is a plain label.
   const titleIsButton = canJump && floor !== "years";
 
@@ -388,32 +360,28 @@ function CalendarInner({
         <div key={i} className="flex w-full flex-col gap-4">
           <div className="flex h-(--cell-size) w-full items-center justify-center gap-1 px-(--cell-size)">
             {titleIsButton ? (
-              <Button
-                slot={null}
-                data-slot="calendar-title"
-                aria-label={
-                  view === "days"
-                    ? `${title(0)}, choose a month`
-                    : view === "months"
-                      ? `${focused.year}, choose a year`
-                      : floor === "months"
+              <div className="flex items-center gap-1">
+                {view === "days" && floor === "days" && (
+                  <CalendarTitleButton
+                    label={`${title(0)}, choose a month`}
+                    onPress={() => setView("months")}
+                  >
+                    {monthName(focused.month, "long")}
+                  </CalendarTitleButton>
+                )}
+                <CalendarTitleButton
+                  label={
+                    view === "years"
+                      ? floor === "months"
                         ? "Back to months"
                         : "Back to days"
-                }
-                className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold outline-none select-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
-                onPress={() => setView(nextView[view])}
-              >
-                {view === "days"
-                  ? title(0)
-                  : view === "months"
-                    ? focused.year
-                    : decadeTitle}
-                {view === "years" ? (
-                  <ChevronUpIcon className="size-3.5 text-muted-foreground" />
-                ) : (
-                  <ChevronDownIcon className="size-3.5 text-muted-foreground" />
-                )}
-              </Button>
+                      : `${focused.year}, choose a year`
+                  }
+                  onPress={() => setView(view === "years" ? floor : "years")}
+                >
+                  {view === "years" ? decadeTitle : focused.year}
+                </CalendarTitleButton>
+              </div>
             ) : (
               <span
                 data-slot="calendar-title"
@@ -474,7 +442,8 @@ function CalendarInner({
                             />
                           );
                         }
-                        const isHiddenWeekend = !showWeekends && isWeekend(date, locale);
+                        const isHiddenWeekend =
+                          !showWeekends && isWeekend(date, locale);
                         const day = renderProps.isOutsideMonth
                           ? undefined
                           : getDayState?.(date);
@@ -602,54 +571,6 @@ function CalendarInner({
         </div>
       ))}
     </div>
-  );
-}
-
-/**
- * The calendar's legend: one row per day state, drawn with the same tones the engine paints, so a legend can
- * never disagree with the grid. `today` draws the today ring.
- */
-function CalendarLegend({
-  items,
-  className,
-}: {
-  items: Array<{
-    label: string;
-    tone?: DayState["tone"];
-    pattern?: DayState["pattern"];
-    marker?: boolean;
-    today?: boolean;
-  }>;
-  className?: string;
-}) {
-  return (
-    <ul
-      data-slot="calendar-legend"
-      className={cn(
-        "flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground",
-        className,
-      )}
-    >
-      {items.map((item) => (
-        <li key={item.label} className="flex items-center gap-1.5">
-          <span
-            aria-hidden
-            style={item.tone ? toneStyle(item.tone) : undefined}
-            className={cn(
-              "relative size-3.5 shrink-0 overflow-hidden rounded-sm",
-              item.today && "ring-2 ring-primary ring-inset",
-              item.tone &&
-                "bg-[color-mix(in_oklch,var(--tone)_14%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--tone)_28%,transparent)]",
-              item.pattern === "dashed" &&
-                "shadow-none outline-1 -outline-offset-1 outline-dashed outline-[color-mix(in_oklch,var(--tone)_60%,transparent)]",
-              item.marker &&
-                "after:absolute after:top-0 after:right-0 after:size-2 after:bg-(--tone) after:[clip-path:polygon(0_0,100%_0,100%_100%)]",
-            )}
-          />
-          {item.label}
-        </li>
-      ))}
-    </ul>
   );
 }
 
